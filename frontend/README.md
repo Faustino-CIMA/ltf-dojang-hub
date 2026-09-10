@@ -32,6 +32,11 @@ Club Admin pages:
 
 Ops console (Django `is_superuser` only):
 - Overview: `/{locale}/dashboard/ops`
+- Modules (product codes and club assignment): `/{locale}/dashboard/ops/modules`
+
+Preview prove-out (only when entitled / assigned):
+- LTF Admin: `/{locale}/dashboard/ltf/preview`
+- Club Admin: `/{locale}/dashboard/club/preview`
 
 Quick print entry points:
 - Members page stores selected member IDs and opens quick print:

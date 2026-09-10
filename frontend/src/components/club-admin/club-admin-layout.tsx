@@ -14,12 +14,15 @@ import {
   Printer,
   Settings,
   ShoppingCart,
+  Sparkles,
   UserCog,
   Users,
 } from "lucide-react";
 
 import { IncomingTransferNotice } from "@/components/club-admin/incoming-transfer-notice";
+import { useClubSelection } from "@/components/club-selection-provider";
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { getModuleStatus, isClubModuleAssigned, PREVIEW_MODULE_ID, type ModuleStatus } from "@/lib/modules-api";
 
 type ClubAdminLayoutProps = {
   title: string;
@@ -42,7 +45,8 @@ type ClubNavDef = Readonly<{
     | "navTransfers"
     | "navAdmins"
     | "navPrinterProfiles"
-    | "navSettings";
+    | "navSettings"
+    | "navPreview";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 }>;
@@ -98,6 +102,13 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     icon: ArrowLeftRight,
   } satisfies ClubNavDef),
   Object.freeze({
+    id: "preview",
+    routePath: "dashboard/club/preview",
+    labelKey: "navPreview",
+    matchMode: "prefix",
+    icon: Sparkles,
+  } satisfies ClubNavDef),
+  Object.freeze({
     id: "admins",
     routePath: "dashboard/club/admins",
     labelKey: "navAdmins",
@@ -124,7 +135,9 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
   const t = useTranslations("ClubAdmin");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
+  const { selectedClubId } = useClubSelection();
   const [role, setRole] = useState<string | null>(null);
+  const [modules, setModules] = useState<ModuleStatus | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,21 +148,34 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
       .catch(() => {
         if (!cancelled) setRole(null);
       });
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setModules(status);
+      })
+      .catch(() => {
+        if (!cancelled) setModules(null);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
+
   const navItems = useMemo<AppNavItem[]>(
     () =>
-      CLUB_NAV_DEFINITIONS.filter((def) => def.id !== "admins" || role === "club_admin").map((def) => ({
+      CLUB_NAV_DEFINITIONS.filter((def) => {
+        if (def.id === "admins") return role === "club_admin";
+        if (def.id === "preview") return role === "club_admin" && previewAssigned;
+        return true;
+      }).map((def) => ({
         id: def.id,
         href: `/${locale}/${def.routePath}`,
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
       })),
-    [locale, role, t]
+    [locale, previewAssigned, role, t]
   );
 
   return (

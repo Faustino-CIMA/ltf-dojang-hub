@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     "members",
     "licenses",
     "ops.apps.OpsConfig",
+    "modules.apps.ModulesConfig",
 ]
 
 MIDDLEWARE = [
@@ -402,6 +403,11 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.4.0",
 }
 
+# Product codes (software entitlements). Not member LTF licenses.
+# Public key is enough to verify. Private key is only for minting.
+MODULE_CODE_PUBLIC_KEY = config("MODULE_CODE_PUBLIC_KEY", default="")
+MODULE_CODE_PRIVATE_KEY = config("MODULE_CODE_PRIVATE_KEY", default="")
+
 # Required when the browser sends credentialed requests (cookies/CORS) from the SPA, e.g. fetch(..., { credentials: "include" }).
 # Origins must be listed explicitly — CORS_ALLOW_ALL_ORIGINS must stay False (django-cors-headers default).
 CORS_ALLOW_CREDENTIALS = True
@@ -564,7 +570,7 @@ INVOICE_SEPA_IBAN = config("INVOICE_SEPA_IBAN", default="")
 INVOICE_SEPA_BIC = config("INVOICE_SEPA_BIC", default="")
 INVOICE_SEPA_REMITTANCE_PREFIX = config("INVOICE_SEPA_REMITTANCE_PREFIX", default="Invoice")
 
-LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.8.0")
+LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.9.0")
 OPS_LOCKOUT_FAILURES = config("OPS_LOCKOUT_FAILURES", cast=int, default=10)
 OPS_LOCKOUT_WINDOW_MINUTES = config("OPS_LOCKOUT_WINDOW_MINUTES", cast=int, default=15)
 OPS_STUFFING_DISTINCT_USERNAMES = config("OPS_STUFFING_DISTINCT_USERNAMES", cast=int, default=5)

@@ -1,5 +1,7 @@
 from django.urls import path
 
+from modules import ops_views as module_ops_views
+
 from . import views
 
 urlpatterns = [
@@ -35,4 +37,12 @@ urlpatterns = [
     ),
     path("audit/", views.OpsAuditListView.as_view(), name="ops-audit"),
     path("audit/<int:log_id>/", views.OpsAuditDetailView.as_view(), name="ops-audit-detail"),
+    path("modules/", module_ops_views.OpsModulesView.as_view(), name="ops-modules"),
+    path("modules/codes/", module_ops_views.OpsRedeemCodeView.as_view(), name="ops-modules-redeem"),
+    path("modules/codes/mint/", module_ops_views.OpsMintCodeView.as_view(), name="ops-modules-mint"),
+    path(
+        "modules/assignments/",
+        module_ops_views.OpsAssignmentView.as_view(),
+        name="ops-modules-assignments",
+    ),
 ]

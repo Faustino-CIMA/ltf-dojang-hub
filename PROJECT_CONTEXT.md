@@ -1,7 +1,8 @@
 **LTF Taekwondo License Manager — Master Summary (May 2026)**
-Last updated: 2026-09-04
+Last updated: 2026-09-06
 
 Current main branch state:
+- Version: v0.9.0 on `feature/module-entitlements` — product codes, install entitlements, per-club assignment, Preview prove-out (2026-09-06)
 - Version: v0.8.0 on `feature/ui-refresh-and-designer` — ops console, Club Admin rubber-band assignment (2026-09-04)
 - Version: v0.7.0 on `feature/ui-refresh-and-designer` — club fees/billing, member tabs, finance UX (2026-09-03)
 - Version: v0.6.4 on `feature/ui-refresh-and-designer` — club movement history, club-tourist flag, order-item member names (2026-08-28)
@@ -56,6 +57,7 @@ Rules we follow:
 - Superuser ops console (`is_superuser`, `/{locale}/dashboard/ops`): sessions, health, failed logins/lockouts, alerts, users, query catalog, EN|LB translation editor, jobs, ops audit — completed (v0.8.0)
 - Club Admins can add/remove other admins for their clubs (rubber-band, home-club only; header club filter hidden on that page) — completed (v0.8.0)
 - Backend/worker/beat share image `ltf-license-manager-backend` so Celery stays in sync after backend rebuilds — completed (v0.8.0)
+- Modular entitlements: signed product codes on ops, install entitlement + per-club assignment, API 403 and hidden nav, Preview coming-soon prove-out. Future module ids are registered but not shipped. Never call a software entitlement a “license.” — completed (v0.9.0)
 - Full Finance Module (Order, OrderItem, Invoice, Payment with card details, Stripe Checkout + webhooks + manual record payment, audit logs) — completed
 - License & Grade History tracking with django-simple-history — completed
 - Profile Picture system (upload, crop/framing for 8:10 print, @imgly/background-removal-js) — completed

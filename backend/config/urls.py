@@ -174,6 +174,7 @@ urlpatterns = [
     path("api/health/", health_check, name="health-check"),
     path("api/i18n/<str:locale>/", PublicI18nView.as_view(), name="public-i18n"),
     path("api/ops/", include("ops.urls")),
+    path("api/modules/", include("modules.urls")),
     path(
         "api/members/ltf-license-prefix-rewrite/",
         RewriteLtfLicensePrefixView.as_view(),

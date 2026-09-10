@@ -58,6 +58,7 @@ export function shouldShowClubSelector(pathname: string | null | undefined): boo
       "/dashboard/ltf/license-types",
       "/dashboard/ltf/printer-profiles",
       "/dashboard/ltf/settings",
+      "/dashboard/ltf/preview",
     ];
     return !hiddenPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   }

@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
   Building2,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { getModuleStatus, isInstallEntitled, PREVIEW_MODULE_ID, type ModuleStatus } from "@/lib/modules-api";
 
 type LtfAdminLayoutProps = {
   title: string;
@@ -41,7 +42,8 @@ type LtfNavDef = {
     | "navLicenseCardPrintJobs"
     | "navLicenseTypes"
     | "navPrinterProfiles"
-    | "navSettings";
+    | "navSettings"
+    | "navPreview";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 };
@@ -82,26 +84,44 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
     icon: CreditCard,
   },
   { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix", icon: Settings },
+  { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
 export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProps) {
   const t = useTranslations("LtfAdmin");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
+  const [modules, setModules] = useState<ModuleStatus | null>(null);
   const isDesignerWorkspace = /\/dashboard\/ltf\/license-cards\/[^/]+\/designer(?:\/|$)/.test(
     pathname || ""
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setModules(status);
+      })
+      .catch(() => {
+        if (!cancelled) setModules(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const previewEntitled = isInstallEntitled(modules, PREVIEW_MODULE_ID);
+
   const navItems = useMemo<AppNavItem[]>(
     () =>
-      LTF_NAV_DEFINITIONS.map((def) => ({
+      LTF_NAV_DEFINITIONS.filter((def) => def.id !== "preview" || previewEntitled).map((def) => ({
         id: def.id,
         href: def.href(locale),
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
       })),
-    [locale, t]
+    [locale, previewEntitled, t]
   );
 
   return (

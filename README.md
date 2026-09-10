@@ -4,10 +4,11 @@ Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federat
 
 ## Release Notes
 
-This working tree is **v0.8.0**: superuser ops console and Club Admin rubber-band assignment. Millimetre print output is unchanged.
+This working tree is **v0.9.0**: modular entitlements (product codes, per-club assignment, hidden nav, Preview prove-out). Millimetre print output is unchanged.
 
-- See `CHANGELOG.md` **0.8.0** for this release, **0.7.0** for club fees, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.8.0`.
+- See `CHANGELOG.md` **0.9.0** for this release, **0.8.0** for the ops console, and **0.4.0** for the UI refresh and license-card designer.
+- Current tagged release: `v0.9.0`.
+- Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
 ## CI (GitHub Actions)
 
@@ -79,6 +80,15 @@ docker compose exec backend python manage.py createsuperuser
 - Backend API: `http://localhost:8000/`
 - Swagger docs: `http://localhost:8000/api/docs/`
 - Frontend: `http://localhost:3000/`
+- Ops Modules (superuser): `http://localhost:3000/en/dashboard/ops/modules`
+
+In local debug, mint a Preview product code from ops (**Mint preview code**) or:
+
+```
+docker compose exec backend python manage.py mint_module_code --modules preview
+```
+
+Paste the code on Modules, then assign Preview to a club. Do not call a product code a license.
 
 ## Verify Install
 

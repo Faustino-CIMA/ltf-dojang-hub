@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-06
+
+### User-facing
+- **Modules:** Superusers unlock product modules with a signed **product code** on `/{locale}/dashboard/ops/modules`. Do not call this a software license; that word stays with member LTF licenses.
+- **Two switches:** A code entitles modules for this install. Per-club modules (for example Preview) are then on or off per club. Locked modules are hidden in the nav and return API 403.
+- **Preview prove-out:** A coming-soon Preview screen appears for LTF Admin when entitled, and for a Club Admin only when that club is assigned. Calendar, shop, and tournaments are not in this release.
+
+### Technical
+- New Django app `modules`: registry of stable ids (`preview`, `club_management`, `event_calendar`, `inventory_federation`, `inventory_club`, `tournament_kyorugi`, `tournament_poomsae`), `InstallIdentity`, `ProductCodeRedemption`, `InstallEntitlement`, `ClubModuleAssignment`; migration `modules.0001_module_entitlements`.
+- Ed25519 product codes (`LTF1.…`), bound to install id, verified offline. The raw code is not stored. `GET /api/modules/`, `GET /api/modules/preview/`, `/api/ops/modules/**`.
+- Debug mint on ops, or `python manage.py mint_module_code --modules preview`. Optional `MODULE_CODE_PUBLIC_KEY` / `MODULE_CODE_PRIVATE_KEY`; in `DJANGO_DEBUG` an install-local keypair is generated.
+- Branch: `feature/module-entitlements`.
+
 ## [0.8.0] - 2026-09-04
 
 ### User-facing
