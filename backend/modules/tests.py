@@ -167,17 +167,17 @@ class ModuleEntitlementTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    def test_new_code_replaces_entitlements(self):
+    def test_new_code_adds_entitlements(self):
         first, _ = self._mint(modules=[PREVIEW_MODULE_ID])
         redeem_product_code(first)
         self.assertTrue(is_install_entitled(PREVIEW_MODULE_ID))
         second, _ = self._mint(modules=["inventory_federation"])
         redeem_product_code(second)
-        self.assertFalse(is_install_entitled(PREVIEW_MODULE_ID))
+        self.assertTrue(is_install_entitled(PREVIEW_MODULE_ID))
         self.assertTrue(is_install_entitled("inventory_federation"))
         self.assertEqual(
-            ProductCodeRedemption.objects.filter(status=ProductCodeRedemption.Status.SUPERSEDED).count(),
-            1,
+            ProductCodeRedemption.objects.filter(status=ProductCodeRedemption.Status.ACTIVE).count(),
+            2,
         )
 
     def test_debug_mint_endpoint(self):
@@ -205,7 +205,7 @@ class ModuleEntitlementTests(TestCase):
         self.assertNotEqual(stored.fingerprint, token)
         self.assertFalse(InstallEntitlement.objects.filter(module_id=PREVIEW_MODULE_ID, active=False).exists())
 
-    def test_assignment_survives_re_entitlement(self):
+    def test_assignment_survives_additional_entitlement(self):
         first, _ = self._mint()
         redeem_product_code(first)
         ClubModuleAssignment.objects.create(
@@ -213,10 +213,8 @@ class ModuleEntitlementTests(TestCase):
         )
         second, _ = self._mint(modules=["inventory_federation"])
         redeem_product_code(second)
-        self.assertFalse(is_club_assigned(PREVIEW_MODULE_ID, self.club.id))
-        third, _ = self._mint()
-        redeem_product_code(third)
         self.assertTrue(is_club_assigned(PREVIEW_MODULE_ID, self.club.id))
+        self.assertTrue(is_install_entitled("inventory_federation"))
 
     def test_unknown_module_rejected(self):
         with self.assertRaises(ProductCodeError):

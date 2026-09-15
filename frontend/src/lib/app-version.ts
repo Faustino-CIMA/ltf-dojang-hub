@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.9.0";
+export const APP_VERSION = "0.10.0";
 
 export const GITHUB_REPO_URL = "https://github.com/Faustino-CIMA/tkdlicensemanager";
 export const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases`;
@@ -15,6 +15,16 @@ export type AppRelease = {
  * Dates follow CHANGELOG.md when present, otherwise the GitHub tag created_at date.
  */
 export const APP_RELEASES: AppRelease[] = [
+  {
+    version: "0.10.0",
+    date: "2026-09-11",
+    titleKey: "release0100Title",
+    itemKeys: [
+      "release0100Calendar",
+      "release0100Visibility",
+      "release0100Codes",
+    ],
+  },
   {
     version: "0.9.0",
     date: "2026-09-06",

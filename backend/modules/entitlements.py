@@ -55,6 +55,9 @@ def club_ids_for_user(user) -> list[int]:
         return list(Club.objects.order_by("name").values_list("id", flat=True))
     if getattr(user, "role", "") in ("club_admin", "coach"):
         return list(user.clubs_administered.order_by("name").values_list("id", flat=True))
+    member = getattr(user, "member_profile", None)
+    if member is not None and getattr(member, "club_id", None):
+        return [member.club_id]
     return []
 
 
@@ -144,10 +147,6 @@ def redeem_product_code(token: str, *, user=None) -> ProductCodeRedemption:
     modules = list(payload.get("modules") or [])
     caps = payload.get("caps") if isinstance(payload.get("caps"), dict) else {}
 
-    ProductCodeRedemption.objects.filter(status=ProductCodeRedemption.Status.ACTIVE).update(
-        status=ProductCodeRedemption.Status.SUPERSEDED,
-    )
-
     redemption = ProductCodeRedemption.objects.create(
         jti=jti,
         fingerprint=token_fp,
@@ -160,7 +159,8 @@ def redeem_product_code(token: str, *, user=None) -> ProductCodeRedemption:
         redeemed_by=user if getattr(user, "is_authenticated", False) else None,
     )
 
-    InstallEntitlement.objects.filter(active=True).exclude(module_id__in=modules).update(active=False)
+    # Additive: a new code grants its modules. It does not turn off modules
+    # already entitled by an earlier code.
     for module_id in modules:
         InstallEntitlement.objects.update_or_create(
             module_id=module_id,

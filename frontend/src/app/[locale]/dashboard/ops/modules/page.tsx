@@ -93,6 +93,20 @@ export default function OpsModulesPage() {
     }
   };
 
+  const mintCalendar = async () => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const minted = await mintProductCode(["event_calendar"]);
+      setCode(minted.code);
+      setSuccessMessage(t("modulesMintedCalendar"));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggleAssignment = async (clubId: number, moduleId: string, enabled: boolean) => {
     setErrorMessage(null);
     try {
@@ -155,9 +169,14 @@ export default function OpsModulesPage() {
             {t("modulesRedeemAction")}
           </Button>
           {data?.can_mint_locally ? (
-            <Button type="button" variant="outline" onClick={() => void mintPreview()} disabled={busy}>
-              {t("modulesMintPreview")}
-            </Button>
+            <>
+              <Button type="button" variant="outline" onClick={() => void mintPreview()} disabled={busy}>
+                {t("modulesMintPreview")}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void mintCalendar()} disabled={busy}>
+                {t("modulesMintCalendar")}
+              </Button>
+            </>
           ) : null}
         </div>
       </section>

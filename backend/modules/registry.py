@@ -18,6 +18,7 @@ class ModuleSpec:
 
 
 PREVIEW_MODULE_ID = "preview"
+EVENT_CALENDAR_MODULE_ID = "event_calendar"
 
 MODULE_SPECS: tuple[ModuleSpec, ...] = (
     ModuleSpec(
@@ -34,10 +35,11 @@ MODULE_SPECS: tuple[ModuleSpec, ...] = (
         description="Club membership and dues (club to member). Not shipped yet.",
     ),
     ModuleSpec(
-        id="event_calendar",
+        id=EVENT_CALENDAR_MODULE_ID,
         label="Event calendar",
         scope="club",
-        description="Federation calendar when entitled; club calendar when assigned. Not shipped yet.",
+        description="Federation calendar when entitled; club calendar when assigned.",
+        shipped=True,
     ),
     ModuleSpec(
         id="inventory_federation",

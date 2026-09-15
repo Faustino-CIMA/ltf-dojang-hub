@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
-import { Camera, History } from "lucide-react";
+import { CalendarDays, Camera, History } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { EVENT_CALENDAR_MODULE_ID, getModuleStatus, isInstallEntitled } from "@/lib/modules-api";
 
 type MemberLayoutProps = {
   title: string;
@@ -17,6 +18,21 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
   const t = useTranslations("Member");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
+  const [calendarEntitled, setCalendarEntitled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setCalendarEntitled(isInstallEntitled(status, EVENT_CALENDAR_MODULE_ID));
+      })
+      .catch(() => {
+        if (!cancelled) setCalendarEntitled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const navItems = useMemo<AppNavItem[]>(
     () => [
@@ -34,8 +50,19 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
         icon: Camera,
         matchMode: "prefix",
       },
+      ...(calendarEntitled
+        ? [
+            {
+              id: "calendar",
+              href: `/${locale}/dashboard/member/calendar`,
+              label: t("navCalendar"),
+              icon: CalendarDays,
+              matchMode: "prefix" as const,
+            },
+          ]
+        : []),
     ],
-    [locale, t]
+    [calendarEntitled, locale, t]
   );
 
   return (

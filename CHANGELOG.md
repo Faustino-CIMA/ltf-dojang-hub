@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-11
+
+### User-facing
+- **Event calendar:** Federation and club calendars on one Event engine (`/{locale}/dashboard/ltf/calendar`, `/{locale}/dashboard/club/calendar`). Members see public dates when the module is entitled (`/{locale}/dashboard/member/calendar`).
+- **Visibility:** Public, Internal, and Private now spell out who can see the event (members vs admins/coaches vs admins only). LTF Admin can always see club events.
+- **Today:** The current day is a filled cyan date circle. The cyan cell border is only for the day you select.
+- **Product codes:** Redeeming a code **adds** its modules. It does not turn off modules you already have.
+
+### Technical
+- New Django app `events`: `Event` (`kind` calendar now; kyorugi/poomsae reserved), migration `events.0001_event_engine`. `GET/POST /api/events/`.
+- Module id `event_calendar` is shipped. Install entitlement unlocks the federation calendar; per-club assignment unlocks that club’s calendar. API 403 and hidden nav when locked.
+- Date-only `from`/`to` query params no longer 500. Branch: `feature/module-event-calendar`.
+
 ## [0.9.0] - 2026-09-06
 
 ### User-facing

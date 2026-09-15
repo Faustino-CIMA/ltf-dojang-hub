@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import {
   ArrowLeftRight,
+  CalendarDays,
   CreditCard,
   FileText,
   IdCard,
@@ -22,7 +23,13 @@ import {
 import { IncomingTransferNotice } from "@/components/club-admin/incoming-transfer-notice";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { AppShell, type AppNavItem } from "@/components/app-shell";
-import { getModuleStatus, isClubModuleAssigned, PREVIEW_MODULE_ID, type ModuleStatus } from "@/lib/modules-api";
+import {
+  EVENT_CALENDAR_MODULE_ID,
+  getModuleStatus,
+  isClubModuleAssigned,
+  PREVIEW_MODULE_ID,
+  type ModuleStatus,
+} from "@/lib/modules-api";
 
 type ClubAdminLayoutProps = {
   title: string;
@@ -46,7 +53,8 @@ type ClubNavDef = Readonly<{
     | "navAdmins"
     | "navPrinterProfiles"
     | "navSettings"
-    | "navPreview";
+    | "navPreview"
+    | "navCalendar";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 }>;
@@ -100,6 +108,13 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     labelKey: "navTransfers",
     matchMode: "prefix",
     icon: ArrowLeftRight,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "calendar",
+    routePath: "dashboard/club/calendar",
+    labelKey: "navCalendar",
+    matchMode: "prefix",
+    icon: CalendarDays,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "preview",
@@ -161,12 +176,14 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
   }, []);
 
   const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
+  const calendarAssigned = isClubModuleAssigned(modules, EVENT_CALENDAR_MODULE_ID, selectedClubId);
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
       CLUB_NAV_DEFINITIONS.filter((def) => {
         if (def.id === "admins") return role === "club_admin";
         if (def.id === "preview") return role === "club_admin" && previewAssigned;
+        if (def.id === "calendar") return calendarAssigned;
         return true;
       }).map((def) => ({
         id: def.id,
@@ -175,7 +192,7 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         icon: def.icon,
         matchMode: def.matchMode,
       })),
-    [locale, previewAssigned, role, t]
+    [calendarAssigned, locale, previewAssigned, role, t]
   );
 
   return (

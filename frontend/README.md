@@ -38,6 +38,11 @@ Preview prove-out (only when entitled / assigned):
 - LTF Admin: `/{locale}/dashboard/ltf/preview`
 - Club Admin: `/{locale}/dashboard/club/preview`
 
+Event calendar (module `event_calendar`; federation when entitled, club when assigned):
+- LTF Admin: `/{locale}/dashboard/ltf/calendar`
+- Club Admin: `/{locale}/dashboard/club/calendar`
+- Member (public dates): `/{locale}/dashboard/member/calendar`
+
 Quick print entry points:
 - Members page stores selected member IDs and opens quick print:
   - `/{locale}/dashboard/club/members`

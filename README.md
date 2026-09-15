@@ -4,10 +4,10 @@ Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federat
 
 ## Release Notes
 
-This working tree is **v0.9.0**: modular entitlements (product codes, per-club assignment, hidden nav, Preview prove-out). Millimetre print output is unchanged.
+This working tree is **v0.10.0**: event calendar (federation, club, and member views) on the entitlements platform. Millimetre print output is unchanged.
 
-- See `CHANGELOG.md` **0.9.0** for this release, **0.8.0** for the ops console, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.9.0`.
+- See `CHANGELOG.md` **0.10.0** for this release, **0.9.0** for product codes, and **0.4.0** for the UI refresh and license-card designer.
+- Current tagged release: `v0.10.0`.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
 ## CI (GitHub Actions)
@@ -82,13 +82,13 @@ docker compose exec backend python manage.py createsuperuser
 - Frontend: `http://localhost:3000/`
 - Ops Modules (superuser): `http://localhost:3000/en/dashboard/ops/modules`
 
-In local debug, mint a Preview product code from ops (**Mint preview code**) or:
+In local debug, mint a product code from ops (**Mint preview code** or **Mint calendar code**) or:
 
 ```
-docker compose exec backend python manage.py mint_module_code --modules preview
+docker compose exec backend python manage.py mint_module_code --modules preview,event_calendar
 ```
 
-Paste the code on Modules, then assign Preview to a club. Do not call a product code a license.
+Paste the code on Modules. Each code **adds** modules; it does not turn off modules you already have. Assign per-club modules (Preview, Event calendar) to a club. Do not call a product code a license.
 
 ## Verify Install
 

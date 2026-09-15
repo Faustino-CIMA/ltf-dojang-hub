@@ -89,6 +89,12 @@ NAMESPACE_PAGES = [
         "preview_path": "/{locale}/dashboard/ops",
     },
     {
+        "id": "Events",
+        "title": "Event calendar",
+        "description": "Federation, club, and member calendar screens.",
+        "preview_path": "/{locale}/dashboard/ltf/calendar",
+    },
+    {
         "id": "Import",
         "title": "CSV import",
         "description": "Club and member import wizard.",

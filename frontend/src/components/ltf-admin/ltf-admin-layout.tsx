@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
   Building2,
+  CalendarDays,
   CreditCard,
   IdCard,
   LayoutDashboard,
@@ -18,7 +19,13 @@ import {
 } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
-import { getModuleStatus, isInstallEntitled, PREVIEW_MODULE_ID, type ModuleStatus } from "@/lib/modules-api";
+import {
+  EVENT_CALENDAR_MODULE_ID,
+  getModuleStatus,
+  isInstallEntitled,
+  PREVIEW_MODULE_ID,
+  type ModuleStatus,
+} from "@/lib/modules-api";
 
 type LtfAdminLayoutProps = {
   title: string;
@@ -43,7 +50,8 @@ type LtfNavDef = {
     | "navLicenseTypes"
     | "navPrinterProfiles"
     | "navSettings"
-    | "navPreview";
+    | "navPreview"
+    | "navCalendar";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 };
@@ -84,6 +92,7 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
     icon: CreditCard,
   },
   { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix", icon: Settings },
+  { id: "calendar", href: (l) => `/${l}/dashboard/ltf/calendar`, labelKey: "navCalendar", matchMode: "prefix", icon: CalendarDays },
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
@@ -111,17 +120,22 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
   }, []);
 
   const previewEntitled = isInstallEntitled(modules, PREVIEW_MODULE_ID);
+  const calendarEntitled = isInstallEntitled(modules, EVENT_CALENDAR_MODULE_ID);
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
-      LTF_NAV_DEFINITIONS.filter((def) => def.id !== "preview" || previewEntitled).map((def) => ({
+      LTF_NAV_DEFINITIONS.filter((def) => {
+        if (def.id === "preview") return previewEntitled;
+        if (def.id === "calendar") return calendarEntitled;
+        return true;
+      }).map((def) => ({
         id: def.id,
         href: def.href(locale),
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
       })),
-    [locale, previewEntitled, t]
+    [calendarEntitled, locale, previewEntitled, t]
   );
 
   return (

@@ -59,6 +59,7 @@ export function shouldShowClubSelector(pathname: string | null | undefined): boo
       "/dashboard/ltf/printer-profiles",
       "/dashboard/ltf/settings",
       "/dashboard/ltf/preview",
+      "/dashboard/ltf/calendar",
     ];
     return !hiddenPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   }
