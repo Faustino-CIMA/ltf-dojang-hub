@@ -148,7 +148,7 @@ Important volumes:
 - `redis_data`: keeps Redis data between restarts (AOF enabled).
 - `staticfiles_data`: stores collected static files from Django.
 - `mediafiles_data`: stores uploaded member media files (profile pictures).
-- `.cursor` bind‑mount: used for runtime debug logs (keep it if debugging is enabled).
+- Backend, worker, and beat use the built image (Coolify/VPS). Frontend message catalogs are copied into the image at `/app/i18n_frontend`. For local live code, add mounts in a gitignored `docker-compose.override.yml`.
 
 Compose user mapping (Linux):
 - `LOCAL_UID` and `LOCAL_GID` map container user permissions to your host user.

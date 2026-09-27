@@ -1,5 +1,10 @@
 name: ltf-license-manager
 
+# Image-based deploys (Coolify/VPS): backend, worker, and beat do not bind-mount
+# host source over the built image. Local Docker Compose development can restore
+# ./backend, frontend messages, and .cursor mounts in docker-compose.override.yml
+# (gitignored; not the project default).
+
 services:
   db:
     image: postgres:18-alpine
@@ -57,7 +62,8 @@ services:
   backend:
     image: ltf-license-manager-backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
@@ -100,11 +106,8 @@ services:
       --threads $${GUNICORN_THREADS:-2}
       --timeout $${GUNICORN_TIMEOUT:-120}
       --access-logfile -'"
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
-      - ./backend:/app
-      - ./frontend/src/messages:/app/i18n_frontend:ro
-      # Keep for debug-mode logging (shared host log path)
-      - ./.cursor:/app/.cursor
       - staticfiles_data:/app/staticfiles
       - mediafiles_data:/app/media
     ports:
@@ -125,7 +128,8 @@ services:
   worker:
     image: ltf-license-manager-backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
@@ -161,11 +165,8 @@ services:
       chown -R $$APP_UID:$$APP_GID /app/media /app/.cursor /var/lib/celerybeat 2>/dev/null || true &&
       runuser -u app -- sh -lc 'python manage.py migrate --check &&
       celery -A config worker -l info -Q celery,$${CELERY_PRINT_JOB_QUEUE:-print_jobs}'"
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
-      - ./backend:/app
-      - ./frontend/src/messages:/app/i18n_frontend:ro
-      # Keep for debug-mode logging (shared host log path)
-      - ./.cursor:/app/.cursor
       - mediafiles_data:/app/media
     healthcheck:
       test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME 2>/dev/null || exit 1"]
@@ -179,7 +180,8 @@ services:
   beat:
     image: ltf-license-manager-backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
@@ -216,11 +218,8 @@ services:
       chown -R $$APP_UID:$$APP_GID /app/media /app/.cursor /var/lib/celerybeat 2>/dev/null || true &&
       runuser -u app -- sh -lc 'python manage.py migrate --check &&
       celery -A config beat -l info'"
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
-      - ./backend:/app
-      - ./frontend/src/messages:/app/i18n_frontend:ro
-      # Keep for debug-mode logging (shared host log path)
-      - ./.cursor:/app/.cursor
       - mediafiles_data:/app/media
       - celerybeat_data:/var/lib/celerybeat
     healthcheck:

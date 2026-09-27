@@ -98,7 +98,7 @@ Rules we follow:
 - Batch orders create ONE Order + ONE Invoice (grouped)
 - Stripe uses invoice_number as reference (not order_number)
 - All history is immutable and audited
-- Docker containers run without .cursor bind-mounts (ownership stability)
+- Docker backend, worker, and beat use the built image on Coolify/VPS deploys. Frontend message catalogs are copied to `/app/i18n_frontend`. Local live mounts belong in gitignored `docker-compose.override.yml`.
 - Moved from a fixed 40px button/control rule to a responsive token-based sizing system (40px desktop / 44px touch) driven by `pointer: coarse`
 
 ## Current Open / Next Priorities (update after every milestone)
