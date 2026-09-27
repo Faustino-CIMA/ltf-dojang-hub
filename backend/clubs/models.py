@@ -42,6 +42,11 @@ class Club(models.Model):
         related_name="clubs_administered",
         blank=True,
     )
+    trainers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="clubs_trained",
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -29,11 +29,13 @@ export function resolveListPageSize(pageSize: string, totalCount: number, cap = 
 export function ListToolbarPanel({
   search,
   pageSize,
+  trailing,
   filters,
   filtersPlacement = "inline",
 }: {
   search: ReactNode;
   pageSize?: ReactNode;
+  trailing?: ReactNode;
   filters?: ReactNode;
   filtersPlacement?: "inline" | "below";
 }) {
@@ -49,6 +51,7 @@ export function ListToolbarPanel({
       <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
         <div className="min-w-[10rem] flex-1">{search}</div>
         {pageSize ? <div>{pageSize}</div> : null}
+        {trailing ? <div className="ml-auto shrink-0">{trailing}</div> : null}
       </div>
       {filters ? (
         <div
@@ -349,9 +352,9 @@ export function ExpandableTable({ children }: { children: ReactNode }) {
   return <div className="app-panel overflow-x-auto">{children}</div>;
 }
 
-export function NestedTable({ children }: { children: ReactNode }) {
+export function NestedTable({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card">
+    <div className={cn("overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card", className)}>
       {children}
     </div>
   );

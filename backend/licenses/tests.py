@@ -38,7 +38,7 @@ from .models import (
     OrderItem,
     Payment,
 )
-from .pdf_utils import build_invoice_context
+from .pdf_utils import build_invoice_context, invoice_item_label, license_product_label, render_invoice_pdf
 from .services import apply_payment_and_activate
 from .tasks import (
     activate_eligible_paid_licenses,
@@ -418,6 +418,91 @@ class ClubFeeApiTests(TestCase):
         self.assertEqual(response.data["invoice_count"], 1)
         self.assertEqual(Invoice.objects.filter(club=club).count(), 1)
         self.assertEqual(Invoice.objects.filter(club=inactive).count(), 0)
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            duplicate = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year,
+                },
+                format="json",
+            )
+        self.assertEqual(duplicate.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.data["invoice_count"], 0)
+        self.assertEqual(len(duplicate.data["skipped"]), 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.ISSUED).count(), 1)
+        issued = Invoice.objects.get(club=club, status=Invoice.Status.ISSUED)
+        pending_payment = Payment.objects.create(
+            invoice=issued,
+            order=issued.order,
+            amount=issued.total,
+            currency=issued.currency,
+            method=Payment.Method.OTHER,
+            provider=Payment.Provider.PAYCONIQ,
+            status=Payment.Status.PENDING,
+            reference=issued.invoice_number,
+        )
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            rebilled = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year,
+                    "rebill": True,
+                },
+                format="json",
+            )
+        self.assertEqual(rebilled.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(rebilled.data["invoice_count"], 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.VOID).count(), 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.ISSUED).count(), 1)
+        pending_payment.refresh_from_db()
+        self.assertEqual(pending_payment.status, Payment.Status.CANCELLED)
+        status_response = self.client.get(
+            "/api/club-fee-billings/",
+            {"year": timezone.localdate().year},
+        )
+        self.assertEqual(status_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(status_response.data["charges"]), 1)
+        self.assertEqual(status_response.data["charges"][0]["club_name"], club.name)
+
+        paid_invoice = Invoice.objects.get(club=club, status=Invoice.Status.ISSUED)
+        paid_invoice.status = Invoice.Status.PAID
+        paid_invoice.save(update_fields=["status", "updated_at"])
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            paid_rebill = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year,
+                    "rebill": True,
+                },
+                format="json",
+            )
+        self.assertEqual(paid_rebill.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(paid_rebill.data["invoice_count"], 0)
+        self.assertEqual(paid_rebill.data["skipped"][0]["reason"], "paid")
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.PAID).count(), 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.ISSUED).count(), 0)
+
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            next_year = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year + 1,
+                },
+                format="json",
+            )
+        self.assertEqual(next_year.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(next_year.data["invoice_count"], 1)
+        fee_item = Invoice.objects.get(club=club, status=Invoice.Status.ISSUED).order.items.get()
+        self.assertIn(str(timezone.localdate().year + 1), invoice_item_label(fee_item))
+        self.assertTrue(invoice_item_label(fee_item).startswith("Affiliation"))
 
     def test_confirm_payment_for_club_fee_order_without_licenses(self):
         from clubs.models import Club
@@ -880,6 +965,99 @@ class OrderApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["outstanding_amount"], "30.00")
         self.assertEqual(response.data["currency"], "EUR")
+
+    def test_ltf_finance_credit_note_reduces_outstanding(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post(
+            "/api/orders/", self._order_payload(), format="json"
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        invoice_id = create_response.data["invoice"]["id"]
+        invoice = Invoice.objects.get(id=invoice_id)
+        invoice.status = Invoice.Status.ISSUED
+        invoice.total = Decimal("30.00")
+        invoice.save(update_fields=["status", "total"])
+
+        credited = self.client.post(
+            f"/api/invoices/{invoice_id}/credit-note/",
+            {"amount": "5.00", "reason": "Adjustment"},
+            format="json",
+        )
+        self.assertEqual(credited.status_code, status.HTTP_200_OK)
+        self.assertEqual(credited.data["credited_total"], "5.00")
+        self.assertEqual(credited.data["outstanding"], "25.00")
+        self.assertEqual(credited.data["status"], Invoice.Status.ISSUED)
+
+        totals = self.client.get("/api/invoices/totals/")
+        self.assertEqual(totals.status_code, status.HTTP_200_OK)
+        self.assertEqual(totals.data["outstanding_amount"], "25.00")
+
+    def test_full_credit_note_settles_invoice_and_activates_licenses(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post("/api/orders/", self._order_payload(), format="json")
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        invoice_id = create_response.data["invoice"]["id"]
+        order_id = create_response.data["id"]
+        invoice = Invoice.objects.get(id=invoice_id)
+        amount = str(invoice.outstanding())
+        credited = self.client.post(
+            f"/api/invoices/{invoice_id}/credit-note/",
+            {"amount": amount, "reason": "Sponsored licenses"},
+            format="json",
+        )
+        self.assertEqual(credited.status_code, status.HTTP_200_OK)
+        self.assertEqual(credited.data["outstanding"], "0.00")
+        self.assertEqual(credited.data["status"], Invoice.Status.PAID)
+        self.assertEqual(credited.data["credited_total"], amount)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, Order.Status.PAID)
+        self.assertFalse(
+            Payment.objects.filter(invoice_id=invoice_id, status=Payment.Status.PAID).exists()
+        )
+        today = timezone.localdate()
+        licenses = License.objects.filter(order_items__order=order).distinct()
+        self.assertTrue(licenses.exists())
+        for license_record in licenses:
+            if license_record.start_date <= today <= license_record.end_date:
+                self.assertEqual(license_record.status, License.Status.ACTIVE)
+
+    def test_club_admin_can_see_federation_credit_notes(self):
+        self.club.admins.add(self.club_admin)
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post("/api/orders/", self._order_payload(), format="json")
+        invoice_id = create_response.data["invoice"]["id"]
+        self.client.post(
+            f"/api/invoices/{invoice_id}/credit-note/",
+            {"amount": "5.00", "reason": "Partial waiver"},
+            format="json",
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.get(f"/api/club-invoices/{invoice_id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["credit_notes"]), 1)
+        self.assertEqual(response.data["credit_notes"][0]["reason"], "Partial waiver")
+        self.assertEqual(response.data["credited_total"], "5.00")
+        blocked = self.client.post(
+            f"/api/club-invoices/{invoice_id}/credit-note/",
+            {"amount": "1.00", "reason": "Club must not credit federation invoices"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_ltf_finance_budget_round_trip(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        year = date.today().year
+        response = self.client.get(f"/api/finance-budgets/?year={year}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["ledger"], "federation")
+        saved = self.client.put(
+            "/api/finance-budgets/",
+            {"year": year, "lines": [{"kind": "license_fees", "amount": "200.00"}]},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        license_line = next(line for line in saved.data["lines"] if line["kind"] == "license_fees")
+        self.assertEqual(license_line["budget"], "200.00")
 
     def test_ltf_finance_payment_list_includes_invoice_and_club(self):
         self.client.force_authenticate(user=self.ltf_finance)
@@ -1595,6 +1773,44 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(order.status, Order.Status.PAID)
         self.assertEqual(order.invoice.status, Invoice.Status.PAID)
         self.assertEqual(license_record.status, License.Status.PENDING)
+
+    def test_apply_payment_cancels_leftover_pending_payconiq(self):
+        today = timezone.localdate()
+        license_record = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=today.year,
+            status=License.Status.PENDING,
+            start_date=today,
+            end_date=today + timedelta(days=30),
+        )
+        order, invoice = self._create_pending_order_for_license(license_record)
+        pending = Payment.objects.create(
+            invoice=invoice,
+            order=order,
+            amount=order.total,
+            currency=order.currency,
+            method=Payment.Method.OTHER,
+            provider=Payment.Provider.PAYCONIQ,
+            status=Payment.Status.PENDING,
+            reference=invoice.invoice_number,
+        )
+        apply_payment_and_activate(
+            order,
+            actor=self.ltf_finance,
+            payment_details={
+                "payment_method": "card",
+                "payment_provider": "stripe",
+                "payment_reference": "pi_stripe_example",
+            },
+        )
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, Payment.Status.CANCELLED)
+        self.assertEqual(
+            Payment.objects.filter(invoice=invoice, status=Payment.Status.PAID).count(),
+            1,
+        )
 
     def test_activate_eligible_paid_licenses_task_activates_pending(self):
         today = timezone.localdate()
@@ -2466,6 +2682,22 @@ class PayconiqPaymentTests(TestCase):
             FinanceAuditLog.objects.filter(order=self.order, action="order.paid").exists()
         )
 
+    @override_settings(PAYCONIQ_MODE="mock")
+    def test_payconiq_create_rejected_when_invoice_already_paid(self):
+        self.invoice.status = Invoice.Status.PAID
+        self.invoice.paid_at = timezone.now()
+        self.invoice.save(update_fields=["status", "paid_at", "updated_at"])
+        self.order.status = Order.Status.PAID
+        self.order.save(update_fields=["status", "updated_at"])
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/payconiq/create/",
+            {"invoice_id": self.invoice.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already paid", response.data["detail"].lower())
+
     @override_settings(
         PAYCONIQ_MODE="mock",
         INVOICE_SEPA_BENEFICIARY="LTF License Manager",
@@ -3014,5 +3246,69 @@ class FinanceBooksTests(TestCase):
         report_response = self.client.get("/api/finance-reports/", {"year": 2026})
         self.assertEqual(report_response.data["income_statement"]["expenses_total"], "0.00")
         self.assertEqual(report_response.data["balance_sheet"]["liabilities"]["accounts_payable"], "0.00")
+
+
+class LtfLicenseInvoicePdfTests(TestCase):
+    def test_annual_standard_label_abbreviates_standard(self):
+        self.assertEqual(license_product_label("Annual Standard", 2026), "Annual St 2026")
+        self.assertEqual(license_product_label("Semiannual Standard", 2026), "Semiannual St 2026")
+
+    def test_license_invoice_uses_model_columns(self):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        admin = User.objects.create_user(username="ltf-inv-admin", password="pass12345", role=User.Roles.LTF_ADMIN)
+        club = Club.objects.create(
+            name="Taekwondo Vichten",
+            address_line1="52b Rue Principale",
+            postal_code="9190",
+            locality="Vichten",
+            created_by=admin,
+        )
+        member = Member.objects.create(
+            club=club,
+            first_name="Faustino",
+            last_name="Cima",
+            ltf_licenseid="LTF-3142",
+        )
+        license_type = LicenseType.objects.create(name="Annual Standard", code="annual-standard-pdf")
+        license_row = License.objects.create(
+            member=member,
+            club=club,
+            license_type=license_type,
+            year=2026,
+            status=License.Status.ACTIVE,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        order = Order.objects.create(club=club, ledger=Order.Ledger.FEDERATION, status=Order.Status.PAID)
+        OrderItem.objects.create(order=order, license=license_row, price_snapshot=Decimal("30.00"), quantity=1)
+        invoice = Invoice.objects.create(
+            order=order,
+            club=club,
+            status=Invoice.Status.PAID,
+            subtotal=Decimal("30.00"),
+            total=Decimal("30.00"),
+            issued_at=timezone.now(),
+            paid_at=timezone.now(),
+        )
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["license_invoice"])
+        self.assertEqual(context["license_rows"][0]["license"], "Annual St 2026")
+        self.assertEqual(context["license_rows"][0]["license_id"], "LTF-3142")
+        self.assertEqual(context["license_rows"][0]["name"], "CIMA Faustino")
+        self.assertEqual(context["recipient_lines"][-1], "L-9190 Vichten")
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        self.assertIsNotNone(pdf)
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("License ID", text)
+        self.assertIn("Subtotal", text)
+        self.assertIn("Annual St 2026", text)
+        self.assertIn("LTF-3142", text)
+        self.assertIn("CIMA Faustino", text)
+        self.assertIn("Qty : 1", text)
+        self.assertIn("30,00 €", text)
+        self.assertNotIn("Year", text)
 
 

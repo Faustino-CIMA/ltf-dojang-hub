@@ -285,6 +285,15 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
             )
         )
     collected: list[str] = []
+    ledger = invoice.order.ledger if invoice.order_id else Order.Ledger.FEDERATION
+    if ledger == Order.Ledger.CLUB:
+        if invoice.delivery_method and invoice.delivery_method != Invoice.DeliveryMethod.EMAIL:
+            return []
+        if invoice.member_id:
+            from clubmgmt.billing import invoice_emails
+
+            collected.extend(invoice_emails(invoice.member))
+        return list(dict.fromkeys(email for email in collected if email))
     member_email = ""
     if invoice.member:
         member_email = str(invoice.member.email or "").strip()
@@ -294,17 +303,7 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
     return list(dict.fromkeys(email for email in collected if email))
 
 
-@shared_task
-def send_invoice_email(invoice_id: int, recipients: list[str] | None = None) -> None:
-    invoice = (
-        Invoice.objects.select_related("order", "club", "member")
-        .prefetch_related("order__items__license")
-        .filter(id=invoice_id)
-        .first()
-    )
-    if not invoice:
-        return
-
+def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] | None = None) -> None:
     recipient_list = invoice_recipient_emails(invoice, recipients)
     if not recipient_list:
         FinanceAuditLog.objects.create(
@@ -333,14 +332,12 @@ def send_invoice_email(invoice_id: int, recipients: list[str] | None = None) -> 
         )
         return
 
-    from clubs.communications import invoice_copy_for_club
-
-    copy = invoice_copy_for_club(invoice.club)
     context = build_invoice_context(invoice)
+    outstanding = invoice.outstanding()
     context["copy"] = {
         "hello": copy["hello"],
         "ready": copy["ready"].format(number=invoice.invoice_number),
-        "total": copy["total"].format(total=invoice.total, currency=invoice.currency),
+        "total": copy["total"].format(total=outstanding, currency=invoice.currency),
         "pdf": copy["pdf"],
         "thanks": copy["thanks"],
     }
@@ -372,6 +369,36 @@ def send_invoice_email(invoice_id: int, recipients: list[str] | None = None) -> 
                 "error": error if not success else "",
             },
         )
+
+
+@shared_task
+def send_invoice_email(invoice_id: int, recipients: list[str] | None = None) -> None:
+    invoice = (
+        Invoice.objects.select_related("order", "club", "member")
+        .prefetch_related("order__items__license", "credit_notes", "payments")
+        .filter(id=invoice_id)
+        .first()
+    )
+    if not invoice:
+        return
+    from clubs.communications import invoice_copy_for_club
+
+    _dispatch_invoice_email(invoice, invoice_copy_for_club(invoice.club), recipients)
+
+
+@shared_task
+def send_invoice_reminder_email(invoice_id: int, recipients: list[str] | None = None) -> None:
+    invoice = (
+        Invoice.objects.select_related("order", "club", "member")
+        .prefetch_related("order__items__license", "credit_notes", "payments")
+        .filter(id=invoice_id)
+        .first()
+    )
+    if not invoice:
+        return
+    from clubs.communications import reminder_copy_for_club
+
+    _dispatch_invoice_email(invoice, reminder_copy_for_club(invoice.club), recipients)
 
 
 @shared_task

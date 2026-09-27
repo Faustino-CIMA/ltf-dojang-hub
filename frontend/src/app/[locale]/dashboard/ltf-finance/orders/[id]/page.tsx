@@ -22,6 +22,7 @@ import {
   getFinanceClubs,
   getFinanceMembers,
   getFinanceOrder,
+  orderItemLabel,
   orderItemMemberDisplay,
   orderItemsAreClubFees,
   orderItemYearLabel,
@@ -29,6 +30,7 @@ import {
 
 type OrderItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
   year: string;
@@ -113,6 +115,7 @@ export default function LtfFinanceOrderDetailPage() {
       const display = orderItemMemberDisplay(item, memberById, "-");
       return {
         id: item.id,
+        itemLabel: orderItemLabel(item),
         memberName: display.name,
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
@@ -131,7 +134,7 @@ export default function LtfFinanceOrderDetailPage() {
   const feeOnly = orderItemsAreClubFees(order?.items);
   const columns = feeOnly
     ? [
-        { key: "memberName", header: t("orderItemDescriptionLabel") },
+        { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: common("qtyLabel") },
       ]
     : [

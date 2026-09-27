@@ -7,10 +7,22 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from clubs.models import Club
 
-from .codes import ProductCodeError, build_payload, fingerprint_token, sign_payload
-from .entitlements import install_id_str, is_club_assigned, is_install_entitled, redeem_product_code
+from .codes import ProductCodeError, build_payload, fingerprint_token, parse_and_verify, sign_payload
+from .entitlements import (
+    install_id_str,
+    is_club_assigned,
+    is_install_entitled,
+    redeem_product_code,
+    set_club_assignment,
+)
 from .models import ClubModuleAssignment, InstallEntitlement, ProductCodeRedemption
-from .registry import PREVIEW_MODULE_ID
+from .registry import (
+    CLUB_MANAGEMENT_MODULE_ID,
+    INVENTORY_CLUB_LEGACY_ID,
+    INVENTORY_FEDERATION_MODULE_ID,
+    PREVIEW_MODULE_ID,
+    catalog,
+)
 
 
 @override_settings(DEBUG=True, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
@@ -158,11 +170,11 @@ class ModuleEntitlementTests(TestCase):
 
     def test_cannot_assign_install_wide_module_per_club(self):
         self._auth(self.superuser)
-        token, _ = self._mint(modules=["inventory_federation"])
+        token, _ = self._mint(modules=[INVENTORY_FEDERATION_MODULE_ID])
         self.client.post("/api/ops/modules/codes/", {"code": token}, format="json")
         response = self.client.put(
             "/api/ops/modules/assignments/",
-            {"club_id": self.club.id, "module_id": "inventory_federation", "enabled": True},
+            {"club_id": self.club.id, "module_id": INVENTORY_FEDERATION_MODULE_ID, "enabled": True},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
@@ -171,10 +183,10 @@ class ModuleEntitlementTests(TestCase):
         first, _ = self._mint(modules=[PREVIEW_MODULE_ID])
         redeem_product_code(first)
         self.assertTrue(is_install_entitled(PREVIEW_MODULE_ID))
-        second, _ = self._mint(modules=["inventory_federation"])
+        second, _ = self._mint(modules=[INVENTORY_FEDERATION_MODULE_ID])
         redeem_product_code(second)
         self.assertTrue(is_install_entitled(PREVIEW_MODULE_ID))
-        self.assertTrue(is_install_entitled("inventory_federation"))
+        self.assertTrue(is_install_entitled(INVENTORY_FEDERATION_MODULE_ID))
         self.assertEqual(
             ProductCodeRedemption.objects.filter(status=ProductCodeRedemption.Status.ACTIVE).count(),
             2,
@@ -211,11 +223,109 @@ class ModuleEntitlementTests(TestCase):
         ClubModuleAssignment.objects.create(
             club=self.club, module_id=PREVIEW_MODULE_ID, enabled=True, assigned_by=self.superuser
         )
-        second, _ = self._mint(modules=["inventory_federation"])
+        second, _ = self._mint(modules=[INVENTORY_FEDERATION_MODULE_ID])
         redeem_product_code(second)
         self.assertTrue(is_club_assigned(PREVIEW_MODULE_ID, self.club.id))
-        self.assertTrue(is_install_entitled("inventory_federation"))
+        self.assertTrue(is_install_entitled(INVENTORY_FEDERATION_MODULE_ID))
 
     def test_unknown_module_rejected(self):
         with self.assertRaises(ProductCodeError):
             build_payload(module_ids=["not_a_module"], install_id=install_id_str())
+
+    def test_catalog_excludes_club_inventory(self):
+        ids = [row["id"] for row in catalog()]
+        self.assertNotIn(INVENTORY_CLUB_LEGACY_ID, ids)
+        self.assertIn(CLUB_MANAGEMENT_MODULE_ID, ids)
+        self.assertIn(INVENTORY_FEDERATION_MODULE_ID, ids)
+        self._auth(self.superuser)
+        response = self.client.get("/api/ops/modules/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(INVENTORY_CLUB_LEGACY_ID, [row["id"] for row in response.data["catalog"]])
+        self.assertNotIn(INVENTORY_CLUB_LEGACY_ID, [row["id"] for row in response.data["modules"]])
+
+    def test_legacy_inventory_club_code_grants_club_management(self):
+        payload = build_payload(module_ids=[CLUB_MANAGEMENT_MODULE_ID], install_id=install_id_str())
+        payload["modules"] = [INVENTORY_CLUB_LEGACY_ID]
+        token = sign_payload(payload)
+        verified = parse_and_verify(token)
+        self.assertEqual(verified["modules"], [CLUB_MANAGEMENT_MODULE_ID])
+        redemption = redeem_product_code(token)
+        self.assertEqual(redemption.modules, [CLUB_MANAGEMENT_MODULE_ID])
+        self.assertTrue(is_install_entitled(CLUB_MANAGEMENT_MODULE_ID))
+        self.assertFalse(InstallEntitlement.objects.filter(module_id=INVENTORY_CLUB_LEGACY_ID).exists())
+
+    def test_minting_inventory_club_canonicalizes_to_club_management(self):
+        payload = build_payload(module_ids=[INVENTORY_CLUB_LEGACY_ID], install_id=install_id_str())
+        self.assertEqual(payload["modules"], [CLUB_MANAGEMENT_MODULE_ID])
+        self._auth(self.superuser)
+        response = self.client.post(
+            "/api/ops/modules/codes/mint/",
+            {"modules": [INVENTORY_CLUB_LEGACY_ID]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["modules"], [CLUB_MANAGEMENT_MODULE_ID])
+
+    def test_assigning_inventory_club_assigns_club_management(self):
+        token, _ = self._mint(modules=[CLUB_MANAGEMENT_MODULE_ID])
+        redeem_product_code(token)
+        assignment = set_club_assignment(
+            club=self.club, module_id=INVENTORY_CLUB_LEGACY_ID, enabled=True, user=self.superuser
+        )
+        self.assertEqual(assignment.module_id, CLUB_MANAGEMENT_MODULE_ID)
+        self.assertTrue(is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, self.club.id))
+        self.assertFalse(
+            ClubModuleAssignment.objects.filter(
+                club=self.club, module_id=INVENTORY_CLUB_LEGACY_ID
+            ).exists()
+        )
+
+    def test_leftover_inventory_club_rows_count_as_club_management(self):
+        InstallEntitlement.objects.create(module_id=INVENTORY_CLUB_LEGACY_ID, active=True)
+        ClubModuleAssignment.objects.create(
+            club=self.club, module_id=INVENTORY_CLUB_LEGACY_ID, enabled=True, assigned_by=self.superuser
+        )
+        self.assertTrue(is_install_entitled(CLUB_MANAGEMENT_MODULE_ID))
+        self.assertTrue(is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, self.club.id))
+        self._auth(self.superuser)
+        me = self.client.get("/api/modules/")
+        self.assertEqual(me.status_code, 200)
+        self.assertIn(CLUB_MANAGEMENT_MODULE_ID, me.data["entitled"])
+        self.assertNotIn(INVENTORY_CLUB_LEGACY_ID, me.data["entitled"])
+        club_row = next(row for row in me.data["clubs"] if row["id"] == self.club.id)
+        self.assertIn(CLUB_MANAGEMENT_MODULE_ID, club_row["modules"])
+        self.assertNotIn(INVENTORY_CLUB_LEGACY_ID, club_row["modules"])
+
+    def test_absorb_migration_rewrites_leftover_rows(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        InstallEntitlement.objects.create(module_id=INVENTORY_CLUB_LEGACY_ID, active=True)
+        ClubModuleAssignment.objects.create(
+            club=self.club, module_id=INVENTORY_CLUB_LEGACY_ID, enabled=True, assigned_by=self.superuser
+        )
+        ProductCodeRedemption.objects.create(
+            jti="legacy-inv-club",
+            fingerprint="b" * 64,
+            modules=[INVENTORY_CLUB_LEGACY_ID, PREVIEW_MODULE_ID],
+            payload={"modules": [INVENTORY_CLUB_LEGACY_ID]},
+            status=ProductCodeRedemption.Status.ACTIVE,
+        )
+        absorb = import_module("modules.migrations.0002_absorb_inventory_club")
+        absorb.absorb_inventory_club(apps, None)
+        self.assertFalse(InstallEntitlement.objects.filter(module_id=INVENTORY_CLUB_LEGACY_ID).exists())
+        self.assertTrue(
+            InstallEntitlement.objects.filter(module_id=CLUB_MANAGEMENT_MODULE_ID, active=True).exists()
+        )
+        self.assertFalse(
+            ClubModuleAssignment.objects.filter(club=self.club, module_id=INVENTORY_CLUB_LEGACY_ID).exists()
+        )
+        self.assertTrue(
+            ClubModuleAssignment.objects.filter(
+                club=self.club, module_id=CLUB_MANAGEMENT_MODULE_ID, enabled=True
+            ).exists()
+        )
+        redemption = ProductCodeRedemption.objects.get(jti="legacy-inv-club")
+        self.assertEqual(sorted(redemption.modules), [CLUB_MANAGEMENT_MODULE_ID, PREVIEW_MODULE_ID])
+        self.assertEqual(redemption.payload["modules"], [CLUB_MANAGEMENT_MODULE_ID])

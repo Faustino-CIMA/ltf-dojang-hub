@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarDays,
   CreditCard,
+  Landmark,
   IdCard,
   LayoutDashboard,
   Layers,
@@ -20,6 +21,7 @@ import {
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import {
+  CLUB_MANAGEMENT_MODULE_ID,
   EVENT_CALENDAR_MODULE_ID,
   getModuleStatus,
   isInstallEntitled,
@@ -51,7 +53,8 @@ type LtfNavDef = {
     | "navPrinterProfiles"
     | "navSettings"
     | "navPreview"
-    | "navCalendar";
+    | "navCalendar"
+    | "navCommittee";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 };
@@ -93,6 +96,7 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   },
   { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix", icon: Settings },
   { id: "calendar", href: (l) => `/${l}/dashboard/ltf/calendar`, labelKey: "navCalendar", matchMode: "prefix", icon: CalendarDays },
+  { id: "committee", href: (l) => `/${l}/dashboard/ltf/committee`, labelKey: "navCommittee", matchMode: "prefix", icon: Landmark },
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
@@ -121,12 +125,14 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
 
   const previewEntitled = isInstallEntitled(modules, PREVIEW_MODULE_ID);
   const calendarEntitled = isInstallEntitled(modules, EVENT_CALENDAR_MODULE_ID);
+  const clubMgmtEntitled = isInstallEntitled(modules, CLUB_MANAGEMENT_MODULE_ID);
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
       LTF_NAV_DEFINITIONS.filter((def) => {
         if (def.id === "preview") return previewEntitled;
         if (def.id === "calendar") return calendarEntitled;
+        if (def.id === "committee") return clubMgmtEntitled;
         return true;
       }).map((def) => ({
         id: def.id,
@@ -135,7 +141,7 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
         icon: def.icon,
         matchMode: def.matchMode,
       })),
-    [calendarEntitled, locale, previewEntitled, t]
+    [calendarEntitled, clubMgmtEntitled, locale, previewEntitled, t]
   );
 
   return (

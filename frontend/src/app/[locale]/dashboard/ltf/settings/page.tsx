@@ -12,6 +12,7 @@ import {
 } from "@/components/branding/branding-logos-manager";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -351,7 +352,7 @@ export default function LtfAdminSettingsPage() {
             <h2 className="text-section text-foreground">{t("existingPrefixRewriteTitle")}</h2>
             <p className="text-sm text-muted">{t("existingPrefixRewriteSubtitle")}</p>
             {isLoadingRewritePreview ? (
-              <p className="text-sm text-muted">{t("loadingSubtitle")}</p>
+              <LoadingCard title={t("loadingTitle")} description={t("loadingSubtitle")} />
             ) : rewritePreview ? (
               <p className="text-sm text-foreground">
                 {t("existingPrefixRewritePreview", {

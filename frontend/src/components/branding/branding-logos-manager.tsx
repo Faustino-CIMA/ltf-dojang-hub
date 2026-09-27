@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { API_URL } from "@/lib/api";
@@ -462,9 +463,8 @@ export function BrandingLogosManager({
       <div className="mt-6 border-t border-border pt-6">
         <h3 className="text-sm font-semibold text-foreground">{t("logoLibraryTitle")}</h3>
         {isLoading ? (
-          <div className="mt-4 flex items-center gap-3 text-sm text-muted" role="status" aria-live="polite">
-            <Spinner />
-            <span>{t("loadingLabel")}</span>
+          <div className="mt-4">
+            <LoadingCard title={t("logoLibraryTitle")} description={t("loadingLabel")} />
           </div>
         ) : loadError ? (
           <div className="mt-4">

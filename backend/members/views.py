@@ -480,12 +480,6 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         serializer = MemberProfilePictureUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if member.user and not member.user.consent_given:
-            return Response(
-                {"detail": "Member consent is required before storing profile photos."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             updated_member = process_member_profile_picture(
                 member,

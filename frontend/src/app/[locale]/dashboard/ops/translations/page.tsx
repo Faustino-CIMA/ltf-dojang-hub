@@ -7,6 +7,7 @@ import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import {
@@ -290,7 +291,9 @@ export default function OpsTranslationsPage() {
           </div>
 
           {isLoadingPage ? (
-            <p className="mt-4 text-sm text-muted">{t("loading")}</p>
+            <div className="mt-4">
+              <LoadingCardGrid title={t("loading")} description={t("translationsSearchInPage")} />
+            </div>
           ) : visibleRows.length === 0 ? (
             <p className="mt-4 text-sm text-muted">{t("translationsEmptyPage")}</p>
           ) : readingView ? (

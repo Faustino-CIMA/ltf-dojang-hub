@@ -63,9 +63,9 @@ const CLUB_NAV: RoleNavDef[] = [
     matchMode: "prefix",
   },
   {
-    id: "print-jobs",
+    id: "printing",
     href: (locale) => `/${locale}/dashboard/club/print-jobs`,
-    labelKey: "navPrintJobs",
+    labelKey: "navPrinting",
     namespace: "ClubAdmin",
     icon: Printer,
     matchMode: "prefix",
@@ -100,14 +100,6 @@ const CLUB_NAV: RoleNavDef[] = [
     labelKey: "navAdmins",
     namespace: "ClubAdmin",
     icon: UserCog,
-    matchMode: "prefix",
-  },
-  {
-    id: "printer-profiles",
-    href: (locale) => `/${locale}/dashboard/club/printer-profiles`,
-    labelKey: "navPrinterProfiles",
-    namespace: "ClubAdmin",
-    icon: CreditCard,
     matchMode: "prefix",
   },
   {

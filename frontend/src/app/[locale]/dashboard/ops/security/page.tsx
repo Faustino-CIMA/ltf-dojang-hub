@@ -7,6 +7,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import {
@@ -31,11 +32,13 @@ export default function OpsSecurityPage() {
   const [alerts, setAlerts] = useState<OpsAlert[]>([]);
   const [events, setEvents] = useState<OpsAuthEvent[]>([]);
   const [sessions, setSessions] = useState<OpsSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setErrorMessage(null);
+    setIsLoading(true);
     try {
       const [alertPage, eventPage, sessionPage] = await Promise.all([
         getOpsAlerts({ status: "open" }),
@@ -47,6 +50,8 @@ export default function OpsSecurityPage() {
       setSessions(sessionPage.results);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("loadError"));
+    } finally {
+      setIsLoading(false);
     }
   }, [t]);
 
@@ -84,7 +89,10 @@ export default function OpsSecurityPage() {
           setSuccessMessage(null);
         }}
       />
-
+      {isLoading ? (
+        <LoadingCardGrid title={t("securityTitle")} description={t("securitySubtitle")} />
+      ) : (
+      <>
       <section>
         <h2 className="text-lg font-semibold text-foreground">{t("alertsTitle")}</h2>
         <div className="mt-3">
@@ -176,6 +184,8 @@ export default function OpsSecurityPage() {
           />
         </div>
       </section>
+      </>
+      )}
     </OpsLayout>
   );
 }

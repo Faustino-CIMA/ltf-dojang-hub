@@ -146,7 +146,9 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         elif user.role == "club_admin":
             queryset = Club.objects.filter(admins=user).distinct()
         elif user.role == "coach":
-            queryset = Club.objects.filter(members__user=user).distinct()
+            queryset = Club.objects.filter(trainers=user).distinct()
+            if not queryset.exists():
+                queryset = Club.objects.filter(members__user=user).distinct()
         else:
             queryset = (
                 Club.objects.filter(admins=user)
@@ -323,6 +325,67 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         club.max_admins = max_admins
         club.save(update_fields=["max_admins"])
         return Response({"detail": "Max admins updated.", "max_admins": club.max_admins})
+
+    def _can_manage_trainers(self, user, club) -> bool:
+        if user.role == "ltf_admin":
+            return True
+        return user.role == "club_admin" and club.admins.filter(id=user.id).exists()
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def trainers(self, request, pk=None):
+        from .trainer_assignment import list_trainers
+
+        club = self.get_object()
+        if not self._can_manage_trainers(request.user, club):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"trainers": list_trainers(club)})
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def add_trainer(self, request, pk=None):
+        from .admin_assignment import AdminAssignmentError
+        from .trainer_assignment import add_trainer
+
+        club = self.get_object()
+        if not self._can_manage_trainers(request.user, club):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = add_trainer(
+                club,
+                member_id=request.data.get("member_id"),
+                email=request.data.get("email"),
+                locale=request.data.get("locale"),
+            )
+        except AdminAssignmentError as error:
+            return Response(error.payload, status=error.status_code)
+        return Response(payload)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def trainer_qualite(self, request, pk=None):
+        from .admin_assignment import AdminAssignmentError
+        from .trainer_assignment import set_trainer_qualite
+
+        club = self.get_object()
+        if not self._can_manage_trainers(request.user, club):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = set_trainer_qualite(club, request.data.get("user_id"), bool(request.data.get("include_in_qualite")))
+        except AdminAssignmentError as error:
+            return Response(error.payload, status=error.status_code)
+        return Response(payload)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def remove_trainer(self, request, pk=None):
+        from .admin_assignment import AdminAssignmentError
+        from .trainer_assignment import remove_trainer
+
+        club = self.get_object()
+        if not self._can_manage_trainers(request.user, club):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = remove_trainer(club, request.data.get("user_id"))
+        except AdminAssignmentError as error:
+            return Response(error.payload, status=error.status_code)
+        return Response(payload)
 
     @action(
         detail=True,

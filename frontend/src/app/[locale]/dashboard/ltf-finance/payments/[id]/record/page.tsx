@@ -148,7 +148,10 @@ export default function LtfFinanceRecordPaymentPage() {
     }
   }, [common, invoice?.status]);
 
-  const canRecord = invoice ? invoice.status !== "paid" && invoice.status !== "void" : false;
+  const outstanding = invoice ? Number(invoice.outstanding ?? invoice.total) : 0;
+  const canRecord = invoice
+    ? invoice.status !== "paid" && invoice.status !== "void" && outstanding > 0
+    : false;
 
   const paymentMethodOptions = [
     { value: "bank_transfer", label: t("paymentMethodBankTransfer") },
@@ -244,7 +247,7 @@ export default function LtfFinanceRecordPaymentPage() {
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("paymentAmountLabel")}</span>
             <span className="font-medium">
-              {invoice.total} {invoice.currency}
+              {invoice.outstanding ?? invoice.total} {invoice.currency}
             </span>
           </div>
         </div>
@@ -253,7 +256,9 @@ export default function LtfFinanceRecordPaymentPage() {
 
       {!canRecord ? (
         <PageNotice tone="info">
-          {invoice.status === "paid" ? t("recordPaymentAlreadyPaid") : t("recordPaymentNotAllowed")}
+          {invoice.status === "paid" || outstanding <= 0
+            ? t("recordPaymentAlreadyPaid")
+            : t("recordPaymentNotAllowed")}
         </PageNotice>
       ) : (
         <FormPanel>

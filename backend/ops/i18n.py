@@ -95,6 +95,12 @@ NAMESPACE_PAGES = [
         "preview_path": "/{locale}/dashboard/ltf/calendar",
     },
     {
+        "id": "ClubMgmt",
+        "title": "Club management",
+        "description": "Club records, families, dues, and committees.",
+        "preview_path": "/{locale}/dashboard/club/families",
+    },
+    {
         "id": "Import",
         "title": "CSV import",
         "description": "Club and member import wizard.",

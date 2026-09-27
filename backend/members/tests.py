@@ -781,8 +781,9 @@ class MemberApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_profile_picture_upload_requires_member_consent(self):
-        self.client.force_authenticate(user=self.member_user)
+    def test_profile_picture_upload_allows_photo_consent_without_account_gdpr(self):
+        self.assertFalse(self.member_user.consent_given)
+        self.client.force_authenticate(user=self.club_admin)
         response = self.client.post(
             f"/api/members/{self.member.id}/profile-picture/",
             {
@@ -791,7 +792,11 @@ class MemberApiTests(TestCase):
             },
             format="multipart",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.member.refresh_from_db()
+        self.assertTrue(bool(self.member.profile_picture_processed))
+        self.assertIsNotNone(self.member.photo_consent_attested_at)
+        self.assertEqual(self.member.photo_consent_attested_by_id, self.club_admin.id)
 
     def test_profile_picture_upload_rejects_too_small_resolution(self):
         self.member_user.give_consent()

@@ -224,8 +224,17 @@ export default function LtfFinancePaymentsPage() {
   );
 
   const getMethodLabel = useCallback(
-    (method: string) => {
-      switch (method) {
+    (row: Payment) => {
+      if (row.provider === "payconiq") {
+        return t("paymentProviderPayconiq");
+      }
+      if (row.provider === "stripe") {
+        return t("paymentProviderStripe");
+      }
+      if (row.provider === "paypal") {
+        return t("paymentProviderPaypal");
+      }
+      switch (row.method) {
         case "card":
           return t("paymentMethodCard");
         case "bank_transfer":
@@ -246,7 +255,8 @@ export default function LtfFinancePaymentsPage() {
       {
         key: "paid_at",
         header: t("paidAtLabel"),
-        render: (row: Payment) => formatDisplayDateTime(row.paid_at || row.created_at),
+        render: (row: Payment) =>
+          row.status === "paid" && row.paid_at ? formatDisplayDateTime(row.paid_at) : "—",
       },
       {
         key: "invoice_number",
@@ -266,7 +276,7 @@ export default function LtfFinancePaymentsPage() {
       {
         key: "method",
         header: t("paymentMethodLabel"),
-        render: (row: Payment) => getMethodLabel(row.method),
+        render: (row: Payment) => getMethodLabel(row),
       },
       {
         key: "reference",

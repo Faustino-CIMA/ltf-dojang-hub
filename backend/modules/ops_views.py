@@ -23,7 +23,7 @@ from .entitlements import (
     status_for_user,
 )
 from .models import ClubModuleAssignment, ProductCodeRedemption
-from .registry import catalog, get_spec
+from .registry import canonical_module_id, catalog, get_spec
 
 
 class OpsModulesView(views.APIView):
@@ -134,7 +134,7 @@ class OpsAssignmentView(views.APIView):
 
     def put(self, request):
         club_id = request.data.get("club_id")
-        module_id = str(request.data.get("module_id") or "").strip()
+        module_id = canonical_module_id(str(request.data.get("module_id") or "").strip())
         enabled = bool(request.data.get("enabled"))
         if not club_id:
             raise ValidationError({"club_id": "Select a club."})

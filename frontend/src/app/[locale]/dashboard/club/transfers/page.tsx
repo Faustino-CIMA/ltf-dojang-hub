@@ -13,6 +13,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FloatingNotice, FormPanel } from "@/components/ui/list-page-chrome";
@@ -459,7 +460,7 @@ export default function ClubTransfersPage() {
                 <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-3">
                   <div className="space-y-2">
                     {membersLoading && members.length === 0 ? (
-                      <p className="px-2 py-6 text-center text-sm text-muted">{t("loadingTitle")}</p>
+                      <LoadingCard title={t("loadingTitle")} description={t("loadingSubtitle")} />
                     ) : members.length === 0 ? (
                       <p className="px-2 py-6 text-center text-sm text-muted">
                         {t("transferNoMembers")}
@@ -506,7 +507,7 @@ export default function ClubTransfersPage() {
                 <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-3">
                   <div className="space-y-2">
                     {clubsSearching && destClubs.length === 0 ? (
-                      <p className="px-2 py-6 text-center text-sm text-muted">{t("loadingTitle")}</p>
+                      <LoadingCard title={t("loadingTitle")} description={t("loadingSubtitle")} />
                     ) : destClubs.length === 0 ? (
                       <p className="px-2 py-6 text-center text-sm text-muted">
                         {t("transferNoClubs")}

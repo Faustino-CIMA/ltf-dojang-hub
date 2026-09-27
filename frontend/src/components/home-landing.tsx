@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { AppVersionLink } from "@/components/app-version-link";
-import { Spinner } from "@/components/ui/spinner";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { apiRequest } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
@@ -81,9 +81,8 @@ export function HomeLanding() {
   if (isChecking) {
     return (
       <main className="bg-background px-6 py-16 lg:py-24">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3" role="status" aria-live="polite">
-          <Spinner />
-          <p className="text-sm text-muted">{common("loadingLabel")}</p>
+        <div className="mx-auto w-full max-w-5xl" role="status" aria-live="polite">
+          <LoadingCardGrid title={common("loadingLabel")} />
         </div>
       </main>
     );

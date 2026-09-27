@@ -241,6 +241,41 @@ export type ClubCommunicationLanguage = {
   name: string;
 };
 
+export type ClubTrainer = {
+  user_id: number;
+  member_id: number | null;
+  first_name: string;
+  last_name: string;
+  email: string;
+  username: string;
+  include_in_qualite: boolean;
+};
+
+export function getClubTrainers(clubId: number) {
+  return apiRequest<{ trainers: ClubTrainer[] }>(`/api/clubs/${clubId}/trainers/`);
+}
+
+export function addClubTrainer(clubId: number, memberId: number, email?: string) {
+  return apiRequest<{ trainers: ClubTrainer[]; detail: string }>(`/api/clubs/${clubId}/add_trainer/`, {
+    method: "POST",
+    body: JSON.stringify({ member_id: memberId, email: email || "", locale: "en" }),
+  });
+}
+
+export function setClubTrainerQualite(clubId: number, userId: number, includeInQualite: boolean) {
+  return apiRequest<{ trainers: ClubTrainer[] }>(`/api/clubs/${clubId}/trainer_qualite/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, include_in_qualite: includeInQualite }),
+  });
+}
+
+export function removeClubTrainer(clubId: number, userId: number) {
+  return apiRequest<{ trainers: ClubTrainer[] }>(`/api/clubs/${clubId}/remove_trainer/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
 export function getClubCommunicationLanguages() {
   return apiRequest<ClubCommunicationLanguage[]>("/api/clubs/communication-languages/");
 }

@@ -15,20 +15,25 @@ import {
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { InvoiceCollectionsPanel } from "@/components/finance/invoice-collections-panel";
 import {
   FinanceInvoice,
   FinanceOrder,
   Member,
+  createFinanceCreditNote,
   getFinanceInvoice,
   getFinanceMembers,
   getFinanceOrder,
+  orderItemLabel,
   orderItemMemberDisplay,
   orderItemsAreClubFees,
   orderItemYearLabel,
+  sendFinanceInvoiceReminder,
 } from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
   year: string;
@@ -129,6 +134,7 @@ export default function LtfFinanceInvoiceDetailPage() {
       const display = orderItemMemberDisplay(item, memberById, "-");
       return {
         id: item.id,
+        itemLabel: orderItemLabel(item),
         memberName: display.name,
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
@@ -144,10 +150,14 @@ export default function LtfFinanceInvoiceDetailPage() {
     return (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0);
   }, [order]);
 
+  const outstanding = invoice ? Number(invoice.outstanding ?? invoice.total) : 0;
+  const canRecord = invoice
+    ? invoice.status !== "paid" && invoice.status !== "void" && outstanding > 0
+    : false;
   const feeOnly = orderItemsAreClubFees(order?.items);
   const columns = feeOnly
     ? [
-        { key: "memberName", header: t("orderItemDescriptionLabel") },
+        { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: common("qtyLabel") },
       ]
     : [
@@ -179,7 +189,7 @@ export default function LtfFinanceInvoiceDetailPage() {
         <Button asChild variant="outline" className="w-fit">
           <Link href={`/${locale}/dashboard/ltf-finance/invoices`}>{t("backToInvoices")}</Link>
         </Button>
-        {invoice.status !== "paid" && invoice.status !== "void" ? (
+        {canRecord ? (
           <Button asChild variant="primary">
             <Link href={`/${locale}/dashboard/ltf-finance/payments/${invoice.id}/record`}>
               {t("recordPaymentButton")}
@@ -211,6 +221,18 @@ export default function LtfFinanceInvoiceDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("creditedTotalLabel")}</span>
+            <span className="font-medium">
+              {invoice.credited_total ?? "0.00"} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("outstandingLabel")}</span>
+            <span className="font-medium">
+              {invoice.outstanding ?? invoice.total} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("issuedAtLabel")}</span>
             <span className="font-medium">
               {formatDisplayDateTime(invoice.issued_at)}
@@ -233,6 +255,14 @@ export default function LtfFinanceInvoiceDetailPage() {
         <h2 className="text-section text-foreground">{t("invoiceItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
+
+      <InvoiceCollectionsPanel
+        invoice={invoice}
+        canMutate
+        onUpdated={setInvoice}
+        onCredit={(input) => createFinanceCreditNote(invoice.id, input)}
+        onRemind={() => sendFinanceInvoiceReminder(invoice.id)}
+      />
     </LtfFinanceLayout>
   );
 }

@@ -11,6 +11,7 @@ export type FinanceOrderItem = {
   license: FinanceLicense | null;
   fee_type?: number | null;
   description?: string;
+  billing_year?: number | null;
   price_snapshot: string;
   quantity: number;
   member_id?: number | null;
@@ -48,7 +49,28 @@ export function orderItemMemberDisplay(
 }
 
 export function orderItemYearLabel(item: FinanceOrderItem): string {
-  return item.license?.year != null ? String(item.license.year) : "—";
+  if (item.license?.year != null) {
+    return String(item.license.year);
+  }
+  if (item.billing_year != null) {
+    return String(item.billing_year);
+  }
+  return "—";
+}
+
+export function orderItemLabel(item: FinanceOrderItem): string {
+  const description = (item.description ?? "").trim();
+  const year = item.billing_year ?? item.license?.year ?? null;
+  if (description) {
+    if (year != null && !description.includes(String(year))) {
+      return `${description} ${year}`;
+    }
+    return description;
+  }
+  if (year != null) {
+    return String(year);
+  }
+  return "—";
 }
 
 export function isClubFeeItem(item: FinanceOrderItem): boolean {
@@ -57,6 +79,12 @@ export function isClubFeeItem(item: FinanceOrderItem): boolean {
 
 export function orderItemsAreClubFees(items: FinanceOrderItem[] | undefined): boolean {
   return Boolean(items?.length) && items!.every((item) => isClubFeeItem(item));
+}
+
+export type FinanceLedger = "federation" | "club";
+
+export function isClubLedger(row: { ledger?: string | null }): boolean {
+  return row.ledger === "club";
 }
 
 export type Club = {
@@ -106,11 +134,23 @@ export type FinanceInvoice = {
   club: number;
   club_name?: string;
   member: number | null;
+  ledger?: FinanceLedger;
   status: string;
   currency: string;
   subtotal: string;
   tax_total: string;
   total: string;
+  credited_total?: string;
+  paid_total?: string;
+  outstanding?: string;
+  credit_notes?: Array<{
+    id: number;
+    credit_number: string;
+    amount: string;
+    reason: string;
+    created_at: string;
+  }>;
+  last_reminded_at?: string | null;
   stripe_invoice_id?: string | null;
   stripe_customer_id?: string | null;
   issued_at: string | null;
@@ -126,6 +166,7 @@ export type FinanceOrder = {
   club: number;
   club_name?: string;
   member: number | null;
+  ledger?: FinanceLedger;
   status: string;
   currency: string;
   subtotal: string;
@@ -176,6 +217,7 @@ export type Payment = {
   order_number?: string;
   club?: number;
   club_name?: string;
+  ledger?: FinanceLedger;
   amount: string;
   currency: string;
   method: string;
@@ -230,6 +272,7 @@ export type ClubFeeType = {
   code: string;
   description: string;
   cadence: ClubFeeCadence;
+  year: number | null;
   is_active: boolean;
   current_amount: string | null;
   current_currency: string | null;
@@ -471,6 +514,20 @@ export function getFinanceInvoice(invoiceId: number) {
   return apiRequest<FinanceInvoice>(`/api/invoices/${invoiceId}/`);
 }
 
+export function createFinanceCreditNote(invoiceId: number, input: { amount: string; reason: string }) {
+  return apiRequest<FinanceInvoice>(`/api/invoices/${invoiceId}/credit-note/`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function sendFinanceInvoiceReminder(invoiceId: number) {
+  return apiRequest<FinanceInvoice>(`/api/invoices/${invoiceId}/send-reminder/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export type FinanceInvoiceTotals = {
   outstanding_amount: string;
   currency: string;
@@ -700,6 +757,7 @@ export function createClubFeeType(input: {
   name: string;
   description?: string;
   cadence?: ClubFeeCadence;
+  year?: number | null;
   is_active?: boolean;
   initial_amount?: string;
   initial_currency?: string;
@@ -754,17 +812,47 @@ export type ClubFeeBillingSchedule = {
   updated_at: string;
 };
 
+export type ClubFeeBillingSkip = {
+  club_id: number;
+  club_name: string;
+  fee_type_id: number;
+  fee_name: string;
+  reason: string;
+  invoice_number: string;
+};
+
 export type ClubFeeBillingResult = {
   invoice_ids: number[];
   invoice_count: number;
+  skipped: ClubFeeBillingSkip[];
+  rebilled: Array<{ club_id: number; club_name: string; invoice_number: string }>;
   schedule_ids: number[];
   billed_on: string;
+  period_year: number;
 };
+
+export type ClubFeeChargeStatus = {
+  club_id: number;
+  club_name: string;
+  fee_type_id: number;
+  fee_name: string;
+  invoice_number: string;
+  invoice_status: string;
+  period_year: number;
+};
+
+export function getClubFeeBillingStatus(year: number) {
+  return apiRequest<{ year: number; charges: ClubFeeChargeStatus[] }>(
+    `/api/club-fee-billings/?year=${year}`,
+  );
+}
 
 export function createClubFeeBilling(input: {
   fee_type_ids: number[];
   club_ids?: number[];
   billed_on: string;
+  period_year?: number;
+  rebill?: boolean;
   recurring?: boolean;
   recurrence?: "monthly" | "annual" | null;
 }) {
@@ -857,6 +945,7 @@ export type FinanceExpense = {
   payment_method: string;
   reference: string;
   notes: string;
+  receipt_url?: string | null;
   created_by: number | null;
   created_at: string;
   updated_at: string;
@@ -946,6 +1035,101 @@ export type FinanceReportResponse = {
       expense_date: string;
       amount: string;
     }>;
+  };
+  aging?: {
+    buckets: Array<{
+      key: string;
+      count: number;
+      amount: string;
+      min_days: number;
+      max_days: number | null;
+    }>;
+    by_party: Array<{ id: number | null; name: string; count: number; amount: string }>;
+    total_count: number;
+    total_amount: string;
+  };
+};
+
+export type BankStatementLine = {
+  id: number;
+  booked_on: string;
+  amount: string;
+  direction: "credit" | "debit";
+  description: string;
+  reference: string;
+  counterparty: string;
+  status: "unmatched" | "matched" | "ignored";
+  match_kind: string;
+  payment: number | null;
+  income: number | null;
+  expense: number | null;
+  match_label: string;
+  matched_at: string | null;
+};
+
+export type BankStatementSummary = {
+  line_count: number;
+  unmatched_count: number;
+  matched_count: number;
+  ignored_count: number;
+  matched_in: string;
+  matched_out: string;
+};
+
+export type BankStatement = {
+  id: number;
+  statement_number: string;
+  ledger: FinanceLedger;
+  club: number | null;
+  club_name?: string | null;
+  period_start: string;
+  period_end: string;
+  opening_balance: string;
+  closing_balance: string;
+  currency: string;
+  source_filename: string;
+  source_format: "csv" | "camt053";
+  status: "open" | "completed";
+  unmatched_count?: number;
+  line_count?: number;
+  created_at: string;
+  completed_at: string | null;
+  lines?: BankStatementLine[];
+  summary?: BankStatementSummary;
+};
+
+export type BankMatchCandidate = {
+  kind: "payment" | "income" | "expense";
+  id: number;
+  label: string;
+  amount: string;
+  date: string;
+  reference: string;
+  score: number;
+};
+
+export type FinanceBudgetLine = {
+  kind: "license_fees" | "income" | "expense";
+  category: number | null;
+  category_name: string;
+  budget: string;
+  actual: string;
+  variance: string;
+};
+
+export type FinanceBudgetResponse = {
+  year: number;
+  ledger: FinanceLedger;
+  club: number | null;
+  currency: string;
+  lines: FinanceBudgetLine[];
+  totals: {
+    budget_income: string;
+    actual_income: string;
+    budget_expense: string;
+    actual_expense: string;
+    budget_surplus: string;
+    actual_surplus: string;
   };
 };
 
@@ -1097,6 +1281,7 @@ export type FinanceIncome = {
   payment_method: string;
   reference: string;
   notes: string;
+  receipt_url?: string | null;
   created_by: number | null;
   created_at: string;
   updated_at: string;
@@ -1233,4 +1418,69 @@ export async function downloadFinanceReportExcel(year: number) {
   link.click();
   link.remove();
   window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+}
+
+export function getFinanceBankStatements(options?: ApiCallOptions) {
+  return apiRequest<BankStatement[] | PaginatedResponse<BankStatement>>("/api/bank-statements/", {
+    signal: options?.signal,
+  }).then((response) => unwrapListResponse(response));
+}
+
+export function getFinanceBankStatement(id: number) {
+  return apiRequest<BankStatement>(`/api/bank-statements/${id}/`);
+}
+
+export function importFinanceBankStatement(file: File, opening?: string, closing?: string) {
+  const form = new FormData();
+  form.append("file", file);
+  if (opening) form.append("opening_balance", opening);
+  if (closing) form.append("closing_balance", closing);
+  return apiRequest<BankStatement>("/api/bank-statements/import/", { method: "POST", body: form });
+}
+
+export function matchFinanceBankLine(statementId: number, input: { line: number; kind: string; id: number }) {
+  return apiRequest<BankStatement>(`/api/bank-statements/${statementId}/match/`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function unmatchFinanceBankLine(statementId: number, line: number) {
+  return apiRequest<BankStatement>(`/api/bank-statements/${statementId}/unmatch/`, {
+    method: "POST",
+    body: JSON.stringify({ line }),
+  });
+}
+
+export function ignoreFinanceBankLine(statementId: number, line: number) {
+  return apiRequest<BankStatement>(`/api/bank-statements/${statementId}/ignore/`, {
+    method: "POST",
+    body: JSON.stringify({ line }),
+  });
+}
+
+export function completeFinanceBankStatement(statementId: number) {
+  return apiRequest<BankStatement>(`/api/bank-statements/${statementId}/complete/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function getFinanceBankSuggestions(statementId: number, line: number) {
+  return apiRequest<{ line: number; candidates: BankMatchCandidate[] }>(
+    `/api/bank-statements/${statementId}/suggestions/?line=${line}`
+  );
+}
+
+export function getFinanceBudget(year: number, options?: ApiCallOptions) {
+  return apiRequest<FinanceBudgetResponse>(`/api/finance-budgets/?year=${year}`, {
+    signal: options?.signal,
+  });
+}
+
+export function saveFinanceBudget(year: number, lines: Array<{ kind: string; category?: number | null; amount: string }>) {
+  return apiRequest<FinanceBudgetResponse>("/api/finance-budgets/", {
+    method: "PUT",
+    body: JSON.stringify({ year, lines }),
+  });
 }

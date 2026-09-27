@@ -110,6 +110,7 @@ INSTALLED_APPS = [
     "ops.apps.OpsConfig",
     "modules.apps.ModulesConfig",
     "events.apps.EventsConfig",
+    "clubmgmt.apps.ClubmgmtConfig",
 ]
 
 MIDDLEWARE = [
@@ -571,7 +572,7 @@ INVOICE_SEPA_IBAN = config("INVOICE_SEPA_IBAN", default="")
 INVOICE_SEPA_BIC = config("INVOICE_SEPA_BIC", default="")
 INVOICE_SEPA_REMITTANCE_PREFIX = config("INVOICE_SEPA_REMITTANCE_PREFIX", default="Invoice")
 
-LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.10.0")
+LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.11.0")
 OPS_LOCKOUT_FAILURES = config("OPS_LOCKOUT_FAILURES", cast=int, default=10)
 OPS_LOCKOUT_WINDOW_MINUTES = config("OPS_LOCKOUT_WINDOW_MINUTES", cast=int, default=15)
 OPS_STUFFING_DISTINCT_USERNAMES = config("OPS_STUFFING_DISTINCT_USERNAMES", cast=int, default=5)

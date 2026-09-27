@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .models import InstallIdentity
-from .registry import KNOWN_MODULE_IDS
+from .registry import KNOWN_MODULE_IDS, canonical_module_ids
 
 TOKEN_PREFIX = "LTF1"
 PAYLOAD_VERSION = 1
@@ -149,6 +149,7 @@ def build_payload(
     expires_at=None,
     caps: dict | None = None,
 ) -> dict[str, Any]:
+    module_ids = canonical_module_ids(list(module_ids))
     unknown = [mid for mid in module_ids if mid not in KNOWN_MODULE_IDS]
     if unknown:
         raise ProductCodeError("unknown_module", f"Unknown module id: {', '.join(unknown)}.")
@@ -201,7 +202,9 @@ def parse_and_verify(token: str) -> dict[str, Any]:
     modules = payload.get("modules")
     if not isinstance(modules, list) or not modules or not all(isinstance(m, str) for m in modules):
         raise ProductCodeError("malformed", "Product code modules are not valid.")
+    modules = canonical_module_ids(list(modules))
     unknown = [mid for mid in modules if mid not in KNOWN_MODULE_IDS]
     if unknown:
         raise ProductCodeError("unknown_module", f"Unknown module id: {', '.join(unknown)}.")
+    payload["modules"] = sorted(set(modules))
     return payload

@@ -7,9 +7,12 @@ import { useParams } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
+import { InvoiceCollectionsPanel } from "@/components/finance/invoice-collections-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { PayconiqPaymentCard } from "@/components/club-admin/payconiq-payment-card";
+import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -20,15 +23,18 @@ import {
   FinanceOrder,
   PayconiqPayment,
   createClubCheckoutSession,
+  createClubCreditNote,
   createPayconiqPayment,
   getClubInvoice,
   getClubOrder,
   getPayconiqPaymentStatus,
+  sendClubInvoiceReminder,
 } from "@/lib/club-finance-api";
-import { orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
+import { isClubLedger, orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
   year: string;
@@ -52,6 +58,7 @@ export default function ClubInvoiceDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { canRecordPayments } = useClubFinanceAccess(invoice?.club ?? null);
 
   const invoiceId = useMemo(() => {
     const rawId = params?.id;
@@ -138,6 +145,7 @@ export default function ClubInvoiceDetailPage() {
       const display = orderItemMemberDisplay(item, membersById, t("unknownMember"));
       return {
         id: item.id,
+        itemLabel: orderItemLabel(item),
         memberName: display.name,
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
@@ -149,7 +157,7 @@ export default function ClubInvoiceDetailPage() {
   const feeOnly = orderItemsAreClubFees(order?.items);
   const columns = feeOnly
     ? [
-        { key: "memberName", header: t("orderItemDescriptionLabel") },
+        { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: t("qtyLabel") },
       ]
     : [
@@ -159,7 +167,12 @@ export default function ClubInvoiceDetailPage() {
         { key: "quantity", header: t("qtyLabel") },
       ];
 
-  const isPayable = invoice ? ["draft", "issued"].includes(invoice.status) : false;
+  const outstanding = invoice ? Number(invoice.outstanding ?? invoice.total) : 0;
+  const isOpen = invoice ? ["draft", "issued"].includes(invoice.status) && outstanding > 0 : false;
+  const clubInternal = invoice ? isClubLedger(invoice) : false;
+  const canPayFederation = isOpen && !clubInternal;
+  const canRecord = isOpen && clubInternal && canRecordPayments;
+  const isPayable = canPayFederation;
   const linkedOrderId = invoice?.order ?? order?.id ?? null;
 
   const handleCopyInvoiceNumber = async () => {
@@ -252,6 +265,8 @@ export default function ClubInvoiceDetailPage() {
 
   return (
     <ClubAdminLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
+      <div className="space-y-6">
+      <ClubFinanceTabs />
       <ActionNotices
         error={paymentError || payconiqError}
         onDismiss={() => {
@@ -259,10 +274,17 @@ export default function ClubInvoiceDetailPage() {
           setPayconiqError(null);
         }}
       />
-      <div className="mb-6">
+      <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline">
           <Link href={`/${locale}/dashboard/club/invoices`}>{t("backToInvoices")}</Link>
         </Button>
+        {canRecord ? (
+          <Button asChild variant="primary">
+            <Link href={`/${locale}/dashboard/club/payments/${invoice.id}/record`}>
+              {t("recordPaymentButton")}
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
       <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
@@ -299,6 +321,18 @@ export default function ClubInvoiceDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("creditedTotalLabel")}</span>
+            <span className="font-medium">
+              {invoice.credited_total ?? "0.00"} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("outstandingLabel")}</span>
+            <span className="font-medium">
+              {invoice.outstanding ?? invoice.total} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("issuedAtLabel")}</span>
             <span className="font-medium">{formatDisplayDateTime(invoice.issued_at)}</span>
           </div>
@@ -323,17 +357,31 @@ export default function ClubInvoiceDetailPage() {
         ) : null}
       </section>
 
-      <section className="mt-6">
+      <section>
         <h2 className="mb-3 text-sm font-semibold text-foreground">{t("invoiceItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
 
-      <PayconiqPaymentCard
-        payment={payconiqPayment}
-        isBusy={isPayconiqBusy}
-        onCreate={handleCreatePayconiqPayment}
-        onRefresh={handleRefreshPayconiqPayment}
-      />
+      {clubInternal || (invoice.credit_notes?.length ?? 0) > 0 ? (
+        <InvoiceCollectionsPanel
+          invoice={invoice}
+          canMutate={clubInternal && canRecordPayments}
+          onUpdated={setInvoice}
+          onCredit={(input) => createClubCreditNote(invoice.id, input)}
+          onRemind={() => sendClubInvoiceReminder(invoice.id)}
+        />
+      ) : null}
+
+      {isPayable || payconiqPayment ? (
+        <PayconiqPaymentCard
+          payment={payconiqPayment}
+          isBusy={isPayconiqBusy}
+          canCreate={isPayable}
+          onCreate={handleCreatePayconiqPayment}
+          onRefresh={handleRefreshPayconiqPayment}
+        />
+      ) : null}
+      </div>
     </ClubAdminLayout>
   );
 }

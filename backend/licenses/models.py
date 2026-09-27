@@ -5,7 +5,7 @@ from typing import cast
 from uuid import uuid4
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -116,6 +116,7 @@ class ClubFeeType(models.Model):
     code = models.SlugField(max_length=50, unique=True)
     description = models.TextField(blank=True)
     cadence = models.CharField(max_length=20, choices=Cadence.choices, default=Cadence.ONE_OFF)
+    year = models.PositiveIntegerField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -179,6 +180,10 @@ def generate_order_number() -> str:
 
 def generate_invoice_number() -> str:
     return f"INV-{uuid4().hex[:12].upper()}"
+
+
+def generate_credit_note_number() -> str:
+    return f"CN-{uuid4().hex[:12].upper()}"
 
 
 class License(models.Model):
@@ -317,11 +322,21 @@ class Order(models.Model):
         CANCELLED = "cancelled", "Cancelled"
         REFUNDED = "refunded", "Refunded"
 
+    class Ledger(models.TextChoices):
+        FEDERATION = "federation", "Federation"
+        CLUB = "club", "Club"
+
     order_number = models.CharField(
         max_length=20,
         unique=True,
         default=generate_order_number,
         editable=False,
+    )
+    ledger = models.CharField(
+        max_length=20,
+        choices=Ledger.choices,
+        default=Ledger.FEDERATION,
+        db_index=True,
     )
     club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="orders")
     member = models.ForeignKey(
@@ -346,6 +361,7 @@ class Order(models.Model):
             models.Index(fields=["status", "-updated_at"], name="ord_status_upd_idx"),
             models.Index(fields=["club", "-created_at"], name="ord_club_created_idx"),
             models.Index(fields=["member", "-created_at"], name="ord_member_created_idx"),
+            models.Index(fields=["ledger", "-created_at"], name="ord_ledger_created_idx"),
         ]
 
     def __str__(self) -> str:
@@ -369,8 +385,28 @@ class OrderItem(models.Model):
         blank=True,
     )
     description = models.CharField(max_length=255, blank=True)
+    billing_year = models.PositiveIntegerField(null=True, blank=True)
+    billing_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    billing_club = models.ForeignKey(
+        Club,
+        on_delete=models.PROTECT,
+        related_name="fee_order_items",
+        null=True,
+        blank=True,
+    )
+    period_key = models.CharField(max_length=7, blank=True, default="")
+    charge_active = models.BooleanField(default=False)
     price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)  # type: ignore[arg-type]
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["billing_club", "fee_type", "period_key"],
+                condition=Q(charge_active=True),
+                name="uniq_active_club_fee_period",
+            )
+        ]
 
     def __str__(self) -> str:
         if self.license_id:
@@ -445,6 +481,15 @@ class Invoice(models.Model):
     stripe_customer_id = EncryptedCharField(max_length=255, blank=True)
     issued_at = models.DateTimeField(null=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
+    last_reminded_at = models.DateTimeField(null=True, blank=True)
+
+    class DeliveryMethod(models.TextChoices):
+        EMAIL = "email", "Email"
+        POST = "post", "Post"
+        HAND = "hand", "In person"
+
+    delivery_method = models.CharField(max_length=10, choices=DeliveryMethod.choices, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -460,6 +505,50 @@ class Invoice(models.Model):
 
     def __str__(self) -> str:
         return str(self.invoice_number)
+
+    def credited_total(self) -> Decimal:
+        total = self.credit_notes.aggregate(total=models.Sum("amount"))["total"]
+        return total or Decimal("0.00")
+
+    def paid_total(self) -> Decimal:
+        total = self.payments.filter(status="paid").aggregate(total=models.Sum("amount"))["total"]
+        return total or Decimal("0.00")
+
+    def outstanding(self) -> Decimal:
+        remaining = self.total - self.credited_total() - self.paid_total()
+        if remaining < Decimal("0.00"):
+            return Decimal("0.00")
+        return remaining
+
+
+class CreditNote(models.Model):
+    credit_number = models.CharField(
+        max_length=20,
+        unique=True,
+        default=generate_credit_note_number,
+        editable=False,
+    )
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="credit_notes")
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    reason = models.CharField(max_length=255)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="credit_notes_recorded",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return str(self.credit_number)
 
 
 class Payment(models.Model):
@@ -575,8 +664,15 @@ class FinanceAuditLog(models.Model):
 
 
 class ExpenseCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    code = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    code = models.SlugField(max_length=50)
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="expense_categories",
+    )
     sort_order = models.PositiveSmallIntegerField(default=100)
     is_active = models.BooleanField(default=True)  # pyright: ignore[reportArgumentType]
     created_at = models.DateTimeField(auto_now_add=True)
@@ -584,6 +680,18 @@ class ExpenseCategory(models.Model):
 
     class Meta:
         ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=Q(club__isnull=True),
+                name="expcat_fed_code_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["club", "code"],
+                condition=Q(club__isnull=False),
+                name="expcat_club_code_uniq",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -648,6 +756,17 @@ class Expense(models.Model):
     )
     reference = models.CharField(max_length=255, blank=True)
     notes = models.TextField(blank=True)
+    receipt = models.FileField(
+        upload_to="finance/receipts/expenses/",
+        blank=True,
+        validators=[FileExtensionValidator(["pdf", "jpg", "jpeg", "png", "webp"])],
+    )
+    ledger = models.CharField(
+        max_length=20,
+        choices=Order.Ledger.choices,
+        default=Order.Ledger.FEDERATION,
+        db_index=True,
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -664,6 +783,7 @@ class Expense(models.Model):
             models.Index(fields=["status", "-expense_date"], name="exp_status_date_idx"),
             models.Index(fields=["category", "-expense_date"], name="exp_cat_date_idx"),
             models.Index(fields=["-expense_date"], name="exp_date_idx"),
+            models.Index(fields=["ledger", "-expense_date"], name="exp_ledger_date_idx"),
         ]
 
     def clean(self):
@@ -705,8 +825,15 @@ def generate_income_number(income_date: date | None = None) -> str:
 
 
 class IncomeCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    code = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    code = models.SlugField(max_length=50)
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="income_categories",
+    )
     sort_order = models.PositiveSmallIntegerField(default=100)
     is_active = models.BooleanField(default=True)  # pyright: ignore[reportArgumentType]
     created_at = models.DateTimeField(auto_now_add=True)
@@ -714,6 +841,18 @@ class IncomeCategory(models.Model):
 
     class Meta:
         ordering = ["sort_order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=Q(club__isnull=True),
+                name="inccat_fed_code_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["club", "code"],
+                condition=Q(club__isnull=False),
+                name="inccat_club_code_uniq",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -758,6 +897,17 @@ class Income(models.Model):
     )
     reference = models.CharField(max_length=255, blank=True)
     notes = models.TextField(blank=True)
+    receipt = models.FileField(
+        upload_to="finance/receipts/incomes/",
+        blank=True,
+        validators=[FileExtensionValidator(["pdf", "jpg", "jpeg", "png", "webp"])],
+    )
+    ledger = models.CharField(
+        max_length=20,
+        choices=Order.Ledger.choices,
+        default=Order.Ledger.FEDERATION,
+        db_index=True,
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -774,6 +924,7 @@ class Income(models.Model):
             models.Index(fields=["status", "-income_date"], name="inc_status_date_idx"),
             models.Index(fields=["category", "-income_date"], name="inc_cat_date_idx"),
             models.Index(fields=["-income_date"], name="inc_date_idx"),
+            models.Index(fields=["ledger", "-income_date"], name="inc_ledger_date_idx"),
         ]
 
     def clean(self):
@@ -819,6 +970,265 @@ class FinanceYearOpening(models.Model):
 
     def __str__(self) -> str:
         return f"{self.year} opening cash {self.opening_cash}"
+
+
+class ClubFinanceYearOpening(models.Model):
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="finance_year_openings")
+    year = models.PositiveSmallIntegerField()
+    opening_cash = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    notes = models.TextField(blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="club_finance_year_openings_updated",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-year"]
+        constraints = [
+            models.UniqueConstraint(fields=["club", "year"], name="club_fin_opening_year_uniq"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.club_id} {self.year} opening cash {self.opening_cash}"
+
+
+def generate_bank_statement_number(period_end: date | None = None) -> str:
+    year = (period_end or timezone.localdate()).year
+    prefix = f"BST-{year}-"
+    last = (
+        BankStatement.objects.filter(statement_number__startswith=prefix)
+        .order_by("-statement_number")
+        .values_list("statement_number", flat=True)
+        .first()
+    )
+    sequence = 1
+    if last:
+        try:
+            sequence = int(str(last).rsplit("-", 1)[-1]) + 1
+        except (TypeError, ValueError):
+            sequence = 1
+    return f"{prefix}{sequence:04d}"
+
+
+class BankStatement(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        COMPLETED = "completed", "Completed"
+
+    class SourceFormat(models.TextChoices):
+        CSV = "csv", "CSV"
+        CAMT053 = "camt053", "CAMT.053"
+
+    statement_number = models.CharField(max_length=20, unique=True, editable=False)
+    ledger = models.CharField(
+        max_length=20,
+        choices=Order.Ledger.choices,
+        default=Order.Ledger.FEDERATION,
+        db_index=True,
+    )
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="bank_statements",
+    )
+    period_start = models.DateField()
+    period_end = models.DateField()
+    opening_balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    closing_balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    currency = models.CharField(max_length=3, default="EUR")
+    source_filename = models.CharField(max_length=255, blank=True)
+    source_format = models.CharField(
+        max_length=20, choices=SourceFormat.choices, default=SourceFormat.CSV
+    )
+    source_file = models.FileField(upload_to="finance/bank-statements/", blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bank_statements_imported",
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-period_end", "-id"]
+        indexes = [
+            models.Index(fields=["ledger", "club", "-period_end"], name="bst_ledger_club_end_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.statement_number:
+            self.statement_number = generate_bank_statement_number(self.period_end)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return str(self.statement_number)
+
+
+class BankStatementLine(models.Model):
+    class Status(models.TextChoices):
+        UNMATCHED = "unmatched", "Unmatched"
+        MATCHED = "matched", "Matched"
+        IGNORED = "ignored", "Ignored"
+
+    class Direction(models.TextChoices):
+        CREDIT = "credit", "Credit"
+        DEBIT = "debit", "Debit"
+
+    class MatchKind(models.TextChoices):
+        PAYMENT = "payment", "Payment"
+        INCOME = "income", "Income"
+        EXPENSE = "expense", "Expense"
+
+    statement = models.ForeignKey(BankStatement, on_delete=models.CASCADE, related_name="lines")
+    booked_on = models.DateField()
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    direction = models.CharField(max_length=10, choices=Direction.choices)
+    description = models.CharField(max_length=255, blank=True)
+    reference = models.CharField(max_length=255, blank=True)
+    counterparty = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UNMATCHED)
+    match_kind = models.CharField(max_length=20, choices=MatchKind.choices, blank=True)
+    payment = models.OneToOneField(
+        "Payment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bank_match",
+    )
+    income = models.OneToOneField(
+        "Income",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bank_match",
+    )
+    expense = models.OneToOneField(
+        "Expense",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bank_match",
+    )
+    matched_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bank_statement_matches",
+    )
+    matched_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["booked_on", "id"]
+        indexes = [
+            models.Index(fields=["statement", "status"], name="bstline_stmt_status_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.statement_id} {self.booked_on} {self.amount}"
+
+
+class FinanceBudgetLine(models.Model):
+    class Kind(models.TextChoices):
+        LICENSE_FEES = "license_fees", "License / membership fees"
+        INCOME = "income", "Other income"
+        EXPENSE = "expense", "Expense"
+
+    ledger = models.CharField(
+        max_length=20,
+        choices=Order.Ledger.choices,
+        default=Order.Ledger.FEDERATION,
+        db_index=True,
+    )
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="finance_budget_lines",
+    )
+    year = models.PositiveSmallIntegerField()
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    income_category = models.ForeignKey(
+        IncomeCategory,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="budget_lines",
+    )
+    expense_category = models.ForeignKey(
+        ExpenseCategory,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="budget_lines",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finance_budget_lines_updated",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["kind", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ledger", "club", "year", "kind"],
+                condition=Q(kind="license_fees", club__isnull=False),
+                name="fin_budget_club_fees_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["ledger", "year", "kind"],
+                condition=Q(kind="license_fees", club__isnull=True),
+                name="fin_budget_fed_fees_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["ledger", "club", "year", "income_category"],
+                condition=Q(kind="income", club__isnull=False),
+                name="fin_budget_club_inc_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["ledger", "year", "income_category"],
+                condition=Q(kind="income", club__isnull=True),
+                name="fin_budget_fed_inc_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["ledger", "club", "year", "expense_category"],
+                condition=Q(kind="expense", club__isnull=False),
+                name="fin_budget_club_exp_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["ledger", "year", "expense_category"],
+                condition=Q(kind="expense", club__isnull=True),
+                name="fin_budget_fed_exp_uniq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.ledger} {self.year} {self.kind} {self.amount}"
 
 
 def generate_print_job_number() -> str:

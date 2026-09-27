@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 15mm 15mm 38mm 15mm;
+        @bottom-center {
+          content: element(invoice-meta);
+          width: 100%;
+        }
+      }
+      @page:first {
+        margin: 0 15mm 38mm 15mm;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: #1c2430;
+        font-family: Arial, "DejaVu Sans", sans-serif;
+        font-size: 10pt;
+      }
+      .letterhead {
+        position: absolute;
+        top: 9mm;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 4mm;
+      }
+      .logo { width: 40.6mm; height: 22.83mm; margin-top: -1.81mm; }
+      .issuer, .bank { height: 17.85mm; }
+      .issuer { flex: 1; }
+      .issuer .name, .issuer p {
+        margin: 0;
+        padding: 0;
+        font-size: 11pt;
+        line-height: 11pt;
+        height: 4.46mm;
+        white-space: nowrap;
+      }
+      .bank {
+        width: 74mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .bank p { margin: 0; font-size: 9pt; line-height: 1.15; }
+      .lead { height: 108mm; }
+      .mark {
+        position: absolute;
+        top: 45mm;
+        left: 5mm;
+        width: 57.5mm;
+        height: 35mm;
+        background: #d5e6f6;
+        border-radius: 6.5mm;
+      }
+      .qr-slot {
+        position: absolute;
+        top: 3.2mm;
+        width: 23.4mm;
+        text-align: center;
+      }
+      .qr-slot.left { left: 4mm; }
+      .qr-slot.right { left: 30.1mm; }
+      .qr-slot p {
+        margin: 0 0 1.5mm;
+        font-size: 9pt;
+        line-height: 1;
+        text-align: center;
+      }
+      .qr-frame {
+        box-sizing: content-box;
+        width: 16.2mm;
+        height: 16.2mm;
+        margin: 0 auto;
+        padding: 2.5mm;
+        background: #fff;
+        border: 0.9pt solid #8aa4c6;
+        border-radius: 2.8mm;
+      }
+      .qr-frame img { width: 16.2mm; height: 16.2mm; display: block; }
+      .recipient {
+        position: absolute;
+        top: 46mm;
+        left: 87mm;
+        margin: 0;
+        padding: 0;
+        font-size: 13pt;
+        line-height: 1.25;
+      }
+      .recipient p { margin: 0; padding: 0; }
+      .subject {
+        position: absolute;
+        top: 89mm;
+        left: 5mm;
+        margin: 0;
+        font-size: 11pt;
+      }
+      .fold {
+        position: absolute;
+        top: 99mm;
+        left: -5mm;
+        width: 10mm;
+        height: 0;
+        border-top: 0.6pt solid #b2b2b2;
+      }
+      .block { width: 175mm; margin-left: 5mm; }
+      table.lines, table.body { width: 175mm; border-collapse: collapse; table-layout: fixed; }
+      table.lines th {
+        font-style: italic;
+        font-weight: 400;
+        font-size: 8pt;
+        text-align: center;
+        padding: 0 0.5mm 1mm;
+      }
+      .sheet {
+        border: 0.45pt solid #808080;
+        border-radius: 1.7mm;
+        min-height: 132mm;
+        overflow: hidden;
+        width: 175mm;
+      }
+      table.body td {
+        padding: 1.2mm 1.5mm;
+        border-bottom: 0.5pt solid #b2b2b2;
+        vertical-align: middle;
+        font-size: 10pt;
+      }
+      table.body td.left { text-align: left; }
+      table.body td.center { text-align: center; }
+      table.body td.right { text-align: right; }
+      .grand {
+        width: 175mm;
+        margin: 2mm 0 0 5mm;
+        text-align: right;
+        font-size: 11pt;
+      }
+      .grand span { margin-left: 6mm; }
+      .closing { position: running(invoice-meta); }
+      table.sheet-meta {
+        width: 175mm;
+        border-collapse: collapse;
+        font-size: 9pt;
+        margin: 0 0 0 5mm;
+      }
+      table.sheet-meta td {
+        border: 0.5pt solid #b2b2b2;
+        padding: 1mm 1.5mm;
+      }
+      table.sheet-meta td.label { text-align: right; width: 34mm; }
+      table.sheet-meta td.value { width: 53.5mm; }
+      .badge {
+        display: inline-block;
+        background: #1f9d55;
+        color: #fff;
+        font-weight: 700;
+        font-size: 9pt;
+        line-height: 1.2;
+        padding: 0.3mm 1.4mm 0.4mm;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="letterhead">
+      {% if issuer.logo_uri %}
+      <img class="logo" src="{{ issuer.logo_uri }}" alt="" />
+      {% endif %}
+      <div class="issuer">
+        <p class="name">{{ issuer.name }}</p>
+        {% for line in issuer.lines %}<p>{{ line }}</p>{% endfor %}
+      </div>
+      <div class="bank">
+        <div>
+          <p>IBAN: {{ issuer.iban }}</p>
+          <p>BIC/SWIFT: {{ issuer.bic }}</p>
+        </div>
+        <div>
+          <p>{{ issuer.email }}</p>
+          <p>{{ issuer.website }}</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="mark" aria-hidden="true">
+      <div class="qr-slot left">
+        <p>SEPA</p>
+        <div class="qr-frame">{% if sepa_slot_qr %}<img src="data:image/png;base64,{{ sepa_slot_qr }}" alt="" />{% endif %}</div>
+      </div>
+      <div class="qr-slot right">
+        <p>WERO</p>
+        <div class="qr-frame">{% if wero_slot_qr %}<img src="data:image/png;base64,{{ wero_slot_qr }}" alt="" />{% endif %}</div>
+      </div>
+    </div>
+    <div class="recipient">
+      <p>{{ recipient_name }}</p>
+      {% for line in recipient_lines %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <p class="subject">Subject: {{ invoice.invoice_number }}</p>
+    <div class="fold"></div>
+    <div class="lead"></div>
+
+    <table class="lines block">
+      <colgroup>
+        <col style="width: 58mm" />
+        <col style="width: 36mm" />
+        <col style="width: 28mm" />
+        <col style="width: 12mm" />
+        <col style="width: 20.5mm" />
+        <col style="width: 20.5mm" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>License</th>
+          <th>License ID</th>
+          <th class="num">Qty</th>
+          <th class="num">Unit</th>
+          <th class="num">Subtotal</th>
+        </tr>
+      </thead>
+    </table>
+    <div class="sheet block">
+      <table class="body">
+        <colgroup>
+          <col style="width: 58mm" />
+          <col style="width: 36mm" />
+          <col style="width: 28mm" />
+          <col style="width: 12mm" />
+          <col style="width: 20.5mm" />
+          <col style="width: 20.5mm" />
+        </colgroup>
+        <tbody>
+          {% for row in license_rows %}
+          <tr>
+            <td class="left">{{ row.name }}</td>
+            <td class="center">{{ row.license }}</td>
+            <td class="center">{{ row.license_id }}</td>
+            <td class="center">{{ row.quantity }}</td>
+            <td class="right">{{ row.unit_price }}</td>
+            <td class="right">{{ row.line_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="grand"><span>Total Qty : {{ total_qty }}</span><span>Total : {{ total_amount }}</span></p>
+
+    <div class="closing">
+      <table class="sheet-meta">
+        <tr>
+          <td class="label">Invoice :</td>
+          <td class="value">{{ invoice.invoice_number }}</td>
+          <td class="label">Order :</td>
+          <td class="value">{{ order.order_number }}</td>
+        </tr>
+        <tr>
+          <td class="label">Issued :</td>
+          <td class="value">{{ issued_on }}</td>
+          <td class="label">Issued :</td>
+          <td class="value">{{ ordered_on }}</td>
+        </tr>
+        <tr>
+          <td class="label">Paid :</td>
+          <td class="value">{{ paid_on }}</td>
+          <td class="label">Paid :</td>
+          <td class="value">{{ fulfilled_on }}</td>
+        </tr>
+        <tr>
+          <td class="label">Status :</td>
+          <td class="value">{% if invoice_status_done %}<span class="badge">{{ invoice_status_label }}</span>{% else %}{{ invoice_status_label }}{% endif %}</td>
+          <td class="label">Status :</td>
+          <td class="value">{% if order_status_done %}<span class="badge">{{ order_status_label }}</span>{% else %}{{ order_status_label }}{% endif %}</td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>

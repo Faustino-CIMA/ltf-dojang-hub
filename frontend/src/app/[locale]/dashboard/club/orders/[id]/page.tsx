@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Member, getMembers } from "@/lib/club-admin-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { FinanceOrder, getClubOrder } from "@/lib/club-finance-api";
-import { orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
+import { orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
 
 type OrderItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
   year: string;
@@ -86,6 +88,7 @@ export default function ClubOrderDetailPage() {
       const display = orderItemMemberDisplay(item, membersById, t("unknownMember"));
       return {
         id: item.id,
+        itemLabel: orderItemLabel(item),
         memberName: display.name,
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
@@ -97,7 +100,7 @@ export default function ClubOrderDetailPage() {
   const feeOnly = orderItemsAreClubFees(order?.items);
   const columns = feeOnly
     ? [
-        { key: "memberName", header: t("orderItemDescriptionLabel") },
+        { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: t("qtyLabel") },
       ]
     : [
@@ -125,7 +128,9 @@ export default function ClubOrderDetailPage() {
 
   return (
     <ClubAdminLayout title={t("orderDetailTitle")} subtitle={t("orderDetailSubtitle")}>
-      <div className="mb-6">
+      <div className="space-y-6">
+      <ClubFinanceTabs />
+      <div>
         <Button asChild variant="outline">
           <Link href={`/${locale}/dashboard/club/orders`}>{t("backToOrders")}</Link>
         </Button>
@@ -167,10 +172,11 @@ export default function ClubOrderDetailPage() {
         ) : null}
       </section>
 
-      <section className="mt-6">
+      <section>
         <h2 className="mb-3 text-sm font-semibold text-foreground">{t("orderItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
+      </div>
     </ClubAdminLayout>
   );
 }

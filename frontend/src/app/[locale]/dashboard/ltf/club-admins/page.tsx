@@ -13,6 +13,7 @@ import { X } from "lucide-react";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
@@ -809,7 +810,7 @@ export default function ClubAdminsBoardPage() {
                   <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-3">
                     <div className="space-y-2">
                       {membersLoading && shownMembers.length === 0 ? (
-                        <p className="px-2 py-6 text-center text-sm text-muted">{t("loadingTitle")}</p>
+                        <LoadingCard title={t("loadingTitle")} description={t("loadingSubtitle")} />
                       ) : shownMembers.length === 0 ? (
                         <p className="px-2 py-6 text-center text-sm text-muted">
                           {licensedOnly

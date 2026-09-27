@@ -1,7 +1,8 @@
 **LTF Taekwondo License Manager — Master Summary (May 2026)**
-Last updated: 2026-09-11
+Last updated: 2026-09-27
 
 Current main branch state:
+- Version: v0.11.0 on `feature/module-club-management` — club training, promotion, shop, fees, Qualité+ subsidies, and the LTF license invoice letterhead (2026-09-27)
 - Version: v0.10.0 on `feature/module-event-calendar` — Event engine, federation/club/member calendars, additive product codes (2026-09-11)
 - Version: v0.9.0 on `feature/module-entitlements` — product codes, install entitlements, per-club assignment, Preview prove-out (2026-09-06)
 - Version: v0.8.0 on `feature/ui-refresh-and-designer` — ops console, Club Admin rubber-band assignment (2026-09-04)
@@ -60,6 +61,7 @@ Rules we follow:
 - Backend/worker/beat share image `ltf-license-manager-backend` so Celery stays in sync after backend rebuilds — completed (v0.8.0)
 - Modular entitlements: signed product codes on ops, install entitlement + per-club assignment, API 403 and hidden nav, Preview coming-soon prove-out. Redeem is additive. Never call a software entitlement a “license.” — completed (v0.9.0; additive redeem in v0.10.0)
 - Event calendar: one Event engine; federation calendar when entitled; club calendar when assigned; members see public dates; Public/Internal/Private spelled out; today is a filled date circle — completed (v0.10.0)
+- Club management: training timetable and rolls, belt promotion, coach pay periods, in-club shop, membership fees and family rebates, Qualité+ subsidy lists, and the federation license-invoice letterhead — completed (v0.11.0)
 - Full Finance Module (Order, OrderItem, Invoice, Payment with card details, Stripe Checkout + webhooks + manual record payment, audit logs) — completed
 - License & Grade History tracking with django-simple-history — completed
 - Profile Picture system (upload, crop/framing for 8:10 print, @imgly/background-removal-js) — completed

@@ -7,6 +7,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getOpsJobs, retryOpsPrintJob, type OpsJobs } from "@/lib/ops-api";
 
@@ -65,6 +66,10 @@ export default function OpsJobsPage() {
           setSuccessMessage(null);
         }}
       />
+      {jobs === null && !errorMessage ? (
+        <LoadingCardGrid title={t("jobsTitle")} description={t("jobsSubtitle")} />
+      ) : (
+      <>
       <section>
         <h2 className="text-lg font-semibold text-foreground">{t("celeryTitle")}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -146,6 +151,8 @@ export default function OpsJobsPage() {
           />
         </div>
       </section>
+      </>
+      )}
     </OpsLayout>
   );
 }

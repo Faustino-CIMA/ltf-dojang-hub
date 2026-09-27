@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
@@ -438,7 +439,7 @@ export default function ClubAdminsPage() {
                   </p>
                   <div className="space-y-2">
                     {membersLoading && visibleMembers.length === 0 ? (
-                      <p className="px-2 py-6 text-center text-sm text-muted">{t("loadingTitle")}</p>
+                      <LoadingCard title={t("loadingTitle")} description={t("loadingSubtitle")} />
                     ) : visibleMembers.length === 0 ? (
                       <p className="px-2 py-6 text-center text-sm text-muted">
                         {filterClubId ? t("adminsNoMembers") : t("adminsPickClubFirst")}

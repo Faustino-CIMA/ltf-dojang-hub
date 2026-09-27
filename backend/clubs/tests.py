@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from io import BytesIO
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -1205,3 +1206,93 @@ class LuxembourgIbanBankLookupTests(TestCase):
             derive_bank_name_from_iban("LU440080000000000001"),
             "Banque de Luxembourg",
         )
+
+
+class ClubTrainerTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.club_admin = User.objects.create_user(
+            username="trainer-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Trainer Club", created_by=self.club_admin)
+        self.club.admins.add(self.club_admin)
+        self.member_user = User.objects.create_user(
+            username="trainer-member",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+            email="trainer.member@example.com",
+        )
+        self.member = Member.objects.create(
+            user=self.member_user,
+            club=self.club,
+            first_name="Kim",
+            last_name="Trainer",
+            email="trainer.member@example.com",
+            date_of_birth=date(1990, 1, 1),
+        )
+
+    def test_club_admin_can_add_and_remove_a_trainer(self):
+        self.client.force_authenticate(user=self.club_admin)
+        added = self.client.post(
+            f"/api/clubs/{self.club.id}/add_trainer/",
+            {"member_id": self.member.id},
+            format="json",
+        )
+        self.assertEqual(added.status_code, 200, added.data)
+        self.member_user.refresh_from_db()
+        self.assertEqual(self.member_user.role, User.Roles.COACH)
+        self.assertTrue(self.club.trainers.filter(id=self.member_user.id).exists())
+        self.assertFalse(self.club.admins.filter(id=self.member_user.id).exists())
+        listed = self.client.get(f"/api/clubs/{self.club.id}/trainers/")
+        self.assertEqual(listed.status_code, 200)
+        self.assertTrue(listed.data["trainers"][0]["include_in_qualite"])
+        hidden = self.client.post(
+            f"/api/clubs/{self.club.id}/trainer_qualite/",
+            {"user_id": self.member_user.id, "include_in_qualite": False},
+            format="json",
+        )
+        self.assertEqual(hidden.status_code, 200, hidden.data)
+        self.assertFalse(hidden.data["trainers"][0]["include_in_qualite"])
+        self.assertEqual(listed.data["trainers"][0]["member_id"], self.member.id)
+        removed = self.client.post(
+            f"/api/clubs/{self.club.id}/remove_trainer/",
+            {"user_id": self.member_user.id},
+            format="json",
+        )
+        self.assertEqual(removed.status_code, 200, removed.data)
+        self.member_user.refresh_from_db()
+        self.assertEqual(self.member_user.role, User.Roles.MEMBER)
+        self.assertFalse(self.club.trainers.filter(id=self.member_user.id).exists())
+
+    def test_inactive_and_minor_members_cannot_be_coaches(self):
+        self.client.force_authenticate(user=self.club_admin)
+        inactive = Member.objects.create(
+            club=self.club,
+            first_name="Old",
+            last_name="Member",
+            email="old.member@example.com",
+            date_of_birth=date(1985, 4, 1),
+            is_active=False,
+        )
+        minor = Member.objects.create(
+            club=self.club,
+            first_name="Young",
+            last_name="Member",
+            email="young.member@example.com",
+            date_of_birth=date(2014, 6, 1),
+        )
+        inactive_response = self.client.post(
+            f"/api/clubs/{self.club.id}/add_trainer/",
+            {"member_id": inactive.id, "email": "old.member@example.com"},
+            format="json",
+        )
+        self.assertEqual(inactive_response.status_code, 400)
+        minor_response = self.client.post(
+            f"/api/clubs/{self.club.id}/add_trainer/",
+            {"member_id": minor.id},
+            format="json",
+        )
+        self.assertEqual(minor_response.status_code, 400)
+        self.assertEqual(minor_response.data["detail"], "This person cannot be a coach.")

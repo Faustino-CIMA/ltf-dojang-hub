@@ -27,10 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { BudgetPanel } from "@/components/finance/budget-panel";
 import {
+  FinanceBudgetResponse,
   FinanceReportResponse,
   downloadFinanceReportExcel,
+  getFinanceBudget,
   getFinanceReport,
+  saveFinanceBudget,
   saveFinanceYearOpening,
 } from "@/lib/ltf-finance-api";
 import { formatDisplayDate } from "@/lib/date-display";
@@ -48,10 +52,12 @@ export default function LtfFinanceReportsPage() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(String(currentYear));
   const [report, setReport] = useState<FinanceReportResponse | null>(null);
+  const [budget, setBudget] = useState<FinanceBudgetResponse | null>(null);
   const [openingCash, setOpeningCash] = useState("");
   const [openingNotes, setOpeningNotes] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingOpening, setIsSavingOpening] = useState(false);
+  const [isSavingBudget, setIsSavingBudget] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -60,8 +66,12 @@ export default function LtfFinanceReportsPage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const response = await getFinanceReport(Number(year));
+      const [response, budgetResponse] = await Promise.all([
+        getFinanceReport(Number(year)),
+        getFinanceBudget(Number(year)),
+      ]);
       setReport(response);
+      setBudget(budgetResponse);
       setOpeningCash(response.opening.cash);
       setOpeningNotes(response.opening.notes);
     } catch (error) {
@@ -147,6 +157,28 @@ export default function LtfFinanceReportsPage() {
             })}{" "}
             {report.methodology}
           </PageNotice>
+
+          {budget ? (
+            <BudgetPanel
+              key={year}
+              budget={budget}
+              currency={report.currency}
+              canEdit
+              isSaving={isSavingBudget}
+              onSave={async (lines) => {
+                setIsSavingBudget(true);
+                try {
+                  setBudget(await saveFinanceBudget(Number(year), lines));
+                  setSuccessMessage(t("budgetSavedMessage"));
+                } catch (error) {
+                  setErrorMessage(error instanceof Error ? error.message : t("budgetSaveError"));
+                  throw error;
+                } finally {
+                  setIsSavingBudget(false);
+                }
+              }}
+            />
+          ) : null}
 
           <FormPanel>
             <h2 className="text-section text-foreground">{t("openingCashTitle")}</h2>
@@ -241,6 +273,24 @@ export default function LtfFinanceReportsPage() {
               </dl>
             </FormPanel>
           </div>
+
+          {report.aging ? (
+            <FormPanel>
+              <h2 className="text-section text-foreground">{t("accountsReceivableLabel")}</h2>
+              <EntityTable
+                columns={[
+                  { key: "key", header: t("statusLabel") },
+                  { key: "count", header: t("totalLabel") },
+                  {
+                    key: "amount",
+                    header: t("expenseAmountLabel"),
+                    render: (row: { amount: string }) => moneyLabel(row.amount, report.currency),
+                  },
+                ]}
+                rows={report.aging.buckets.map((bucket) => ({ ...bucket, id: bucket.key }))}
+              />
+            </FormPanel>
+          ) : null}
 
           <FormPanel>
             <h2 className="text-section text-foreground">{t("cashMovementTitle")}</h2>

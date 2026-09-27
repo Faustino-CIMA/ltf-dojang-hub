@@ -2,6 +2,7 @@ import { apiRequest } from "./api";
 
 export const PREVIEW_MODULE_ID = "preview";
 export const EVENT_CALENDAR_MODULE_ID = "event_calendar";
+export const CLUB_MANAGEMENT_MODULE_ID = "club_management";
 
 export type ModuleScope = "install" | "club";
 export type ModuleEntitlementStatus = "active" | "expired" | "not_entitled";

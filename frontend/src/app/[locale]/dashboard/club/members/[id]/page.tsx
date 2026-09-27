@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeftRight,
   Award,
+  ClipboardList,
   History,
   IdCard,
   Pencil,
@@ -53,6 +54,10 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { MemberClubRecordPanel } from "@/components/clubmgmt/member-club-record-panel";
+import { useClubSelection } from "@/components/club-selection-provider";
+import { downloadClubStatement } from "@/lib/club-finance-api";
+import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { apiRequest } from "@/lib/api";
 import { formatDateInputValue, formatDisplayDate, parseDisplayDateToIso } from "@/lib/date-display";
 import {
@@ -103,6 +108,7 @@ type AuthMeResponse = { role: string };
 
 const MEMBER_DETAIL_TABS = [
   "overview",
+  "club-record",
   "current-licenses",
   "license-history",
   "grades",
@@ -154,6 +160,8 @@ export default function ClubMemberDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const { selectedClubId } = useClubSelection();
+  const [clubMgmtOn, setClubMgmtOn] = useState(false);
 
   const {
     register,
@@ -260,6 +268,22 @@ export default function ClubMemberDetailPage() {
     }
   }, [memberId, t]);
 
+  const handleStatementDownload = useCallback(async () => {
+    if (!member || selectedClubId == null) {
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      await downloadClubStatement({
+        clubId: selectedClubId,
+        year: new Date().getFullYear(),
+        memberId: member.id,
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("statementDownloadError"));
+    }
+  }, [member, selectedClubId, t]);
+
   const handlePhotoDownload = useCallback(async () => {
     if (!member) {
       return;
@@ -278,6 +302,20 @@ export default function ClubMemberDetailPage() {
   useEffect(() => {
     loadMember();
   }, [loadMember]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+      })
+      .catch(() => {
+        if (!cancelled) setClubMgmtOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -401,9 +439,22 @@ export default function ClubMemberDetailPage() {
   return (
     <ClubAdminLayout title={title} subtitle={t("memberDetailSubtitle")}>
       <div className="space-y-4">
-        <Button variant="outline" size="sm" className="h-[var(--control-height)] min-h-[var(--control-height)]" asChild>
-          <Link href={`/${locale}/dashboard/club/members`}>{t("backToMembers")}</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="h-[var(--control-height)] min-h-[var(--control-height)]" asChild>
+            <Link href={`/${locale}/dashboard/club/members`}>{t("backToMembers")}</Link>
+          </Button>
+          {clubMgmtOn && member && selectedClubId != null ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-[var(--control-height)] min-h-[var(--control-height)]"
+              onClick={() => void handleStatementDownload()}
+            >
+              {t("downloadStatementAction")}
+            </Button>
+          ) : null}
+        </div>
 
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
@@ -424,6 +475,9 @@ export default function ClubMemberDetailPage() {
               onChange={setActiveTab}
               options={[
                 { value: "overview", label: t("memberOverviewTab"), icon: User },
+                ...(clubMgmtOn
+                  ? [{ value: "club-record" as const, label: t("memberClubRecordTab"), icon: ClipboardList }]
+                  : []),
                 {
                   value: "current-licenses",
                   label: t("memberCurrentLicensesTab"),
@@ -455,6 +509,13 @@ export default function ClubMemberDetailPage() {
               id="member-detail-panel"
               aria-labelledby={`member-detail-${activeTab}`}
             >
+            {activeTab === "club-record" && member ? (
+              <MemberClubRecordPanel
+                memberId={member.id}
+                clubId={member.club}
+                overviewEmail={member.email ?? ""}
+              />
+            ) : null}
             {activeTab === "overview" ? (
             <FormPanel>
               <div className="flex items-center justify-between gap-2">

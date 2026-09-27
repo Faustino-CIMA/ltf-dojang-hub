@@ -3,7 +3,7 @@ from django.utils.dateparse import parse_datetime
 
 from modules.codes import ProductCodeError, build_payload, sign_payload
 from modules.entitlements import install_id_str
-from modules.registry import KNOWN_MODULE_IDS
+from modules.registry import KNOWN_MODULE_IDS, canonical_module_ids
 
 
 class Command(BaseCommand):
@@ -22,7 +22,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        module_ids = [item.strip() for item in str(options["modules"]).split(",") if item.strip()]
+        module_ids = canonical_module_ids(
+            [item.strip() for item in str(options["modules"]).split(",") if item.strip()]
+        )
         unknown = [mid for mid in module_ids if mid not in KNOWN_MODULE_IDS]
         if unknown:
             raise CommandError(f"Unknown module id: {', '.join(unknown)}")

@@ -10,6 +10,7 @@ import { PayconiqPayment } from "@/lib/club-finance-api";
 type PayconiqPaymentCardProps = {
   payment: PayconiqPayment | null;
   isBusy: boolean;
+  canCreate?: boolean;
   onCreate: () => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
 };
@@ -23,6 +24,7 @@ function normalizePayconiqStatus(status: string | null | undefined) {
 export function PayconiqPaymentCard({
   payment,
   isBusy,
+  canCreate = true,
   onCreate,
   onRefresh,
 }: PayconiqPaymentCardProps) {
@@ -71,7 +73,7 @@ export function PayconiqPaymentCard({
     }
   }, [payment?.payconiq_status, payment?.status, t]);
 
-  const createDisabled = isBusy || Boolean(payment && !statusMeta.isTerminal);
+  const createDisabled = isBusy || !canCreate || Boolean(payment && !statusMeta.isTerminal);
 
   return (
     <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">

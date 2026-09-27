@@ -39,6 +39,7 @@ export type AppNavItem = {
   label: string;
   icon: LucideIcon;
   matchMode: "exact" | "prefix";
+  extraMatchHrefs?: string[];
 };
 
 type AppShellProps = {
@@ -63,16 +64,27 @@ function pathMatches(pathname: string, href: string, matchMode: AppNavItem["matc
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function itemMatches(pathname: string, item: AppNavItem) {
+  if (pathMatches(pathname, item.href, item.matchMode)) {
+    return true;
+  }
+  return (item.extraMatchHrefs ?? []).some((href) => pathMatches(pathname, href, "prefix"));
+}
+
 function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   if (!pathname) {
     return null;
   }
   let best: AppNavItem | null = null;
   for (const item of items) {
-    if (!pathMatches(pathname, item.href, item.matchMode)) {
+    if (!itemMatches(pathname, item)) {
       continue;
     }
-    if (!best || item.href.length > best.href.length) {
+    const score = Math.max(
+      item.href.length,
+      ...(item.extraMatchHrefs ?? []).map((href) => href.length),
+    );
+    if (!best || score > Math.max(best.href.length, ...(best.extraMatchHrefs ?? []).map((href) => href.length))) {
       best = item;
     }
   }

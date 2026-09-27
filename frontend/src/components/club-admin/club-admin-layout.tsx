@@ -8,22 +8,29 @@ import { apiRequest } from "@/lib/api";
 import {
   ArrowLeftRight,
   CalendarDays,
-  CreditCard,
+  Award,
+  Timer,
+  UsersRound,
   FileText,
   IdCard,
   LayoutDashboard,
   Printer,
   Settings,
+  Package,
   ShoppingCart,
   Sparkles,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import { IncomingTransferNotice } from "@/components/club-admin/incoming-transfer-notice";
+import { ClubPrintingTabs } from "@/components/club-admin/club-printing-tabs";
+import { ClubTrainingTabs } from "@/components/club-admin/club-training-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import {
+  CLUB_MANAGEMENT_MODULE_ID,
   EVENT_CALENDAR_MODULE_ID,
   getModuleStatus,
   isClubModuleAssigned,
@@ -47,14 +54,20 @@ type ClubNavDef = Readonly<{
     | "navMembers"
     | "navLicenses"
     | "navPrintJobs"
+    | "navPrinting"
     | "navOrders"
     | "navInvoices"
+    | "navFinance"
     | "navTransfers"
     | "navAdmins"
     | "navPrinterProfiles"
     | "navSettings"
     | "navPreview"
-    | "navCalendar";
+    | "navCalendar"
+    | "navFamilies"
+    | "navShop"
+    | "navTraining"
+    | "navPromotion";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 }>;
@@ -82,11 +95,18 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     icon: IdCard,
   } satisfies ClubNavDef),
   Object.freeze({
-    id: "print-jobs",
+    id: "printing",
     routePath: "dashboard/club/print-jobs",
-    labelKey: "navPrintJobs",
+    labelKey: "navPrinting",
     matchMode: "prefix",
     icon: Printer,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "finance",
+    routePath: "dashboard/club/invoices",
+    labelKey: "navFinance",
+    matchMode: "prefix",
+    icon: Wallet,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "orders",
@@ -117,6 +137,34 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     icon: CalendarDays,
   } satisfies ClubNavDef),
   Object.freeze({
+    id: "families",
+    routePath: "dashboard/club/families",
+    labelKey: "navFamilies",
+    matchMode: "prefix",
+    icon: UsersRound,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "training",
+    routePath: "dashboard/club/training",
+    labelKey: "navTraining",
+    matchMode: "prefix",
+    icon: Timer,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "promotion",
+    routePath: "dashboard/club/promotion",
+    labelKey: "navPromotion",
+    matchMode: "prefix",
+    icon: Award,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "shop",
+    routePath: "dashboard/club/shop",
+    labelKey: "navShop",
+    matchMode: "prefix",
+    icon: Package,
+  } satisfies ClubNavDef),
+  Object.freeze({
     id: "preview",
     routePath: "dashboard/club/preview",
     labelKey: "navPreview",
@@ -129,13 +177,6 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     labelKey: "navAdmins",
     matchMode: "prefix",
     icon: UserCog,
-  } satisfies ClubNavDef),
-  Object.freeze({
-    id: "printer-profiles",
-    routePath: "dashboard/club/printer-profiles",
-    labelKey: "navPrinterProfiles",
-    matchMode: "prefix",
-    icon: CreditCard,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "settings",
@@ -177,6 +218,7 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
 
   const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
   const calendarAssigned = isClubModuleAssigned(modules, EVENT_CALENDAR_MODULE_ID, selectedClubId);
+  const clubMgmtAssigned = isClubModuleAssigned(modules, CLUB_MANAGEMENT_MODULE_ID, selectedClubId);
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
@@ -184,6 +226,10 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         if (def.id === "admins") return role === "club_admin";
         if (def.id === "preview") return role === "club_admin" && previewAssigned;
         if (def.id === "calendar") return calendarAssigned;
+        if (def.id === "families" || def.id === "shop") return role === "club_admin" && clubMgmtAssigned;
+        if (def.id === "training" || def.id === "promotion") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
+        if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
+        if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
         return true;
       }).map((def) => ({
         id: def.id,
@@ -191,14 +237,39 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
+        extraMatchHrefs:
+          def.id === "finance"
+            ? [
+                `/${locale}/dashboard/club/orders`,
+                `/${locale}/dashboard/club/invoices`,
+                `/${locale}/dashboard/club/payments`,
+                `/${locale}/dashboard/club/income`,
+                `/${locale}/dashboard/club/expenses`,
+                `/${locale}/dashboard/club/reports`,
+              ]
+            : def.id === "printing"
+              ? [`/${locale}/dashboard/club/printer-profiles`]
+              : undefined,
       })),
-    [calendarAssigned, locale, previewAssigned, role, t]
+    [calendarAssigned, clubMgmtAssigned, locale, previewAssigned, role, t]
   );
+
+  const isPrinting =
+    pathname?.includes("/dashboard/club/print-jobs") || pathname?.includes("/dashboard/club/printer-profiles");
+  const isTraining = pathname?.includes("/dashboard/club/training");
 
   return (
     <AppShell title={title} subtitle={subtitle} navItems={navItems}>
       <IncomingTransferNotice />
-      {children}
+      {isPrinting || isTraining ? (
+        <div className="space-y-6">
+          {isPrinting ? <ClubPrintingTabs /> : null}
+          {isTraining ? <ClubTrainingTabs /> : null}
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </AppShell>
   );
 }

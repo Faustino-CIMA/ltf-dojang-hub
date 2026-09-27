@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -51,6 +52,7 @@ export default function ClubAdminOrdersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatusFilter>("all");
+  const [ledgerFilter, setLedgerFilter] = useState<ClubLedgerFilterValue>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
@@ -62,6 +64,8 @@ export default function ClubAdminOrdersPage() {
     delivered: 0,
     cancelled: 0,
   });
+  const requestAbortRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const pageSizeOptions = ["50", "150", "300", "all"];
   const statusFilterParam = statusQueryForFilter(orderStatusFilter);
@@ -78,36 +82,58 @@ export default function ClubAdminOrdersPage() {
   }, [pageSize, totalCount]);
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
+    const keepVisible = hasLoadedRef.current;
+    requestAbortRef.current?.abort();
+    const controller = new AbortController();
+    requestAbortRef.current = controller;
+    if (!keepVisible) {
+      setIsLoading(true);
+    }
     setErrorMessage(null);
     const q = searchQuery || undefined;
     const clubId = selectedClubId ?? undefined;
+    const ledger = ledgerFilter === "all" ? undefined : ledgerFilter;
     try {
       const [ordersResponse, allCountRes, placedCountRes, deliveredCountRes, cancelledCountRes] =
         await Promise.all([
-          getClubOrdersPage({
-            page: currentPage,
-            pageSize: ordersListPageSize,
-            clubId,
-            q,
-            status: statusFilterParam,
-          }),
-          getClubOrdersPage({ page: 1, pageSize: 1, clubId, q }),
-          getClubOrdersPage({
-            page: 1,
-            pageSize: 1,
-            clubId,
-            q,
-            status: "draft,pending",
-          }),
-          getClubOrdersPage({ page: 1, pageSize: 1, clubId, q, status: "paid" }),
-          getClubOrdersPage({
-            page: 1,
-            pageSize: 1,
-            clubId,
-            q,
-            status: "cancelled,refunded",
-          }),
+          getClubOrdersPage(
+            {
+              page: currentPage,
+              pageSize: ordersListPageSize,
+              clubId,
+              q,
+              status: statusFilterParam,
+              ledger,
+            },
+            { signal: controller.signal }
+          ),
+          getClubOrdersPage({ page: 1, pageSize: 1, clubId, q, ledger }, { signal: controller.signal }),
+          getClubOrdersPage(
+            {
+              page: 1,
+              pageSize: 1,
+              clubId,
+              q,
+              status: "draft,pending",
+              ledger,
+            },
+            { signal: controller.signal }
+          ),
+          getClubOrdersPage(
+            { page: 1, pageSize: 1, clubId, q, status: "paid", ledger },
+            { signal: controller.signal }
+          ),
+          getClubOrdersPage(
+            {
+              page: 1,
+              pageSize: 1,
+              clubId,
+              q,
+              status: "cancelled,refunded",
+              ledger,
+            },
+            { signal: controller.signal }
+          ),
         ]);
       setOrders(ordersResponse.results);
       setTotalCount(ordersResponse.count);
@@ -117,16 +143,31 @@ export default function ClubAdminOrdersPage() {
         delivered: deliveredCountRes.count,
         cancelled: cancelledCountRes.count,
       });
+      hasLoadedRef.current = true;
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       setErrorMessage(error instanceof Error ? error.message : t("ordersLoadError"));
     } finally {
-      setIsLoading(false);
+      if (requestAbortRef.current === controller) {
+        requestAbortRef.current = null;
+        if (!keepVisible) {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [currentPage, ordersListPageSize, searchQuery, selectedClubId, statusFilterParam, t]);
+  }, [currentPage, ledgerFilter, ordersListPageSize, searchQuery, selectedClubId, statusFilterParam, t]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    return () => {
+      requestAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -163,7 +204,7 @@ export default function ClubAdminOrdersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId, orderStatusFilter]);
+  }, [searchQuery, pageSize, selectedClubId, orderStatusFilter, ledgerFilter]);
 
   const columns = [
     { key: "order_number", header: t("orderNumberLabel") },
@@ -191,10 +232,11 @@ export default function ClubAdminOrdersPage() {
   return (
     <ClubAdminLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
       <div className="space-y-6">
+        <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -219,9 +261,12 @@ export default function ClubAdminOrdersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="ml-auto shrink-0">
+                <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0">
+            <div className="min-w-0 border-t border-[var(--border)] pt-4">
               <FilterPills
                 ariaLabel={t("ordersStatusFilterAriaLabel")}
                 value={orderStatusFilter}

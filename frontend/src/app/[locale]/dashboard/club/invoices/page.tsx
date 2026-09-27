@@ -6,8 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +30,7 @@ import {
 } from "@/lib/club-finance-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { openInvoicePdf } from "@/lib/invoice-pdf";
+import { isClubLedger } from "@/lib/ltf-finance-api";
 
 const AUTO_REFRESH_INTERVAL_MS = 30000;
 
@@ -44,10 +47,12 @@ export default function ClubAdminInvoicesPage() {
   const searchParams = useSearchParams();
   const overdueIssue = searchParams.get("issue") === "overdue_7d";
   const { selectedClubId } = useClubSelection();
+  const { canRecordPayments } = useClubFinanceAccess();
   const [invoices, setInvoices] = useState<FinanceInvoice[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>("all");
+  const [ledgerFilter, setLedgerFilter] = useState<ClubLedgerFilterValue>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
@@ -64,6 +69,7 @@ export default function ClubAdminInvoicesPage() {
   });
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const pageSizeOptions = ["50", "150", "300", "all"];
   const statusFilterParam = overdueIssue
@@ -86,18 +92,20 @@ export default function ClubAdminInvoicesPage() {
   const loadData = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
-      if (isRefreshingRef.current) {
-        return;
-      }
+      const keepVisible = hasLoadedRef.current;
+      requestAbortRef.current?.abort();
       const controller = new AbortController();
       isRefreshingRef.current = true;
       requestAbortRef.current = controller;
-      if (!silent) {
+      if (!keepVisible && !silent) {
         setIsLoading(true);
+      }
+      if (!silent) {
         setErrorMessage(null);
       }
       const q = searchQuery || undefined;
       const clubId = selectedClubId ?? undefined;
+      const ledger = ledgerFilter === "all" ? undefined : ledgerFilter;
       try {
         const [invoiceResponse, allCountRes, draftCountRes, issuedCountRes, paidCountRes, voidCountRes] =
           await Promise.all([
@@ -109,24 +117,25 @@ export default function ClubAdminInvoicesPage() {
                 q,
                 status: statusFilterParam,
                 issue: overdueIssue ? "overdue_7d" : undefined,
+                ledger,
               },
               { signal: controller.signal }
             ),
-            getClubInvoicesPage({ page: 1, pageSize: 1, clubId, q }, { signal: controller.signal }),
+            getClubInvoicesPage({ page: 1, pageSize: 1, clubId, q, ledger }, { signal: controller.signal }),
             getClubInvoicesPage(
-              { page: 1, pageSize: 1, clubId, q, status: "draft" },
+              { page: 1, pageSize: 1, clubId, q, status: "draft", ledger },
               { signal: controller.signal }
             ),
             getClubInvoicesPage(
-              { page: 1, pageSize: 1, clubId, q, status: "issued" },
+              { page: 1, pageSize: 1, clubId, q, status: "issued", ledger },
               { signal: controller.signal }
             ),
             getClubInvoicesPage(
-              { page: 1, pageSize: 1, clubId, q, status: "paid" },
+              { page: 1, pageSize: 1, clubId, q, status: "paid", ledger },
               { signal: controller.signal }
             ),
             getClubInvoicesPage(
-              { page: 1, pageSize: 1, clubId, q, status: "void" },
+              { page: 1, pageSize: 1, clubId, q, status: "void", ledger },
               { signal: controller.signal }
             ),
           ]);
@@ -139,6 +148,7 @@ export default function ClubAdminInvoicesPage() {
           paid: paidCountRes.count,
           void: voidCountRes.count,
         });
+        hasLoadedRef.current = true;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -149,14 +159,14 @@ export default function ClubAdminInvoicesPage() {
       } finally {
         if (requestAbortRef.current === controller) {
           requestAbortRef.current = null;
-        }
-        isRefreshingRef.current = false;
-        if (!silent) {
-          setIsLoading(false);
+          isRefreshingRef.current = false;
+          if (!keepVisible && !silent) {
+            setIsLoading(false);
+          }
         }
       }
     },
-    [currentPage, invoicesListPageSize, overdueIssue, searchQuery, selectedClubId, statusFilterParam, t]
+    [currentPage, invoicesListPageSize, ledgerFilter, overdueIssue, searchQuery, selectedClubId, statusFilterParam, t]
   );
 
   useEffect(() => {
@@ -183,7 +193,7 @@ export default function ClubAdminInvoicesPage() {
       return;
     }
     const refreshInBackground = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !isRefreshingRef.current) {
         void loadData({ silent: true });
       }
     };
@@ -249,7 +259,7 @@ export default function ClubAdminInvoicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId, invoiceStatusFilter, overdueIssue]);
+  }, [searchQuery, pageSize, selectedClubId, invoiceStatusFilter, ledgerFilter, overdueIssue]);
 
   const columns = [
     { key: "invoice_number", header: t("invoiceNumberLabel") },
@@ -272,6 +282,11 @@ export default function ClubAdminInvoicesPage() {
       render: (row: FinanceInvoice) => `${row.total} ${row.currency}`,
     },
     {
+      key: "outstanding",
+      header: t("outstandingLabel"),
+      render: (row: FinanceInvoice) => `${row.outstanding ?? row.total} ${row.currency}`,
+    },
+    {
       key: "issued_at",
       header: t("issuedAtLabel"),
       render: (row: FinanceInvoice) => formatDisplayDateTime(row.issued_at),
@@ -280,23 +295,32 @@ export default function ClubAdminInvoicesPage() {
       key: "actions",
       header: common("paymentActionsLabel"),
       render: (row: FinanceInvoice) => {
-        const isPayable = ["draft", "issued"].includes(row.status);
-        return isPayable ? (
+        const outstanding = Number(row.outstanding ?? row.total);
+        const isOpen = ["draft", "issued"].includes(row.status) && outstanding > 0;
+        const clubInternal = isClubLedger(row);
+        const canPayFederation = isOpen && !clubInternal;
+        const canRecord = canRecordPayments && isOpen && clubInternal;
+        return (
           <div className="flex flex-col gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePayNow(row)}
-              disabled={activeOrderId === row.order}
-            >
-              {activeOrderId === row.order ? common("paymentProcessing") : common("payNow")}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => handleInvoicePdf(row.id)}>
-              {common("invoicePdfLabel")}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
+            {canPayFederation ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePayNow(row)}
+                disabled={activeOrderId === row.order}
+              >
+                {activeOrderId === row.order ? common("paymentProcessing") : common("payNow")}
+              </Button>
+            ) : null}
+            {canRecord ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/${locale}/dashboard/club/payments/${row.id}/record`)}
+              >
+                {t("recordPaymentButton")}
+              </Button>
+            ) : null}
             <Button variant="ghost" size="sm" onClick={() => handleInvoicePdf(row.id)}>
               {common("invoicePdfLabel")}
             </Button>
@@ -309,6 +333,7 @@ export default function ClubAdminInvoicesPage() {
   return (
     <ClubAdminLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")}>
       <div className="space-y-6">
+        <ClubFinanceTabs />
         <ActionNotices
           error={errorMessage || actionError}
           onDismiss={() => {
@@ -331,7 +356,7 @@ export default function ClubAdminInvoicesPage() {
         ) : null}
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -356,9 +381,12 @@ export default function ClubAdminInvoicesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="ml-auto shrink-0">
+                <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0">
+            <div className="min-w-0 border-t border-[var(--border)] pt-4">
               <FilterPills
                 ariaLabel={t("invoicesStatusFilterAriaLabel")}
                 value={overdueIssue ? "issued" : invoiceStatusFilter}

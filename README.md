@@ -4,10 +4,10 @@ Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federat
 
 ## Release Notes
 
-This working tree is **v0.10.0**: event calendar (federation, club, and member views) on the entitlements platform. Millimetre print output is unchanged.
+This working tree is **v0.11.0**: club management (training, promotion, shop, fees, and Qualité+ subsidies) on the entitlements platform. Millimetre print output is unchanged.
 
-- See `CHANGELOG.md` **0.10.0** for this release, **0.9.0** for product codes, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.10.0`.
+- See `CHANGELOG.md` **0.11.0** for this release, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- Current tagged release: `v0.11.0`.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
 ## CI (GitHub Actions)

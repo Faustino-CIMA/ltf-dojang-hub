@@ -13,7 +13,7 @@ from .codes import (
     parse_datetime_utc,
 )
 from .models import ClubModuleAssignment, InstallEntitlement, ProductCodeRedemption
-from .registry import catalog, get_spec
+from .registry import LEGACY_MODULE_ALIASES, canonical_module_id, catalog, get_spec
 
 
 def install_id_str() -> str:
@@ -24,27 +24,37 @@ def _is_expired(expires_at) -> bool:
     return bool(expires_at and expires_at <= timezone.now())
 
 
+def _stored_ids_for(module_id: str) -> list[str]:
+    canonical = canonical_module_id(module_id)
+    ids = [canonical]
+    for legacy, target in LEGACY_MODULE_ALIASES.items():
+        if target == canonical:
+            ids.append(legacy)
+    return ids
+
+
 def entitled_module_ids() -> set[str]:
     now = timezone.now()
     ids: set[str] = set()
     for row in InstallEntitlement.objects.filter(active=True):
         if row.expires_at and row.expires_at <= now:
             continue
-        ids.add(row.module_id)
+        ids.add(canonical_module_id(row.module_id))
     return ids
 
 
 def is_install_entitled(module_id: str) -> bool:
-    return module_id in entitled_module_ids()
+    return canonical_module_id(module_id) in entitled_module_ids()
 
 
 def is_club_assigned(module_id: str, club_id: int | None) -> bool:
+    module_id = canonical_module_id(module_id)
     if club_id is None:
         return False
     if not is_install_entitled(module_id):
         return False
     return ClubModuleAssignment.objects.filter(
-        club_id=club_id, module_id=module_id, enabled=True
+        club_id=club_id, module_id__in=_stored_ids_for(module_id), enabled=True
     ).exists()
 
 
@@ -54,7 +64,10 @@ def club_ids_for_user(user) -> list[int]:
     if getattr(user, "is_superuser", False) or getattr(user, "role", "") == "ltf_admin":
         return list(Club.objects.order_by("name").values_list("id", flat=True))
     if getattr(user, "role", "") in ("club_admin", "coach"):
-        return list(user.clubs_administered.order_by("name").values_list("id", flat=True))
+        administered = set(user.clubs_administered.values_list("id", flat=True))
+        if getattr(user, "role", "") == "coach":
+            administered.update(user.clubs_trained.values_list("id", flat=True))
+        return list(Club.objects.filter(id__in=administered).order_by("name").values_list("id", flat=True))
     member = getattr(user, "member_profile", None)
     if member is not None and getattr(member, "club_id", None):
         return [member.club_id]
@@ -65,10 +78,11 @@ def assigned_module_ids_for_club(club_id: int) -> list[str]:
     entitled = entitled_module_ids()
     if not entitled:
         return []
-    rows = ClubModuleAssignment.objects.filter(
-        club_id=club_id, enabled=True, module_id__in=entitled
-    ).values_list("module_id", flat=True)
-    return sorted(rows)
+    rows = ClubModuleAssignment.objects.filter(club_id=club_id, enabled=True).values_list(
+        "module_id", flat=True
+    )
+    assigned = {canonical_module_id(mid) for mid in rows}
+    return sorted(assigned & entitled)
 
 
 def status_for_user(user) -> dict:
@@ -77,23 +91,26 @@ def status_for_user(user) -> dict:
     club_ids = club_ids_for_user(user)
     clubs = []
     if club_ids:
-        assignments = ClubModuleAssignment.objects.filter(
-            club_id__in=club_ids, enabled=True, module_id__in=entitled_set
-        )
+        assignments = ClubModuleAssignment.objects.filter(club_id__in=club_ids, enabled=True)
         by_club: dict[int, list[str]] = {cid: [] for cid in club_ids}
         for row in assignments:
-            by_club.setdefault(row.club_id, []).append(row.module_id)
+            canonical = canonical_module_id(row.module_id)
+            if canonical not in entitled_set:
+                continue
+            by_club.setdefault(row.club_id, []).append(canonical)
         names = dict(Club.objects.filter(id__in=club_ids).values_list("id", "name"))
         for cid in club_ids:
             clubs.append(
                 {
                     "id": cid,
                     "name": names.get(cid, ""),
-                    "modules": sorted(by_club.get(cid, [])),
+                    "modules": sorted(set(by_club.get(cid, []))),
                 }
             )
     modules = []
-    entitlements = {row.module_id: row for row in InstallEntitlement.objects.filter(active=True)}
+    entitlements = {}
+    for row in InstallEntitlement.objects.filter(active=True):
+        entitlements[canonical_module_id(row.module_id)] = row
     for spec in catalog():
         row = entitlements.get(spec["id"])
         expires_at = row.expires_at if row else None
@@ -175,6 +192,7 @@ def redeem_product_code(token: str, *, user=None) -> ProductCodeRedemption:
 
 
 def set_club_assignment(*, club: Club, module_id: str, enabled: bool, user=None) -> ClubModuleAssignment:
+    module_id = canonical_module_id(module_id)
     spec = get_spec(module_id)
     if spec is None:
         raise ProductCodeError("unknown_module", "Unknown module id.")

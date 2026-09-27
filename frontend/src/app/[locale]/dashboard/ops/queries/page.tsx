@@ -8,6 +8,7 @@ import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import {
   downloadOpsQueryCsv,
   getOpsQueryCatalog,
@@ -24,6 +25,7 @@ export default function OpsQueriesPage() {
   const [result, setResult] = useState<OpsQueryResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const selected = useMemo(
     () => catalog.find((item) => item.id === selectedId) ?? null,
@@ -32,6 +34,7 @@ export default function OpsQueriesPage() {
 
   const load = useCallback(async () => {
     setErrorMessage(null);
+    setIsLoading(true);
     try {
       const response = await getOpsQueryCatalog();
       setCatalog(response.results);
@@ -40,6 +43,8 @@ export default function OpsQueriesPage() {
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("loadError"));
+    } finally {
+      setIsLoading(false);
     }
   }, [selectedId, t]);
 
@@ -82,6 +87,9 @@ export default function OpsQueriesPage() {
   return (
     <OpsLayout title={t("queriesTitle")} subtitle={t("queriesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+      {isLoading ? (
+        <LoadingCardGrid title={t("queriesTitle")} description={t("queriesSubtitle")} />
+      ) : (
       <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
         <div className="app-panel p-3">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t("queryCatalog")}</p>
@@ -150,6 +158,7 @@ export default function OpsQueriesPage() {
           ) : null}
         </div>
       </div>
+      )}
     </OpsLayout>
   );
 }

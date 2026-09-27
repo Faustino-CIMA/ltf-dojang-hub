@@ -8,6 +8,7 @@ import Link from "next/link";
 import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { getOpsAuditDetail, type OpsAuditEntry } from "@/lib/ops-api";
 
@@ -44,6 +45,9 @@ export default function OpsAuditDetailPage() {
           <Link href={`/${locale}/dashboard/ops/audit`}>{t("backToAudit")}</Link>
         </Button>
       </div>
+      {!entry && !errorMessage ? (
+        <LoadingCardGrid title={t("auditDetailTitle")} description={t("auditSubtitle")} />
+      ) : null}
       {entry ? (
         <div className="app-panel space-y-3 p-6 text-sm">
           <p>

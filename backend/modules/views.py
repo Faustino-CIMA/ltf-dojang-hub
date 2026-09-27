@@ -41,6 +41,8 @@ class PreviewModuleView(views.APIView):
 
         club_id = _optional_int(request.query_params.get("club"))
         administered = set(user.clubs_administered.values_list("id", flat=True))
+        if role == "coach":
+            administered.update(user.clubs_trained.values_list("id", flat=True))
         if club_id is None:
             if len(administered) == 1:
                 club_id = next(iter(administered))

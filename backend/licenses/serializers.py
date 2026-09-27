@@ -11,9 +11,13 @@ from members.models import Member
 
 from .history import log_license_created
 from .models import (
+    BankStatement,
+    BankStatementLine,
     ClubFeeBillingSchedule,
     ClubFeePrice,
     ClubFeeType,
+    ClubFinanceYearOpening,
+    CreditNote,
     Expense,
     ExpenseCategory,
     FinanceAuditLog,
@@ -65,6 +69,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "license",
             "fee_type",
             "description",
+            "billing_year",
             "price_snapshot",
             "quantity",
             "member_id",
@@ -86,8 +91,20 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return obj.license.member.ltf_licenseid if obj.license_id else ""
 
 
+class CreditNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CreditNote
+        fields = ["id", "credit_number", "invoice", "amount", "reason", "created_by", "created_at"]
+        read_only_fields = ["credit_number", "invoice", "created_by", "created_at"]
+
+
 class InvoiceSerializer(serializers.ModelSerializer):
     item_quantity = serializers.SerializerMethodField()
+    ledger = serializers.CharField(source="order.ledger", read_only=True)
+    credited_total = serializers.SerializerMethodField()
+    paid_total = serializers.SerializerMethodField()
+    outstanding = serializers.SerializerMethodField()
+    credit_notes = CreditNoteSerializer(many=True, read_only=True)
 
     class Meta:
         model = Invoice
@@ -97,20 +114,37 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "order",
             "club",
             "member",
+            "ledger",
             "status",
             "currency",
             "subtotal",
             "tax_total",
             "total",
+            "credited_total",
+            "paid_total",
+            "outstanding",
+            "credit_notes",
             "stripe_invoice_id",
             "stripe_customer_id",
             "issued_at",
             "paid_at",
+            "last_reminded_at",
+            "delivery_method",
+            "delivered_at",
             "item_quantity",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["invoice_number", "created_at", "updated_at"]
+        read_only_fields = ["invoice_number", "ledger", "last_reminded_at", "delivery_method", "delivered_at", "created_at", "updated_at"]
+
+    def get_credited_total(self, obj: Invoice) -> str:
+        return f"{obj.credited_total():.2f}"
+
+    def get_paid_total(self, obj: Invoice) -> str:
+        return f"{obj.paid_total():.2f}"
+
+    def get_outstanding(self, obj: Invoice) -> str:
+        return f"{obj.outstanding():.2f}"
 
     def get_item_quantity(self, obj: Invoice) -> int:
         annotated_value = getattr(obj, "item_quantity", None)
@@ -122,6 +156,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
 class InvoiceListSerializer(serializers.ModelSerializer):
     item_quantity = serializers.SerializerMethodField()
     club_name = serializers.CharField(source="club.name", read_only=True)
+    ledger = serializers.CharField(source="order.ledger", read_only=True)
+    credited_total = serializers.SerializerMethodField()
+    paid_total = serializers.SerializerMethodField()
+    outstanding = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -132,13 +170,20 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "club",
             "club_name",
             "member",
+            "ledger",
             "status",
             "currency",
             "subtotal",
             "tax_total",
             "total",
+            "credited_total",
+            "paid_total",
+            "outstanding",
             "issued_at",
             "paid_at",
+            "last_reminded_at",
+            "delivery_method",
+            "delivered_at",
             "item_quantity",
             "created_at",
             "updated_at",
@@ -149,6 +194,15 @@ class InvoiceListSerializer(serializers.ModelSerializer):
         if annotated_value is not None:
             return int(annotated_value)
         return 0
+
+    def get_credited_total(self, obj: Invoice) -> str:
+        return f"{obj.credited_total():.2f}"
+
+    def get_paid_total(self, obj: Invoice) -> str:
+        return f"{obj.paid_total():.2f}"
+
+    def get_outstanding(self, obj: Invoice) -> str:
+        return f"{obj.outstanding():.2f}"
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -163,6 +217,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "club",
             "club_name",
             "member",
+            "ledger",
             "status",
             "currency",
             "subtotal",
@@ -172,7 +227,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["order_number", "created_at", "updated_at"]
+        read_only_fields = ["order_number", "ledger", "created_at", "updated_at"]
 
     def get_item_quantity(self, obj: Order) -> int:
         annotated_value = getattr(obj, "item_quantity", None)
@@ -193,6 +248,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "order_number",
             "club",
             "member",
+            "ledger",
             "status",
             "currency",
             "subtotal",
@@ -206,7 +262,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "items",
             "invoice",
         ]
-        read_only_fields = ["order_number", "created_at", "updated_at"]
+        read_only_fields = ["order_number", "ledger", "created_at", "updated_at"]
 
     def get_item_quantity(self, obj: Order) -> int:
         annotated_value = getattr(obj, "item_quantity", None)
@@ -282,6 +338,7 @@ class OrderCreateSerializer(serializers.Serializer):
             order = Order.objects.create(
                 club=club,
                 member=member,
+                ledger=Order.Ledger.FEDERATION,
                 status=Order.Status.PENDING,
                 currency=currency,
                 subtotal=subtotal,
@@ -745,6 +802,7 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             "code",
             "description",
             "cadence",
+            "year",
             "is_active",
             "current_amount",
             "current_currency",
@@ -810,6 +868,8 @@ class ClubFeeBillingRequestSerializer(serializers.Serializer):
     fee_type_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
     club_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
     billed_on = serializers.DateField()
+    period_year = serializers.IntegerField(required=False, min_value=2000, max_value=2100)
+    rebill = serializers.BooleanField(required=False, default=False)
     recurring = serializers.BooleanField(required=False, default=False)
     recurrence = serializers.ChoiceField(
         choices=ClubFeeBillingSchedule.Recurrence.choices,
@@ -963,6 +1023,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     order_number = serializers.CharField(source="order.order_number", read_only=True)
     club = serializers.IntegerField(source="order.club_id", read_only=True)
     club_name = serializers.CharField(source="order.club.name", read_only=True)
+    ledger = serializers.CharField(source="order.ledger", read_only=True)
 
     class Meta:
         model = Payment
@@ -974,6 +1035,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "order_number",
             "club",
             "club_name",
+            "ledger",
             "amount",
             "currency",
             "method",
@@ -997,6 +1059,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "order_number",
             "club",
             "club_name",
+            "ledger",
             "created_at",
         ]
 
@@ -1004,8 +1067,8 @@ class PaymentSerializer(serializers.ModelSerializer):
 class ExpenseCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpenseCategory
-        fields = ["id", "name", "code", "sort_order", "is_active", "created_at", "updated_at"]
-        read_only_fields = ["code", "created_at", "updated_at"]
+        fields = ["id", "name", "code", "club", "sort_order", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["code", "club", "created_at", "updated_at"]
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
@@ -1013,6 +1076,14 @@ class ExpenseSerializer(serializers.ModelSerializer):
     category_code = serializers.CharField(source="category.code", read_only=True)
     club_name = serializers.CharField(source="club.name", read_only=True)
     mark_paid = serializers.BooleanField(write_only=True, required=False)
+    receipt_url = serializers.SerializerMethodField()
+
+    def get_receipt_url(self, obj: Expense) -> str | None:
+        if not obj.receipt:
+            return None
+        request = self.context.get("request")
+        url = obj.receipt.url
+        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Expense
@@ -1024,6 +1095,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "category_code",
             "club",
             "club_name",
+            "ledger",
             "description",
             "payee",
             "amount",
@@ -1035,6 +1107,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "payment_method",
             "reference",
             "notes",
+            "receipt",
+            "receipt_url",
             "mark_paid",
             "created_by",
             "created_at",
@@ -1043,6 +1117,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "expense_number",
             "status",
+            "ledger",
             "created_by",
             "created_at",
             "updated_at",
@@ -1081,14 +1156,22 @@ class ExpenseSerializer(serializers.ModelSerializer):
 class IncomeCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = IncomeCategory
-        fields = ["id", "name", "code", "sort_order", "is_active", "created_at", "updated_at"]
-        read_only_fields = ["code", "created_at", "updated_at"]
+        fields = ["id", "name", "code", "club", "sort_order", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["code", "club", "created_at", "updated_at"]
 
 
 class IncomeSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
     category_code = serializers.CharField(source="category.code", read_only=True)
     club_name = serializers.CharField(source="club.name", read_only=True)
+    receipt_url = serializers.SerializerMethodField()
+
+    def get_receipt_url(self, obj: Income) -> str | None:
+        if not obj.receipt:
+            return None
+        request = self.context.get("request")
+        url = obj.receipt.url
+        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Income
@@ -1100,6 +1183,7 @@ class IncomeSerializer(serializers.ModelSerializer):
             "category_code",
             "club",
             "club_name",
+            "ledger",
             "description",
             "payer",
             "amount",
@@ -1110,6 +1194,8 @@ class IncomeSerializer(serializers.ModelSerializer):
             "payment_method",
             "reference",
             "notes",
+            "receipt",
+            "receipt_url",
             "created_by",
             "created_at",
             "updated_at",
@@ -1117,6 +1203,7 @@ class IncomeSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "income_number",
             "status",
+            "ledger",
             "received_at",
             "created_by",
             "created_at",
@@ -1145,4 +1232,115 @@ class FinanceYearOpeningSerializer(serializers.ModelSerializer):
         if value < 2000 or value > 2100:
             raise serializers.ValidationError("Enter a valid year.")
         return value
+
+
+class ClubFinanceYearOpeningSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClubFinanceYearOpening
+        fields = ["id", "club", "year", "opening_cash", "notes", "updated_by", "created_at", "updated_at"]
+        read_only_fields = ["club", "updated_by", "created_at", "updated_at"]
+
+    def validate_year(self, value):
+        if value < 2000 or value > 2100:
+            raise serializers.ValidationError("Enter a valid year.")
+        return value
+
+
+class BankStatementLineSerializer(serializers.ModelSerializer):
+    match_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BankStatementLine
+        fields = [
+            "id",
+            "booked_on",
+            "amount",
+            "direction",
+            "description",
+            "reference",
+            "counterparty",
+            "status",
+            "match_kind",
+            "payment",
+            "income",
+            "expense",
+            "match_label",
+            "matched_at",
+        ]
+
+    def get_match_label(self, obj: BankStatementLine) -> str:
+        if obj.payment_id and obj.payment and obj.payment.invoice_id:
+            return obj.payment.invoice.invoice_number
+        if obj.income_id and obj.income:
+            return obj.income.income_number
+        if obj.expense_id and obj.expense:
+            return obj.expense.expense_number
+        return ""
+
+
+class BankStatementSerializer(serializers.ModelSerializer):
+    lines = BankStatementLineSerializer(many=True, read_only=True)
+    club_name = serializers.CharField(source="club.name", read_only=True)
+
+    class Meta:
+        model = BankStatement
+        fields = [
+            "id",
+            "statement_number",
+            "ledger",
+            "club",
+            "club_name",
+            "period_start",
+            "period_end",
+            "opening_balance",
+            "closing_balance",
+            "currency",
+            "source_filename",
+            "source_format",
+            "status",
+            "created_at",
+            "completed_at",
+            "lines",
+        ]
+        read_only_fields = fields
+
+
+class BankStatementListSerializer(serializers.ModelSerializer):
+    club_name = serializers.CharField(source="club.name", read_only=True)
+    unmatched_count = serializers.SerializerMethodField()
+    line_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BankStatement
+        fields = [
+            "id",
+            "statement_number",
+            "ledger",
+            "club",
+            "club_name",
+            "period_start",
+            "period_end",
+            "opening_balance",
+            "closing_balance",
+            "currency",
+            "source_filename",
+            "source_format",
+            "status",
+            "unmatched_count",
+            "line_count",
+            "created_at",
+            "completed_at",
+        ]
+
+    def get_unmatched_count(self, obj: BankStatement) -> int:
+        annotated = getattr(obj, "unmatched_count", None)
+        if annotated is not None:
+            return int(annotated)
+        return obj.lines.filter(status=BankStatementLine.Status.UNMATCHED).count()
+
+    def get_line_count(self, obj: BankStatement) -> int:
+        annotated = getattr(obj, "line_count", None)
+        if annotated is not None:
+            return int(annotated)
+        return obj.lines.count()
 

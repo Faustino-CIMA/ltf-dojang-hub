@@ -12,6 +12,7 @@ from .access import (
     can_manage_event,
     can_view_event,
     club_calendar_assigned,
+    is_club_coach,
     is_club_manager,
     is_ltf_manager,
     member_home_club_id,
@@ -65,7 +66,7 @@ class EventViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             qs = qs.filter(owner_scope=Event.OwnerScope.CLUB, club_id=club_id)
             if is_ltf_manager(user) or is_club_manager(user, club_id):
                 return qs
-            if getattr(user, "role", "") == "coach" and user.clubs_administered.filter(id=club_id).exists():
+            if is_club_coach(user, club_id):
                 return qs.exclude(visibility=Event.Visibility.PRIVATE)
             if member_home_club_id(user) == club_id:
                 return qs.filter(visibility=Event.Visibility.PUBLIC)

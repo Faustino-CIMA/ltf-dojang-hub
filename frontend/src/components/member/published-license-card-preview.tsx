@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { LoadingCard } from "@/components/ui/loading-card";
+
 import {
   buildCardSimulationSrcDoc,
   calculateCardSimulationFrameLayout,
@@ -150,11 +152,8 @@ export function PublishedLicenseCardPreview({
 
   if (isLoading) {
     return (
-      <div className="mb-5 rounded-[var(--radius-card)] border border-border/80 bg-secondary/40 px-4 py-5">
-        <p className="mb-3 text-sm font-medium text-foreground">{title}</p>
-        <div className="flex justify-center">
-          <div className="aspect-[85/55] w-full max-w-[420px] animate-pulse rounded-[14px] bg-muted/60" />
-        </div>
+      <div className="mb-5">
+        <LoadingCard title={title} />
       </div>
     );
   }

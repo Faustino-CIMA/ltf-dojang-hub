@@ -71,6 +71,7 @@ function memberStatusFilterFromLegacySwitches(parsed: {
 
 /** Matches backend `API_PAGINATION_MAX_PAGE_SIZE` (see `backend/config/pagination.py`). */
 const MEMBERS_LIST_PAGE_SIZE_CAP = 200;
+const MEMBERS_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
 
 const BATCH_DELETE_STORAGE_KEY = "club_members_batch_delete_payload";
 const ORDER_LICENSE_STORAGE_KEY = "club_members_order_license_payload";
@@ -113,6 +114,7 @@ export default function ClubAdminMembersPage() {
   const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("active");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
+  const [pageSizeHydrated, setPageSizeHydrated] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,11 +128,12 @@ export default function ClubAdminMembersPage() {
   const [bulkStatusBusy, setBulkStatusBusy] = useState(false);
   const issue = parseMemberIssue(searchParams.get("issue"), searchParams.get("filter"));
 
-  const pageSizeOptions = ["50", "150", "300", "all"];
+  const pageSizeOptions = MEMBERS_PAGE_SIZE_OPTIONS;
 
   const membersListPageSize = useMemo(() => {
     if (pageSize === "all") {
-      return Math.min(Math.max(totalCount, 1), MEMBERS_LIST_PAGE_SIZE_CAP);
+      const count = totalCount > 0 ? totalCount : MEMBERS_LIST_PAGE_SIZE_CAP;
+      return Math.min(count, MEMBERS_LIST_PAGE_SIZE_CAP);
     }
     const n = Number(pageSize);
     if (!Number.isFinite(n) || n <= 0) {
@@ -224,8 +227,11 @@ export default function ClubAdminMembersPage() {
   ]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!pageSizeHydrated) {
+      return;
+    }
+    void loadData();
+  }, [loadData, pageSizeHydrated]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -262,6 +268,10 @@ export default function ClubAdminMembersPage() {
     () => `club_members_selected_ids:${selectedClubId ?? "all"}`,
     [selectedClubId]
   );
+  const pageSizeStorageKey = useMemo(
+    () => `club_members_page_size:${selectedClubId ?? "all"}`,
+    [selectedClubId]
+  );
   const statusSwitchesStorageKey = useMemo(
     () => `club_members_status_switches:${selectedClubId ?? "all"}`,
     [selectedClubId]
@@ -281,6 +291,29 @@ export default function ClubAdminMembersPage() {
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/club/members`);
   };
+
+  useEffect(() => {
+    setPageSizeHydrated(false);
+    if (typeof window === "undefined") {
+      setPageSizeHydrated(true);
+      return;
+    }
+    const storedPageSize = window.sessionStorage.getItem(pageSizeStorageKey);
+    if (
+      storedPageSize &&
+      (MEMBERS_PAGE_SIZE_OPTIONS as readonly string[]).includes(storedPageSize)
+    ) {
+      setPageSize(storedPageSize);
+    }
+    setPageSizeHydrated(true);
+  }, [pageSizeStorageKey]);
+
+  useEffect(() => {
+    if (!pageSizeHydrated || typeof window === "undefined") {
+      return;
+    }
+    window.sessionStorage.setItem(pageSizeStorageKey, pageSize);
+  }, [pageSize, pageSizeHydrated, pageSizeStorageKey]);
 
   useEffect(() => {
     setSelectionHydrated(false);
@@ -384,20 +417,6 @@ export default function ClubAdminMembersPage() {
       JSON.stringify({ memberStatusFilter })
     );
   }, [memberStatusFilter, statusFilterHydrated, statusSwitchesStorageKey]);
-
-  useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-    const validIds = new Set(members.map((member) => member.id));
-    setSelectedIds((previous) => {
-      const next = previous.filter((id) => validIds.has(id));
-      if (next.length !== previous.length) {
-        lastSelectedMemberIdRef.current = next.at(-1) ?? null;
-      }
-      return next.length === previous.length ? previous : next;
-    });
-  }, [members, isLoading]);
 
   const allFilteredIds = useMemo(
     () => members.map((member) => member.id),

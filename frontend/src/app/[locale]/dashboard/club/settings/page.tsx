@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { Landmark, Settings, Users } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +30,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
+import { CommitteePage } from "@/components/clubmgmt/committee-page";
+import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import {
   Select,
   SelectContent,
@@ -50,9 +56,25 @@ const clubSchema = z.object({
 
 type ClubFormValues = z.infer<typeof clubSchema>;
 
+const SETTINGS_TABS = ["profile", "trainers", "committee"] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+
+function parseSettingsTab(value: string | null): SettingsTab {
+  if (value && (SETTINGS_TABS as readonly string[]).includes(value)) {
+    return value as SettingsTab;
+  }
+  return "profile";
+}
+
 export default function ClubAdminSettingsPage() {
   const t = useTranslations("ClubAdmin");
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { selectedClubId } = useClubSelection();
+  const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [activeTab, setActiveTabState] = useState<SettingsTab>(parseSettingsTab(searchParams.get("tab")));
   const requestIdRef = useRef(0);
   const logoRequestIdRef = useRef(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -192,6 +214,43 @@ export default function ClubAdminSettingsPage() {
     void loadLogos();
   }, [loadLogos]);
 
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setClubMgmtOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "membership") {
+      router.replace(`/${locale}/dashboard/club/fees`);
+    }
+  }, [locale, router, searchParams]);
+
+  const setActiveTab = useCallback(
+    (tab: SettingsTab) => {
+      setActiveTabState(tab);
+      const next = new URLSearchParams(searchParams.toString());
+      if (tab === "profile") {
+        next.delete("tab");
+      } else {
+        next.set("tab", tab);
+      }
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const onSubmit = async (values: ClubFormValues) => {
     if (!selectedClubId) {
       return;
@@ -255,7 +314,33 @@ export default function ClubAdminSettingsPage() {
       ) : !selectedClubId ? (
         <EmptyState title={t("clubProfileTitle")} description={t("selectClubPlaceholder")} />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <UnderlineTabs
+            idPrefix="club-settings"
+            ariaLabel={t("clubSettingsTabsAriaLabel")}
+            value={activeTab === "committee" && !clubMgmtOn ? "profile" : activeTab}
+            onChange={setActiveTab}
+            options={[
+              { value: "profile", label: t("clubSettingsProfileTab"), icon: Settings },
+              { value: "trainers", label: t("clubSettingsTrainersTab"), icon: Users },
+              ...(clubMgmtOn
+                ? [{ value: "committee" as const, label: t("clubSettingsCommitteeTab"), icon: Landmark }]
+                : []),
+            ]}
+          />
+
+          {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
+
+          {activeTab === "trainers" ? (
+            <ClubTrainersPanel
+              clubId={selectedClubId}
+              onError={setErrorMessage}
+              onSuccess={setSuccessMessage}
+            />
+          ) : null}
+
+          {activeTab === "profile" ? (
+          <>
           <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>
             <p className="mt-2 text-sm text-muted">{t("clubFormSubtitle")}</p>
@@ -354,6 +439,8 @@ export default function ClubAdminSettingsPage() {
             onSelect={handleSelectLogo}
             onDelete={handleDeleteLogo}
           />
+          </>
+          ) : null}
         </div>
       )}
     </ClubAdminLayout>

@@ -429,6 +429,35 @@ def _next_available_ltf_license_id(*, prefix: str, start_value: int) -> tuple[st
     return format_ltf_license_id(prefix=prefix, serial=next_value), next_value
 
 
+def ensure_ltf_license_id(member: Member, *, prefix: str = "LTF") -> str:
+    """Assign a national LTF license ID when the member does not have one yet."""
+    with transaction.atomic():
+        locked = Member.objects.select_for_update().get(pk=member.pk)
+        current = str(locked.ltf_licenseid or "").strip()
+        if current:
+            member.ltf_licenseid = current
+            return current
+        locked.ltf_licenseid = generate_next_ltf_license_id(prefix=prefix)
+        locked.save(update_fields=["ltf_licenseid", "updated_at"])
+        member.ltf_licenseid = locked.ltf_licenseid
+        return locked.ltf_licenseid
+
+
+def assign_ltf_license_ids_for_licensed_members() -> int:
+    """Give an LTF license ID to members who already hold an active license but have none."""
+    from django.db.models import Q
+
+    from licenses.models import License
+
+    member_ids = License.objects.filter(status=License.Status.ACTIVE).values_list("member_id", flat=True)
+    assigned = 0
+    missing = Member.objects.filter(pk__in=member_ids).filter(Q(ltf_licenseid="") | Q(ltf_licenseid__isnull=True))
+    for member in missing.iterator():
+        ensure_ltf_license_id(member)
+        assigned += 1
+    return assigned
+
+
 def generate_next_ltf_license_id(*, prefix: str) -> str:
     normalized_prefix = str(prefix or "").strip().upper()
     allowed_prefixes = {

@@ -8,6 +8,7 @@ import { useClubSelection } from "@/components/club-selection-provider";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { ImportWizardPage } from "@/components/import/import-wizard-page";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { getClubs } from "@/lib/ltf-admin-api";
 
 type ClubOption = {
@@ -90,7 +91,7 @@ export default function LtfImportPage() {
     <LtfAdminLayout title={t("importWizardTitle")} subtitle={t("wizardSubtitleLtf")}>
       <ActionNotices error={error} onDismiss={() => setError(null)} />
       {isLoading && clubOptions.length === 0 ? (
-        <p className="mb-4 text-sm text-muted">{ltfT("loadingTitle")}</p>
+        <LoadingCardGrid title={ltfT("loadingTitle")} description={ltfT("loadingSubtitle")} />
       ) : null}
       <ImportWizardPage
         allowedTypes={["clubs", "members"]}

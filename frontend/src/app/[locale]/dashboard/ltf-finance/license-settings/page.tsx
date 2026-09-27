@@ -4,11 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Building2,
+  CalendarDays,
+  Check,
   CircleDollarSign,
   IdCard,
   Receipt,
+  Repeat,
   ScrollText,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -35,14 +40,17 @@ import {
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { cn } from "@/lib/utils";
 import {
   ClubFeeBillingSchedule,
   ClubFeeCadence,
+  ClubFeeChargeStatus,
   ClubFeePrice,
   ClubFeeType,
   FinanceLicenseType,
   LicensePrice,
   createClubFeeBilling,
+  getClubFeeBillingStatus,
   createClubFeePrice,
   createClubFeeType,
   createLicensePrice,
@@ -118,6 +126,9 @@ export default function LtfFinanceLicenseSettingsPage() {
   const [selectedClubIds, setSelectedClubIds] = useState<number[]>([]);
   const [billAllActiveClubs, setBillAllActiveClubs] = useState(true);
   const [billingDate, setBillingDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [billingYear, setBillingYear] = useState(() => String(new Date().getFullYear()));
+  const [billingRebill, setBillingRebill] = useState(false);
+  const [billingCharges, setBillingCharges] = useState<ClubFeeChargeStatus[]>([]);
   const [billingRecurring, setBillingRecurring] = useState(false);
   const [billingRecurrence, setBillingRecurrence] = useState<"monthly" | "annual">("annual");
   const [isBilling, setIsBilling] = useState(false);
@@ -156,6 +167,7 @@ export default function LtfFinanceLicenseSettingsPage() {
         feePricesResponse,
         clubsResponse,
         schedulesResponse,
+        chargesResponse,
       ] = await Promise.all([
           getFinanceLicenseTypes(),
           getLicensePrices(),
@@ -163,6 +175,7 @@ export default function LtfFinanceLicenseSettingsPage() {
           getClubFeePrices(),
           getClubs(),
           getClubFeeBillingSchedules(),
+          getClubFeeBillingStatus(Number(billingYear) || new Date().getFullYear()),
         ]);
       setLicenseTypes(licenseTypesResponse);
       setPrices(pricesResponse);
@@ -170,6 +183,7 @@ export default function LtfFinanceLicenseSettingsPage() {
       setClubFeePrices(feePricesResponse);
       setClubs(clubsResponse);
       setSchedules(schedulesResponse);
+      setBillingCharges(chargesResponse.charges);
       setPriceDrafts((previous) => {
         const next: Record<number, PriceDraft> = {};
         licenseTypesResponse.forEach((licenseType) => {
@@ -195,7 +209,7 @@ export default function LtfFinanceLicenseSettingsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [billingYear, t]);
 
   useEffect(() => {
     loadData();
@@ -349,6 +363,17 @@ export default function LtfFinanceLicenseSettingsPage() {
     return t("clubFeeCadenceOneOff");
   };
 
+  const activeFees = useMemo(
+    () => clubFeeTypes.filter((fee) => fee.is_active),
+    [clubFeeTypes]
+  );
+  const activeClubCount = useMemo(
+    () => clubs.filter((club) => club.is_active).length,
+    [clubs]
+  );
+  const selectedClubCount = billAllActiveClubs ? activeClubCount : selectedClubIds.length;
+  const billedCount = billingCharges.length;
+
   const updateFeePriceDraft = (feeTypeId: number, patch: Partial<PriceDraft>) => {
     setFeePriceDrafts((previous) => ({
       ...previous,
@@ -464,10 +489,28 @@ export default function LtfFinanceLicenseSettingsPage() {
         fee_type_ids: selectedFeeIds,
         club_ids: billAllActiveClubs ? undefined : selectedClubIds,
         billed_on: billingDate,
+        period_year: Number(billingYear) || new Date().getFullYear(),
+        rebill: billingRebill,
         recurring: billingRecurring,
         recurrence: billingRecurring ? billingRecurrence : null,
       });
-      setSuccessMessage(t("clubFeeBillingSuccess", { count: result.invoice_count }));
+      const skipped = result.skipped ?? [];
+      const skippedPaid = skipped.filter((row) => row.reason === "paid").length;
+      const skippedCount = skipped.length;
+      const rebilledCount = result.rebilled?.length ?? 0;
+      if (rebilledCount > 0) {
+        setSuccessMessage(
+          t("clubFeeBillingSuccessRebill", { count: result.invoice_count, rebilled: rebilledCount }),
+        );
+      } else if (result.invoice_count === 0 && skippedPaid === skippedCount && skippedPaid > 0) {
+        setSuccessMessage(t("clubFeeBillingSkippedPaid", { skipped: skippedPaid }));
+      } else if (skippedCount > 0) {
+        setSuccessMessage(
+          t("clubFeeBillingSuccessWithSkip", { count: result.invoice_count, skipped: skippedCount }),
+        );
+      } else {
+        setSuccessMessage(t("clubFeeBillingSuccess", { count: result.invoice_count }));
+      }
       await loadData();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("clubFeeBillingError"));
@@ -830,6 +873,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                       />
                     )}
                     <div className="border-t border-border bg-secondary px-4 py-4">
+                      <p className="mb-3 text-xs text-muted">{t("clubFeeNewPriceHint")}</p>
                       <div className="grid gap-3 md:grid-cols-3">
                         <div className="space-y-2">
                           <label className="text-xs font-medium text-foreground">
@@ -876,10 +920,63 @@ export default function LtfFinanceLicenseSettingsPage() {
 
       {activeTab === "billing" ? (
         <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="app-panel p-5">
+              <div className="flex items-center gap-2 text-muted">
+                <CalendarDays className="h-4 w-4" />
+                <p className="text-xs font-medium uppercase tracking-wide">{t("clubFeeBillingYearLabel")}</p>
+              </div>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{billingYear || "—"}</p>
+              <p className="mt-1 text-xs text-muted">{t("clubFeeBillingYearHint")}</p>
+            </div>
+            <div className="app-panel p-5">
+              <div className="flex items-center gap-2 text-muted">
+                <Building2 className="h-4 w-4" />
+                <p className="text-xs font-medium uppercase tracking-wide">{t("clubFeeBillingSummaryClubs")}</p>
+              </div>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{selectedClubCount}</p>
+              <p className="mt-1 text-xs text-muted">
+                {billAllActiveClubs ? t("clubFeeBillingAllActiveClubs") : t("clubFeeBillingPickClubs")}
+              </p>
+            </div>
+            <div className="app-panel p-5">
+              <div className="flex items-center gap-2 text-muted">
+                <Receipt className="h-4 w-4" />
+                <p className="text-xs font-medium uppercase tracking-wide">{t("clubFeeBillingSummaryBilled")}</p>
+              </div>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{billedCount}</p>
+              <p className="mt-1 text-xs text-muted">
+                {t("clubFeeAlreadyBilledTitle", { year: billingYear || "—" })}
+              </p>
+            </div>
+          </div>
+
           <FormPanel>
-            <h2 className="text-section text-foreground">{t("clubFeeBillingTitle")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("clubFeeBillingSubtitle")}</p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-section text-foreground">{t("clubFeeBillingTitle")}</h2>
+                <p className="mt-1 max-w-2xl text-sm text-muted">{t("clubFeeBillingSubtitle")}</p>
+              </div>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => void submitBilling()}
+                disabled={isBilling}
+              >
+                {t("clubFeeBillingSubmitYear", { year: billingYear || new Date().getFullYear() })}
+              </Button>
+            </div>
+
+            <div className="mt-6 grid gap-4 rounded-[var(--radius-card)] border border-border bg-secondary/50 p-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="billing-year">{t("clubFeeBillingYearLabel")}</Label>
+                <Input
+                  id="billing-year"
+                  value={billingYear}
+                  onChange={(event) => setBillingYear(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                  inputMode="numeric"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-date">{t("clubFeeBillingDateLabel")}</Label>
                 <Input
@@ -890,14 +987,16 @@ export default function LtfFinanceLicenseSettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 pt-7">
+                <Label htmlFor="billing-recurring">{t("clubFeeBillingRecurringLabel")}</Label>
+                <label className="flex min-h-[var(--control-height)] items-center gap-2 rounded-[var(--radius-form)] border border-border bg-surface px-3 text-sm">
                   <Checkbox
                     id="billing-recurring"
                     checked={billingRecurring}
                     onCheckedChange={(value) => setBillingRecurring(Boolean(value))}
                   />
-                  <Label htmlFor="billing-recurring">{t("clubFeeBillingRecurringLabel")}</Label>
-                </div>
+                  <Repeat className="h-4 w-4 text-muted" />
+                  <span>{t("clubFeeBillingRecurringLabel")}</span>
+                </label>
                 {billingRecurring ? (
                   <Select
                     value={billingRecurrence}
@@ -914,82 +1013,186 @@ export default function LtfFinanceLicenseSettingsPage() {
                 ) : null}
               </div>
             </div>
-            <div className="mt-4 space-y-2">
+
+            <div className="mt-6">
               <p className="text-sm font-medium text-foreground">{t("clubFeeBillingFeesLabel")}</p>
-              {clubFeeTypes.filter((fee) => fee.is_active && fee.current_amount).length === 0 ? (
-                <p className="text-sm text-muted">{t("clubFeeEmptySubtitle")}</p>
+              {activeFees.length === 0 ? (
+                <p className="mt-3 text-sm text-muted">{t("clubFeeEmptySubtitle")}</p>
               ) : (
-                clubFeeTypes
-                  .filter((fee) => fee.is_active)
-                  .map((fee) => (
-                    <label key={fee.id} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={selectedFeeIds.includes(fee.id)}
-                        onCheckedChange={() => toggleFeeId(fee.id)}
-                      />
-                      <span>
-                        {fee.name}
-                        {fee.current_amount
-                          ? ` · ${fee.current_amount} ${fee.current_currency ?? "EUR"}`
-                          : ` · ${t("clubFeeNoAmountLabel")}`}
-                      </span>
-                    </label>
-                  ))
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {activeFees.map((fee) => {
+                    const selected = selectedFeeIds.includes(fee.id);
+                    const hasAmount = Boolean(fee.current_amount);
+                    return (
+                      <button
+                        key={fee.id}
+                        type="button"
+                        onClick={() => toggleFeeId(fee.id)}
+                        className={cn(
+                          "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
+                          selected
+                            ? "border-primary bg-[color-mix(in_oklab,var(--primary)_10%,white)] shadow-sm"
+                            : "border-border bg-surface hover:border-primary/40"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-semibold text-foreground">{fee.name}</p>
+                          {selected ? (
+                            <span className="inline-flex items-center gap-1 rounded-[var(--radius-chip)] bg-primary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
+                              <Check className="h-3 w-3" />
+                              {t("clubFeeBillingFeeSelected")}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-lg font-semibold text-foreground">
+                          {hasAmount
+                            ? `${fee.current_amount} ${fee.current_currency ?? "EUR"}`
+                            : t("clubFeeNoAmountLabel")}
+                        </p>
+                        <p className="mt-1 text-xs text-muted">{cadenceLabel(fee.cadence)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
-            <div className="mt-4 space-y-2">
+
+            <div className="mt-6">
               <p className="text-sm font-medium text-foreground">{t("clubFeeBillingClubsLabel")}</p>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="mt-3 flex items-center gap-2 rounded-[var(--radius-form)] border border-border bg-secondary/40 px-3 py-2 text-sm">
                 <Checkbox
                   checked={billAllActiveClubs}
                   onCheckedChange={(value) => setBillAllActiveClubs(Boolean(value))}
                 />
                 {t("clubFeeBillingAllActiveClubs")}
               </label>
-              {!billAllActiveClubs
-                ? clubs.map((club) => (
-                    <label key={club.id} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={selectedClubIds.includes(club.id)}
-                        onCheckedChange={() => toggleClubId(club.id)}
-                      />
-                      <span>
-                        {club.name}
-                        {" · "}
-                        {club.is_active ? t("clubStatusActive") : t("clubStatusInactive")}
-                      </span>
-                    </label>
-                  ))
-                : null}
+              {!billAllActiveClubs ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {clubs.map((club) => {
+                    const selected = selectedClubIds.includes(club.id);
+                    return (
+                      <label
+                        key={club.id}
+                        className={cn(
+                          "flex items-center justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm",
+                          selected ? "border-primary bg-surface" : "border-border bg-surface"
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => toggleClubId(club.id)}
+                          />
+                          {club.name}
+                        </span>
+                        <StatusBadge
+                          label={club.is_active ? t("clubStatusActive") : t("clubStatusInactive")}
+                          tone={club.is_active ? "success" : "neutral"}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
-            <div className="mt-4">
-              <Button onClick={() => void submitBilling()} disabled={isBilling}>
-                {t("clubFeeBillingSubmit")}
-              </Button>
+
+            <div
+              className={cn(
+                "mt-6 rounded-[var(--radius-card)] border px-4 py-3",
+                billingRebill
+                  ? "border-[var(--warning,oklch(0.75_0.15_75))] bg-[color-mix(in_oklab,var(--warning,oklch(0.85_0.12_85))_18%,white)]"
+                  : "border-border bg-secondary/40"
+              )}
+            >
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={billingRebill}
+                  onCheckedChange={(value) => setBillingRebill(Boolean(value))}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="flex items-center gap-2 font-medium text-foreground">
+                    <TriangleAlert className="h-4 w-4" />
+                    {t("clubFeeBillingRebillLabel")}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted">{t("clubFeeBillingRebillHint")}</span>
+                </span>
+              </label>
+            </div>
+
+            <div className="mt-6">
+              <p className="mb-3 text-sm font-medium text-foreground">
+                {t("clubFeeAlreadyBilledTitle", { year: billingYear || "—" })}
+              </p>
+              {billingCharges.length === 0 ? (
+                <p className="text-sm text-muted">{t("clubFeeBillingNoneYet")}</p>
+              ) : (
+                <EntityTable
+                  columns={[
+                    { key: "club_name", header: t("clubLabel") },
+                    { key: "fee_name", header: t("invoiceItemLabel") },
+                    { key: "invoice_number", header: t("invoiceNumberLabel") },
+                    {
+                      key: "invoice_status",
+                      header: t("statusLabel"),
+                      render: (row: ClubFeeChargeStatus) => (
+                        <StatusBadge
+                          label={
+                            row.invoice_status === "paid"
+                              ? t("clubFeeInvoicePaid")
+                              : t("clubFeeInvoiceIssued")
+                          }
+                          tone={row.invoice_status === "paid" ? "success" : "warning"}
+                        />
+                      ),
+                    },
+                  ]}
+                  rows={billingCharges.map((row) => ({
+                    ...row,
+                    id: `${row.invoice_number}-${row.fee_type_id}-${row.club_id}`,
+                  }))}
+                />
+              )}
             </div>
           </FormPanel>
 
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubFeeBillingClubsLabel")}</h2>
             <p className="mt-1 text-sm text-muted">{t("clubStatusHint")}</p>
-            <div className="mt-4 space-y-2">
-              {clubs.map((club) => (
-                <div key={club.id} className="flex items-center justify-between gap-3 border-b border-border py-2">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{club.name}</p>
-                    <StatusBadge
-                      label={club.is_active ? t("clubStatusActive") : t("clubStatusInactive")}
-                      tone={club.is_active ? "success" : "neutral"}
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => void toggleClubActive(club, !club.is_active)}
-                  >
-                    {club.is_active ? t("clubStatusInactive") : t("clubStatusActive")}
-                  </Button>
-                </div>
-              ))}
+            <div className="mt-4">
+              {clubs.length === 0 ? (
+                <p className="text-sm text-muted">{t("clubFeeBillingPickClubs")}</p>
+              ) : (
+                <EntityTable
+                  columns={[
+                    { key: "name", header: t("clubLabel") },
+                    {
+                      key: "is_active",
+                      header: t("statusLabel"),
+                      render: (club: Club) => (
+                        <StatusBadge
+                          label={club.is_active ? t("clubStatusActive") : t("clubStatusInactive")}
+                          tone={club.is_active ? "success" : "neutral"}
+                        />
+                      ),
+                    },
+                    {
+                      key: "actions",
+                      header: t("actionLabel"),
+                      render: (club: Club) => (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void toggleClubActive(club, !club.is_active)}
+                        >
+                          {club.is_active ? t("clubStatusInactive") : t("clubStatusActive")}
+                        </Button>
+                      ),
+                    },
+                  ]}
+                  rows={clubs}
+                />
+              )}
             </div>
           </FormPanel>
 
@@ -998,15 +1201,15 @@ export default function LtfFinanceLicenseSettingsPage() {
             {schedules.length === 0 ? (
               <p className="mt-3 text-sm text-muted">{t("clubFeeSchedulesEmpty")}</p>
             ) : (
-              <div className="mt-3 space-y-2">
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {schedules.map((schedule) => (
                   <div
                     key={schedule.id}
-                    className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-2"
+                    className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 px-4 py-3"
                   >
                     <div>
-                      <p className="text-sm font-medium text-foreground">{schedule.fee_type_name}</p>
-                      <p className="text-xs text-muted">
+                      <p className="text-sm font-semibold text-foreground">{schedule.fee_type_name}</p>
+                      <p className="mt-1 text-xs text-muted">
                         {schedule.recurrence === "monthly"
                           ? t("clubFeeBillingRecurrenceMonthly")
                           : t("clubFeeBillingRecurrenceAnnual")}
@@ -1014,7 +1217,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                         {t("clubFeeScheduleNextLabel")}: {formatDisplayDate(schedule.next_run_on)}
                       </p>
                     </div>
-                    <Button variant="outline" onClick={() => void toggleSchedule(schedule)}>
+                    <Button variant="outline" size="sm" onClick={() => void toggleSchedule(schedule)}>
                       {schedule.is_active ? t("clubFeeSchedulePause") : t("clubFeeScheduleResume")}
                     </Button>
                   </div>

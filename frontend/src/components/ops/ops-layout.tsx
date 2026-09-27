@@ -17,7 +17,7 @@ import {
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { apiRequest } from "@/lib/api";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
-import { Spinner } from "@/components/ui/spinner";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 
 type OpsLayoutProps = {
   title: string;
@@ -102,10 +102,9 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
 
   if (allowed !== true) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex items-center gap-3 text-sm text-muted" role="status">
-          <Spinner />
-          {common("loadingLabel")}
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-3xl">
+          <LoadingCardGrid title={common("loadingLabel")} description={t("overviewSubtitle")} />
         </div>
       </main>
     );

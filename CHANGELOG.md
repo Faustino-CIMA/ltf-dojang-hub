@@ -2,7 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.11.0] - 2026-09-27
+
+### User-facing
+- **LTF license invoices:** Federation license invoices follow the OnlyOffice letterhead. Columns are Name, License, License ID, Qty, Unit, and Subtotal. An Annual Standard license is printed as Annual St plus the year. SEPA and WERO codes sit in the blue address mark. The English closing block is 17.5 cm wide and is printed only on the last page.
+- **Family rebates:** On Fees, Edit opens that rebate in a row underneath it. The card above the table only adds a new rule. A rebate can be a percent or a fixed amount off that family member’s fee.
+- **Qualité+ coaches:** On Club settings, Coaches, each coach has a Qualité+ tick. Unticked coaches stay on the timetable and in coach hours, and they are left out of the subsidy file, the countersigned trainers list, and the training list.
+- **Qualité+ training list:** Landscape weekly grid. Columns are only the weekdays the club actually trains. The earlier letterhead, date, and president line stay. A small footnote says the president or a delegated committee member certifies the information.
+- **Qualité+ trainers list:** The earlier letterhead and president block stay. The table has no signature column per coach. The same small certification footnote is printed.
+- **Training:** Club management has a Training section. A weekly class can be kids, adults, belt-test preparation, competition preparation, or other, with start and end times. Generating the season skips Luxembourg public holidays and school holidays when the class says so. An extra class can still be added on one of those days. The roll starts with the usual students. Further students are ticked in a list and added together, and an age filter only shortens the list. Classes, this week, holidays, and coach hours use the same tables, search, and filters as Members and Licenses. The schedule also has a month calendar and a year overview. Promotion is its own sidebar page. It lists who has enough training hours for the next grade and records a pass on the member. Every active member can attend every class. Coach hours are kept between paydays. A club can pay every month, every quarter, or twice a year. Pay amounts and belt-test hour rules come later.
+- **Club shop:** The in-club shop is part of Club management. It is not a separate product. Federation inventory remains a future install-wide product.
+- **Shop stock:** Each size has its own purchase price, sale price, and QR sticker. Desk sales scan stickers with the phone camera.
+- **Shop stickers:** QR stickers print on Avery Zweckform L7121-25 (45 × 45 mm, 20 per A4). Choose the first free label on a started sheet and apply the club printer offset.
+- **Shop desk:** Tabs are Sell, Items, and Sales. New goods go on the shelf when you save. A later delivery uses Goods arrived. Each size shows how many are left.
+- **Member from a contact:** Making a contact into a member assigns an LTF license ID. Paying for a license does the same when the member still has none. A contact whose name matches one club member is linked to that member and shows Open member instead of Make this person a member.
+- **Club settings:** Club admins can appoint and remove coaches. A coach can sign in for that club and is not a club admin. In Luxembourgish the same role is labelled Trainer.
+- **Subsidies:** Finance has a Subsidies section for the yearly MyGuichet checklist, coach qualifications, the under-16 export, and filled extraordinary grant forms. Coaches can download a countersigned trainers list for the subsidy year, with grade, qualification, and signature lines. The youth export is also an Excel file with the MyGuichet headcount page (male, female, and total by age and licence type) and the under-16 name list. Coach qualifications and the under-16 list use the same tables as the rest of the club screens. Diploma scans and the RIB are added with upload buttons. Diploma scans and the RIB can be kept with the year. A paid subsidy is written into club income when a committee officer opens the page. Extraordinary requests can be edited, removed, and moved from the preliminary request to the final account. The filled forms include the travel mode, athlete names, place, and entry, medical, and supply costs.
+
+### Technical
+- Removed `inventory_club` from `MODULE_SPECS`. Codes that still list it grant `club_management`. Migration `modules.0002_absorb_inventory_club` rewrites leftover entitlements and assignments.
+- Shop variants store `sale_price` and `cost_price` (`clubmgmt.0007_shop_variant_prices`). Club admins enter purchase cost on stock. Phone camera scans sticker QR codes at the desk.
 
 ## [0.10.0] - 2026-09-11
 

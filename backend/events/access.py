@@ -31,7 +31,7 @@ def is_club_coach(user, club_id: int | None) -> bool:
         return False
     if getattr(user, "role", "") != "coach":
         return False
-    return user.clubs_administered.filter(id=club_id).exists()
+    return user.clubs_trained.filter(id=club_id).exists() or user.clubs_administered.filter(id=club_id).exists()
 
 
 def member_home_club_id(user) -> int | None:

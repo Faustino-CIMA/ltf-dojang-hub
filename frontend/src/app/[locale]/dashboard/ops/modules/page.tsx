@@ -9,6 +9,7 @@ import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { formatDisplayDateTime } from "@/lib/date-display";
@@ -93,6 +94,20 @@ export default function OpsModulesPage() {
     }
   };
 
+  const mintClubMgmt = async () => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const minted = await mintProductCode(["club_management"]);
+      setCode(minted.code);
+      setSuccessMessage(t("modulesMintedClubMgmt"));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const mintCalendar = async () => {
     setBusy(true);
     setErrorMessage(null);
@@ -136,7 +151,10 @@ export default function OpsModulesPage() {
           setSuccessMessage(null);
         }}
       />
-
+      {data === null && !errorMessage ? (
+        <LoadingCardGrid title={t("modulesTitle")} description={t("modulesSubtitle")} />
+      ) : (
+      <>
       <section className="app-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -175,6 +193,9 @@ export default function OpsModulesPage() {
               </Button>
               <Button type="button" variant="outline" onClick={() => void mintCalendar()} disabled={busy}>
                 {t("modulesMintCalendar")}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void mintClubMgmt()} disabled={busy}>
+                {t("modulesMintClubMgmt")}
               </Button>
             </>
           ) : null}
@@ -291,6 +312,8 @@ export default function OpsModulesPage() {
           />
         </div>
       </section>
+      </>
+      )}
     </OpsLayout>
   );
 }

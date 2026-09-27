@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
-import { Spinner } from "@/components/ui/spinner";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { apiRequest } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { confirmStripeCheckout } from "@/lib/club-finance-api";
@@ -159,8 +159,8 @@ function CheckoutSuccessContent() {
         <h1 className="text-2xl font-semibold text-foreground">{t("successTitle")}</h1>
         <p className="mt-3 text-sm text-muted">{subtitle}</p>
         {phase === "confirming" ? (
-          <div className="mt-6 flex justify-center">
-            <Spinner label={t("confirmingSubtitle")} />
+          <div className="mt-6 text-left">
+            <LoadingCard title={t("successTitle")} description={t("confirmingSubtitle")} />
           </div>
         ) : null}
         <div className="mt-6 flex justify-center">
@@ -186,7 +186,7 @@ export default function CheckoutSuccessPage() {
       fallback={
         <main className="flex min-h-screen items-center justify-center bg-background px-6">
           <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-card p-10 text-center shadow-sm">
-            <Spinner label={t("confirmingSubtitle")} />
+            <LoadingCard title={t("successTitle")} description={t("confirmingSubtitle")} />
           </div>
         </main>
       }

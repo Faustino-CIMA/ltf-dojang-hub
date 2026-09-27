@@ -8,6 +8,7 @@ import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionNotices, ListToolbarPanel } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { getOpsUsers, runOpsUserAction, type OpsUser } from "@/lib/ops-api";
@@ -17,16 +18,20 @@ export default function OpsUsersPage() {
   const locale = useLocale();
   const [users, setUsers] = useState<OpsUser[]>([]);
   const [query, setQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setErrorMessage(null);
+    setIsLoading(true);
     try {
       const page = await getOpsUsers({ q: query || undefined });
       setUsers(page.results);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("loadError"));
+    } finally {
+      setIsLoading(false);
     }
   }, [query, t]);
 
@@ -64,6 +69,9 @@ export default function OpsUsersPage() {
         }
       />
       <div className="mt-4">
+        {isLoading ? (
+          <LoadingCardGrid title={t("usersTitle")} description={t("usersSubtitle")} />
+        ) : (
         <EntityTable
           columns={[
             { key: "username", header: t("colUser") },
@@ -115,6 +123,7 @@ export default function OpsUsersPage() {
           ]}
           rows={users}
         />
+        )}
       </div>
     </OpsLayout>
   );

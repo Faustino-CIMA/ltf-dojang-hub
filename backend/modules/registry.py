@@ -19,6 +19,11 @@ class ModuleSpec:
 
 PREVIEW_MODULE_ID = "preview"
 EVENT_CALENDAR_MODULE_ID = "event_calendar"
+CLUB_MANAGEMENT_MODULE_ID = "club_management"
+INVENTORY_FEDERATION_MODULE_ID = "inventory_federation"
+# Historical product id. Club shop ships inside club_management; never mint this.
+INVENTORY_CLUB_LEGACY_ID = "inventory_club"
+LEGACY_MODULE_ALIASES = {INVENTORY_CLUB_LEGACY_ID: CLUB_MANAGEMENT_MODULE_ID}
 
 MODULE_SPECS: tuple[ModuleSpec, ...] = (
     ModuleSpec(
@@ -29,10 +34,11 @@ MODULE_SPECS: tuple[ModuleSpec, ...] = (
         shipped=True,
     ),
     ModuleSpec(
-        id="club_management",
+        id=CLUB_MANAGEMENT_MODULE_ID,
         label="Club management",
         scope="club",
-        description="Club membership and dues (club to member). Not shipped yet.",
+        description="Club membership records, families, dues, committees, the in-club shop, and training.",
+        shipped=True,
     ),
     ModuleSpec(
         id=EVENT_CALENDAR_MODULE_ID,
@@ -42,16 +48,10 @@ MODULE_SPECS: tuple[ModuleSpec, ...] = (
         shipped=True,
     ),
     ModuleSpec(
-        id="inventory_federation",
+        id=INVENTORY_FEDERATION_MODULE_ID,
         label="Federation inventory",
         scope="install",
         description="Federation sells goods to clubs. Not shipped yet.",
-    ),
-    ModuleSpec(
-        id="inventory_club",
-        label="Club inventory",
-        scope="club",
-        description="Club sells goods to members. Not shipped yet.",
     ),
     ModuleSpec(
         id="tournament_kyorugi",
@@ -71,8 +71,16 @@ MODULE_BY_ID = {spec.id: spec for spec in MODULE_SPECS}
 KNOWN_MODULE_IDS = frozenset(MODULE_BY_ID)
 
 
+def canonical_module_id(module_id: str) -> str:
+    return LEGACY_MODULE_ALIASES.get(module_id, module_id)
+
+
+def canonical_module_ids(module_ids: list[str]) -> list[str]:
+    return [canonical_module_id(mid) for mid in module_ids]
+
+
 def get_spec(module_id: str) -> ModuleSpec | None:
-    return MODULE_BY_ID.get(module_id)
+    return MODULE_BY_ID.get(canonical_module_id(module_id))
 
 
 def catalog() -> list[dict]:

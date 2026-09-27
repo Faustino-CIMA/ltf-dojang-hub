@@ -10,7 +10,17 @@ from openpyxl.utils import get_column_letter
 
 from clubs.models import FederationProfile
 
-from .models import Expense, FinanceYearOpening, Income, Invoice, Payment
+from .ledgers import federation_q
+from .models import (
+    ClubFinanceYearOpening,
+    Expense,
+    FinanceYearOpening,
+    Income,
+    Invoice,
+    Order,
+    Payment,
+)
+from clubs.models import Club
 
 ZERO = Decimal("0.00")
 MONEY_QUANT = Decimal("0.01")
@@ -75,14 +85,94 @@ def _sum(queryset, field="amount"):
     return money(queryset.aggregate(total=Sum(field))["total"])
 
 
+AGING_BUCKETS = (
+    ("current", 0, 30),
+    ("days_31_60", 31, 60),
+    ("days_61_90", 61, 90),
+    ("days_90_plus", 91, None),
+)
+
+
+def issued_age_days(invoice, now=None) -> int:
+    now = now or timezone.now()
+    issued = invoice.issued_at or invoice.created_at
+    if issued is None:
+        return 0
+    return max(0, (now - issued).days)
+
+
+def aging_summary(invoices, *, now=None, party_attr: str = "club"):
+    now = now or timezone.now()
+    buckets = {
+        key: {"key": key, "count": 0, "amount": ZERO, "min_days": lo, "max_days": hi}
+        for key, lo, hi in AGING_BUCKETS
+    }
+    by_party: dict[str, dict] = {}
+    for invoice in invoices:
+        age = issued_age_days(invoice, now)
+        bucket_key = "days_90_plus"
+        for key, lo, hi in AGING_BUCKETS:
+            if hi is None and age >= lo:
+                bucket_key = key
+                break
+            if hi is not None and lo <= age <= hi:
+                bucket_key = key
+                break
+        amount = money(invoice.total)
+        buckets[bucket_key]["count"] += 1
+        buckets[bucket_key]["amount"] += amount
+        if party_attr == "member":
+            party_id = invoice.member_id
+            party_name = ""
+            if invoice.member_id:
+                party_name = f"{invoice.member.first_name} {invoice.member.last_name}".strip()
+            if not party_name:
+                party_name = "Unassigned"
+        else:
+            party_id = invoice.club_id
+            party_name = invoice.club.name if invoice.club_id else "Unassigned"
+        row = by_party.setdefault(
+            str(party_id or party_name),
+            {"id": party_id, "name": party_name, "count": 0, "amount": ZERO},
+        )
+        row["count"] += 1
+        row["amount"] += amount
+    return {
+        "buckets": [
+            {
+                "key": item["key"],
+                "count": item["count"],
+                "amount": money_str(item["amount"]),
+                "min_days": item["min_days"],
+                "max_days": item["max_days"],
+            }
+            for item in buckets.values()
+        ],
+        "by_party": [
+            {"id": row["id"], "name": row["name"], "count": row["count"], "amount": money_str(row["amount"])}
+            for row in sorted(by_party.values(), key=lambda item: item["name"])
+        ],
+        "total_count": sum(item["count"] for item in buckets.values()),
+        "total_amount": money_str(sum((item["amount"] for item in buckets.values()), ZERO)),
+    }
+
+
 def computed_opening_cash(start_dt, start: date | None = None) -> Decimal:
-    receipts_before = Payment.objects.filter(status=Payment.Status.PAID).filter(_paid_at_before(start_dt))
-    other_income_before = Income.objects.filter(status=Income.Status.RECEIVED)
+    receipts_before = (
+        Payment.objects.filter(federation_q(through_order=True), status=Payment.Status.PAID).filter(
+            _paid_at_before(start_dt)
+        )
+    )
+    other_income_before = Income.objects.filter(
+        federation_q(), status=Income.Status.RECEIVED
+    )
     if start is not None:
         other_income_before = other_income_before.filter(income_date__lt=start)
     else:
         other_income_before = other_income_before.filter(received_at__lt=start_dt)
-    expenses_before = Expense.objects.filter(status=Expense.Status.PAID).filter(_paid_at_before(start_dt))
+    expenses_before = Expense.objects.filter(federation_q(), status=Expense.Status.PAID).filter(
+        _paid_at_before(start_dt)
+    )
     return _sum(receipts_before) + _sum(other_income_before) - _sum(expenses_before)
 
 
@@ -100,7 +190,8 @@ def build_finance_report(year: int, today: date | None = None) -> dict:
     organization_name = profile.name if profile else "Luxembourg Taekwondo Federation"
 
     revenue_invoices = Invoice.objects.filter(
-        status__in=[Invoice.Status.ISSUED, Invoice.Status.PAID]
+        federation_q(through_order=True),
+        status__in=[Invoice.Status.ISSUED, Invoice.Status.PAID],
     ).filter(_invoice_recognition_q(start_dt, as_of_end_dt))
     revenue_total = _sum(revenue_invoices, "total")
     income_by_club = [
@@ -115,6 +206,7 @@ def build_finance_report(year: int, today: date | None = None) -> dict:
     ]
 
     period_expenses = Expense.objects.filter(
+        federation_q(),
         status__in=[Expense.Status.RECORDED, Expense.Status.PAID],
         expense_date__gte=start,
         expense_date__lte=as_of,
@@ -149,6 +241,7 @@ def build_finance_report(year: int, today: date | None = None) -> dict:
     ]
 
     period_other_income = Income.objects.filter(
+        federation_q(),
         status=Income.Status.RECEIVED,
         income_date__gte=start,
         income_date__lte=as_of,
@@ -184,16 +277,20 @@ def build_finance_report(year: int, today: date | None = None) -> dict:
 
     opening_cash, opening_is_manual, opening_notes = resolve_opening_cash(year, start_dt)
     receipts = _sum(
-        Payment.objects.filter(status=Payment.Status.PAID).filter(_paid_at_in_period(start_dt, as_of_end_dt))
+        Payment.objects.filter(federation_q(through_order=True), status=Payment.Status.PAID).filter(
+            _paid_at_in_period(start_dt, as_of_end_dt)
+        )
     )
     other_income_cash = other_income_total
     disbursements = _sum(
-        Expense.objects.filter(status=Expense.Status.PAID).filter(_paid_at_in_period(start_dt, as_of_end_dt))
+        Expense.objects.filter(federation_q(), status=Expense.Status.PAID).filter(
+            _paid_at_in_period(start_dt, as_of_end_dt)
+        )
     )
     closing_cash = opening_cash + receipts + other_income_cash - disbursements
 
     receivables_qs = (
-        Invoice.objects.filter(_invoice_recognized_by(as_of_end_dt))
+        Invoice.objects.filter(federation_q(through_order=True)).filter(_invoice_recognized_by(as_of_end_dt))
         .filter(status__in=[Invoice.Status.ISSUED, Invoice.Status.PAID])
         .exclude(Q(status=Invoice.Status.PAID) & _paid_at_on_or_before(as_of_end_dt))
     )
@@ -210,6 +307,7 @@ def build_finance_report(year: int, today: date | None = None) -> dict:
     accounts_receivable = _sum(receivables_qs, "total")
 
     payables_qs = Expense.objects.filter(
+        federation_q(),
         expense_date__lte=as_of,
         status__in=[Expense.Status.RECORDED, Expense.Status.PAID],
     ).exclude(Q(status=Expense.Status.PAID) & _paid_at_on_or_before(as_of_end_dt))
@@ -288,6 +386,235 @@ def build_finance_report(year: int, today: date | None = None) -> dict:
             "receivables": receivables,
             "payables": payables,
         },
+        "aging": aging_summary(
+            Invoice.objects.filter(
+                federation_q(through_order=True), status=Invoice.Status.ISSUED
+            ).select_related("club"),
+            party_attr="club",
+        ),
+    }
+
+
+def build_club_finance_report(club_id: int, year: int, today: date | None = None) -> dict:
+    as_of = year_as_of(year, today)
+    start, as_of, start_dt, as_of_end_dt = period_bounds(year, as_of)
+    club = Club.objects.filter(id=club_id).first()
+    organization_name = club.name if club else "Club"
+
+    club_invoice_q = Q(order__ledger=Order.Ledger.CLUB, club_id=club_id)
+    revenue_invoices = Invoice.objects.filter(
+        club_invoice_q,
+        status__in=[Invoice.Status.ISSUED, Invoice.Status.PAID],
+    ).filter(_invoice_recognition_q(start_dt, as_of_end_dt))
+    revenue_total = _sum(revenue_invoices, "total")
+
+    period_expenses = Expense.objects.filter(
+        ledger=Order.Ledger.CLUB,
+        club_id=club_id,
+        status__in=[Expense.Status.RECORDED, Expense.Status.PAID],
+        expense_date__gte=start,
+        expense_date__lte=as_of,
+    ).select_related("category")
+    expense_total = _sum(period_expenses)
+    expenses_by_category = [
+        {
+            "category_id": row["category_id"],
+            "category_code": row["category__code"],
+            "category_name": row["category__name"],
+            "amount": money_str(row["total"]),
+        }
+        for row in period_expenses.values("category_id", "category__code", "category__name")
+        .annotate(total=Sum("amount"))
+        .order_by("category__name")
+    ]
+    expense_register = [
+        {
+            "id": expense.id,
+            "expense_number": expense.expense_number,
+            "expense_date": expense.expense_date.isoformat(),
+            "category_name": expense.category.name,
+            "payee": expense.payee,
+            "description": expense.description,
+            "amount": money_str(expense.amount),
+            "status": expense.status,
+            "club_name": "",
+            "paid_at": expense.paid_at.isoformat().replace("+00:00", "Z") if expense.paid_at else None,
+            "reference": expense.reference,
+        }
+        for expense in period_expenses.order_by("expense_date", "id")
+    ]
+
+    period_other_income = Income.objects.filter(
+        ledger=Order.Ledger.CLUB,
+        club_id=club_id,
+        status=Income.Status.RECEIVED,
+        income_date__gte=start,
+        income_date__lte=as_of,
+    ).select_related("category")
+    other_income_total = _sum(period_other_income)
+    other_income_by_category = [
+        {
+            "category_id": row["category_id"],
+            "category_code": row["category__code"],
+            "category_name": row["category__name"],
+            "amount": money_str(row["total"]),
+        }
+        for row in period_other_income.values("category_id", "category__code", "category__name")
+        .annotate(total=Sum("amount"))
+        .order_by("category__name")
+    ]
+    income_register = [
+        {
+            "id": income.id,
+            "income_number": income.income_number,
+            "income_date": income.income_date.isoformat(),
+            "category_name": income.category.name,
+            "payer": income.payer,
+            "description": income.description,
+            "amount": money_str(income.amount),
+            "status": income.status,
+            "reference": income.reference,
+        }
+        for income in period_other_income.order_by("income_date", "id")
+    ]
+
+    surplus = revenue_total + other_income_total - expense_total
+
+    stored = ClubFinanceYearOpening.objects.filter(club_id=club_id, year=year).first()
+    if stored:
+        opening_cash, opening_is_manual, opening_notes = money(stored.opening_cash), True, stored.notes
+    else:
+        receipts_before = Payment.objects.filter(
+            order__ledger=Order.Ledger.CLUB,
+            order__club_id=club_id,
+            status=Payment.Status.PAID,
+        ).filter(_paid_at_before(start_dt))
+        other_income_before = Income.objects.filter(
+            ledger=Order.Ledger.CLUB,
+            club_id=club_id,
+            status=Income.Status.RECEIVED,
+            income_date__lt=start,
+        )
+        expenses_before = Expense.objects.filter(
+            ledger=Order.Ledger.CLUB,
+            club_id=club_id,
+            status=Expense.Status.PAID,
+        ).filter(_paid_at_before(start_dt))
+        opening_cash = _sum(receipts_before) + _sum(other_income_before) - _sum(expenses_before)
+        opening_is_manual, opening_notes = False, ""
+
+    receipts = _sum(
+        Payment.objects.filter(
+            order__ledger=Order.Ledger.CLUB,
+            order__club_id=club_id,
+            status=Payment.Status.PAID,
+        ).filter(_paid_at_in_period(start_dt, as_of_end_dt))
+    )
+    disbursements = _sum(
+        Expense.objects.filter(
+            ledger=Order.Ledger.CLUB,
+            club_id=club_id,
+            status=Expense.Status.PAID,
+        ).filter(_paid_at_in_period(start_dt, as_of_end_dt))
+    )
+    closing_cash = opening_cash + receipts + other_income_total - disbursements
+
+    receivables_qs = (
+        Invoice.objects.filter(club_invoice_q)
+        .filter(_invoice_recognized_by(as_of_end_dt))
+        .filter(status__in=[Invoice.Status.ISSUED, Invoice.Status.PAID])
+        .exclude(Q(status=Invoice.Status.PAID) & _paid_at_on_or_before(as_of_end_dt))
+    )
+    receivables = [
+        {
+            "id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "club_name": "",
+            "issued_at": (invoice.issued_at or invoice.created_at).isoformat().replace("+00:00", "Z"),
+            "amount": money_str(invoice.total),
+        }
+        for invoice in receivables_qs.select_related("member").order_by("issued_at", "id")
+    ]
+    accounts_receivable = _sum(receivables_qs, "total")
+    payables_qs = Expense.objects.filter(
+        ledger=Order.Ledger.CLUB,
+        club_id=club_id,
+        expense_date__lte=as_of,
+        status__in=[Expense.Status.RECORDED, Expense.Status.PAID],
+    ).exclude(Q(status=Expense.Status.PAID) & _paid_at_on_or_before(as_of_end_dt))
+    payables = [
+        {
+            "id": expense.id,
+            "expense_number": expense.expense_number,
+            "payee": expense.payee,
+            "description": expense.description,
+            "expense_date": expense.expense_date.isoformat(),
+            "amount": money_str(expense.amount),
+        }
+        for expense in payables_qs.order_by("expense_date", "id")
+    ]
+    accounts_payable = _sum(payables_qs)
+    total_assets = closing_cash + accounts_receivable
+    total_liabilities = accounts_payable
+    net_assets = total_assets - total_liabilities
+    issued = Invoice.objects.filter(club_invoice_q, status=Invoice.Status.ISSUED).select_related("member")
+
+    return {
+        "organization_name": organization_name,
+        "currency": "EUR",
+        "year": year,
+        "period_start": start.isoformat(),
+        "as_of": as_of.isoformat(),
+        "generated_at": timezone.now().isoformat().replace("+00:00", "Z"),
+        "methodology": (
+            "Club books for the selected calendar year. Membership invoices are recognized when "
+            "issued. Other income is recognized on the income date. Expenses are recognized on "
+            "their expense date."
+        ),
+        "opening": {
+            "cash": money_str(opening_cash),
+            "is_manual": opening_is_manual,
+            "notes": opening_notes,
+        },
+        "income_statement": {
+            "revenue_license_fees": money_str(revenue_total),
+            "other_income": money_str(other_income_total),
+            "expenses_total": money_str(expense_total),
+            "surplus": money_str(surplus),
+            "income_by_club": [],
+            "other_income_by_category": other_income_by_category,
+            "expenses_by_category": expenses_by_category,
+        },
+        "cash_movement": {
+            "opening_cash": money_str(opening_cash),
+            "receipts": money_str(receipts),
+            "other_income": money_str(other_income_total),
+            "disbursements": money_str(disbursements),
+            "closing_cash": money_str(closing_cash),
+        },
+        "balance_sheet": {
+            "assets": {
+                "cash": money_str(closing_cash),
+                "accounts_receivable": money_str(accounts_receivable),
+                "total": money_str(total_assets),
+            },
+            "liabilities": {
+                "accounts_payable": money_str(accounts_payable),
+                "total": money_str(total_liabilities),
+            },
+            "equity": {
+                "net_assets": money_str(net_assets),
+                "total": money_str(net_assets),
+            },
+            "liabilities_and_equity_total": money_str(total_liabilities + net_assets),
+        },
+        "registers": {
+            "expenses": expense_register,
+            "other_income": income_register,
+            "receivables": receivables,
+            "payables": payables,
+        },
+        "aging": aging_summary(issued, party_attr="member"),
     }
 
 

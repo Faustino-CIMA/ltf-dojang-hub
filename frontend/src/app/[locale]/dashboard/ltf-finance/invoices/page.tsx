@@ -271,6 +271,11 @@ export default function LtfFinanceInvoicesPage() {
         render: (row: FinanceInvoice) => `${row.total} ${row.currency}`,
       },
       {
+        key: "outstanding",
+        header: t("outstandingLabel"),
+        render: (row: FinanceInvoice) => `${row.outstanding ?? row.total} ${row.currency}`,
+      },
+      {
         key: "issued_at",
         header: t("issuedAtLabel"),
         render: (row: FinanceInvoice) => formatDisplayDateTime(row.issued_at),
@@ -279,7 +284,8 @@ export default function LtfFinanceInvoicesPage() {
         key: "actions",
         header: t("actionLabel"),
         render: (row: FinanceInvoice) => {
-          const canRecord = row.status !== "paid" && row.status !== "void";
+          const outstanding = Number(row.outstanding ?? row.total);
+          const canRecord = row.status !== "paid" && row.status !== "void" && outstanding > 0;
           return (
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => handleInvoicePdf(row.id)}>

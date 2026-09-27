@@ -364,3 +364,16 @@
     transform: rotate(360deg);
   }
 }
+
+@keyframes health-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+.app-loading-shimmer {
+  animation: health-shimmer 1.4s ease-in-out infinite;
+}
