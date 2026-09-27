@@ -3,3 +3,10 @@
 .github
 __pycache__
 *.pyc
+.env
+**/.env
+# Backend image context is the repo root. Keep only the message catalogs from frontend.
+frontend/*
+!frontend/src
+frontend/src/*
+!frontend/src/messages
