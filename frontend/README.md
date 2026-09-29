@@ -29,6 +29,8 @@ Club Admin pages:
 - Print jobs history: `/{locale}/dashboard/club/print-jobs`
 - Quick print: `/{locale}/dashboard/club/print-jobs/quick-print`
 - Club admins (rubber-band): `/{locale}/dashboard/club/admins`
+- Membership fees: `/{locale}/dashboard/club/fees`
+  - Add a fee from the card at the top. Edit on a fee corrects its name and current amount. Delete removes it and returns assigned members to the club default. Save new amount schedules a later price. Issued invoices stay unchanged.
 
 Ops console (Django `is_superuser` only):
 - Overview: `/{locale}/dashboard/ops`

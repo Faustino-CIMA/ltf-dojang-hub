@@ -210,6 +210,17 @@ export function createFee(payload: Record<string, unknown>) {
   return apiRequest(`/api/club-management/membership-fees/`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function updateFee(feeId: number, payload: { name: string; amount: string }) {
+  return apiRequest(`/api/club-management/membership-fees/${feeId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteFee(feeId: number) {
+  return apiRequest<void>(`/api/club-management/membership-fees/${feeId}/`, { method: "DELETE" });
+}
+
 export type RebateRule = {
   id: number;
   member_rank: number;

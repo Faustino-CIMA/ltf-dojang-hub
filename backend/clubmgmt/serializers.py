@@ -238,6 +238,22 @@ class MembershipFeeSerializer(serializers.ModelSerializer):
         model = MembershipFee
         fields = ["id", "club", "name", "amount", "year", "is_active", "prices"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance is not None:
+            self.fields["club"].read_only = True
+
+    def validate_name(self, value):
+        name = str(value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Name is required.")
+        return name
+
+    def validate_amount(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Amount cannot be negative.")
+        return value
+
 
 class CommitteeMandateSerializer(serializers.ModelSerializer):
     member_name = serializers.SerializerMethodField()

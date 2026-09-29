@@ -412,6 +412,51 @@ class ClubManagementTests(TestCase):
         self.assertEqual(priced.data["amount"], "120.00")
         self.assertEqual(len(priced.data["prices"]), 2)
 
+    def test_membership_fee_edit_updates_name_and_current_price(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/membership-fees/",
+            {"club": self.club.id, "name": "Annual dues", "amount": "100.00"},
+            format="json",
+        )
+        fee_id = created.data["id"]
+        self.client.post(
+            f"/api/club-management/membership-fees/{fee_id}/add-price/",
+            {"amount": "120.00", "effective_from": "2027-01-01"},
+            format="json",
+        )
+        updated = self.client.patch(
+            f"/api/club-management/membership-fees/{fee_id}/",
+            {"name": "Adult dues", "amount": "90.00"},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["name"], "Adult dues")
+        self.assertEqual(updated.data["amount"], "90.00")
+        amounts = [row["amount"] for row in updated.data["prices"]]
+        self.assertIn("100.00", amounts)
+        self.assertEqual(
+            next(row["amount"] for row in updated.data["prices"] if row["effective_from"] == "2027-01-01" and row["amount"] == "90.00"),
+            "90.00",
+        )
+
+    def test_membership_fee_delete_clears_member_assignment(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/membership-fees/",
+            {"club": self.club.id, "name": "Annual dues", "amount": "100.00"},
+            format="json",
+        )
+        fee_id = created.data["id"]
+        record = MemberRecord.objects.create(member=self.member, membership_fee_id=fee_id)
+        deleted = self.client.delete(f"/api/club-management/membership-fees/{fee_id}/")
+        self.assertEqual(deleted.status_code, 204)
+        record.refresh_from_db()
+        self.assertIsNone(record.membership_fee_id)
+        self.assertEqual(self.client.get(f"/api/club-management/membership-fees/{fee_id}/").status_code, 404)
+
     def test_mandate_can_be_vacant_then_assigned(self):
         self._unlock()
         self._auth(self.club_admin)

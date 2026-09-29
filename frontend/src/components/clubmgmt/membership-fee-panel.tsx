@@ -6,15 +6,27 @@ import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormPanel } from "@/components/ui/list-page-chrome";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDisplayDate } from "@/lib/date-display";
-import { addMembershipFeePrice, createFee, createRebateRule, listFees, listRebateRules, updateRebateRule, type RebateRule } from "@/lib/clubmgmt-api";
+import {
+  addMembershipFeePrice,
+  createFee,
+  createRebateRule,
+  deleteFee,
+  listFees,
+  listRebateRules,
+  updateFee,
+  updateRebateRule,
+  type RebateRule,
+} from "@/lib/clubmgmt-api";
 
 type PriceRow = { id: number; amount: string; effective_from: string; created_at: string };
 type FeeRow = { id: number; name: string; amount: string; year: number | null; prices: PriceRow[] };
+type FeeDraft = { id: number; name: string; amount: string };
 type RebateKind = "percent" | "amount";
 
 type RebateDraft = {
@@ -109,6 +121,9 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
   const [rebateValue, setRebateValue] = useState("10");
   const [editDraft, setEditDraft] = useState<RebateDraft | null>(null);
   const [isSavingRule, setIsSavingRule] = useState(false);
+  const [feeDraft, setFeeDraft] = useState<FeeDraft | null>(null);
+  const [feeToDelete, setFeeToDelete] = useState<FeeRow | null>(null);
+  const [isDeletingFee, setIsDeletingFee] = useState(false);
   const [priceDrafts, setPriceDrafts] = useState<Record<number, { amount: string; effectiveFrom: string }>>({});
 
   const load = async () => {
@@ -195,10 +210,92 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
                 className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface"
               >
                 <div className="border-b border-border bg-secondary px-4 py-3">
-                  <h3 className="text-sm font-semibold text-foreground">{fee.name}</h3>
-                  <p className="text-xs text-muted">
-                    {fee.amount} EUR · {t("currentPrice")}
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">{fee.name}</h3>
+                      <p className="text-xs text-muted">
+                        {fee.amount} EUR · {t("currentPrice")}
+                      </p>
+                    </div>
+                    <div className="ml-auto flex shrink-0 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-expanded={feeDraft?.id === fee.id}
+                        onClick={() => {
+                          if (feeDraft?.id === fee.id) {
+                            setFeeDraft(null);
+                            return;
+                          }
+                          setFeeDraft({ id: fee.id, name: fee.name, amount: fee.amount });
+                        }}
+                      >
+                        {t("editItem")}
+                      </Button>
+                      <Button type="button" variant="destructive" size="sm" onClick={() => setFeeToDelete(fee)}>
+                        {t("deleteFee")}
+                      </Button>
+                    </div>
+                  </div>
+                  {feeDraft?.id === fee.id ? (
+                    <div className="mt-4" data-fee-editor={fee.id}>
+                      <p className="mb-3 text-xs text-muted">{t("editFeeHint")}</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor={`fee-name-${fee.id}`}>{t("feeName")}</Label>
+                          <Input
+                            id={`fee-name-${fee.id}`}
+                            value={feeDraft.name}
+                            autoFocus
+                            onChange={(event) =>
+                              setFeeDraft((current) => (current ? { ...current, name: event.target.value } : current))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`fee-amount-${fee.id}`}>{t("feeAmount")}</Label>
+                          <Input
+                            id={`fee-amount-${fee.id}`}
+                            value={feeDraft.amount}
+                            inputMode="decimal"
+                            onChange={(event) =>
+                              setFeeDraft((current) => (current ? { ...current, amount: event.target.value } : current))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isSavingFee}
+                          onClick={async () => {
+                            if (!feeDraft.name.trim() || !feeDraft.amount.trim()) {
+                              onError(t("feeRequiredError"));
+                              return;
+                            }
+                            setIsSavingFee(true);
+                            try {
+                              await updateFee(fee.id, { name: feeDraft.name.trim(), amount: feeDraft.amount });
+                              setFeeDraft(null);
+                              await load();
+                              onSuccess(t("saved"));
+                            } catch (error) {
+                              onError(error instanceof Error ? error.message : t("saveError"));
+                            } finally {
+                              setIsSavingFee(false);
+                            }
+                          }}
+                        >
+                          {t("saveFeeChanges")}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => setFeeDraft(null)}>
+                          {t("cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 {(fee.prices ?? []).length > 0 ? (
                   <EntityTable
@@ -409,6 +506,31 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
           }
         />
       ) : null}
+      <DeleteConfirmModal
+        isOpen={feeToDelete !== null}
+        title={t("deleteFeeTitle")}
+        description={feeToDelete ? t("deleteFeeDescription", { name: feeToDelete.name }) : ""}
+        confirmLabel={t("deleteFeeConfirm")}
+        cancelLabel={t("cancel")}
+        onCancel={() => {
+          if (!isDeletingFee) setFeeToDelete(null);
+        }}
+        onConfirm={async () => {
+          if (!feeToDelete) return;
+          setIsDeletingFee(true);
+          try {
+            await deleteFee(feeToDelete.id);
+            if (feeDraft?.id === feeToDelete.id) setFeeDraft(null);
+            setFeeToDelete(null);
+            await load();
+            onSuccess(t("feeDeleted"));
+          } catch (error) {
+            onError(error instanceof Error ? error.message : t("saveError"));
+          } finally {
+            setIsDeletingFee(false);
+          }
+        }}
+      />
     </div>
   );
 }

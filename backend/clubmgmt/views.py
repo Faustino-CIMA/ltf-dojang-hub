@@ -584,6 +584,31 @@ class MembershipFeeViewSet(viewsets.ModelViewSet):
         fee = self.get_queryset().get(pk=fee.pk)
         return Response(MembershipFeeSerializer(fee).data)
 
+    def _guard_fee(self, fee):
+        if not can_manage_club_records(self.request.user, fee.club_id):
+            raise PermissionDenied(detail="This module is not available.")
+
+    def perform_update(self, serializer):
+        self._guard_fee(serializer.instance)
+        previous = serializer.instance.amount
+        fee = serializer.save()
+        if fee.amount == previous:
+            return
+        latest = fee.prices.order_by("-effective_from", "-id").first()
+        if latest is None:
+            MembershipFeePrice.objects.create(
+                fee=fee,
+                amount=fee.amount,
+                effective_from=date(timezone.now().year, 1, 1),
+            )
+            return
+        latest.amount = fee.amount
+        latest.save(update_fields=["amount"])
+
+    def perform_destroy(self, instance):
+        self._guard_fee(instance)
+        instance.delete()
+
 
 class CommitteeViewSet(viewsets.ModelViewSet):
     serializer_class = CommitteeSerializer
