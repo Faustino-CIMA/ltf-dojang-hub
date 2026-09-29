@@ -33,6 +33,7 @@ Club Admin pages:
 Ops console (Django `is_superuser` only):
 - Overview: `/{locale}/dashboard/ops`
 - Modules (product codes and club assignment): `/{locale}/dashboard/ops/modules`
+  - The install id on that page is not a product code. With no `MODULE_CODE_*` keys, the server stores a signing key in the database. A superuser mints an `LTF1.…` code and then redeems it. Set `MODULE_CODE_PUBLIC_KEY` alone when another party signs the codes.
 
 Preview prove-out (only when entitled / assigned):
 - LTF Admin: `/{locale}/dashboard/ltf/preview`

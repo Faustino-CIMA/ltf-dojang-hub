@@ -51,6 +51,7 @@ export type OpsModules = ModuleStatus & {
   install_id: string;
   has_verify_key: boolean;
   can_mint_locally: boolean;
+  key_source?: "env" | "install";
   catalog: CatalogModule[];
   redemptions: ProductCodeRedemption[];
   assignments: ModuleAssignment[];

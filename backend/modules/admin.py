@@ -7,6 +7,7 @@ from .models import ClubModuleAssignment, InstallEntitlement, InstallIdentity, P
 class InstallIdentityAdmin(admin.ModelAdmin):
     list_display = ("install_id", "created_at")
     readonly_fields = ("install_id", "created_at", "updated_at", "local_public_key")
+    exclude = ("local_private_key",)
 
 
 @admin.register(ProductCodeRedemption)

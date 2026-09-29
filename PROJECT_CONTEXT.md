@@ -1,5 +1,5 @@
 **LTF Taekwondo License Manager — Master Summary (May 2026)**
-Last updated: 2026-09-27
+Last updated: 2026-09-29
 
 Current main branch state:
 - Version: v0.11.0 on `feature/module-club-management` — club training, promotion, shop, fees, Qualité+ subsidies, and the LTF license invoice letterhead (2026-09-27)
@@ -59,7 +59,7 @@ Rules we follow:
 - Superuser ops console (`is_superuser`, `/{locale}/dashboard/ops`): sessions, health, failed logins/lockouts, alerts, users, query catalog, EN|LB translation editor, jobs, ops audit — completed (v0.8.0)
 - Club Admins can add/remove other admins for their clubs (rubber-band, home-club only; header club filter hidden on that page) — completed (v0.8.0)
 - Backend/worker/beat share image `ltf-license-manager-backend` so Celery stays in sync after backend rebuilds — completed (v0.8.0)
-- Modular entitlements: signed product codes on ops, install entitlement + per-club assignment, API 403 and hidden nav, Preview coming-soon prove-out. Redeem is additive. Never call a software entitlement a “license.” — completed (v0.9.0; additive redeem in v0.10.0)
+- Modular entitlements: signed product codes on ops, install entitlement + per-club assignment, API 403 and hidden nav, Preview coming-soon prove-out. Redeem is additive. Never call a software entitlement a “license.” — completed (v0.9.0; additive redeem in v0.10.0). A server with no `MODULE_CODE_*` keys creates one Ed25519 keypair in the database (`ensure_module_keys` on startup, or the first Ops → Modules load) and a superuser can mint `LTF1.…` codes there. The install id is not a product code. `MODULE_CODE_PUBLIC_KEY` alone keeps minting off for an outside issuer. The private key is not printed; a database backup is the key backup.
 - Event calendar: one Event engine; federation calendar when entitled; club calendar when assigned; members see public dates; Public/Internal/Private spelled out; today is a filled date circle — completed (v0.10.0)
 - Club management: training timetable and rolls, belt promotion, coach pay periods, in-club shop, membership fees and family rebates, Qualité+ subsidy lists, and the federation license-invoice letterhead — completed (v0.11.0)
 - Full Finance Module (Order, OrderItem, Invoice, Payment with card details, Stripe Checkout + webhooks + manual record payment, audit logs) — completed

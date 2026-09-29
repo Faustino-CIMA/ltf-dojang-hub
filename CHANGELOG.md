@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### User-facing
+- **Product codes:** A new server creates its own signing key and can mint codes from Ops → Modules. Paste the `LTF1.…` code, not the install id. The install id is only the label this server is bound to.
+
+### Technical
+- `ensure_module_keys` runs after migrate. When `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` are unset, it stores one Ed25519 keypair on `InstallIdentity` and does not rotate it later. A database backup keeps that key. The private key is not printed and is hidden in the Django admin.
+- Opening Ops → Modules creates the same key if startup did not. Superusers can mint when this install holds the private key, including when `DJANGO_DEBUG` is false.
+- `MODULE_CODE_PUBLIC_KEY` alone means an outside issuer signs codes. This server verifies them and does not mint. `MODULE_CODE_PRIVATE_KEY` still overrides the database key.
+- Pasting the install id into Redeem code returns “That is the install id. Paste a product code that starts with LTF1.”
+
 ## [0.11.0] - 2026-09-27
 
 ### User-facing

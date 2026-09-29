@@ -82,13 +82,17 @@ docker compose exec backend python manage.py createsuperuser
 - Frontend: `http://localhost:3000/`
 - Ops Modules (superuser): `http://localhost:3000/en/dashboard/ops/modules`
 
-In local debug, mint a product code from ops (**Mint preview code** or **Mint calendar code**) or:
+On startup the backend runs `ensure_module_keys`. If `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` are unset, that creates one signing key in the database for this install. It does not print the key and it does not replace a key that already exists. Back up the database; that backup is the backup of the key.
+
+Open **Ops → Modules**, mint a code (Club management, Event calendar, or Preview), then redeem that `LTF1.…` value. The install id shown above the field is not a product code. Each code **adds** modules; it does not turn off modules you already have. Then assign per-club modules to a club.
+
+The same mint is available from the shell:
 
 ```
-docker compose exec backend python manage.py mint_module_code --modules preview,event_calendar
+docker compose exec backend python manage.py mint_module_code --modules club_management,event_calendar
 ```
 
-Paste the code on Modules. Each code **adds** modules; it does not turn off modules you already have. Assign per-club modules (Preview, Event calendar) to a club. Do not call a product code a license.
+Set `MODULE_CODE_PUBLIC_KEY` alone only when someone else signs codes for this server. Do not call a product code a license.
 
 ## Verify Install
 
@@ -305,7 +309,12 @@ Performance:
 
 Encryption:
 - `FERNET_KEYS` (optional, comma-separated keys for encrypted finance fields)
-- If not set, the app derives one key from `DJANGO_SECRET_KEY` for local/dev.
+- If the variable is omitted, the app derives one key from `DJANGO_SECRET_KEY`. An empty `FERNET_KEYS=` does not use that default.
+
+Product codes (not member licenses):
+- Leave `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` unset. Startup runs `ensure_module_keys` and stores one signing key in the database. Back up the database to keep it.
+- Set `MODULE_CODE_PUBLIC_KEY` alone when another party signs codes for this server. Minting stays off.
+- Set both only to bring an existing keypair from another server. Those values override the database key.
 
 ## Finance Module Setup (Stripe + Webhooks + Celery)
 

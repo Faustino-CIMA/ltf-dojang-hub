@@ -160,7 +160,13 @@ export default function OpsModulesPage() {
           <div>
             <p className="text-sm font-semibold text-foreground">{t("modulesInstallId")}</p>
             <p className="mt-1 font-mono text-sm text-muted">{data?.install_id || "—"}</p>
-            <p className="mt-2 max-w-2xl text-sm text-muted">{t("modulesInstallHint")}</p>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              {data?.key_source === "env"
+                ? data.can_mint_locally
+                  ? t("modulesInstallHintEnv")
+                  : t("modulesInstallHint")
+                : t("modulesInstallHintLocal")}
+            </p>
           </div>
           <Button type="button" variant="outline" onClick={() => void copyInstallId()} disabled={!data?.install_id}>
             <Copy className="size-4" aria-hidden />

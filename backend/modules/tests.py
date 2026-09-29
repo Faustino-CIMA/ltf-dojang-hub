@@ -1,5 +1,8 @@
+import base64
 from datetime import timedelta
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -7,7 +10,14 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from clubs.models import Club
 
-from .codes import ProductCodeError, build_payload, fingerprint_token, parse_and_verify, sign_payload
+from .codes import (
+    ProductCodeError,
+    build_payload,
+    ensure_install_keys,
+    fingerprint_token,
+    parse_and_verify,
+    sign_payload,
+)
 from .entitlements import (
     install_id_str,
     is_club_assigned,
@@ -15,7 +25,7 @@ from .entitlements import (
     redeem_product_code,
     set_club_assignment,
 )
-from .models import ClubModuleAssignment, InstallEntitlement, ProductCodeRedemption
+from .models import ClubModuleAssignment, InstallEntitlement, InstallIdentity, ProductCodeRedemption
 from .registry import (
     CLUB_MANAGEMENT_MODULE_ID,
     INVENTORY_CLUB_LEGACY_ID,
@@ -329,3 +339,105 @@ class ModuleEntitlementTests(TestCase):
         redemption = ProductCodeRedemption.objects.get(jti="legacy-inv-club")
         self.assertEqual(sorted(redemption.modules), [CLUB_MANAGEMENT_MODULE_ID, PREVIEW_MODULE_ID])
         self.assertEqual(redemption.payload["modules"], [CLUB_MANAGEMENT_MODULE_ID])
+
+    def test_install_id_is_not_a_product_code(self):
+        self._auth(self.superuser)
+        response = self.client.post(
+            "/api/ops/modules/codes/",
+            {"code": install_id_str()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("LTF1", str(response.data))
+
+
+def _raw_b64(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+@override_settings(DEBUG=False, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
+class InstallKeyBootstrapTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.superuser = User.objects.create_superuser(
+            username="opsroot",
+            email="ops@example.com",
+            password="pass12345",
+        )
+        self.client.force_authenticate(user=self.superuser)
+
+    def test_production_creates_one_database_key_and_can_mint(self):
+        source, created = ensure_install_keys()
+        self.assertEqual(source, "install")
+        self.assertTrue(created)
+        install = InstallIdentity.objects.get(pk=1)
+        public_key = install.local_public_key
+        self.assertTrue(public_key)
+        self.assertTrue(install.local_private_key)
+
+        again, created_again = ensure_install_keys()
+        self.assertEqual(again, "install")
+        self.assertFalse(created_again)
+        install.refresh_from_db()
+        self.assertEqual(install.local_public_key, public_key)
+
+        page = self.client.get("/api/ops/modules/")
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.data["key_source"], "install")
+        self.assertTrue(page.data["can_mint_locally"])
+        self.assertTrue(page.data["has_verify_key"])
+
+        minted = self.client.post(
+            "/api/ops/modules/codes/mint/",
+            {"modules": [CLUB_MANAGEMENT_MODULE_ID]},
+            format="json",
+        )
+        self.assertEqual(minted.status_code, 200)
+        self.assertTrue(minted.data["code"].startswith("LTF1."))
+        redeemed = self.client.post(
+            "/api/ops/modules/codes/",
+            {"code": minted.data["code"]},
+            format="json",
+        )
+        self.assertEqual(redeemed.status_code, 201)
+        self.assertTrue(is_install_entitled(CLUB_MANAGEMENT_MODULE_ID))
+
+    def test_command_is_quiet_about_the_secret(self):
+        from io import StringIO
+
+        out = StringIO()
+        call_command("ensure_module_keys", stdout=out)
+        text = out.getvalue()
+        self.assertIn("Created a product-code signing key", text)
+        install = InstallIdentity.objects.get(pk=1)
+        self.assertNotIn(install.local_private_key, text)
+        call_command("ensure_module_keys", stdout=out)
+        self.assertIn("already stored", out.getvalue())
+
+    @override_settings(DEBUG=False)
+    def test_public_env_key_blocks_local_mint_and_verifies_issuer_codes(self):
+        private = Ed25519PrivateKey.generate()
+        public = _raw_b64(private.public_key().public_bytes_raw())
+        with override_settings(MODULE_CODE_PUBLIC_KEY=public, MODULE_CODE_PRIVATE_KEY=""):
+            source, created = ensure_install_keys()
+            self.assertEqual(source, "env")
+            self.assertFalse(created)
+            self.assertFalse(InstallIdentity.objects.filter(pk=1, local_private_key__gt="").exists())
+
+            page = self.client.get("/api/ops/modules/")
+            self.assertEqual(page.status_code, 200)
+            self.assertEqual(page.data["key_source"], "env")
+            self.assertFalse(page.data["can_mint_locally"])
+
+            minted = self.client.post(
+                "/api/ops/modules/codes/mint/",
+                {"modules": [PREVIEW_MODULE_ID]},
+                format="json",
+            )
+            self.assertEqual(minted.status_code, 400)
+
+            payload = build_payload(module_ids=[PREVIEW_MODULE_ID], install_id=install_id_str())
+            token = sign_payload(payload, private_key=private)
+            redeemed = self.client.post("/api/ops/modules/codes/", {"code": token}, format="json")
+            self.assertEqual(redeemed.status_code, 201)
+            self.assertTrue(is_install_entitled(PREVIEW_MODULE_ID))

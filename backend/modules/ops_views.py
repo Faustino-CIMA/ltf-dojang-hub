@@ -1,4 +1,3 @@
-from django.conf import settings
 from rest_framework import response, status, views
 from rest_framework.exceptions import ValidationError
 
@@ -10,9 +9,10 @@ from .codes import (
     ProductCodeError,
     build_payload,
     can_mint_locally,
-    configured_public_key,
+    ensure_install_keys,
     fingerprint_token,
     get_or_create_install,
+    has_verify_key,
     sign_payload,
 )
 from .entitlements import (
@@ -30,6 +30,7 @@ class OpsModulesView(views.APIView):
     permission_classes = [IsSuperuser]
 
     def get(self, request):
+        key_source, _created = ensure_install_keys()
         install = get_or_create_install()
         redemptions = [
             {
@@ -56,8 +57,9 @@ class OpsModulesView(views.APIView):
         payload.update(
             {
                 "install_id": str(install.install_id),
-                "has_verify_key": bool(configured_public_key()) or bool(settings.DEBUG),
-                "can_mint_locally": can_mint_locally() and bool(settings.DEBUG),
+                "has_verify_key": has_verify_key(),
+                "can_mint_locally": can_mint_locally(),
+                "key_source": key_source,
                 "catalog": catalog(),
                 "redemptions": redemptions,
                 "assignments": assignments,
@@ -106,8 +108,10 @@ class OpsMintCodeView(views.APIView):
     permission_classes = [IsSuperuser]
 
     def post(self, request):
-        if not settings.DEBUG:
-            raise ValidationError("Local minting is only available in debug.")
+        if not can_mint_locally():
+            raise ValidationError(
+                "This install verifies product codes signed elsewhere and cannot mint them."
+            )
         modules = request.data.get("modules") or []
         if isinstance(modules, str):
             modules = [item.strip() for item in modules.split(",") if item.strip()]

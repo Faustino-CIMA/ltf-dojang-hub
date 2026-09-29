@@ -5,12 +5,14 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 import uuid
 from datetime import timezone as dt_timezone
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -19,6 +21,11 @@ from .registry import KNOWN_MODULE_IDS, canonical_module_ids
 
 TOKEN_PREFIX = "LTF1"
 PAYLOAD_VERSION = 1
+KEY_SOURCE_ENV = "env"
+KEY_SOURCE_INSTALL = "install"
+_INSTALL_ID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 class ProductCodeError(Exception):
@@ -84,13 +91,23 @@ def _load_public_from_b64(value: str) -> Ed25519PublicKey:
 
 
 def ensure_local_keypair(install: InstallIdentity) -> InstallIdentity:
+    updated, _created = _lock_and_ensure_keypair(install)
+    return updated
+
+
+def _lock_and_ensure_keypair(install: InstallIdentity) -> tuple[InstallIdentity, bool]:
+    """Create the install keypair once. A second call does not rotate it."""
     if install.local_public_key and install.local_private_key:
-        return install
-    key = Ed25519PrivateKey.generate()
-    install.local_private_key = _b64encode(key.private_bytes_raw())
-    install.local_public_key = _b64encode(key.public_key().public_bytes_raw())
-    install.save(update_fields=["local_public_key", "local_private_key", "updated_at"])
-    return install
+        return install, False
+    with transaction.atomic():
+        locked = InstallIdentity.objects.select_for_update().get(pk=install.pk)
+        if locked.local_public_key and locked.local_private_key:
+            return locked, False
+        key = Ed25519PrivateKey.generate()
+        locked.local_private_key = _b64encode(key.private_bytes_raw())
+        locked.local_public_key = _b64encode(key.public_key().public_bytes_raw())
+        locked.save(update_fields=["local_public_key", "local_private_key", "updated_at"])
+        return locked, True
 
 
 def configured_public_key() -> str:
@@ -101,45 +118,61 @@ def configured_private_key() -> str:
     return str(getattr(settings, "MODULE_CODE_PRIVATE_KEY", "") or "").strip()
 
 
+def uses_environment_keys() -> bool:
+    return bool(configured_public_key() or configured_private_key())
+
+
+def ensure_install_keys() -> tuple[str, bool]:
+    """Make this install able to verify product codes.
+
+    Environment keys win and are left untouched. Otherwise the Ed25519 pair is
+    created once on InstallIdentity and reused. Returns (source, created).
+    """
+    if uses_environment_keys():
+        return KEY_SOURCE_ENV, False
+    install = get_or_create_install()
+    _locked, created = _lock_and_ensure_keypair(install)
+    return KEY_SOURCE_INSTALL, created
+
+
 def has_verify_key() -> bool:
-    if configured_public_key():
+    if configured_public_key() or configured_private_key():
         return True
-    if settings.DEBUG:
-        install = get_or_create_install()
-        return bool(install.local_public_key) or True
-    return False
+    install = InstallIdentity.objects.filter(pk=1).first()
+    return bool(install and install.local_public_key)
 
 
 def can_mint_locally() -> bool:
+    """True when this process holds a private key (env or the install row)."""
     if configured_private_key():
         return True
-    return bool(settings.DEBUG)
+    if configured_public_key():
+        return False
+    return True
 
 
 def get_verify_key() -> Ed25519PublicKey:
     configured = configured_public_key()
     if configured:
         return _load_public_from_b64(configured)
-    if settings.DEBUG:
-        install = ensure_local_keypair(get_or_create_install())
-        return _load_public_from_b64(install.local_public_key)
-    raise ProductCodeError(
-        "no_verify_key",
-        "This install has no product-code verification key.",
-    )
+    private = configured_private_key()
+    if private:
+        return _load_private_from_b64(private).public_key()
+    install = ensure_local_keypair(get_or_create_install())
+    return _load_public_from_b64(install.local_public_key)
 
 
 def get_signing_key() -> Ed25519PrivateKey:
     configured = configured_private_key()
     if configured:
         return _load_private_from_b64(configured)
-    if settings.DEBUG:
-        install = ensure_local_keypair(get_or_create_install())
-        return _load_private_from_b64(install.local_private_key)
-    raise ProductCodeError(
-        "no_signing_key",
-        "This install cannot mint product codes. Set MODULE_CODE_PRIVATE_KEY.",
-    )
+    if configured_public_key():
+        raise ProductCodeError(
+            "no_signing_key",
+            "This install verifies product codes signed elsewhere and cannot mint them.",
+        )
+    install = ensure_local_keypair(get_or_create_install())
+    return _load_private_from_b64(install.local_private_key)
 
 
 def build_payload(
@@ -180,6 +213,11 @@ def sign_payload(payload: dict[str, Any], private_key: Ed25519PrivateKey | None 
 
 def parse_and_verify(token: str) -> dict[str, Any]:
     raw = (token or "").strip()
+    if _INSTALL_ID_RE.match(raw):
+        raise ProductCodeError(
+            "install_id",
+            "That is the install id. Paste a product code that starts with LTF1.",
+        )
     parts = raw.split(".")
     if len(parts) != 3 or parts[0] != TOKEN_PREFIX:
         raise ProductCodeError("malformed", "Product code is not valid.")
