@@ -3309,6 +3309,8 @@ class LtfLicenseInvoicePdfTests(TestCase):
         self.assertIn("CIMA Faustino", text)
         self.assertIn("Qty : 1", text)
         self.assertIn("30,00 €", text)
+        self.assertIn("Placed", text)
+        self.assertIn("Delivered", text)
         self.assertNotIn("Year", text)
 
 

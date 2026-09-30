@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### User-facing
+- **LTF license invoices:** The Order column in the footer reads Order, Placed, Delivered, and Status. The Invoice column stays Invoice, Issued, Paid, and Status.
 - **Membership fees:** On Club fees, each fee can be renamed or have its current amount corrected, and it can be deleted. Deleting a fee returns assigned members to the club default. Invoices already issued stay as they are. A later price still uses Save new amount.
 - **Product codes:** A new server creates its own signing key and can mint codes from Ops → Modules. Paste the `LTF1.…` code, not the install id. The install id is only the label this server is bound to.
 
