@@ -23,6 +23,7 @@ All notable changes to this project are documented in this file.
 - `Club.website` is migration `clubs.0011_club_website`. `normalize_club_website` accepts only `http` and `https`.
 - A family has either `invoice_member` or `bill_to_person`. Issued invoices store `bill_to_name`, `bill_to_email`, and `bill_to_address` (`clubmgmt.0017_family_bill_to_and_primary_contact`, `licenses.0045_invoice_bill_to_snapshot`). The order stays linked to a family member.
 - Club billing treats an invoice as the family invoice only when every current member’s name is on that invoice’s lines.
+- `clubmgmt.0005` settles old zero-euro membership invoices with SQL against the columns that exist at that step. It no longer loads the current invoice model, which includes `bill_to_name` from `licenses.0045`. Databases that already applied `0005` do not run it again.
 - `PATCH /api/club-management/membership-fees/{id}/` updates the fee name. A changed amount updates the latest price row and `MembershipFee.amount`. `DELETE` removes the fee. Assigned member records are set back to no fee (`on_delete=SET_NULL`).
 - `ensure_module_keys` runs after migrate. When `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` are unset, it stores one Ed25519 keypair on `InstallIdentity` and does not rotate it later. A database backup keeps that key. The private key is not printed and is hidden in the Django admin.
 - Opening Ops → Modules creates the same key if startup did not. Superusers can mint when this install holds the private key, including when `DJANGO_DEBUG` is false.
