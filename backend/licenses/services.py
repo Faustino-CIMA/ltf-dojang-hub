@@ -9,6 +9,13 @@ from .history import create_license_history_event, log_license_status_change
 from .models import FinanceAuditLog, Invoice, License, LicenseHistoryEvent, Order, Payment
 
 
+def cancel_pending_payments_for_invoice(invoice: Invoice, *, keep_id: int | None = None) -> int:
+    queryset = Payment.objects.filter(invoice=invoice, status=Payment.Status.PENDING)
+    if keep_id is not None:
+        queryset = queryset.exclude(pk=keep_id)
+    return queryset.update(status=Payment.Status.CANCELLED)
+
+
 def apply_payment_and_activate(
     order: Order,
     *,
@@ -16,6 +23,7 @@ def apply_payment_and_activate(
     stripe_data: Mapping[str, Any] | None = None,
     payment_details: Mapping[str, Any] | None = None,
     message: str = "Payment confirmed and licenses activated.",
+    record_payment: bool = True,
 ) -> bool:
     stripe_data = stripe_data or {}
     payment_details = payment_details or {}
@@ -91,7 +99,7 @@ def apply_payment_and_activate(
         candidate_licenses = [
             item.license
             for item in order_items
-            if item.license.status != License.Status.ACTIVE
+            if item.license_id and item.license and item.license.status != License.Status.ACTIVE
         ]
         candidate_license_ids = [license.id for license in candidate_licenses]
         candidate_member_ids = {license.member_id for license in candidate_licenses}
@@ -110,6 +118,8 @@ def apply_payment_and_activate(
 
         for item in order_items:
             license_record = item.license
+            if not license_record:
+                continue
             license_status_before[license_record.id] = license_record.status
             if license_record.status != License.Status.ACTIVE:
                 if license_record.start_date > today:
@@ -133,6 +143,9 @@ def apply_payment_and_activate(
                 activated_license_ids.append(license_record.id)
                 activated_licenses.append((license_record, license_status_before[license_record.id]))
                 member_ids_with_other_active_license.add(license_record.member_id)
+                from members.services import ensure_ltf_license_id
+
+                ensure_ltf_license_id(license_record.member)
 
         created_payment = None
 
@@ -141,7 +154,7 @@ def apply_payment_and_activate(
 
             transaction.on_commit(lambda: send_invoice_email.delay(invoice.id))
 
-        if invoice and invoice.status == Invoice.Status.PAID:
+        if invoice and invoice.status == Invoice.Status.PAID and record_payment:
             payment_reference = (
                 payment_details.get("payment_reference")
                 or stripe_payment_intent_id
@@ -164,7 +177,7 @@ def apply_payment_and_activate(
             if not payment_provider:
                 payment_provider = Payment.Provider.MANUAL
             payment_paid_at = payment_details.get("paid_at") or invoice.paid_at or now
-            payment_amount = payment_details.get("amount") or invoice.total
+            payment_amount = payment_details.get("amount") or invoice.outstanding() or invoice.total
             payment_currency = payment_details.get("currency") or invoice.currency
             payment_notes = payment_details.get("payment_notes") or ""
             existing_payment = None
@@ -241,15 +254,19 @@ def apply_payment_and_activate(
                     created_by=actor,
                 )
 
+            cancel_pending_payments_for_invoice(invoice, keep_id=created_payment.pk)
+        elif invoice and invoice.status == Invoice.Status.PAID:
+            cancel_pending_payments_for_invoice(invoice)
+
         for activated_license, previous_status in activated_licenses:
             log_license_status_change(
                 activated_license,
                 status_before=previous_status,
                 actor=actor,
-                reason="Payment confirmed and license activated.",
+                reason=message,
                 order=order,
                 payment=created_payment,
-                metadata={"source": "apply_payment_and_activate"},
+                metadata={"source": "apply_payment_and_activate", "record_payment": record_payment},
             )
             if created_payment:
                 create_license_history_event(
@@ -265,9 +282,10 @@ def apply_payment_and_activate(
                 )
 
         if updated_order or updated_invoice or activated_any:
+            has_license_items = any(item.license_id for item in order_items)
             FinanceAuditLog.objects.create(
                 action="order.paid",
-                message=message,
+                message=message if has_license_items else "Payment confirmed.",
                 actor=actor,
                 club=order.club,
                 member=order.member,

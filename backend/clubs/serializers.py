@@ -1,12 +1,16 @@
 import re
 
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
-from .models import BrandingAsset, Club, FederationProfile
+from .languages import normalize_club_language
+from .models import BrandingAsset, Club, FederationProfile, normalize_club_website
 
 
 class ClubSerializer(serializers.ModelSerializer):
+    website = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
     class Meta:
         model = Club
         fields = [
@@ -20,6 +24,10 @@ class ClubSerializer(serializers.ModelSerializer):
             "locality",
             "iban",
             "bank_name",
+            "email",
+            "website",
+            "is_active",
+            "communication_language",
             "max_admins",
             "created_by",
             "admins",
@@ -36,6 +44,18 @@ class ClubSerializer(serializers.ModelSerializer):
         if normalized and not is_valid_iban(normalized):
             raise serializers.ValidationError("Enter a valid IBAN.")
         return normalized
+
+    def validate_email(self, value):
+        return str(value or "").strip()
+
+    def validate_website(self, value):
+        try:
+            return normalize_club_website(value)
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
+
+    def validate_communication_language(self, value):
+        return normalize_club_language(value)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -65,6 +85,14 @@ class ClubSerializer(serializers.ModelSerializer):
             attrs["bank_name"] = derive_bank_name_from_iban(attrs["iban"])
         elif attrs.get("iban"):
             attrs["bank_name"] = derive_bank_name_from_iban(attrs["iban"])
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        role = getattr(user, "role", None)
+        if role == "ltf_finance":
+            attrs = {key: value for key, value in attrs.items() if key == "is_active"}
+        elif role == "club_admin":
+            attrs.pop("is_active", None)
         return attrs
 
 
@@ -80,10 +108,21 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             "locality",
             "iban",
             "bank_name",
+            "rewrite_lux_prefix_on_member_import",
+            "club_tourist_transfer_threshold",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["bank_name", "created_at", "updated_at"]
+
+    def validate_club_tourist_transfer_threshold(self, value):
+        try:
+            threshold = int(value)
+        except (TypeError, ValueError) as error:
+            raise serializers.ValidationError("Enter a whole number.") from error
+        if threshold < 1 or threshold > 99:
+            raise serializers.ValidationError("Enter a number between 1 and 99.")
+        return threshold
 
     def validate_postal_code(self, value):
         return str(value or "").strip()

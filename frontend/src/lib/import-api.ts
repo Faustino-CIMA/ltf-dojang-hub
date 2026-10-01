@@ -1,12 +1,22 @@
 import { API_URL } from "./api";
 import { getToken } from "./auth";
 
+export type LtfLicensePrefixRewritePolicy = {
+  enabled: boolean;
+  source_prefix: string;
+  target_prefix: string;
+  rewritten_count: number;
+};
+
 type PreviewResponse = {
   headers: string[];
   sample_rows?: string[][];
   rows?: ImportRow[];
   total_rows: number;
   club_id?: number;
+  suggested_mapping?: Record<string, string>;
+  membership_end_date_header?: string | null;
+  ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
 };
 
 type ImportRow = {
@@ -22,6 +32,7 @@ type ConfirmResponse = {
   skipped: number;
   errors: Array<{ row_index: number; errors: string[] }>;
   club_id?: number;
+  ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
 };
 
 type ImportType = "clubs" | "members";
@@ -48,13 +59,30 @@ export async function previewImport(
   return upload<PreviewResponse>(`/api/imports/${type}/preview/`, formData);
 }
 
+type ConfirmRowOverridePayload = {
+  row_index: number;
+  primary_license_role: string;
+  secondary_license_role: string;
+  is_active?: boolean;
+};
+
+export type MembershipYearPolicy = "skip" | "active" | "inactive";
+
+export type MembershipYearPoliciesPayload = {
+  enabled: boolean;
+  years: Record<string, MembershipYearPolicy>;
+  unknown: MembershipYearPolicy;
+};
+
 export async function confirmImport(
   type: ImportType,
   file: File,
   mapping: Record<string, string>,
   actions: Array<{ row_index: number; action: "create" | "skip" }>,
   clubId?: number,
-  dateFormat?: string
+  dateFormat?: string,
+  rowOverrides?: ConfirmRowOverridePayload[],
+  membershipYearPolicies?: MembershipYearPoliciesPayload
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -65,6 +93,12 @@ export async function confirmImport(
   }
   if (dateFormat) {
     formData.append("date_format", dateFormat);
+  }
+  if (rowOverrides !== undefined && rowOverrides.length > 0) {
+    formData.append("row_overrides", JSON.stringify(rowOverrides));
+  }
+  if (membershipYearPolicies?.enabled) {
+    formData.append("membership_year_policies", JSON.stringify(membershipYearPolicies));
   }
 
   return upload<ConfirmResponse>(`/api/imports/${type}/confirm/`, formData);

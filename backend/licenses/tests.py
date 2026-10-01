@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import hashlib
 import hmac
 import json
@@ -7,6 +7,7 @@ from unittest.mock import patch
 from decimal import Decimal
 from urllib.error import URLError
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
@@ -19,7 +20,14 @@ from clubs.models import Club
 from members.models import Member
 
 from .models import (
+    ClubFeePrice,
+    ClubFeeType,
+    Expense,
+    ExpenseCategory,
+    Income,
+    IncomeCategory,
     FinanceAuditLog,
+    FinanceYearOpening,
     Invoice,
     License,
     LicenseHistoryEvent,
@@ -30,7 +38,7 @@ from .models import (
     OrderItem,
     Payment,
 )
-from .pdf_utils import build_invoice_context
+from .pdf_utils import build_invoice_context, invoice_item_label, license_product_label, render_invoice_pdf
 from .services import apply_payment_and_activate
 from .tasks import (
     activate_eligible_paid_licenses,
@@ -311,6 +319,284 @@ class LicenseTypeApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class ClubFeeApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_finance = User.objects.create_user(
+            username="ltffinance-club-fees",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.club_admin = User.objects.create_user(
+            username="clubadmin-club-fees",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+
+    def test_ltf_finance_can_create_fee_type_with_initial_amount(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        response = self.client.post(
+            "/api/club-fee-types/",
+            {
+                "name": "Affiliation",
+                "cadence": "annual",
+                "description": "Yearly club affiliation",
+                "initial_amount": "150.00",
+                "initial_currency": "EUR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["name"], "Affiliation")
+        self.assertEqual(response.data["current_amount"], "150.00")
+        self.assertTrue(
+            ClubFeePrice.objects.filter(
+                fee_type_id=response.data["id"],
+                amount=Decimal("150.00"),
+            ).exists()
+        )
+
+    def test_ltf_finance_can_add_fee_price(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        fee_type = ClubFeeType.objects.create(name="Transfer fee", code="transfer-fee")
+        response = self.client.post(
+            "/api/club-fee-prices/",
+            {
+                "fee_type": fee_type.id,
+                "amount": "25.00",
+                "currency": "EUR",
+                "effective_from": "2026-09-01",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["amount"], "25.00")
+
+    def test_club_admin_cannot_create_fee_type(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/club-fee-types/",
+            {"name": "Hidden fee"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_ltf_finance_can_bill_active_clubs(self):
+        from clubs.models import Club
+
+        from .models import Invoice
+
+        club = Club.objects.create(
+            name="Billable Club",
+            created_by=self.ltf_finance,
+            is_active=True,
+        )
+        inactive = Club.objects.create(
+            name="Inactive Club",
+            created_by=self.ltf_finance,
+            is_active=False,
+        )
+        self.client.force_authenticate(user=self.ltf_finance)
+        created = self.client.post(
+            "/api/club-fee-types/",
+            {"name": "Affiliation", "cadence": "annual", "initial_amount": "100.00"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            response = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "recurring": True,
+                    "recurrence": "annual",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["invoice_count"], 1)
+        self.assertEqual(Invoice.objects.filter(club=club).count(), 1)
+        self.assertEqual(Invoice.objects.filter(club=inactive).count(), 0)
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            duplicate = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year,
+                },
+                format="json",
+            )
+        self.assertEqual(duplicate.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(duplicate.data["invoice_count"], 0)
+        self.assertEqual(len(duplicate.data["skipped"]), 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.ISSUED).count(), 1)
+        issued = Invoice.objects.get(club=club, status=Invoice.Status.ISSUED)
+        pending_payment = Payment.objects.create(
+            invoice=issued,
+            order=issued.order,
+            amount=issued.total,
+            currency=issued.currency,
+            method=Payment.Method.OTHER,
+            provider=Payment.Provider.PAYCONIQ,
+            status=Payment.Status.PENDING,
+            reference=issued.invoice_number,
+        )
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            rebilled = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year,
+                    "rebill": True,
+                },
+                format="json",
+            )
+        self.assertEqual(rebilled.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(rebilled.data["invoice_count"], 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.VOID).count(), 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.ISSUED).count(), 1)
+        pending_payment.refresh_from_db()
+        self.assertEqual(pending_payment.status, Payment.Status.CANCELLED)
+        status_response = self.client.get(
+            "/api/club-fee-billings/",
+            {"year": timezone.localdate().year},
+        )
+        self.assertEqual(status_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(status_response.data["charges"]), 1)
+        self.assertEqual(status_response.data["charges"][0]["club_name"], club.name)
+
+        paid_invoice = Invoice.objects.get(club=club, status=Invoice.Status.ISSUED)
+        paid_invoice.status = Invoice.Status.PAID
+        paid_invoice.save(update_fields=["status", "updated_at"])
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            paid_rebill = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year,
+                    "rebill": True,
+                },
+                format="json",
+            )
+        self.assertEqual(paid_rebill.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(paid_rebill.data["invoice_count"], 0)
+        self.assertEqual(paid_rebill.data["skipped"][0]["reason"], "paid")
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.PAID).count(), 1)
+        self.assertEqual(Invoice.objects.filter(club=club, status=Invoice.Status.ISSUED).count(), 0)
+
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            next_year = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                    "period_year": timezone.localdate().year + 1,
+                },
+                format="json",
+            )
+        self.assertEqual(next_year.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(next_year.data["invoice_count"], 1)
+        fee_item = Invoice.objects.get(club=club, status=Invoice.Status.ISSUED).order.items.get()
+        self.assertIn(str(timezone.localdate().year + 1), invoice_item_label(fee_item))
+        self.assertTrue(invoice_item_label(fee_item).startswith("Affiliation"))
+
+    def test_confirm_payment_for_club_fee_order_without_licenses(self):
+        from clubs.models import Club
+
+        club = Club.objects.create(
+            name="Fee Payment Club",
+            created_by=self.ltf_finance,
+            is_active=True,
+        )
+        self.client.force_authenticate(user=self.ltf_finance)
+        created = self.client.post(
+            "/api/club-fee-types/",
+            {"name": "Affiliation", "cadence": "annual", "initial_amount": "100.00"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            billed = self.client.post(
+                "/api/club-fee-billings/",
+                {
+                    "fee_type_ids": [created.data["id"]],
+                    "billed_on": str(timezone.localdate()),
+                },
+                format="json",
+            )
+        self.assertEqual(billed.status_code, status.HTTP_201_CREATED)
+        invoice = Invoice.objects.get(club=club)
+        order = invoice.order
+        self.assertTrue(order.items.filter(license__isnull=True).exists())
+
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            response = self.client.post(
+                f"/api/orders/{order.id}/confirm-payment/",
+                {
+                    "payment_method": "bank_transfer",
+                    "payment_provider": "manual",
+                    "payment_reference": invoice.invoice_number,
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.PAID)
+        self.assertEqual(invoice.status, Invoice.Status.PAID)
+        self.assertTrue(Payment.objects.filter(order=order, status=Payment.Status.PAID).exists())
+        self.assertFalse(License.objects.filter(order_items__order=order).exists())
+        audit = FinanceAuditLog.objects.filter(order=order, action="order.paid").first()
+        self.assertIsNotNone(audit)
+        self.assertEqual(audit.message, "Payment confirmed.")
+        self.assertEqual(audit.metadata.get("activated_license_ids"), [])
+
+
+class InvoiceRecipientEmailTests(TestCase):
+    def test_prefers_club_email_over_admin_emails(self):
+        from licenses.tasks import invoice_recipient_emails
+
+        admin = User.objects.create_user(
+            username="invoice-admin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        club_admin = User.objects.create_user(
+            username="invoice-club-admin",
+            password="pass12345",
+            email="admin@example.com",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        club = Club.objects.create(
+            name="Mail Club",
+            created_by=admin,
+            email="club@example.com",
+        )
+        club.admins.add(club_admin)
+        member = Member.objects.create(
+            club=club,
+            first_name="Ann",
+            last_name="Mail",
+            email="member@example.com",
+        )
+        invoice = type("Invoice", (), {"member": member, "club": club})()
+        self.assertEqual(
+            invoice_recipient_emails(invoice),
+            ["member@example.com", "club@example.com"],
+        )
+
+        club.email = ""
+        club.save(update_fields=["email"])
+        self.assertEqual(
+            invoice_recipient_emails(invoice),
+            ["member@example.com", "admin@example.com"],
+        )
+
+
 class LicenseApiPermissionTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -388,9 +674,26 @@ class LicenseApiPermissionTests(TestCase):
         )
         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
         self.assertEqual(update_response.data["status"], License.Status.ACTIVE)
+        self.assertIsNotNone(update_response.data["issued_at"])
 
         delete_response = self.client.delete(f"/api/licenses/{created_license_id}/")
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_ltf_admin_create_active_license_sets_issued_at(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        payload = self._payload()
+        payload["status"] = License.Status.ACTIVE
+        response = self.client.post("/api/licenses/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], License.Status.ACTIVE)
+        self.assertIsNotNone(response.data["issued_at"])
+
+    def test_pending_license_create_leaves_issued_at_empty(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.post("/api/licenses/", self._payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], License.Status.PENDING)
+        self.assertIsNone(response.data["issued_at"])
 
 
 class FinanceModelTests(TestCase):
@@ -627,6 +930,7 @@ class OrderApiTests(TestCase):
         self.assertGreaterEqual(len(response.data), 1)
         row = response.data[0]
         self.assertIn("item_quantity", row)
+        self.assertEqual(row["club_name"], self.club.name)
         self.assertNotIn("items", row)
         self.assertNotIn("stripe_payment_intent_id", row)
 
@@ -642,8 +946,145 @@ class OrderApiTests(TestCase):
         self.assertGreaterEqual(len(response.data), 1)
         row = response.data[0]
         self.assertIn("item_quantity", row)
+        self.assertEqual(row["club_name"], self.club.name)
         self.assertNotIn("stripe_invoice_id", row)
         self.assertNotIn("stripe_customer_id", row)
+
+    def test_ltf_finance_invoice_totals_outstanding_amount(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post(
+            "/api/orders/", self._order_payload(), format="json"
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        invoice = Invoice.objects.get(id=create_response.data["invoice"]["id"])
+        invoice.status = Invoice.Status.ISSUED
+        invoice.total = Decimal("30.00")
+        invoice.save(update_fields=["status", "total"])
+
+        response = self.client.get("/api/invoices/totals/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["outstanding_amount"], "30.00")
+        self.assertEqual(response.data["currency"], "EUR")
+
+    def test_ltf_finance_credit_note_reduces_outstanding(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post(
+            "/api/orders/", self._order_payload(), format="json"
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        invoice_id = create_response.data["invoice"]["id"]
+        invoice = Invoice.objects.get(id=invoice_id)
+        invoice.status = Invoice.Status.ISSUED
+        invoice.total = Decimal("30.00")
+        invoice.save(update_fields=["status", "total"])
+
+        credited = self.client.post(
+            f"/api/invoices/{invoice_id}/credit-note/",
+            {"amount": "5.00", "reason": "Adjustment"},
+            format="json",
+        )
+        self.assertEqual(credited.status_code, status.HTTP_200_OK)
+        self.assertEqual(credited.data["credited_total"], "5.00")
+        self.assertEqual(credited.data["outstanding"], "25.00")
+        self.assertEqual(credited.data["status"], Invoice.Status.ISSUED)
+
+        totals = self.client.get("/api/invoices/totals/")
+        self.assertEqual(totals.status_code, status.HTTP_200_OK)
+        self.assertEqual(totals.data["outstanding_amount"], "25.00")
+
+    def test_full_credit_note_settles_invoice_and_activates_licenses(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post("/api/orders/", self._order_payload(), format="json")
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        invoice_id = create_response.data["invoice"]["id"]
+        order_id = create_response.data["id"]
+        invoice = Invoice.objects.get(id=invoice_id)
+        amount = str(invoice.outstanding())
+        credited = self.client.post(
+            f"/api/invoices/{invoice_id}/credit-note/",
+            {"amount": amount, "reason": "Sponsored licenses"},
+            format="json",
+        )
+        self.assertEqual(credited.status_code, status.HTTP_200_OK)
+        self.assertEqual(credited.data["outstanding"], "0.00")
+        self.assertEqual(credited.data["status"], Invoice.Status.PAID)
+        self.assertEqual(credited.data["credited_total"], amount)
+        order = Order.objects.get(id=order_id)
+        self.assertEqual(order.status, Order.Status.PAID)
+        self.assertFalse(
+            Payment.objects.filter(invoice_id=invoice_id, status=Payment.Status.PAID).exists()
+        )
+        today = timezone.localdate()
+        licenses = License.objects.filter(order_items__order=order).distinct()
+        self.assertTrue(licenses.exists())
+        for license_record in licenses:
+            if license_record.start_date <= today <= license_record.end_date:
+                self.assertEqual(license_record.status, License.Status.ACTIVE)
+
+    def test_club_admin_can_see_federation_credit_notes(self):
+        self.club.admins.add(self.club_admin)
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post("/api/orders/", self._order_payload(), format="json")
+        invoice_id = create_response.data["invoice"]["id"]
+        self.client.post(
+            f"/api/invoices/{invoice_id}/credit-note/",
+            {"amount": "5.00", "reason": "Partial waiver"},
+            format="json",
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.get(f"/api/club-invoices/{invoice_id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["credit_notes"]), 1)
+        self.assertEqual(response.data["credit_notes"][0]["reason"], "Partial waiver")
+        self.assertEqual(response.data["credited_total"], "5.00")
+        blocked = self.client.post(
+            f"/api/club-invoices/{invoice_id}/credit-note/",
+            {"amount": "1.00", "reason": "Club must not credit federation invoices"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_ltf_finance_budget_round_trip(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        year = date.today().year
+        response = self.client.get(f"/api/finance-budgets/?year={year}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["ledger"], "federation")
+        saved = self.client.put(
+            "/api/finance-budgets/",
+            {"year": year, "lines": [{"kind": "license_fees", "amount": "200.00"}]},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        license_line = next(line for line in saved.data["lines"] if line["kind"] == "license_fees")
+        self.assertEqual(license_line["budget"], "200.00")
+
+    def test_ltf_finance_payment_list_includes_invoice_and_club(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post(
+            "/api/orders/", self._order_payload(), format="json"
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        order = Order.objects.get(id=create_response.data["id"])
+        invoice = Invoice.objects.get(id=create_response.data["invoice"]["id"])
+        Payment.objects.create(
+            invoice=invoice,
+            order=order,
+            amount=Decimal("30.00"),
+            currency="EUR",
+            method=Payment.Method.BANK_TRANSFER,
+            provider=Payment.Provider.MANUAL,
+            status=Payment.Status.PAID,
+            reference=invoice.invoice_number,
+        )
+
+        response = self.client.get("/api/payments/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+        row = response.data[0]
+        self.assertEqual(row["invoice_number"], invoice.invoice_number)
+        self.assertEqual(row["club_name"], self.club.name)
+        self.assertEqual(row["club"], self.club.id)
 
     def test_ltf_admin_cannot_list_invoices(self):
         self.client.force_authenticate(user=self.ltf_admin)
@@ -682,6 +1123,53 @@ class OrderApiTests(TestCase):
         self.assertEqual(paged_response.data["count"], 1)
         self.assertEqual(len(paged_response.data["results"]), 1)
         self.assertEqual(paged_response.data["results"][0]["action"], "order.alpha")
+
+    def test_ltf_finance_audit_logs_include_display_names(self):
+        self.ltf_finance.first_name = "Finance"
+        self.ltf_finance.last_name = "Officer"
+        self.ltf_finance.save(update_fields=["first_name", "last_name"])
+        self.member.ltf_licenseid = "LTF-1001"
+        self.member.save(update_fields=["ltf_licenseid"])
+        self.client.force_authenticate(user=self.ltf_finance)
+        order = Order.objects.create(club=self.club, member=self.member)
+        invoice = Invoice.objects.create(
+            order=order,
+            club=self.club,
+            member=self.member,
+            total=Decimal("10.00"),
+        )
+        license_record = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+        )
+        FinanceAuditLog.objects.create(
+            action="order.paid",
+            message="Payment confirmed.",
+            actor=self.ltf_finance,
+            club=self.club,
+            member=self.member,
+            license=license_record,
+            order=order,
+            invoice=invoice,
+            metadata={"activated_license_ids": [license_record.id]},
+        )
+
+        response = self.client.get("/api/finance-audit-logs/?q=Payment confirmed")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(item for item in response.data if item["action"] == "order.paid")
+        self.assertEqual(row["actor_name"], "Finance Officer")
+        self.assertEqual(row["club_name"], self.club.name)
+        member_name = f"{self.member.first_name} {self.member.last_name}".strip()
+        self.assertEqual(row["member_name"], member_name)
+        self.assertEqual(row["member_ltf_licenseid"], "LTF-1001")
+        self.assertEqual(row["order_number"], order.order_number)
+        self.assertEqual(row["invoice_number"], invoice.invoice_number)
+        self.assertIn(member_name, row["license_label"])
+        self.assertIn("Orders Annual", row["license_label"])
+        metadata_display = {item["key"]: item["value"] for item in row["metadata_display"]}
+        self.assertIn(member_name, metadata_display["activated_license_ids"])
 
     def test_confirm_payment_allows_stripe_without_consent_confirmation(self):
         self.client.force_authenticate(user=self.ltf_finance)
@@ -902,6 +1390,79 @@ class LicenseOrderingPolicyTests(TestCase):
         self.assertEqual(
             ineligible["ineligible_members"][0]["reason_code"], "current_year_disabled"
         )
+        self.assertIn("availability", ineligible)
+        self.assertFalse(ineligible["availability"]["enabled"])
+        self.assertFalse(ineligible["availability"]["is_open"])
+        self.assertIsNone(ineligible["availability"]["opens_at"])
+
+    def test_club_eligibility_includes_upcoming_window(self):
+        today = timezone.localdate()
+        opens_on = today + timedelta(days=10)
+        if opens_on.year != today.year:
+            self.skipTest("Not enough days remain in the year for a future window.")
+        self.policy.current_start_month = opens_on.month
+        self.policy.current_start_day = opens_on.day
+        self.policy.current_end_month = 12
+        self.policy.current_end_day = 31
+        self.policy.save(
+            update_fields=[
+                "current_start_month",
+                "current_start_day",
+                "current_end_month",
+                "current_end_day",
+                "updated_at",
+            ]
+        )
+
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/club-orders/eligibility/",
+            self._club_eligibility_payload(year=today.year),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ineligible = next(
+            item for item in response.data["ineligible_license_types"] if item["id"] == self.license_type.id
+        )
+        reason_codes = {reason["code"] for reason in ineligible["reason_counts"]}
+        self.assertIn("window_closed", reason_codes)
+        availability = ineligible["availability"]
+        self.assertTrue(availability["enabled"])
+        self.assertFalse(availability["is_open"])
+        self.assertEqual(availability["window_start"], opens_on.isoformat())
+        self.assertEqual(availability["window_end"], date(today.year, 12, 31).isoformat())
+        self.assertIsNotNone(availability["opens_at"])
+        self.assertTrue(availability["opens_at"].startswith(opens_on.isoformat()))
+
+    def test_club_eligibility_future_price_exposes_opens_at(self):
+        missing_price_type = LicenseType.objects.create(
+            name="Priced Later",
+            code="priced-later",
+        )
+        LicenseTypePolicy.objects.create(license_type=missing_price_type)
+        opens_on = timezone.localdate() + timedelta(days=14)
+        LicensePrice.objects.create(
+            license_type=missing_price_type,
+            amount=Decimal("40.00"),
+            currency="EUR",
+            effective_from=opens_on,
+            created_by=self.ltf_finance,
+        )
+
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/club-orders/eligibility/",
+            self._club_eligibility_payload(year=timezone.localdate().year),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ineligible = next(
+            item
+            for item in response.data["ineligible_license_types"]
+            if item["id"] == missing_price_type.id
+        )
+        self.assertIsNotNone(ineligible["availability"]["opens_at"])
+        self.assertTrue(ineligible["availability"]["opens_at"].startswith(opens_on.isoformat()))
 
     def test_club_eligibility_flags_license_type_without_active_price(self):
         missing_price_type = LicenseType.objects.create(
@@ -962,6 +1523,9 @@ class LicenseOrderingPolicyTests(TestCase):
         ]
         self.assertEqual(len(duplicate_members), 1)
         self.assertEqual(duplicate_members[0]["member_id"], self.member.id)
+        self.assertEqual(duplicate_members[0]["license_status"], License.Status.ACTIVE)
+        self.assertTrue(ineligible["availability"]["is_open"])
+        self.assertIsNone(ineligible["availability"]["opens_at"])
 
     def test_club_batch_allows_next_year_when_preorder_enabled(self):
         self.policy.allow_current_year_order = False
@@ -997,6 +1561,10 @@ class LicenseOrderingPolicyTests(TestCase):
         ).first()
         self.assertIsNotNone(created_license)
         self.assertEqual(created_license.license_type_id, self.license_type.id)
+        history_event = created_license.history_events.first()
+        self.assertIsNotNone(history_event)
+        self.assertEqual(history_event.status_after, License.Status.PENDING)
+        self.assertEqual(history_event.event_type, LicenseHistoryEvent.EventType.ISSUED)
 
     def test_finance_order_rejects_when_current_year_window_disabled(self):
         self.policy.allow_current_year_order = False
@@ -1042,6 +1610,24 @@ class LicenseOrderingPolicyTests(TestCase):
         self.assertEqual(order.total, Decimal("0.00"))
         self.assertEqual(order.invoice.status, Invoice.Status.ISSUED)
         self.assertIsNotNone(order.invoice.issued_at)
+
+    def test_club_order_detail_includes_item_member_names(self):
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(
+            "/api/club-orders/batch/",
+            self._club_batch_payload(year=timezone.localdate().year),
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(created.data["member"])
+        item = created.data["items"][0]
+        self.assertEqual(item["member_id"], self.member.id)
+        self.assertEqual(item["member_first_name"], self.member.first_name)
+        self.assertEqual(item["member_last_name"], self.member.last_name)
+        detail = self.client.get(f"/api/club-orders/{created.data['id']}/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data["items"][0]["member_id"], self.member.id)
+        self.assertEqual(detail.data["items"][0]["member_first_name"], "Iva")
 
 
 class LicenseActivationRulesTests(TestCase):
@@ -1187,6 +1773,44 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(order.status, Order.Status.PAID)
         self.assertEqual(order.invoice.status, Invoice.Status.PAID)
         self.assertEqual(license_record.status, License.Status.PENDING)
+
+    def test_apply_payment_cancels_leftover_pending_payconiq(self):
+        today = timezone.localdate()
+        license_record = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=today.year,
+            status=License.Status.PENDING,
+            start_date=today,
+            end_date=today + timedelta(days=30),
+        )
+        order, invoice = self._create_pending_order_for_license(license_record)
+        pending = Payment.objects.create(
+            invoice=invoice,
+            order=order,
+            amount=order.total,
+            currency=order.currency,
+            method=Payment.Method.OTHER,
+            provider=Payment.Provider.PAYCONIQ,
+            status=Payment.Status.PENDING,
+            reference=invoice.invoice_number,
+        )
+        apply_payment_and_activate(
+            order,
+            actor=self.ltf_finance,
+            payment_details={
+                "payment_method": "card",
+                "payment_provider": "stripe",
+                "payment_reference": "pi_stripe_example",
+            },
+        )
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, Payment.Status.CANCELLED)
+        self.assertEqual(
+            Payment.objects.filter(invoice=invoice, status=Payment.Status.PAID).count(),
+            1,
+        )
 
     def test_activate_eligible_paid_licenses_task_activates_pending(self):
         today = timezone.localdate()
@@ -1467,6 +2091,162 @@ class ClubOrderCheckoutTests(TestCase):
         self.assertIn("item_quantity", row)
         self.assertNotIn("items", row)
         self.assertNotIn("stripe_payment_intent_id", row)
+
+    @patch("licenses.views.stripe.checkout.Session.create")
+    def test_club_checkout_success_url_includes_session_id(self, session_create_mock):
+        session_create_mock.return_value = type(
+            "Session",
+            (),
+            {"id": "cs_test_123", "url": "https://stripe.test/session", "payment_intent": "pi_test"},
+        )()
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            f"/api/club-orders/{self.order.id}/create-checkout-session/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        success_url = session_create_mock.call_args.kwargs["success_url"]
+        self.assertIn("session_id={CHECKOUT_SESSION_ID}", success_url)
+
+
+class StripeConfirmCheckoutTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_admin = User.objects.create_user(
+            username="ltfadmin-confirm",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club_admin = User.objects.create_user(
+            username="clubadmin-confirm",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.other_admin = User.objects.create_user(
+            username="clubadmin-other",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Confirm Club", created_by=self.ltf_admin)
+        self.club.admins.add(self.club_admin)
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Ivy",
+            last_name="Beck",
+        )
+        self.license_type = LicenseType.objects.create(
+            name="Confirm Annual",
+            code="confirm-annual",
+        )
+        today = timezone.localdate()
+        self.license_record = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=today.year,
+            status=License.Status.PENDING,
+            start_date=today,
+            end_date=today + timedelta(days=30),
+        )
+        self.order = Order.objects.create(
+            club=self.club,
+            member=self.member,
+            status=Order.Status.PENDING,
+            subtotal=Decimal("25.00"),
+            tax_total=Decimal("5.00"),
+            total=Decimal("30.00"),
+            stripe_checkout_session_id="cs_confirm_123",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            license=self.license_record,
+            price_snapshot=Decimal("30.00"),
+            quantity=1,
+        )
+        self.invoice = Invoice.objects.create(
+            order=self.order,
+            club=self.club,
+            member=self.member,
+            status=Invoice.Status.ISSUED,
+            subtotal=Decimal("25.00"),
+            tax_total=Decimal("5.00"),
+            total=Decimal("30.00"),
+        )
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_confirm")
+    @patch("licenses.stripe_checkout.stripe.checkout.Session.retrieve")
+    def test_confirm_checkout_marks_paid_and_activates_license(self, retrieve_mock):
+        retrieve_mock.return_value = {
+            "id": "cs_confirm_123",
+            "payment_status": "paid",
+            "payment_intent": "pi_confirm_123",
+            "customer": "cus_confirm_123",
+            "metadata": {"order_id": str(self.order.id)},
+        }
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/stripe/confirm-checkout/",
+            {"session_id": "cs_confirm_123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "paid")
+        self.assertEqual(response.data["order_id"], self.order.id)
+        self.order.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.license_record.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.PAID)
+        self.assertEqual(self.invoice.status, Invoice.Status.PAID)
+        self.assertEqual(self.license_record.status, License.Status.ACTIVE)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_confirm")
+    @patch("licenses.stripe_checkout.stripe.checkout.Session.retrieve")
+    def test_confirm_checkout_pending_when_stripe_not_paid(self, retrieve_mock):
+        retrieve_mock.return_value = {
+            "id": "cs_confirm_123",
+            "payment_status": "unpaid",
+            "payment_intent": "pi_confirm_123",
+            "metadata": {"order_id": str(self.order.id)},
+        }
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/stripe/confirm-checkout/",
+            {"session_id": "cs_confirm_123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "pending")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.PENDING)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_confirm")
+    def test_confirm_checkout_is_idempotent_when_already_paid(self):
+        self.order.status = Order.Status.PAID
+        self.order.save(update_fields=["status", "updated_at"])
+        self.invoice.status = Invoice.Status.PAID
+        self.invoice.save(update_fields=["status", "updated_at"])
+        self.license_record.status = License.Status.ACTIVE
+        self.license_record.save(update_fields=["status", "updated_at"])
+        self.client.force_authenticate(user=self.club_admin)
+        with patch("licenses.stripe_checkout.stripe.checkout.Session.retrieve") as retrieve_mock:
+            response = self.client.post(
+                "/api/stripe/confirm-checkout/",
+                {"session_id": "cs_confirm_123"},
+                format="json",
+            )
+            retrieve_mock.assert_not_called()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "paid")
+
+    def test_confirm_checkout_rejects_other_club_admin(self):
+        self.client.force_authenticate(user=self.other_admin)
+        response = self.client.post(
+            "/api/stripe/confirm-checkout/",
+            {"session_id": "cs_confirm_123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class StripeWebhookSignatureTests(TestCase):
@@ -1902,6 +2682,22 @@ class PayconiqPaymentTests(TestCase):
             FinanceAuditLog.objects.filter(order=self.order, action="order.paid").exists()
         )
 
+    @override_settings(PAYCONIQ_MODE="mock")
+    def test_payconiq_create_rejected_when_invoice_already_paid(self):
+        self.invoice.status = Invoice.Status.PAID
+        self.invoice.paid_at = timezone.now()
+        self.invoice.save(update_fields=["status", "paid_at", "updated_at"])
+        self.order.status = Order.Status.PAID
+        self.order.save(update_fields=["status", "updated_at"])
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/payconiq/create/",
+            {"invoice_id": self.invoice.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already paid", response.data["detail"].lower())
+
     @override_settings(
         PAYCONIQ_MODE="mock",
         INVOICE_SEPA_BENEFICIARY="LTF License Manager",
@@ -2141,12 +2937,32 @@ class OverviewApiTests(TestCase):
         self.assertEqual(response.data["cards"]["active_members"], 2)
         self.assertEqual(response.data["cards"]["active_licenses"], 1)
 
+    def test_ltf_admin_overview_action_queue_links_include_issue_filters(self):
+        cache.clear()
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/dashboard/overview/ltf-admin/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        queue = {item["key"]: item for item in response.data["action_queue"]}
+        self.assertEqual(
+            queue["clubs_without_admin"]["link"]["path"],
+            "/dashboard/ltf/club-admins?issue=no_admin",
+        )
+        self.assertEqual(
+            queue["members_missing_ltf_licenseid"]["link"]["path"],
+            "/dashboard/ltf/members?issue=missing_ltf_licenseid",
+        )
+        self.assertEqual(
+            queue["members_without_active_or_pending_license"]["link"]["path"],
+            "/dashboard/ltf/members?issue=no_valid_license",
+        )
+
     def test_ltf_finance_overview_requires_ltf_finance_role(self):
         self.client.force_authenticate(user=self.ltf_admin)
         response = self.client.get("/api/dashboard/overview/ltf-finance/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_ltf_finance_overview_contains_finance_metrics(self):
+        cache.clear()
         self.client.force_authenticate(user=self.ltf_finance)
         response = self.client.get("/api/dashboard/overview/ltf-finance/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -2163,4 +2979,458 @@ class OverviewApiTests(TestCase):
                 for item in response.data["action_queue"]
             )
         )
+        finance_queue = {item["key"]: item for item in response.data["action_queue"]}
+        self.assertEqual(
+            finance_queue["issued_invoices_overdue_7d"]["link"]["path"],
+            "/dashboard/ltf-finance/invoices?issue=overdue_7d",
+        )
+        self.assertEqual(
+            finance_queue["license_types_without_active_price"]["link"]["path"],
+            "/dashboard/ltf-finance/license-settings?issue=missing_price",
+        )
+        self.assertEqual(
+            finance_queue["paid_orders_with_pending_licenses"]["link"]["path"],
+            "/dashboard/ltf-finance/orders?issue=paid_pending_licenses",
+        )
+        self.assertEqual(
+            finance_queue["failed_or_cancelled_payments_30d"]["link"]["path"],
+            "/dashboard/ltf-finance/payments?issue=failed_or_cancelled_30d",
+        )
+        activity = response.data["recent_activity"]
+        self.assertGreaterEqual(len(activity), 1)
+        invoice_created = next(item for item in activity if item["action"] == "invoice.created")
+        self.assertEqual(invoice_created["club_name"], self.club_one.name)
+        self.assertEqual(invoice_created["order_number"], self.order_draft.order_number)
+        self.assertEqual(invoice_created["invoice_number"], self.invoice_issued_old.invoice_number)
+        self.assertNotEqual(invoice_created["club_name"], invoice_created["club_id"])
+
+
+class FinanceBooksTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_finance = User.objects.create_user(
+            username="booksfinance",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.club_admin = User.objects.create_user(
+            username="booksclub",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Books Club", created_by=self.ltf_finance)
+        self.category, _ = ExpenseCategory.objects.get_or_create(
+            code="competitions",
+            defaults={"name": "Competitions & events", "sort_order": 10},
+        )
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Lea",
+            last_name="Weber",
+        )
+        self.license_type = LicenseType.objects.create(
+            name="Books Annual",
+            code="books-annual",
+        )
+        LicensePrice.objects.create(
+            license_type=self.license_type,
+            amount=Decimal("40.00"),
+            currency="EUR",
+            effective_from=date(2026, 1, 1),
+        )
+
+    def _create_paid_invoice(self, total="40.00"):
+        order = Order.objects.create(
+            club=self.club,
+            member=self.member,
+            status=Order.Status.PAID,
+            currency="EUR",
+            subtotal=Decimal(total),
+            total=Decimal(total),
+        )
+        license_record = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+        )
+        OrderItem.objects.create(
+            order=order,
+            license=license_record,
+            price_snapshot=Decimal(total),
+            quantity=1,
+        )
+        issued_at = timezone.make_aware(datetime(2026, 3, 10))
+        invoice = Invoice.objects.create(
+            order=order,
+            club=self.club,
+            member=self.member,
+            status=Invoice.Status.PAID,
+            currency="EUR",
+            subtotal=Decimal(total),
+            total=Decimal(total),
+            issued_at=issued_at,
+            paid_at=issued_at,
+        )
+        Payment.objects.create(
+            invoice=invoice,
+            order=order,
+            amount=Decimal(total),
+            currency="EUR",
+            status=Payment.Status.PAID,
+            paid_at=issued_at,
+        )
+        return invoice
+
+    def test_finance_can_record_and_pay_expense(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post(
+            "/api/expenses/",
+            {
+                "category": self.category.id,
+                "description": "ETU championship entry",
+                "payee": "ETU",
+                "amount": "250.00",
+                "expense_date": "2026-04-02",
+                "currency": "EUR",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data["status"], Expense.Status.RECORDED)
+        self.assertTrue(create_response.data["expense_number"].startswith("EXP-2026-"))
+        expense_id = create_response.data["id"]
+        paid_response = self.client.post(
+            f"/api/expenses/{expense_id}/mark-paid/",
+            {"payment_method": "bank_transfer", "reference": "VIR-44"},
+            format="json",
+        )
+        self.assertEqual(paid_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(paid_response.data["status"], Expense.Status.PAID)
+        self.assertTrue(
+            FinanceAuditLog.objects.filter(action="expense.created").exists()
+        )
+        self.assertTrue(
+            FinanceAuditLog.objects.filter(action="expense.paid").exists()
+        )
+
+    def test_finance_can_record_other_income(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        category, _ = IncomeCategory.objects.get_or_create(
+            code="donations",
+            defaults={"name": "Donations", "sort_order": 30},
+        )
+        response = self.client.post(
+            "/api/incomes/",
+            {
+                "category": category.id,
+                "description": "Club anniversary donation",
+                "payer": "Private donor",
+                "amount": "75.00",
+                "income_date": "2026-04-10",
+                "payment_method": "bank_transfer",
+                "reference": "DON-2026-01",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], Income.Status.RECEIVED)
+        self.assertTrue(response.data["income_number"].startswith("INC-2026-"))
+        self.assertTrue(FinanceAuditLog.objects.filter(action="income.created").exists())
+
+    def test_non_finance_cannot_create_expense(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/expenses/",
+            {
+                "category": self.category.id,
+                "description": "Blocked",
+                "amount": "10.00",
+                "expense_date": "2026-04-02",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_report_balances_and_excel_export(self):
+        self._create_paid_invoice("40.00")
+        unpaid_order = Order.objects.create(
+            club=self.club,
+            status=Order.Status.PENDING,
+            currency="EUR",
+            total=Decimal("80.00"),
+        )
+        Invoice.objects.create(
+            order=unpaid_order,
+            club=self.club,
+            status=Invoice.Status.ISSUED,
+            currency="EUR",
+            total=Decimal("80.00"),
+            issued_at=timezone.make_aware(datetime(2026, 5, 1)),
+        )
+        Expense.objects.create(
+            category=self.category,
+            description="Mats",
+            payee="Supplier",
+            amount=Decimal("25.00"),
+            expense_date=date(2026, 4, 15),
+            status=Expense.Status.PAID,
+            paid_at=timezone.make_aware(datetime(2026, 4, 16)),
+            payment_method=Payment.Method.BANK_TRANSFER,
+        )
+        Expense.objects.create(
+            category=self.category,
+            description="Insurance installment",
+            payee="AXA",
+            amount=Decimal("15.00"),
+            expense_date=date(2026, 6, 1),
+            status=Expense.Status.RECORDED,
+        )
+        income_category, _ = IncomeCategory.objects.get_or_create(
+            code="subsidies",
+            defaults={"name": "Government subsidies", "sort_order": 10},
+        )
+        Income.objects.create(
+            category=income_category,
+            description="Ministry of Sport annual subsidy",
+            payer="Ministry of Sport",
+            amount=Decimal("50.00"),
+            income_date=date(2026, 4, 1),
+            status=Income.Status.RECEIVED,
+            received_at=timezone.make_aware(datetime(2026, 4, 1)),
+        )
+        FinanceYearOpening.objects.create(year=2026, opening_cash=Decimal("100.00"))
+        self.client.force_authenticate(user=self.ltf_finance)
+        report_response = self.client.get("/api/finance-reports/", {"year": 2026})
+        self.assertEqual(report_response.status_code, status.HTTP_200_OK)
+        data = report_response.data
+        self.assertEqual(data["income_statement"]["revenue_license_fees"], "120.00")
+        self.assertEqual(data["income_statement"]["other_income"], "50.00")
+        self.assertEqual(data["income_statement"]["expenses_total"], "40.00")
+        self.assertEqual(data["income_statement"]["surplus"], "130.00")
+        self.assertEqual(data["cash_movement"]["opening_cash"], "100.00")
+        self.assertEqual(data["cash_movement"]["receipts"], "40.00")
+        self.assertEqual(data["cash_movement"]["other_income"], "50.00")
+        self.assertEqual(data["cash_movement"]["disbursements"], "25.00")
+        self.assertEqual(data["cash_movement"]["closing_cash"], "165.00")
+        self.assertEqual(data["balance_sheet"]["assets"]["cash"], "165.00")
+        self.assertEqual(data["balance_sheet"]["assets"]["accounts_receivable"], "80.00")
+        self.assertEqual(data["balance_sheet"]["assets"]["total"], "245.00")
+        self.assertEqual(data["balance_sheet"]["liabilities"]["accounts_payable"], "15.00")
+        self.assertEqual(data["balance_sheet"]["equity"]["net_assets"], "230.00")
+        self.assertEqual(data["balance_sheet"]["liabilities_and_equity_total"], "245.00")
+
+        export_response = self.client.get("/api/finance-reports/export/", {"year": 2026})
+        self.assertEqual(export_response.status_code, status.HTTP_200_OK)
+        self.assertIn(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            export_response["Content-Type"],
+        )
+        self.assertGreater(len(export_response.content), 1000)
+
+    def test_void_expense_excluded_from_books(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        create_response = self.client.post(
+            "/api/expenses/",
+            {
+                "category": self.category.id,
+                "description": "Duplicate booking",
+                "amount": "99.00",
+                "expense_date": "2026-07-01",
+            },
+            format="json",
+        )
+        expense_id = create_response.data["id"]
+        void_response = self.client.post(f"/api/expenses/{expense_id}/void/", format="json")
+        self.assertEqual(void_response.status_code, status.HTTP_200_OK)
+        report_response = self.client.get("/api/finance-reports/", {"year": 2026})
+        self.assertEqual(report_response.data["income_statement"]["expenses_total"], "0.00")
+        self.assertEqual(report_response.data["balance_sheet"]["liabilities"]["accounts_payable"], "0.00")
+
+
+class LtfLicenseInvoicePdfTests(TestCase):
+    def test_annual_standard_label_abbreviates_standard(self):
+        self.assertEqual(license_product_label("Annual Standard", 2026), "Annual St 2026")
+        self.assertEqual(license_product_label("Semiannual Standard", 2026), "Semiannual St 2026")
+
+    def test_license_invoice_uses_model_columns(self):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        admin = User.objects.create_user(username="ltf-inv-admin", password="pass12345", role=User.Roles.LTF_ADMIN)
+        club = Club.objects.create(
+            name="Taekwondo Vichten",
+            address_line1="52b Rue Principale",
+            postal_code="9190",
+            locality="Vichten",
+            created_by=admin,
+        )
+        member = Member.objects.create(
+            club=club,
+            first_name="Faustino",
+            last_name="Cima",
+            ltf_licenseid="LTF-3142",
+        )
+        license_type = LicenseType.objects.create(name="Annual Standard", code="annual-standard-pdf")
+        license_row = License.objects.create(
+            member=member,
+            club=club,
+            license_type=license_type,
+            year=2026,
+            status=License.Status.ACTIVE,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        order = Order.objects.create(club=club, ledger=Order.Ledger.FEDERATION, status=Order.Status.PAID)
+        OrderItem.objects.create(order=order, license=license_row, price_snapshot=Decimal("30.00"), quantity=1)
+        invoice = Invoice.objects.create(
+            order=order,
+            club=club,
+            status=Invoice.Status.PAID,
+            subtotal=Decimal("30.00"),
+            total=Decimal("30.00"),
+            issued_at=timezone.now(),
+            paid_at=timezone.now(),
+        )
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["license_invoice"])
+        self.assertEqual(context["license_rows"][0]["license"], "Annual St 2026")
+        self.assertEqual(context["license_rows"][0]["license_id"], "LTF-3142")
+        self.assertEqual(context["license_rows"][0]["name"], "CIMA Faustino")
+        self.assertEqual(context["recipient_lines"][-1], "L-9190 Vichten")
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        self.assertIsNotNone(pdf)
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("License ID", text)
+        self.assertIn("Subtotal", text)
+        self.assertIn("Annual St 2026", text)
+        self.assertIn("LTF-3142", text)
+        self.assertIn("CIMA Faustino", text)
+        self.assertIn("Qty : 1", text)
+        self.assertIn("30,00 €", text)
+        self.assertIn("Placed", text)
+        self.assertIn("Delivered", text)
+        self.assertNotIn("Year", text)
+
+    def test_club_member_invoice_uses_the_model_layout(self):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        from clubmgmt.models import MemberAddress
+
+        admin = User.objects.create_user(username="club-inv-admin", password="pass12345", role=User.Roles.LTF_ADMIN)
+        club = Club.objects.create(
+            name="Taekwondo Vichten",
+            address_line1="52b, Rue Principale",
+            postal_code="9190",
+            locality="Vichten",
+            iban="LU510001111111111111",
+            email="club@vichten.lu",
+            created_by=admin,
+        )
+        member = Member.objects.create(club=club, first_name="Jose Carlos", last_name="Da Costa Ribeiro")
+        MemberAddress.objects.create(
+            member=member,
+            house_number="352d",
+            street="Rue des sute",
+            postal_code="3287",
+            locality="Mondorf-les-Bains",
+            use_for_invoice=True,
+        )
+        order = Order.objects.create(
+            club=club,
+            member=member,
+            ledger=Order.Ledger.CLUB,
+            status=Order.Status.PAID,
+            subtotal=Decimal("40.00"),
+            total=Decimal("40.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            description="Dobok KWON Clubline · 140 cm",
+            price_snapshot=Decimal("20.00"),
+            quantity=2,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            club=club,
+            member=member,
+            status=Invoice.Status.PAID,
+            subtotal=Decimal("40.00"),
+            total=Decimal("40.00"),
+            issued_at=timezone.now(),
+            paid_at=timezone.now(),
+        )
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["club_invoice"])
+        self.assertFalse(context["license_invoice"])
+        self.assertEqual(context["recipient_name"], "DA COSTA RIBEIRO Jose Carlos")
+        self.assertEqual(context["recipient_lines"][0], "352d, Rue des sute")
+        self.assertEqual(context["recipient_lines"][-1], "L-3287 Mondorf-les-Bains")
+        self.assertEqual(context["issuer"]["lines"][-1], "LUXEMBOURG")
+        self.assertEqual(context["issuer"]["email"], "club@vichten.lu")
+        self.assertEqual(context["issuer"]["website"], "")
+        club.website = "https://www.vichten.lu"
+        club.save(update_fields=["website"])
+        self.assertEqual(build_invoice_context(invoice)["issuer"]["website"], "https://www.vichten.lu")
+        self.assertEqual(context["club_rows"][0]["size"], "140 cm")
+        self.assertEqual(context["club_rows"][0]["label"], "Dobok KWON Clubline")
+        self.assertEqual(context["total_qty"], 2)
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        self.assertIsNotNone(pdf)
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("Item / service", text)
+        self.assertIn("Size", text)
+        self.assertIn("SEPA", text)
+        self.assertIn("WERO", text)
+        self.assertIn("otal Qty", text)
+        self.assertIn("40,00", text)
+        self.assertIn("DA COSTA RIBEIRO Jose Carlos", text)
+        self.assertIn("Subject:", text)
+        self.assertNotIn("LTF License Manager", text)
+
+    def test_club_invoice_omits_a_zero_family_rebate(self):
+        admin = User.objects.create_user(username="club-rebate-admin", password="pass12345", role=User.Roles.LTF_ADMIN)
+        club = Club.objects.create(name="Rebate Club", created_by=admin)
+        member = Member.objects.create(club=club, first_name="Ana", last_name="Costa")
+        order = Order.objects.create(
+            club=club,
+            member=member,
+            ledger=Order.Ledger.CLUB,
+            status=Order.Status.PENDING,
+            subtotal=Decimal("100.00"),
+            total=Decimal("100.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            description="Annual 2026 — Ana Costa (0.00% family rebate)",
+            price_snapshot=Decimal("100.00"),
+            quantity=1,
+        )
+        OrderItem.objects.create(
+            order=order,
+            description="Annual 2026 — Bea Costa (10.00% family rebate)",
+            price_snapshot=Decimal("90.00"),
+            quantity=1,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            club=club,
+            member=member,
+            status=Invoice.Status.ISSUED,
+            subtotal=Decimal("190.00"),
+            total=Decimal("190.00"),
+            issued_at=timezone.now(),
+        )
+        labels = [row["label"] for row in build_invoice_context(invoice)["club_rows"]]
+        self.assertCountEqual(
+            labels,
+            [
+                "Annual 2026 — Ana Costa",
+                "Annual 2026 — Bea Costa (10.00% family rebate)",
+            ],
+        )
+
 

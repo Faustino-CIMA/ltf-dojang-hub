@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Membership invoices {{ year }}</title>
+    <style>
+      body { font-family: "DejaVu Sans", Arial, sans-serif; color: #1f2937; margin: 32px; font-size: 14px; }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      .muted { color: #6b7280; margin-bottom: 24px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+      th { background: #f8fafc; font-size: 12px; text-transform: uppercase; color: #6b7280; }
+      .page { page-break-after: always; }
+      .page:last-child { page-break-after: auto; }
+      .totals { margin-top: 16px; max-width: 320px; margin-left: auto; }
+      .totals-row { display: flex; justify-content: space-between; padding: 6px 0; }
+      .header { display: flex; justify-content: space-between; margin-bottom: 24px; }
+      .brand { font-size: 20px; font-weight: 700; }
+      .grid { display: flex; gap: 32px; margin-bottom: 24px; }
+      .box { flex: 1; }
+      .section-title { font-weight: 600; margin-bottom: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>Membership invoices {{ year }}</h1>
+      <div class="muted">{{ count }} invoice{{ count|pluralize }} to print and deliver.</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Payer</th>
+            <th>Delivery</th>
+            <th>Address / note</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for page in pages %}
+          <tr>
+            <td>{{ page.invoice.invoice_number }}</td>
+            <td>{% if page.bill_to %}{{ page.bill_to.name }}{% elif page.member %}{{ page.member.first_name }} {{ page.member.last_name }}{% endif %}</td>
+            <td>{{ page.delivery_label }}</td>
+            <td>
+              {% if page.bill_to and page.bill_to.address_lines %}
+                {{ page.bill_to.address_lines|join:", " }}
+              {% elif page.delivery_label == "In person" %}
+                Hand to the member
+              {% endif %}
+            </td>
+            <td>{{ page.outstanding }} {{ page.invoice.currency }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

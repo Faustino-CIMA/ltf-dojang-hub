@@ -36,6 +36,28 @@ describe("card simulation utilities", () => {
     expect(srcDoc).not.toContain("--card-simulation-scale");
     expect(srcDoc).toContain("#card-simulation-root");
     expect(srcDoc).toContain("transform:scale(0.750000)");
+    expect(srcDoc).toContain("-webkit-text-size-adjust:none");
+  });
+
+  it("renders a 2x backing store for retina display", () => {
+    const payload = buildSimulationPayload();
+    const layout = calculateCardSimulationFrameLayout(payload);
+    const srcDoc = buildCardSimulationSrcDoc(payload, { pixelRatio: 2 });
+
+    expect(srcDoc).toContain(`width:${layout.renderedWidthPx * 2}px`);
+    expect(srcDoc).toContain("transform:scale(1.500000)");
+  });
+
+  it("fills a target display width so the CSS-mm canvas matches the iframe", () => {
+    const payload = buildSimulationPayload();
+    const layout = calculateCardSimulationFrameLayout(payload);
+    const srcDoc = buildCardSimulationSrcDoc(payload, { targetWidthPx: 420 });
+    const expectedScale = 420 / layout.renderedWidthPx;
+
+    expect(srcDoc).toContain("width:420px");
+    expect(srcDoc).toContain(`width:${layout.renderedWidthPx}px`);
+    expect(srcDoc).toContain(`transform:scale(${expectedScale.toFixed(6)})`);
+    expect(srcDoc).not.toContain("transform:scale(0.750000)");
   });
 
   it("matches browser PDF preview point scale", () => {

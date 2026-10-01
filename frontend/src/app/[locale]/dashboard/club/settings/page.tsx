@@ -1,28 +1,39 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
-import { useForm, useWatch } from "react-hook-form";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { Landmark, Settings, Users } from "lucide-react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import {
+  BrandingLogoUploadPayload,
+  BrandingLogosManager,
+} from "@/components/branding/branding-logos-manager";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
 import {
   BrandingLogo,
-  LogoUsageType,
   deleteClubLogo,
   getClubLogos,
+  getClubCommunicationLanguages,
   getClubs,
   updateClub,
   updateClubLogo,
   uploadClubLogo,
+  type ClubCommunicationLanguage,
 } from "@/lib/club-admin-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
+import { CommitteePage } from "@/components/clubmgmt/committee-page";
+import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import {
   Select,
   SelectContent,
@@ -30,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const clubSchema = z.object({
   name: z.string().min(1, "Club name is required"),
@@ -38,38 +50,45 @@ const clubSchema = z.object({
   postal_code: z.string().optional(),
   locality: z.string().optional(),
   iban: z.string().optional(),
+  email: z.string().optional(),
+  website: z.string().optional(),
+  communication_language: z.string().optional(),
 });
 
 type ClubFormValues = z.infer<typeof clubSchema>;
 
-function formatFileSize(bytes: number): string {
-  if (!bytes || bytes <= 0) {
-    return "-";
+const SETTINGS_TABS = ["profile", "trainers", "committee"] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+
+function parseSettingsTab(value: string | null): SettingsTab {
+  if (value && (SETTINGS_TABS as readonly string[]).includes(value)) {
+    return value as SettingsTab;
   }
-  const kb = 1024;
-  const mb = kb * 1024;
-  if (bytes >= mb) {
-    return `${(bytes / mb).toFixed(2)} MB`;
-  }
-  return `${(bytes / kb).toFixed(1)} KB`;
+  return "profile";
 }
 
 export default function ClubAdminSettingsPage() {
   const t = useTranslations("ClubAdmin");
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { selectedClubId } = useClubSelection();
+  const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [activeTab, setActiveTabState] = useState<SettingsTab>(parseSettingsTab(searchParams.get("tab")));
   const requestIdRef = useRef(0);
   const logoRequestIdRef = useRef(0);
-  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [clubLogos, setClubLogos] = useState<BrandingLogo[]>([]);
   const [isLoadingLogos, setIsLoadingLogos] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoUsage, setLogoUsage] = useState<LogoUsageType>("general");
-  const [logoLabel, setLogoLabel] = useState("");
-  const [markUploadedAsSelected, setMarkUploadedAsSelected] = useState(true);
+  const [logosLoadError, setLogosLoadError] = useState<string | null>(null);
+  const [clubIsActive, setClubIsActive] = useState(true);
+  const [languages, setLanguages] = useState<ClubCommunicationLanguage[]>([
+    { code: "en", name: "English" },
+    { code: "lb", name: "Lëtzebuergesch" },
+  ]);
 
   const {
     register,
@@ -86,6 +105,9 @@ export default function ClubAdminSettingsPage() {
       postal_code: "",
       locality: "",
       iban: "",
+      email: "",
+      website: "",
+      communication_language: "en",
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
@@ -93,12 +115,6 @@ export default function ClubAdminSettingsPage() {
     () => deriveBankNameFromIban(watchedIban),
     [watchedIban]
   );
-  const usageLabelMap: Record<LogoUsageType, string> = {
-    general: t("logoUsageGeneral"),
-    invoice: t("logoUsageInvoice"),
-    print: t("logoUsagePrint"),
-    digital: t("logoUsageDigital"),
-  };
 
   const resetToEmpty = useCallback(() => {
     reset({
@@ -108,7 +124,11 @@ export default function ClubAdminSettingsPage() {
       postal_code: "",
       locality: "",
       iban: "",
+      email: "",
+      website: "",
+      communication_language: "en",
     });
+    setClubIsActive(true);
   }, [reset]);
 
   const loadSelectedClub = useCallback(async () => {
@@ -138,7 +158,11 @@ export default function ClubAdminSettingsPage() {
         postal_code: club.postal_code ?? "",
         locality: club.locality ?? club.city ?? "",
         iban: club.iban ?? "",
+        email: club.email ?? "",
+        website: club.website ?? "",
+        communication_language: club.communication_language || "en",
       });
+      setClubIsActive(club.is_active !== false);
     } catch (error) {
       if (requestId !== requestIdRef.current) {
         return;
@@ -156,6 +180,7 @@ export default function ClubAdminSettingsPage() {
     const requestId = ++logoRequestIdRef.current;
     if (!selectedClubId) {
       setClubLogos([]);
+      setLogosLoadError(null);
       setIsLoadingLogos(false);
       return;
     }
@@ -166,11 +191,12 @@ export default function ClubAdminSettingsPage() {
         return;
       }
       setClubLogos(response.logos);
+      setLogosLoadError(null);
     } catch (error) {
       if (requestId !== logoRequestIdRef.current) {
         return;
       }
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load logos.");
+      setLogosLoadError(error instanceof Error ? error.message : "Failed to load logos.");
     } finally {
       if (requestId === logoRequestIdRef.current) {
         setIsLoadingLogos(false);
@@ -179,12 +205,55 @@ export default function ClubAdminSettingsPage() {
   }, [selectedClubId]);
 
   useEffect(() => {
+    void getClubCommunicationLanguages()
+      .then(setLanguages)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     void loadSelectedClub();
   }, [loadSelectedClub]);
 
   useEffect(() => {
     void loadLogos();
   }, [loadLogos]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setClubMgmtOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "membership") {
+      router.replace(`/${locale}/dashboard/club/fees`);
+    }
+  }, [locale, router, searchParams]);
+
+  const setActiveTab = useCallback(
+    (tab: SettingsTab) => {
+      setActiveTabState(tab);
+      const next = new URLSearchParams(searchParams.toString());
+      if (tab === "profile") {
+        next.delete("tab");
+      } else {
+        next.set("tab", tab);
+      }
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   const onSubmit = async (values: ClubFormValues) => {
     if (!selectedClubId) {
@@ -210,70 +279,72 @@ export default function ClubAdminSettingsPage() {
     }
   };
 
-  const handleUploadLogo = async () => {
-    if (!selectedClubId || !logoFile) {
-      return;
+  const handleUploadLogo = async (payload: BrandingLogoUploadPayload) => {
+    if (!selectedClubId) {
+      throw new Error("Select a club before uploading a logo.");
     }
-    setIsUploadingLogo(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    try {
-      await uploadClubLogo(selectedClubId, {
-        file: logoFile,
-        usage_type: logoUsage,
-        label: logoLabel.trim(),
-        is_selected: markUploadedAsSelected,
-      });
-      setLogoFile(null);
-      setLogoLabel("");
-      setMarkUploadedAsSelected(true);
-      if (logoFileInputRef.current) {
-        logoFileInputRef.current.value = "";
-      }
-      await loadLogos();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to upload logo.");
-    } finally {
-      setIsUploadingLogo(false);
-    }
+    await uploadClubLogo(selectedClubId, payload);
+    await loadLogos();
   };
 
   const handleSelectLogo = async (logoId: number) => {
     if (!selectedClubId) {
-      return;
+      throw new Error("Select a club before choosing a logo.");
     }
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    try {
-      await updateClubLogo(selectedClubId, logoId, { is_selected: true });
-      await loadLogos();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to select logo.");
-    }
+    await updateClubLogo(selectedClubId, logoId, { is_selected: true });
+    await loadLogos();
   };
 
   const handleDeleteLogo = async (logoId: number) => {
     if (!selectedClubId) {
-      return;
+      throw new Error("Select a club before deleting a logo.");
     }
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    try {
-      await deleteClubLogo(selectedClubId, logoId);
-      await loadLogos();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete logo.");
-    }
+    await deleteClubLogo(selectedClubId, logoId);
+    await loadLogos();
   };
 
   return (
     <ClubAdminLayout title={t("clubProfileTitle")} subtitle={t("clubProfileSubtitle")}>
+      <ActionNotices
+        error={errorMessage}
+        success={successMessage}
+        onDismiss={() => {
+          setErrorMessage(null);
+          setSuccessMessage(null);
+        }}
+      />
       {isLoading ? (
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : !selectedClubId ? (
         <EmptyState title={t("clubProfileTitle")} description={t("selectClubPlaceholder")} />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <UnderlineTabs
+            idPrefix="club-settings"
+            ariaLabel={t("clubSettingsTabsAriaLabel")}
+            value={activeTab === "committee" && !clubMgmtOn ? "profile" : activeTab}
+            onChange={setActiveTab}
+            options={[
+              { value: "profile", label: t("clubSettingsProfileTab"), icon: Settings },
+              { value: "trainers", label: t("clubSettingsTrainersTab"), icon: Users },
+              ...(clubMgmtOn
+                ? [{ value: "committee" as const, label: t("clubSettingsCommitteeTab"), icon: Landmark }]
+                : []),
+            ]}
+          />
+
+          {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
+
+          {activeTab === "trainers" ? (
+            <ClubTrainersPanel
+              clubId={selectedClubId}
+              onError={setErrorMessage}
+              onSuccess={setSuccessMessage}
+            />
+          ) : null}
+
+          {activeTab === "profile" ? (
+          <>
           <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>
             <p className="mt-2 text-sm text-muted">{t("clubFormSubtitle")}</p>
@@ -309,6 +380,50 @@ export default function ClubAdminSettingsPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
+                <Input type="email" placeholder="club@example.com" {...register("email")} />
+                <p className="text-xs text-muted">{t("clubEmailHint")}</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
+                <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
+                <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-foreground">{t("clubStatusLabel")}</label>
+                <StatusBadge
+                  label={clubIsActive ? t("clubStatusActive") : t("clubStatusInactive")}
+                  tone={clubIsActive ? "success" : "neutral"}
+                />
+                <p className="text-xs text-muted">{t("clubStatusHint")}</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-foreground">{t("clubLanguageLabel")}</label>
+                <Controller
+                  name="communication_language"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value || "en"} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languages.map((language) => (
+                          <SelectItem key={language.code} value={language.code}>
+                            {language.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <p className="text-xs text-muted">{t("clubLanguageHint")}</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
                 <Input placeholder="LU00 0000 0000 0000" {...register("iban")} />
               </div>
@@ -326,134 +441,16 @@ export default function ClubAdminSettingsPage() {
             </form>
           </section>
 
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-foreground">{t("logoSectionTitle")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("logoSectionSubtitle")}</p>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("logoLabelInputLabel")}</label>
-                <Input
-                  value={logoLabel}
-                  onChange={(event) => setLogoLabel(event.target.value)}
-                  placeholder={t("logoLabelPlaceholder")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("logoUsageLabel")}</label>
-                <Select value={logoUsage} onValueChange={(value) => setLogoUsage(value as LogoUsageType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">{t("logoUsageGeneral")}</SelectItem>
-                    <SelectItem value="invoice">{t("logoUsageInvoice")}</SelectItem>
-                    <SelectItem value="print">{t("logoUsagePrint")}</SelectItem>
-                    <SelectItem value="digital">{t("logoUsageDigital")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("markLogoSelectedLabel")}</label>
-                <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={markUploadedAsSelected}
-                    onChange={(event) => setMarkUploadedAsSelected(event.target.checked)}
-                  />
-                  {t("markLogoSelectedLabel")}
-                </label>
-              </div>
-            </div>
-
-            <input
-              ref={logoFileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)}
-            />
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => logoFileInputRef.current?.click()}>
-                {t("chooseLogoFileAction")}
-              </Button>
-              <Button type="button" onClick={handleUploadLogo} disabled={!logoFile || isUploadingLogo}>
-                {isUploadingLogo ? t("savingAction") : t("uploadLogoAction")}
-              </Button>
-            </div>
-
-            {logoFile ? (
-              <p className="mt-2 text-xs text-muted">
-                {t("selectedFileLabel")}: {logoFile.name} ({formatFileSize(logoFile.size)})
-              </p>
-            ) : null}
-
-            {isLoadingLogos ? (
-              <p className="mt-4 text-sm text-muted">{t("loadingSubtitle")}</p>
-            ) : clubLogos.length === 0 ? (
-              <p className="mt-4 text-sm text-muted">{t("logoEmptyState")}</p>
-            ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {clubLogos.map((logo) => (
-                  <article key={logo.id} className="rounded-[var(--radius-card)] border border-border p-3">
-                    <div className="flex items-start gap-3">
-                      {logo.content_url ? (
-                        <Image
-                          src={logo.content_url}
-                          alt={logo.label || logo.file_name}
-                          width={64}
-                          height={64}
-                          className="h-16 w-16 rounded object-contain"
-                        />
-                      ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded bg-secondary text-xs text-muted">
-                          {t("noPreviewAvailable")}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1 text-xs text-muted">
-                        <p className="truncate font-medium text-foreground">
-                          {logo.label || logo.file_name}
-                        </p>
-                        <p>
-                          {t("logoUsageLabel")}: {usageLabelMap[logo.usage_type]}
-                        </p>
-                        <p>{formatFileSize(logo.file_size)}</p>
-                        {logo.is_selected ? (
-                          <p className="font-medium text-success">{t("logoSelectedBadge")}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {!logo.is_selected ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSelectLogo(logo.id)}
-                        >
-                          {t("selectLogoAction")}
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteLogo(logo.id)}
-                      >
-                        {t("deleteAction")}
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {successMessage ? <p className="text-sm text-success">{successMessage}</p> : null}
-          {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+          <BrandingLogosManager
+            logos={clubLogos}
+            isLoading={isLoadingLogos}
+            loadError={logosLoadError}
+            onUpload={handleUploadLogo}
+            onSelect={handleSelectLogo}
+            onDelete={handleDeleteLogo}
+          />
+          </>
+          ) : null}
         </div>
       )}
     </ClubAdminLayout>

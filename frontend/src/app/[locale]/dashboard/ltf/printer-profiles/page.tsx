@@ -12,6 +12,12 @@ import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
+import {
+  AppTextarea,
+  ListActionsRow,
+  ListToolbarPanel,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { apiRequest } from "@/lib/api";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
@@ -222,7 +228,7 @@ export default function LtfAdminPrinterProfilesPage() {
   if (isRoleLoading) {
     return (
       <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfAdminLayout>
     );
   }
@@ -245,22 +251,28 @@ export default function LtfAdminPrinterProfilesPage() {
 
   return (
     <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
-      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-      {successMessage ? <p className="text-sm text-success">{successMessage}</p> : null}
+      <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Input
-            className="w-full max-w-xs"
-            placeholder={t("printerProfilesSearchPlaceholder")}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4">
+          <ListToolbarPanel
+            search={
+              <Input
+                className="w-full min-w-0 max-w-xl"
+                placeholder={t("printerProfilesSearchPlaceholder")}
+                aria-label={t("printerProfilesSearchPlaceholder")}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            }
           />
-          <Button onClick={startCreate}>{t("printerProfilesCreateAction")}</Button>
+          <ListActionsRow
+            actions={<Button variant="primary" onClick={startCreate}>{t("printerProfilesCreateAction")}</Button>}
+          />
         </div>
 
         {isLoading ? (
-          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : filteredProfiles.length === 0 ? (
           <EmptyState
             title={searchQuery.trim() ? t("noResultsTitle") : t("printerProfilesEmptyTitle")}
@@ -293,10 +305,10 @@ export default function LtfAdminPrinterProfilesPage() {
                 key: "actions",
                 header: t("actionsLabel"),
                 render: (profile: PrinterProfile) => (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="outline"
-                      size="icon-sm"
+                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
                       aria-label={t("editAction")}
                       onClick={() => startEdit(profile)}
                     >
@@ -304,7 +316,7 @@ export default function LtfAdminPrinterProfilesPage() {
                     </Button>
                     <Button
                       variant="destructive"
-                      size="icon-sm"
+                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
                       aria-label={t("deleteAction")}
                       onClick={() => startDelete(profile)}
                     >
@@ -383,8 +395,7 @@ export default function LtfAdminPrinterProfilesPage() {
             <label className="text-sm font-medium text-foreground">
               {t("printerProfilesDescriptionLabel")}
             </label>
-            <textarea
-              className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-foreground"
+            <AppTextarea
               rows={4}
               placeholder={t("printerProfilesDescriptionPlaceholder")}
               {...register("description")}

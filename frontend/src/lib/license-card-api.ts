@@ -473,6 +473,8 @@ export type CardPreviewDataResponse = {
 export type CardPreviewHtmlResponse = {
   template_version_id: number;
   template_id: number;
+  template_name?: string;
+  license_id?: number | null;
   active_side: CardSide;
   available_sides: CardSide[];
   side_summary: Partial<
@@ -682,6 +684,59 @@ export function cloneCardTemplate(id: number, input: CardTemplateCloneInput) {
   return apiRequest<CardTemplate>(`/api/card-templates/${id}/clone/`, {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+function parseAttachmentFilename(contentDisposition: string | null, fallback: string): string {
+  if (!contentDisposition) {
+    return fallback;
+  }
+  const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1]);
+    } catch {
+      return utfMatch[1];
+    }
+  }
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1]?.trim() || fallback;
+}
+
+export async function exportCardTemplate(id: number): Promise<void> {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/api/card-templates/${id}/export/`, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    },
+  });
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type");
+    const message = await response.text();
+    throw new Error(
+      normalizeApiErrorMessage(message, contentType) || `Request failed with ${response.status}`
+    );
+  }
+  const blob = await response.blob();
+  const filename = parseAttachmentFilename(
+    response.headers.get("Content-Disposition"),
+    `card-template-${id}.json`
+  );
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export function importCardTemplate(payload: Record<string, unknown>) {
+  return apiRequest<CardTemplate>("/api/card-templates/import/", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
@@ -1015,5 +1070,23 @@ export function getCardTemplateVersionCardPreviewHtml(
       body: JSON.stringify(payload),
       signal: options?.signal,
     }
+  );
+}
+
+export function getMemberLicenseCardPreview(
+  memberId: number,
+  options?: { licenseId?: number; side?: CardSide; signal?: AbortSignal }
+) {
+  const search = new URLSearchParams();
+  if (options?.licenseId) {
+    search.set("license_id", String(options.licenseId));
+  }
+  if (options?.side) {
+    search.set("side", options.side);
+  }
+  const suffix = search.toString();
+  return apiRequest<CardPreviewHtmlResponse>(
+    `/api/members/${memberId}/license-card-preview/${suffix ? `?${suffix}` : ""}`,
+    { signal: options?.signal }
   );
 }

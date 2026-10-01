@@ -1,9 +1,33 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeftRight,
+  Building2,
+  CalendarDays,
+  CreditCard,
+  Landmark,
+  IdCard,
+  LayoutDashboard,
+  Layers,
+  Printer,
+  Settings,
+  Sparkles,
+  UserCog,
+  Users,
+} from "lucide-react";
+
+import { AppShell, type AppNavItem } from "@/components/app-shell";
+import {
+  CLUB_MANAGEMENT_MODULE_ID,
+  EVENT_CALENDAR_MODULE_ID,
+  getModuleStatus,
+  isInstallEntitled,
+  PREVIEW_MODULE_ID,
+  type ModuleStatus,
+} from "@/lib/modules-api";
 
 type LtfAdminLayoutProps = {
   title: string;
@@ -19,124 +43,138 @@ type LtfNavDef = {
   labelKey:
     | "navOverview"
     | "navClubs"
+    | "navClubAdmins"
+    | "navMemberTransfers"
     | "navMembers"
     | "navLicenses"
     | "navLicenseCards"
     | "navLicenseCardPrintJobs"
     | "navLicenseTypes"
     | "navPrinterProfiles"
-    | "navSettings";
+    | "navSettings"
+    | "navPreview"
+    | "navCalendar"
+    | "navCommittee";
   matchMode: NavMatchMode;
+  icon: AppNavItem["icon"];
 };
 
-/** Fixed order and stable ids — longer hrefs win active state over shorter prefixes (e.g. print-jobs vs license-cards). */
 const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
-  { id: "overview", href: (l) => `/${l}/dashboard/ltf`, labelKey: "navOverview", matchMode: "exact" },
-  { id: "clubs", href: (l) => `/${l}/dashboard/ltf/clubs`, labelKey: "navClubs", matchMode: "prefix" },
-  { id: "members", href: (l) => `/${l}/dashboard/ltf/members`, labelKey: "navMembers", matchMode: "prefix" },
-  { id: "licenses", href: (l) => `/${l}/dashboard/ltf/licenses`, labelKey: "navLicenses", matchMode: "prefix" },
+  { id: "overview", href: (l) => `/${l}/dashboard/ltf`, labelKey: "navOverview", matchMode: "exact", icon: LayoutDashboard },
+  { id: "clubs", href: (l) => `/${l}/dashboard/ltf/clubs`, labelKey: "navClubs", matchMode: "prefix", icon: Building2 },
+  { id: "club-admins", href: (l) => `/${l}/dashboard/ltf/club-admins`, labelKey: "navClubAdmins", matchMode: "prefix", icon: UserCog },
+  { id: "member-transfers", href: (l) => `/${l}/dashboard/ltf/member-transfers`, labelKey: "navMemberTransfers", matchMode: "prefix", icon: ArrowLeftRight },
+  { id: "members", href: (l) => `/${l}/dashboard/ltf/members`, labelKey: "navMembers", matchMode: "prefix", icon: Users },
+  { id: "licenses", href: (l) => `/${l}/dashboard/ltf/licenses`, labelKey: "navLicenses", matchMode: "prefix", icon: IdCard },
   {
     id: "license-cards",
     href: (l) => `/${l}/dashboard/ltf/license-cards`,
     labelKey: "navLicenseCards",
     matchMode: "prefix",
+    icon: Sparkles,
   },
   {
     id: "license-card-print-jobs",
     href: (l) => `/${l}/dashboard/ltf/license-cards/print-jobs`,
     labelKey: "navLicenseCardPrintJobs",
     matchMode: "prefix",
+    icon: Printer,
   },
   {
     id: "license-types",
     href: (l) => `/${l}/dashboard/ltf/license-types`,
     labelKey: "navLicenseTypes",
     matchMode: "prefix",
+    icon: Layers,
   },
   {
     id: "printer-profiles",
     href: (l) => `/${l}/dashboard/ltf/printer-profiles`,
     labelKey: "navPrinterProfiles",
     matchMode: "prefix",
+    icon: CreditCard,
   },
-  { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix" },
+  { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix", icon: Settings },
+  { id: "calendar", href: (l) => `/${l}/dashboard/ltf/calendar`, labelKey: "navCalendar", matchMode: "prefix", icon: CalendarDays },
+  { id: "committee", href: (l) => `/${l}/dashboard/ltf/committee`, labelKey: "navCommittee", matchMode: "prefix", icon: Landmark },
+  { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
-function pathMatchesTab(pathname: string, href: string, matchMode: NavMatchMode): boolean {
-  if (matchMode === "exact") {
-    return pathname === href;
+function ltfNavGroup(id: string, label: (key: "navGroupFederation" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
+  if (id === "committee") {
+    return { id: "clubManagement", label: label("navGroupClubManagement") };
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function resolveActiveNavId(
-  pathname: string | null,
-  items: Array<{ id: string; href: string; matchMode: NavMatchMode }>
-): string | null {
-  if (!pathname) {
-    return null;
+  if (id === "calendar") {
+    return { id: "calendar", label: label("navGroupCalendar") };
   }
-  let best: { id: string; href: string } | null = null;
-  for (const item of items) {
-    if (!pathMatchesTab(pathname, item.href, item.matchMode)) {
-      continue;
-    }
-    if (!best || item.href.length > best.href.length) {
-      best = { id: item.id, href: item.href };
-    }
+  if (id === "preview") {
+    return { id: "preview", label: label("navGroupPreview") };
   }
-  return best?.id ?? null;
+  return { id: "federation", label: label("navGroupFederation") };
 }
 
 export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProps) {
   const t = useTranslations("LtfAdmin");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
-
-  const navItems = useMemo(
-    () =>
-      LTF_NAV_DEFINITIONS.map((def) => ({
-        id: def.id,
-        href: def.href(locale),
-        label: t(def.labelKey),
-        matchMode: def.matchMode,
-      })),
-    [locale, t]
+  const [modules, setModules] = useState<ModuleStatus | null>(null);
+  const isDesignerWorkspace = /\/dashboard\/ltf\/license-cards\/[^/]+\/designer(?:\/|$)/.test(
+    pathname || ""
   );
 
-  const activeId = useMemo(() => resolveActiveNavId(pathname, navItems), [pathname, navItems]);
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setModules(status);
+      })
+      .catch(() => {
+        if (!cancelled) setModules(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const previewEntitled = isInstallEntitled(modules, PREVIEW_MODULE_ID);
+  const calendarEntitled = isInstallEntitled(modules, EVENT_CALENDAR_MODULE_ID);
+  const clubMgmtEntitled = isInstallEntitled(modules, CLUB_MANAGEMENT_MODULE_ID);
+
+  const navItems = useMemo<AppNavItem[]>(
+    () =>
+      LTF_NAV_DEFINITIONS.filter((def) => {
+        if (def.id === "preview") return previewEntitled;
+        if (def.id === "calendar") return calendarEntitled;
+        if (def.id === "committee") return clubMgmtEntitled;
+        return true;
+      }).map((def, index) => ({
+        index,
+        item: {
+          id: def.id,
+          href: def.href(locale),
+          label: t(def.labelKey),
+          icon: def.icon,
+          matchMode: def.matchMode,
+          group: ltfNavGroup(def.id, (key) => common(key)),
+        },
+      }))
+      .sort((left, right) => {
+        const rank = (id: string) => (id === "clubManagement" ? 1 : id === "calendar" ? 2 : id === "preview" ? 3 : 0);
+        return rank(left.item.group?.id ?? "") - rank(right.item.group?.id ?? "") || left.index - right.index;
+      })
+      .map((entry) => entry.item),
+    [calendarEntitled, clubMgmtEntitled, common, locale, previewEntitled, t]
+  );
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
-          <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-          {subtitle ? <p className="mt-2 text-sm text-muted">{subtitle}</p> : null}
-          <nav
-            aria-label={title}
-            className="mt-6 flex flex-wrap gap-1 rounded-[var(--radius-card)] border border-border bg-secondary p-1"
-          >
-            {navItems.map((item) => {
-              const isActive = item.id === activeId;
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`inline-flex h-11 items-center justify-center rounded-[var(--radius-form)] px-4 text-sm font-medium ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-card text-muted"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </header>
-        {children}
-      </div>
-    </main>
+    <AppShell
+      title={title}
+      subtitle={subtitle}
+      navItems={navItems}
+      variant={isDesignerWorkspace ? "workspace" : "default"}
+    >
+      {children}
+    </AppShell>
   );
 }

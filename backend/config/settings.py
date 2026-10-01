@@ -107,6 +107,10 @@ INSTALLED_APPS = [
     "clubs",
     "members",
     "licenses",
+    "ops.apps.OpsConfig",
+    "modules.apps.ModulesConfig",
+    "events.apps.EventsConfig",
+    "clubmgmt.apps.ClubmgmtConfig",
 ]
 
 MIDDLEWARE = [
@@ -360,7 +364,7 @@ ACCOUNT_ADAPTER = "accounts.adapter.CustomAccountAdapter"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "ops.authentication.TokenAuthenticationWithMeta",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -398,8 +402,13 @@ DASHBOARD_OVERVIEW_CACHE_TTL_SECONDS = config(
 SPECTACULAR_SETTINGS = {
     "TITLE": "LTF License Manager API",
     "DESCRIPTION": "API for managing LTF Taekwondo licenses",
-    "VERSION": "0.3.6",
+    "VERSION": "0.4.0",
 }
+
+# Product codes (software entitlements). Not member LTF licenses.
+# Public key is enough to verify. Private key is only for minting.
+MODULE_CODE_PUBLIC_KEY = config("MODULE_CODE_PUBLIC_KEY", default="")
+MODULE_CODE_PRIVATE_KEY = config("MODULE_CODE_PRIVATE_KEY", default="")
 
 # Required when the browser sends credentialed requests (cookies/CORS) from the SPA, e.g. fetch(..., { credentials: "include" }).
 # Origins must be listed explicitly — CORS_ALLOW_ALL_ORIGINS must stay False (django-cors-headers default).
@@ -427,9 +436,33 @@ CSRF_TRUSTED_ORIGINS = split_csv(
     )
 )
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+def _secret_configured(value: str) -> bool:
+    return str(value or "").strip().lower() not in {
+        "",
+        "replace-me",
+        "changeme",
+        "change-me",
+    }
+
+
 RESEND_API_KEY = config("RESEND_API_KEY", default="")
-RESEND_FROM_EMAIL = config("RESEND_FROM_EMAIL", default="no-reply@ltf-license-manager.local")
+RESEND_FROM_EMAIL = config(
+    "RESEND_FROM_EMAIL",
+    default="no-reply@ltf-license-manager.local",
+)
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+DEFAULT_FROM_EMAIL = RESEND_FROM_EMAIL
+if _secret_configured(RESEND_API_KEY):
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+elif EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 FERNET_KEYS = split_csv(
     config("FERNET_KEYS", default=derive_fernet_key(SECRET_KEY))
@@ -493,6 +526,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "licenses.tasks.reconcile_pending_stripe_orders",
         "schedule": CELERY_RECONCILE_PENDING_STRIPE_INTERVAL_SECONDS,
     },
+    "run-club-fee-billing-schedules-daily": {
+        "task": "licenses.tasks.run_club_fee_billing_schedules",
+        "schedule": crontab(hour=6, minute=15),
+    },
 }
 CELERY_TASK_ROUTES = {
     "licenses.tasks.execute_print_job_task": {"queue": CELERY_PRINT_JOB_QUEUE},
@@ -534,3 +571,14 @@ INVOICE_SEPA_BENEFICIARY = config("INVOICE_SEPA_BENEFICIARY", default="LTF Licen
 INVOICE_SEPA_IBAN = config("INVOICE_SEPA_IBAN", default="")
 INVOICE_SEPA_BIC = config("INVOICE_SEPA_BIC", default="")
 INVOICE_SEPA_REMITTANCE_PREFIX = config("INVOICE_SEPA_REMITTANCE_PREFIX", default="Invoice")
+
+LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.11.0")
+OPS_LOCKOUT_FAILURES = config("OPS_LOCKOUT_FAILURES", cast=int, default=10)
+OPS_LOCKOUT_WINDOW_MINUTES = config("OPS_LOCKOUT_WINDOW_MINUTES", cast=int, default=15)
+OPS_STUFFING_DISTINCT_USERNAMES = config("OPS_STUFFING_DISTINCT_USERNAMES", cast=int, default=5)
+OPS_SESSION_ONLINE_MINUTES = config("OPS_SESSION_ONLINE_MINUTES", cast=int, default=15)
+OPS_TOKEN_TOUCH_INTERVAL_SECONDS = config("OPS_TOKEN_TOUCH_INTERVAL_SECONDS", cast=int, default=60)
+OPS_QUERY_TIMEOUT_MS = config("OPS_QUERY_TIMEOUT_MS", cast=int, default=5000)
+OPS_QUERY_MAX_ROWS = config("OPS_QUERY_MAX_ROWS", cast=int, default=500)
+OPS_I18N_DIR = config("OPS_I18N_DIR", default="/app/i18n_frontend")
+OPS_DOCKER_SOCKET = config("OPS_DOCKER_SOCKET", default="")

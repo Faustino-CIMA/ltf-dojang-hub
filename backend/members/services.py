@@ -41,6 +41,7 @@ def add_grade_promotion(
     exam_date=None,
     proof_ref: str = "",
     notes: str = "",
+    created_by: str = "",
     metadata: dict[str, Any] | None = None,
     from_grade: str | None = None,
     sync_member: bool = True,
@@ -65,6 +66,7 @@ def add_grade_promotion(
             exam_date=exam_date,
             proof_ref=proof_ref,
             notes=notes,
+            created_by=str(created_by or "").strip(),
             metadata=metadata or {},
         )
 
@@ -73,6 +75,79 @@ def add_grade_promotion(
             member.save(update_fields=["belt_rank", "updated_at"])
 
     return history_record
+
+
+def update_grade_promotion(
+    history_record: GradePromotionHistory,
+    *,
+    to_grade: str | None = None,
+    promotion_date=None,
+    exam_date=None,
+    proof_ref: str | None = None,
+    notes: str | None = None,
+    created_by: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    sync_member: bool = True,
+) -> GradePromotionHistory:
+    normalized_grade = (
+        str(to_grade).strip() if to_grade is not None else str(history_record.to_grade or "").strip()
+    )
+    if not normalized_grade:
+        raise ValidationError("to_grade is required.")
+
+    with transaction.atomic():
+        if to_grade is not None:
+            history_record.to_grade = normalized_grade
+        if promotion_date is not None:
+            history_record.promotion_date = promotion_date
+        if exam_date is not None:
+            history_record.exam_date = exam_date
+        if proof_ref is not None:
+            history_record.proof_ref = proof_ref
+        if notes is not None:
+            history_record.notes = notes
+        if created_by is not None:
+            history_record.created_by = str(created_by).strip()
+        if metadata is not None:
+            history_record.metadata = metadata
+
+        history_record.full_clean()
+        history_record.save()
+
+        if sync_member:
+            member = history_record.member
+            latest = (
+                GradePromotionHistory.objects.filter(member=member)
+                .order_by("-promotion_date", "-created_at")
+                .first()
+            )
+            if latest and latest.id == history_record.id and member.belt_rank != normalized_grade:
+                member.belt_rank = normalized_grade
+                member.save(update_fields=["belt_rank", "updated_at"])
+
+    return history_record
+
+
+def delete_grade_promotion(
+    history_record: GradePromotionHistory,
+    *,
+    sync_member: bool = True,
+) -> None:
+    member = history_record.member
+    with transaction.atomic():
+        # QuerySet.delete() bypasses the append-only model.delete() guard so
+        # club staff can correct mistaken grade entries from the Grades UI.
+        GradePromotionHistory.objects.filter(pk=history_record.pk).delete()
+        if sync_member:
+            latest = (
+                GradePromotionHistory.objects.filter(member=member)
+                .order_by("-promotion_date", "-created_at")
+                .first()
+            )
+            next_rank = str(latest.to_grade or "").strip() if latest else ""
+            if member.belt_rank != next_rank:
+                member.belt_rank = next_rank
+                member.save(update_fields=["belt_rank", "updated_at"])
 
 
 def _validate_upload_basics(
@@ -324,6 +399,65 @@ def clear_member_profile_picture(
     return member
 
 
+LTF_LICENSE_ID_MIN_DIGITS = 4
+
+
+def format_ltf_license_id(*, prefix: str, serial: int) -> str:
+    return f"{prefix}-{str(serial).zfill(LTF_LICENSE_ID_MIN_DIGITS)}"
+
+
+def _used_ltf_license_serials(prefix: str) -> set[int]:
+    pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$")
+    used: set[int] = set()
+    for existing_value in (
+        Member.objects.filter(ltf_licenseid__startswith=f"{prefix}-")
+        .values_list("ltf_licenseid", flat=True)
+        .iterator()
+    ):
+        normalized = str(existing_value or "").strip().upper()
+        match = pattern.match(normalized)
+        if match:
+            used.add(int(match.group(1)))
+    return used
+
+
+def _next_available_ltf_license_id(*, prefix: str, start_value: int) -> tuple[str, int]:
+    used_serials = _used_ltf_license_serials(prefix)
+    next_value = max(int(start_value), 1)
+    while next_value in used_serials:
+        next_value += 1
+    return format_ltf_license_id(prefix=prefix, serial=next_value), next_value
+
+
+def ensure_ltf_license_id(member: Member, *, prefix: str = "LTF") -> str:
+    """Assign a national LTF license ID when the member does not have one yet."""
+    with transaction.atomic():
+        locked = Member.objects.select_for_update().get(pk=member.pk)
+        current = str(locked.ltf_licenseid or "").strip()
+        if current:
+            member.ltf_licenseid = current
+            return current
+        locked.ltf_licenseid = generate_next_ltf_license_id(prefix=prefix)
+        locked.save(update_fields=["ltf_licenseid", "updated_at"])
+        member.ltf_licenseid = locked.ltf_licenseid
+        return locked.ltf_licenseid
+
+
+def assign_ltf_license_ids_for_licensed_members() -> int:
+    """Give an LTF license ID to members who already hold an active license but have none."""
+    from django.db.models import Q
+
+    from licenses.models import License
+
+    member_ids = License.objects.filter(status=License.Status.ACTIVE).values_list("member_id", flat=True)
+    assigned = 0
+    missing = Member.objects.filter(pk__in=member_ids).filter(Q(ltf_licenseid="") | Q(ltf_licenseid__isnull=True))
+    for member in missing.iterator():
+        ensure_ltf_license_id(member)
+        assigned += 1
+    return assigned
+
+
 def generate_next_ltf_license_id(*, prefix: str) -> str:
     normalized_prefix = str(prefix or "").strip().upper()
     allowed_prefixes = {
@@ -342,11 +476,10 @@ def generate_next_ltf_license_id(*, prefix: str) -> str:
                     defaults={"next_value": 1},
                 )
             )
-            next_value = int(counter.next_value)
-            candidate = f"{normalized_prefix}-{next_value:06d}"
-            while Member.objects.filter(ltf_licenseid=candidate).exists():
-                next_value += 1
-                candidate = f"{normalized_prefix}-{next_value:06d}"
+            candidate, next_value = _next_available_ltf_license_id(
+                prefix=normalized_prefix,
+                start_value=int(counter.next_value),
+            )
             counter.next_value = next_value + 1
             counter.save(update_fields=["next_value", "updated_at"])
         return candidate
@@ -356,22 +489,124 @@ def generate_next_ltf_license_id(*, prefix: str) -> str:
 
 
 def _generate_next_ltf_license_id_without_counter(*, prefix: str) -> str:
-    pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$")
+    candidate, _next_value = _next_available_ltf_license_id(prefix=prefix, start_value=1)
+    return candidate
+
+
+LTF_LICENSE_IMPORT_SOURCE_PREFIX = "LUX-"
+LTF_LICENSE_IMPORT_TARGET_PREFIX = "LTF-"
+
+
+def apply_ltf_license_id_import_prefix(value: str, *, enabled: bool) -> tuple[str, bool]:
+    """Rewrite LUX- to LTF- on LTF license IDs only. WT IDs must not use this helper."""
+    normalized = str(value or "").strip().upper()
+    if not enabled or not normalized:
+        return normalized, False
+    if not normalized.startswith(LTF_LICENSE_IMPORT_SOURCE_PREFIX):
+        return normalized, False
+    rewritten = LTF_LICENSE_IMPORT_TARGET_PREFIX + normalized[len(LTF_LICENSE_IMPORT_SOURCE_PREFIX) :]
+    return rewritten, rewritten != normalized
+
+
+def is_ltf_license_prefix_rewrite_enabled() -> bool:
+    from clubs.models import FederationProfile
+
+    profile = FederationProfile.objects.filter(pk=1).first()
+    return bool(profile and profile.rewrite_lux_prefix_on_member_import)
+
+
+def ltf_license_prefix_rewrite_policy(*, rewritten_count: int = 0) -> dict[str, Any]:
+    return {
+        "enabled": is_ltf_license_prefix_rewrite_enabled(),
+        "source_prefix": LTF_LICENSE_IMPORT_SOURCE_PREFIX,
+        "target_prefix": LTF_LICENSE_IMPORT_TARGET_PREFIX,
+        "rewritten_count": rewritten_count,
+    }
+
+
+def _bump_ltf_counter_after_prefix_rewrite(rewritten_ids: list[str]) -> None:
+    pattern = re.compile(rf"^{re.escape(LTF_LICENSE_IMPORT_TARGET_PREFIX[:-1])}-(\d+)$")
     max_seen = 0
-    for existing_value in (
-        Member.objects.filter(ltf_licenseid__startswith=f"{prefix}-")
-        .values_list("ltf_licenseid", flat=True)
-        .iterator()
-    ):
-        normalized = str(existing_value or "").strip().upper()
-        match = pattern.match(normalized)
+    for value in rewritten_ids:
+        match = pattern.match(str(value or "").strip().upper())
         if not match:
             continue
         max_seen = max(max_seen, int(match.group(1)))
+    if max_seen <= 0:
+        return
+    try:
+        with transaction.atomic():
+            counter, _ = MemberLicenseIdCounter.objects.select_for_update().get_or_create(
+                prefix=MemberLicenseIdCounter.Prefix.LTF,
+                defaults={"next_value": 1},
+            )
+            if int(counter.next_value) <= max_seen:
+                counter.next_value = max_seen + 1
+                counter.save(update_fields=["next_value", "updated_at"])
+    except (ProgrammingError, OperationalError):
+        return
 
-    next_value = max_seen + 1
-    candidate = f"{prefix}-{next_value:06d}"
-    while Member.objects.filter(ltf_licenseid=candidate).exists():
-        next_value += 1
-        candidate = f"{prefix}-{next_value:06d}"
-    return candidate
+
+def rewrite_existing_lux_ltf_license_ids(*, apply: bool) -> dict[str, Any]:
+    occupied: dict[str, int] = {}
+    for member_id, raw_value in (
+        Member.objects.exclude(ltf_licenseid="")
+        .values_list("id", "ltf_licenseid")
+        .iterator()
+    ):
+        normalized = str(raw_value or "").strip().upper()
+        if normalized:
+            occupied[normalized] = member_id
+
+    candidates: list[tuple[int, str, str]] = []
+    conflicts: list[dict[str, Any]] = []
+    for member_id, raw_value in (
+        Member.objects.exclude(ltf_licenseid="")
+        .values_list("id", "ltf_licenseid")
+        .iterator()
+    ):
+        current = str(raw_value or "").strip().upper()
+        if not current.startswith(LTF_LICENSE_IMPORT_SOURCE_PREFIX):
+            continue
+        target = (
+            LTF_LICENSE_IMPORT_TARGET_PREFIX + current[len(LTF_LICENSE_IMPORT_SOURCE_PREFIX) :]
+        )
+        occupant_id = occupied.get(target)
+        if occupant_id and occupant_id != member_id:
+            conflicts.append(
+                {
+                    "member_id": member_id,
+                    "current": current,
+                    "target": target,
+                }
+            )
+            continue
+        candidates.append((member_id, current, target))
+        occupied[target] = member_id
+
+    rewritten = 0
+    if apply and candidates:
+        with transaction.atomic():
+            member_by_id = {
+                member.id: member
+                for member in Member.objects.filter(id__in=[item[0] for item in candidates])
+            }
+            rewritten_ids: list[str] = []
+            for member_id, _current, target in candidates:
+                member = member_by_id.get(member_id)
+                if not member:
+                    continue
+                member.ltf_licenseid = target
+                member.save(update_fields=["ltf_licenseid", "updated_at"])
+                rewritten_ids.append(target)
+                rewritten += 1
+            _bump_ltf_counter_after_prefix_rewrite(rewritten_ids)
+
+    return {
+        "source_prefix": LTF_LICENSE_IMPORT_SOURCE_PREFIX,
+        "target_prefix": LTF_LICENSE_IMPORT_TARGET_PREFIX,
+        "candidate_count": len(candidates),
+        "conflict_count": len(conflicts),
+        "rewritten": rewritten,
+        "conflicts": conflicts[:50],
+    }

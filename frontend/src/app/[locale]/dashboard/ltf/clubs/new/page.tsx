@@ -11,6 +11,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  FormPanel,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
 import { createClub } from "@/lib/ltf-admin-api";
 
@@ -24,6 +28,8 @@ const clubSchema = z.object({
     .string()
     .optional()
     .refine((value) => !value || isValidIban(value), "Enter a valid IBAN."),
+  email: z.string().optional(),
+  website: z.string().optional(),
 });
 
 type ClubFormValues = z.infer<typeof clubSchema>;
@@ -49,6 +55,8 @@ export default function LtfAdminCreateClubPage() {
       postal_code: "",
       locality: "",
       iban: "",
+      email: "",
+      website: "",
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
@@ -72,14 +80,14 @@ export default function LtfAdminCreateClubPage() {
 
   return (
     <LtfAdminLayout title={t("createClub")} subtitle={t("clubFormSubtitle")}>
-      <div className="space-y-4">
-        <Button variant="outline" size="sm" asChild>
+      <div className="space-y-6">
+        <Button variant="outline" asChild>
           <Link href={`/${locale}/dashboard/ltf/clubs`}>{t("backToClubs")}</Link>
         </Button>
 
-        {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+        <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-        <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
+        <FormPanel>
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-foreground">{t("clubNameLabel")}</label>
@@ -107,6 +115,18 @@ export default function LtfAdminCreateClubPage() {
               <Input placeholder="Luxembourg" {...register("locality")} />
             </div>
 
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
+              <Input type="email" placeholder="club@example.com" {...register("email")} />
+              <p className="text-xs text-muted">{t("clubEmailHint")}</p>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
+              <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
+              <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
               <Input placeholder="LU28 0019 4006 4475 0000" {...register("iban")} />
@@ -119,7 +139,7 @@ export default function LtfAdminCreateClubPage() {
             </div>
 
             <div className="flex items-center gap-3 md:col-span-2">
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" variant="primary" disabled={isSubmitting}>
                 {t("createClub")}
               </Button>
               <Button type="button" variant="outline" asChild>
@@ -127,7 +147,7 @@ export default function LtfAdminCreateClubPage() {
               </Button>
             </div>
           </form>
-        </section>
+        </FormPanel>
       </div>
     </LtfAdminLayout>
   );

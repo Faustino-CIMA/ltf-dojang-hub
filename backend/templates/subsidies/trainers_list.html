@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Liste d'entraîneurs contresignée {{ year }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 16mm 18mm 16mm;
+      @bottom-center {
+        content: "Le président, ou une personne déléguée du comité, certifie l'exactitude de ces informations en vue du subside.";
+        font-family: "Liberation Sans", sans-serif;
+        font-size: 6pt;
+        color: #667085;
+      }
+      @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-family: "Liberation Sans", sans-serif;
+        font-size: 6pt;
+        color: #667085;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #1c2430;
+      font-family: "Liberation Sans", sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+    }
+    .letterhead {
+      display: flex;
+      gap: 5mm;
+      align-items: flex-start;
+      padding-bottom: 4mm;
+      border-bottom: 0.6pt solid #1c2430;
+    }
+    .logo { width: 22mm; height: 22mm; object-fit: contain; }
+    .identity { flex: 1; }
+    .club-name { margin: 0; font-size: 13pt; font-weight: 700; }
+    .meta { margin: 1mm 0 0; color: #475467; font-size: 9pt; }
+    .date { margin: 6mm 0 0; text-align: right; font-size: 10pt; }
+    h1 { margin: 10mm 0 2mm; font-size: 16pt; font-weight: 700; text-align: center; }
+    .year { margin: 0 0 5mm; text-align: center; color: #475467; font-size: 10pt; }
+    .intro { margin: 0 0 6mm; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { display: table-header-group; }
+    th {
+      background: #f2f4f7;
+      border: 0.4pt solid #d0d5dd;
+      padding: 2mm;
+      font-size: 8pt;
+      font-weight: 700;
+      text-align: left;
+    }
+    td {
+      border: 0.4pt solid #d0d5dd;
+      padding: 2mm;
+      vertical-align: middle;
+      font-size: 10pt;
+    }
+    td.num { width: 10mm; text-align: right; color: #475467; }
+    .certified { margin: 4mm 0 0; }
+    .certify {
+      margin-top: 1.4em;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+    }
+    .certify p { margin: 0 0 2mm; }
+    .sign-block { width: 70mm; }
+    .role { margin-top: 0; font-size: 9pt; color: #475467; }
+    .empty { padding: 6mm 2mm; color: #475467; }
+  </style>
+</head>
+<body>
+  <header class="letterhead">
+    {% if logo_uri %}
+      <img class="logo" src="{{ logo_uri }}" alt="" />
+    {% endif %}
+    <div class="identity">
+      <p class="club-name">{{ club_name }}</p>
+      {% for line in address_lines %}
+        <p class="meta">{{ line }}</p>
+      {% endfor %}
+      {% if email %}<p class="meta">{{ email }}</p>{% endif %}
+    </div>
+  </header>
+  <p class="date">{{ place_date }}</p>
+  <h1>Liste d'entraîneurs contresignée</h1>
+  <p class="year">Année de subside {{ year }}</p>
+  <p class="intro">
+    Les personnes nommées ci-dessous sont entraîneurs de {{ club_name }} pour l'année {{ year }}.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>N°</th>
+        <th>Nom</th>
+        <th>Grade</th>
+        <th>Qualification</th>
+        <th>&lt; 16 ans</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in trainers %}
+        <tr>
+          <td class="num">{{ row.number }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.grade }}</td>
+          <td>{{ row.qualification }}</td>
+          <td>{{ row.under_16 }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td class="empty" colspan="5">Aucun entraîneur n'est nommé pour ce club.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="certified">Certifié exact. La présente liste comprend {{ trainers|length }} entraîneur{{ trainers|length|pluralize }}.</p>
+  <section class="certify">
+    <div class="sign-block">
+      <p class="role">Le président</p>
+      <p>{{ president }}</p>
+    </div>
+  </section>
+</body>
+</html>

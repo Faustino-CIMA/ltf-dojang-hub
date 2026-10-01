@@ -28,6 +28,29 @@ LTF Admin pages:
 Club Admin pages:
 - Print jobs history: `/{locale}/dashboard/club/print-jobs`
 - Quick print: `/{locale}/dashboard/club/print-jobs/quick-print`
+- Club admins (rubber-band): `/{locale}/dashboard/club/admins`
+- Membership fees: `/{locale}/dashboard/club/fees`
+  - Add a fee from the card at the top. Edit on a fee corrects its name and current amount. Delete removes it and returns assigned members to the club default. Save new amount schedules a later price. Issued invoices stay unchanged.
+- Families: `/{locale}/dashboard/club/families`
+  - Members of a family share one invoice. Choose who receives the bill. Parents and guardians can be entered here and on a minor’s club record.
+- Billing: `/{locale}/dashboard/club/billing`
+  - A family row shows an invoice number only when one invoice covers every current member. The amount is that invoice’s total.
+- Club settings: `/{locale}/dashboard/club/settings`
+  - Website is printed under the club email on invoices the club sends to its members.
+
+Ops console (Django `is_superuser` only):
+- Overview: `/{locale}/dashboard/ops`
+- Modules (product codes and club assignment): `/{locale}/dashboard/ops/modules`
+  - The install id on that page is not a product code. With no `MODULE_CODE_*` keys, the server stores a signing key in the database. A superuser mints an `LTF1.…` code and then redeems it. Set `MODULE_CODE_PUBLIC_KEY` alone when another party signs the codes.
+
+Preview prove-out (only when entitled / assigned):
+- LTF Admin: `/{locale}/dashboard/ltf/preview`
+- Club Admin: `/{locale}/dashboard/club/preview`
+
+Event calendar (module `event_calendar`; federation when entitled, club when assigned):
+- LTF Admin: `/{locale}/dashboard/ltf/calendar`
+- Club Admin: `/{locale}/dashboard/club/calendar`
+- Member (public dates): `/{locale}/dashboard/member/calendar`
 
 Quick print entry points:
 - Members page stores selected member IDs and opens quick print:
@@ -45,6 +68,8 @@ Print jobs pages support:
 - PDF download when status is `succeeded`.
 
 License Card v2 designer capabilities:
+- Full-height design workspace (no LTF sidebar). Tools, canvas, and inspector stay on screen; preview/print opens from the top bar.
+- Built-in embeddable print fonts (Inter, Source Sans 3, Source Serif 4, IBM Plex Mono, Barlow Condensed). Text style picks a font file, not a free-text family name.
 - Dual-side editing (`front` / `back`) with side switch, flip side, and copy side actions.
 - Side-aware preview requests (`preview-data`, card/sheet PDF, and live simulation HTML).
 - Live print simulation toggle and manual refresh from the designer preview panel.
@@ -52,7 +77,8 @@ License Card v2 designer capabilities:
 - LP798 geometry is aligned to card `85.00x55.00` with exact placement contract for preview/print parity.
 - Publish flow protects unsaved changes by persisting draft payload before publish (v0.3.3 gate-confirmed).
 - Asset upload flow supports reliable same-file reselect behavior and active-by-default uploads.
-- Role merge fields (`primary_license_role`, `secondary_license_role`) and locked date formatting are available in simulation/PDF.
+- Role merge fields (`primary_license_role`, `secondary_license_role`) print and store capitalized labels (`Athlete`, `Coach`, …). Locked date formatting is available in simulation/PDF.
+- Club and LTF member Current licenses show the published Standard 3C card above the license table (`GET /api/members/{id}/license-card-preview/`).
 - Simulation refresh path is deterministic and font-size parity with PDF preview is enforced (v2.1).
 
 Relevant frontend API client helpers (`src/lib/license-card-api.ts`):
@@ -60,4 +86,5 @@ Relevant frontend API client helpers (`src/lib/license-card-api.ts`):
 - `getCardTemplateVersionCardPreviewPdf()`
 - `getCardTemplateVersionSheetPreviewPdf()`
 - `getCardTemplateVersionCardPreviewHtml()`
+- `getMemberLicenseCardPreview()`
 - `createPrintJob()`, `executePrintJob()`, `retryPrintJob()`, `cancelPrintJob()`, `downloadPrintJobPdf()`

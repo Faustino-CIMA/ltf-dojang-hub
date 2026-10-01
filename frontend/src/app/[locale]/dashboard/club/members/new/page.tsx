@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -25,19 +26,7 @@ import {
 import { apiRequest } from "@/lib/api";
 import { Club, createMember, getClubs } from "@/lib/club-admin-api";
 import { parseDisplayDateToIso } from "@/lib/date-display";
-
-const LICENSE_ROLE_VALUES = [
-  "athlete",
-  "coach",
-  "referee",
-  "official",
-  "doctor",
-  "physiotherapist",
-  "volunteer",
-  "staff",
-  "media",
-  "fan",
-] as const;
+import { LICENSE_ROLE_VALUES } from "@/lib/license-roles";
 
 const createMemberSchema = z
   .object({
@@ -57,7 +46,6 @@ const createMemberSchema = z
         },
         "Use date format 29 Nov 2026."
       ),
-    belt_rank: z.string().optional(),
     primary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
     secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
     is_active: z.boolean(),
@@ -115,7 +103,6 @@ export default function ClubAdminMemberCreatePage() {
       wt_licenseid: "",
       ltf_license_prefix: "LTF",
       date_of_birth: "",
-      belt_rank: "",
       primary_license_role: "",
       secondary_license_role: "",
       is_active: true,
@@ -124,16 +111,16 @@ export default function ClubAdminMemberCreatePage() {
 
   const roleLabelByValue = useMemo(
     () => ({
-      athlete: t("licenseRoleAthlete"),
-      coach: t("licenseRoleCoach"),
-      referee: t("licenseRoleReferee"),
-      official: t("licenseRoleOfficial"),
-      doctor: t("licenseRoleDoctor"),
-      physiotherapist: t("licenseRolePhysiotherapist"),
-      volunteer: t("licenseRoleVolunteer"),
-      staff: t("licenseRoleStaff"),
-      media: t("licenseRoleMedia"),
-      fan: t("licenseRoleFan"),
+      Athlete: t("licenseRoleAthlete"),
+      Coach: t("licenseRoleCoach"),
+      Referee: t("licenseRoleReferee"),
+      Official: t("licenseRoleOfficial"),
+      Doctor: t("licenseRoleDoctor"),
+      Physiotherapist: t("licenseRolePhysiotherapist"),
+      Volunteer: t("licenseRoleVolunteer"),
+      Staff: t("licenseRoleStaff"),
+      Media: t("licenseRoleMedia"),
+      Fan: t("licenseRoleFan"),
     }),
     [t]
   );
@@ -186,7 +173,6 @@ export default function ClubAdminMemberCreatePage() {
         wt_licenseid: values.wt_licenseid.trim() || undefined,
         ltf_license_prefix: values.ltf_license_prefix,
         date_of_birth: dateOfBirthIso,
-        belt_rank: values.belt_rank?.trim() || "",
         primary_license_role: values.primary_license_role ?? "",
         secondary_license_role: values.secondary_license_role ?? "",
         is_active: values.is_active,
@@ -201,7 +187,7 @@ export default function ClubAdminMemberCreatePage() {
   if (isLoading) {
     return (
       <ClubAdminLayout title={t("createMember")} subtitle={t("memberCreatePageSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </ClubAdminLayout>
     );
   }
@@ -242,7 +228,7 @@ export default function ClubAdminMemberCreatePage() {
           <Link href={`/${locale}/dashboard/club/members`}>{t("backToMembers")}</Link>
         </Button>
 
-        {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+        <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
@@ -333,8 +319,8 @@ export default function ClubAdminMemberCreatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="member-belt-rank">{t("beltRankLabel")}</Label>
-              <Input id="member-belt-rank" placeholder="1st Dan" {...register("belt_rank")} />
+              <Label>{t("beltRankLabel")}</Label>
+              <p className="text-xs text-muted">{t("beltRankCreateHint")}</p>
             </div>
 
             <div className="space-y-2">
@@ -407,7 +393,7 @@ export default function ClubAdminMemberCreatePage() {
             </div>
 
             <div className="flex items-center gap-3 md:col-span-2">
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" variant="primary" disabled={isSubmitting}>
                 {t("createMember")}
               </Button>
               <Button type="button" variant="outline" asChild>

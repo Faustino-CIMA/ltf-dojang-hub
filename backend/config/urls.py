@@ -20,6 +20,7 @@ from accounts.views import (
     ResendVerificationView,
     VerifyEmailView,
 )
+from ops.views import PublicI18nView
 from imports.views import (
     ClubImportConfirmView,
     ClubImportPreviewView,
@@ -33,12 +34,40 @@ from clubs.views import (
     FederationProfileLogoListView,
     FederationProfileView,
 )
+from licenses.bank_recon import (
+    ClubBankStatementViewSet,
+    ClubFinanceBudgetView,
+    FederationBankStatementViewSet,
+    FederationFinanceBudgetView,
+)
+from licenses.club_books import (
+    ClubExpenseCategoryViewSet,
+    ClubExpenseViewSet,
+    ClubFinanceReportExportView,
+    ClubFinanceReportView,
+    ClubFinanceYearOpeningView,
+    ClubIncomeCategoryViewSet,
+    ClubIncomeViewSet,
+    ClubStatementView,
+)
 from licenses.views import (
     ClubInvoiceViewSet,
+    ClubPaymentViewSet,
     ClubOrderViewSet,
     FinanceAuditLogViewSet,
     InvoiceViewSet,
+    ExpenseCategoryViewSet,
+    ExpenseViewSet,
+    IncomeCategoryViewSet,
+    IncomeViewSet,
+    FinanceReportExportView,
+    FinanceReportView,
+    FinanceYearOpeningView,
     InvoicePdfView,
+    ClubFeeBillingScheduleViewSet,
+    ClubFeeBillingView,
+    ClubFeePriceViewSet,
+    ClubFeeTypeViewSet,
     LicensePriceViewSet,
     LicenseTypeViewSet,
     LicenseViewSet,
@@ -47,6 +76,7 @@ from licenses.views import (
     OrderViewSet,
     PayconiqPaymentViewSet,
     PaymentViewSet,
+    StripeConfirmCheckoutView,
     StripeWebhookView,
 )
 from licenses.card_views import (
@@ -63,21 +93,43 @@ from licenses.card_views import (
     PrinterProfileViewSet,
     PrintJobViewSet,
 )
-from members.views import MemberViewSet
+from members.transfer_views import MemberTransferViewSet
+from events.views import EventViewSet
+from members.views import MemberViewSet, RewriteLtfLicensePrefixView
 
 router = DefaultRouter()
 router.register(r"clubs", ClubViewSet, basename="club")
+router.register(r"events", EventViewSet, basename="event")
 router.register(r"members", MemberViewSet, basename="member")
+router.register(r"member-transfers", MemberTransferViewSet, basename="member-transfer")
 router.register(r"licenses", LicenseViewSet, basename="license")
 router.register(r"license-types", LicenseTypeViewSet, basename="license-type")
 router.register(r"license-prices", LicensePriceViewSet, basename="license-price")
+router.register(r"club-fee-types", ClubFeeTypeViewSet, basename="club-fee-type")
+router.register(r"club-fee-prices", ClubFeePriceViewSet, basename="club-fee-price")
+router.register(
+    r"club-fee-billing-schedules",
+    ClubFeeBillingScheduleViewSet,
+    basename="club-fee-billing-schedule",
+)
 router.register(r"orders", OrderViewSet, basename="order")
 router.register(r"invoices", InvoiceViewSet, basename="invoice")
 router.register(r"payments", PaymentViewSet, basename="payment")
 router.register(r"payconiq", PayconiqPaymentViewSet, basename="payconiq")
 router.register(r"club-orders", ClubOrderViewSet, basename="club-order")
 router.register(r"club-invoices", ClubInvoiceViewSet, basename="club-invoice")
+router.register(r"club-payments", ClubPaymentViewSet, basename="club-payment")
+router.register(r"club-expenses", ClubExpenseViewSet, basename="club-expense")
+router.register(r"club-incomes", ClubIncomeViewSet, basename="club-income")
+router.register(r"club-expense-categories", ClubExpenseCategoryViewSet, basename="club-expense-category")
+router.register(r"club-income-categories", ClubIncomeCategoryViewSet, basename="club-income-category")
+router.register(r"club-bank-statements", ClubBankStatementViewSet, basename="club-bank-statement")
+router.register(r"bank-statements", FederationBankStatementViewSet, basename="bank-statement")
 router.register(r"finance-audit-logs", FinanceAuditLogViewSet, basename="finance-audit-log")
+router.register(r"expense-categories", ExpenseCategoryViewSet, basename="expense-category")
+router.register(r"expenses", ExpenseViewSet, basename="expense")
+router.register(r"income-categories", IncomeCategoryViewSet, basename="income-category")
+router.register(r"incomes", IncomeViewSet, basename="income")
 router.register(r"card-formats", CardFormatPresetViewSet, basename="card-format")
 router.register(r"card-font-assets", CardFontAssetViewSet, basename="card-font-asset")
 router.register(r"card-image-assets", CardImageAssetViewSet, basename="card-image-asset")
@@ -129,6 +181,7 @@ urlpatterns = [
     path("api/imports/members/preview/", MemberImportPreviewView.as_view(), name="import-members-preview"),
     path("api/imports/members/confirm/", MemberImportConfirmView.as_view(), name="import-members-confirm"),
     path("api/federation-profile/", FederationProfileView.as_view(), name="federation-profile"),
+    path("api/club-fee-billings/", ClubFeeBillingView.as_view(), name="club-fee-billings"),
     path(
         "api/federation-profile/logos/",
         FederationProfileLogoListView.as_view(),
@@ -145,6 +198,15 @@ urlpatterns = [
         name="federation-profile-logo-content",
     ),
     path("api/health/", health_check, name="health-check"),
+    path("api/i18n/<str:locale>/", PublicI18nView.as_view(), name="public-i18n"),
+    path("api/ops/", include("ops.urls")),
+    path("api/modules/", include("modules.urls")),
+    path("api/club-management/", include("clubmgmt.urls")),
+    path(
+        "api/members/ltf-license-prefix-rewrite/",
+        RewriteLtfLicensePrefixView.as_view(),
+        name="member-ltf-license-prefix-rewrite",
+    ),
     path("api/dashboard/overview/ltf-admin/", LtfAdminOverviewView.as_view(), name="overview-ltf-admin"),
     path(
         "api/dashboard/overview/ltf-finance/",
@@ -152,7 +214,29 @@ urlpatterns = [
         name="overview-ltf-finance",
     ),
     path("api/stripe/webhook/", StripeWebhookView.as_view(), name="stripe-webhook"),
+    path(
+        "api/stripe/confirm-checkout/",
+        StripeConfirmCheckoutView.as_view(),
+        name="stripe-confirm-checkout",
+    ),
     path("api/invoices/<int:invoice_id>/pdf/", InvoicePdfView.as_view(), name="invoice-pdf"),
+    path("api/finance-reports/", FinanceReportView.as_view(), name="finance-report"),
+    path("api/finance-reports/export/", FinanceReportExportView.as_view(), name="finance-report-export"),
+    path("api/finance-year-openings/", FinanceYearOpeningView.as_view(), name="finance-year-opening"),
+    path("api/club-finance-reports/", ClubFinanceReportView.as_view(), name="club-finance-report"),
+    path(
+        "api/club-finance-reports/export/",
+        ClubFinanceReportExportView.as_view(),
+        name="club-finance-report-export",
+    ),
+    path(
+        "api/club-finance-year-openings/",
+        ClubFinanceYearOpeningView.as_view(),
+        name="club-finance-year-opening",
+    ),
+    path("api/club-statements/", ClubStatementView.as_view(), name="club-statement"),
+    path("api/club-finance-budgets/", ClubFinanceBudgetView.as_view(), name="club-finance-budget"),
+    path("api/finance-budgets/", FederationFinanceBudgetView.as_view(), name="finance-budget"),
     path("api/merge-fields/", MergeFieldRegistryView.as_view(), name="merge-fields"),
     path(
         "api/card-designer/lookups/members/",

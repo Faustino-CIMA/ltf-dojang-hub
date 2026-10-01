@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Liste des entraînements {{ year }}</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 14mm 12mm 16mm 12mm;
+      @bottom-center {
+        content: "Le président, ou une personne déléguée du comité, certifie l'exactitude de ces informations en vue du subside.";
+        font-family: "Liberation Sans", sans-serif;
+        font-size: 6pt;
+        color: #667085;
+      }
+      @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-family: "Liberation Sans", sans-serif;
+        font-size: 6pt;
+        color: #667085;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #1c2430;
+      font-family: "Liberation Sans", sans-serif;
+      font-size: 9pt;
+      line-height: 1.35;
+    }
+    .letterhead {
+      display: flex;
+      gap: 5mm;
+      align-items: flex-start;
+      padding-bottom: 4mm;
+      border-bottom: 0.6pt solid #1c2430;
+    }
+    .logo { width: 22mm; height: 22mm; object-fit: contain; }
+    .club-name { margin: 0; font-size: 13pt; font-weight: 700; }
+    .meta { margin: 1mm 0 0; color: #475467; font-size: 9pt; }
+    .date { margin: 6mm 0 0; text-align: right; }
+    h1 { margin: 6mm 0 2mm; font-size: 15pt; text-align: center; }
+    .year { margin: 0 0 3mm; text-align: center; color: #475467; }
+    .intro { margin: 0 0 4mm; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { display: table-header-group; }
+    th, td {
+      border: 0.6pt solid #1c2430;
+      padding: 1.6mm 1.4mm;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #f2f4f7;
+      font-size: 8pt;
+      font-weight: 700;
+      text-align: center;
+    }
+    td.time {
+      width: 28mm;
+      font-weight: 700;
+      white-space: nowrap;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .slot { margin: 0 0 2mm; }
+    .slot:last-child { margin-bottom: 0; }
+    .category { font-weight: 700; }
+    .certified { margin: 4mm 0 0; }
+    .certify {
+      margin-top: 1.4em;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+    }
+    .certify p { margin: 0 0 2mm; }
+    .sign-block { width: 70mm; }
+    .role { margin-top: 0; font-size: 9pt; color: #475467; }
+  </style>
+</head>
+<body>
+  <header class="letterhead">
+    {% if logo_uri %}
+      <img class="logo" src="{{ logo_uri }}" alt="" />
+    {% endif %}
+    <div>
+      <p class="club-name">{{ club_name }}</p>
+      {% for line in address_lines %}<p class="meta">{{ line }}</p>{% endfor %}
+      {% if email %}<p class="meta">{{ email }}</p>{% endif %}
+    </div>
+  </header>
+  <p class="date">{{ place_date }}</p>
+  <h1>Liste des entraînements</h1>
+  <p class="year">Année de subside {{ year }}</p>
+  <p class="intro">
+    Cette liste décrit l'offre hebdomadaire d'entraînement de {{ club_name }}.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Plages horaires</th>
+        {% for day in weekdays %}
+          <th>{{ day }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="time">{{ row.time }}</td>
+          {% for day in row.days %}
+            <td>
+              {% for item in day %}
+                <p class="slot">
+                  <span class="category">{{ item.category }}</span>
+                  {% if item.coaches %}<br />{{ item.coaches }}{% endif %}
+                </p>
+              {% endfor %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="{{ weekdays|length|add:1 }}">Aucun entraînement n'est défini pour cette année.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="certified">Certifié exact. La présente liste comprend {{ class_count }} entraînement{{ class_count|pluralize }}.</p>
+  <section class="certify">
+    <div class="sign-block">
+      <p class="role">Le président</p>
+      <p>{{ president }}</p>
+    </div>
+  </section>
+</body>
+</html>

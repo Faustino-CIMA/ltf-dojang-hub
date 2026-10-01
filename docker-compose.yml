@@ -1,5 +1,10 @@
 name: ltf-license-manager
 
+# Image-based deploys (Coolify/VPS): backend, worker, and beat do not bind-mount
+# host source over the built image. Local Docker Compose development can restore
+# ./backend, frontend messages, and .cursor mounts in docker-compose.override.yml
+# (gitignored; not the project default).
+
 services:
   db:
     image: postgres:18-alpine
@@ -55,8 +60,10 @@ services:
       - app-net
 
   backend:
+    image: ltf-license-manager-backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
@@ -74,11 +81,15 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      EMAIL_HOST: ${EMAIL_HOST:-mailpit}
+      EMAIL_PORT: ${EMAIL_PORT:-1025}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     command: >
       sh -c "APP_UID=$$(id -u app) &&
       APP_GID=$$(id -g app) &&
@@ -86,6 +97,8 @@ services:
       chown -R $$APP_UID:$$APP_GID /app/media /app/staticfiles /app/.cursor /var/lib/celerybeat 2>/dev/null || true &&
       sh /app/scripts/check-env.sh &&
       runuser -u app -- sh -lc 'python manage.py migrate --noinput &&
+      python manage.py ensure_module_keys &&
+      python manage.py seed_card_print_fonts &&
       python manage.py check &&
       python manage.py collectstatic --noinput &&
       gunicorn config.wsgi:application
@@ -94,10 +107,8 @@ services:
       --threads $${GUNICORN_THREADS:-2}
       --timeout $${GUNICORN_TIMEOUT:-120}
       --access-logfile -'"
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
-      - ./backend:/app
-      # Keep for debug-mode logging (shared host log path)
-      - ./.cursor:/app/.cursor
       - staticfiles_data:/app/staticfiles
       - mediafiles_data:/app/media
     ports:
@@ -116,8 +127,10 @@ services:
       - app-net
 
   worker:
+    image: ltf-license-manager-backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
@@ -135,6 +148,8 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      EMAIL_HOST: ${EMAIL_HOST:-mailpit}
+      EMAIL_PORT: ${EMAIL_PORT:-1025}
     depends_on:
       db:
         condition: service_healthy
@@ -142,6 +157,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     command: >
       sh -c "APP_UID=$$(id -u app) &&
       APP_GID=$$(id -g app) &&
@@ -149,10 +166,8 @@ services:
       chown -R $$APP_UID:$$APP_GID /app/media /app/.cursor /var/lib/celerybeat 2>/dev/null || true &&
       runuser -u app -- sh -lc 'python manage.py migrate --check &&
       celery -A config worker -l info -Q celery,$${CELERY_PRINT_JOB_QUEUE:-print_jobs}'"
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
-      - ./backend:/app
-      # Keep for debug-mode logging (shared host log path)
-      - ./.cursor:/app/.cursor
       - mediafiles_data:/app/media
     healthcheck:
       test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME 2>/dev/null || exit 1"]
@@ -164,8 +179,10 @@ services:
       - app-net
 
   beat:
+    image: ltf-license-manager-backend
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
@@ -184,6 +201,8 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
       CELERY_BEAT_SCHEDULE_FILENAME: /var/lib/celerybeat/celerybeat-schedule
+      EMAIL_HOST: ${EMAIL_HOST:-mailpit}
+      EMAIL_PORT: ${EMAIL_PORT:-1025}
     depends_on:
       db:
         condition: service_healthy
@@ -191,6 +210,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     command: >
       sh -c "APP_UID=$$(id -u app) &&
       APP_GID=$$(id -g app) &&
@@ -198,10 +219,8 @@ services:
       chown -R $$APP_UID:$$APP_GID /app/media /app/.cursor /var/lib/celerybeat 2>/dev/null || true &&
       runuser -u app -- sh -lc 'python manage.py migrate --check &&
       celery -A config beat -l info'"
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
-      - ./backend:/app
-      # Keep for debug-mode logging (shared host log path)
-      - ./.cursor:/app/.cursor
       - mediafiles_data:/app/media
       - celerybeat_data:/var/lib/celerybeat
     healthcheck:
@@ -217,6 +236,15 @@ services:
     networks:
       - app-net
 
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${MAILPIT_UI_BIND:-127.0.0.1}:8025:8025"
+    networks:
+      - app-net
+
   frontend:
     build:
       context: ./frontend
@@ -228,17 +256,20 @@ services:
       - .env
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:8000}
     depends_on:
       backend:
         condition: service_healthy
     command: ["npm", "run", "start", "--", "-p", "3000"]
     ports:
       - "${FRONTEND_BIND_ADDRESS:-0.0.0.0}:3000:3000"
+    # `/` answers 307 with an absolute public locale URL. Following that from
+    # inside the container times out. Accept the local 2xx/3xx and do not follow.
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const t=setTimeout(()=>process.exit(1),8000); fetch('http://localhost:3000/').then(()=>{clearTimeout(t); process.exit(0)}).catch(()=>{clearTimeout(t); process.exit(1)})\"",
+          "node -e \"const t=setTimeout(()=>process.exit(1),8000); fetch('http://localhost:3000/',{redirect:'manual'}).then(r=>{clearTimeout(t); process.exit(r.status>=200&&r.status<400?0:1)}).catch(()=>{clearTimeout(t); process.exit(1)})\"",
         ]
       interval: 15s
       timeout: 10s

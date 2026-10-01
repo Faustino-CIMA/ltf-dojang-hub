@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stickers {{ item.sku }}</title>
+    <style>
+      @page { size: {{ sheet_width_mm }}mm {{ sheet_height_mm }}mm; margin: 0; }
+      html, body { margin: 0; padding: 0; font-family: "DejaVu Sans", Arial, sans-serif; color: #111827; }
+      .print-page { page-break-after: always; }
+      .print-page:last-child { page-break-after: auto; }
+      .sheet { position: relative; width: {{ sheet_width_mm }}mm; height: {{ sheet_height_mm }}mm; overflow: hidden; }
+      .label {
+        position: absolute;
+        box-sizing: border-box;
+        padding: 2.2mm;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .label img { width: 26mm; height: 26mm; }
+      .sku { font-size: 6.5pt; font-weight: 700; letter-spacing: 0.03em; text-align: center; line-height: 1.15; }
+      .name { font-size: 6pt; text-align: center; line-height: 1.15; max-height: 7mm; overflow: hidden; }
+      .price { font-size: 7.5pt; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    {% for page in pages %}
+      <div class="print-page">
+        <div class="sheet">
+          {% for label in page %}
+            <div
+              class="label"
+              style="left: {{ label.x_mm }}mm; top: {{ label.y_mm }}mm; width: {{ label.size_mm }}mm; height: {{ label.size_mm }}mm; border-radius: {{ label.radius_mm }}mm;"
+            >
+              <div class="sku">{{ label.sku }}{% if label.variant %} · {{ label.variant }}{% endif %}</div>
+              {% if label.qr %}<img src="{{ label.qr }}" alt="QR" />{% endif %}
+              <div class="name">{{ label.name }}</div>
+              <div class="price">{{ label.price }} EUR</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </body>
+</html>

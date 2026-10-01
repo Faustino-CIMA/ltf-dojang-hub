@@ -6,26 +6,22 @@ import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
-import { PayconiqPaymentCard } from "@/components/club-admin/payconiq-payment-card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Member, getMembers } from "@/lib/club-admin-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
-import {
-  FinanceOrder,
-  PayconiqPayment,
-  createPayconiqPayment,
-  getClubOrder,
-  getPayconiqPaymentStatus,
-} from "@/lib/club-finance-api";
+import { FinanceOrder, getClubOrder } from "@/lib/club-finance-api";
+import { orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
 
 type OrderItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
-  year: number;
+  year: string;
   quantity: number;
 };
 
@@ -35,9 +31,6 @@ export default function ClubOrderDetailPage() {
   const params = useParams();
   const [order, setOrder] = useState<FinanceOrder | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
-  const [payconiqPayment, setPayconiqPayment] = useState<PayconiqPayment | null>(null);
-  const [payconiqError, setPayconiqError] = useState<string | null>(null);
-  const [isPayconiqBusy, setIsPayconiqBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -90,65 +83,37 @@ export default function ClubOrderDetailPage() {
     if (!order) {
       return [];
     }
+    const membersById = Object.fromEntries(members.map((member) => [member.id, member]));
     return (order.items ?? []).map((item) => {
-      const member = members.find((record) => record.id === item.license.member);
-      const memberName = member
-        ? `${member.first_name} ${member.last_name}`
-        : t("unknownMember");
-      const ltfLicenseId = member?.ltf_licenseid?.trim() || "-";
+      const display = orderItemMemberDisplay(item, membersById, t("unknownMember"));
       return {
         id: item.id,
-        memberName,
-        ltfLicenseId,
-        year: item.license.year,
+        itemLabel: orderItemLabel(item),
+        memberName: display.name,
+        ltfLicenseId: display.ltfLicenseId,
+        year: orderItemYearLabel(item),
         quantity: item.quantity,
       };
     });
   }, [order, members, t]);
 
-  const columns = [
-    { key: "memberName", header: t("memberLabel") },
-    { key: "ltfLicenseId", header: t("ltfLicenseTableLabel") },
-    { key: "year", header: t("yearLabel") },
-    { key: "quantity", header: t("qtyLabel") },
-  ];
-
-  const handleCreatePayconiqPayment = async () => {
-    if (!order.invoice) {
-      return;
-    }
-    setIsPayconiqBusy(true);
-    setPayconiqError(null);
-    try {
-      const payment = await createPayconiqPayment(order.invoice.id);
-      setPayconiqPayment(payment);
-    } catch (error) {
-      setPayconiqError(error instanceof Error ? error.message : t("payconiqError"));
-    } finally {
-      setIsPayconiqBusy(false);
-    }
-  };
-
-  const handleRefreshPayconiqPayment = async () => {
-    if (!payconiqPayment) {
-      return;
-    }
-    setIsPayconiqBusy(true);
-    setPayconiqError(null);
-    try {
-      const payment = await getPayconiqPaymentStatus(payconiqPayment.id);
-      setPayconiqPayment(payment);
-    } catch (error) {
-      setPayconiqError(error instanceof Error ? error.message : t("payconiqError"));
-    } finally {
-      setIsPayconiqBusy(false);
-    }
-  };
+  const feeOnly = orderItemsAreClubFees(order?.items);
+  const columns = feeOnly
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: t("qtyLabel") },
+      ]
+    : [
+        { key: "memberName", header: t("memberLabel") },
+        { key: "ltfLicenseId", header: t("ltfLicenseTableLabel") },
+        { key: "year", header: t("yearLabel") },
+        { key: "quantity", header: t("qtyLabel") },
+      ];
 
   if (isLoading) {
     return (
       <ClubAdminLayout title={t("orderDetailTitle")} subtitle={t("orderDetailSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </ClubAdminLayout>
     );
   }
@@ -163,7 +128,9 @@ export default function ClubOrderDetailPage() {
 
   return (
     <ClubAdminLayout title={t("orderDetailTitle")} subtitle={t("orderDetailSubtitle")}>
-      <div className="mb-6">
+      <div className="space-y-6">
+      <ClubFinanceTabs />
+      <div>
         <Button asChild variant="outline">
           <Link href={`/${locale}/dashboard/club/orders`}>{t("backToOrders")}</Link>
         </Button>
@@ -187,23 +154,29 @@ export default function ClubOrderDetailPage() {
             <span className="text-xs text-muted">{t("createdAtLabel")}</span>
             <span className="font-medium">{formatDisplayDateTime(order.created_at)}</span>
           </div>
+          {order.invoice ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted">{t("invoiceNumberLabel")}</span>
+              <span className="font-medium">{order.invoice.invoice_number}</span>
+            </div>
+          ) : null}
         </div>
+        {order.invoice ? (
+          <div className="mt-4">
+            <Button asChild>
+              <Link href={`/${locale}/dashboard/club/invoices/${order.invoice.id}`}>
+                {t("openInvoiceAction")}
+              </Link>
+            </Button>
+          </div>
+        ) : null}
       </section>
 
-      <section className="mt-6">
+      <section>
         <h2 className="mb-3 text-sm font-semibold text-foreground">{t("orderItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
-
-      {order.invoice ? (
-        <PayconiqPaymentCard
-          payment={payconiqPayment}
-          errorMessage={payconiqError}
-          isBusy={isPayconiqBusy}
-          onCreate={handleCreatePayconiqPayment}
-          onRefresh={handleRefreshPayconiqPayment}
-        />
-      ) : null}
+      </div>
     </ClubAdminLayout>
   );
 }

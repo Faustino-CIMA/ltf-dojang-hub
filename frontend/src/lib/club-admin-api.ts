@@ -1,6 +1,9 @@
 import { getToken } from "./auth";
 import { API_URL, apiRequest } from "./api";
+import type { LicenseRoleValue } from "./license-roles";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
+
+export type { LicenseRoleValue } from "./license-roles";
 
 type ApiCallOptions = {
   signal?: AbortSignal;
@@ -17,6 +20,10 @@ export type Club = {
   locality: string;
   iban: string;
   bank_name: string;
+  email: string;
+  website: string;
+  is_active: boolean;
+  communication_language: string;
   max_admins: number;
   created_by: number;
   admins: number[];
@@ -75,6 +82,17 @@ export type Member = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  current_licenses?: CurrentLicense[];
+  completed_transfer_count?: number;
+  is_club_tourist?: boolean;
+};
+
+export type CurrentLicense = {
+  id: number;
+  year: number;
+  status: "pending" | "active" | "expired" | "revoked";
+  license_type: number;
+  license_type_name: string;
 };
 
 export type MemberProfilePicture = {
@@ -134,6 +152,7 @@ export type LicenseHistoryEvent = {
   status_before: string;
   status_after: string;
   club_name_snapshot: string;
+  license_type_name?: string;
   created_at: string;
 };
 
@@ -148,6 +167,7 @@ export type GradeHistoryEntry = {
   exam_date: string | null;
   proof_ref: string;
   notes: string;
+  created_by: string;
   metadata: Record<string, unknown>;
   created_at: string;
 };
@@ -191,7 +211,7 @@ export type LicenseType = {
 };
 
 export type ClubInput = {
-  name: string;
+  name?: string;
   city?: string;
   address?: string;
   address_line1?: string;
@@ -199,22 +219,16 @@ export type ClubInput = {
   postal_code?: string;
   locality?: string;
   iban?: string;
+  email?: string;
+  website?: string;
+  is_active?: boolean;
+  communication_language?: string;
 };
 
-export type LicenseRoleValue =
-  | "athlete"
-  | "coach"
-  | "referee"
-  | "official"
-  | "doctor"
-  | "physiotherapist"
-  | "volunteer"
-  | "staff"
-  | "media"
-  | "fan";
+
 
 export function getClubs() {
-  return apiRequest<Club[]>("/api/clubs/");
+  return apiRequest<Club[] | PaginatedResponse<Club>>("/api/clubs/").then(unwrapListResponse);
 }
 
 export function updateClub(id: number, input: ClubInput) {
@@ -222,6 +236,50 @@ export function updateClub(id: number, input: ClubInput) {
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export type ClubCommunicationLanguage = {
+  code: string;
+  name: string;
+};
+
+export type ClubTrainer = {
+  user_id: number;
+  member_id: number | null;
+  first_name: string;
+  last_name: string;
+  email: string;
+  username: string;
+  include_in_qualite: boolean;
+};
+
+export function getClubTrainers(clubId: number) {
+  return apiRequest<{ trainers: ClubTrainer[] }>(`/api/clubs/${clubId}/trainers/`);
+}
+
+export function addClubTrainer(clubId: number, memberId: number, email?: string) {
+  return apiRequest<{ trainers: ClubTrainer[]; detail: string }>(`/api/clubs/${clubId}/add_trainer/`, {
+    method: "POST",
+    body: JSON.stringify({ member_id: memberId, email: email || "", locale: "en" }),
+  });
+}
+
+export function setClubTrainerQualite(clubId: number, userId: number, includeInQualite: boolean) {
+  return apiRequest<{ trainers: ClubTrainer[] }>(`/api/clubs/${clubId}/trainer_qualite/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, include_in_qualite: includeInQualite }),
+  });
+}
+
+export function removeClubTrainer(clubId: number, userId: number) {
+  return apiRequest<{ trainers: ClubTrainer[] }>(`/api/clubs/${clubId}/remove_trainer/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export function getClubCommunicationLanguages() {
+  return apiRequest<ClubCommunicationLanguage[]>("/api/clubs/communication-languages/");
 }
 
 function buildLogoFormData(input: BrandingLogoUploadInput): FormData {
@@ -269,11 +327,14 @@ export function deleteClub(id: number) {
   });
 }
 
+export type MemberIssueFilter = "no_valid_license" | "missing_ltf_licenseid";
+
 type MemberListQueryParams = {
   q?: string;
   clubId?: number;
   isActive?: boolean;
   ids?: number[];
+  issue?: MemberIssueFilter;
 };
 
 type MemberPageParams = MemberListQueryParams & {
@@ -294,6 +355,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.ids && params.ids.length > 0) {
     search.set("ids", params.ids.join(","));
+  }
+  if (params?.issue) {
+    search.set("issue", params.issue);
   }
   return search;
 }
@@ -338,6 +402,63 @@ export function createMember(input: MemberInput) {
 
 export function getMember(id: number) {
   return apiRequest<Member>(`/api/members/${id}/`);
+}
+
+export type ClubMovementEvent = {
+  id: number;
+  status: string;
+  from_club: { id: number; name: string };
+  to_club: { id: number; name: string };
+  fee_amount: string;
+  fee_currency: string;
+  completed_at: string | null;
+  created_at: string;
+  member?: { id: number; first_name: string; last_name: string };
+};
+
+export type MemberClubTransferHistory = {
+  member: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    club_id: number;
+    club_name: string;
+  };
+  threshold: number;
+  completed_transfer_count: number;
+  is_club_tourist: boolean;
+  transfers: ClubMovementEvent[];
+};
+
+export type TransferMovementMonitor = {
+  threshold: number;
+  flagged_member_count: number;
+  flagged_members: Array<{
+    id: number;
+    first_name: string;
+    last_name: string;
+    ltf_licenseid: string;
+    club_id: number;
+    club_name: string;
+    completed_transfer_count: number;
+    is_club_tourist: boolean;
+  }>;
+  clubs: Array<{
+    id: number;
+    name: string;
+    incoming: number;
+    outgoing: number;
+    total: number;
+  }>;
+  recent_completed: ClubMovementEvent[];
+};
+
+export function getMemberClubTransfers(memberId: number) {
+  return apiRequest<MemberClubTransferHistory>(`/api/members/${memberId}/club-transfers/`);
+}
+
+export function getTransferMovements() {
+  return apiRequest<TransferMovementMonitor>("/api/member-transfers/movements/");
 }
 
 export function updateMember(id: number, input: MemberInput) {
@@ -421,6 +542,7 @@ export type GradePromotionInput = {
   exam_date?: string | null;
   proof_ref?: string;
   notes?: string;
+  created_by?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -428,6 +550,23 @@ export function promoteMemberGrade(memberId: number, input: GradePromotionInput)
   return apiRequest<GradeHistoryEntry>(`/api/members/${memberId}/promote-grade/`, {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function updateMemberGrade(
+  memberId: number,
+  historyId: number,
+  input: GradePromotionInput
+) {
+  return apiRequest<GradeHistoryEntry>(`/api/members/${memberId}/grade-history/${historyId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteMemberGrade(memberId: number, historyId: number) {
+  return apiRequest<void>(`/api/members/${memberId}/grade-history/${historyId}/`, {
+    method: "DELETE",
   });
 }
 
@@ -523,5 +662,249 @@ export function updateLicense(id: number, input: LicenseInput) {
 export function deleteLicense(id: number) {
   return apiRequest<void>(`/api/licenses/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export type TransferClub = {
+  id: number;
+  name: string;
+  locality: string;
+  admin_count: number;
+};
+
+export type TransferMember = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  club_id: number;
+  has_valid_license: boolean;
+  pending_transfer: boolean;
+  is_club_admin: boolean;
+};
+
+export type TransferMessage = {
+  id: number;
+  author_id: number;
+  author_name: string;
+  body: string;
+  created_at: string;
+};
+
+export type MemberTransfer = {
+  id: number;
+  status: "pending" | "completed" | "rejected" | "cancelled";
+  member: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+  from_club: { id: number; name: string };
+  to_club: { id: number; name: string };
+  initiated_by: { id: number; username: string };
+  decided_by: { id: number; username: string } | null;
+  fee_amount: string;
+  fee_currency: string;
+  has_fee: boolean;
+  note: string;
+  ltf_notified: boolean;
+  current_licenses: Array<{
+    id: number;
+    year: number;
+    status: string;
+    license_type_name: string;
+  }>;
+  messages: TransferMessage[];
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function searchTransferMembers(clubId: number, query = "", options?: ApiCallOptions) {
+  const search = new URLSearchParams();
+  search.set("club_id", String(clubId));
+  if (query.trim()) {
+    search.set("q", query.trim());
+  }
+  return apiRequest<{
+    members: TransferMember[];
+    total: number;
+    truncated: boolean;
+    limit: number;
+  }>(`/api/member-transfers/members/?${search.toString()}`, { signal: options?.signal });
+}
+
+export function searchTransferClubs(fromClubId: number, query = "", options?: ApiCallOptions) {
+  const search = new URLSearchParams();
+  search.set("from_club_id", String(fromClubId));
+  if (query.trim()) {
+    search.set("q", query.trim());
+  }
+  return apiRequest<{
+    clubs: TransferClub[];
+    total: number;
+    truncated: boolean;
+    limit: number;
+  }>(`/api/member-transfers/clubs/?${search.toString()}`, { signal: options?.signal });
+}
+
+export function getMemberTransfers(options?: { feeOnly?: boolean; signal?: AbortSignal }) {
+  const search = new URLSearchParams();
+  if (options?.feeOnly) {
+    search.set("fee_only", "true");
+  }
+  const suffix = search.toString();
+  return apiRequest<MemberTransfer[]>(
+    `/api/member-transfers/${suffix ? `?${suffix}` : ""}`,
+    { signal: options?.signal }
+  );
+}
+
+export function createMemberTransfer(input: {
+  memberId: number;
+  toClubId: number;
+  fromClubId?: number;
+  feeAmount?: string;
+  note?: string;
+  locale?: string;
+}) {
+  return apiRequest<MemberTransfer>("/api/member-transfers/", {
+    method: "POST",
+    body: JSON.stringify({
+      member_id: input.memberId,
+      to_club_id: input.toClubId,
+      from_club_id: input.fromClubId,
+      fee_amount: input.feeAmount,
+      note: input.note,
+      locale: input.locale,
+    }),
+  });
+}
+
+export function acceptMemberTransfer(id: number, locale?: string) {
+  return apiRequest<MemberTransfer>(`/api/member-transfers/${id}/accept/`, {
+    method: "POST",
+    body: JSON.stringify({ locale }),
+  });
+}
+
+export function rejectMemberTransfer(id: number, locale?: string) {
+  return apiRequest<MemberTransfer>(`/api/member-transfers/${id}/reject/`, {
+    method: "POST",
+    body: JSON.stringify({ locale }),
+  });
+}
+
+export function cancelMemberTransfer(id: number, locale?: string) {
+  return apiRequest<MemberTransfer>(`/api/member-transfers/${id}/cancel/`, {
+    method: "POST",
+    body: JSON.stringify({ locale }),
+  });
+}
+
+export function addMemberTransferMessage(id: number, body: string) {
+  return apiRequest<MemberTransfer>(`/api/member-transfers/${id}/messages/`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export type ClubAdminAssignmentClub = {
+  id: number;
+  name: string;
+  locality: string;
+  max_admins: number;
+  admin_count: number;
+  admin_ids: number[];
+};
+
+export type ClubAdminAssignmentAdminClub = {
+  id: number;
+  name: string;
+};
+
+export type ClubAdminAssignmentAdmin = {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  member_id: number | null;
+  member_name: string;
+  home_club_id: number | null;
+  home_club_name: string;
+  clubs: ClubAdminAssignmentAdminClub[];
+};
+
+export type ClubAdminAssignmentMember = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  club_id: number;
+  club_name: string;
+  has_valid_license: boolean;
+  user_id: number | null;
+  username: string;
+  administered_club_ids: number[];
+};
+
+export type AddClubAdminResponse = {
+  detail: string;
+  created_user: boolean;
+  linked_existing_user: boolean;
+  email_sent: boolean;
+  email_error: string | null;
+  reset_url: string;
+  username: string;
+  user_id: number;
+  member_id: number | null;
+};
+
+export function getClubAdminAssignmentBoard() {
+  return apiRequest<{ clubs: ClubAdminAssignmentClub[]; admins: ClubAdminAssignmentAdmin[] }>(
+    "/api/clubs/admin_assignment/",
+  );
+}
+
+export function searchClubAdminAssignmentMembers(options: {
+  query?: string;
+  clubId?: number | null;
+  licensedOnly?: boolean;
+  limit?: number;
+  signal?: AbortSignal;
+}) {
+  const search = new URLSearchParams();
+  if (options.query?.trim()) {
+    search.set("q", options.query.trim());
+  }
+  if (options.clubId) {
+    search.set("club_id", String(options.clubId));
+  }
+  search.set("licensed_only", options.licensedOnly === false ? "false" : "true");
+  if (options.limit) {
+    search.set("limit", String(options.limit));
+  }
+  return apiRequest<{
+    members: ClubAdminAssignmentMember[];
+    total: number;
+    truncated: boolean;
+    limit: number;
+  }>(`/api/clubs/admin_assignment_members/?${search.toString()}`, { signal: options.signal });
+}
+
+export function addClubAdmin(clubId: number, memberId: number, email?: string, locale?: string) {
+  return apiRequest<AddClubAdminResponse>(`/api/clubs/${clubId}/add_admin/`, {
+    method: "POST",
+    body: JSON.stringify({ member_id: memberId, email, locale }),
+  });
+}
+
+export function removeClubAdmin(clubId: number, userId: number) {
+  return apiRequest(`/api/clubs/${clubId}/remove_admin/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
   });
 }

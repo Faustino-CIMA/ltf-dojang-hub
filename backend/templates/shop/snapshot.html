@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stock snapshot</title>
+    <style>
+      @page { size: A4; margin: 12mm; }
+      html, body { margin: 0; padding: 0; font-family: "DejaVu Sans", Arial, sans-serif; color: #111827; }
+      h1 { font-size: 16pt; margin: 0 0 2mm; }
+      .meta { font-size: 8pt; color: #6b7280; margin-bottom: 6mm; }
+      table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+      th { text-align: left; border-bottom: 0.3mm solid #111827; padding: 1.5mm 1mm; }
+      td { border-bottom: 0.15mm solid #e5e7eb; padding: 1.4mm 1mm; }
+      .num { text-align: right; }
+      .low { color: #b45309; font-weight: 700; }
+      .totals td { font-weight: 700; border-bottom: none; padding-top: 3mm; }
+      .sign { margin-top: 14mm; font-size: 8pt; color: #6b7280; }
+      .line { width: 70mm; border-bottom: 0.2mm solid #9ca3af; height: 8mm; display: inline-block; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ club.name }} — stock snapshot</h1>
+    <p class="meta">
+      Taken {{ snapshot.taken_at|date:"d.m.Y H:i" }}
+      {% if snapshot.note %} · {{ snapshot.note }}{% endif %}
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Item</th>
+          <th>Size</th>
+          <th class="num">Qty</th>
+          <th class="num">Price</th>
+          <th class="num">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in lines %}
+          <tr>
+            <td>{{ row.sku }}</td>
+            <td>{{ row.name }}</td>
+            <td>{% if row.variant_label != "Standard" %}{{ row.variant_label }}{% endif %}</td>
+            <td class="num {% if row.quantity <= row.reorder_level %}low{% endif %}">{{ row.quantity }}</td>
+            <td class="num">{{ row.sale_price }}</td>
+            <td class="num">{{ row.line_value }}</td>
+          </tr>
+        {% endfor %}
+        <tr class="totals">
+          <td colspan="3">{{ lines|length }} lines</td>
+          <td class="num">{{ units }}</td>
+          <td></td>
+          <td class="num">{{ value }} EUR</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="sign">Counted by <span class="line"></span> Date <span class="line"></span></p>
+  </body>
+</html>

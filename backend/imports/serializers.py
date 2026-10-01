@@ -5,6 +5,7 @@ class ImportBaseSerializer(serializers.Serializer):
     file = serializers.FileField()
     mapping = serializers.JSONField(required=False)
     actions = serializers.JSONField(required=False)
+    row_overrides = serializers.JSONField(required=False)
     club_id = serializers.IntegerField(required=False)
     date_format = serializers.CharField(required=False)
 
@@ -15,6 +16,9 @@ class ImportPreviewResponseSerializer(serializers.Serializer):
     rows = serializers.ListField(child=serializers.DictField(), required=False)
     total_rows = serializers.IntegerField()
     club_id = serializers.IntegerField(required=False)
+    suggested_mapping = serializers.DictField(required=False)
+    membership_end_date_header = serializers.CharField(required=False, allow_null=True)
+    ltf_license_prefix_rewrite = serializers.DictField(required=False)
 
 
 class ImportConfirmResponseSerializer(serializers.Serializer):
@@ -22,6 +26,7 @@ class ImportConfirmResponseSerializer(serializers.Serializer):
     skipped = serializers.IntegerField()
     errors = serializers.ListField(child=serializers.DictField())
     club_id = serializers.IntegerField(required=False)
+    ltf_license_prefix_rewrite = serializers.DictField(required=False)
 
 
 class ImportDetailResponseSerializer(serializers.Serializer):

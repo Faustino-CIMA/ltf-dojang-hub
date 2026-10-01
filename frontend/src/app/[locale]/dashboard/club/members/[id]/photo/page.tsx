@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
@@ -19,7 +20,7 @@ export default function ClubMemberPhotoPage() {
   const rawId = params?.id;
   const locale = typeof rawLocale === "string" ? rawLocale : "en";
   const memberId = typeof rawId === "string" ? Number(rawId) : Number(rawId?.[0]);
-  const backHref = `/${locale}/dashboard/club/members/${memberId}?tab=overview`;
+  const backHref = `/${locale}/dashboard/club/members/${memberId}`;
 
   const [member, setMember] = useState<Member | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,10 +59,10 @@ export default function ClubMemberPhotoPage() {
           <Link href={backHref}>{t("backToMembers")}</Link>
         </Button>
 
-        {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+        <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {isLoading ? (
-          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : !member ? (
           <EmptyState title={t("noResultsTitle")} description={t("memberNotFound")} />
         ) : (
@@ -79,6 +80,12 @@ export default function ClubMemberPhotoPage() {
               dragDropLabel: t("photoDragDropLabel"),
               selectFileButton: t("photoSelectFileButton"),
               cameraButton: t("photoCameraButton"),
+              cameraCaptureButton: t("photoCameraCaptureButton"),
+              cameraCancelButton: t("photoCameraCancelButton"),
+              cameraStarting: t("photoCameraStarting"),
+              cameraUnavailable: t("photoCameraUnavailable"),
+              cameraPermissionDenied: t("photoCameraPermissionDenied"),
+              cameraStartError: t("photoCameraStartError"),
               zoomLabel: t("photoZoomLabel"),
               backgroundColorLabel: t("photoBackgroundColorLabel"),
               removeBackgroundButton: t("photoRemoveBackgroundButton"),

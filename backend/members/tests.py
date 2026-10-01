@@ -9,16 +9,26 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import ProgrammingError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from PIL import Image
 
 from accounts.models import User
 from clubs.models import Club
-from licenses.models import License, LicenseHistoryEvent, LicenseType
+from licenses.card_rendering import resolve_published_standard_card_version
+from licenses.models import (
+    CardFormatPreset,
+    CardTemplate,
+    CardTemplateVersion,
+    License,
+    LicenseHistoryEvent,
+    LicenseType,
+    PaperProfile,
+)
 
-from .models import GradePromotionHistory, Member
-from .services import add_grade_promotion
+from .models import GradePromotionHistory, Member, MemberLicenseIdCounter
+from .services import add_grade_promotion, delete_grade_promotion, generate_next_ltf_license_id
 
 
 class MemberApiTests(TestCase):
@@ -110,6 +120,23 @@ class MemberApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
 
+    def test_member_detail_includes_current_pending_license(self):
+        License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+            status=License.Status.PENDING,
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.get(f"/api/members/{self.member.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        current_licenses = response.data["current_licenses"]
+        self.assertEqual(len(current_licenses), 1)
+        self.assertEqual(current_licenses[0]["status"], License.Status.PENDING)
+        self.assertEqual(current_licenses[0]["year"], 2026)
+        self.assertEqual(current_licenses[0]["license_type_name"], self.license_type.name)
+
     def test_coach_sees_club_members(self):
         self.client.force_authenticate(user=self.coach_user)
         response = self.client.get("/api/members/")
@@ -123,6 +150,48 @@ class MemberApiTests(TestCase):
         ids = {row["id"] for row in response.data}
         self.assertIn(self.member.id, ids)
         self.assertNotIn(self.inactive_member.id, ids)
+
+    def test_ltf_admin_can_filter_members_by_issue(self):
+        licensed_member = Member.objects.create(
+            club=self.club,
+            first_name="Pat",
+            last_name="Licensed",
+            ltf_licenseid="LTF-900",
+            is_active=True,
+        )
+        License.objects.create(
+            member=licensed_member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+            status=License.Status.ACTIVE,
+        )
+        pending_member = Member.objects.create(
+            club=self.club,
+            first_name="Quinn",
+            last_name="Pending",
+            ltf_licenseid="LTF-901",
+            is_active=True,
+        )
+        License.objects.create(
+            member=pending_member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+            status=License.Status.PENDING,
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+
+        no_license = self.client.get("/api/members/", {"issue": "no_valid_license"})
+        self.assertEqual(no_license.status_code, status.HTTP_200_OK)
+        no_license_ids = {row["id"] for row in no_license.data}
+        self.assertEqual(no_license_ids, {self.member.id})
+
+        missing_id = self.client.get("/api/members/", {"issue": "missing_ltf_licenseid"})
+        self.assertEqual(missing_id.status_code, status.HTTP_200_OK)
+        missing_ids = {row["id"] for row in missing_id.data}
+        self.assertEqual(missing_ids, {self.member.id})
+        self.assertNotIn(self.inactive_member.id, missing_ids)
 
     def test_ltf_finance_only_sees_active_members(self):
         self.client.force_authenticate(user=self.finance_user)
@@ -172,7 +241,7 @@ class MemberApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_id = response.data["id"]
         created_member = Member.objects.get(id=created_id)
-        self.assertTrue(created_member.ltf_licenseid.startswith("LUX-"))
+        self.assertEqual(created_member.ltf_licenseid, "LUX-0001")
         self.assertEqual(created_member.ltf_licenseid, response.data["ltf_licenseid"])
 
     def test_club_admin_create_member_auto_generates_ltf_licenseid_with_default_prefix(self):
@@ -189,7 +258,7 @@ class MemberApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_member = Member.objects.get(id=response.data["id"])
-        self.assertTrue(created_member.ltf_licenseid.startswith("LTF-"))
+        self.assertEqual(created_member.ltf_licenseid, "LTF-0001")
         self.assertEqual(created_member.ltf_licenseid, response.data["ltf_licenseid"])
 
     def test_club_admin_create_member_falls_back_when_counter_table_missing(self):
@@ -211,7 +280,22 @@ class MemberApiTests(TestCase):
             )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_member = Member.objects.get(id=response.data["id"])
-        self.assertTrue(created_member.ltf_licenseid.startswith("LTF-"))
+        self.assertEqual(created_member.ltf_licenseid, "LTF-0001")
+
+    def test_generated_ltf_licenseid_expands_beyond_four_digits(self):
+        MemberLicenseIdCounter.objects.create(prefix="LTF", next_value=10000)
+        generated = generate_next_ltf_license_id(prefix="LTF")
+        self.assertEqual(generated, "LTF-10000")
+
+    def test_generated_ltf_licenseid_skips_existing_six_digit_equivalent(self):
+        Member.objects.create(
+            club=self.club,
+            first_name="Old",
+            last_name="Serial",
+            ltf_licenseid="LTF-000001",
+        )
+        generated = generate_next_ltf_license_id(prefix="LTF")
+        self.assertEqual(generated, "LTF-0002")
 
     def test_member_create_rejects_duplicate_wt_licenseid(self):
         self.member.wt_licenseid = "WT-0001"
@@ -319,6 +403,22 @@ class MemberApiTests(TestCase):
         self.member.refresh_from_db()
         self.assertTrue(self.member.is_active)
 
+    def test_canonicalize_license_role_accepts_mixed_casing(self):
+        self.assertEqual(Member.canonicalize_license_role("athlete"), "Athlete")
+        self.assertEqual(Member.canonicalize_license_role("ATHLETE"), "Athlete")
+        self.assertEqual(Member.canonicalize_license_role(" Athlete "), "Athlete")
+        self.assertEqual(Member.canonicalize_license_role("physiotherapist"), "Physiotherapist")
+        self.assertEqual(Member.canonicalize_license_role(""), "")
+        self.assertEqual(Member.canonicalize_license_role("InvalidRole"), "")
+
+    def test_member_save_stores_capitalized_license_roles(self):
+        self.member.primary_license_role = "athlete"
+        self.member.secondary_license_role = "COACH"
+        self.member.save()
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.primary_license_role, "Athlete")
+        self.assertEqual(self.member.secondary_license_role, "Coach")
+
     def test_club_admin_can_patch_member_license_roles(self):
         self.client.force_authenticate(user=self.club_admin)
         response = self.client.patch(
@@ -331,8 +431,8 @@ class MemberApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.member.refresh_from_db()
-        self.assertEqual(self.member.primary_license_role, "athlete")
-        self.assertEqual(self.member.secondary_license_role, "coach")
+        self.assertEqual(self.member.primary_license_role, "Athlete")
+        self.assertEqual(self.member.secondary_license_role, "Coach")
 
     def test_club_admin_can_patch_member_with_new_license_roles(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -346,8 +446,8 @@ class MemberApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.member.refresh_from_db()
-        self.assertEqual(self.member.primary_license_role, "volunteer")
-        self.assertEqual(self.member.secondary_license_role, "staff")
+        self.assertEqual(self.member.primary_license_role, "Volunteer")
+        self.assertEqual(self.member.secondary_license_role, "Staff")
 
     def test_member_update_rejects_secondary_role_without_primary(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -418,6 +518,115 @@ class MemberApiTests(TestCase):
         self.member.refresh_from_db()
         self.assertEqual(self.member.belt_rank, "2nd Dan")
         self.assertEqual(GradePromotionHistory.objects.filter(member=self.member).count(), 1)
+
+    def test_promote_grade_stores_created_by(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {
+                "to_grade": "3rd Dan",
+                "promotion_date": "2026-07-01",
+                "created_by": "LTF",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["created_by"], "LTF")
+
+    def test_update_grade_history(self):
+        self.client.force_authenticate(user=self.club_admin)
+        create_response = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {"to_grade": "2nd Dan", "created_by": "Club"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        history_id = create_response.data["id"]
+        update_response = self.client.patch(
+            f"/api/members/{self.member.id}/grade-history/{history_id}/",
+            {"to_grade": "3rd Dan", "created_by": "Other Federation"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data["to_grade"], "3rd Dan")
+        self.assertEqual(update_response.data["created_by"], "Other Federation")
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.belt_rank, "3rd Dan")
+
+    def test_promote_grade_rejects_unofficial_grade(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {"to_grade": "DAN 1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("to_grade", response.data)
+        self.member.refresh_from_db()
+        self.assertNotEqual(self.member.belt_rank, "DAN 1")
+
+    def test_delete_grade_history_resyncs_member_belt_rank(self):
+        self.client.force_authenticate(user=self.club_admin)
+        first = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {"to_grade": "2nd Dan", "promotion_date": "2026-06-01"},
+            format="json",
+        )
+        second = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {"to_grade": "3rd Dan", "promotion_date": "2026-07-01"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        delete_response = self.client.delete(
+            f"/api/members/{self.member.id}/grade-history/{second.data['id']}/"
+        )
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            GradePromotionHistory.objects.filter(id=second.data["id"]).exists()
+        )
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.belt_rank, "2nd Dan")
+
+    def test_delete_last_grade_history_clears_member_belt_rank(self):
+        self.client.force_authenticate(user=self.club_admin)
+        create_response = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {"to_grade": "2nd Dan"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        delete_response = self.client.delete(
+            f"/api/members/{self.member.id}/grade-history/{create_response.data['id']}/"
+        )
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.belt_rank, "")
+
+    def test_ltf_admin_cannot_delete_grade_history(self):
+        self.client.force_authenticate(user=self.club_admin)
+        create_response = self.client.post(
+            f"/api/members/{self.member.id}/promote-grade/",
+            {"to_grade": "2nd Dan"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.delete(
+            f"/api/members/{self.member.id}/grade-history/{create_response.data['id']}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_member_update_rejects_unofficial_belt_rank(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.patch(
+            f"/api/members/{self.member.id}/",
+            {"belt_rank": "DAN 1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("belt_rank", response.data)
 
     def test_member_can_view_own_history(self):
         license_record = License.objects.create(
@@ -572,8 +781,9 @@ class MemberApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_profile_picture_upload_requires_member_consent(self):
-        self.client.force_authenticate(user=self.member_user)
+    def test_profile_picture_upload_allows_photo_consent_without_account_gdpr(self):
+        self.assertFalse(self.member_user.consent_given)
+        self.client.force_authenticate(user=self.club_admin)
         response = self.client.post(
             f"/api/members/{self.member.id}/profile-picture/",
             {
@@ -582,7 +792,11 @@ class MemberApiTests(TestCase):
             },
             format="multipart",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.member.refresh_from_db()
+        self.assertTrue(bool(self.member.profile_picture_processed))
+        self.assertIsNotNone(self.member.photo_consent_attested_at)
+        self.assertEqual(self.member.photo_consent_attested_by_id, self.club_admin.id)
 
     def test_profile_picture_upload_rejects_too_small_resolution(self):
         self.member_user.give_consent()
@@ -703,11 +917,28 @@ class GradePromotionModelTests(TestCase):
             belt_rank="8th Kup",
         )
 
-    def test_grade_history_is_append_only(self):
+    def test_grade_history_allows_updates(self):
         history = add_grade_promotion(self.member, to_grade="7th Kup", actor=self.admin)
         history.to_grade = "6th Kup"
+        history.created_by = "Club"
+        history.save()
+        history.refresh_from_db()
+        self.assertEqual(history.to_grade, "6th Kup")
+        self.assertEqual(history.created_by, "Club")
+
+    def test_grade_history_still_blocks_direct_delete(self):
+        history = add_grade_promotion(self.member, to_grade="7th Kup", actor=self.admin)
         with self.assertRaises(ValidationError):
-            history.save()
+            history.delete()
+
+    def test_delete_grade_promotion_service_removes_entry(self):
+        first = add_grade_promotion(self.member, to_grade="7th Kup", actor=self.admin)
+        second = add_grade_promotion(self.member, to_grade="6th Kup", actor=self.admin)
+        delete_grade_promotion(second)
+        self.assertFalse(GradePromotionHistory.objects.filter(id=second.id).exists())
+        self.assertTrue(GradePromotionHistory.objects.filter(id=first.id).exists())
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.belt_rank, "7th Kup")
 
     def test_grade_history_must_be_chronological(self):
         add_grade_promotion(self.member, to_grade="7th Kup", actor=self.admin)
@@ -841,6 +1072,32 @@ class MemberImportTests(TestCase):
         self.assertEqual(len(response.data["rows"]), 1)
         self.assertTrue(response.data["rows"][0]["errors"])
 
+    def test_preview_canonicalizes_lowercase_license_roles(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,primary_role,secondary_role\nAna,Ng,athlete,coach\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_lowercase_roles.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "primary_license_role": "primary_role",
+            "secondary_license_role": "secondary_role",
+        }
+        response = self.client.post(
+            "/api/imports/members/preview/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = response.data["rows"][0]
+        self.assertEqual(row["data"]["primary_license_role"], "Athlete")
+        self.assertEqual(row["data"]["secondary_license_role"], "Coach")
+        self.assertEqual(row["errors"], [])
+
     def test_confirm_creates_members_with_license_roles(self):
         self.client.force_authenticate(user=self.ltf_admin)
         csv_data = "first_name,last_name,primary_role,secondary_role\nAna,Ng,Athlete,Coach\n"
@@ -863,12 +1120,12 @@ class MemberImportTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         created = Member.objects.get(first_name="Ana", last_name="NG")
-        self.assertEqual(created.primary_license_role, "athlete")
-        self.assertEqual(created.secondary_license_role, "coach")
+        self.assertEqual(created.primary_license_role, "Athlete")
+        self.assertEqual(created.secondary_license_role, "Coach")
 
     def test_confirm_creates_members_with_new_license_roles(self):
         self.client.force_authenticate(user=self.ltf_admin)
-        csv_data = "first_name,last_name,primary_role,secondary_role\nBen,Kay,Volunteer,Media\n"
+        csv_data = "first_name,last_name,primary_role,secondary_role\nBen,Kay,volunteer,media\n"
         file_obj = BytesIO(csv_data.encode("utf-8"))
         file_obj.name = "members_roles_new.csv"
         mapping = {
@@ -888,5 +1145,738 @@ class MemberImportTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         created = Member.objects.get(first_name="Ben", last_name="KAY")
-        self.assertEqual(created.primary_license_role, "volunteer")
-        self.assertEqual(created.secondary_license_role, "media")
+        self.assertEqual(created.primary_license_role, "Volunteer")
+        self.assertEqual(created.secondary_license_role, "Media")
+
+    def test_confirm_applies_row_overrides_for_invalid_csv_roles(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,primary_role,secondary_role\nAna,Ng,BadRole,AlsoBad\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_invalid_roles_override.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "primary_license_role": "primary_role",
+            "secondary_license_role": "secondary_role",
+        }
+        row_overrides = {
+            "1": {
+                "primary_license_role": "athlete",
+                "secondary_license_role": "coach",
+            }
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "actions": json.dumps([{"row_index": 1, "action": "create"}]),
+                "row_overrides": json.dumps(row_overrides),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created"], 1)
+        self.assertEqual(response.data["errors"], [])
+        created = Member.objects.get(first_name="Ana", last_name="NG")
+        self.assertEqual(created.primary_license_role, "Athlete")
+        self.assertEqual(created.secondary_license_role, "Coach")
+
+    def test_confirm_applies_row_overrides_array_payload(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,primary_role,secondary_role\nBen,Kay,Athlete,BadSecondary\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_invalid_secondary_override.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "primary_license_role": "primary_role",
+            "secondary_license_role": "secondary_role",
+        }
+        row_overrides = [
+            {
+                "row_index": 1,
+                "primary_license_role": "athlete",
+                "secondary_license_role": "",
+            }
+        ]
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "actions": json.dumps([{"row_index": 1, "action": "create"}]),
+                "row_overrides": json.dumps(row_overrides),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created"], 1)
+        self.assertEqual(response.data["errors"], [])
+        created = Member.objects.get(first_name="Ben", last_name="KAY")
+        self.assertEqual(created.primary_license_role, "Athlete")
+        self.assertEqual(created.secondary_license_role, "")
+
+    def test_import_rewrites_ltf_prefix_when_enabled_and_leaves_wt_untouched(self):
+        from clubs.models import FederationProfile
+
+        FederationProfile.objects.create(pk=1, rewrite_lux_prefix_on_member_import=True)
+        self.client.force_authenticate(user=self.club_admin)
+        csv_data = "first_name,last_name,member_id\nAna,Ng,LUX-000321\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_prefix.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "wt_licenseid": "member_id",
+            "ltf_licenseid": "member_id",
+        }
+        preview = self.client.post(
+            "/api/imports/members/preview/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+            },
+            format="multipart",
+        )
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        self.assertTrue(preview.data["ltf_license_prefix_rewrite"]["enabled"])
+        self.assertEqual(preview.data["rows"][0]["data"]["wt_licenseid"], "LUX-000321")
+        self.assertEqual(preview.data["rows"][0]["data"]["ltf_licenseid"], "LTF-000321")
+        self.assertEqual(preview.data["ltf_license_prefix_rewrite"]["rewritten_count"], 1)
+
+        file_obj.seek(0)
+        confirm = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+            },
+            format="multipart",
+        )
+        self.assertEqual(confirm.status_code, status.HTTP_200_OK)
+        self.assertEqual(confirm.data["created"], 1)
+        member = Member.objects.get(first_name="Ana", last_name="NG")
+        self.assertEqual(member.wt_licenseid, "LUX-000321")
+        self.assertEqual(member.ltf_licenseid, "LTF-000321")
+
+    def test_import_keeps_lux_prefix_when_rewrite_disabled(self):
+        self.client.force_authenticate(user=self.club_admin)
+        csv_data = "first_name,last_name,member_id\nAna,Ng,LUX-000321\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_prefix_off.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "wt_licenseid": "member_id",
+            "ltf_licenseid": "member_id",
+        }
+        confirm = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+            },
+            format="multipart",
+        )
+        self.assertEqual(confirm.status_code, status.HTTP_200_OK)
+        self.assertFalse(confirm.data["ltf_license_prefix_rewrite"]["enabled"])
+        member = Member.objects.get(first_name="Ana", last_name="NG")
+        self.assertEqual(member.wt_licenseid, "LUX-000321")
+        self.assertEqual(member.ltf_licenseid, "LUX-000321")
+
+    def test_preview_without_mapping_suggests_membership_end_date(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = (
+            '\ufeff"Member ID","Preferred First Name","Preferred Last Name","Gender",'
+            '"Date of Birth","Primary Member Role","Secondary Role","Membership End Date"\n'
+            '"LUX-2583","Armand","Scholtes","Male","08/11/1973","Athlete","Staff","31/12/2025"\n'
+        )
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "simplycompete.csv"
+        response = self.client.post(
+            "/api/imports/members/preview/",
+            {
+                "file": file_obj,
+                "club_id": self.club.id,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        suggested = response.data["suggested_mapping"]
+        self.assertNotIn("membership_end_date", suggested)
+        self.assertEqual(response.data["membership_end_date_header"], "Membership End Date")
+        self.assertEqual(suggested["first_name"], "Preferred First Name")
+        self.assertEqual(suggested["last_name"], "Preferred Last Name")
+        self.assertEqual(suggested["sex"], "Gender")
+        self.assertEqual(suggested["date_of_birth"], "Date of Birth")
+        self.assertEqual(suggested["primary_license_role"], "Primary Member Role")
+        self.assertEqual(suggested["secondary_license_role"], "Secondary Role")
+        self.assertEqual(suggested["ltf_licenseid"], "Member ID")
+
+    def test_preview_includes_membership_end_year_without_storing_or_failing(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = (
+            "first_name,last_name,Membership End Date\n"
+            "Ana,Ng,31/12/2026\n"
+            "Ben,Kay,31/12/2025\n"
+        )
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_end_dates.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+        }
+        response = self.client.post(
+            "/api/imports/members/preview/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "date_format": "YYYY-MM-DD",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rows = response.data["rows"]
+        self.assertEqual(rows[0]["data"]["membership_end_year"], 2026)
+        self.assertEqual(rows[1]["data"]["membership_end_year"], 2025)
+        self.assertEqual(response.data["membership_end_date_header"], "Membership End Date")
+        self.assertEqual(rows[0]["errors"], [])
+        self.assertEqual(rows[1]["errors"], [])
+
+    def test_confirm_membership_year_policies_skip_and_set_active_status(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = (
+            "first_name,last_name,Membership End Date\n"
+            "Ana,Ng,31/12/2026\n"
+            "Ben,Kay,31/12/2025\n"
+            "Cam,Ort,31/12/2024\n"
+        )
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_year_policies.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+        }
+        policies = {
+            "enabled": True,
+            "years": {"2026": "active", "2025": "inactive", "2024": "skip"},
+            "unknown": "skip",
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "date_format": "DD/MM/YYYY",
+                "membership_year_policies": json.dumps(policies),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created"], 2)
+        self.assertEqual(response.data["skipped"], 1)
+        ana = Member.objects.get(first_name="Ana", last_name="NG")
+        ben = Member.objects.get(first_name="Ben", last_name="KAY")
+        self.assertTrue(ana.is_active)
+        self.assertFalse(ben.is_active)
+        self.assertFalse(Member.objects.filter(first_name="Cam").exists())
+
+    def test_confirm_without_membership_policies_is_unchanged(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,Membership End Date\nAna,Ng,31/12/2025\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_no_policy.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["created"], 1)
+        member = Member.objects.get(first_name="Ana", last_name="NG")
+        self.assertTrue(member.is_active)
+
+
+class LtfLicensePrefixRewriteTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_admin = User.objects.create_user(
+            username="prefixadmin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club_admin = User.objects.create_user(
+            username="prefixclub",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Prefix Club", created_by=self.ltf_admin)
+        self.club.admins.add(self.club_admin)
+
+    def test_club_admin_cannot_enable_import_rewrite(self):
+        from clubs.models import FederationProfile
+
+        FederationProfile.objects.create(pk=1, rewrite_lux_prefix_on_member_import=False)
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.patch(
+            "/api/federation-profile/",
+            {"rewrite_lux_prefix_on_member_import": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_ltf_admin_can_rewrite_existing_ltf_ids_and_skip_conflicts(self):
+        Member.objects.create(
+            club=self.club,
+            first_name="Mia",
+            last_name="Lux",
+            wt_licenseid="LUX-000111",
+            ltf_licenseid="LUX-000111",
+        )
+        Member.objects.create(
+            club=self.club,
+            first_name="Leo",
+            last_name="Taken",
+            wt_licenseid="LUX-000222",
+            ltf_licenseid="LTF-000111",
+        )
+        Member.objects.create(
+            club=self.club,
+            first_name="Noa",
+            last_name="Ok",
+            wt_licenseid="LUX-000333",
+            ltf_licenseid="LUX-000333",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        preview = self.client.get("/api/members/ltf-license-prefix-rewrite/")
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        self.assertEqual(preview.data["candidate_count"], 1)
+        self.assertEqual(preview.data["conflict_count"], 1)
+
+        apply_response = self.client.post("/api/members/ltf-license-prefix-rewrite/")
+        self.assertEqual(apply_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(apply_response.data["rewritten"], 1)
+        mia = Member.objects.get(first_name="Mia")
+        leo = Member.objects.get(first_name="Leo")
+        noa = Member.objects.get(first_name="Noa")
+        self.assertEqual(mia.ltf_licenseid, "LUX-000111")
+        self.assertEqual(mia.wt_licenseid, "LUX-000111")
+        self.assertEqual(leo.ltf_licenseid, "LTF-000111")
+        self.assertEqual(noa.ltf_licenseid, "LTF-000333")
+        self.assertEqual(noa.wt_licenseid, "LUX-000333")
+
+    def test_club_admin_cannot_rewrite_existing_ltf_ids(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post("/api/members/ltf-license-prefix-rewrite/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+@override_settings(
+    RESEND_API_KEY="replace-me",
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+)
+class MemberTransferApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_admin = User.objects.create_user(
+            username="transfer-ltf",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+            email="ltf.transfer@example.com",
+        )
+        self.source_admin = User.objects.create_user(
+            username="source-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+            email="source.admin@example.com",
+        )
+        self.dest_admin = User.objects.create_user(
+            username="dest-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+            email="dest.admin@example.com",
+        )
+        self.source_club = Club.objects.create(
+            name="Source Club",
+            city="Luxembourg",
+            created_by=self.ltf_admin,
+        )
+        self.dest_club = Club.objects.create(
+            name="Dest Club",
+            city="Esch",
+            created_by=self.ltf_admin,
+        )
+        self.source_club.admins.add(self.source_admin)
+        self.dest_club.admins.add(self.dest_admin)
+        self.athlete = Member.objects.create(
+            club=self.source_club,
+            first_name="Alex",
+            last_name="Moved",
+            email="alex.moved@example.com",
+        )
+        self.license_type = LicenseType.objects.create(name="Transfer Paid", code="transfer-paid")
+        self.license = License.objects.create(
+            member=self.athlete,
+            club=self.source_club,
+            license_type=self.license_type,
+            year=2026,
+            status=License.Status.ACTIVE,
+        )
+
+    def test_club_admin_can_create_free_transfer_and_destination_completes_it(self):
+        self.client.force_authenticate(user=self.source_admin)
+        from django.core import mail
+        from django.test import override_settings
+
+        with override_settings(
+            RESEND_API_KEY="replace-me",
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        ):
+            created = self.client.post(
+                "/api/member-transfers/",
+                {
+                    "member_id": self.athlete.id,
+                    "to_club_id": self.dest_club.id,
+                    "fee_amount": "0",
+                    "note": "Please take Alex.",
+                    "locale": "en",
+                },
+                format="json",
+            )
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.data["status"], "pending")
+        self.assertFalse(created.data["has_fee"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("dest.admin@example.com", mail.outbox[0].to)
+
+        transfer_id = created.data["id"]
+        self.client.force_authenticate(user=self.dest_admin)
+        with override_settings(
+            RESEND_API_KEY="replace-me",
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        ):
+            accepted = self.client.post(
+                f"/api/member-transfers/{transfer_id}/accept/",
+                {"locale": "en"},
+                format="json",
+            )
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.data["status"], "completed")
+        self.athlete.refresh_from_db()
+        self.license.refresh_from_db()
+        self.assertEqual(self.athlete.club_id, self.dest_club.id)
+        self.assertEqual(self.license.club_id, self.dest_club.id)
+
+    def test_fee_transfer_notifies_ltf_admin(self):
+        self.client.force_authenticate(user=self.source_admin)
+        from django.core import mail
+        from django.test import override_settings
+
+        with override_settings(
+            RESEND_API_KEY="replace-me",
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        ):
+            created = self.client.post(
+                "/api/member-transfers/",
+                {
+                    "member_id": self.athlete.id,
+                    "to_club_id": self.dest_club.id,
+                    "fee_amount": "150.00",
+                    "locale": "en",
+                },
+                format="json",
+            )
+        self.assertEqual(created.status_code, 201)
+        self.assertTrue(created.data["has_fee"])
+        self.assertTrue(created.data["ltf_notified"])
+        recipients = [address for message in mail.outbox for address in message.to]
+        self.assertIn("dest.admin@example.com", recipients)
+        self.assertIn("ltf.transfer@example.com", recipients)
+
+    def test_cannot_transfer_source_club_admin(self):
+        admin_member = Member.objects.create(
+            user=self.source_admin,
+            club=self.source_club,
+            first_name="Source",
+            last_name="Admin",
+        )
+        self.client.force_authenticate(user=self.source_admin)
+        response = self.client.post(
+            "/api/member-transfers/",
+            {"member_id": admin_member.id, "to_club_id": self.dest_club.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "member_is_club_admin")
+
+    def test_destination_can_message_and_source_can_cancel(self):
+        self.client.force_authenticate(user=self.source_admin)
+        created = self.client.post(
+            "/api/member-transfers/",
+            {"member_id": self.athlete.id, "to_club_id": self.dest_club.id},
+            format="json",
+        )
+        transfer_id = created.data["id"]
+        self.client.force_authenticate(user=self.dest_admin)
+        messaged = self.client.post(
+            f"/api/member-transfers/{transfer_id}/messages/",
+            {"body": "Can we make this free?"},
+            format="json",
+        )
+        self.assertEqual(messaged.status_code, 201)
+        self.assertEqual(len(messaged.data["messages"]), 1)
+        self.client.force_authenticate(user=self.source_admin)
+        cancelled = self.client.post(f"/api/member-transfers/{transfer_id}/cancel/", {}, format="json")
+        self.assertEqual(cancelled.status_code, 200)
+        self.assertEqual(cancelled.data["status"], "cancelled")
+        self.athlete.refresh_from_db()
+        self.assertEqual(self.athlete.club_id, self.source_club.id)
+
+    def _complete_transfer(self, from_admin, to_admin, to_club):
+        self.client.force_authenticate(user=from_admin)
+        created = self.client.post(
+            "/api/member-transfers/",
+            {"member_id": self.athlete.id, "to_club_id": to_club.id, "fee_amount": "0"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201)
+        self.client.force_authenticate(user=to_admin)
+        accepted = self.client.post(
+            f"/api/member-transfers/{created.data['id']}/accept/",
+            {},
+            format="json",
+        )
+        self.assertEqual(accepted.status_code, 200)
+        return accepted.data
+
+    def test_member_keeps_completed_transfer_history_and_can_be_flagged(self):
+        from clubs.models import FederationProfile
+
+        third_admin = User.objects.create_user(
+            username="third-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        third_club = Club.objects.create(name="Third Club", created_by=self.ltf_admin)
+        third_club.admins.add(third_admin)
+
+        self._complete_transfer(self.source_admin, self.dest_admin, self.dest_club)
+        self._complete_transfer(self.dest_admin, third_admin, third_club)
+
+        self.client.force_authenticate(user=self.ltf_admin)
+        history = self.client.get(f"/api/members/{self.athlete.id}/club-transfers/")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.data["completed_transfer_count"], 2)
+        self.assertFalse(history.data["is_club_tourist"])
+        self.assertEqual(len(history.data["transfers"]), 2)
+
+        detail = self.client.get(f"/api/members/{self.athlete.id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.data["completed_transfer_count"], 2)
+        self.assertFalse(detail.data["is_club_tourist"])
+
+        profile, _ = FederationProfile.objects.get_or_create(pk=1)
+        profile.club_tourist_transfer_threshold = 2
+        profile.save(update_fields=["club_tourist_transfer_threshold"])
+
+        flagged = self.client.get(f"/api/members/{self.athlete.id}/")
+        self.assertTrue(flagged.data["is_club_tourist"])
+
+        monitor = self.client.get("/api/member-transfers/movements/")
+        self.assertEqual(monitor.status_code, 200)
+        self.assertEqual(monitor.data["threshold"], 2)
+        flagged_ids = {row["id"] for row in monitor.data["flagged_members"]}
+        self.assertIn(self.athlete.id, flagged_ids)
+        club_by_id = {row["id"]: row for row in monitor.data["clubs"]}
+        self.assertEqual(club_by_id[self.source_club.id]["outgoing"], 1)
+        self.assertEqual(club_by_id[self.dest_club.id]["incoming"], 1)
+        self.assertEqual(club_by_id[self.dest_club.id]["outgoing"], 1)
+        self.assertEqual(club_by_id[third_club.id]["incoming"], 1)
+
+        self.client.force_authenticate(user=self.source_admin)
+        forbidden = self.client.get("/api/member-transfers/movements/")
+        self.assertEqual(forbidden.status_code, 403)
+
+        self.client.force_authenticate(user=third_admin)
+        club_history = self.client.get(f"/api/members/{self.athlete.id}/club-transfers/")
+        self.assertEqual(club_history.status_code, 200)
+        self.assertEqual(club_history.data["completed_transfer_count"], 2)
+
+
+def _preview_design_payload() -> dict:
+    return {
+        "elements": [
+            {
+                "id": "member-name",
+                "type": "text",
+                "x_mm": "2.00",
+                "y_mm": "2.00",
+                "width_mm": "40.00",
+                "height_mm": "8.00",
+                "text": "{{member.first_name}} {{member.last_name}}",
+            }
+        ],
+        "metadata": {"unit": "mm"},
+    }
+
+
+class MemberLicenseCardPreviewApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_admin = User.objects.create_user(
+            username="card-preview-ltf",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club_admin = User.objects.create_user(
+            username="card-preview-club",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.other_club_admin = User.objects.create_user(
+            username="card-preview-other-club",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Preview Club", created_by=self.ltf_admin)
+        self.club.admins.add(self.club_admin)
+        self.other_club = Club.objects.create(name="Other Preview Club", created_by=self.ltf_admin)
+        self.other_club.admins.add(self.other_club_admin)
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Mia",
+            last_name="Lee",
+            ltf_licenseid="LTF-CARD-001",
+        )
+        self.license_type = LicenseType.objects.create(
+            name="Preview Annual",
+            code="preview-card-annual",
+        )
+        self.active_license = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+            status=License.Status.ACTIVE,
+        )
+        self.card_format = CardFormatPreset.objects.get(code="3c")
+        self.paper_profile = PaperProfile.objects.get(code="sigel-lp798")
+        self.template = CardTemplate.objects.create(
+            name="Standard 3C Card",
+            is_default=True,
+            created_by=self.ltf_admin,
+            updated_by=self.ltf_admin,
+        )
+        self.published_version = CardTemplateVersion.objects.create(
+            template=self.template,
+            version_number=1,
+            status=CardTemplateVersion.Status.PUBLISHED,
+            card_format=self.card_format,
+            paper_profile=self.paper_profile,
+            design_payload=_preview_design_payload(),
+            created_by=self.ltf_admin,
+            published_by=self.ltf_admin,
+            published_at=timezone.now(),
+        )
+
+    def test_resolve_prefers_default_published_template(self):
+        named = CardTemplate.objects.create(
+            name="Standard 3C Card Alternate",
+            is_default=False,
+            created_by=self.ltf_admin,
+            updated_by=self.ltf_admin,
+        )
+        CardTemplateVersion.objects.create(
+            template=named,
+            version_number=2,
+            status=CardTemplateVersion.Status.PUBLISHED,
+            card_format=self.card_format,
+            paper_profile=self.paper_profile,
+            design_payload=_preview_design_payload(),
+            created_by=self.ltf_admin,
+            published_by=self.ltf_admin,
+            published_at=timezone.now(),
+        )
+        resolved = resolve_published_standard_card_version()
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved.template_id, self.template.id)
+
+    def test_resolve_falls_back_to_named_standard_3c_template(self):
+        self.template.is_default = False
+        self.template.save(update_fields=["is_default", "updated_at"])
+        other = CardTemplate.objects.create(
+            name="Club Badge Card",
+            is_default=False,
+            created_by=self.ltf_admin,
+            updated_by=self.ltf_admin,
+        )
+        CardTemplateVersion.objects.create(
+            template=other,
+            version_number=1,
+            status=CardTemplateVersion.Status.PUBLISHED,
+            card_format=self.card_format,
+            paper_profile=self.paper_profile,
+            design_payload=_preview_design_payload(),
+            created_by=self.ltf_admin,
+            published_by=self.ltf_admin,
+            published_at=timezone.now(),
+        )
+        resolved = resolve_published_standard_card_version()
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved.template_id, self.template.id)
+
+    def test_ltf_admin_gets_member_license_card_preview(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get(
+            f"/api/members/{self.member.id}/license-card-preview/?license_id={self.active_license.id}&side=front"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["template_name"], "Standard 3C Card")
+        self.assertEqual(response.data["license_id"], self.active_license.id)
+        self.assertEqual(response.data["active_side"], "front")
+        self.assertIn("Mia LEE", response.data["html"])
+        self.assertTrue(response.data["html"])
+        self.assertTrue(response.data["css"])
+        self.assertEqual(response.data["card_format"]["code"], "3c")
+
+    def test_club_admin_can_preview_own_club_member(self):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["license_id"], self.active_license.id)
+
+    def test_other_club_admin_cannot_preview_member(self):
+        self.client.force_authenticate(user=self.other_club_admin)
+        response = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_unauthenticated_cannot_preview(self):
+        response = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_returns_404_when_no_published_template(self):
+        CardTemplateVersion.objects.all().delete()
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            response.data["detail"],
+            "No published license card template is available.",
+        )
+

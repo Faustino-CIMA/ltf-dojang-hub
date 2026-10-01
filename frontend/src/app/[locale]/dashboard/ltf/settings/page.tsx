@@ -1,30 +1,32 @@
 "use client";
 
-import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import {
+  BrandingLogoUploadPayload,
+  BrandingLogosManager,
+} from "@/components/branding/branding-logos-manager";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
+import { Modal } from "@/components/ui/modal";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
 import {
   BrandingLogo,
-  LogoUsageType,
+  LtfLicensePrefixRewritePreview,
+  applyLtfLicensePrefixRewrite,
   deleteFederationLogo,
   getFederationLogos,
   getFederationProfile,
+  getLtfLicensePrefixRewritePreview,
   updateFederationLogo,
   updateFederationProfile,
   uploadFederationLogo,
@@ -40,21 +42,10 @@ const federationSchema = z.object({
     .string()
     .optional()
     .refine((value) => !value || isValidIban(value), "Enter a valid IBAN."),
+  club_tourist_transfer_threshold: z.coerce.number().int().min(1).max(99),
 });
 
 type FederationFormValues = z.infer<typeof federationSchema>;
-
-function formatFileSize(bytes: number): string {
-  if (!bytes || bytes <= 0) {
-    return "-";
-  }
-  const kb = 1024;
-  const mb = kb * 1024;
-  if (bytes >= mb) {
-    return `${(bytes / mb).toFixed(2)} MB`;
-  }
-  return `${(bytes / kb).toFixed(1)} KB`;
-}
 
 export default function LtfAdminSettingsPage() {
   const t = useTranslations("LtfAdmin");
@@ -63,12 +54,16 @@ export default function LtfAdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [logos, setLogos] = useState<BrandingLogo[]>([]);
   const [isLoadingLogos, setIsLoadingLogos] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoUsage, setLogoUsage] = useState<LogoUsageType>("general");
-  const [logoLabel, setLogoLabel] = useState("");
-  const [markUploadedAsSelected, setMarkUploadedAsSelected] = useState(true);
-  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [logosLoadError, setLogosLoadError] = useState<string | null>(null);
+  const [rewriteOnImport, setRewriteOnImport] = useState(false);
+  const [savedRewriteOnImport, setSavedRewriteOnImport] = useState(false);
+  const [importRewriteSuccess, setImportRewriteSuccess] = useState<string | null>(null);
+  const [importRewriteError, setImportRewriteError] = useState<string | null>(null);
+  const [isSavingRewrite, setIsSavingRewrite] = useState(false);
+  const [rewritePreview, setRewritePreview] = useState<LtfLicensePrefixRewritePreview | null>(null);
+  const [isLoadingRewritePreview, setIsLoadingRewritePreview] = useState(false);
+  const [isApplyingRewrite, setIsApplyingRewrite] = useState(false);
+  const [isRewriteConfirmOpen, setIsRewriteConfirmOpen] = useState(false);
 
   const {
     register,
@@ -85,19 +80,11 @@ export default function LtfAdminSettingsPage() {
       postal_code: "",
       locality: "",
       iban: "",
+      club_tourist_transfer_threshold: 3,
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
   const derivedBankName = deriveBankNameFromIban(watchedIban);
-  const usageLabelMap: Record<LogoUsageType, string> = useMemo(
-    () => ({
-      general: t("logoUsageGeneral"),
-      invoice: t("logoUsageInvoice"),
-      print: t("logoUsagePrint"),
-      digital: t("logoUsageDigital"),
-    }),
-    [t]
-  );
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -111,7 +98,11 @@ export default function LtfAdminSettingsPage() {
         postal_code: profile.postal_code ?? "",
         locality: profile.locality ?? "",
         iban: profile.iban ?? "",
+        club_tourist_transfer_threshold: profile.club_tourist_transfer_threshold ?? 3,
       });
+      const rewriteEnabled = Boolean(profile.rewrite_lux_prefix_on_member_import);
+      setRewriteOnImport(rewriteEnabled);
+      setSavedRewriteOnImport(rewriteEnabled);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : t("federationSettingsLoadError")
@@ -126,8 +117,9 @@ export default function LtfAdminSettingsPage() {
     try {
       const response = await getFederationLogos();
       setLogos(response.logos);
+      setLogosLoadError(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load logos.");
+      setLogosLoadError(error instanceof Error ? error.message : "Failed to load logos.");
     } finally {
       setIsLoadingLogos(false);
     }
@@ -141,6 +133,66 @@ export default function LtfAdminSettingsPage() {
     void loadLogos();
   }, [loadLogos]);
 
+  const loadRewritePreview = useCallback(async () => {
+    setIsLoadingRewritePreview(true);
+    try {
+      const preview = await getLtfLicensePrefixRewritePreview();
+      setRewritePreview(preview);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("existingPrefixRewriteLoadError")
+      );
+    } finally {
+      setIsLoadingRewritePreview(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadRewritePreview();
+  }, [loadRewritePreview]);
+
+  const handleSaveImportRewrite = async () => {
+    setImportRewriteError(null);
+    setImportRewriteSuccess(null);
+    setIsSavingRewrite(true);
+    try {
+      await updateFederationProfile({
+        rewrite_lux_prefix_on_member_import: rewriteOnImport,
+      });
+      setSavedRewriteOnImport(rewriteOnImport);
+      setImportRewriteSuccess(t("importPrefixRewriteSaved"));
+    } catch (error) {
+      setImportRewriteError(
+        error instanceof Error ? error.message : t("federationSettingsSaveError")
+      );
+    } finally {
+      setIsSavingRewrite(false);
+    }
+  };
+
+  const handleApplyExistingRewrite = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsApplyingRewrite(true);
+    try {
+      const result = await applyLtfLicensePrefixRewrite();
+      setRewritePreview(result);
+      setIsRewriteConfirmOpen(false);
+      setSuccessMessage(
+        t("existingPrefixRewriteSuccess", {
+          rewritten: result.rewritten,
+          skipped: result.conflict_count,
+        })
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("existingPrefixRewriteError")
+      );
+    } finally {
+      setIsApplyingRewrite(false);
+    }
+  };
+
   const onSubmit = async (values: FederationFormValues) => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -153,6 +205,7 @@ export default function LtfAdminSettingsPage() {
         postal_code: saved.postal_code ?? "",
         locality: saved.locality ?? "",
         iban: saved.iban ?? "",
+        club_tourist_transfer_threshold: saved.club_tourist_transfer_threshold ?? 3,
       });
       setSuccessMessage(t("federationSettingsSaved"));
     } catch (error) {
@@ -162,49 +215,19 @@ export default function LtfAdminSettingsPage() {
     }
   };
 
-  const handleUploadLogo = async () => {
-    if (!logoFile) {
-      return;
-    }
-    setErrorMessage(null);
-    setIsUploadingLogo(true);
-    try {
-      await uploadFederationLogo({
-        file: logoFile,
-        usage_type: logoUsage,
-        label: logoLabel.trim(),
-        is_selected: markUploadedAsSelected,
-      });
-      setLogoFile(null);
-      setLogoLabel("");
-      setMarkUploadedAsSelected(true);
-      if (logoFileInputRef.current) {
-        logoFileInputRef.current.value = "";
-      }
-      await loadLogos();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to upload logo.");
-    } finally {
-      setIsUploadingLogo(false);
-    }
+  const handleUploadLogo = async (payload: BrandingLogoUploadPayload) => {
+    await uploadFederationLogo(payload);
+    await loadLogos();
   };
 
   const handleSelectLogo = async (logoId: number) => {
-    try {
-      await updateFederationLogo(logoId, { is_selected: true });
-      await loadLogos();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to select logo.");
-    }
+    await updateFederationLogo(logoId, { is_selected: true });
+    await loadLogos();
   };
 
   const handleDeleteLogo = async (logoId: number) => {
-    try {
-      await deleteFederationLogo(logoId);
-      await loadLogos();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete logo.");
-    }
+    await deleteFederationLogo(logoId);
+    await loadLogos();
   };
 
   return (
@@ -212,12 +235,22 @@ export default function LtfAdminSettingsPage() {
       title={t("federationSettingsTitle")}
       subtitle={t("federationSettingsSubtitle")}
     >
+      <ActionNotices
+        error={errorMessage || importRewriteError}
+        success={successMessage || importRewriteSuccess}
+        onDismiss={() => {
+          setErrorMessage(null);
+          setSuccessMessage(null);
+          setImportRewriteError(null);
+          setImportRewriteSuccess(null);
+        }}
+      />
       {isLoading ? (
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-4">
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground">
+        <div className="space-y-6">
+          <FormPanel>
+          <h2 className="text-section text-foreground">
             {t("federationSettingsFormTitle")}
           </h2>
           <p className="mt-2 text-sm text-muted">
@@ -265,6 +298,24 @@ export default function LtfAdminSettingsPage() {
               <Input value={derivedBankName || "-"} readOnly />
             </div>
 
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-foreground">
+                {t("clubTouristThresholdLabel")}
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={99}
+                {...register("club_tourist_transfer_threshold")}
+              />
+              <p className="text-xs text-muted">{t("clubTouristThresholdHint")}</p>
+              {errors.club_tourist_transfer_threshold ? (
+                <p className="text-sm text-destructive">
+                  {errors.club_tourist_transfer_threshold.message}
+                </p>
+              ) : null}
+            </div>
+
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={isSubmitting}>
                 {t("saveFederationSettings")}
@@ -272,128 +323,82 @@ export default function LtfAdminSettingsPage() {
             </div>
           </form>
 
-          {successMessage ? <p className="mt-4 text-sm text-success">{successMessage}</p> : null}
-          {errorMessage ? <p className="mt-4 text-sm text-destructive">{errorMessage}</p> : null}
-          </section>
+          </FormPanel>
 
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground">{t("logoSectionTitle")}</h2>
-          <p className="mt-2 text-sm text-muted">{t("logoSectionSubtitle")}</p>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("logoLabelInputLabel")}</label>
-              <Input
-                value={logoLabel}
-                onChange={(event) => setLogoLabel(event.target.value)}
-                placeholder={t("logoLabelPlaceholder")}
+          <FormPanel className="space-y-4">
+            <h2 className="text-section text-foreground">{t("importPrefixRewriteTitle")}</h2>
+            <p className="text-sm text-muted">{t("importPrefixRewriteHint")}</p>
+            <label className="flex items-start gap-3 text-sm text-foreground">
+              <Checkbox
+                checked={rewriteOnImport}
+                onCheckedChange={(checked) => {
+                  setRewriteOnImport(checked === true);
+                  setImportRewriteSuccess(null);
+                  setImportRewriteError(null);
+                }}
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("logoUsageLabel")}</label>
-              <Select value={logoUsage} onValueChange={(value) => setLogoUsage(value as LogoUsageType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(usageLabelMap).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <input
-              ref={logoFileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)}
-            />
-            <Button type="button" variant="outline" onClick={() => logoFileInputRef.current?.click()}>
-              {t("chooseLogoFileAction")}
-            </Button>
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked={markUploadedAsSelected}
-                onChange={(event) => setMarkUploadedAsSelected(event.target.checked)}
-              />
-              {t("markLogoSelectedLabel")}
+              <span>{t("importPrefixRewriteLabel")}</span>
             </label>
-            <Button type="button" onClick={handleUploadLogo} disabled={!logoFile || isUploadingLogo}>
-              {isUploadingLogo ? t("savingAction") : t("uploadLogoAction")}
+            <Button
+              type="button"
+              onClick={() => void handleSaveImportRewrite()}
+              disabled={isSavingRewrite || rewriteOnImport === savedRewriteOnImport}
+            >
+              {isSavingRewrite ? t("savingAction") : t("saveImportPrefixRewrite")}
             </Button>
-          </div>
+          </FormPanel>
 
-          {logoFile ? (
-            <p className="mt-2 text-sm text-muted">
-              {t("selectedFileLabel")}: {logoFile.name} ({formatFileSize(logoFile.size)})
+          <FormPanel className="space-y-4">
+            <h2 className="text-section text-foreground">{t("existingPrefixRewriteTitle")}</h2>
+            <p className="text-sm text-muted">{t("existingPrefixRewriteSubtitle")}</p>
+            {isLoadingRewritePreview ? (
+              <LoadingCard title={t("loadingTitle")} description={t("loadingSubtitle")} />
+            ) : rewritePreview ? (
+              <p className="text-sm text-foreground">
+                {t("existingPrefixRewritePreview", {
+                  count: rewritePreview.candidate_count,
+                  conflicts: rewritePreview.conflict_count,
+                })}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!rewritePreview || rewritePreview.candidate_count === 0 || isApplyingRewrite}
+              onClick={() => setIsRewriteConfirmOpen(true)}
+            >
+              {t("existingPrefixRewriteAction")}
+            </Button>
+          </FormPanel>
+
+          <Modal
+            title={t("existingPrefixRewriteAction")}
+            isOpen={isRewriteConfirmOpen}
+            onClose={() => setIsRewriteConfirmOpen(false)}
+          >
+            <p className="text-sm text-muted">
+              {t("existingPrefixRewriteConfirm", {
+                count: rewritePreview?.candidate_count ?? 0,
+              })}
             </p>
-          ) : null}
-
-          {isLoadingLogos ? (
-            <p className="mt-4 text-sm text-muted">{t("loadingTitle")}</p>
-          ) : logos.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">{t("logoEmptyState")}</p>
-          ) : (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {logos.map((logo) => (
-                <article key={logo.id} className="rounded-[var(--radius-card)] border border-border p-3">
-                  <div className="aspect-[16/9] w-full overflow-hidden rounded-[var(--radius-form)] bg-secondary">
-                    {logo.content_url ? (
-                      <Image
-                        src={logo.content_url}
-                        alt={logo.label || logo.file_name}
-                        width={320}
-                        height={180}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-xs text-muted">
-                        {t("noPreviewAvailable")}
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-3 space-y-1 text-xs text-muted">
-                    <p className="font-medium text-foreground">{logo.label || logo.file_name}</p>
-                    <p>
-                      {t("logoUsageLabel")}: {usageLabelMap[logo.usage_type]}
-                    </p>
-                    <p>{formatFileSize(logo.file_size)}</p>
-                    {logo.is_selected ? (
-                      <p className="font-medium text-success">{t("logoSelectedBadge")}</p>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    {!logo.is_selected ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSelectLogo(logo.id)}
-                      >
-                        {t("selectLogoAction")}
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteLogo(logo.id)}
-                    >
-                      {t("deleteAction")}
-                    </Button>
-                  </div>
-                </article>
-              ))}
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsRewriteConfirmOpen(false)}>
+                {t("existingPrefixRewriteCancel")}
+              </Button>
+              <Button onClick={() => void handleApplyExistingRewrite()} disabled={isApplyingRewrite}>
+                {isApplyingRewrite ? t("savingAction") : t("existingPrefixRewriteAction")}
+              </Button>
             </div>
-          )}
-          </section>
+          </Modal>
+
+          <BrandingLogosManager
+            logos={logos}
+            isLoading={isLoadingLogos}
+            loadError={logosLoadError}
+            onUpload={handleUploadLogo}
+            onSelect={handleSelectLogo}
+            onDelete={handleDeleteLogo}
+          />
         </div>
       )}
     </LtfAdminLayout>

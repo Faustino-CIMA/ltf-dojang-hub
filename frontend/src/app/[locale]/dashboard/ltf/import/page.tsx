@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { useClubSelection } from "@/components/club-selection-provider";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { ImportWizardPage } from "@/components/import/import-wizard-page";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { getClubs } from "@/lib/ltf-admin-api";
 
 type ClubOption = {
@@ -23,6 +26,7 @@ export default function LtfImportPage() {
   const [clubOptions, setClubOptions] = useState<ClubOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { selectedClubId } = useClubSelection();
 
   const defaultType = searchParams.get("type") === "members" ? "members" : "clubs";
 
@@ -85,14 +89,15 @@ export default function LtfImportPage() {
 
   return (
     <LtfAdminLayout title={t("importWizardTitle")} subtitle={t("wizardSubtitleLtf")}>
-      {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+      <ActionNotices error={error} onDismiss={() => setError(null)} />
       {isLoading && clubOptions.length === 0 ? (
-        <p className="mb-4 text-sm text-muted">{ltfT("loadingTitle")}</p>
+        <LoadingCardGrid title={ltfT("loadingTitle")} description={ltfT("loadingSubtitle")} />
       ) : null}
       <ImportWizardPage
         allowedTypes={["clubs", "members"]}
         defaultType={defaultType}
-        allowClubSelection
+        allowClubSelection={!selectedClubId}
+        fixedClubId={selectedClubId}
         clubOptions={clubOptions}
         fieldsByType={fieldsByType}
         backHrefByType={{

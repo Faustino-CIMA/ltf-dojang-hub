@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { apiRequest } from "@/lib/api";
+import { logout } from "@/lib/auth-api";
 import { clearToken } from "@/lib/auth";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
 import { Button } from "@/components/ui/button";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
 
 type MeResponse = {
   id: number;
   username: string;
   email: string;
   role: string;
+  is_superuser?: boolean;
 };
 
 export default function DashboardPage() {
@@ -28,7 +31,9 @@ export default function DashboardPage() {
       try {
         const response = await apiRequest<MeResponse>("/api/auth/me/");
         setUser(response);
-        const targetRoute = getDashboardRouteForRole(response.role, locale);
+        const targetRoute = getDashboardRouteForRole(response.role, locale, {
+          isSuperuser: Boolean(response.is_superuser),
+        });
         if (targetRoute) {
           router.push(targetRoute);
         }
@@ -41,14 +46,15 @@ export default function DashboardPage() {
     loadUser();
   }, [locale, router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     clearToken();
     router.push(`/${locale}/login`);
   };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-3xl rounded-[var(--radius-card)] border border-border bg-card p-10 shadow-sm">
+      <div className="app-panel w-full max-w-xl p-10">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
@@ -59,7 +65,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {errorMessage ? <p className="mt-6 text-sm text-destructive">{errorMessage}</p> : null}
+        <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {user ? (
           <div className="mt-6 rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-6">

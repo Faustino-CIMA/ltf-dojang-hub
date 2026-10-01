@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { X } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { useClubSelection } from "@/components/club-selection-provider";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Select,
@@ -25,57 +30,125 @@ import {
 } from "@/lib/club-finance-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { openInvoicePdf } from "@/lib/invoice-pdf";
+import { isClubLedger } from "@/lib/ltf-finance-api";
 
 const AUTO_REFRESH_INTERVAL_MS = 30000;
+
+type InvoiceStatusFilter = "all" | "draft" | "issued" | "paid" | "void";
+
+/** Matches backend `API_PAGINATION_MAX_PAGE_SIZE`. */
+const INVOICES_LIST_PAGE_SIZE_CAP = 200;
 
 export default function ClubAdminInvoicesPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const overdueIssue = searchParams.get("issue") === "overdue_7d";
   const { selectedClubId } = useClubSelection();
+  const { canRecordPayments } = useClubFinanceAccess();
   const [invoices, setInvoices] = useState<FinanceInvoice[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>("all");
+  const [ledgerFilter, setLedgerFilter] = useState<ClubLedgerFilterValue>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState("25");
+  const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [invoiceFacetCounts, setInvoiceFacetCounts] = useState({
+    all: 0,
+    draft: 0,
+    issued: 0,
+    paid: 0,
+    void: 0,
+  });
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const pageSizeOptions = ["10", "25", "50", "100", "150", "200"];
+  const pageSizeOptions = ["50", "150", "300", "all"];
+  const statusFilterParam = overdueIssue
+    ? "issued"
+    : invoiceStatusFilter === "all"
+      ? undefined
+      : invoiceStatusFilter;
+
+  const invoicesListPageSize = useMemo(() => {
+    if (pageSize === "all") {
+      return Math.min(Math.max(totalCount, 1), INVOICES_LIST_PAGE_SIZE_CAP);
+    }
+    const n = Number(pageSize);
+    if (!Number.isFinite(n) || n <= 0) {
+      return 50;
+    }
+    return Math.min(n, INVOICES_LIST_PAGE_SIZE_CAP);
+  }, [pageSize, totalCount]);
 
   const loadData = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
-      if (isRefreshingRef.current) {
-        return;
-      }
+      const keepVisible = hasLoadedRef.current;
+      requestAbortRef.current?.abort();
       const controller = new AbortController();
       isRefreshingRef.current = true;
       requestAbortRef.current = controller;
-      if (!silent) {
+      if (!keepVisible && !silent) {
         setIsLoading(true);
+      }
+      if (!silent) {
         setErrorMessage(null);
       }
+      const q = searchQuery || undefined;
+      const clubId = selectedClubId ?? undefined;
+      const ledger = ledgerFilter === "all" ? undefined : ledgerFilter;
       try {
-        const invoiceResponse = await getClubInvoicesPage(
-          {
-            page: currentPage,
-            pageSize: Number(pageSize),
-            clubId: selectedClubId ?? undefined,
-            q: searchQuery || undefined,
-          },
-          {
-            signal: controller.signal,
-          }
-        );
+        const [invoiceResponse, allCountRes, draftCountRes, issuedCountRes, paidCountRes, voidCountRes] =
+          await Promise.all([
+            getClubInvoicesPage(
+              {
+                page: currentPage,
+                pageSize: invoicesListPageSize,
+                clubId,
+                q,
+                status: statusFilterParam,
+                issue: overdueIssue ? "overdue_7d" : undefined,
+                ledger,
+              },
+              { signal: controller.signal }
+            ),
+            getClubInvoicesPage({ page: 1, pageSize: 1, clubId, q, ledger }, { signal: controller.signal }),
+            getClubInvoicesPage(
+              { page: 1, pageSize: 1, clubId, q, status: "draft", ledger },
+              { signal: controller.signal }
+            ),
+            getClubInvoicesPage(
+              { page: 1, pageSize: 1, clubId, q, status: "issued", ledger },
+              { signal: controller.signal }
+            ),
+            getClubInvoicesPage(
+              { page: 1, pageSize: 1, clubId, q, status: "paid", ledger },
+              { signal: controller.signal }
+            ),
+            getClubInvoicesPage(
+              { page: 1, pageSize: 1, clubId, q, status: "void", ledger },
+              { signal: controller.signal }
+            ),
+          ]);
         setInvoices(invoiceResponse.results);
         setTotalCount(invoiceResponse.count);
+        setInvoiceFacetCounts({
+          all: allCountRes.count,
+          draft: draftCountRes.count,
+          issued: issuedCountRes.count,
+          paid: paidCountRes.count,
+          void: voidCountRes.count,
+        });
+        hasLoadedRef.current = true;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -86,14 +159,14 @@ export default function ClubAdminInvoicesPage() {
       } finally {
         if (requestAbortRef.current === controller) {
           requestAbortRef.current = null;
-        }
-        isRefreshingRef.current = false;
-        if (!silent) {
-          setIsLoading(false);
+          isRefreshingRef.current = false;
+          if (!keepVisible && !silent) {
+            setIsLoading(false);
+          }
         }
       }
     },
-    [currentPage, pageSize, searchQuery, selectedClubId, t]
+    [currentPage, invoicesListPageSize, ledgerFilter, overdueIssue, searchQuery, selectedClubId, statusFilterParam, t]
   );
 
   useEffect(() => {
@@ -120,7 +193,7 @@ export default function ClubAdminInvoicesPage() {
       return;
     }
     const refreshInBackground = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !isRefreshingRef.current) {
         void loadData({ silent: true });
       }
     };
@@ -178,18 +251,15 @@ export default function ClubAdminInvoicesPage() {
     }
   };
 
-  const getInvoiceQuantity = useCallback(
-    (invoice: FinanceInvoice) => {
-      return typeof invoice.item_quantity === "number" ? invoice.item_quantity : "-";
-    },
-    []
-  );
+  const getInvoiceQuantity = useCallback((invoice: FinanceInvoice) => {
+    return typeof invoice.item_quantity === "number" ? invoice.item_quantity : "-";
+  }, []);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / Number(pageSize)));
+  const totalPages = Math.max(1, Math.ceil(totalCount / invoicesListPageSize));
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId]);
+  }, [searchQuery, pageSize, selectedClubId, invoiceStatusFilter, ledgerFilter, overdueIssue]);
 
   const columns = [
     { key: "invoice_number", header: t("invoiceNumberLabel") },
@@ -212,6 +282,11 @@ export default function ClubAdminInvoicesPage() {
       render: (row: FinanceInvoice) => `${row.total} ${row.currency}`,
     },
     {
+      key: "outstanding",
+      header: t("outstandingLabel"),
+      render: (row: FinanceInvoice) => `${row.outstanding ?? row.total} ${row.currency}`,
+    },
+    {
       key: "issued_at",
       header: t("issuedAtLabel"),
       render: (row: FinanceInvoice) => formatDisplayDateTime(row.issued_at),
@@ -220,32 +295,33 @@ export default function ClubAdminInvoicesPage() {
       key: "actions",
       header: common("paymentActionsLabel"),
       render: (row: FinanceInvoice) => {
-        const isPayable = ["draft", "issued"].includes(row.status);
-        return isPayable ? (
+        const outstanding = Number(row.outstanding ?? row.total);
+        const isOpen = ["draft", "issued"].includes(row.status) && outstanding > 0;
+        const clubInternal = isClubLedger(row);
+        const canPayFederation = isOpen && !clubInternal;
+        const canRecord = canRecordPayments && isOpen && clubInternal;
+        return (
           <div className="flex flex-col gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePayNow(row)}
-              disabled={activeOrderId === row.order}
-            >
-              {activeOrderId === row.order ? common("paymentProcessing") : common("payNow")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleInvoicePdf(row.id)}
-            >
-              {common("invoicePdfLabel")}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleInvoicePdf(row.id)}
-            >
+            {canPayFederation ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePayNow(row)}
+                disabled={activeOrderId === row.order}
+              >
+                {activeOrderId === row.order ? common("paymentProcessing") : common("payNow")}
+              </Button>
+            ) : null}
+            {canRecord ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/${locale}/dashboard/club/payments/${row.id}/record`)}
+              >
+                {t("recordPaymentButton")}
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={() => handleInvoicePdf(row.id)}>
               {common("invoicePdfLabel")}
             </Button>
           </div>
@@ -256,66 +332,110 @@ export default function ClubAdminInvoicesPage() {
 
   return (
     <ClubAdminLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")}>
-      <section className="flex flex-wrap items-center justify-between gap-3">
-        <Input
-          className="w-full max-w-sm"
-          placeholder={t("searchInvoicesPlaceholder")}
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
+      <div className="space-y-6">
+        <ClubFinanceTabs />
+        <ActionNotices
+          error={errorMessage || actionError}
+          onDismiss={() => {
+            setErrorMessage(null);
+            setActionError(null);
+          }}
         />
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted">{common("rowsPerPageLabel")}</span>
-          <Select value={pageSize} onValueChange={setPageSize}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {pageSizeOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option === "all" ? common("rowsPerPageAll") : option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </section>
+        {overdueIssue ? (
+          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+            <p className="min-w-0 flex-1">{t("issuedInvoicesOverdueFilterMessage")}</p>
+            <button
+              type="button"
+              className="inline-flex h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-form)]"
+              aria-label={common("modalClose")}
+              onClick={() => router.replace(`/${locale}/dashboard/club/invoices`)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
 
-      {isLoading ? (
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
-      ) : invoices.length === 0 ? (
-        <EmptyState title={t("noInvoicesTitle")} description={t("noInvoicesSubtitle")} />
-      ) : (
-        <>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+            <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
+              <div className="min-w-[10rem] flex-1">
+                <Input
+                  className="w-full max-w-xs"
+                  placeholder={t("searchInvoicesPlaceholder")}
+                  aria-label={t("searchInvoicesPlaceholder")}
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                />
+              </div>
+              <div>
+                <Select value={pageSize} onValueChange={setPageSize}>
+                  <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
+                    <SelectValue placeholder={common("rowsPerPageLabel")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pageSizeOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option === "all" ? common("rowsPerPageAll") : option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="ml-auto shrink-0">
+                <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
+              </div>
+            </div>
+
+            <div className="min-w-0 border-t border-[var(--border)] pt-4">
+              <FilterPills
+                ariaLabel={t("invoicesStatusFilterAriaLabel")}
+                value={overdueIssue ? "issued" : invoiceStatusFilter}
+                onChange={setInvoiceStatusFilter}
+                disabled={overdueIssue}
+                options={[
+                  { value: "all", title: t("filterAllTitle"), count: invoiceFacetCounts.all },
+                  { value: "draft", title: common("statusDraft"), count: invoiceFacetCounts.draft },
+                  { value: "issued", title: t("invoiceStatusDue"), count: invoiceFacetCounts.issued },
+                  { value: "paid", title: common("statusPaid"), count: invoiceFacetCounts.paid },
+                  { value: "void", title: common("statusVoid"), count: invoiceFacetCounts.void },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+              <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
+              <Button
+                variant="outline"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              >
+                {t("previousPage")}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              >
+                {t("nextPage")}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
+        ) : invoices.length === 0 ? (
+          <EmptyState title={t("noInvoicesTitle")} description={t("noInvoicesSubtitle")} />
+        ) : (
           <EntityTable
             columns={columns}
             rows={invoices}
             onRowClick={(row) => router.push(`/${locale}/dashboard/club/invoices/${row.id}`)}
           />
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-            <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
-            <div className="flex gap-2">
-              <button
-                className="rounded-[var(--radius-form)] border border-border px-3 py-1"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                {t("previousPage")}
-              </button>
-              <button
-                className="rounded-[var(--radius-form)] border border-border px-3 py-1"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                {t("nextPage")}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-      {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
-
+        )}
+      </div>
     </ClubAdminLayout>
   );
 }

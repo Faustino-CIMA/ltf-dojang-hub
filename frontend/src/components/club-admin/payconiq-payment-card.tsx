@@ -9,8 +9,8 @@ import { PayconiqPayment } from "@/lib/club-finance-api";
 
 type PayconiqPaymentCardProps = {
   payment: PayconiqPayment | null;
-  errorMessage: string | null;
   isBusy: boolean;
+  canCreate?: boolean;
   onCreate: () => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
 };
@@ -23,8 +23,8 @@ function normalizePayconiqStatus(status: string | null | undefined) {
 
 export function PayconiqPaymentCard({
   payment,
-  errorMessage,
   isBusy,
+  canCreate = true,
   onCreate,
   onRefresh,
 }: PayconiqPaymentCardProps) {
@@ -73,14 +73,13 @@ export function PayconiqPaymentCard({
     }
   }, [payment?.payconiq_status, payment?.status, t]);
 
-  const createDisabled = isBusy || Boolean(payment && !statusMeta.isTerminal);
+  const createDisabled = isBusy || !canCreate || Boolean(payment && !statusMeta.isTerminal);
 
   return (
     <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
       <div className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-foreground">{t("payconiqTitle")}</h2>
         <p className="text-sm text-muted">{t("payconiqHint")}</p>
-        {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
         {payment ? (
           <div className="flex flex-col gap-2 text-sm text-foreground">
             <div className="flex items-center gap-2">
@@ -101,7 +100,7 @@ export function PayconiqPaymentCard({
           </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" disabled={createDisabled} onClick={onCreate}>
+          <Button disabled={createDisabled} onClick={onCreate}>
             {t("payconiqCreateButton")}
           </Button>
           {payment ? (

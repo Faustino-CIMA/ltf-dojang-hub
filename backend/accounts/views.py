@@ -2,17 +2,19 @@ from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db import transaction
-from django.utils.encoding import force_bytes, force_str
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils import timezone
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, response, status, views
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
 
 from members.models import GradePromotionHistory, Member
 from members.services import clear_member_profile_picture
 from licenses.models import License, LicenseHistoryEvent
 
-from .email_utils import send_password_reset_email
+from .email_utils import build_password_reset_url, send_password_reset_email
 from .models import User
 from .serializers import (
     ConsentSerializer,
@@ -39,10 +41,48 @@ class LoginView(views.APIView):
     serializer_class = LoginSerializer
 
     def post(self, request):
+        from ops.detectors import run_failure_detectors, run_success_detectors
+        from ops.events import is_locked, record_auth_event
+        from ops.models import AuthEvent
+        from ops.request_utils import client_ip, touch_token_meta
+
+        username = str(request.data.get("username") or "").strip()
+        ip = client_ip(request)
+        if is_locked(username=username, ip=ip):
+            record_auth_event(
+                request,
+                AuthEvent.EventType.LOCKOUT,
+                username=username,
+                metadata={"reason": "locked"},
+            )
+            raise ValidationError("Invalid credentials")
         serializer = LoginSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as exc:
+            detail = exc.detail
+            text = str(detail)
+            if "not verified" not in text.lower():
+                record_auth_event(
+                    request,
+                    AuthEvent.EventType.LOGIN_FAILURE,
+                    username=username,
+                    metadata={"detail": "invalid"},
+                )
+                run_failure_detectors(request, username=username, ip=ip)
+            raise
         user = serializer.validated_data["user"]
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
         token, _ = Token.objects.get_or_create(user=user)
+        touch_token_meta(token, request)
+        record_auth_event(
+            request,
+            AuthEvent.EventType.LOGIN_SUCCESS,
+            username=user.username,
+            user=user,
+        )
+        run_success_detectors(request, user=user, ip=ip)
         return response.Response({"token": token.key, "user": UserSerializer(user).data})
 
 
@@ -54,7 +94,16 @@ class LogoutView(views.APIView):
     serializer_class = EmptySerializer
 
     def post(self, request):
+        from ops.events import record_auth_event
+        from ops.models import AuthEvent
+
         Token.objects.filter(user=request.user).delete()
+        record_auth_event(
+            request,
+            AuthEvent.EventType.LOGOUT,
+            username=request.user.username,
+            user=request.user,
+        )
         return response.Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -265,9 +314,7 @@ class PasswordResetRequestView(views.APIView):
 
         user = User.objects.filter(email__iexact=email).first()
         if user:
-            token = PasswordResetTokenGenerator().make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            reset_url = f"{settings.FRONTEND_BASE_URL}/{locale}/reset-password?uid={uid}&token={token}"
+            reset_url = build_password_reset_url(user, locale)
             ok, _ = send_password_reset_email(user, reset_url)
 
         return response.Response(

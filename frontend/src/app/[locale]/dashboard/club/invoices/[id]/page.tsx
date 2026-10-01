@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
+import { Check, Copy } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
+import { InvoiceCollectionsPanel } from "@/components/finance/invoice-collections-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { PayconiqPaymentCard } from "@/components/club-admin/payconiq-payment-card";
+import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { Button } from "@/components/ui/button";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Member, getMembers } from "@/lib/club-admin-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
@@ -17,22 +22,28 @@ import {
   FinanceInvoice,
   FinanceOrder,
   PayconiqPayment,
+  createClubCheckoutSession,
+  createClubCreditNote,
   createPayconiqPayment,
   getClubInvoice,
   getClubOrder,
   getPayconiqPaymentStatus,
+  sendClubInvoiceReminder,
 } from "@/lib/club-finance-api";
+import { isClubLedger, orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
-  year: number;
+  year: string;
   quantity: number;
 };
 
 export default function ClubInvoiceDetailPage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const params = useParams();
   const [invoice, setInvoice] = useState<FinanceInvoice | null>(null);
@@ -41,8 +52,13 @@ export default function ClubInvoiceDetailPage() {
   const [payconiqPayment, setPayconiqPayment] = useState<PayconiqPayment | null>(null);
   const [payconiqError, setPayconiqError] = useState<string | null>(null);
   const [isPayconiqBusy, setIsPayconiqBusy] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [invoiceNumberCopied, setInvoiceNumberCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { canRecordPayments } = useClubFinanceAccess(invoice?.club ?? null);
 
   const invoiceId = useMemo(() => {
     const rawId = params?.id;
@@ -96,6 +112,14 @@ export default function ClubInvoiceDetailPage() {
     };
   }, [invoiceId, t]);
 
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const statusMeta = useMemo(() => {
     const status = invoice?.status ?? "";
     switch (status) {
@@ -116,28 +140,80 @@ export default function ClubInvoiceDetailPage() {
     if (!order) {
       return [];
     }
+    const membersById = Object.fromEntries(members.map((member) => [member.id, member]));
     return (order.items ?? []).map((item) => {
-      const member = members.find((record) => record.id === item.license.member);
-      const memberName = member
-        ? `${member.first_name} ${member.last_name}`
-        : t("unknownMember");
-      const ltfLicenseId = member?.ltf_licenseid?.trim() || "-";
+      const display = orderItemMemberDisplay(item, membersById, t("unknownMember"));
       return {
         id: item.id,
-        memberName,
-        ltfLicenseId,
-        year: item.license.year,
+        itemLabel: orderItemLabel(item),
+        memberName: display.name,
+        ltfLicenseId: display.ltfLicenseId,
+        year: orderItemYearLabel(item),
         quantity: item.quantity,
       };
     });
   }, [order, members, t]);
 
-  const columns = [
-    { key: "memberName", header: t("memberLabel") },
-    { key: "ltfLicenseId", header: t("ltfLicenseTableLabel") },
-    { key: "year", header: t("yearLabel") },
-    { key: "quantity", header: t("qtyLabel") },
-  ];
+  const feeOnly = orderItemsAreClubFees(order?.items);
+  const columns = feeOnly
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: t("qtyLabel") },
+      ]
+    : [
+        { key: "memberName", header: t("memberLabel") },
+        { key: "ltfLicenseId", header: t("ltfLicenseTableLabel") },
+        { key: "year", header: t("yearLabel") },
+        { key: "quantity", header: t("qtyLabel") },
+      ];
+
+  const outstanding = invoice ? Number(invoice.outstanding ?? invoice.total) : 0;
+  const isOpen = invoice ? ["draft", "issued"].includes(invoice.status) && outstanding > 0 : false;
+  const clubInternal = invoice ? isClubLedger(invoice) : false;
+  const canPayFederation = isOpen && !clubInternal;
+  const canRecord = isOpen && clubInternal && canRecordPayments;
+  const isPayable = canPayFederation;
+  const linkedOrderId = invoice?.order ?? order?.id ?? null;
+
+  const handleCopyInvoiceNumber = async () => {
+    if (!invoice?.invoice_number) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(invoice.invoice_number);
+      setInvoiceNumberCopied(true);
+      if (copyResetTimeoutRef.current) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+      copyResetTimeoutRef.current = window.setTimeout(() => {
+        setInvoiceNumberCopied(false);
+        copyResetTimeoutRef.current = null;
+      }, 1600);
+    } catch {
+      setInvoiceNumberCopied(false);
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (!linkedOrderId) {
+      setPaymentError(common("paymentMissingOrder"));
+      return;
+    }
+    setPaymentError(null);
+    setIsPaying(true);
+    try {
+      const response = await createClubCheckoutSession(linkedOrderId);
+      if (response.url) {
+        window.location.href = response.url;
+        return;
+      }
+      setPaymentError(common("paymentFailed"));
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : common("paymentFailed"));
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   const handleCreatePayconiqPayment = async () => {
     if (!invoice) {
@@ -174,7 +250,7 @@ export default function ClubInvoiceDetailPage() {
   if (isLoading) {
     return (
       <ClubAdminLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </ClubAdminLayout>
     );
   }
@@ -189,17 +265,46 @@ export default function ClubInvoiceDetailPage() {
 
   return (
     <ClubAdminLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
-      <div className="mb-6">
+      <div className="space-y-6">
+      <ClubFinanceTabs />
+      <ActionNotices
+        error={paymentError || payconiqError}
+        onDismiss={() => {
+          setPaymentError(null);
+          setPayconiqError(null);
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline">
           <Link href={`/${locale}/dashboard/club/invoices`}>{t("backToInvoices")}</Link>
         </Button>
+        {canRecord ? (
+          <Button asChild variant="primary">
+            <Link href={`/${locale}/dashboard/club/payments/${invoice.id}/record`}>
+              {t("recordPaymentButton")}
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
       <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("invoiceNumberLabel")}</span>
-            <span className="font-medium">{invoice.invoice_number}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium">{invoice.invoice_number}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted hover:text-foreground"
+                onClick={() => void handleCopyInvoiceNumber()}
+                aria-label={t("copyInvoiceNumberAction")}
+                title={invoiceNumberCopied ? t("invoiceNumberCopied") : t("copyInvoiceNumberAction")}
+              >
+                {invoiceNumberCopied ? <Check /> : <Copy />}
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("statusLabel")}</span>
@@ -216,6 +321,18 @@ export default function ClubInvoiceDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("creditedTotalLabel")}</span>
+            <span className="font-medium">
+              {invoice.credited_total ?? "0.00"} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("outstandingLabel")}</span>
+            <span className="font-medium">
+              {invoice.outstanding ?? invoice.total} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("issuedAtLabel")}</span>
             <span className="font-medium">{formatDisplayDateTime(invoice.issued_at)}</span>
           </div>
@@ -224,20 +341,47 @@ export default function ClubInvoiceDetailPage() {
             <span className="font-medium">{formatDisplayDateTime(invoice.paid_at)}</span>
           </div>
         </div>
+        {order || isPayable ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {isPayable ? (
+              <Button type="button" variant="primary" onClick={() => void handlePayNow()} disabled={isPaying}>
+                {isPaying ? common("paymentProcessing") : common("payNow")}
+              </Button>
+            ) : null}
+            {order ? (
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/dashboard/club/orders/${order.id}`}>{t("openOrderAction")}</Link>
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
-      <section className="mt-6">
+      <section>
         <h2 className="mb-3 text-sm font-semibold text-foreground">{t("invoiceItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
 
-      <PayconiqPaymentCard
-        payment={payconiqPayment}
-        errorMessage={payconiqError}
-        isBusy={isPayconiqBusy}
-        onCreate={handleCreatePayconiqPayment}
-        onRefresh={handleRefreshPayconiqPayment}
-      />
+      {clubInternal || (invoice.credit_notes?.length ?? 0) > 0 ? (
+        <InvoiceCollectionsPanel
+          invoice={invoice}
+          canMutate={clubInternal && canRecordPayments}
+          onUpdated={setInvoice}
+          onCredit={(input) => createClubCreditNote(invoice.id, input)}
+          onRemind={() => sendClubInvoiceReminder(invoice.id)}
+        />
+      ) : null}
+
+      {isPayable || payconiqPayment ? (
+        <PayconiqPaymentCard
+          payment={payconiqPayment}
+          isBusy={isPayconiqBusy}
+          canCreate={isPayable}
+          onCreate={handleCreatePayconiqPayment}
+          onRefresh={handleRefreshPayconiqPayment}
+        />
+      ) : null}
+      </div>
     </ClubAdminLayout>
   );
 }

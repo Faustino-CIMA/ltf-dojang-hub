@@ -4,10 +4,11 @@ Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federat
 
 ## Release Notes
 
-This release refreshes the **HeroUI**-based dashboard chrome (v3.0.1) and delivers a focused **Club Members** experience: clearer filters with totals, safer status changes, and more practical pagination—see `CHANGELOG.md` **0.3.9** for the full list.
+This working tree is **v0.11.0**: club management (training, promotion, shop, fees, and Qualité+ subsidies) on the entitlements platform. The displayed version stays 0.11.0.
 
-- See `CHANGELOG.md` for user-facing and technical release notes.
-- Current stable release: `v0.3.9` (HeroUI v3 shell + Club Members UX, sticky top bar, stable tabs).
+- See `CHANGELOG.md` **Unreleased** for club member invoices, family bills, the grouped sidebar, and the club website. See **0.11.0** for this release, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- Current tagged release: `v0.11.0`.
+- Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
 ## CI (GitHub Actions)
 
@@ -30,8 +31,8 @@ Download links:
 - Docker Desktop (macOS): https://www.docker.com/products/docker-desktop/
 
 Optional for local (non-Docker) development:
-- Python 3.12+
-- Node 20+
+- Python 3.13+
+- Node 22+
 
 Windows (WSL) notes:
 - Use WSL2 with a Linux distro (Ubuntu recommended).
@@ -69,7 +70,7 @@ docker compose up --build
 docker compose exec backend python manage.py migrate
 ```
 
-5. Create Django superuser (admin login):
+5. Create Django superuser (ops console login). `createsuperuser` sets `is_superuser`; that is what opens the frontend ops console, not the federation role:
 
 ```
 docker compose exec backend python manage.py createsuperuser
@@ -79,6 +80,19 @@ docker compose exec backend python manage.py createsuperuser
 - Backend API: `http://localhost:8000/`
 - Swagger docs: `http://localhost:8000/api/docs/`
 - Frontend: `http://localhost:3000/`
+- Ops Modules (superuser): `http://localhost:3000/en/dashboard/ops/modules`
+
+On startup the backend runs `ensure_module_keys`. If `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` are unset, that creates one signing key in the database for this install. It does not print the key and it does not replace a key that already exists. Back up the database; that backup is the backup of the key.
+
+Open **Ops → Modules**, mint a code (Club management, Event calendar, or Preview), then redeem that `LTF1.…` value. The install id shown above the field is not a product code. Each code **adds** modules; it does not turn off modules you already have. Then assign per-club modules to a club.
+
+The same mint is available from the shell:
+
+```
+docker compose exec backend python manage.py mint_module_code --modules club_management,event_calendar
+```
+
+Set `MODULE_CODE_PUBLIC_KEY` alone only when someone else signs codes for this server. Do not call a product code a license.
 
 ## Verify Install
 
@@ -126,19 +140,19 @@ docker compose -f docker-compose.yml -f docker-compose.pgbouncer.yml up -d --bui
 - This profile switches Django DB host to `pgbouncer` and sets `DJANGO_DB_CONN_MAX_AGE=0`.
 
 What the services are:
-- `frontend`: Next.js UI (accessible at `http://localhost:3000/`)
-- `backend`: Django API (accessible at `http://localhost:8000/`)
+- `frontend`: Next.js UI (accessible at `http://localhost:3000/`). UI changes need `docker compose up -d --build frontend` because the image has no source volume.
+- `backend`: Django API (accessible at `http://localhost:8000/`). Superuser ops console is `/{locale}/dashboard/ops`.
 - `db`: PostgreSQL database (data stored in a volume)
 - `redis`: Redis message broker/cache
-- `worker`: Celery background jobs (runs tasks like invoice emails)
-- `beat`: Celery scheduler (runs periodic jobs like license expiry reconciliation)
+- `worker`: Celery background jobs (runs tasks like invoice emails). Shares the `ltf-license-manager-backend` image with backend and beat.
+- `beat`: Celery scheduler (runs periodic jobs like license expiry reconciliation). Same image as backend/worker.
 
 Important volumes:
 - `postgres_data`: keeps your database data between restarts.
 - `redis_data`: keeps Redis data between restarts (AOF enabled).
 - `staticfiles_data`: stores collected static files from Django.
 - `mediafiles_data`: stores uploaded member media files (profile pictures).
-- `.cursor` bind‑mount: used for runtime debug logs (keep it if debugging is enabled).
+- Backend, worker, and beat use the built image (Coolify/VPS). Frontend message catalogs are copied into the image at `/app/i18n_frontend`. For local live code, add mounts in a gitignored `docker-compose.override.yml`.
 
 Compose user mapping (Linux):
 - `LOCAL_UID` and `LOCAL_GID` map container user permissions to your host user.
@@ -233,7 +247,7 @@ Stripe + payments:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_API_VERSION` (default `2026-01-28.clover`)
-- `STRIPE_CHECKOUT_SUCCESS_URL`
+- `STRIPE_CHECKOUT_SUCCESS_URL` (session id is appended automatically if missing)
 - `STRIPE_CHECKOUT_CANCEL_URL`
 
 Payconiq (mock + aggregator):
@@ -295,7 +309,12 @@ Performance:
 
 Encryption:
 - `FERNET_KEYS` (optional, comma-separated keys for encrypted finance fields)
-- If not set, the app derives one key from `DJANGO_SECRET_KEY` for local/dev.
+- If the variable is omitted, the app derives one key from `DJANGO_SECRET_KEY`. An empty `FERNET_KEYS=` does not use that default.
+
+Product codes (not member licenses):
+- Leave `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` unset. Startup runs `ensure_module_keys` and stores one signing key in the database. Back up the database to keep it.
+- Set `MODULE_CODE_PUBLIC_KEY` alone when another party signs codes for this server. Minting stays off.
+- Set both only to bring an existing keypair from another server. Those values override the database key.
 
 ## Finance Module Setup (Stripe + Webhooks + Celery)
 
@@ -530,7 +549,9 @@ Member history endpoints:
 - `GET /api/members/{id}/history/` (combined license + grade history)
 - `GET /api/members/{id}/license-history/`
 - `GET /api/members/{id}/grade-history/`
-- `POST /api/members/{id}/promote-grade/` (LTF Admin / Club Admin / Coach)
+- `POST /api/members/{id}/promote-grade/` (Club Admin / Coach)
+- `PATCH /api/members/{id}/grade-history/{history_id}/` (Club Admin / Coach)
+- `DELETE /api/members/{id}/grade-history/{history_id}/` (Club Admin / Coach)
 
 Role access:
 - Member: own history only
@@ -544,7 +565,8 @@ GDPR notes:
 
 Audit + immutability:
 - `License` uses `django-simple-history` (`HistoricalLicense`) for field-level change history
-- `LicenseHistoryEvent` and `GradePromotionHistory` are append-only business timelines
+- `LicenseHistoryEvent` is an append-only business timeline
+- `GradePromotionHistory` is managed from the Grades section (add, edit, delete). Direct model `delete()` stays blocked; the API delete path removes a mistaken entry and syncs the member’s current belt rank from the latest remaining promotion. Official grades are the standard Kup / Poom / Dan list only.
 
 ## Profile Picture Upload + Editing
 

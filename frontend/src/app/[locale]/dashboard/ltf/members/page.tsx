@@ -1,128 +1,144 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { X } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
-import { Button } from "@/components/ui/button";
+import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { formatDisplayDate } from "@/lib/date-display";
+  ListActionsRow,
+  ListPagination,
+  ListToolbarPanel,
+  PageSizeSelect,
+  resolveListPageSize,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { useClubSelection } from "@/components/club-selection-provider";
 import {
   Club,
-  License,
   Member,
+  MemberIssueFilter,
   getClubs,
-  getLicensesList,
   getMembersPage,
 } from "@/lib/ltf-admin-api";
 
-const pageSizeOptions = ["10", "25", "50", "100", "150", "200"];
-
-type MemberGroup = {
-  member: Member;
-  licenses: License[];
-  total: number;
-  activeCount: number;
-  pendingCount: number;
-  expiredCount: number;
-  revokedCount: number;
-};
-
-type ClubGroup = {
-  clubId: number;
-  clubName: string;
-  members: MemberGroup[];
-  totalMembers: number;
-  totalLicenses: number;
-  activeCount: number;
-  pendingCount: number;
-  expiredCount: number;
-  revokedCount: number;
-};
-
-function getStatusChipClasses(status: License["status"]): string {
-  if (status === "active") {
-    return "badge-success";
+function parseMemberIssue(value: string | null): MemberIssueFilter | null {
+  if (value === "no_valid_license" || value === "missing_ltf_licenseid") {
+    return value;
   }
-  if (status === "pending") {
-    return "badge-warning";
-  }
-  if (status === "expired") {
-    return "border-border bg-secondary text-muted";
-  }
-  return "badge-danger";
+  return null;
 }
 
-function formatIssuedAt(value: string | null): string {
-  if (!value) {
-    return "-";
-  }
-  return formatDisplayDate(value);
-}
+type MemberStatusFilter = "all" | "active" | "inactive";
 
 export default function LtfAdminMembersPage() {
   const t = useTranslations("LtfAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const locale = pathname?.split("/")[1] || "en";
+  const issue = parseMemberIssue(searchParams.get("issue"));
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [licenses, setLicenses] = useState<License[]>([]);
-  const [expandedClubIds, setExpandedClubIds] = useState<number[]>([]);
-  const [expandedMemberIds, setExpandedMemberIds] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState("25");
+  const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [memberFacetCounts, setMemberFacetCounts] = useState({
+    all: 0,
+    active: 0,
+    inactive: 0,
+  });
+  const { selectedClubId } = useClubSelection();
+
+  const membersListPageSize = useMemo(
+    () => resolveListPageSize(pageSize, totalCount),
+    [pageSize, totalCount]
+  );
+
+  const isActiveFilter = useMemo(() => {
+    if (memberStatusFilter === "all") {
+      return undefined;
+    }
+    return memberStatusFilter === "active";
+  }, [memberStatusFilter]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
+    const q = searchQuery || undefined;
+    const clubId = selectedClubId ?? undefined;
     try {
-      const [clubsResponse, membersResponse] = await Promise.all([
-        getClubs(),
-        getMembersPage({
-          page: currentPage,
-          pageSize: Number(pageSize),
-          q: searchQuery || undefined,
-          isActive: true,
-        }),
-      ]);
+      const [clubsResponse, membersResponse, allCountRes, activeCountRes, inactiveCountRes] =
+        await Promise.all([
+          getClubs(),
+          getMembersPage({
+            page: currentPage,
+            pageSize: membersListPageSize,
+            q,
+            clubId,
+            isActive: isActiveFilter,
+            issue: issue ?? undefined,
+          }),
+          getMembersPage({
+            page: 1,
+            pageSize: 1,
+            q,
+            clubId,
+            isActive: undefined,
+            issue: issue ?? undefined,
+          }),
+          getMembersPage({
+            page: 1,
+            pageSize: 1,
+            q,
+            clubId,
+            isActive: true,
+            issue: issue ?? undefined,
+          }),
+          getMembersPage({
+            page: 1,
+            pageSize: 1,
+            q,
+            clubId,
+            isActive: false,
+            issue: issue ?? undefined,
+          }),
+        ]);
       setClubs(clubsResponse);
       setMembers(membersResponse.results);
       setTotalCount(membersResponse.count);
-      const memberIds = membersResponse.results.map((member) => member.id);
-      if (memberIds.length > 0) {
-        const licensesResponse = await getLicensesList({ memberIds });
-        setLicenses(licensesResponse);
-      } else {
-        setLicenses([]);
-      }
+      setMemberFacetCounts({
+        all: allCountRes.count,
+        active: activeCountRes.count,
+        inactive: inactiveCountRes.count,
+      });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to load members.");
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, pageSize, searchQuery]);
+  }, [currentPage, isActiveFilter, issue, membersListPageSize, searchQuery, selectedClubId]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -134,457 +150,177 @@ export default function LtfAdminMembersPage() {
   }, [searchInput]);
 
   const clubById = useMemo(() => new Map(clubs.map((club) => [club.id, club])), [clubs]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / membersListPageSize));
 
-  const licensesByMember = useMemo(() => {
-    const grouped = new Map<number, License[]>();
-    for (const license of licenses) {
-      const memberLicenses = grouped.get(license.member);
-      if (memberLicenses) {
-        memberLicenses.push(license);
-      } else {
-        grouped.set(license.member, [license]);
-      }
-    }
-    for (const memberLicenses of grouped.values()) {
-      memberLicenses.sort((left, right) => {
-        const byYear = right.year - left.year;
-        if (byYear !== 0) {
-          return byYear;
-        }
-        return right.id - left.id;
-      });
-    }
-    return grouped;
-  }, [licenses]);
-
-  const groupedClubRows = useMemo<ClubGroup[]>(() => {
-    const grouped = new Map<number, { clubName: string; members: Member[] }>();
-    for (const member of members) {
-      const clubName = clubById.get(member.club)?.name ?? t("unknownClub");
-      const current = grouped.get(member.club);
-      if (current) {
-        current.members.push(member);
-      } else {
-        grouped.set(member.club, { clubName, members: [member] });
-      }
-    }
-
-    return Array.from(grouped.entries())
-      .map(([clubId, entry]) => {
-        const memberGroups = [...entry.members]
-          .sort((left, right) => {
-            const byFirstName = left.first_name.localeCompare(right.first_name);
-            if (byFirstName !== 0) {
-              return byFirstName;
-            }
-            return left.last_name.localeCompare(right.last_name);
-          })
-          .map((member) => {
-            const memberLicenses = licensesByMember.get(member.id) ?? [];
-            const activeCount = memberLicenses.filter((license) => license.status === "active").length;
-            const pendingCount = memberLicenses.filter((license) => license.status === "pending").length;
-            const expiredCount = memberLicenses.filter((license) => license.status === "expired").length;
-            const revokedCount = memberLicenses.filter((license) => license.status === "revoked").length;
-            return {
-              member,
-              licenses: memberLicenses,
-              total: memberLicenses.length,
-              activeCount,
-              pendingCount,
-              expiredCount,
-              revokedCount,
-            };
-          });
-
-        const totalLicenses = memberGroups.reduce((sum, memberGroup) => sum + memberGroup.total, 0);
-        const activeCount = memberGroups.reduce(
-          (sum, memberGroup) => sum + memberGroup.activeCount,
-          0
-        );
-        const pendingCount = memberGroups.reduce(
-          (sum, memberGroup) => sum + memberGroup.pendingCount,
-          0
-        );
-        const expiredCount = memberGroups.reduce(
-          (sum, memberGroup) => sum + memberGroup.expiredCount,
-          0
-        );
-        const revokedCount = memberGroups.reduce(
-          (sum, memberGroup) => sum + memberGroup.revokedCount,
-          0
-        );
-
-        return {
-          clubId,
-          clubName: entry.clubName,
-          members: memberGroups,
-          totalMembers: memberGroups.length,
-          totalLicenses,
-          activeCount,
-          pendingCount,
-          expiredCount,
-          revokedCount,
-        };
-      })
-      .sort((left, right) => left.clubName.localeCompare(right.clubName));
-  }, [clubById, licensesByMember, members, t]);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / Number(pageSize)));
-  const pagedClubRows = groupedClubRows;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [pageSize, searchQuery]);
-
-  useEffect(() => {
-    const validClubIds = new Set(groupedClubRows.map((clubGroup) => clubGroup.clubId));
-    setExpandedClubIds((previous) => previous.filter((clubId) => validClubIds.has(clubId)));
-    const validMemberIds = new Set(
-      groupedClubRows.flatMap((clubGroup) =>
-        clubGroup.members.map((memberGroup) => memberGroup.member.id)
-      )
-    );
-    setExpandedMemberIds((previous) =>
-      previous.filter((memberId) => validMemberIds.has(memberId))
-    );
-  }, [groupedClubRows]);
-
-  const expandedClubSet = useMemo(() => new Set(expandedClubIds), [expandedClubIds]);
-  const expandedMemberSet = useMemo(() => new Set(expandedMemberIds), [expandedMemberIds]);
-
-  const visibleClubIds = useMemo(() => pagedClubRows.map((clubGroup) => clubGroup.clubId), [pagedClubRows]);
-  const visibleMemberIds = useMemo(
-    () =>
-      pagedClubRows.flatMap((clubGroup) =>
-        clubGroup.members.map((memberGroup) => memberGroup.member.id)
-      ),
-    [pagedClubRows]
-  );
-
-  const toggleClubExpanded = (clubId: number) => {
-    setExpandedClubIds((previous) =>
-      previous.includes(clubId)
-        ? previous.filter((item) => item !== clubId)
-        : [...previous, clubId]
-    );
+  const dismissIssueFilter = () => {
+    router.replace(`/${locale}/dashboard/ltf/members`);
   };
 
-  const toggleMemberExpanded = (memberId: number) => {
-    setExpandedMemberIds((previous) =>
-      previous.includes(memberId)
-        ? previous.filter((item) => item !== memberId)
-        : [...previous, memberId]
-    );
-  };
-
-  const expandAllVisibleClubs = () => {
-    setExpandedClubIds((previous) => Array.from(new Set([...previous, ...visibleClubIds])));
-  };
-
-  const collapseAllVisibleClubs = () => {
-    const visibleClubIdSet = new Set(visibleClubIds);
-    const visibleMemberIdSet = new Set(visibleMemberIds);
-    setExpandedClubIds((previous) => previous.filter((clubId) => !visibleClubIdSet.has(clubId)));
-    setExpandedMemberIds((previous) =>
-      previous.filter((memberId) => !visibleMemberIdSet.has(memberId))
-    );
-  };
-
-  const expandAllVisibleMembers = () => {
-    setExpandedClubIds((previous) => Array.from(new Set([...previous, ...visibleClubIds])));
-    setExpandedMemberIds((previous) => Array.from(new Set([...previous, ...visibleMemberIds])));
-  };
-
-  const collapseAllVisibleMembers = () => {
-    const visibleMemberIdSet = new Set(visibleMemberIds);
-    setExpandedMemberIds((previous) =>
-      previous.filter((memberId) => !visibleMemberIdSet.has(memberId))
-    );
-  };
-
-  const getStatusLabel = useCallback(
-    (status: License["status"]) => {
+  const getLicenseStatusMeta = useCallback(
+    (status: string) => {
       if (status === "active") {
-        return t("statusActive");
+        return { label: t("statusActive"), tone: "success" as const };
       }
       if (status === "pending") {
-        return t("statusPending");
+        return { label: t("statusPending"), tone: "warning" as const };
       }
       if (status === "expired") {
-        return t("statusExpired");
+        return { label: t("statusExpired"), tone: "neutral" as const };
       }
-      return t("statusRevoked");
+      return { label: t("statusRevoked"), tone: "danger" as const };
     },
     [t]
   );
 
+  const columns = useMemo(
+    () => [
+      {
+        key: "name",
+        header: t("memberLabel"),
+        render: (row: Member) => (
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>{`${row.first_name} ${row.last_name}`}</span>
+            {row.is_club_tourist ? <StatusBadge label={t("clubTouristBadge")} tone="warning" /> : null}
+          </span>
+        ),
+      },
+      {
+        key: "club",
+        header: t("clubLabel"),
+        render: (row: Member) => clubById.get(row.club)?.name ?? t("unknownClub"),
+      },
+      {
+        key: "ltf_licenseid",
+        header: t("ltfLicenseLabel"),
+        render: (row: Member) => row.ltf_licenseid || "-",
+      },
+      {
+        key: "belt_rank",
+        header: t("beltRankLabel"),
+        render: (row: Member) => row.belt_rank || "-",
+      },
+      {
+        key: "is_active",
+        header: t("statusLabel"),
+        render: (row: Member) => (
+          <StatusBadge
+            label={row.is_active ? t("activeLabel") : t("inactiveLabel")}
+            tone={row.is_active ? "success" : "neutral"}
+          />
+        ),
+      },
+      {
+        key: "current_license",
+        header: t("licensesTitle"),
+        render: (row: Member) => {
+          const current = row.current_licenses?.[0];
+          if (!current) {
+            return "-";
+          }
+          const meta = getLicenseStatusMeta(current.status);
+          const extra = (row.current_licenses?.length ?? 0) > 1
+            ? ` +${(row.current_licenses?.length ?? 0) - 1}`
+            : "";
+          return (
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span className="text-sm">{current.year}</span>
+              <StatusBadge label={`${meta.label}${extra}`} tone={meta.tone} />
+            </span>
+          );
+        },
+      },
+    ],
+    [clubById, getLicenseStatusMeta, t]
+  );
+
   return (
     <LtfAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")}>
-      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              className="w-full max-w-xs"
-              placeholder={t("searchMembersPlaceholder")}
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            <Select value={pageSize} onValueChange={setPageSize}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder={common("rowsPerPageLabel")} />
-              </SelectTrigger>
-              <SelectContent>
-                {pageSizeOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option === "all" ? common("rowsPerPageAll") : option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={visibleClubIds.length === 0}
-              onClick={expandAllVisibleClubs}
+      <div className="space-y-6">
+        {issue ? (
+          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+            <p className="min-w-0 flex-1">
+              {issue === "no_valid_license"
+                ? t("membersWithoutValidLicenseFilterMessage")
+                : t("membersMissingLtfLicenseIdFilterMessage")}
+            </p>
+            <button
+              type="button"
+              className="inline-flex h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-form)]"
+              aria-label={common("modalClose")}
+              onClick={dismissIssueFilter}
             >
-              {t("expandAllClubs")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={visibleClubIds.length === 0}
-              onClick={collapseAllVisibleClubs}
-            >
-              {t("collapseAllClubs")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={visibleMemberIds.length === 0}
-              onClick={expandAllVisibleMembers}
-            >
-              {t("expandAllMembers")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={visibleMemberIds.length === 0}
-              onClick={collapseAllVisibleMembers}
-            >
-              {t("collapseAllMembers")}
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="space-y-1 text-xs text-muted">
-            <p>{t("membersReadOnlyHint")}</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted">
-            {t("pageLabel", { current: currentPage, total: totalPages })}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
-            >
-              {t("previousPage")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
-            >
-              {t("nextPage")}
-            </Button>
-          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-4">
+          <ListToolbarPanel
+            search={
+              <Input
+                className="w-full max-w-xs"
+                placeholder={t("searchMembersPlaceholder")}
+                aria-label={t("searchMembersPlaceholder")}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+            }
+            pageSize={
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
+              />
+            }
+            filters={
+              issue ? undefined : (
+                <FilterPills
+                  ariaLabel={t("membersStatusFilterAriaLabel")}
+                  value={memberStatusFilter}
+                  onChange={setMemberStatusFilter}
+                  options={[
+                    { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
+                    { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
+                    {
+                      value: "inactive",
+                      title: t("filterInactiveTitle"),
+                      count: memberFacetCounts.inactive,
+                    },
+                  ]}
+                />
+              )
+            }
+          />
+
+          <ListActionsRow
+            actions={<p className="text-sm text-muted">{t("membersReadOnlyHint")}</p>}
+            pagination={
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPrevious={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
+                onNext={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
+                pageLabel={t("pageLabel", { current: currentPage, total: totalPages })}
+                previousLabel={t("previousPage")}
+                nextLabel={t("nextPage")}
+              />
+            }
+          />
         </div>
 
         {isLoading ? (
-          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
-        ) : groupedClubRows.length === 0 ? (
+          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
+        ) : members.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noMembersResultsSubtitle")} />
         ) : (
-          <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card shadow-sm">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                <tr>
-                  <th className="w-10 px-4 py-3 font-medium" />
-                  <th className="px-4 py-3 font-medium">{t("clubLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("totalMembers")}</th>
-                  <th className="px-4 py-3 font-medium">{t("licensesTitle")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusActive")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusPending")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusExpired")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusRevoked")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {pagedClubRows.map((clubGroup) => {
-                  const clubExpanded = expandedClubSet.has(clubGroup.clubId);
-                  return (
-                    <Fragment key={clubGroup.clubId}>
-                      <tr
-                        className="cursor-pointer text-foreground hover:bg-secondary"
-                        onClick={() => toggleClubExpanded(clubGroup.clubId)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            toggleClubExpanded(clubGroup.clubId);
-                          }
-                        }}
-                        tabIndex={0}
-                        role="button"
-                        aria-expanded={clubExpanded}
-                      >
-                        <td className="px-4 py-3 text-muted">
-                          {clubExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 font-medium">{clubGroup.clubName}</td>
-                        <td className="px-4 py-3">{clubGroup.totalMembers}</td>
-                        <td className="px-4 py-3">{clubGroup.totalLicenses}</td>
-                        <td className="px-4 py-3">{clubGroup.activeCount}</td>
-                        <td className="px-4 py-3">{clubGroup.pendingCount}</td>
-                        <td className="px-4 py-3">{clubGroup.expiredCount}</td>
-                        <td className="px-4 py-3">{clubGroup.revokedCount}</td>
-                      </tr>
-                      {clubExpanded ? (
-                        <tr className="bg-secondary/60">
-                          <td colSpan={8} className="px-6 py-3">
-                            <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card">
-                              <table className="min-w-full text-left text-sm">
-                                <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                                  <tr>
-                                    <th className="w-10 px-4 py-2 font-medium" />
-                                    <th className="px-4 py-2 font-medium">{t("memberLabel")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("beltRankLabel")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("ltfLicenseLabel")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("licensesTitle")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusActive")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusPending")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusExpired")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusRevoked")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("actionsLabel")}</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                  {clubGroup.members.map((memberGroup) => {
-                                    const memberExpanded = expandedMemberSet.has(
-                                      memberGroup.member.id
-                                    );
-                                    return (
-                                      <Fragment key={memberGroup.member.id}>
-                                        <tr
-                                          className="cursor-pointer text-foreground hover:bg-secondary"
-                                          onClick={() => toggleMemberExpanded(memberGroup.member.id)}
-                                          onKeyDown={(event) => {
-                                            if (event.key === "Enter" || event.key === " ") {
-                                              event.preventDefault();
-                                              toggleMemberExpanded(memberGroup.member.id);
-                                            }
-                                          }}
-                                          tabIndex={0}
-                                          role="button"
-                                          aria-expanded={memberExpanded}
-                                        >
-                                          <td className="px-4 py-2 text-muted">
-                                            {memberExpanded ? (
-                                              <ChevronDown className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronRight className="h-4 w-4" />
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-2 font-medium">
-                                            {memberGroup.member.first_name} {memberGroup.member.last_name}
-                                          </td>
-                                          <td className="px-4 py-2">
-                                            {memberGroup.member.belt_rank || "-"}
-                                          </td>
-                                          <td className="px-4 py-2">
-                                            {memberGroup.member.ltf_licenseid || "-"}
-                                          </td>
-                                          <td className="px-4 py-2">{memberGroup.total}</td>
-                                          <td className="px-4 py-2">{memberGroup.activeCount}</td>
-                                          <td className="px-4 py-2">{memberGroup.pendingCount}</td>
-                                          <td className="px-4 py-2">{memberGroup.expiredCount}</td>
-                                          <td className="px-4 py-2">{memberGroup.revokedCount}</td>
-                                          <td className="px-4 py-2" onClick={(event) => event.stopPropagation()}>
-                                            <Button variant="outline" size="sm" asChild>
-                                              <Link
-                                                href={`/${locale}/dashboard/ltf/members/${memberGroup.member.id}`}
-                                              >
-                                                {t("viewMemberAction")}
-                                              </Link>
-                                            </Button>
-                                          </td>
-                                        </tr>
-                                        {memberExpanded ? (
-                                          <tr className="bg-secondary/50">
-                                            <td colSpan={10} className="px-6 py-3">
-                                              {memberGroup.licenses.length === 0 ? (
-                                                <p className="text-sm text-muted">
-                                                  {t("noMemberLicensesSubtitle")}
-                                                </p>
-                                              ) : (
-                                                <div className="overflow-x-auto rounded-[var(--radius-form)] border border-border bg-card">
-                                                  <table className="min-w-full text-left text-sm">
-                                                    <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                                                      <tr>
-                                                        <th className="px-4 py-2 font-medium">
-                                                          {t("yearLabel")}
-                                                        </th>
-                                                        <th className="px-4 py-2 font-medium">
-                                                          {t("statusLabel")}
-                                                        </th>
-                                                        <th className="px-4 py-2 font-medium">
-                                                          {t("issuedAtLabel")}
-                                                        </th>
-                                                      </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-border">
-                                                      {memberGroup.licenses.map((license) => (
-                                                        <tr key={license.id} className="text-foreground">
-                                                          <td className="px-4 py-2">{license.year}</td>
-                                                          <td className="px-4 py-2">
-                                                            <span
-                                                              className={`inline-flex rounded-[var(--radius-form)] border px-2.5 py-1 text-xs font-medium ${getStatusChipClasses(
-                                                                license.status
-                                                              )}`}
-                                                            >
-                                                              {getStatusLabel(license.status)}
-                                                            </span>
-                                                          </td>
-                                                          <td className="px-4 py-2">
-                                                            {formatIssuedAt(license.issued_at)}
-                                                          </td>
-                                                        </tr>
-                                                      ))}
-                                                    </tbody>
-                                                  </table>
-                                                </div>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        ) : null}
-                                      </Fragment>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <EntityTable
+            columns={columns}
+            rows={members}
+            onRowClick={(member) => router.push(`/${locale}/dashboard/ltf/members/${member.id}`)}
+          />
         )}
       </div>
     </LtfAdminLayout>

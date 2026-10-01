@@ -9,22 +9,34 @@ import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
+import {
+  FormPanel,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { InvoiceCollectionsPanel } from "@/components/finance/invoice-collections-panel";
 import {
   FinanceInvoice,
   FinanceOrder,
   Member,
+  createFinanceCreditNote,
   getFinanceInvoice,
   getFinanceMembers,
   getFinanceOrder,
+  orderItemLabel,
+  orderItemMemberDisplay,
+  orderItemsAreClubFees,
+  orderItemYearLabel,
+  sendFinanceInvoiceReminder,
 } from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
-  year: number;
+  year: string;
   quantity: number;
 };
 
@@ -118,20 +130,17 @@ export default function LtfFinanceInvoiceDetailPage() {
     if (!order) {
       return [];
     }
-    return (order.items ?? []).map((item) => ({
-      id: item.id,
-      memberName: item.license.member
-        ? `${memberById[item.license.member]?.first_name ?? ""} ${
-            memberById[item.license.member]?.last_name ?? ""
-          }`.trim() || "-"
-        : "-",
-      ltfLicenseId:
-        (item.license.member
-          ? memberById[item.license.member]?.ltf_licenseid?.trim()
-          : "") || "-",
-      year: item.license.year,
-      quantity: item.quantity,
-    }));
+    return (order.items ?? []).map((item) => {
+      const display = orderItemMemberDisplay(item, memberById, "-");
+      return {
+        id: item.id,
+        itemLabel: orderItemLabel(item),
+        memberName: display.name,
+        ltfLicenseId: display.ltfLicenseId,
+        year: orderItemYearLabel(item),
+        quantity: item.quantity,
+      };
+    });
   }, [order, memberById]);
 
   const totalQuantity = useMemo(() => {
@@ -141,17 +150,27 @@ export default function LtfFinanceInvoiceDetailPage() {
     return (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0);
   }, [order]);
 
-  const columns = [
-    { key: "memberName", header: t("memberLabel") },
-    { key: "ltfLicenseId", header: t("ltfLicenseLabel") },
-    { key: "year", header: t("yearLabel") },
-    { key: "quantity", header: common("qtyLabel") },
-  ];
+  const outstanding = invoice ? Number(invoice.outstanding ?? invoice.total) : 0;
+  const canRecord = invoice
+    ? invoice.status !== "paid" && invoice.status !== "void" && outstanding > 0
+    : false;
+  const feeOnly = orderItemsAreClubFees(order?.items);
+  const columns = feeOnly
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: common("qtyLabel") },
+      ]
+    : [
+        { key: "memberName", header: t("memberLabel") },
+        { key: "ltfLicenseId", header: t("ltfLicenseLabel") },
+        { key: "year", header: t("yearLabel") },
+        { key: "quantity", header: common("qtyLabel") },
+      ];
 
   if (isLoading) {
     return (
       <LtfFinanceLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfFinanceLayout>
     );
   }
@@ -166,13 +185,22 @@ export default function LtfFinanceInvoiceDetailPage() {
 
   return (
     <LtfFinanceLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
-      <div className="mb-6">
-        <Button asChild variant="outline">
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" className="w-fit">
           <Link href={`/${locale}/dashboard/ltf-finance/invoices`}>{t("backToInvoices")}</Link>
         </Button>
+        {canRecord ? (
+          <Button asChild variant="primary">
+            <Link href={`/${locale}/dashboard/ltf-finance/payments/${invoice.id}/record`}>
+              {t("recordPaymentButton")}
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+
+      <FormPanel>
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("invoiceNumberLabel")}</span>
@@ -193,6 +221,18 @@ export default function LtfFinanceInvoiceDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("creditedTotalLabel")}</span>
+            <span className="font-medium">
+              {invoice.credited_total ?? "0.00"} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t("outstandingLabel")}</span>
+            <span className="font-medium">
+              {invoice.outstanding ?? invoice.total} {invoice.currency}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("issuedAtLabel")}</span>
             <span className="font-medium">
               {formatDisplayDateTime(invoice.issued_at)}
@@ -205,16 +245,24 @@ export default function LtfFinanceInvoiceDetailPage() {
             </span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted">{t("totalLicensesLabel")}</span>
+            <span className="text-xs text-muted">{feeOnly ? t("totalItemsLabel") : t("totalLicensesLabel")}</span>
             <span className="font-medium">{totalQuantity}</span>
           </div>
         </div>
-      </section>
+      </FormPanel>
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">{t("invoiceItemsTitle")}</h2>
+      <section className="space-y-3">
+        <h2 className="text-section text-foreground">{t("invoiceItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
+
+      <InvoiceCollectionsPanel
+        invoice={invoice}
+        canMutate
+        onUpdated={setInvoice}
+        onCredit={(input) => createFinanceCreditNote(invoice.id, input)}
+        onRemind={() => sendFinanceInvoiceReminder(invoice.id)}
+      />
     </LtfFinanceLayout>
   );
 }

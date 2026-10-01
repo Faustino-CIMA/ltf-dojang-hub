@@ -14,16 +14,25 @@ class Member(models.Model):
         FEMALE = "F", _("Female")
 
     class LicenseRole(models.TextChoices):
-        ATHLETE = "athlete", _("Athlete")
-        COACH = "coach", _("Coach")
-        REFEREE = "referee", _("Referee")
-        OFFICIAL = "official", _("Official")
-        DOCTOR = "doctor", _("Doctor")
-        PHYSIOTHERAPIST = "physiotherapist", _("Physiotherapist")
-        VOLUNTEER = "volunteer", _("Volunteer")
-        STAFF = "staff", _("Staff")
-        MEDIA = "media", _("Media")
-        FAN = "fan", _("Fan")
+        ATHLETE = "Athlete", _("Athlete")
+        COACH = "Coach", _("Coach")
+        REFEREE = "Referee", _("Referee")
+        OFFICIAL = "Official", _("Official")
+        DOCTOR = "Doctor", _("Doctor")
+        PHYSIOTHERAPIST = "Physiotherapist", _("Physiotherapist")
+        VOLUNTEER = "Volunteer", _("Volunteer")
+        STAFF = "Staff", _("Staff")
+        MEDIA = "Media", _("Media")
+        FAN = "Fan", _("Fan")
+
+    @classmethod
+    def canonicalize_license_role(cls, value) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return ""
+        collapsed = " ".join(raw.lower().replace("_", " ").replace("-", " ").split())
+        lookup = {str(choice.value).lower(): str(choice.value) for choice in cls.LicenseRole}
+        return lookup.get(collapsed, "")
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -134,6 +143,12 @@ class Member(models.Model):
                 else:
                     formatted_words.append(word.upper())
             self.last_name = " ".join(formatted_words)
+        primary_role = self.canonicalize_license_role(self.primary_license_role)
+        if primary_role:
+            self.primary_license_role = primary_role
+        secondary_role = self.canonicalize_license_role(self.secondary_license_role)
+        if secondary_role:
+            self.secondary_license_role = secondary_role
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -173,6 +188,7 @@ class GradePromotionHistory(models.Model):
     exam_date = models.DateField(null=True, blank=True)
     proof_ref = models.CharField(max_length=255, blank=True)
     notes = models.TextField(blank=True)
+    created_by = models.CharField(max_length=255, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -218,8 +234,6 @@ class GradePromotionHistory(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        if not self._state.adding:
-            raise ValidationError(_("Grade promotion history is append-only."))
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -228,3 +242,80 @@ class GradePromotionHistory(models.Model):
 
     def __str__(self):
         return f"{self.member} · {self.from_grade} -> {self.to_grade}"
+
+
+class MemberTransfer(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        COMPLETED = "completed", "Completed"
+        REJECTED = "rejected", "Rejected"
+        CANCELLED = "cancelled", "Cancelled"
+
+    member = models.ForeignKey(Member, on_delete=models.PROTECT, related_name="transfers")
+    from_club = models.ForeignKey(
+        Club, on_delete=models.PROTECT, related_name="outgoing_member_transfers"
+    )
+    to_club = models.ForeignKey(
+        Club, on_delete=models.PROTECT, related_name="incoming_member_transfers"
+    )
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="initiated_member_transfers",
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_member_transfers",
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fee_currency = models.CharField(max_length=3, default="EUR")
+    note = models.TextField(blank=True)
+    ltf_notified = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="mtr_status_created_idx"),
+            models.Index(fields=["from_club", "status"], name="mtr_from_status_idx"),
+            models.Index(fields=["to_club", "status"], name="mtr_to_status_idx"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member"],
+                condition=models.Q(status="pending"),
+                name="unique_pending_member_transfer",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(from_club=models.F("to_club")),
+                name="member_transfer_clubs_must_differ",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.member} {self.from_club} -> {self.to_club} ({self.status})"
+
+
+class MemberTransferMessage(models.Model):
+    transfer = models.ForeignKey(
+        MemberTransfer, on_delete=models.CASCADE, related_name="messages"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="member_transfer_messages",
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Message on transfer {self.transfer_id}"

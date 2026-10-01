@@ -1,19 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  LIST_PAGE_SIZE_CAP,
+  ListActionsRow,
+  ListPagination,
+  ListToolbarPanel,
+  PageSizeSelect,
+  resolveListPageSize,
+  ActionNotices,
+} from "@/components/ui/list-page-chrome";
+import { auditActionLabel } from "@/lib/audit-log";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import {
   FinanceAuditLog,
@@ -24,17 +33,17 @@ import {
 export default function LtfFinanceAuditLogPage() {
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
+  const locale = useLocale();
+  const router = useRouter();
   const [logs, setLogs] = useState<FinanceAuditLog[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState("25");
+  const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const requestAbortRef = useRef<AbortController | null>(null);
-
-  const pageSizeOptions = ["10", "25", "50", "100", "150", "200", "all"];
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -67,7 +76,7 @@ export default function LtfFinanceAuditLogPage() {
         const response = await getFinanceAuditLogsPage(
           {
             page: currentPage,
-            pageSize: Number(pageSize),
+            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
             q: normalizedSearch,
           },
           { signal: controller.signal }
@@ -101,12 +110,9 @@ export default function LtfFinanceAuditLogPage() {
     };
   }, []);
 
-  const resolvedPageSize =
-    pageSize === "all" ? Math.max(totalCount, 1) : Number(pageSize);
+  const resolvedPageSize = resolveListPageSize(pageSize, totalCount);
   const totalPages =
-    pageSize === "all"
-      ? 1
-      : Math.max(1, Math.ceil(totalCount / resolvedPageSize));
+    pageSize === "all" ? 1 : Math.max(1, Math.ceil(totalCount / resolvedPageSize));
 
   useEffect(() => {
     setCurrentPage(1);
@@ -124,85 +130,68 @@ export default function LtfFinanceAuditLogPage() {
       header: t("createdAtLabel"),
       render: (row: FinanceAuditLog) => formatDisplayDateTime(row.created_at),
     },
-    { key: "action", header: t("actionLabel") },
+    {
+      key: "action",
+      header: t("actionLabel"),
+      render: (row: FinanceAuditLog) => auditActionLabel(row.action, t),
+    },
     {
       key: "message",
       header: t("messageLabel"),
       render: (row: FinanceAuditLog) => row.message || "-",
     },
-    {
-      key: "actor",
-      header: t("actorLabel"),
-      render: (row: FinanceAuditLog) => row.actor ?? "-",
-    },
-    {
-      key: "club",
-      header: t("clubLabel"),
-      render: (row: FinanceAuditLog) => row.club ?? "-",
-    },
-    {
-      key: "order",
-      header: t("orderLabel"),
-      render: (row: FinanceAuditLog) => row.order ?? "-",
-    },
   ];
 
   return (
     <LtfFinanceLayout title={t("auditLogTitle")} subtitle={t("auditLogSubtitle")}>
-      <section className="flex flex-wrap items-center justify-between gap-3">
-        <Input
-          className="w-full max-w-sm"
-          placeholder={t("searchAuditLogPlaceholder")}
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+
+      <div className="flex flex-col gap-4">
+        <ListToolbarPanel
+          search={
+            <Input
+              className="w-full max-w-xs"
+              placeholder={t("searchAuditLogPlaceholder")}
+              aria-label={t("searchAuditLogPlaceholder")}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+            />
+          }
+          pageSize={
+            <PageSizeSelect
+              value={pageSize}
+              onChange={setPageSize}
+              ariaLabel={common("rowsPerPageLabel")}
+              allLabel={common("rowsPerPageAll")}
+            />
+          }
         />
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted">{common("rowsPerPageLabel")}</span>
-          <Select value={pageSize} onValueChange={setPageSize}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {pageSizeOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option === "all" ? common("rowsPerPageAll") : option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </section>
+        <ListActionsRow
+          pagination={
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPrevious={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              pageLabel={t("pageLabel", { current: currentPage, total: totalPages })}
+              previousLabel={t("previousPage")}
+              nextLabel={t("nextPage")}
+            />
+          }
+        />
+      </div>
 
       {isLoading ? (
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : logs.length === 0 ? (
         <EmptyState title={t("noAuditLogTitle")} description={t("noAuditLogSubtitle")} />
       ) : (
-        <>
-          <EntityTable columns={columns} rows={logs} />
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-            <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
-            <div className="flex gap-2">
-              <button
-                className="rounded-[var(--radius-form)] border border-border px-3 py-1"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                {t("previousPage")}
-              </button>
-              <button
-                className="rounded-[var(--radius-form)] border border-border px-3 py-1"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                {t("nextPage")}
-              </button>
-            </div>
-          </div>
-        </>
+        <EntityTable
+          columns={columns}
+          rows={logs}
+          onRowClick={(row) => router.push(`/${locale}/dashboard/ltf-finance/audit-log/${row.id}`)}
+        />
       )}
-
-      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
     </LtfFinanceLayout>
   );
 }

@@ -1,26 +1,53 @@
 from rest_framework import serializers
 
-from licenses.models import LicenseHistoryEvent
+from licenses.models import License, LicenseHistoryEvent
 
-from .models import Member
-from .models import GradePromotionHistory
+from .grades import OFFICIAL_GRADE_SET
+from .models import GradePromotionHistory, Member, MemberTransfer
 from .services import generate_next_ltf_license_id
+from .transfers import get_club_tourist_threshold, is_club_tourist
+
+
+class CanonicalLicenseRoleField(serializers.ChoiceField):
+    """Accept mixed-case role input and persist the capitalized choice value."""
+
+    def to_internal_value(self, data):
+        if data in (None, ""):
+            if self.allow_blank:
+                return ""
+            self.fail("invalid_choice", input=data)
+        canonical = Member.canonicalize_license_role(data)
+        if not canonical:
+            self.fail("invalid_choice", input=data)
+        return super().to_internal_value(canonical)
+
+
+def _normalize_official_grade(value: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise serializers.ValidationError("to_grade is required.")
+    if normalized not in OFFICIAL_GRADE_SET:
+        raise serializers.ValidationError("Grade must be a standard belt rank.")
+    return normalized
 
 
 class MemberSerializer(serializers.ModelSerializer):
     sex = serializers.ChoiceField(choices=Member.Sex.choices, default=Member.Sex.MALE)
-    primary_license_role = serializers.ChoiceField(
+    primary_license_role = CanonicalLicenseRoleField(
         choices=Member.LicenseRole.choices,
         required=False,
         allow_blank=True,
     )
-    secondary_license_role = serializers.ChoiceField(
+    secondary_license_role = CanonicalLicenseRoleField(
         choices=Member.LicenseRole.choices,
         required=False,
         allow_blank=True,
     )
     profile_picture_url = serializers.SerializerMethodField()
     profile_picture_thumbnail_url = serializers.SerializerMethodField()
+    current_licenses = serializers.SerializerMethodField()
+    completed_transfer_count = serializers.SerializerMethodField()
+    is_club_tourist = serializers.SerializerMethodField()
     ltf_license_prefix = serializers.ChoiceField(
         choices=[("LUX", "LUX"), ("LTF", "LTF")],
         write_only=True,
@@ -47,6 +74,9 @@ class MemberSerializer(serializers.ModelSerializer):
             "secondary_license_role",
             "profile_picture_url",
             "profile_picture_thumbnail_url",
+            "current_licenses",
+            "completed_transfer_count",
+            "is_club_tourist",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -59,6 +89,9 @@ class MemberSerializer(serializers.ModelSerializer):
             "updated_at",
             "profile_picture_url",
             "profile_picture_thumbnail_url",
+            "current_licenses",
+            "completed_transfer_count",
+            "is_club_tourist",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -114,6 +147,14 @@ class MemberSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("LTF license ID must be unique.")
         return normalized_value
 
+    def validate_belt_rank(self, value):
+        normalized = str(value or "").strip()
+        if not normalized:
+            return ""
+        if normalized not in OFFICIAL_GRADE_SET:
+            raise serializers.ValidationError("Grade must be a standard belt rank.")
+        return normalized
+
     def create(self, validated_data):
         ltf_prefix = validated_data.pop("ltf_license_prefix", "LTF")
         if not str(validated_data.get("ltf_licenseid", "")).strip():
@@ -159,6 +200,43 @@ class MemberSerializer(serializers.ModelSerializer):
         path = f"/api/members/{obj.id}/profile-picture/thumbnail/"
         return request.build_absolute_uri(path) if request else path
 
+    def _tourist_threshold(self) -> int:
+        cached = getattr(self, "_club_tourist_threshold", None)
+        if cached is None:
+            cached = get_club_tourist_threshold()
+            self._club_tourist_threshold = cached
+        return cached
+
+    def get_completed_transfer_count(self, obj: Member):
+        count = getattr(obj, "completed_transfer_count", None)
+        if count is None:
+            return obj.transfers.filter(status=MemberTransfer.Status.COMPLETED).count()
+        return int(count)
+
+    def get_is_club_tourist(self, obj: Member):
+        return is_club_tourist(self.get_completed_transfer_count(obj), self._tourist_threshold())
+
+    def get_current_licenses(self, obj: Member):
+        prefetched = getattr(obj, "current_licenses_prefetched", None)
+        if prefetched is None:
+            licenses = list(
+                obj.licenses.filter(status__in=[License.Status.PENDING, License.Status.ACTIVE])
+                .select_related("license_type")
+                .order_by("-year", "id")
+            )
+        else:
+            licenses = list(prefetched)
+        return [
+            {
+                "id": license_record.id,
+                "year": license_record.year,
+                "status": license_record.status,
+                "license_type": license_record.license_type_id,
+                "license_type_name": license_record.license_type.name,
+            }
+            for license_record in licenses
+        ]
+
 
 class GradePromotionHistorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -174,6 +252,7 @@ class GradePromotionHistorySerializer(serializers.ModelSerializer):
             "exam_date",
             "proof_ref",
             "notes",
+            "created_by",
             "metadata",
             "created_at",
         ]
@@ -186,16 +265,29 @@ class GradePromotionCreateSerializer(serializers.Serializer):
     exam_date = serializers.DateField(required=False, allow_null=True)
     proof_ref = serializers.CharField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+    created_by = serializers.CharField(required=False, allow_blank=True, max_length=255)
     metadata = serializers.JSONField(required=False)
 
     def validate_to_grade(self, value):
-        normalized = value.strip()
-        if not normalized:
-            raise serializers.ValidationError("to_grade is required.")
-        return normalized
+        return _normalize_official_grade(value)
+
+
+class GradePromotionUpdateSerializer(serializers.Serializer):
+    to_grade = serializers.CharField(max_length=100, required=False)
+    promotion_date = serializers.DateField(required=False)
+    exam_date = serializers.DateField(required=False, allow_null=True)
+    proof_ref = serializers.CharField(required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    created_by = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    metadata = serializers.JSONField(required=False)
+
+    def validate_to_grade(self, value):
+        return _normalize_official_grade(value)
 
 
 class LicenseHistoryEventSerializer(serializers.ModelSerializer):
+    license_type_name = serializers.SerializerMethodField()
+
     class Meta:
         model = LicenseHistoryEvent
         fields = [
@@ -214,8 +306,18 @@ class LicenseHistoryEventSerializer(serializers.ModelSerializer):
             "status_before",
             "status_after",
             "club_name_snapshot",
+            "license_type_name",
             "created_at",
         ]
+
+    def get_license_type_name(self, obj: LicenseHistoryEvent) -> str:
+        license_record = getattr(obj, "license", None)
+        if not license_record:
+            return ""
+        license_type = getattr(license_record, "license_type", None)
+        if not license_type:
+            return ""
+        return str(getattr(license_type, "name", "") or "")
 
 
 class MemberProfilePictureUploadSerializer(serializers.Serializer):

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Shop catalogue</title>
+    <style>
+      @page { size: A4; margin: 12mm; }
+      html, body { margin: 0; padding: 0; font-family: "DejaVu Sans", Arial, sans-serif; color: #111827; }
+      h1 { font-size: 16pt; margin: 0 0 2mm; }
+      .meta { font-size: 8pt; color: #6b7280; margin-bottom: 6mm; }
+      .grid { display: flex; flex-wrap: wrap; gap: 5mm; }
+      .card {
+        width: 88mm;
+        min-height: 52mm;
+        border: 0.25mm solid #e5e7eb;
+        border-radius: 2mm;
+        padding: 3mm;
+        box-sizing: border-box;
+        page-break-inside: avoid;
+        display: flex;
+        gap: 3mm;
+      }
+      .photo { width: 28mm; height: 28mm; object-fit: cover; border-radius: 1.5mm; background: #f3f4f6; }
+      .qr { width: 18mm; height: 18mm; }
+      .sku { font-size: 8pt; font-weight: 700; letter-spacing: 0.04em; }
+      .name { font-size: 10pt; font-weight: 700; margin: 1mm 0; }
+      .desc { font-size: 7.5pt; color: #4b5563; min-height: 10mm; }
+      .price { font-size: 11pt; font-weight: 700; margin-top: 2mm; }
+      .cat { font-size: 7pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ club.name }} — equipment catalogue</h1>
+    <p class="meta">{{ generated_at|date:"d.m.Y H:i" }} · {{ cards|length }} items · Prices in EUR</p>
+    <div class="grid">
+      {% for card in cards %}
+        <div class="card">
+          <div>
+            {% if card.photo %}
+              <img class="photo" src="{{ card.photo }}" alt="" />
+            {% else %}
+              <div class="photo"></div>
+            {% endif %}
+          </div>
+          <div>
+            <div class="sku">{{ card.sku }}</div>
+            <div class="cat">{{ card.category }}{% if card.sizes %} · {{ card.sizes }}{% endif %}</div>
+            <div class="name">{{ card.name }}</div>
+            <div class="desc">{{ card.description|truncatechars:140 }}</div>
+            {% if card.size_prices|length > 1 %}
+              {% for row in card.size_prices %}
+                <div class="price" style="font-size: 8.5pt; margin-top: 1mm;">
+                  {% if row.label %}{{ row.label }} · {% endif %}{{ row.price }} EUR
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="price">{{ card.price }} EUR</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>

@@ -1,9 +1,42 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import { apiRequest } from "@/lib/api";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  Award,
+  Timer,
+  UsersRound,
+  FileText,
+  IdCard,
+  LayoutDashboard,
+  Printer,
+  Settings,
+  Package,
+  ShoppingCart,
+  Sparkles,
+  UserCog,
+  Users,
+  Wallet,
+} from "lucide-react";
+
+import { IncomingTransferNotice } from "@/components/club-admin/incoming-transfer-notice";
+import { ClubPrintingTabs } from "@/components/club-admin/club-printing-tabs";
+import { ClubTrainingTabs } from "@/components/club-admin/club-training-tabs";
+import { useClubSelection } from "@/components/club-selection-provider";
+import { AppShell, type AppNavItem } from "@/components/app-shell";
+import {
+  CLUB_MANAGEMENT_MODULE_ID,
+  EVENT_CALENDAR_MODULE_ID,
+  getModuleStatus,
+  isClubModuleAssigned,
+  PREVIEW_MODULE_ID,
+  type ModuleStatus,
+} from "@/lib/modules-api";
 
 type ClubAdminLayoutProps = {
   title: string;
@@ -15,155 +48,262 @@ type NavMatchMode = "exact" | "prefix";
 
 type ClubNavDef = Readonly<{
   id: string;
-  /** Route after locale segment: `/${locale}/<routePath>` */
   routePath: string;
   labelKey:
     | "navOverview"
     | "navMembers"
     | "navLicenses"
     | "navPrintJobs"
+    | "navPrinting"
     | "navOrders"
     | "navInvoices"
+    | "navFinance"
+    | "navTransfers"
+    | "navAdmins"
     | "navPrinterProfiles"
-    | "navSettings";
+    | "navSettings"
+    | "navPreview"
+    | "navCalendar"
+    | "navFamilies"
+    | "navShop"
+    | "navTraining"
+    | "navPromotion";
   matchMode: NavMatchMode;
+  icon: AppNavItem["icon"];
 }>;
 
-/**
- * Frozen module-level definitions — plain data only (no `t()`, no locale, no per-render functions).
- * Stable order for club_admin: Overview → Members → Licenses → Print jobs → Orders → Invoices
- * → Printer profiles → Settings.
- */
 const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
   Object.freeze({
     id: "overview",
     routePath: "dashboard/club",
     labelKey: "navOverview",
     matchMode: "exact",
+    icon: LayoutDashboard,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "members",
     routePath: "dashboard/club/members",
     labelKey: "navMembers",
     matchMode: "prefix",
+    icon: Users,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "licenses",
     routePath: "dashboard/club/licenses",
     labelKey: "navLicenses",
     matchMode: "prefix",
+    icon: IdCard,
   } satisfies ClubNavDef),
   Object.freeze({
-    id: "print-jobs",
+    id: "printing",
     routePath: "dashboard/club/print-jobs",
-    labelKey: "navPrintJobs",
+    labelKey: "navPrinting",
     matchMode: "prefix",
+    icon: Printer,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "finance",
+    routePath: "dashboard/club/invoices",
+    labelKey: "navFinance",
+    matchMode: "prefix",
+    icon: Wallet,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "orders",
     routePath: "dashboard/club/orders",
     labelKey: "navOrders",
     matchMode: "prefix",
+    icon: ShoppingCart,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "invoices",
     routePath: "dashboard/club/invoices",
     labelKey: "navInvoices",
     matchMode: "prefix",
+    icon: FileText,
   } satisfies ClubNavDef),
   Object.freeze({
-    id: "printer-profiles",
-    routePath: "dashboard/club/printer-profiles",
-    labelKey: "navPrinterProfiles",
+    id: "transfers",
+    routePath: "dashboard/club/transfers",
+    labelKey: "navTransfers",
     matchMode: "prefix",
+    icon: ArrowLeftRight,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "calendar",
+    routePath: "dashboard/club/calendar",
+    labelKey: "navCalendar",
+    matchMode: "prefix",
+    icon: CalendarDays,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "families",
+    routePath: "dashboard/club/families",
+    labelKey: "navFamilies",
+    matchMode: "prefix",
+    icon: UsersRound,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "training",
+    routePath: "dashboard/club/training",
+    labelKey: "navTraining",
+    matchMode: "prefix",
+    icon: Timer,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "promotion",
+    routePath: "dashboard/club/promotion",
+    labelKey: "navPromotion",
+    matchMode: "prefix",
+    icon: Award,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "shop",
+    routePath: "dashboard/club/shop",
+    labelKey: "navShop",
+    matchMode: "prefix",
+    icon: Package,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "preview",
+    routePath: "dashboard/club/preview",
+    labelKey: "navPreview",
+    matchMode: "prefix",
+    icon: Sparkles,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "admins",
+    routePath: "dashboard/club/admins",
+    labelKey: "navAdmins",
+    matchMode: "prefix",
+    icon: UserCog,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "settings",
     routePath: "dashboard/club/settings",
     labelKey: "navSettings",
     matchMode: "prefix",
+    icon: Settings,
   } satisfies ClubNavDef),
 ]);
 
-function clubNavHref(locale: string, routePath: string): string {
-  return `/${locale}/${routePath}`;
-}
+const CLUB_GROUP_RANK: Record<string, number> = {
+  club: 0,
+  clubManagement: 1,
+  calendar: 2,
+  preview: 3,
+};
 
-function pathMatchesTab(pathname: string, href: string, matchMode: NavMatchMode): boolean {
-  if (matchMode === "exact") {
-    return pathname === href;
+function clubNavGroup(id: string, label: (key: "navGroupClub" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
+  if (id === "admins" || id === "settings") {
+    return undefined;
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function resolveActiveNavId(
-  pathname: string | null,
-  items: Array<{ id: string; href: string; matchMode: NavMatchMode }>
-): string | null {
-  if (!pathname) {
-    return null;
+  if (id === "finance" || id === "families" || id === "shop" || id === "training" || id === "promotion") {
+    return { id: "clubManagement", label: label("navGroupClubManagement") };
   }
-  let best: { id: string; href: string } | null = null;
-  for (const item of items) {
-    if (!pathMatchesTab(pathname, item.href, item.matchMode)) {
-      continue;
-    }
-    if (!best || item.href.length > best.href.length) {
-      best = { id: item.id, href: item.href };
-    }
+  if (id === "calendar") {
+    return { id: "calendar", label: label("navGroupCalendar") };
   }
-  return best?.id ?? null;
+  if (id === "preview") {
+    return { id: "preview", label: label("navGroupPreview") };
+  }
+  return { id: "club", label: label("navGroupClub") };
 }
 
 export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutProps) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
+  const { selectedClubId } = useClubSelection();
+  const [role, setRole] = useState<string | null>(null);
+  const [modules, setModules] = useState<ModuleStatus | null>(null);
 
-  /** Same array reference for the entire component lifetime — no `t`, no locale, no role. */
-  const visibleNavDefs = useMemo(() => CLUB_NAV_DEFINITIONS, []);
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest<{ role: string }>("/api/auth/me/")
+      .then((me) => {
+        if (!cancelled) setRole(me.role);
+      })
+      .catch(() => {
+        if (!cancelled) setRole(null);
+      });
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setModules(status);
+      })
+      .catch(() => {
+        if (!cancelled) setModules(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const activeId = useMemo(() => {
-    const items = CLUB_NAV_DEFINITIONS.map((def) => ({
-      id: def.id,
-      href: clubNavHref(locale, def.routePath),
-      matchMode: def.matchMode,
-    }));
-    return resolveActiveNavId(pathname, items);
-  }, [pathname, locale]);
+  const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
+  const calendarAssigned = isClubModuleAssigned(modules, EVENT_CALENDAR_MODULE_ID, selectedClubId);
+  const clubMgmtAssigned = isClubModuleAssigned(modules, CLUB_MANAGEMENT_MODULE_ID, selectedClubId);
+
+  const navItems = useMemo<AppNavItem[]>(
+    () =>
+      CLUB_NAV_DEFINITIONS.filter((def) => {
+        if (def.id === "admins") return role === "club_admin";
+        if (def.id === "preview") return role === "club_admin" && previewAssigned;
+        if (def.id === "calendar") return calendarAssigned;
+        if (def.id === "families" || def.id === "shop") return role === "club_admin" && clubMgmtAssigned;
+        if (def.id === "training" || def.id === "promotion") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
+        if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
+        if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
+        return true;
+      }).map((def, index) => ({
+        index,
+        item: {
+          id: def.id,
+          href: `/${locale}/${def.routePath}`,
+          label: t(def.labelKey),
+          icon: def.icon,
+          matchMode: def.matchMode,
+          group: clubNavGroup(def.id, (key) => common(key)),
+          extraMatchHrefs:
+            def.id === "finance"
+              ? [
+                  `/${locale}/dashboard/club/orders`,
+                  `/${locale}/dashboard/club/invoices`,
+                  `/${locale}/dashboard/club/payments`,
+                  `/${locale}/dashboard/club/income`,
+                  `/${locale}/dashboard/club/expenses`,
+                  `/${locale}/dashboard/club/reports`,
+                ]
+              : def.id === "printing"
+                ? [`/${locale}/dashboard/club/printer-profiles`]
+                : undefined,
+        },
+      }))
+      .sort((left, right) => {
+        const leftRank = left.item.group ? (CLUB_GROUP_RANK[left.item.group.id] ?? 9) : 10;
+        const rightRank = right.item.group ? (CLUB_GROUP_RANK[right.item.group.id] ?? 9) : 10;
+        return leftRank - rightRank || left.index - right.index;
+      })
+      .map((entry) => entry.item),
+    [calendarAssigned, clubMgmtAssigned, common, locale, previewAssigned, role, t]
+  );
+
+  const isPrinting =
+    pathname?.includes("/dashboard/club/print-jobs") || pathname?.includes("/dashboard/club/printer-profiles");
+  const isTraining = pathname?.includes("/dashboard/club/training");
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
-          <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-          {subtitle ? <p className="mt-2 text-sm text-muted">{subtitle}</p> : null}
-          <nav
-            aria-label={title}
-            className="mt-6 flex flex-wrap gap-1 rounded-[var(--radius-card)] border border-border bg-secondary p-1"
-          >
-            {visibleNavDefs.map((def) => {
-              const href = clubNavHref(locale, def.routePath);
-              const isActive = def.id === activeId;
-              return (
-                <Link
-                  key={def.id}
-                  href={href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`inline-flex h-11 items-center justify-center rounded-[var(--radius-form)] px-4 text-sm font-medium ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-card text-muted"
-                  }`}
-                >
-                  {t(def.labelKey)}
-                </Link>
-              );
-            })}
-          </nav>
-        </header>
-        {children}
-      </div>
-    </main>
+    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
+      <IncomingTransferNotice />
+      {isPrinting || isTraining ? (
+        <div className="space-y-6">
+          {isPrinting ? <ClubPrintingTabs /> : null}
+          {isTraining ? <ClubTrainingTabs /> : null}
+          {children}
+        </div>
+      ) : (
+        children
+      )}
+    </AppShell>
   );
 }

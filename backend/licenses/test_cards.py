@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 from PIL import Image
 
 from accounts.models import User
-from clubs.models import Club
+from clubs.models import BrandingAsset, Club
 from members.models import Member
 
 from .models import (
@@ -796,6 +796,112 @@ class LicenseCardVersionWorkflowTests(TestCase):
         self.assertEqual(cloned_version.card_format_id, source_version.card_format_id)
         self.assertEqual(cloned_version.paper_profile_id, source_version.paper_profile_id)
         self.assertEqual(cloned_version.design_payload, source_version.design_payload)
+
+    def test_export_import_round_trip_preserves_layers_and_merge_fields(self):
+        with tempfile.TemporaryDirectory() as media_root:
+            with self.settings(MEDIA_ROOT=media_root):
+                image_asset = CardImageAsset.objects.create(
+                    name="Export Logo",
+                    image=_build_uploaded_png("export-logo.png"),
+                    created_by=self.ltf_admin,
+                )
+                design_payload = {
+                    "elements": [
+                        {
+                            "id": "member-name",
+                            "type": "text",
+                            "x_mm": "4.00",
+                            "y_mm": "4.00",
+                            "width_mm": "40.00",
+                            "height_mm": "8.00",
+                            "z_index": 2,
+                            "merge_field": "member.full_name",
+                            "text": "{{member.full_name}}",
+                        },
+                        {
+                            "id": "logo",
+                            "type": "image",
+                            "x_mm": "60.00",
+                            "y_mm": "4.00",
+                            "width_mm": "20.00",
+                            "height_mm": "20.00",
+                            "z_index": 3,
+                            "style": {"image_asset_id": image_asset.id},
+                        },
+                    ],
+                    "metadata": {"unit": "mm"},
+                }
+                CardTemplateVersion.objects.create(
+                    template=self.template,
+                    version_number=1,
+                    label="Export Source",
+                    status=CardTemplateVersion.Status.DRAFT,
+                    card_format=self.card_format,
+                    paper_profile=self.paper_profile,
+                    design_payload=design_payload,
+                    created_by=self.ltf_admin,
+                )
+
+                export_response = self.client.get(
+                    f"/api/card-templates/{self.template.id}/export/"
+                )
+                self.assertEqual(export_response.status_code, status.HTTP_200_OK)
+                bundle = export_response.json()
+                self.assertEqual(bundle["format"], "ltkdf.card-template")
+                self.assertEqual(bundle["schema_version"], 1)
+                self.assertEqual(bundle["card_format"]["code"], "3c")
+                self.assertEqual(bundle["paper_profile"]["code"], "sigel-lp798")
+                exported_elements = bundle["version"]["design_payload"]["elements"]
+                name_element = next(item for item in exported_elements if item["id"] == "member-name")
+                self.assertEqual(name_element["merge_field"], "member.full_name")
+                self.assertEqual(int(name_element["z_index"]), 2)
+                self.assertEqual(len(bundle["image_assets"]), 1)
+                self.assertTrue(bundle["image_assets"][0]["data_base64"])
+
+                import_response = self.client.post(
+                    "/api/card-templates/import/",
+                    bundle,
+                    format="json",
+                )
+                self.assertEqual(import_response.status_code, status.HTTP_201_CREATED)
+                imported_template = CardTemplate.objects.get(id=import_response.data["id"])
+                self.assertNotEqual(imported_template.id, self.template.id)
+                imported_version = imported_template.versions.get(version_number=1)
+                self.assertEqual(imported_version.status, CardTemplateVersion.Status.DRAFT)
+                imported_elements = imported_version.design_payload["elements"]
+                imported_name = next(item for item in imported_elements if item["id"] == "member-name")
+                imported_logo = next(item for item in imported_elements if item["id"] == "logo")
+                self.assertEqual(imported_name["merge_field"], "member.full_name")
+                self.assertEqual(int(imported_name["z_index"]), 2)
+                new_image_id = int(imported_logo["style"]["image_asset_id"])
+                self.assertNotEqual(new_image_id, image_asset.id)
+                self.assertTrue(CardImageAsset.objects.filter(id=new_image_id).exists())
+
+    def test_club_admin_cannot_export_or_import_templates(self):
+        club_admin = User.objects.create_user(
+            username="cards-export-club-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        CardTemplateVersion.objects.create(
+            template=self.template,
+            version_number=1,
+            card_format=self.card_format,
+            design_payload=_sample_design_payload(),
+            created_by=self.ltf_admin,
+        )
+        self.client.force_authenticate(user=club_admin)
+        export_response = self.client.get(f"/api/card-templates/{self.template.id}/export/")
+        self.assertIn(
+            export_response.status_code,
+            {status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND},
+        )
+        import_response = self.client.post(
+            "/api/card-templates/import/",
+            {"format": "ltkdf.card-template", "schema_version": 1},
+            format="json",
+        )
+        self.assertEqual(import_response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_set_default_template_action(self):
         first_template = CardTemplate.objects.create(
@@ -1865,8 +1971,8 @@ class LicenseCardPreviewApiTests(TestCase):
         self.assertEqual(context["member.date_of_birth"], "09 Nov 2016")
         self.assertEqual(context["license.start_date"], "09 Jan 2016")
         self.assertEqual(context["license.end_date"], "09 Nov 2016")
-        self.assertEqual(context["primary_license_role"], "athlete")
-        self.assertEqual(context["secondary_license_role"], "coach")
+        self.assertEqual(context["primary_license_role"], "Athlete")
+        self.assertEqual(context["secondary_license_role"], "Coach")
         self.assertEqual(context["member.current_grade"], "Blue Belt")
 
         resolved_by_id = {
@@ -1877,8 +1983,8 @@ class LicenseCardPreviewApiTests(TestCase):
         self.assertEqual(resolved_by_id["dob-text"], "DOB 09 Nov 2016")
         self.assertEqual(resolved_by_id["start-text"], "START 09 Jan 2016")
         self.assertEqual(resolved_by_id["end-text"], "END 09 Nov 2016")
-        self.assertEqual(resolved_by_id["primary-role-text"], "PRIMARY athlete")
-        self.assertEqual(resolved_by_id["secondary-role-text"], "SECONDARY coach")
+        self.assertEqual(resolved_by_id["primary-role-text"], "PRIMARY Athlete")
+        self.assertEqual(resolved_by_id["secondary-role-text"], "SECONDARY Coach")
         self.assertEqual(resolved_by_id["current-grade-text"], "GRADE Blue Belt")
 
         preview_html_response = self.client.post(self.preview_card_html_url, payload, format="json")
@@ -1886,8 +1992,8 @@ class LicenseCardPreviewApiTests(TestCase):
         self.assertIn("DOB 09 Nov 2016", preview_html_response.data["html"])
         self.assertIn("START 09 Jan 2016", preview_html_response.data["html"])
         self.assertIn("END 09 Nov 2016", preview_html_response.data["html"])
-        self.assertIn("PRIMARY athlete", preview_html_response.data["html"])
-        self.assertIn("SECONDARY coach", preview_html_response.data["html"])
+        self.assertIn("PRIMARY Athlete", preview_html_response.data["html"])
+        self.assertIn("SECONDARY Coach", preview_html_response.data["html"])
         self.assertIn("GRADE Blue Belt", preview_html_response.data["html"])
 
     def test_preview_card_pdf_receives_ltf_date_formatted_context(self):
@@ -2693,6 +2799,168 @@ class LicenseCardPreviewApiTests(TestCase):
         self.assertNotIn("card-simulation-root", response.data["html"])
         self.assertNotIn("--card-simulation-scale", response.data["css"])
 
+    def test_empty_image_slot_omits_dashed_no_image_placeholder(self):
+        from licenses.card_rendering import _render_element_html
+
+        html = _render_element_html(
+            {
+                "type": "image",
+                "x_mm": "2.00",
+                "y_mm": "2.00",
+                "width_mm": "20.00",
+                "height_mm": "25.00",
+                "opacity": "1.00",
+                "rotation_deg": "0.00",
+                "z_index": 1,
+                "visible": True,
+                "style": {},
+                "resolved_source": "",
+            }
+        )
+        self.assertNotIn("No image", html)
+        self.assertNotIn("dashed", html)
+
+    def test_text_html_does_not_force_aggressive_word_breaks(self):
+        from licenses.card_rendering import _render_element_html
+
+        html = _render_element_html(
+            {
+                "type": "text",
+                "x_mm": "2.00",
+                "y_mm": "2.00",
+                "width_mm": "70.00",
+                "height_mm": "8.00",
+                "opacity": "1.00",
+                "rotation_deg": "0.00",
+                "z_index": 1,
+                "visible": True,
+                "style": {},
+                "resolved_text": "Luxembourg Taekwondo Federation",
+            }
+        )
+        self.assertNotIn("word-break:break-word", html)
+        self.assertIn("overflow-wrap:break-word", html)
+        self.assertIn("-webkit-text-size-adjust:100%", html)
+
+        nowrap_html = _render_element_html(
+            {
+                "type": "text",
+                "x_mm": "2.00",
+                "y_mm": "2.00",
+                "width_mm": "70.00",
+                "height_mm": "8.00",
+                "opacity": "1.00",
+                "rotation_deg": "0.00",
+                "z_index": 1,
+                "visible": True,
+                "style": {"max_lines": 1},
+                "resolved_text": "Luxembourg Taekwondo Federation",
+            }
+        )
+        self.assertIn("white-space:nowrap", nowrap_html)
+
+    def test_missing_member_photo_falls_back_to_selected_club_logo(self):
+        with tempfile.TemporaryDirectory() as temp_media_root:
+            with self.settings(MEDIA_ROOT=temp_media_root):
+                self.member.profile_picture_processed = None
+                self.member.save(update_fields=["profile_picture_processed", "updated_at"])
+                BrandingAsset.objects.create(
+                    scope_type=BrandingAsset.ScopeType.CLUB,
+                    asset_type=BrandingAsset.AssetType.LOGO,
+                    usage_type=BrandingAsset.UsageType.PRINT,
+                    club=self.club,
+                    file=_build_uploaded_png("club-print-logo.png"),
+                    is_selected=True,
+                    uploaded_by=self.ltf_admin,
+                )
+                self.template_version.design_payload = {
+                    "elements": [
+                        {
+                            "id": "member-photo",
+                            "type": "image",
+                            "x_mm": "4.00",
+                            "y_mm": "4.00",
+                            "width_mm": "20.00",
+                            "height_mm": "25.00",
+                            "source": "member.profile_picture_processed",
+                        }
+                    ]
+                }
+                self.template_version.save(update_fields=["design_payload", "updated_at"])
+                self.client.force_authenticate(user=self.ltf_admin)
+                response = self.client.post(
+                    self.preview_data_url,
+                    {"member_id": self.member.id, "license_id": self.license.id},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                image_element = response.data["elements"][0]
+                self.assertTrue(str(image_element["resolved_source"]).startswith("data:image/"))
+                self.assertEqual(
+                    image_element["resolved_source_meta"]["resolved_via"],
+                    "club.logo_print_url",
+                )
+                html_response = self.client.post(
+                    self.preview_card_html_url,
+                    {"member_id": self.member.id, "license_id": self.license.id},
+                    format="json",
+                )
+                self.assertEqual(html_response.status_code, status.HTTP_200_OK)
+                self.assertIn("data:image/", html_response.data["html"])
+                self.assertIn("object-fit:contain", html_response.data["html"])
+                self.assertIn("opacity:0.40", html_response.data["html"])
+                self.assertIn("background:#f5f5f5", html_response.data["html"])
+                self.assertNotIn("No image", html_response.data["html"])
+
+    def test_member_photo_is_preferred_over_club_logo_fallback(self):
+        with tempfile.TemporaryDirectory() as temp_media_root:
+            with self.settings(MEDIA_ROOT=temp_media_root):
+                self.member.profile_picture_processed = _build_uploaded_png("member-photo.png")
+                self.member.save(update_fields=["profile_picture_processed", "updated_at"])
+                BrandingAsset.objects.create(
+                    scope_type=BrandingAsset.ScopeType.CLUB,
+                    asset_type=BrandingAsset.AssetType.LOGO,
+                    usage_type=BrandingAsset.UsageType.PRINT,
+                    club=self.club,
+                    file=_build_uploaded_png("club-print-logo.png"),
+                    is_selected=True,
+                    uploaded_by=self.ltf_admin,
+                )
+                self.template_version.design_payload = {
+                    "elements": [
+                        {
+                            "id": "member-photo",
+                            "type": "image",
+                            "x_mm": "4.00",
+                            "y_mm": "4.00",
+                            "width_mm": "20.00",
+                            "height_mm": "25.00",
+                            "source": "member.profile_picture_processed",
+                        }
+                    ]
+                }
+                self.template_version.save(update_fields=["design_payload", "updated_at"])
+                self.client.force_authenticate(user=self.ltf_admin)
+                response = self.client.post(
+                    self.preview_data_url,
+                    {"member_id": self.member.id, "license_id": self.license.id},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                image_element = response.data["elements"][0]
+                self.assertEqual(
+                    image_element["resolved_source_meta"]["resolved_via"],
+                    "member.profile_picture_processed",
+                )
+                html_response = self.client.post(
+                    self.preview_card_html_url,
+                    {"member_id": self.member.id, "license_id": self.license.id},
+                    format="json",
+                )
+                self.assertEqual(html_response.status_code, status.HTTP_200_OK)
+                self.assertNotIn("opacity:0.40", html_response.data["html"])
+                self.assertNotIn("background:#f5f5f5", html_response.data["html"])
+
     def test_preview_refresh_override_is_deterministic_for_multiple_elements(self):
         self.client.force_authenticate(user=self.ltf_admin)
         override_a = {
@@ -2982,6 +3250,28 @@ class LicenseCardPreviewApiTests(TestCase):
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn("sheet-preview", response["Content-Disposition"])
         self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_sheet_preview_pdf_html_omits_slot_and_guide_outlines(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        with patch("licenses.card_rendering._render_pdf", return_value=b"%PDF-1.4\n") as render_pdf_mock:
+            response = self.client.post(
+                self.preview_sheet_pdf_url,
+                {
+                    "member_id": self.member.id,
+                    "license_id": self.license.id,
+                    "paper_profile_id": self.paper_profile.id,
+                    "selected_slots": [0, 5],
+                    "include_bleed_guide": False,
+                    "include_safe_area_guide": False,
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered_html = str(render_pdf_mock.call_args.args[0])
+        self.assertNotIn("dashed #1d4ed8", rendered_html)
+        self.assertNotIn("#ef4444", rendered_html)
+        self.assertNotIn("#10b981", rendered_html)
+        self.assertNotIn("0.15mm dashed", rendered_html)
 
     def test_preview_sheet_pdf_applies_selected_printer_profile_offset(self):
         self.client.force_authenticate(user=self.ltf_admin)
@@ -3597,8 +3887,8 @@ class PrintJobExecutionPipelineTests(TestCase):
         self.assertIn("DOB 09 Nov 2016", rendered_html)
         self.assertIn("START 09 Jan 2016", rendered_html)
         self.assertIn("END 09 Nov 2016", rendered_html)
-        self.assertIn("PRIMARY athlete", rendered_html)
-        self.assertIn("SECONDARY coach", rendered_html)
+        self.assertIn("PRIMARY Athlete", rendered_html)
+        self.assertIn("SECONDARY Coach", rendered_html)
 
     def test_enqueue_failure_moves_job_to_failed_with_retryable_state(self):
         created_job = self._create_print_job(
@@ -4519,3 +4809,19 @@ class PrintJobExecutionPipelineTests(TestCase):
                         metadata__print_job_id=job_id,
                     ).exists()
                 )
+
+
+class SeedCardPrintFontsTests(TestCase):
+    def test_seed_command_is_idempotent_and_creates_static_faces(self):
+        stdout = StringIO()
+        call_command("seed_card_print_fonts", stdout=stdout)
+        first_count = CardFontAsset.objects.filter(metadata__builtin=True).count()
+        self.assertGreaterEqual(first_count, 8)
+        self.assertTrue(
+            CardFontAsset.objects.filter(metadata__source_key="source-sans-3-400").exists()
+        )
+        call_command("seed_card_print_fonts", stdout=stdout)
+        self.assertEqual(
+            CardFontAsset.objects.filter(metadata__builtin=True).count(),
+            first_count,
+        )

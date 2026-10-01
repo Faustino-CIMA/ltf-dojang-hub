@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ title }}</title>
+    <style>
+      body { font-family: "DejaVu Sans", Arial, sans-serif; color: #1f2937; margin: 32px; font-size: 14px; }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      .muted { color: #6b7280; margin-bottom: 24px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+      th { background: #f8fafc; font-size: 12px; text-transform: uppercase; color: #6b7280; }
+      .total { font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ title }}</h1>
+    <div class="muted">{{ club_name }} · Generated {{ generated_at }}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Invoice</th>
+          <th>Issued</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th>Credits</th>
+          <th>Paid</th>
+          <th>Due</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.invoice_number }}</td>
+          <td>{{ row.issued_at }}</td>
+          <td>{{ row.status }}</td>
+          <td>{{ row.total }}</td>
+          <td>{{ row.credited }}</td>
+          <td>{{ row.paid }}</td>
+          <td>{{ row.outstanding }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">No invoices for this period.</td></tr>
+        {% endfor %}
+        <tr class="total">
+          <td colspan="6">Outstanding</td>
+          <td>{{ outstanding_total }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

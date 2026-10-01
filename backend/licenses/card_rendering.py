@@ -15,6 +15,7 @@ from urllib.parse import unquote_to_bytes, urljoin, urlparse
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 
@@ -534,38 +535,69 @@ def _compute_validity_badge(license_record: License | None) -> str:
     return str(license_record.status or "")
 
 
-def _resolve_club_logo_print_url(club: Club | None) -> str:
+def _selected_club_logo_asset(club: Club | None) -> BrandingAsset | None:
     if club is None:
-        return ""
-    logo_asset = (
-        BrandingAsset.objects.filter(
-            scope_type=BrandingAsset.ScopeType.CLUB,
-            asset_type=BrandingAsset.AssetType.LOGO,
-            usage_type=BrandingAsset.UsageType.PRINT,
-            club_id=club.id,
-            is_selected=True,
-        )
-        .order_by("-updated_at", "-id")
-        .first()
+        return None
+    selected_logos = BrandingAsset.objects.filter(
+        scope_type=BrandingAsset.ScopeType.CLUB,
+        asset_type=BrandingAsset.AssetType.LOGO,
+        club_id=club.id,
+        is_selected=True,
     )
-    if logo_asset is None:
+    for usage_type in (
+        BrandingAsset.UsageType.PRINT,
+        BrandingAsset.UsageType.GENERAL,
+    ):
         logo_asset = (
-            BrandingAsset.objects.filter(
-                scope_type=BrandingAsset.ScopeType.CLUB,
-                asset_type=BrandingAsset.AssetType.LOGO,
-                usage_type=BrandingAsset.UsageType.GENERAL,
-                club_id=club.id,
-                is_selected=True,
-            )
+            selected_logos.filter(usage_type=usage_type)
             .order_by("-updated_at", "-id")
             .first()
         )
-    if logo_asset is None or not logo_asset.file:
+        if logo_asset is not None and logo_asset.file:
+            return logo_asset
+    logo_asset = selected_logos.order_by("-updated_at", "-id").first()
+    if logo_asset is not None and logo_asset.file:
+        return logo_asset
+    return None
+
+
+def _resolve_club_logo_print_url(club: Club | None) -> str:
+    logo_asset = _selected_club_logo_asset(club)
+    if logo_asset is None:
         return ""
     try:
         return str(logo_asset.file.url)
     except Exception:  # pragma: no cover - storage backend dependent
         return ""
+
+
+def _club_logo_data_uri(club: Club | None) -> str:
+    logo_asset = _selected_club_logo_asset(club)
+    if logo_asset is None:
+        return ""
+    return _file_to_data_uri(logo_asset.file, fallback_mime="image/png")
+
+
+def _resolve_member_portrait(
+    member: Member | None,
+    club: Club | None,
+) -> tuple[str, dict[str, str]]:
+    member_source = _member_photo_data_uri(member)
+    if member_source:
+        return member_source, {
+            "resolved_via": "member.profile_picture_processed",
+            "status": "resolved",
+        }
+    club_source = _club_logo_data_uri(club)
+    if club_source:
+        return club_source, {
+            "resolved_via": "club.logo_print_url",
+            "status": "resolved",
+        }
+    return "", {
+        "resolved_via": "member.profile_picture_processed",
+        "status": "empty",
+    }
 
 
 def _resolve_entities(
@@ -612,6 +644,13 @@ def _resolve_entities(
     return member, license_record, club
 
 
+def _format_license_role_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    return Member.canonicalize_license_role(raw) or raw.replace("_", " ").title()
+
+
 def _build_context(
     *,
     member: Member | None,
@@ -639,7 +678,7 @@ def _build_context(
         "member.profile_picture_processed": (
             member.profile_picture_processed.url
             if member and getattr(member, "profile_picture_processed", None)
-            else ""
+            else _resolve_club_logo_print_url(club)
         ),
         "primary_license_role": (
             str(member.primary_license_role) if member and member.primary_license_role else ""
@@ -673,6 +712,9 @@ def _build_context(
     flattened_sample_data = _flatten_sample_data(sample_data or {})
     for key, value in flattened_sample_data.items():
         context[key] = _stringify_context_value(value)
+
+    for key in ("primary_license_role", "secondary_license_role"):
+        context[key] = _format_license_role_label(context.get(key, ""))
 
     return {key: context.get(key, "") for key in _SORTED_ALLOWED_MERGE_FIELDS}
 
@@ -743,6 +785,7 @@ def _resolve_image_source(
     element: dict[str, Any],
     context: dict[str, str],
     member: Member | None,
+    club: Club | None,
     image_assets: dict[int, dict[str, Any]],
     request: HttpRequest | None,
     asset_base_url: str | None,
@@ -821,12 +864,13 @@ def _resolve_image_source(
 
     merge_field = str(element.get("merge_field") or "").strip()
     if merge_field == "member.profile_picture_processed":
-        member_source = _member_photo_data_uri(member) or _resolve_merge_value(
-            merge_field, context
-        )
-        return member_source, {
+        portrait_source, portrait_meta = _resolve_member_portrait(member, club)
+        if portrait_source:
+            return portrait_source, portrait_meta
+        fallback_source = _resolve_merge_value(merge_field, context)
+        return fallback_source, {
             "resolved_via": "member.profile_picture_processed",
-            "status": "resolved",
+            "status": "resolved" if fallback_source else "empty",
         }
     if merge_field:
         return _normalize_source_url(
@@ -840,19 +884,16 @@ def _resolve_image_source(
 
     source = str(element.get("source") or "").strip()
     if source in {"member.profile_picture_processed", "{{member.profile_picture_processed}}"}:
-        member_source = _member_photo_data_uri(member) or context.get(
-            "member.profile_picture_processed", ""
-        )
-        return member_source, {
+        portrait_source, portrait_meta = _resolve_member_portrait(member, club)
+        if portrait_source:
+            return portrait_source, portrait_meta
+        fallback_source = context.get("member.profile_picture_processed", "")
+        return fallback_source, {
             "resolved_via": "member.profile_picture_processed",
-            "status": "resolved",
+            "status": "resolved" if fallback_source else "empty",
         }
     if not source:
-        member_source = _member_photo_data_uri(member)
-        return member_source, {
-            "resolved_via": "member.profile_picture_processed",
-            "status": "resolved" if member_source else "empty",
-        }
+        return _resolve_member_portrait(member, club)
 
     token_matches = MERGE_FIELD_PATTERN.findall(source)
     if token_matches:
@@ -861,12 +902,13 @@ def _resolve_image_source(
             if merge_key not in ALLOWED_MERGE_FIELDS:
                 raise CardRenderError(f"Unknown merge field '{merge_key}'.")
         if "member.profile_picture_processed" in token_matches:
-            resolved_token_source = _member_photo_data_uri(member) or _resolve_tokenized_text(
-                source, context
-            )
+            portrait_source, portrait_meta = _resolve_member_portrait(member, club)
+            if portrait_source:
+                return portrait_source, portrait_meta
+            resolved_token_source = _resolve_tokenized_text(source, context)
             return resolved_token_source, {
                 "resolved_via": "tokenized_source",
-                "status": "resolved",
+                "status": "resolved" if resolved_token_source else "empty",
             }
         return _normalize_source_url(
             _resolve_tokenized_text(source, context),
@@ -879,10 +921,13 @@ def _resolve_image_source(
 
     if source in ALLOWED_MERGE_FIELDS:
         if source == "member.profile_picture_processed":
-            resolved_source = _member_photo_data_uri(member) or context.get(source, "")
-            return resolved_source, {
+            portrait_source, portrait_meta = _resolve_member_portrait(member, club)
+            if portrait_source:
+                return portrait_source, portrait_meta
+            fallback_source = context.get(source, "")
+            return fallback_source, {
                 "resolved_via": "merge_source",
-                "status": "resolved",
+                "status": "resolved" if fallback_source else "empty",
             }
         return _normalize_source_url(
             _resolve_merge_value(source, context),
@@ -1075,6 +1120,7 @@ def _resolve_elements(
     design_payload: dict[str, Any],
     context: dict[str, str],
     member: Member | None,
+    club: Club | None,
     font_assets: dict[int, dict[str, Any]],
     image_assets: dict[int, dict[str, Any]],
     request: HttpRequest | None,
@@ -1164,6 +1210,7 @@ def _resolve_elements(
                 element=element,
                 context=context,
                 member=member,
+                club=club,
                 image_assets=image_assets,
                 request=request,
                 asset_base_url=asset_base_url,
@@ -1333,6 +1380,24 @@ def build_sheet_layout_metadata(
     )
 
 
+def resolve_published_standard_card_version() -> CardTemplateVersion | None:
+    published = (
+        CardTemplateVersion.objects.filter(
+            status=CardTemplateVersion.Status.PUBLISHED,
+            template__is_active=True,
+        )
+        .select_related("template", "card_format")
+        .order_by("-version_number", "-published_at", "-id")
+    )
+    default = published.filter(template__is_default=True).first()
+    if default:
+        return default
+    named = published.filter(
+        Q(template__name__icontains="3C") | Q(template__name__icontains="Standard")
+    ).first()
+    return named or published.first()
+
+
 def build_preview_data(
     *,
     template_version: CardTemplateVersion,
@@ -1419,6 +1484,7 @@ def build_preview_data(
         design_payload=active_design_payload,
         context=context,
         member=member,
+        club=club,
         font_assets=resolved_font_assets,
         image_assets=resolved_image_assets,
         request=request,
@@ -1907,6 +1973,20 @@ def _render_element_html(element: dict[str, Any]) -> str:
         font_family = font_family.strip() or "Inter"
         font_family_css = escape(font_family).replace("'", "\\'")
         text_value = escape(str(element.get("resolved_text", ""))).replace("\n", "<br/>")
+        max_lines_raw = style.get("max_lines")
+        try:
+            max_lines = int(max_lines_raw) if max_lines_raw is not None else 0
+        except (TypeError, ValueError):
+            max_lines = 0
+        if max_lines == 1:
+            wrap_css = "white-space:nowrap;overflow:hidden;"
+        elif max_lines > 1:
+            wrap_css = (
+                f"display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{max_lines};"
+                "overflow:hidden;white-space:normal;overflow-wrap:break-word;word-break:normal;"
+            )
+        else:
+            wrap_css = "white-space:normal;overflow-wrap:break-word;word-break:normal;"
         return (
             f'<div style="{base_style}'
             f"font-size:{_format_mm(font_size)}mm;"
@@ -1915,7 +1995,8 @@ def _render_element_html(element: dict[str, Any]) -> str:
             f"letter-spacing:{_format_mm(letter_spacing)}mm;"
             f"text-transform:{text_transform};text-decoration:{text_decoration};"
             f"{text_shadow}{text_stroke}"
-            f"white-space:normal;word-break:break-word;"
+            f"{wrap_css}"
+            "-webkit-text-size-adjust:100%;text-size-adjust:100%;"
             f"font-family:'{font_family_css}',Inter,Arial,sans-serif;"
             '">'
             f"{text_value}</div>"
@@ -1944,7 +2025,24 @@ def _render_element_html(element: dict[str, Any]) -> str:
         if contrast != Decimal("100.00"):
             filter_parts.append(f"contrast({_format_plain_decimal(contrast)}%)")
         image_filter_css = f"filter:{' '.join(filter_parts)};" if filter_parts else ""
+        source_meta = element.get("resolved_source_meta") or {}
+        is_club_logo_fallback = (
+            isinstance(source_meta, dict)
+            and str(source_meta.get("resolved_via") or "") == "club.logo_print_url"
+        )
         if source:
+            if is_club_logo_fallback:
+                return (
+                    f'<div style="{base_style}'
+                    f"border:{_format_mm(border_width)}mm {border_style} {border_color};"
+                    f"border-radius:{border_radius_css};"
+                    "background:#f5f5f5;"
+                    '">'
+                    f'<img src="{escape(source)}" alt="" '
+                    'style="width:100%;height:100%;object-fit:contain;object-position:center center;'
+                    f"opacity:0.40;border-radius:{border_radius_css};display:block;{image_filter_css}\"/>"
+                    "</div>"
+                )
             return (
                 f'<div style="{base_style}'
                 f"border:{_format_mm(border_width)}mm {border_style} {border_color};"
@@ -1956,11 +2054,16 @@ def _render_element_html(element: dict[str, Any]) -> str:
                 f"border-radius:{border_radius_css};display:block;{image_filter_css}\"/>"
                 "</div>"
             )
+        empty_border = (
+            f"border:{_format_mm(border_width)}mm {border_style} {border_color};"
+            if border_width > Decimal("0.00")
+            else "border:none;"
+        )
         return (
             f'<div style="{base_style}'
-            "border:0.20mm dashed #9ca3af;background:#f9fafb;"
-            'display:flex;align-items:center;justify-content:center;'
-            'font-size:2.6mm;color:#6b7280;">No image</div>'
+            f"{empty_border}"
+            f"border-radius:{border_radius_css};"
+            'background:#f3f4f6;"></div>'
         )
     if element_type == "shape":
         shape_kind = str(element.get("shape_kind") or style.get("shape_kind") or "rectangle").strip().lower()
@@ -2064,7 +2167,8 @@ def _build_document_css(
     return (
         f"{page_rule}"
         "html,body{margin:0;padding:0;}"
-        "body{font-family:Inter,Arial,sans-serif;-webkit-text-size-adjust:100%;text-size-adjust:100%;}"
+        "html,body,*{-webkit-text-size-adjust:100%;text-size-adjust:100%;}"
+        "body{font-family:Inter,Arial,sans-serif;}"
         "*,*::before,*::after{box-sizing:border-box;}"
         f"{font_face_css}"
     )
@@ -2121,7 +2225,6 @@ def _render_sheet_document_html(preview_data: dict[str, Any]) -> str:
     slot_markup: list[str] = []
     for slot in slots:
         selected = bool(slot.get("selected"))
-        slot_border = "#1d4ed8" if selected else "#d1d5db"
         corner_radius_mm = str(slot.get("card_corner_radius_mm") or "0.00")
         content = card_fragment if selected else ""
         slot_markup.append(
@@ -2129,7 +2232,6 @@ def _render_sheet_document_html(preview_data: dict[str, Any]) -> str:
             "style=\"position:absolute;box-sizing:border-box;"
             f"left:{slot['x_mm']}mm;top:{slot['y_mm']}mm;"
             f"width:{slot['width_mm']}mm;height:{slot['height_mm']}mm;"
-            f"border:0.15mm dashed {slot_border};"
             f"border-radius:{escape(corner_radius_mm)}mm;overflow:hidden;\">"
             f"{content}</div>"
         )

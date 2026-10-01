@@ -11,14 +11,26 @@ from accounts.permissions import IsClubAdmin, IsLtfAdmin, IsLtfAdminOrClubAdmin
 from clubs.banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from clubs.models import Club
 from members.models import Member
+from members.services import apply_ltf_license_id_import_prefix, ltf_license_prefix_rewrite_policy
 
 from .csv_utils import read_csv, to_row_dict
+from .mapping import detect_membership_end_date_header, suggest_member_mapping
 from .serializers import (
     ImportBaseSerializer,
     ImportConfirmResponseSerializer,
     ImportDetailResponseSerializer,
     ImportPreviewResponseSerializer,
 )
+
+
+def resolve_import_license_ids(row_data, mapping, rewrite_enabled: bool):
+    wt_licenseid = row_data.get(mapping.get("wt_licenseid", ""), "").strip().upper()
+    raw_ltf_licenseid = row_data.get(mapping.get("ltf_licenseid", ""), "").strip().upper()
+    ltf_licenseid, rewritten = apply_ltf_license_id_import_prefix(
+        raw_ltf_licenseid,
+        enabled=rewrite_enabled,
+    )
+    return wt_licenseid, ltf_licenseid, rewritten
 
 
 def parse_mapping(raw_mapping):
@@ -34,6 +46,126 @@ def parse_actions(raw_actions):
         return {}
     actions_list = json.loads(raw_actions) if isinstance(raw_actions, str) else raw_actions
     return {int(item["row_index"]): item["action"] for item in actions_list}
+
+
+def parse_row_overrides(raw_overrides):
+    if not raw_overrides:
+        return {}
+    if isinstance(raw_overrides, (bytes, bytearray)):
+        raw_overrides = raw_overrides.decode("utf-8")
+    if isinstance(raw_overrides, str):
+        raw_overrides = raw_overrides.strip()
+        if not raw_overrides:
+            return {}
+        overrides = json.loads(raw_overrides)
+    else:
+        overrides = raw_overrides
+
+    parsed: dict[int, dict] = {}
+
+    if isinstance(overrides, list):
+        for item in overrides:
+            if not isinstance(item, dict):
+                continue
+            row_index = item.get("row_index")
+            if row_index is None:
+                continue
+            parsed[int(row_index)] = _normalize_row_override(item)
+        return parsed
+
+    if isinstance(overrides, dict):
+        for row_index, override in overrides.items():
+            if not isinstance(override, dict):
+                continue
+            parsed[int(row_index)] = _normalize_row_override(override)
+        return parsed
+
+    return {}
+
+
+def _normalize_row_override(item: dict) -> dict:
+    payload = {
+        "primary_license_role": item.get("primary_license_role", ""),
+        "secondary_license_role": item.get("secondary_license_role", ""),
+    }
+    if "is_active" in item:
+        payload["is_active"] = item.get("is_active")
+    return payload
+
+
+_ALLOWED_MEMBERSHIP_YEAR_POLICIES = {"skip", "active", "inactive"}
+
+
+def parse_membership_year_policies(raw):
+    if not raw:
+        return None
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8")
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if not raw:
+            return None
+        data = json.loads(raw)
+    else:
+        data = raw
+    if not isinstance(data, dict) or not data.get("enabled"):
+        return None
+    years_in = data.get("years") or {}
+    years: dict[int, str] = {}
+    if isinstance(years_in, dict):
+        for key, value in years_in.items():
+            policy = str(value or "").strip().lower()
+            if policy not in _ALLOWED_MEMBERSHIP_YEAR_POLICIES:
+                continue
+            try:
+                years[int(key)] = policy
+            except (TypeError, ValueError):
+                continue
+    unknown = str(data.get("unknown") or "skip").strip().lower()
+    if unknown not in _ALLOWED_MEMBERSHIP_YEAR_POLICIES:
+        unknown = "skip"
+    return {"years": years, "unknown": unknown}
+
+
+def parse_membership_end_year(value, date_format):
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    local_errors: list[str] = []
+    parsed = parse_date(raw, local_errors, "membership_end_date", date_format)
+    if parsed:
+        return parsed.year
+    for pattern in ("%d/%m/%Y", "%d.%m.%Y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, pattern).date().year
+        except Exception:
+            continue
+    return None
+
+
+def membership_end_year_for_row(row_data, mapping, date_format, headers=None):
+    header = detect_membership_end_date_header(
+        headers if headers is not None else list(row_data.keys()),
+        mapping,
+    )
+    if not header:
+        return None
+    return parse_membership_end_year(row_data.get(header, ""), date_format)
+
+
+def membership_year_policy_for(year, policies):
+    if not policies:
+        return None
+    if year is None:
+        return policies["unknown"]
+    return policies["years"].get(year, policies["unknown"])
+
+
+def resolve_license_role_value(has_row_override, override, field_name, csv_value, errors):
+    """Prefer Step 3 row overrides for rows included in row_overrides payload."""
+    if has_row_override:
+        return normalize_license_role(override.get(field_name, ""), errors, field_name)
+    return normalize_license_role(csv_value, errors, field_name)
 
 
 def parse_date(value, errors, field_name, date_format):
@@ -79,25 +211,12 @@ def parse_boolean(value, errors, field_name):
     return None
 
 
-_LICENSE_ROLE_LOOKUP = {
-    "athlete": "athlete",
-    "coach": "coach",
-    "referee": "referee",
-    "official": "official",
-    "doctor": "doctor",
-    "physiotherapist": "physiotherapist",
-    "volunteer": "volunteer",
-    "staff": "staff",
-    "media": "media",
-    "fan": "fan",
-}
-
-
 def normalize_license_role(value, errors, field_name):
+    # Accept any casing from CSV/overrides ("athlete", "ATHLETE", "Athlete")
+    # and persist the capitalized canonical value used in the member table.
     if value is None or value == "":
         return ""
-    normalized = str(value).strip().lower().replace("_", " ").replace("-", " ")
-    canonical = _LICENSE_ROLE_LOOKUP.get(" ".join(normalized.split()))
+    canonical = Member.canonicalize_license_role(value)
     if canonical:
         return canonical
     errors.append(
@@ -334,7 +453,14 @@ class MemberImportPreviewView(views.APIView):
 
         if not mapping:
             return response.Response(
-                {"headers": headers, "sample_rows": sample_rows, "total_rows": len(rows)}
+                {
+                    "headers": headers,
+                    "sample_rows": sample_rows,
+                    "total_rows": len(rows),
+                    "suggested_mapping": suggest_member_mapping(headers),
+                    "membership_end_date_header": detect_membership_end_date_header(headers),
+                    "ltf_license_prefix_rewrite": ltf_license_prefix_rewrite_policy(),
+                }
             )
 
         first_header = mapping.get("first_name")
@@ -365,6 +491,8 @@ class MemberImportPreviewView(views.APIView):
         }
         seen_wt_ids = set()
         seen_ltf_ids = set()
+        rewrite_enabled = ltf_license_prefix_rewrite_policy()["enabled"]
+        rewritten_count = 0
 
         preview_rows = []
         for index, row in enumerate(rows, start=1):
@@ -415,8 +543,11 @@ class MemberImportPreviewView(views.APIView):
                 if first_name and last_name
                 else None
             )
-            wt_licenseid = row_data.get(mapping.get("wt_licenseid", ""), "").strip().upper()
-            ltf_licenseid = row_data.get(mapping.get("ltf_licenseid", ""), "").strip().upper()
+            wt_licenseid, ltf_licenseid, ltf_rewritten = resolve_import_license_ids(
+                row_data, mapping, rewrite_enabled
+            )
+            if ltf_rewritten:
+                rewritten_count += 1
             if wt_licenseid:
                 if wt_licenseid in existing_wt_ids or wt_licenseid in seen_wt_ids:
                     errors.append("wt_licenseid must be unique")
@@ -425,6 +556,9 @@ class MemberImportPreviewView(views.APIView):
                 if ltf_licenseid in existing_ltf_ids or ltf_licenseid in seen_ltf_ids:
                     errors.append("ltf_licenseid must be unique")
                 seen_ltf_ids.add(ltf_licenseid)
+            membership_end_year = membership_end_year_for_row(
+                row_data, mapping, date_format, headers
+            )
 
             preview_rows.append(
                 {
@@ -441,6 +575,7 @@ class MemberImportPreviewView(views.APIView):
                         "is_active": is_active_value,
                         "primary_license_role": primary_license_role,
                         "secondary_license_role": secondary_license_role,
+                        "membership_end_year": membership_end_year,
                     },
                     "errors": errors,
                     "duplicate": bool(duplicate_id),
@@ -454,6 +589,12 @@ class MemberImportPreviewView(views.APIView):
                 "rows": preview_rows,
                 "total_rows": len(rows),
                 "club_id": club_id,
+                "membership_end_date_header": detect_membership_end_date_header(
+                    headers, mapping
+                ),
+                "ltf_license_prefix_rewrite": ltf_license_prefix_rewrite_policy(
+                    rewritten_count=rewritten_count
+                ),
             }
         )
 
@@ -475,6 +616,10 @@ class MemberImportConfirmView(views.APIView):
         file_obj = request.data.get("file")
         mapping = parse_mapping(request.data.get("mapping"))
         actions = parse_actions(request.data.get("actions"))
+        row_overrides = parse_row_overrides(request.data.get("row_overrides"))
+        membership_year_policies = parse_membership_year_policies(
+            request.data.get("membership_year_policies")
+        )
         if not file_obj or not mapping:
             return response.Response(
                 {"detail": "file and mapping are required."}, status=400
@@ -513,6 +658,8 @@ class MemberImportConfirmView(views.APIView):
         }
         created_wt_ids = set()
         created_ltf_ids = set()
+        rewrite_enabled = ltf_license_prefix_rewrite_policy()["enabled"]
+        rewritten_count = 0
 
         with transaction.atomic():
             for index, row in enumerate(rows, start=1):
@@ -522,6 +669,13 @@ class MemberImportConfirmView(views.APIView):
                     continue
 
                 row_data = to_row_dict(headers, row)
+                year_policy = membership_year_policy_for(
+                    membership_end_year_for_row(row_data, mapping, date_format, headers),
+                    membership_year_policies,
+                )
+                if year_policy == "skip":
+                    skipped += 1
+                    continue
                 errors = []
                 first_name = row_data.get(first_header, "").strip()
                 last_name = row_data.get(last_header, "").strip()
@@ -545,16 +699,25 @@ class MemberImportConfirmView(views.APIView):
                     errors,
                     "is_active",
                 )
-                primary_license_role = normalize_license_role(
+
+                # Get row overrides if present (Step 3 role corrections from frontend)
+                has_row_override = index in row_overrides
+                override = row_overrides.get(index, {})
+                primary_license_role = resolve_license_role_value(
+                    has_row_override,
+                    override,
+                    "primary_license_role",
                     row_data.get(mapping.get("primary_license_role", ""), "").strip(),
                     errors,
-                    "primary_license_role",
                 )
-                secondary_license_role = normalize_license_role(
+                secondary_license_role = resolve_license_role_value(
+                    has_row_override,
+                    override,
+                    "secondary_license_role",
                     row_data.get(mapping.get("secondary_license_role", ""), "").strip(),
                     errors,
-                    "secondary_license_role",
                 )
+
                 if secondary_license_role and not primary_license_role:
                     errors.append("secondary_license_role requires primary_license_role")
                 if (
@@ -563,8 +726,9 @@ class MemberImportConfirmView(views.APIView):
                     and primary_license_role == secondary_license_role
                 ):
                     errors.append("secondary_license_role must differ from primary_license_role")
-                wt_licenseid = row_data.get(mapping.get("wt_licenseid", ""), "").strip().upper()
-                ltf_licenseid = row_data.get(mapping.get("ltf_licenseid", ""), "").strip().upper()
+                wt_licenseid, ltf_licenseid, ltf_rewritten = resolve_import_license_ids(
+                    row_data, mapping, rewrite_enabled
+                )
                 if wt_licenseid:
                     if wt_licenseid in existing_wt_ids or wt_licenseid in created_wt_ids:
                         errors.append("wt_licenseid must be unique")
@@ -589,6 +753,14 @@ class MemberImportConfirmView(views.APIView):
                 }
                 if sex_value:
                     member_payload["sex"] = sex_value
+                if has_row_override and "is_active" in override:
+                    override_active = override.get("is_active")
+                    if override_active is True or override_active is False:
+                        is_active_value = override_active
+                if year_policy == "active":
+                    is_active_value = True
+                elif year_policy == "inactive":
+                    is_active_value = False
                 if is_active_value is not None:
                     member_payload["is_active"] = is_active_value
                 Member.objects.create(**member_payload)
@@ -596,6 +768,8 @@ class MemberImportConfirmView(views.APIView):
                     created_wt_ids.add(wt_licenseid)
                 if ltf_licenseid:
                     created_ltf_ids.add(ltf_licenseid)
+                if ltf_rewritten:
+                    rewritten_count += 1
                 created += 1
 
         return response.Response(
@@ -604,5 +778,8 @@ class MemberImportConfirmView(views.APIView):
                 "skipped": skipped,
                 "errors": row_errors,
                 "club_id": club_id,
+                "ltf_license_prefix_rewrite": ltf_license_prefix_rewrite_policy(
+                    rewritten_count=rewritten_count
+                ),
             }
         )

@@ -25,13 +25,24 @@ from accounts.permissions import (
     IsLtfFinance,
     IsLtfFinanceOrLtfAdmin,
 )
+from clubmgmt.access import can_record_club_payments
 from config.pagination import OptionalPaginationListMixin
 
 from clubs.models import Club
-from members.models import Member
+from members.models import Member, MemberTransfer
 
+from .club_fee_billing import ClubFeeBillingError, billing_status, create_billing_run
+from .ledgers import apply_optional_ledger, federation_q
 from .models import (
+    ClubFeeBillingSchedule,
+    ClubFeePrice,
+    ClubFeeType,
+    Expense,
+    ExpenseCategory,
     FinanceAuditLog,
+    FinanceYearOpening,
+    Income,
+    IncomeCategory,
     Invoice,
     License,
     LicensePrice,
@@ -43,14 +54,26 @@ from .models import (
 )
 from .history import log_license_created, log_license_status_change
 from .serializers import (
+    build_audit_label_maps,
     ActivateLicensesSerializer,
     ClubOrderEligibilitySerializer,
     CheckoutSessionSerializer,
     CheckoutSessionRequestSerializer,
+    ConfirmCheckoutResultSerializer,
+    ConfirmCheckoutSessionSerializer,
     ConfirmPaymentSerializer,
+    ExpenseCategorySerializer,
+    ExpenseSerializer,
     FinanceAuditLogSerializer,
+    IncomeCategorySerializer,
+    IncomeSerializer,
+    FinanceYearOpeningSerializer,
     InvoiceListSerializer,
     InvoiceSerializer,
+    ClubFeeBillingRequestSerializer,
+    ClubFeeBillingScheduleSerializer,
+    ClubFeePriceSerializer,
+    ClubFeeTypeSerializer,
     LicensePriceSerializer,
     LicenseSerializer,
     LicenseTypePolicySerializer,
@@ -63,9 +86,15 @@ from .serializers import (
     PayconiqCreateSerializer,
     PayconiqPaymentSerializer,
 )
+from .finance_reports import aging_summary, build_finance_report, render_finance_report_xlsx
 from .pdf_utils import render_invoice_pdf
-from .policy import get_or_create_license_type_policy, validate_member_license_order
+from .policy import (
+    describe_license_order_availability,
+    get_or_create_license_type_policy,
+    validate_member_license_order,
+)
 from .services import apply_payment_and_activate
+from .stripe_checkout import checkout_success_url, fulfill_checkout_session
 from .tasks import process_stripe_webhook_event
 from .payconiq import PayconiqServiceError, create_payment, get_status
 
@@ -158,6 +187,55 @@ def _parse_csv_ints(raw_value: str | None) -> list[int]:
         except ValueError:
             continue
     return values
+
+
+def _apply_invoice_issue_filter(queryset, issue):
+    raw = (issue or "").strip()
+    if raw == "overdue_7d":
+        overdue_cutoff = timezone.now() - timedelta(days=7)
+        return queryset.filter(status=Invoice.Status.ISSUED).filter(
+            Q(issued_at__lte=overdue_cutoff)
+            | Q(issued_at__isnull=True, created_at__lte=overdue_cutoff)
+        )
+    aging_map = {
+        "aging_current": (0, 30),
+        "aging_31_60": (31, 60),
+        "aging_61_90": (61, 90),
+        "aging_90": (91, None),
+    }
+    if raw not in aging_map:
+        return queryset
+    lo, hi = aging_map[raw]
+    now = timezone.now()
+    older = now - timedelta(days=lo)
+    queryset = queryset.filter(status=Invoice.Status.ISSUED).filter(
+        Q(issued_at__lte=older) | Q(issued_at__isnull=True, created_at__lte=older)
+    )
+    if hi is not None:
+        newer = now - timedelta(days=hi + 1)
+        queryset = queryset.filter(
+            Q(issued_at__gt=newer) | Q(issued_at__isnull=True, created_at__gt=newer)
+        )
+    return queryset
+
+
+def _apply_order_issue_filter(queryset, issue):
+    if (issue or "").strip() != "paid_pending_licenses":
+        return queryset
+    return queryset.filter(
+        status=Order.Status.PAID,
+        items__license__status=License.Status.PENDING,
+    ).distinct()
+
+
+def _apply_payment_issue_filter(queryset, issue):
+    if (issue or "").strip() != "failed_or_cancelled_30d":
+        return queryset
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    return queryset.filter(
+        status__in=[Payment.Status.FAILED, Payment.Status.CANCELLED],
+        created_at__gte=thirty_days_ago,
+    )
 
 
 class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
@@ -311,7 +389,7 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             .annotate(item_quantity=Coalesce(Sum("items__quantity"), 0))
         )
         if self.action != "list":
-            queryset = queryset.prefetch_related("items__license")
+            queryset = queryset.prefetch_related("items__license__member")
         return queryset
 
     def get_queryset(self):
@@ -321,7 +399,7 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return Order.objects.none()
         if user.role == "ltf_finance":
-            queryset = self._base_queryset()
+            queryset = self._base_queryset().filter(federation_q())
 
             club_id = self.request.query_params.get("club_id")
             if club_id:
@@ -356,9 +434,12 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                     | Q(member__last_name__icontains=search_value)
                     | Q(currency__icontains=search_value)
                 )
+            queryset = _apply_order_issue_filter(
+                queryset, self.request.query_params.get("issue")
+            )
             return queryset.order_by("-created_at")
         if user.role == "ltf_admin" and self.action in ["confirm_payment", "activate_licenses"]:
-            queryset = self._base_queryset()
+            queryset = self._base_queryset().filter(federation_q())
             return queryset.order_by("-created_at")
         return Order.objects.none()
 
@@ -458,6 +539,11 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         order = self.get_object()
         request_serializer = CheckoutSessionRequestSerializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)
+        if order.ledger != Order.Ledger.FEDERATION:
+            return Response(
+                {"detail": "Club invoices cannot be paid through federation payment providers."},
+                status=HTTP_400_BAD_REQUEST,
+            )
         if order.status not in [Order.Status.DRAFT, Order.Status.PENDING]:
             return Response(
                 {"detail": "Checkout session cannot be created for this order status."},
@@ -472,15 +558,21 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         stripe.api_key = settings.STRIPE_SECRET_KEY
         stripe.api_version = settings.STRIPE_API_VERSION
 
+        invoice = getattr(order, "invoice", None) or Invoice.objects.filter(order=order).first()
+        due_amount = invoice.outstanding() if invoice else order.total
+        if due_amount <= 0:
+            return Response(
+                {"detail": "This invoice has no outstanding balance."},
+                status=HTTP_400_BAD_REQUEST,
+            )
         amount_cents = int(
-            (order.total * Decimal("100")).quantize(Decimal("1"))
+            (due_amount * Decimal("100")).quantize(Decimal("1"))
         )
         customer_email = order.member.email if order.member and order.member.email else None
-        invoice = getattr(order, "invoice", None) or Invoice.objects.filter(order=order).first()
         reference_number = invoice.invoice_number if invoice else order.order_number
         session_kwargs = {
             "mode": "payment",
-            "success_url": settings.STRIPE_CHECKOUT_SUCCESS_URL,
+            "success_url": checkout_success_url(),
             "cancel_url": settings.STRIPE_CHECKOUT_CANCEL_URL,
             "client_reference_id": reference_number,
             "payment_intent_data": {
@@ -562,6 +654,8 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             conflict_license_ids = []
             for item in order.items.select_related("license").all():
                 license_record = item.license
+                if not license_record:
+                    continue
                 license_status_before[license_record.id] = license_record.status
                 if license_record.status != License.Status.ACTIVE:
                     if license_record.start_date > today or license_record.end_date < today:
@@ -626,8 +720,9 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
         if user.role == "ltf_finance":
             queryset = (
                 Invoice.objects.select_related("club", "member", "order")
+                .prefetch_related("credit_notes", "payments")
                 .annotate(item_quantity=Coalesce(Sum("order__items__quantity"), 0))
-                .all()
+                .filter(federation_q(through_order=True))
             )
 
             club_id = self.request.query_params.get("club_id")
@@ -665,6 +760,9 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
                     | Q(order__order_number__icontains=search_value)
                     | Q(currency__icontains=search_value)
                 )
+            queryset = _apply_invoice_issue_filter(
+                queryset, self.request.query_params.get("issue")
+            )
             return queryset.order_by("-created_at")
         return Invoice.objects.none()
 
@@ -675,6 +773,65 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
         if self.action == "list":
             return InvoiceListSerializer
         return InvoiceSerializer
+
+    @action(detail=False, methods=["get"], url_path="totals")
+    def totals(self, request):
+        queryset = Invoice.objects.filter(federation_q(through_order=True))
+        club_id = request.query_params.get("club_id")
+        if club_id:
+            queryset = queryset.filter(club_id=club_id)
+        search_value = request.query_params.get("q", "").strip()
+        if search_value:
+            queryset = queryset.filter(
+                Q(invoice_number__icontains=search_value)
+                | Q(status__icontains=search_value)
+                | Q(club__name__icontains=search_value)
+                | Q(member__first_name__icontains=search_value)
+                | Q(member__last_name__icontains=search_value)
+                | Q(order__order_number__icontains=search_value)
+                | Q(currency__icontains=search_value)
+            )
+        issued = queryset.filter(status=Invoice.Status.ISSUED).prefetch_related("credit_notes", "payments")
+        outstanding = sum((invoice.outstanding() for invoice in issued), Decimal("0.00"))
+        currency = issued.values_list("currency", flat=True).first() or "EUR"
+        return Response(
+            {
+                "outstanding_amount": _decimal_string(outstanding),
+                "currency": currency,
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="credit-note")
+    def credit_note(self, request, *args, **kwargs):
+        from .collections import assert_ledger_for_actor, create_credit_note, reload_invoice
+        from .serializers import CreditNoteSerializer
+
+        invoice = self.get_object()
+        assert_ledger_for_actor(invoice, club_side=False)
+        serializer = CreditNoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        create_credit_note(
+            invoice,
+            amount=serializer.validated_data["amount"],
+            reason=serializer.validated_data["reason"],
+            actor=request.user,
+        )
+        invoice = reload_invoice(invoice)
+        return Response(InvoiceSerializer(invoice, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"], url_path="send-reminder")
+    def send_reminder(self, request, *args, **kwargs):
+        from .collections import assert_ledger_for_actor, can_send_reminder, mark_invoice_reminded
+        from .tasks import send_invoice_reminder_email
+
+        invoice = self.get_object()
+        assert_ledger_for_actor(invoice, club_side=False)
+        allowed, message = can_send_reminder(invoice)
+        if not allowed:
+            return Response({"detail": message}, status=HTTP_400_BAD_REQUEST)
+        mark_invoice_reminded(invoice, request.user)
+        send_invoice_reminder_email.delay(invoice.id)
+        return Response(InvoiceSerializer(invoice, context=self.get_serializer_context()).data)
 
 
 class PaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet):
@@ -689,7 +846,9 @@ class PaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
             return Payment.objects.none()
         if user.role != "ltf_finance":
             return Payment.objects.none()
-        queryset = Payment.objects.select_related("invoice", "order", "created_by").all()
+        queryset = Payment.objects.select_related(
+            "invoice", "order", "order__club", "created_by"
+        ).filter(federation_q(through_order=True))
 
         club_id = self.request.query_params.get("club_id")
         if club_id:
@@ -729,6 +888,9 @@ class PaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
                 | Q(order__order_number__icontains=search_value)
                 | Q(order__club__name__icontains=search_value)
             )
+        queryset = _apply_payment_issue_filter(
+            queryset, self.request.query_params.get("issue")
+        )
         return queryset.order_by("-created_at")
 
     def get_permissions(self):
@@ -752,10 +914,13 @@ class FinanceAuditLogViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModel
                     "club",
                     "member",
                     "license",
+                    "license__license_type",
+                    "license__member",
                     "order",
                     "invoice",
                 )
-                .all()
+                .exclude(order__ledger=Order.Ledger.CLUB)
+                .exclude(invoice__order__ledger=Order.Ledger.CLUB)
                 .order_by("-created_at")
             )
             search_value = self.request.query_params.get("q", "").strip()
@@ -763,9 +928,33 @@ class FinanceAuditLogViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModel
                 queryset = queryset.filter(
                     Q(action__icontains=search_value)
                     | Q(message__icontains=search_value)
+                    | Q(club__name__icontains=search_value)
+                    | Q(actor__username__icontains=search_value)
+                    | Q(actor__first_name__icontains=search_value)
+                    | Q(actor__last_name__icontains=search_value)
+                    | Q(member__first_name__icontains=search_value)
+                    | Q(member__last_name__icontains=search_value)
+                    | Q(member__ltf_licenseid__icontains=search_value)
+                    | Q(order__order_number__icontains=search_value)
+                    | Q(invoice__invoice_number__icontains=search_value)
                 )
             return queryset
         return FinanceAuditLog.objects.none()
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault("context", self.get_serializer_context())
+        many = kwargs.get("many")
+        if args:
+            instance = args[0]
+            if instance is not None:
+                logs = list(instance) if many else [instance]
+                kwargs["context"] = {
+                    **kwargs["context"],
+                    **build_audit_label_maps(logs),
+                }
+                if many:
+                    args = (logs, *args[1:])
+        return super().get_serializer(*args, **kwargs)
 
     def get_permissions(self):
         return [IsLtfFinance()]
@@ -775,7 +964,7 @@ class LtfAdminOverviewView(APIView):
     permission_classes = [IsLtfAdmin]
 
     def get(self, request):
-        cache_key = "dashboard:overview:ltf_admin:v1"
+        cache_key = "dashboard:overview:ltf_admin:v4"
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return Response(cached_payload, status=status.HTTP_200_OK)
@@ -808,6 +997,10 @@ class LtfAdminOverviewView(APIView):
         clubs_without_admin = (
             Club.objects.annotate(admin_count=Count("admins")).filter(admin_count=0).count()
         )
+        paid_pending_transfers = MemberTransfer.objects.filter(
+            status=MemberTransfer.Status.PENDING,
+            fee_amount__gt=0,
+        ).count()
         expiring_in_30_days = licenses_queryset.filter(
             status=License.Status.ACTIVE,
             end_date__gte=today,
@@ -864,19 +1057,36 @@ class LtfAdminOverviewView(APIView):
                     "key": "clubs_without_admin",
                     "count": clubs_without_admin,
                     "severity": "warning",
-                    "link": _overview_link("LtfAdmin.navClubs", "/dashboard/ltf/clubs"),
+                    "link": _overview_link(
+                        "LtfAdmin.navClubAdmins",
+                        "/dashboard/ltf/club-admins?issue=no_admin",
+                    ),
+                },
+                {
+                    "key": "paid_pending_transfers",
+                    "count": paid_pending_transfers,
+                    "severity": "warning",
+                    "link": _overview_link(
+                        "LtfAdmin.navMemberTransfers", "/dashboard/ltf/member-transfers"
+                    ),
                 },
                 {
                     "key": "members_missing_ltf_licenseid",
                     "count": members_missing_ltf_licenseid,
                     "severity": "info",
-                    "link": _overview_link("LtfAdmin.navMembers", "/dashboard/ltf/members"),
+                    "link": _overview_link(
+                        "LtfAdmin.navMembers",
+                        "/dashboard/ltf/members?issue=missing_ltf_licenseid",
+                    ),
                 },
                 {
                     "key": "members_without_active_or_pending_license",
                     "count": active_members_without_valid_license,
                     "severity": "critical",
-                    "link": _overview_link("LtfAdmin.navMembers", "/dashboard/ltf/members"),
+                    "link": _overview_link(
+                        "LtfAdmin.navMembers",
+                        "/dashboard/ltf/members?issue=no_valid_license",
+                    ),
                 },
             ],
             "distributions": {
@@ -906,7 +1116,7 @@ class LtfFinanceOverviewView(APIView):
     permission_classes = [IsLtfFinance]
 
     def get(self, request):
-        cache_key = "dashboard:overview:ltf_finance:v1"
+        cache_key = "dashboard:overview:ltf_finance:v6"
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return Response(cached_payload, status=status.HTTP_200_OK)
@@ -921,33 +1131,36 @@ class LtfFinanceOverviewView(APIView):
             datetime.combine(month_end + timedelta(days=1), time.min)
         )
 
-        order_counts = Order.objects.aggregate(
+        federation_orders = Order.objects.filter(federation_q())
+        federation_invoices = Invoice.objects.filter(federation_q(through_order=True))
+        federation_payments = Payment.objects.filter(federation_q(through_order=True))
+        order_counts = federation_orders.aggregate(
             draft=Count("id", filter=Q(status=Order.Status.DRAFT)),
             pending=Count("id", filter=Q(status=Order.Status.PENDING)),
             paid=Count("id", filter=Q(status=Order.Status.PAID)),
             cancelled=Count("id", filter=Q(status=Order.Status.CANCELLED)),
             refunded=Count("id", filter=Q(status=Order.Status.REFUNDED)),
         )
-        invoice_counts = Invoice.objects.aggregate(
+        invoice_counts = federation_invoices.aggregate(
             draft=Count("id", filter=Q(status=Invoice.Status.DRAFT)),
             issued=Count("id", filter=Q(status=Invoice.Status.ISSUED)),
             paid=Count("id", filter=Q(status=Invoice.Status.PAID)),
             void=Count("id", filter=Q(status=Invoice.Status.VOID)),
         )
 
-        issued_invoices_overdue_7d = Invoice.objects.filter(status=Invoice.Status.ISSUED).filter(
+        issued_invoices_overdue_7d = federation_invoices.filter(status=Invoice.Status.ISSUED).filter(
             Q(issued_at__lte=overdue_cutoff)
             | Q(issued_at__isnull=True, created_at__lte=overdue_cutoff)
         )
         paid_orders_with_pending_licenses = (
-            Order.objects.filter(
+            federation_orders.filter(
                 status=Order.Status.PAID,
                 items__license__status=License.Status.PENDING,
             )
             .distinct()
             .count()
         )
-        failed_or_cancelled_payments_30d = Payment.objects.filter(
+        failed_or_cancelled_payments_30d = federation_payments.filter(
             status__in=[Payment.Status.FAILED, Payment.Status.CANCELLED],
             created_at__gte=thirty_days_ago,
         ).count()
@@ -961,47 +1174,52 @@ class LtfFinanceOverviewView(APIView):
         with_active_price = len(active_priced_type_ids)
         missing_active_price = max(total_license_types - with_active_price, 0)
 
-        outstanding_amount = Invoice.objects.filter(status=Invoice.Status.ISSUED).aggregate(
+        outstanding_amount = federation_invoices.filter(status=Invoice.Status.ISSUED).aggregate(
             total=Sum("total")
         )["total"]
-        collected_this_month_amount = Payment.objects.filter(
+        collected_this_month_amount = federation_payments.filter(
             status=Payment.Status.PAID,
             paid_at__gte=month_start_dt,
             paid_at__lt=next_month_start_dt,
         ).aggregate(total=Sum("amount"))["total"]
+        other_income_this_year = Income.objects.filter(
+            federation_q(),
+            status=Income.Status.RECEIVED,
+            income_date__year=today.year,
+        ).aggregate(total=Sum("amount"))["total"]
+        aging = aging_summary(
+            federation_invoices.filter(status=Invoice.Status.ISSUED).select_related("club")
+        )
 
         currency = (
-            Invoice.objects.exclude(currency="")
+            federation_invoices.exclude(currency="")
             .values_list("currency", flat=True)
             .first()
-            or Order.objects.exclude(currency="")
+            or federation_orders.exclude(currency="")
             .values_list("currency", flat=True)
             .first()
-            or Payment.objects.exclude(currency="")
+            or federation_payments.exclude(currency="")
             .values_list("currency", flat=True)
             .first()
             or "EUR"
         )
 
         recent_activity = []
-        for row in FinanceAuditLog.objects.order_by("-created_at").values(
-            "id",
-            "created_at",
-            "action",
-            "message",
-            "club_id",
-            "order_id",
-            "invoice_id",
+        for log in FinanceAuditLog.objects.select_related("club", "order", "invoice").order_by(
+            "-created_at"
         )[:10]:
             recent_activity.append(
                 {
-                    "id": row["id"],
-                    "created_at": _to_iso_z(row["created_at"]),
-                    "action": row["action"],
-                    "message": row["message"],
-                    "club_id": row["club_id"],
-                    "order_id": row["order_id"],
-                    "invoice_id": row["invoice_id"],
+                    "id": log.id,
+                    "created_at": _to_iso_z(log.created_at),
+                    "action": log.action,
+                    "message": log.message,
+                    "club_id": log.club_id,
+                    "club_name": log.club.name if log.club_id else None,
+                    "order_id": log.order_id,
+                    "order_number": log.order.order_number if log.order_id else None,
+                    "invoice_id": log.invoice_id,
+                    "invoice_number": log.invoice.invoice_number if log.invoice_id else None,
                 }
             )
 
@@ -1016,18 +1234,39 @@ class LtfFinanceOverviewView(APIView):
                 "paid_invoices": int(invoice_counts.get("paid") or 0),
                 "outstanding_amount": _decimal_string(outstanding_amount),
                 "collected_this_month_amount": _decimal_string(collected_this_month_amount),
+                "other_income_this_year": _decimal_string(other_income_this_year),
+                "aging_90_plus_count": next(
+                    (int(bucket["count"]) for bucket in aging["buckets"] if bucket["key"] == "days_90_plus"),
+                    0,
+                ),
                 "pricing_coverage": {
                     "total_license_types": total_license_types,
                     "with_active_price": with_active_price,
                     "missing_active_price": missing_active_price,
                 },
             },
+            "aging": aging,
             "action_queue": [
                 {
                     "key": "issued_invoices_overdue_7d",
                     "count": issued_invoices_overdue_7d.count(),
                     "severity": "critical",
-                    "link": _overview_link("LtfFinance.navInvoices", "/dashboard/ltf-finance/invoices"),
+                    "link": _overview_link(
+                        "LtfFinance.navInvoices",
+                        "/dashboard/ltf-finance/invoices?issue=overdue_7d",
+                    ),
+                },
+                {
+                    "key": "receivables_90_plus",
+                    "count": next(
+                        (int(bucket["count"]) for bucket in aging["buckets"] if bucket["key"] == "days_90_plus"),
+                        0,
+                    ),
+                    "severity": "warning",
+                    "link": _overview_link(
+                        "LtfFinance.navInvoices",
+                        "/dashboard/ltf-finance/invoices?issue=aging_90",
+                    ),
                 },
                 {
                     "key": "license_types_without_active_price",
@@ -1035,20 +1274,26 @@ class LtfFinanceOverviewView(APIView):
                     "severity": "warning",
                     "link": _overview_link(
                         "LtfFinance.navLicenseSettings",
-                        "/dashboard/ltf-finance/license-settings",
+                        "/dashboard/ltf-finance/license-settings?issue=missing_price",
                     ),
                 },
                 {
                     "key": "paid_orders_with_pending_licenses",
                     "count": paid_orders_with_pending_licenses,
                     "severity": "warning",
-                    "link": _overview_link("LtfFinance.navOrders", "/dashboard/ltf-finance/orders"),
+                    "link": _overview_link(
+                        "LtfFinance.navOrders",
+                        "/dashboard/ltf-finance/orders?issue=paid_pending_licenses",
+                    ),
                 },
                 {
                     "key": "failed_or_cancelled_payments_30d",
                     "count": failed_or_cancelled_payments_30d,
                     "severity": "info",
-                    "link": _overview_link("LtfFinance.navPayments", "/dashboard/ltf-finance/payments"),
+                    "link": _overview_link(
+                        "LtfFinance.navPayments",
+                        "/dashboard/ltf-finance/payments?issue=failed_or_cancelled_30d",
+                    ),
                 },
             ],
             "distributions": {
@@ -1120,12 +1365,37 @@ class PayconiqPaymentViewSet(viewsets.GenericViewSet):
 
         if not invoice or not order:
             return Response({"detail": "Invoice or order not found."}, status=HTTP_400_BAD_REQUEST)
+        if order.ledger != Order.Ledger.FEDERATION:
+            return Response(
+                {"detail": "Club invoices cannot be paid through federation payment providers."},
+                status=HTTP_400_BAD_REQUEST,
+            )
         if not self._ensure_club_access(request.user, order):
             return Response({"detail": "Not allowed."}, status=HTTP_403_FORBIDDEN)
+        if invoice.status in (Invoice.Status.PAID, Invoice.Status.VOID) or order.status in (
+            Order.Status.PAID,
+            Order.Status.CANCELLED,
+            Order.Status.REFUNDED,
+        ):
+            return Response(
+                {"detail": "This invoice is already paid or closed."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        if invoice.outstanding() <= 0:
+            return Response(
+                {"detail": "This invoice has no outstanding balance."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        if Payment.objects.filter(invoice=invoice, status=Payment.Status.PAID).exists():
+            return Response(
+                {"detail": "This invoice already has a recorded payment."},
+                status=HTTP_400_BAD_REQUEST,
+            )
 
+        due_amount = invoice.outstanding()
         try:
             result = create_payment(
-                amount=order.total,
+                amount=due_amount,
                 currency=order.currency,
                 reference=invoice.invoice_number,
             )
@@ -1135,7 +1405,7 @@ class PayconiqPaymentViewSet(viewsets.GenericViewSet):
         payment = Payment.objects.create(
             invoice=invoice,
             order=order,
-            amount=order.total,
+            amount=due_amount,
             currency=order.currency,
             method=Payment.Method.OTHER,
             provider=Payment.Provider.PAYCONIQ,
@@ -1218,7 +1488,7 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             .filter(club__admins=self.request.user)
         )
         if self.action != "list":
-            queryset = queryset.prefetch_related("items__license")
+            queryset = queryset.prefetch_related("items__license__member")
         return queryset
 
     def get_queryset(self):
@@ -1229,7 +1499,7 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             return Order.objects.none()
         if user.role != "club_admin":
             return Order.objects.none()
-        queryset = self._base_queryset()
+        queryset = apply_optional_ledger(self._base_queryset(), self.request)
         club_id = self.request.query_params.get("club_id")
         if club_id:
             queryset = queryset.filter(club_id=club_id)
@@ -1316,19 +1586,32 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             if price.license_type_id not in active_price_by_type_id:
                 active_price_by_type_id[price.license_type_id] = price
 
-        duplicate_pairs = (
-            License.objects.filter(
-                member_id__in=member_ids_set,
-                license_type_id__in=license_type_ids,
-                year=year,
-                status__in=[License.Status.PENDING, License.Status.ACTIVE],
-            )
-            .values_list("license_type_id", "member_id")
-            .distinct()
-        )
+        future_prices_qs = LicensePrice.objects.filter(
+            license_type_id__in=license_type_ids, effective_from__gt=today
+        ).order_by("license_type_id", "effective_from")
+        next_price_by_type_id: dict[int, LicensePrice] = {}
+        for price in future_prices_qs:
+            if price.license_type_id not in next_price_by_type_id:
+                next_price_by_type_id[price.license_type_id] = price
+
+        duplicate_rows = License.objects.filter(
+            member_id__in=member_ids_set,
+            license_type_id__in=license_type_ids,
+            year=year,
+            status__in=[License.Status.PENDING, License.Status.ACTIVE],
+        ).values_list("license_type_id", "member_id", "status")
         duplicate_member_ids_by_type: dict[int, set[int]] = defaultdict(set)
-        for license_type_id, member_id in duplicate_pairs:
-            duplicate_member_ids_by_type[int(license_type_id)].add(int(member_id))
+        duplicate_status_by_type_member: dict[tuple[int, int], str] = {}
+        status_rank = {License.Status.ACTIVE: 0, License.Status.PENDING: 1}
+        for license_type_id, member_id, license_status in duplicate_rows:
+            type_id = int(license_type_id)
+            member_key = int(member_id)
+            duplicate_member_ids_by_type[type_id].add(member_key)
+            existing_status = duplicate_status_by_type_member.get((type_id, member_key))
+            if existing_status is None or status_rank.get(license_status, 9) < status_rank.get(
+                existing_status, 9
+            ):
+                duplicate_status_by_type_member[(type_id, member_key)] = str(license_status)
 
         eligible_license_types = []
         ineligible_license_types = []
@@ -1338,6 +1621,17 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
                 license_type
             )
             active_price = active_price_by_type_id.get(license_type.id)
+            next_price = next_price_by_type_id.get(license_type.id)
+
+            def availability_for(reason_codes: set[str]) -> dict:
+                return describe_license_order_availability(
+                    policy=policy,
+                    target_year=year,
+                    order_date=today,
+                    reason_codes=reason_codes,
+                    next_price_effective_from=next_price.effective_from if next_price else None,
+                )
+
             if not active_price:
                 ineligible_members = [
                     {
@@ -1367,6 +1661,7 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
                             }
                         ],
                         "ineligible_members": ineligible_members,
+                        "availability": availability_for({"no_active_price"}),
                     }
                 )
                 continue
@@ -1394,6 +1689,9 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
                             "member_name": f"{member.first_name} {member.last_name}".strip(),
                             "reason_code": reason_code,
                             "message": detail_text,
+                            "license_status": duplicate_status_by_type_member.get(
+                                (license_type.id, member.id)
+                            ),
                         }
                     )
 
@@ -1420,6 +1718,9 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
                         "code": license_type.code,
                         "reason_counts": sorted_reasons,
                         "ineligible_members": sorted_members,
+                        "availability": availability_for(
+                            {reason["code"] for reason in sorted_reasons}
+                        ),
                     }
                 )
                 continue
@@ -1536,6 +1837,7 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             order = Order.objects.create(
                 club=club,
                 member=None,
+                ledger=Order.Ledger.FEDERATION,
                 status=Order.Status.PENDING,
                 currency=price.currency,
                 subtotal=subtotal,
@@ -1572,6 +1874,16 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             created_license_ids = [
                 license_record.id for license_record in created_licenses if license_record.id is not None
             ]
+            for license_record in created_licenses:
+                if license_record.id is None:
+                    continue
+                log_license_created(
+                    license_record,
+                    actor=actor,
+                    order=order,
+                    reason="License ordered (pending).",
+                    metadata={"source": "club_order.batch", "year": year},
+                )
 
             invoice = Invoice.objects.create(
                 order=order,
@@ -1651,6 +1963,11 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
         order = self.get_object()
         request_serializer = CheckoutSessionRequestSerializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)
+        if order.ledger != Order.Ledger.FEDERATION:
+            return Response(
+                {"detail": "Club invoices cannot be paid through federation payment providers."},
+                status=HTTP_400_BAD_REQUEST,
+            )
         if order.status not in [Order.Status.DRAFT, Order.Status.PENDING]:
             return Response(
                 {"detail": "Checkout session cannot be created for this order status."},
@@ -1665,13 +1982,19 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
         stripe.api_key = settings.STRIPE_SECRET_KEY
         stripe.api_version = settings.STRIPE_API_VERSION
 
-        amount_cents = int((order.total * Decimal("100")).quantize(Decimal("1")))
-        customer_email = order.member.email if order.member and order.member.email else None
         invoice = getattr(order, "invoice", None) or Invoice.objects.filter(order=order).first()
+        due_amount = invoice.outstanding() if invoice else order.total
+        if due_amount <= 0:
+            return Response(
+                {"detail": "This invoice has no outstanding balance."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        amount_cents = int((due_amount * Decimal("100")).quantize(Decimal("1")))
+        customer_email = order.member.email if order.member and order.member.email else None
         reference_number = invoice.invoice_number if invoice else order.order_number
         session_kwargs = {
             "mode": "payment",
-            "success_url": settings.STRIPE_CHECKOUT_SUCCESS_URL,
+            "success_url": checkout_success_url(),
             "cancel_url": settings.STRIPE_CHECKOUT_CANCEL_URL,
             "client_reference_id": reference_number,
             "payment_intent_data": {
@@ -1732,6 +2055,53 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(request=ConfirmPaymentSerializer, responses=OrderSerializer)
+    @action(detail=True, methods=["post"], url_path="confirm-payment")
+    def confirm_payment(self, request, *args, **kwargs):
+        order = self.get_object()
+        if order.ledger != Order.Ledger.CLUB:
+            return Response(
+                {"detail": "Federation invoices cannot be recorded as club payments."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        if not can_record_club_payments(request.user, order.club_id):
+            return Response(
+                {"detail": "Only committee officers with bank access can record payments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = ConfirmPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if order.status == Order.Status.PAID:
+            return Response(
+                {"detail": "Order is already marked as paid."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        if order.status not in [Order.Status.DRAFT, Order.Status.PENDING]:
+            return Response(
+                {"detail": "Order cannot be paid in its current status."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        payment_details = {
+            "payment_method": serializer.validated_data.get("payment_method"),
+            "payment_provider": serializer.validated_data.get("payment_provider"),
+            "payment_reference": serializer.validated_data.get("payment_reference"),
+            "payment_notes": serializer.validated_data.get("payment_notes"),
+            "paid_at": serializer.validated_data.get("paid_at"),
+            "card_brand": serializer.validated_data.get("card_brand"),
+            "card_last4": serializer.validated_data.get("card_last4"),
+            "card_exp_month": serializer.validated_data.get("card_exp_month"),
+            "card_exp_year": serializer.validated_data.get("card_exp_year"),
+        }
+        apply_payment_and_activate(
+            order,
+            actor=request.user if request.user.is_authenticated else None,
+            payment_details=payment_details,
+        )
+        return Response(
+            OrderSerializer(order, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
+
 
 class LicensePriceViewSet(
     OptionalPaginationListMixin,
@@ -1761,6 +2131,91 @@ class LicensePriceViewSet(
         serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
 
 
+class ClubFeeTypeViewSet(viewsets.ModelViewSet):
+    serializer_class = ClubFeeTypeSerializer
+    queryset = ClubFeeType.objects.prefetch_related("prices").all().order_by("name")
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsLtfFinanceOrLtfAdmin()]
+        return [IsLtfFinance()]
+
+
+class ClubFeePriceViewSet(
+    OptionalPaginationListMixin,
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    serializer_class = ClubFeePriceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = ClubFeePrice.objects.all()
+
+    def get_permissions(self):
+        return [IsLtfFinanceOrLtfAdmin()]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return ClubFeePrice.objects.none()
+        queryset = ClubFeePrice.objects.select_related("fee_type").all().order_by(
+            "-effective_from", "-created_at"
+        )
+        fee_type_id = self.request.query_params.get("fee_type")
+        if fee_type_id:
+            queryset = queryset.filter(fee_type_id=fee_type_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+
+
+class ClubFeeBillingScheduleViewSet(
+    mixins.ListModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    serializer_class = ClubFeeBillingScheduleSerializer
+    queryset = ClubFeeBillingSchedule.objects.select_related("fee_type").all()
+
+    def get_permissions(self):
+        return [IsLtfFinanceOrLtfAdmin()]
+
+
+class ClubFeeBillingView(APIView):
+    permission_classes = [IsLtfFinanceOrLtfAdmin]
+
+    def get(self, request):
+        try:
+            year = int(request.query_params.get("year") or timezone.now().year)
+        except (TypeError, ValueError):
+            year = timezone.now().year
+        return Response({"year": year, "charges": billing_status(year=year)})
+
+    def post(self, request):
+        serializer = ClubFeeBillingRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            result = create_billing_run(
+                fee_type_ids=data["fee_type_ids"],
+                club_ids=data.get("club_ids") or None,
+                billed_on=data["billed_on"],
+                period_year=data.get("period_year"),
+                rebill=bool(data.get("rebill")),
+                recurring=bool(data.get("recurring")),
+                recurrence=data.get("recurrence"),
+                actor=request.user,
+            )
+        except ClubFeeBillingError as error:
+            return Response({"detail": error.detail}, status=error.status_code)
+        from .tasks import send_invoice_email
+
+        for invoice_id in result["invoice_ids"]:
+            send_invoice_email.delay(invoice_id)
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
 class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = InvoiceSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -1773,10 +2228,13 @@ class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
             return Invoice.objects.none()
         if user.role != "club_admin":
             return Invoice.objects.none()
-        queryset = (
+        queryset = apply_optional_ledger(
             Invoice.objects.select_related("club", "member", "order")
+            .prefetch_related("credit_notes", "payments")
             .annotate(item_quantity=Coalesce(Sum("order__items__quantity"), 0))
-            .filter(club__admins=user)
+            .filter(club__admins=user),
+            self.request,
+            through_order=True,
         )
         club_id = self.request.query_params.get("club_id")
         if club_id:
@@ -1813,6 +2271,9 @@ class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
                 | Q(order__order_number__icontains=search_value)
                 | Q(currency__icontains=search_value)
             )
+        queryset = _apply_invoice_issue_filter(
+            queryset, self.request.query_params.get("issue")
+        )
         return queryset.order_by("-created_at")
 
     def get_permissions(self):
@@ -1822,6 +2283,105 @@ class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
         if self.action == "list":
             return InvoiceListSerializer
         return InvoiceSerializer
+
+    @action(detail=True, methods=["post"], url_path="credit-note")
+    def credit_note(self, request, *args, **kwargs):
+        from clubmgmt.access import can_mutate_club_books
+        from .collections import assert_ledger_for_actor, create_credit_note, reload_invoice
+        from .serializers import CreditNoteSerializer
+
+        invoice = self.get_object()
+        assert_ledger_for_actor(invoice, club_side=True)
+        if not can_mutate_club_books(request.user, invoice.club_id):
+            return Response(
+                {"detail": "Only committee officers with bank access can issue credit notes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = CreditNoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        create_credit_note(
+            invoice,
+            amount=serializer.validated_data["amount"],
+            reason=serializer.validated_data["reason"],
+            actor=request.user,
+        )
+        invoice = reload_invoice(invoice)
+        return Response(InvoiceSerializer(invoice, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"], url_path="send-reminder")
+    def send_reminder(self, request, *args, **kwargs):
+        from clubmgmt.access import can_mutate_club_books
+        from .collections import assert_ledger_for_actor, can_send_reminder, mark_invoice_reminded
+        from .tasks import send_invoice_reminder_email
+
+        invoice = self.get_object()
+        assert_ledger_for_actor(invoice, club_side=True)
+        if not can_mutate_club_books(request.user, invoice.club_id):
+            return Response(
+                {"detail": "Only committee officers with bank access can send reminders."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        allowed, message = can_send_reminder(invoice)
+        if not allowed:
+            return Response({"detail": message}, status=HTTP_400_BAD_REQUEST)
+        mark_invoice_reminded(invoice, request.user)
+        send_invoice_reminder_email.delay(invoice.id)
+        return Response(InvoiceSerializer(invoice, context=self.get_serializer_context()).data)
+
+
+class ClubPaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet):
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Payment.objects.none()
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return Payment.objects.none()
+        if user.role != "club_admin":
+            return Payment.objects.none()
+        queryset = apply_optional_ledger(
+            Payment.objects.select_related(
+                "invoice", "order", "order__club", "created_by"
+            ).filter(order__club__admins=user),
+            self.request,
+            through_order=True,
+        )
+
+        club_id = self.request.query_params.get("club_id")
+        if club_id:
+            queryset = queryset.filter(order__club_id=club_id)
+
+        invoice_id = self.request.query_params.get("invoice_id")
+        if invoice_id:
+            queryset = queryset.filter(invoice_id=invoice_id)
+        order_id = self.request.query_params.get("order_id")
+        if order_id:
+            queryset = queryset.filter(order_id=order_id)
+
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            statuses = [value.strip() for value in status_param.split(",") if value.strip()]
+            queryset = queryset.filter(status__in=statuses)
+
+        search_value = self.request.query_params.get("q", "").strip()
+        if search_value:
+            queryset = queryset.filter(
+                Q(reference__icontains=search_value)
+                | Q(status__icontains=search_value)
+                | Q(method__icontains=search_value)
+                | Q(provider__icontains=search_value)
+                | Q(invoice__invoice_number__icontains=search_value)
+                | Q(order__order_number__icontains=search_value)
+            )
+        queryset = _apply_payment_issue_filter(
+            queryset, self.request.query_params.get("issue")
+        )
+        return queryset.order_by("-created_at")
+
+    def get_permissions(self):
+        return [IsClubAdmin()]
 
 
 class InvoicePdfView(APIView):
@@ -1839,6 +2399,8 @@ class InvoicePdfView(APIView):
         user = request.user
         if user.role not in ["ltf_finance", "club_admin"]:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == "ltf_finance" and invoice.order.ledger != Order.Ledger.FEDERATION:
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         if user.role == "club_admin" and not invoice.club.admins.filter(id=user.id).exists():
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         pdf_file = render_invoice_pdf(invoice, base_url=request.build_absolute_uri("/"))
@@ -1850,6 +2412,300 @@ class InvoicePdfView(APIView):
         filename = f"invoice_{invoice.invoice_number}.pdf"
         response = HttpResponse(pdf_file, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
+
+
+class ExpenseCategoryViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
+    serializer_class = ExpenseCategorySerializer
+    permission_classes = [IsLtfFinance]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return ExpenseCategory.objects.none()
+        queryset = ExpenseCategory.objects.filter(club__isnull=True)
+        active_param = self.request.query_params.get("active")
+        if active_param == "1":
+            queryset = queryset.filter(is_active=True)
+        return queryset
+
+
+class ExpenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
+    serializer_class = ExpenseSerializer
+    permission_classes = [IsLtfFinance]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Expense.objects.none()
+        queryset = Expense.objects.select_related("category", "club", "created_by").filter(
+            federation_q()
+        )
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            statuses = [value.strip() for value in status_param.split(",") if value.strip()]
+            queryset = queryset.filter(status__in=statuses)
+        year_param = self.request.query_params.get("year")
+        if year_param:
+            try:
+                queryset = queryset.filter(expense_date__year=int(year_param))
+            except (TypeError, ValueError):
+                queryset = queryset.none()
+        category_id = self.request.query_params.get("category")
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+        club_id = self.request.query_params.get("club_id")
+        if club_id:
+            queryset = queryset.filter(club_id=club_id)
+        search_value = self.request.query_params.get("q", "").strip()
+        if search_value:
+            queryset = queryset.filter(
+                Q(expense_number__icontains=search_value)
+                | Q(description__icontains=search_value)
+                | Q(payee__icontains=search_value)
+                | Q(reference__icontains=search_value)
+                | Q(category__name__icontains=search_value)
+            )
+        return queryset.order_by("-expense_date", "-id")
+
+    def perform_create(self, serializer):
+        expense = serializer.save(created_by=self.request.user)
+        FinanceAuditLog.objects.create(
+            action="expense.created",
+            message=f"Expense {expense.expense_number} recorded.",
+            actor=self.request.user,
+            club=expense.club,
+            metadata={
+                "expense_id": expense.id,
+                "expense_number": expense.expense_number,
+                "amount": str(expense.amount),
+                "status": expense.status,
+            },
+        )
+
+    def perform_update(self, serializer):
+        expense = serializer.save()
+        FinanceAuditLog.objects.create(
+            action="expense.updated",
+            message=f"Expense {expense.expense_number} updated.",
+            actor=self.request.user,
+            club=expense.club,
+            metadata={
+                "expense_id": expense.id,
+                "expense_number": expense.expense_number,
+                "amount": str(expense.amount),
+                "status": expense.status,
+            },
+        )
+
+    @action(detail=True, methods=["post"], url_path="mark-paid")
+    def mark_paid(self, request, pk=None):
+        expense = self.get_object()
+        if expense.status == Expense.Status.VOID:
+            return Response({"detail": "Void expenses cannot be marked paid."}, status=HTTP_400_BAD_REQUEST)
+        if expense.status == Expense.Status.PAID:
+            return Response(self.get_serializer(expense).data)
+        paid_at = request.data.get("paid_at")
+        payment_method = request.data.get("payment_method") or expense.payment_method
+        reference = request.data.get("reference")
+        expense.status = Expense.Status.PAID
+        if paid_at:
+            parsed = str(paid_at).replace("Z", "+00:00")
+            try:
+                resolved_paid_at = datetime.fromisoformat(parsed)
+            except ValueError:
+                resolved_paid_at = timezone.now()
+            if timezone.is_naive(resolved_paid_at):
+                resolved_paid_at = timezone.make_aware(resolved_paid_at)
+            expense.paid_at = resolved_paid_at
+        else:
+            expense.paid_at = timezone.now()
+        if payment_method:
+            expense.payment_method = payment_method
+        if reference:
+            expense.reference = reference
+        expense.save()
+        FinanceAuditLog.objects.create(
+            action="expense.paid",
+            message=f"Expense {expense.expense_number} marked paid.",
+            actor=request.user,
+            club=expense.club,
+            metadata={"expense_id": expense.id, "expense_number": expense.expense_number},
+        )
+        return Response(self.get_serializer(expense).data)
+
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        expense = self.get_object()
+        if expense.status == Expense.Status.VOID:
+            return Response(self.get_serializer(expense).data)
+        expense.status = Expense.Status.VOID
+        expense.paid_at = None
+        expense.save()
+        FinanceAuditLog.objects.create(
+            action="expense.voided",
+            message=f"Expense {expense.expense_number} voided.",
+            actor=request.user,
+            club=expense.club,
+            metadata={"expense_id": expense.id, "expense_number": expense.expense_number},
+        )
+        return Response(self.get_serializer(expense).data)
+
+
+class IncomeCategoryViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
+    serializer_class = IncomeCategorySerializer
+    permission_classes = [IsLtfFinance]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return IncomeCategory.objects.none()
+        queryset = IncomeCategory.objects.filter(club__isnull=True)
+        active_param = self.request.query_params.get("active")
+        if active_param == "1":
+            queryset = queryset.filter(is_active=True)
+        return queryset
+
+
+class IncomeViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
+    serializer_class = IncomeSerializer
+    permission_classes = [IsLtfFinance]
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Income.objects.none()
+        queryset = Income.objects.select_related("category", "club", "created_by").filter(
+            federation_q()
+        )
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            statuses = [value.strip() for value in status_param.split(",") if value.strip()]
+            queryset = queryset.filter(status__in=statuses)
+        year_param = self.request.query_params.get("year")
+        if year_param:
+            try:
+                queryset = queryset.filter(income_date__year=int(year_param))
+            except (TypeError, ValueError):
+                queryset = queryset.none()
+        category_id = self.request.query_params.get("category")
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+        search_value = self.request.query_params.get("q", "").strip()
+        if search_value:
+            queryset = queryset.filter(
+                Q(income_number__icontains=search_value)
+                | Q(description__icontains=search_value)
+                | Q(payer__icontains=search_value)
+                | Q(reference__icontains=search_value)
+                | Q(category__name__icontains=search_value)
+            )
+        return queryset.order_by("-income_date", "-id")
+
+    def perform_create(self, serializer):
+        income = serializer.save(created_by=self.request.user)
+        FinanceAuditLog.objects.create(
+            action="income.created",
+            message=f"Income {income.income_number} recorded.",
+            actor=self.request.user,
+            club=income.club,
+            metadata={
+                "income_id": income.id,
+                "income_number": income.income_number,
+                "amount": str(income.amount),
+                "status": income.status,
+            },
+        )
+
+    def perform_update(self, serializer):
+        income = serializer.save()
+        FinanceAuditLog.objects.create(
+            action="income.updated",
+            message=f"Income {income.income_number} updated.",
+            actor=self.request.user,
+            club=income.club,
+            metadata={
+                "income_id": income.id,
+                "income_number": income.income_number,
+                "amount": str(income.amount),
+                "status": income.status,
+            },
+        )
+
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        income = self.get_object()
+        if income.status == Income.Status.VOID:
+            return Response(self.get_serializer(income).data)
+        income.status = Income.Status.VOID
+        income.received_at = None
+        income.save()
+        FinanceAuditLog.objects.create(
+            action="income.voided",
+            message=f"Income {income.income_number} voided.",
+            actor=request.user,
+            club=income.club,
+            metadata={"income_id": income.id, "income_number": income.income_number},
+        )
+        return Response(self.get_serializer(income).data)
+
+
+class FinanceYearOpeningView(APIView):
+    permission_classes = [IsLtfFinance]
+
+    def put(self, request):
+        serializer = FinanceYearOpeningSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        opening, _created = FinanceYearOpening.objects.update_or_create(
+            year=serializer.validated_data["year"],
+            defaults={
+                "opening_cash": serializer.validated_data["opening_cash"],
+                "notes": serializer.validated_data.get("notes", ""),
+                "updated_by": request.user,
+            },
+        )
+        FinanceAuditLog.objects.create(
+            action="finance_opening.updated",
+            message=f"Opening cash for {opening.year} set to {opening.opening_cash} EUR.",
+            actor=request.user,
+            metadata={"year": opening.year, "opening_cash": str(opening.opening_cash)},
+        )
+        return Response(FinanceYearOpeningSerializer(opening).data)
+
+
+class FinanceReportView(APIView):
+    permission_classes = [IsLtfFinance]
+
+    def get(self, request):
+        year_param = request.query_params.get("year")
+        try:
+            year = int(year_param) if year_param else timezone.localdate().year
+        except (TypeError, ValueError):
+            return Response({"detail": "Enter a valid year."}, status=HTTP_400_BAD_REQUEST)
+        if year < 2000 or year > 2100:
+            return Response({"detail": "Enter a valid year."}, status=HTTP_400_BAD_REQUEST)
+        return Response(build_finance_report(year))
+
+
+class FinanceReportExportView(APIView):
+    permission_classes = [IsLtfFinance]
+
+    def get(self, request):
+        year_param = request.query_params.get("year")
+        try:
+            year = int(year_param) if year_param else timezone.localdate().year
+        except (TypeError, ValueError):
+            return Response({"detail": "Enter a valid year."}, status=HTTP_400_BAD_REQUEST)
+        if year < 2000 or year > 2100:
+            return Response({"detail": "Enter a valid year."}, status=HTTP_400_BAD_REQUEST)
+        report = build_finance_report(year)
+        payload = render_finance_report_xlsx(report)
+        filename = f"LTF_financial_report_{year}.xlsx"
+        response = HttpResponse(
+            payload,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
 
@@ -1925,3 +2781,41 @@ class StripeWebhookView(APIView):
         process_stripe_webhook_event.delay(event_payload)
 
         return Response(status=status.HTTP_200_OK)
+
+
+class StripeConfirmCheckoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=ConfirmCheckoutSessionSerializer,
+        responses=ConfirmCheckoutResultSerializer,
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = ConfirmCheckoutSessionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        session_id = serializer.validated_data["session_id"].strip()
+
+        try:
+            fulfillment = fulfill_checkout_session(session_id, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+        except RuntimeError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except PermissionError:
+            return Response({"detail": "Checkout session not found."}, status=status.HTTP_404_NOT_FOUND)
+        except stripe.error.StripeError as exc:  # type: ignore[attr-defined]
+            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+
+        order = fulfillment.order
+        if order is None:
+            return Response({"detail": "Checkout session not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        invoice = fulfillment.invoice
+        payload = {
+            "status": fulfillment.status,
+            "order_id": order.id,
+            "invoice_id": invoice.id if invoice else None,
+            "order_status": order.status,
+            "invoice_status": invoice.status if invoice else None,
+        }
+        return Response(ConfirmCheckoutResultSerializer(payload).data, status=status.HTTP_200_OK)

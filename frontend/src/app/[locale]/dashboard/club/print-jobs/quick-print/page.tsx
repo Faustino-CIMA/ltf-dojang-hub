@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { Button } from "@/components/ui/button";
@@ -404,7 +405,7 @@ export default function ClubQuickPrintPage() {
   if (isRoleLoading) {
     return (
       <ClubAdminLayout title={t("quickPrintTitle")} subtitle={t("quickPrintSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </ClubAdminLayout>
     );
   }
@@ -432,11 +433,10 @@ export default function ClubQuickPrintPage() {
 
   return (
     <ClubAdminLayout title={t("quickPrintTitle")} subtitle={t("quickPrintSubtitle")}>
-      {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-      {successMessage ? <p className="text-sm text-emerald-700">{successMessage}</p> : null}
+      <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
       {isLoading ? (
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : printableTemplates.length === 0 ? (
         <EmptyState title={t("quickPrintNoTemplateTitle")} description={t("quickPrintNoTemplateSubtitle")} />
       ) : (

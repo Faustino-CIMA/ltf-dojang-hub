@@ -9,6 +9,10 @@ import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
+import {
+  FormPanel,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import {
@@ -18,13 +22,18 @@ import {
   getFinanceClubs,
   getFinanceMembers,
   getFinanceOrder,
+  orderItemLabel,
+  orderItemMemberDisplay,
+  orderItemsAreClubFees,
+  orderItemYearLabel,
 } from "@/lib/ltf-finance-api";
 
 type OrderItemRow = {
   id: number;
+  itemLabel: string;
   memberName: string;
   ltfLicenseId: string;
-  year: number;
+  year: string;
   quantity: number;
 };
 
@@ -102,20 +111,17 @@ export default function LtfFinanceOrderDetailPage() {
     if (!order) {
       return [];
     }
-    return (order.items ?? []).map((item) => ({
-      id: item.id,
-      memberName: item.license.member
-        ? `${memberById[item.license.member]?.first_name ?? ""} ${
-            memberById[item.license.member]?.last_name ?? ""
-          }`.trim() || "-"
-        : "-",
-      ltfLicenseId:
-        (item.license.member
-          ? memberById[item.license.member]?.ltf_licenseid?.trim()
-          : "") || "-",
-      year: item.license.year,
-      quantity: item.quantity,
-    }));
+    return (order.items ?? []).map((item) => {
+      const display = orderItemMemberDisplay(item, memberById, "-");
+      return {
+        id: item.id,
+        itemLabel: orderItemLabel(item),
+        memberName: display.name,
+        ltfLicenseId: display.ltfLicenseId,
+        year: orderItemYearLabel(item),
+        quantity: item.quantity,
+      };
+    });
   }, [order, memberById]);
 
   const totalQuantity = useMemo(() => {
@@ -125,17 +131,23 @@ export default function LtfFinanceOrderDetailPage() {
     return (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0);
   }, [order]);
 
-  const columns = [
-    { key: "memberName", header: t("memberLabel") },
-    { key: "ltfLicenseId", header: t("ltfLicenseLabel") },
-    { key: "year", header: t("yearLabel") },
-    { key: "quantity", header: common("qtyLabel") },
-  ];
+  const feeOnly = orderItemsAreClubFees(order?.items);
+  const columns = feeOnly
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: common("qtyLabel") },
+      ]
+    : [
+        { key: "memberName", header: t("memberLabel") },
+        { key: "ltfLicenseId", header: t("ltfLicenseLabel") },
+        { key: "year", header: t("yearLabel") },
+        { key: "quantity", header: common("qtyLabel") },
+      ];
 
   if (isLoading) {
     return (
       <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfFinanceLayout>
     );
   }
@@ -153,13 +165,13 @@ export default function LtfFinanceOrderDetailPage() {
 
   return (
     <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
-      <div className="mb-6">
-        <Button asChild variant="outline">
-          <Link href={`/${locale}/dashboard/ltf-finance/orders`}>{t("backToOrders")}</Link>
-        </Button>
-      </div>
+      <Button asChild variant="outline" className="w-fit">
+        <Link href={`/${locale}/dashboard/ltf-finance/orders`}>{t("backToOrders")}</Link>
+      </Button>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+
+      <FormPanel>
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("orderNumberLabel")}</span>
@@ -186,14 +198,14 @@ export default function LtfFinanceOrderDetailPage() {
             <span className="font-medium">{formatDisplayDateTime(order.created_at)}</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted">{t("totalLicensesLabel")}</span>
+            <span className="text-xs text-muted">{feeOnly ? t("totalItemsLabel") : t("totalLicensesLabel")}</span>
             <span className="font-medium">{totalQuantity}</span>
           </div>
         </div>
-      </section>
+      </FormPanel>
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">{t("orderItemsTitle")}</h2>
+      <section className="space-y-3">
+        <h2 className="text-section text-foreground">{t("orderItemsTitle")}</h2>
         <EntityTable columns={columns} rows={items} />
       </section>
     </LtfFinanceLayout>

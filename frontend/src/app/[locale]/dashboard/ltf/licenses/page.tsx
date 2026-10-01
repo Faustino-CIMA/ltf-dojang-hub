@@ -1,18 +1,37 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { EntityTable } from "@/components/club-admin/entity-table";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
+import {
+  ListActionsRow,
+  ListPagination,
+  ListToolbarPanel,
+  PageSizeSelect,
+  SelectionMeta,
+  resolveListPageSize,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Select,
   SelectContent,
@@ -20,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useClubSelection } from "@/components/club-selection-provider";
 import {
   Club,
   License,
@@ -43,10 +63,7 @@ const licenseSchema = z.object({
 });
 
 type LicenseFormValues = z.infer<typeof licenseSchema>;
-
-function getYearKey(clubId: number, year: number) {
-  return `${clubId}:${year}`;
-}
+type LicenseStatusFilter = "all" | "active" | "pending" | "expired";
 
 const BATCH_DELETE_STORAGE_KEY = "ltf_licenses_batch_delete_ids";
 
@@ -61,21 +78,32 @@ export default function LtfAdminLicensesPage() {
   const [clubMembers, setClubMembers] = useState<Member[]>([]);
   const [licenses, setLicenses] = useState<License[]>([]);
   const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
-  const [expandedClubIds, setExpandedClubIds] = useState<number[]>([]);
-  const [expandedYearKeys, setExpandedYearKeys] = useState<string[]>([]);
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [licenseStatusFilter, setLicenseStatusFilter] = useState<LicenseStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState("25");
+  const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [licenseFacetCounts, setLicenseFacetCounts] = useState({
+    all: 0,
+    active: 0,
+    pending: 0,
+    expired: 0,
+  });
   const lastSelectedLicenseIdRef = useRef<number | null>(null);
+  const rowSelectModifierRef = useRef({ shiftKey: false });
+  const { selectedClubId: headerClubId } = useClubSelection();
 
-  const pageSizeOptions = ["10", "25", "50", "100", "150", "200"];
+  const licensesListPageSize = useMemo(
+    () => resolveListPageSize(pageSize, totalCount),
+    [pageSize, totalCount]
+  );
+  const statusFilterParam = licenseStatusFilter === "all" ? undefined : licenseStatusFilter;
 
   const {
     handleSubmit,
@@ -99,30 +127,51 @@ export default function LtfAdminLicensesPage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [clubsResponse, licensesResponse, licenseTypesResponse] =
-        await Promise.all([
-          getClubs(),
-          getLicensesPage({
-            page: currentPage,
-            pageSize: Number(pageSize),
-            q: searchQuery || undefined,
-          }),
-          getLicenseTypes(),
-        ]);
+      const q = searchQuery || undefined;
+      const clubId = headerClubId ?? undefined;
+      const [
+        clubsResponse,
+        licensesResponse,
+        licenseTypesResponse,
+        allCountRes,
+        activeCountRes,
+        pendingCountRes,
+        expiredCountRes,
+      ] = await Promise.all([
+        getClubs(),
+        getLicensesPage({
+          page: currentPage,
+          pageSize: licensesListPageSize,
+          q,
+          clubId,
+          status: statusFilterParam,
+        }),
+        getLicenseTypes(),
+        getLicensesPage({ page: 1, pageSize: 1, q, clubId }),
+        getLicensesPage({ page: 1, pageSize: 1, q, clubId, status: "active" }),
+        getLicensesPage({ page: 1, pageSize: 1, q, clubId, status: "pending" }),
+        getLicensesPage({ page: 1, pageSize: 1, q, clubId, status: "expired" }),
+      ]);
+      setLicenseFacetCounts({
+        all: allCountRes.count,
+        active: activeCountRes.count,
+        pending: pendingCountRes.count,
+        expired: expiredCountRes.count,
+      });
 
       const visibleMemberIds = Array.from(
         new Set(licensesResponse.results.map((license) => license.member))
       );
       const membersResponse =
-        visibleMemberIds.length > 0
-          ? await getMembersList({ ids: visibleMemberIds })
-          : [];
+        visibleMemberIds.length > 0 ? await getMembersList({ ids: visibleMemberIds }) : [];
       setClubs(clubsResponse);
       setMembers(membersResponse);
       setLicenses(licensesResponse.results);
       setTotalCount(licensesResponse.count);
       setLicenseTypes(licenseTypesResponse);
-      if (clubsResponse.length > 0 && !watch("club")) {
+      if (headerClubId) {
+        setValue("club", String(headerClubId));
+      } else if (clubsResponse.length > 0 && !watch("club")) {
         setValue("club", String(clubsResponse[0].id));
       }
       if (licenseTypesResponse.length > 0 && !watch("license_type")) {
@@ -133,11 +182,15 @@ export default function LtfAdminLicensesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, pageSize, searchQuery, setValue, watch]);
+  }, [currentPage, headerClubId, licensesListPageSize, searchQuery, setValue, statusFilterParam, watch]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [headerClubId, searchQuery, pageSize, statusFilterParam]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -181,122 +234,9 @@ export default function LtfAdminLicensesPage() {
     [licenseTypes]
   );
 
-  const groupedClubRows = useMemo(() => {
-    const grouped = new Map<
-      number,
-      {
-        clubName: string;
-        yearsMap: Map<number, License[]>;
-      }
-    >();
+  const totalPages = Math.max(1, Math.ceil(totalCount / licensesListPageSize));
 
-    for (const license of licenses) {
-      const clubName = clubById.get(license.club)?.name ?? t("unknownClub");
-      const clubEntry = grouped.get(license.club);
-      if (!clubEntry) {
-        grouped.set(license.club, {
-          clubName,
-          yearsMap: new Map([[license.year, [license]]]),
-        });
-        continue;
-      }
-      const yearEntry = clubEntry.yearsMap.get(license.year);
-      if (yearEntry) {
-        yearEntry.push(license);
-      } else {
-        clubEntry.yearsMap.set(license.year, [license]);
-      }
-    }
-
-    return Array.from(grouped.entries())
-      .map(([clubId, clubEntry]) => {
-        const years = Array.from(clubEntry.yearsMap.entries())
-          .map(([year, yearLicenses]) => {
-            const licensesForYear = [...yearLicenses].sort((left, right) => {
-              const leftName = memberById.get(left.member)
-                ? `${memberById.get(left.member)!.first_name} ${memberById.get(left.member)!.last_name}`
-                : t("unknownMember");
-              const rightName = memberById.get(right.member)
-                ? `${memberById.get(right.member)!.first_name} ${memberById.get(right.member)!.last_name}`
-                : t("unknownMember");
-              const byName = leftName.localeCompare(rightName);
-              if (byName !== 0) {
-                return byName;
-              }
-              return right.id - left.id;
-            });
-            const activeCount = licensesForYear.filter((license) => license.status === "active").length;
-            const pendingCount = licensesForYear.filter((license) => license.status === "pending").length;
-            const expiredCount = licensesForYear.filter((license) => license.status === "expired").length;
-            return {
-              year,
-              licenses: licensesForYear,
-              total: licensesForYear.length,
-              activeCount,
-              pendingCount,
-              expiredCount,
-            };
-          })
-          .sort((left, right) => right.year - left.year);
-
-        const total = years.reduce((sum, year) => sum + year.total, 0);
-        const activeCount = years.reduce((sum, year) => sum + year.activeCount, 0);
-        const pendingCount = years.reduce((sum, year) => sum + year.pendingCount, 0);
-        const expiredCount = years.reduce((sum, year) => sum + year.expiredCount, 0);
-
-        return {
-          clubId,
-          clubName: clubEntry.clubName,
-          years,
-          total,
-          activeCount,
-          pendingCount,
-          expiredCount,
-        };
-      })
-      .sort((left, right) => left.clubName.localeCompare(right.clubName));
-  }, [clubById, licenses, memberById, t]);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / Number(pageSize)));
-  const pagedClubRows = groupedClubRows;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, pageSize]);
-
-  useEffect(() => {
-    const validClubIds = new Set(groupedClubRows.map((clubGroup) => clubGroup.clubId));
-    setExpandedClubIds((previous) => previous.filter((clubId) => validClubIds.has(clubId)));
-    const validYearKeys = new Set(
-      groupedClubRows.flatMap((clubGroup) =>
-        clubGroup.years.map((yearGroup) => getYearKey(clubGroup.clubId, yearGroup.year))
-      )
-    );
-    setExpandedYearKeys((previous) => previous.filter((yearKey) => validYearKeys.has(yearKey)));
-  }, [groupedClubRows]);
-
-  const expandedClubSet = useMemo(() => new Set(expandedClubIds), [expandedClubIds]);
-  const expandedYearSet = useMemo(() => new Set(expandedYearKeys), [expandedYearKeys]);
-
-  const allFilteredIds = useMemo(
-    () => licenses.map((license) => license.id),
-    [licenses]
-  );
-  const visibleLeafLicenseIds = useMemo(() => {
-    const ids: number[] = [];
-    for (const clubGroup of pagedClubRows) {
-      if (!expandedClubSet.has(clubGroup.clubId)) {
-        continue;
-      }
-      for (const yearGroup of clubGroup.years) {
-        const yearKey = getYearKey(clubGroup.clubId, yearGroup.year);
-        if (expandedYearSet.has(yearKey)) {
-          ids.push(...yearGroup.licenses.map((license) => license.id));
-        }
-      }
-    }
-    return ids;
-  }, [expandedClubSet, expandedYearSet, pagedClubRows]);
+  const allFilteredIds = useMemo(() => licenses.map((license) => license.id), [licenses]);
   const allSelected =
     allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
 
@@ -323,13 +263,12 @@ export default function LtfAdminLicensesPage() {
     setSelectedIds((previous) => {
       if (shiftKey && lastSelectedLicenseIdRef.current !== null) {
         const anchorId = lastSelectedLicenseIdRef.current;
-        const order = visibleLeafLicenseIds.length > 0 ? visibleLeafLicenseIds : allFilteredIds;
-        const startIndex = order.indexOf(anchorId);
-        const endIndex = order.indexOf(id);
+        const startIndex = allFilteredIds.indexOf(anchorId);
+        const endIndex = allFilteredIds.indexOf(id);
         if (startIndex !== -1 && endIndex !== -1) {
           const [fromIndex, toIndex] =
             startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
-          const rangeIds = order.slice(fromIndex, toIndex + 1);
+          const rangeIds = allFilteredIds.slice(fromIndex, toIndex + 1);
           const rangeSet = new Set(rangeIds);
           const allRangeSelected = rangeIds.every((rangeId) => previous.includes(rangeId));
           if (allRangeSelected) {
@@ -342,28 +281,9 @@ export default function LtfAdminLicensesPage() {
           return Array.from(merged);
         }
       }
-      return previous.includes(id)
-        ? previous.filter((item) => item !== id)
-        : [...previous, id];
+      return previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id];
     });
     lastSelectedLicenseIdRef.current = id;
-  };
-
-  const toggleClubExpanded = (clubId: number) => {
-    setExpandedClubIds((previous) =>
-      previous.includes(clubId)
-        ? previous.filter((id) => id !== clubId)
-        : [...previous, clubId]
-    );
-  };
-
-  const toggleYearExpanded = (clubId: number, year: number) => {
-    const key = getYearKey(clubId, year);
-    setExpandedYearKeys((previous) =>
-      previous.includes(key)
-        ? previous.filter((id) => id !== key)
-        : [...previous, key]
-    );
   };
 
   const onSubmit = async (values: LicenseFormValues) => {
@@ -397,8 +317,7 @@ export default function LtfAdminLicensesPage() {
   };
 
   const startEdit = (license: License) => {
-    const editableStatus =
-      license.status === "revoked" ? "expired" : license.status;
+    const editableStatus = license.status === "revoked" ? "expired" : license.status;
     setEditingLicense(license);
     setIsFormOpen(true);
     reset({
@@ -449,6 +368,19 @@ export default function LtfAdminLicensesPage() {
     return status;
   };
 
+  const getStatusTone = (status: License["status"]): "success" | "warning" | "neutral" | "danger" => {
+    if (status === "active") {
+      return "success";
+    }
+    if (status === "pending") {
+      return "warning";
+    }
+    if (status === "expired") {
+      return "neutral";
+    }
+    return "danger";
+  };
+
   const formatIssuedAt = (value: string | null) => {
     if (!value) {
       return "—";
@@ -456,270 +388,203 @@ export default function LtfAdminLicensesPage() {
     return formatDisplayDate(value);
   };
 
+  const columns = [
+    {
+      key: "select",
+      header: (
+        <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
+          <Checkbox
+            aria-label={common("selectAllLabel")}
+            checked={allSelected}
+            onCheckedChange={() => toggleSelectAll()}
+          />
+        </span>
+      ),
+      render: (license: License) => (
+        <span
+          className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <Checkbox
+            aria-label={common("selectRowLabel")}
+            checked={selectedIds.includes(license.id)}
+            onPointerDown={(event) => {
+              rowSelectModifierRef.current = {
+                shiftKey: event.shiftKey,
+              };
+            }}
+            onCheckedChange={() =>
+              toggleSelectRow(license.id, {
+                shiftKey: rowSelectModifierRef.current.shiftKey,
+              })
+            }
+          />
+        </span>
+      ),
+    },
+    {
+      key: "member",
+      header: t("memberLabel"),
+      render: (license: License) => {
+        const member = memberById.get(license.member);
+        return member ? `${member.first_name} ${member.last_name}` : t("unknownMember");
+      },
+    },
+    {
+      key: "club",
+      header: t("clubLabel"),
+      render: (license: License) => clubById.get(license.club)?.name ?? t("unknownClub"),
+    },
+    {
+      key: "license_type",
+      header: t("licenseTypeLabel"),
+      render: (license: License) =>
+        licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType"),
+    },
+    { key: "year", header: t("yearLabel") },
+    {
+      key: "status",
+      header: t("statusLabel"),
+      render: (license: License) => (
+        <StatusBadge label={getStatusLabel(license.status)} tone={getStatusTone(license.status)} />
+      ),
+    },
+    {
+      key: "issued_at",
+      header: t("issuedAtLabel"),
+      render: (license: License) => formatIssuedAt(license.issued_at),
+    },
+    {
+      key: "actions",
+      header: t("actionsLabel"),
+      render: (license: License) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
+            aria-label={t("editAction")}
+            onClick={() => startEdit(license)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="destructive"
+            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
+            aria-label={t("deleteAction")}
+            onClick={() => handleDelete(license)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <LtfAdminLayout title={t("licensesTitle")} subtitle={t("licensesSubtitle")}>
-      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              className="w-full max-w-xs"
-              placeholder={t("searchLicensesPlaceholder")}
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            <Select value={pageSize} onValueChange={setPageSize}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder={common("rowsPerPageLabel")} />
-              </SelectTrigger>
-              <SelectContent>
-                {pageSizeOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option === "all" ? common("rowsPerPageAll") : option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value=""
-              onValueChange={(value) => {
-                if (value === "delete") {
-                  openBatchDeletePage();
-                }
-              }}
-            >
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder={common("batchActionsLabel")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="delete" disabled={selectedIds.length === 0}>
-                  {common("batchDeleteLabel")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={startCreate}>{t("createLicense")}</Button>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted">
-            {t("pageLabel", { current: currentPage, total: totalPages })}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            >
-              {t("previousPage")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            >
-              {t("nextPage")}
-            </Button>
-          </div>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4">
+          <ListToolbarPanel
+            search={
+              <Input
+                className="w-full max-w-xs"
+                placeholder={t("searchLicensesPlaceholder")}
+                aria-label={t("searchLicensesPlaceholder")}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+            }
+            pageSize={
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
+              />
+            }
+            filters={
+              <FilterPills
+                ariaLabel={t("licensesStatusFilterAriaLabel")}
+                value={licenseStatusFilter}
+                onChange={setLicenseStatusFilter}
+                options={[
+                  { value: "all", title: t("filterAllTitle"), count: licenseFacetCounts.all },
+                  { value: "active", title: t("filterActiveTitle"), count: licenseFacetCounts.active },
+                  { value: "pending", title: t("filterPendingTitle"), count: licenseFacetCounts.pending },
+                  { value: "expired", title: t("filterExpiredTitle"), count: licenseFacetCounts.expired },
+                ]}
+              />
+            }
+          />
+
+          <ListActionsRow
+            actions={
+              <>
+                <Select
+                  value=""
+                  onValueChange={(value) => {
+                    if (value === "create") {
+                      startCreate();
+                    }
+                  }}
+                >
+                  <SelectTrigger className="min-w-[11rem]" aria-label={t("licensesMenuLabel")}>
+                    <SelectValue placeholder={t("licensesMenuLabel")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="create">{t("createLicense")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value=""
+                  disabled={selectedIds.length === 0}
+                  onValueChange={(value) => {
+                    if (value === "delete") {
+                      openBatchDeletePage();
+                    }
+                  }}
+                >
+                  <SelectTrigger className="min-w-[11rem]" aria-label={common("batchActionsLabel")}>
+                    <SelectValue placeholder={common("batchActionsLabel")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="delete">{common("batchDeleteLabel")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <SelectionMeta
+                  count={selectedIds.length}
+                  countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+                  clearLabel={t("clearSelection")}
+                  onClear={() => {
+                    setSelectedIds([]);
+                    lastSelectedLicenseIdRef.current = null;
+                  }}
+                />
+              </>
+            }
+            pagination={
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPrevious={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                onNext={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                pageLabel={t("pageLabel", { current: currentPage, total: totalPages })}
+                previousLabel={t("previousPage")}
+                nextLabel={t("nextPage")}
+              />
+            }
+          />
         </div>
 
         {isLoading ? (
-          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
-        ) : groupedClubRows.length === 0 ? (
+          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
+        ) : licenses.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noLicensesResultsSubtitle")} />
         ) : (
-          <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card shadow-sm">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                <tr>
-                  <th className="w-10 px-4 py-3 font-medium" />
-                  <th className="px-4 py-3 font-medium">{t("clubLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("totalLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusActive")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusPending")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusExpired")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {pagedClubRows.map((clubGroup) => {
-                  const clubExpanded = expandedClubSet.has(clubGroup.clubId);
-                  return (
-                    <Fragment key={clubGroup.clubId}>
-                      <tr
-                        className="cursor-pointer text-foreground hover:bg-secondary"
-                        onClick={() => toggleClubExpanded(clubGroup.clubId)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            toggleClubExpanded(clubGroup.clubId);
-                          }
-                        }}
-                        tabIndex={0}
-                        role="button"
-                        aria-expanded={clubExpanded}
-                      >
-                        <td className="px-4 py-3 text-muted">
-                          {clubExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 font-medium">{clubGroup.clubName}</td>
-                        <td className="px-4 py-3">{clubGroup.total}</td>
-                        <td className="px-4 py-3">{clubGroup.activeCount}</td>
-                        <td className="px-4 py-3">{clubGroup.pendingCount}</td>
-                        <td className="px-4 py-3">{clubGroup.expiredCount}</td>
-                      </tr>
-                      {clubExpanded ? (
-                        <tr className="bg-secondary/60">
-                          <td colSpan={6} className="px-6 py-3">
-                            <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card">
-                              <table className="min-w-full text-left text-sm">
-                                <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                                  <tr>
-                                    <th className="w-10 px-4 py-2 font-medium" />
-                                    <th className="px-4 py-2 font-medium">{t("yearLabel")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("totalLabel")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusActive")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusPending")}</th>
-                                    <th className="px-4 py-2 font-medium">{t("statusExpired")}</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                  {clubGroup.years.map((yearGroup) => {
-                                    const yearKey = getYearKey(clubGroup.clubId, yearGroup.year);
-                                    const yearExpanded = expandedYearSet.has(yearKey);
-                                    return (
-                                      <Fragment key={yearKey}>
-                                        <tr
-                                          className="cursor-pointer text-foreground hover:bg-secondary"
-                                          onClick={() => toggleYearExpanded(clubGroup.clubId, yearGroup.year)}
-                                          onKeyDown={(event) => {
-                                            if (event.key === "Enter" || event.key === " ") {
-                                              event.preventDefault();
-                                              toggleYearExpanded(clubGroup.clubId, yearGroup.year);
-                                            }
-                                          }}
-                                          tabIndex={0}
-                                          role="button"
-                                          aria-expanded={yearExpanded}
-                                        >
-                                          <td className="px-4 py-2 text-muted">
-                                            {yearExpanded ? (
-                                              <ChevronDown className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronRight className="h-4 w-4" />
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-2 font-medium">{yearGroup.year}</td>
-                                          <td className="px-4 py-2">{yearGroup.total}</td>
-                                          <td className="px-4 py-2">{yearGroup.activeCount}</td>
-                                          <td className="px-4 py-2">{yearGroup.pendingCount}</td>
-                                          <td className="px-4 py-2">{yearGroup.expiredCount}</td>
-                                        </tr>
-                                        {yearExpanded ? (
-                                          <tr className="bg-secondary/50">
-                                            <td colSpan={6} className="px-6 py-3">
-                                              <div className="overflow-x-auto rounded-[var(--radius-form)] border border-border bg-card">
-                                                <table className="min-w-full text-left text-sm">
-                                                  <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                                                    <tr>
-                                                      <th className="w-10 px-4 py-2 font-medium">
-                                                        <input
-                                                          type="checkbox"
-                                                          aria-label={common("selectAllLabel")}
-                                                          checked={allSelected}
-                                                          onChange={toggleSelectAll}
-                                                        />
-                                                      </th>
-                                                      <th className="px-4 py-2 font-medium">{t("memberLabel")}</th>
-                                                      <th className="px-4 py-2 font-medium">{t("licenseTypeLabel")}</th>
-                                                      <th className="px-4 py-2 font-medium">{t("statusLabel")}</th>
-                                                      <th className="px-4 py-2 font-medium">{t("issuedAtLabel")}</th>
-                                                      <th className="px-4 py-2 font-medium">{t("actionsLabel")}</th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody className="divide-y divide-border">
-                                                    {yearGroup.licenses.map((license) => {
-                                                      const member = memberById.get(license.member);
-                                                      const licenseType = licenseTypeById.get(
-                                                        license.license_type
-                                                      );
-                                                      return (
-                                                        <tr key={license.id} className="text-foreground">
-                                                          <td className="px-4 py-2">
-                                                            <input
-                                                              type="checkbox"
-                                                              aria-label={common("selectRowLabel")}
-                                                              checked={selectedIds.includes(license.id)}
-                                                              readOnly
-                                                              onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                toggleSelectRow(license.id, {
-                                                                  shiftKey: event.shiftKey,
-                                                                });
-                                                              }}
-                                                            />
-                                                          </td>
-                                                          <td className="px-4 py-2">
-                                                            {member
-                                                              ? `${member.first_name} ${member.last_name}`
-                                                              : t("unknownMember")}
-                                                          </td>
-                                                          <td className="px-4 py-2">
-                                                            {licenseType
-                                                              ? licenseType.name
-                                                              : t("unknownLicenseType")}
-                                                          </td>
-                                                          <td className="px-4 py-2">
-                                                            {getStatusLabel(license.status)}
-                                                          </td>
-                                                          <td className="px-4 py-2">
-                                                            {formatIssuedAt(license.issued_at)}
-                                                          </td>
-                                                          <td className="px-4 py-2">
-                                                            <div className="flex flex-wrap gap-2">
-                                                              <Button
-                                                                variant="outline"
-                                                                size="icon-sm"
-                                                                aria-label={t("editAction")}
-                                                                onClick={() => startEdit(license)}
-                                                              >
-                                                                <Pencil className="h-4 w-4" />
-                                                              </Button>
-                                                              <Button
-                                                                variant="destructive"
-                                                                size="icon-sm"
-                                                                aria-label={t("deleteAction")}
-                                                                onClick={() => handleDelete(license)}
-                                                              >
-                                                                <Trash2 className="h-4 w-4" />
-                                                              </Button>
-                                                            </div>
-                                                          </td>
-                                                        </tr>
-                                                      );
-                                                    })}
-                                                  </tbody>
-                                                </table>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        ) : null}
-                                      </Fragment>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <EntityTable columns={columns} rows={licenses} />
         )}
       </div>
 

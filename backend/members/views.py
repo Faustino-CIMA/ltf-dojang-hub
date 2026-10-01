@@ -2,7 +2,7 @@ import mimetypes
 from pathlib import Path
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
 from rest_framework import permissions, status, viewsets
@@ -10,19 +10,54 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from config.pagination import OptionalPaginationListMixin
-from .models import GradePromotionHistory, Member
+from .models import GradePromotionHistory, Member, MemberTransfer
 from .serializers import (
     GradePromotionCreateSerializer,
     GradePromotionHistorySerializer,
+    GradePromotionUpdateSerializer,
     LicenseHistoryEventSerializer,
     MemberProfilePictureSerializer,
     MemberProfilePictureUploadSerializer,
     MemberSerializer,
 )
-from .services import add_grade_promotion, clear_member_profile_picture, process_member_profile_picture
-from licenses.models import LicenseHistoryEvent
+from accounts.permissions import IsLtfAdmin
+from .services import (
+    add_grade_promotion,
+    clear_member_profile_picture,
+    delete_grade_promotion,
+    process_member_profile_picture,
+    rewrite_existing_lux_ltf_license_ids,
+    update_grade_promotion,
+)
+from licenses.card_rendering import (
+    CardRenderError,
+    build_card_simulation_payload,
+    build_preview_data,
+    resolve_published_standard_card_version,
+)
+from licenses.models import License, LicenseHistoryEvent
+
+
+def _apply_member_issue_filter(queryset, issue):
+    issue = (issue or "").strip()
+    if issue == "missing_ltf_licenseid":
+        return queryset.filter(is_active=True).filter(
+            Q(ltf_licenseid__isnull=True) | Q(ltf_licenseid="")
+        )
+    if issue == "no_valid_license":
+        has_valid_license = License.objects.filter(
+            member_id=OuterRef("pk"),
+            status__in=[License.Status.ACTIVE, License.Status.PENDING],
+        )
+        return (
+            queryset.filter(is_active=True)
+            .annotate(has_valid_license=Exists(has_valid_license))
+            .filter(has_valid_license=False)
+        )
+    return queryset
 
 
 class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
@@ -105,7 +140,28 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 | Q(belt_rank__icontains=search_value)
             )
 
-        return queryset.order_by("last_name", "first_name", "id")
+        if self.action == "list":
+            queryset = _apply_member_issue_filter(
+                queryset, self.request.query_params.get("issue")
+            )
+
+        queryset = queryset.annotate(
+            completed_transfer_count=Count(
+                "transfers",
+                filter=Q(transfers__status=MemberTransfer.Status.COMPLETED),
+            )
+        )
+        return queryset.prefetch_related(
+            Prefetch(
+                "licenses",
+                queryset=License.objects.filter(
+                    status__in=[License.Status.PENDING, License.Status.ACTIVE]
+                )
+                .select_related("license_type")
+                .order_by("-year", "id"),
+                to_attr="current_licenses_prefetched",
+            )
+        ).order_by("last_name", "first_name", "id")
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -153,12 +209,67 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             "member",
         ]
 
+    @action(detail=True, methods=["get"], url_path="license-card-preview")
+    def license_card_preview(self, request, *args, **kwargs):
+        member = self.get_object()
+        license_id_raw = str(request.query_params.get("license_id") or "").strip()
+        side = str(request.query_params.get("side") or "front").strip() or "front"
+        current_licenses = member.licenses.filter(
+            status__in=[License.Status.ACTIVE, License.Status.PENDING]
+        ).order_by("-year", "-id")
+        license_record = None
+        if license_id_raw:
+            try:
+                license_record = member.licenses.filter(id=int(license_id_raw)).first()
+            except (TypeError, ValueError):
+                license_record = None
+        if license_record is None:
+            license_record = current_licenses.filter(status=License.Status.ACTIVE).first()
+        if license_record is None:
+            license_record = current_licenses.first()
+        version = resolve_published_standard_card_version()
+        if version is None:
+            return Response(
+                {"detail": "No published license card template is available."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            preview_payload = build_preview_data(
+                template_version=version,
+                side=side,
+                member_id=member.id,
+                license_id=license_record.id if license_record else None,
+                club_id=member.club_id,
+                include_bleed_guide=False,
+                include_safe_area_guide=False,
+                request=request,
+            )
+            simulation_payload = build_card_simulation_payload(preview_payload)
+        except CardRenderError as exc:
+            return Response({"detail": exc.detail}, status=exc.status_code)
+        return Response(
+            {
+                "template_version_id": preview_payload["template_version_id"],
+                "template_id": preview_payload["template_id"],
+                "template_name": version.template.name,
+                "license_id": license_record.id if license_record else None,
+                "active_side": preview_payload.get("active_side", "front"),
+                "available_sides": preview_payload.get("available_sides", ["front"]),
+                "side_summary": preview_payload.get("side_summary", {}),
+                "card_format": preview_payload["card_format"],
+                "render_metadata": preview_payload.get("render_metadata", {}),
+                "html": simulation_payload["html"],
+                "css": simulation_payload["css"],
+            }
+        )
+
     @action(detail=True, methods=["get"], url_path="license-history")
     def license_history(self, request, *args, **kwargs):
         member = self.get_object()
         queryset = (
             LicenseHistoryEvent.objects.select_related(
                 "license",
+                "license__license_type",
                 "club",
                 "order",
                 "payment",
@@ -185,12 +296,23 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         serializer = GradePromotionHistorySerializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["get"], url_path="club-transfers")
+    def club_transfers(self, request, *args, **kwargs):
+        from .transfers import TransferError, list_member_club_transfers
+
+        member = self.get_object()
+        try:
+            return Response(list_member_club_transfers(user=request.user, member_id=member.id))
+        except TransferError as error:
+            return Response(error.payload, status=error.status_code)
+
     @action(detail=True, methods=["get"], url_path="history")
     def history(self, request, *args, **kwargs):
         member = self.get_object()
         license_queryset = (
             LicenseHistoryEvent.objects.select_related(
                 "license",
+                "license__license_type",
                 "club",
                 "order",
                 "payment",
@@ -234,6 +356,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         to_grade = serializer.validated_data["to_grade"]
         notes = serializer.validated_data.get("notes", "")
         proof_ref = serializer.validated_data.get("proof_ref", "")
+        created_by = serializer.validated_data.get("created_by", "")
         metadata = serializer.validated_data.get("metadata", {}) or {}
         promotion_date = serializer.validated_data.get("promotion_date")
         exam_date = serializer.validated_data.get("exam_date")
@@ -245,25 +368,94 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        history_entry = add_grade_promotion(
-            member,
-            actor=request.user if request.user.is_authenticated else None,
-            to_grade=to_grade,
-            notes=notes,
-            proof_ref=proof_ref,
-            promotion_date=promotion_date,
-            exam_date=exam_date,
-            metadata={
-                **metadata,
-                "consent_required": bool(notes or proof_ref),
-                "consent_confirmed": bool(consent_user and consent_user.consent_given),
-                "source": "member.promote_grade",
-            },
-        )
+        try:
+            history_entry = add_grade_promotion(
+                member,
+                actor=request.user if request.user.is_authenticated else None,
+                to_grade=to_grade,
+                notes=notes,
+                proof_ref=proof_ref,
+                created_by=created_by,
+                promotion_date=promotion_date,
+                exam_date=exam_date,
+                metadata={
+                    **metadata,
+                    "consent_required": bool(notes or proof_ref),
+                    "consent_confirmed": bool(consent_user and consent_user.consent_given),
+                    "source": "member.promote_grade",
+                },
+            )
+        except DjangoValidationError as exc:
+            detail = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else exc.messages
+                if hasattr(exc, "messages")
+                else str(exc)
+            )
+            raise DRFValidationError(detail) from exc
+
         return Response(
             GradePromotionHistorySerializer(history_entry).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(
+        detail=True,
+        methods=["patch", "delete"],
+        url_path=r"grade-history/(?P<history_id>[^/.]+)",
+    )
+    def update_grade_history(self, request, history_id=None, *args, **kwargs):
+        if not self._is_grade_manager(request.user):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+
+        member = self.get_object()
+        history_entry = (
+            GradePromotionHistory.objects.select_related("member")
+            .filter(member=member, id=history_id)
+            .first()
+        )
+        if not history_entry:
+            return Response({"detail": "Grade history entry not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == "DELETE":
+            delete_grade_promotion(history_entry)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        serializer = GradePromotionUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        notes = serializer.validated_data.get("notes")
+        proof_ref = serializer.validated_data.get("proof_ref")
+        consent_user = member.user
+        if (notes or proof_ref) and consent_user and not consent_user.consent_given:
+            return Response(
+                {"detail": "Member consent is required for storing grade notes/proof."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            updated_entry = update_grade_promotion(
+                history_entry,
+                to_grade=serializer.validated_data.get("to_grade"),
+                promotion_date=serializer.validated_data.get("promotion_date"),
+                exam_date=serializer.validated_data.get("exam_date"),
+                proof_ref=proof_ref,
+                notes=notes,
+                created_by=serializer.validated_data.get("created_by"),
+                metadata=serializer.validated_data.get("metadata"),
+            )
+        except DjangoValidationError as exc:
+            detail = (
+                exc.message_dict
+                if hasattr(exc, "message_dict")
+                else exc.messages
+                if hasattr(exc, "messages")
+                else str(exc)
+            )
+            raise DRFValidationError(detail) from exc
+
+        return Response(GradePromotionHistorySerializer(updated_entry).data)
 
     @action(
         detail=True,
@@ -287,12 +479,6 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
 
         serializer = MemberProfilePictureUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        if member.user and not member.user.consent_given:
-            return Response(
-                {"detail": "Member consent is required before storing profile photos."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         try:
             updated_member = process_member_profile_picture(
@@ -383,4 +569,14 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             filename=response_name,
             content_type=content_type,
         )
+
+
+class RewriteLtfLicensePrefixView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsLtfAdmin]
+
+    def get(self, request):
+        return Response(rewrite_existing_lux_ltf_license_ids(apply=False))
+
+    def post(self, request):
+        return Response(rewrite_existing_lux_ltf_license_ids(apply=True))
 

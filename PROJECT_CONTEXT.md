@@ -1,35 +1,69 @@
-**LTF Taekwondo License Manager — Master Summary (March 2026)**
-Last updated: 2026-03-28
+**LTF Taekwondo License Manager — Master Summary (May 2026)**
+Last updated: 2026-10-01
 
 Current main branch state:
-- Version: v0.3.9 (annotated tag v0.3.9 created and pushed)
+- Version: v0.11.0 on `main`, merged from `feature/module-club-management` on 2026-10-01 — club training, promotion, shop, fees, Qualité+ subsidies, and the LTF license invoice letterhead (2026-09-27). Later work on this line is still v0.11.0: club member invoice letterhead, family bill recipients, sidebar groups, and the club website (see CHANGELOG Unreleased).
+- Version: v0.10.0 on `feature/module-event-calendar` — Event engine, federation/club/member calendars, additive product codes (2026-09-11)
+- Version: v0.9.0 on `feature/module-entitlements` — product codes, install entitlements, per-club assignment, Preview prove-out (2026-09-06)
+- Version: v0.8.0 on `feature/ui-refresh-and-designer` — ops console, Club Admin rubber-band assignment (2026-09-04)
+- Version: v0.7.0 on `feature/ui-refresh-and-designer` — club fees/billing, member tabs, finance UX (2026-09-03)
+- Version: v0.6.4 on `feature/ui-refresh-and-designer` — club movement history, club-tourist flag, order-item member names (2026-08-28)
+- Version: v0.6.3 on `feature/ui-refresh-and-designer` — member import helper dates, license issued_at, card photo fallback (2026-08-28)
+- Version: v0.6.2 on `feature/ui-refresh-and-designer` — member license-card preview, capitalized license roles (2026-08-27)
+- Version: v0.6.1 on `feature/ui-refresh-and-designer` — member transfers, login notice, first-password username (2026-08-25)
+- Version: v0.6.0 on `feature/ui-refresh-and-designer` — club admin assignment, club email, flattened lists (2026-08-25)
+- Version: v0.5.0 on `feature/ui-refresh-and-designer` — finance books, LTF ID prefix/digits, pending licenses, What's new (2026-08-20)
+- Version: v0.4.0 on `feature/ui-refresh-and-designer` — visual refresh + designer workspace (2026-08-17)
+- Version: v0.3.8 (annotated tag v0.3.8 created and pushed)
+- Version: v0.3.9 on improvements-clean — Member Import Step 3 UX improvement merged
 - Printer Profiles feature fully merged and live (v0.3.6)
 - Docker infrastructure cleanup and stable stack released
-- Full HeroUI v3.0.1 integration with custom ltf_theme + sharp consistent radii completed
+- Visual refresh (2026-08-14): sidebar app shell, softer radius scale, brand-cyan KPIs, restyled login/home; HeroUI removed. See CHANGELOG Unreleased.
 - Sticky top bar implemented
 - Navigation tabs stabilized (no more swapping on club dashboard)
 - Club Members page fully cleaned up (RadioGroup filters with total counts, improved Members/Actions Selects, row status confirmation modals, pagination 50/150/300/All)
 
 Current working branch: main
-Status: All visual, navigation and Club Members page improvements merged and verified on main
+Status: `feature/module-club-management` merged into main on 2026-10-01. Application files match that branch.
+Status: All visual, navigation and Club Members page improvements merged and verified locally
+Status: Member Import Step 3 UX improvement merged on improvements-clean (v0.3.9)
+Status: Member Detail View UX overhaul implemented on `feature/member-detail-view-redo` (commit 7d986ab, 2026-05-29); single scroll view, simplified Licenses/Grades tables with pagination, inline grade form, pencil edit actions — Club and LTF member detail pages
+Status: Hybrid responsive design-token refinements in progress on `feature/member-detail-view-redo` (14 files modified, uncommitted): `--control-height`, `--table-row-height`, `--control-padding-x`, `--checkbox-border`; shared Button/Input/Select/Modal and Club Members page migrated off hardcoded heights
 
-Current Stack (locked) — Updated 2026-03-28
-- Backend: python:3.13-slim-bookworm + Django 6.0.3 + DRF 3.17.0 + PostgreSQL 18
-- Frontend: Next.js 16.2.1 (App Router) + React 19.2.4 + TypeScript 5.9.3 + HeroUI v3.0.1 + Tailwind 4.2.2
+Current Stack (locked) — Updated 2026-08-20
+- Backend: python:3.13-slim + Django 6.0.8 + DRF 3.18.0 + PostgreSQL 18
+- Frontend: Next.js 16.3.2 (App Router) + React 19.2.8 + TypeScript 5.9.3 + Tailwind 4.3.3
 - Runtime: Python 3.13 + Node 22
-- Cache / queue: Redis 8.4 + Celery 5.6.2
+- Cache / queue: Redis 8 + Celery 5.6.3
 - Containers: Docker + Dokploy deployment
 
 Rules we follow:
 - Always work on dedicated feature branches for new work
 - Always test in Docker (`docker compose up -d --build`)
-- Use oh-my-cursor Team Avatar agents (@toph, @iroh, @appa, @sokka, @escher, ...)
 - Agents must update CHANGELOG.md and README.md after every significant change
 - PROJECT_CONTEXT.md is the single source of truth
 
 ## Major Features & Status (from transcripts)
 - Multi-role system (LTF Admin, LTF Finance (strict), Club Admin, Coach, Member) — completed
 - Member license-role taxonomy expanded (Volunteer, Staff, Media, Fan) across backend/frontend/import contracts with compatibility normalization — completed
+- License roles stored capitalized (`Athlete`, `Coach`, …); import still accepts mixed CSV casing — completed (v0.6.2)
+- Published Standard 3C card preview on Club and LTF member Current licenses (member-scoped preview API, display-fit sharp scaling) — completed (v0.6.2)
+- Member import treats SimplyCompete `Membership End Date` as an unmapped helper column (skip / Active / Inactive by year, not stored) — completed (v0.6.3)
+- License `issued_at` set when status becomes ACTIVE, with backfill for existing active licenses — completed (v0.6.3)
+- Card preview uses faded club logo as photo fallback; no dashed empty-photo placeholder; iPhone text-size-adjust — completed (v0.6.3)
+- Club movement history stays with the member; LTF monitors tourists (flag only) and club incoming/outgoing traffic — completed (v0.6.4)
+- Order/invoice line items include member names from the license so transferred members remain visible — completed (v0.6.4)
+- Club fee catalog and billing (one-off and recurring); club-fee invoices never activate licenses — completed (v0.7.0)
+- Club Active/Inactive and communication language (en/lb) — completed (v0.7.0)
+- Member detail tabs (Overview, Current license, History, Grades, Club movements) — completed (v0.7.0)
+- Side-sliding action notices; LTF Finance All clubs after login; audit-log detail page; quiet default buttons vs cyan primary — completed (v0.7.0)
+- Superuser ops console (`is_superuser`, `/{locale}/dashboard/ops`): sessions, health, failed logins/lockouts, alerts, users, query catalog, EN|LB translation editor, jobs, ops audit — completed (v0.8.0)
+- Club Admins can add/remove other admins for their clubs (rubber-band, home-club only; header club filter hidden on that page) — completed (v0.8.0)
+- Backend/worker/beat share image `ltf-license-manager-backend` so Celery stays in sync after backend rebuilds — completed (v0.8.0)
+- Modular entitlements: signed product codes on ops, install entitlement + per-club assignment, API 403 and hidden nav, Preview coming-soon prove-out. Redeem is additive. Never call a software entitlement a “license.” — completed (v0.9.0; additive redeem in v0.10.0). A server with no `MODULE_CODE_*` keys creates one Ed25519 keypair in the database (`ensure_module_keys` on startup, or the first Ops → Modules load) and a superuser can mint `LTF1.…` codes there. The install id is not a product code. `MODULE_CODE_PUBLIC_KEY` alone keeps minting off for an outside issuer. The private key is not printed; a database backup is the key backup.
+- Event calendar: one Event engine; federation calendar when entitled; club calendar when assigned; members see public dates; Public/Internal/Private spelled out; today is a filled date circle — completed (v0.10.0)
+- Club management: training timetable and rolls, belt promotion, coach pay periods, in-club shop, membership fees and family rebates, Qualité+ subsidy lists, and the federation license-invoice letterhead — completed (v0.11.0). The invoice footer Order column reads Order, Placed, Delivered, and Status. The Invoice column stays Invoice, Issued, Paid, and Status. On Club fees, Edit corrects a fee’s name and current amount on that card (the latest price row). Delete removes the fee and returns assigned members to the club default. Issued invoices stay unchanged. A later price still uses Save new amount.
+- Club member invoices use the club letterhead (footer logos: World Taekwondo, European Taekwondo Union, Luxembourg Taekwondo Federation). Federation license invoices are unchanged. A zero family rebate is omitted. The Total column euro has 2 mm on the right. A family is one invoice; the recipient is a member or a parent/guardian, and an all-minor family with nobody chosen cannot be issued. Billing shows an invoice number only beside that invoice’s stored total. Club settings stores a website printed under the club email. Sidebar links are grouped by module and the desktop sidebar can collapse to icons. Primary buttons rest white with a cyan edge. Entry fields are white and placeholders are light grey — on `feature/module-club-management`, still v0.11.0 (CHANGELOG Unreleased).
 - Full Finance Module (Order, OrderItem, Invoice, Payment with card details, Stripe Checkout + webhooks + manual record payment, audit logs) — completed
 - License & Grade History tracking with django-simple-history — completed
 - Profile Picture system (upload, crop/framing for 8:10 print, @imgly/background-removal-js) — completed
@@ -56,26 +90,33 @@ Rules we follow:
 - Printer Profile Step 4 (feature/general-improvements): Full regression (licenses.test_cards 99/99), lint/build pass, Docker services healthy; end-to-end verification of Club Admin selection, LTF Admin CRUD, and PDF offset — completed. Step 4 re-run (2026-03-18): licenses.test_cards 99/99 OK, npm lint/build OK, docker compose up -d --build + ps all healthy.
 - Printer Profile Step 5 (feature/general-improvements): Dokploy deploy + smoke tests passed; merged to `main`, tag `v0.3.6` created and pushed (2026-03-19).
 - **Release v0.3.6 (2026-03-19):** Merged `feature/general-improvements` to `main` (fast-forward). Printer profiles (user-owned, Club Admin nav + `/dashboard/club/printer-profiles`, LTF Admin CRUD, quick-print selection, PDF offset in final output) + photo fixes live on `main`. Tag `v0.3.6` created and pushed.
-- **v0.3.9 HeroUI Release (2026-03-28):** Full HeroUI v3.0.1 integration with custom ltf_theme.css, sticky top bar, stable tab navigation (no more swapping), Club Members page overhaul (RadioGroup filters with total counts, improved Members/Actions Selects, row status confirmation modals, pagination 50/150/300/All) — completed
+- **v0.3.9 HeroUI Release (2026-03-28):** Full HeroUI v3.0.1 integration with custom ltf_theme.css, sticky top bar, stable tab navigation (no more swapping), Club Members page overhaul (RadioGroup filters with total counts, improved Members/Actions Selects, row status confirmation modals, pagination 50/150/300/All).
+- **Member Import Step 3 UX improvement (v0.3.9)**: Orange "Review" status for invalid/non-matching license roles, inline dropdowns to fix primary_license_role and secondary_license_role, empty secondary_license_role is valid, same-role validation with clear error message, role change confirmation dialogue — completed
+- **Member Detail View UX overhaul (feature/member-detail-view-redo, 2026-05-29, commit 7d986ab):** Removed Overview/History tabs in favor of a single scroll view; pencil-icon edit button; simplified Licenses table (Year | License type | Status | Issued, deduplicated to one row per year prioritizing Active then most recent) and Grades table (Date | Grade | Issued by); pagination (5 rows/page, Previous/Next) on both tables; inline grade add/edit form that swaps in place of the table (no modal); single-select checkboxes in the rightmost Grades column with a header "edit selected" pencil action; backend `created_by` support added to GradePromotionHistory (migration 0012) plus legacy grade-promotion column cleanup (migration 0013); applied to both Club (editable) and LTF (read-only) member detail pages — completed
+- **Hybrid responsive design-token system (2026-05-29):** Introduced CSS custom-property sizing tokens (`--control-height`, `--table-row-height`, `--control-padding-x`) in ltf_theme.css with a `@media (pointer: coarse)` override so the UI auto-adapts between compact desktop (40px controls / 44px table rows / 16px control padding) and comfortable touch (44px controls / 52px table rows / 20px padding); shared Button/Input/Select/Modal components and the Club Members page migrated off hardcoded heights onto the tokens; dedicated `--checkbox-border` token (74% lightness light / 48% dark) for visible 16px checkboxes; compact StatusBadge padding; editable member status switched to a Button styled as a status badge (22% tint) while read-only uses StatusBadge — completed
 
 ## Key Decisions
 - Club Admin payments do NOT require extra consent prompt
 - Batch orders create ONE Order + ONE Invoice (grouped)
 - Stripe uses invoice_number as reference (not order_number)
+- Club-to-member invoices use the club letterhead. Federation license invoices stay on the federation letterhead.
+- A family invoice is one club order. The printed recipient may be a guardian. The ledger member stays a family member. The printed name and address are copied onto the invoice when it is issued.
 - All history is immutable and audited
-- Docker containers run without .cursor bind-mounts (ownership stability)
+- Docker backend, worker, and beat use the built image on Coolify/VPS deploys. Frontend message catalogs are copied to `/app/i18n_frontend`. Local live mounts belong in gitignored `docker-compose.override.yml`.
+- Moved from a fixed 40px button/control rule to a responsive token-based sizing system (40px desktop / 44px touch) driven by `pointer: coarse`
 
 ## Current Open / Next Priorities (update after every milestone)
 - Post-rollout observation on production/Dokploy (print queue, printer-profile offset correctness)
 - Gather real Payconiq sandbox credentials and run first live sandbox verification
 - Any remaining Dokploy stability tweaks
+- Member Detail View + responsive-token refinements on `feature/member-detail-view-redo` pending commit/merge to `improvements-clean` / `main`
+- EntityTable data cells still use `px-4 py-3` (not bound to `--table-row-height`); follow-up if strict desktop table density is desired
 
-Next phase: General improvements or next major feature (e.g. Invoice redesign, full Payconiq integration)
+Next phase: Finalize and merge Member Detail View + responsive-token work, then proceed to next major feature (Invoice redesign / full Payconiq integration)
 
 Coding & Memory Rules (always follow)
 - Always work on dedicated feature branches for new work
 - Always test in Docker (`docker compose up -d --build`)
-- Use oh-my-cursor Team Avatar agents (@toph, @iroh, @appa, @sokka, @escher, ...)
 - Agents must update CHANGELOG.md and README.md after every significant change
 - PROJECT_CONTEXT.md is the single source of truth
 - Read this file FIRST in every session

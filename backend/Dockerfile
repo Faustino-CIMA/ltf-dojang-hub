@@ -28,9 +28,12 @@ RUN apt-get update \
   && chown -R app:app /var/www/staticfiles /var/lib/celerybeat \
   && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
+# Build context is the repository root (see docker-compose.yml) so message
+# catalogs can be copied in without a host bind mount.
+COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY --chown=app:app . /app
+COPY --chown=app:app backend/ /app
+COPY --chown=app:app frontend/src/messages /app/i18n_frontend
 
 EXPOSE 8000

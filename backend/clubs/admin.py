@@ -5,13 +5,15 @@ from .models import BrandingAsset, Club, FederationProfile
 
 @admin.register(Club)
 class ClubAdmin(admin.ModelAdmin):
-    list_display = ("name", "locality", "postal_code", "iban", "bank_name", "created_by")
+    list_display = ("name", "locality", "postal_code", "email", "website", "iban", "bank_name", "created_by")
     search_fields = (
         "name",
         "locality",
         "postal_code",
         "address_line1",
         "city",
+        "email",
+        "website",
         "iban",
         "bank_name",
     )
@@ -19,7 +21,15 @@ class ClubAdmin(admin.ModelAdmin):
 
 @admin.register(FederationProfile)
 class FederationProfileAdmin(admin.ModelAdmin):
-    list_display = ("name", "locality", "postal_code", "iban", "bank_name", "updated_at")
+    list_display = (
+        "name",
+        "locality",
+        "postal_code",
+        "iban",
+        "bank_name",
+        "club_tourist_transfer_threshold",
+        "updated_at",
+    )
     search_fields = ("name", "locality", "postal_code", "address_line1", "iban", "bank_name")
 
 

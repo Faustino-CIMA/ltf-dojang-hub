@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -10,6 +16,12 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AppTextarea,
+  ListActionsRow,
+  ListToolbarPanel,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiRequest } from "@/lib/api";
@@ -20,7 +32,9 @@ import {
   cloneCardTemplate,
   createCardTemplate,
   deleteCardTemplateSafely,
+  exportCardTemplate,
   getCardTemplates,
+  importCardTemplate,
   setDefaultCardTemplate,
 } from "@/lib/license-card-api";
 
@@ -45,6 +59,8 @@ export default function LtfAdminLicenseCardsPage() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  const [isImportingTemplate, setIsImportingTemplate] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [cloneSourceTemplate, setCloneSourceTemplate] = useState<CardTemplate | null>(null);
   const [cloneTemplateName, setCloneTemplateName] = useState("");
@@ -152,6 +168,54 @@ export default function LtfAdminLicenseCardsPage() {
       );
     } finally {
       setIsCreatingTemplate(false);
+    }
+  };
+
+  const handleExportTemplate = async (template: CardTemplate) => {
+    setBusyTemplateId(template.id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await exportCardTemplate(template.id);
+      setSuccessMessage(t("licenseCardsTemplateExported"));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("licenseCardsTemplateExportError")
+      );
+    } finally {
+      setBusyTemplateId(null);
+    }
+  };
+
+  const handleImportTemplateFile = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    setIsImportingTemplate(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const text = await file.text();
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        setErrorMessage(t("licenseCardsTemplateImportInvalidFile"));
+        return;
+      }
+      if (!payload || typeof payload !== "object" || payload.format !== "ltkdf.card-template") {
+        setErrorMessage(t("licenseCardsTemplateImportInvalidFile"));
+        return;
+      }
+      await importCardTemplate(payload);
+      setSuccessMessage(t("licenseCardsTemplateImported"));
+      await loadTemplates();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("licenseCardsTemplateImportError")
+      );
+    } finally {
+      setIsImportingTemplate(false);
     }
   };
 
@@ -274,7 +338,7 @@ export default function LtfAdminLicenseCardsPage() {
   if (isRoleLoading) {
     return (
       <LtfAdminLayout title={t("licenseCardsTitle")} subtitle={t("licenseCardsSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfAdminLayout>
     );
   }
@@ -297,22 +361,51 @@ export default function LtfAdminLicenseCardsPage() {
 
   return (
     <LtfAdminLayout title={t("licenseCardsTitle")} subtitle={t("licenseCardsSubtitle")}>
-      {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-      {successMessage ? <p className="text-sm text-emerald-700">{successMessage}</p> : null}
+      <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Input
-            className="w-full max-w-sm"
-            placeholder={t("licenseCardsSearchPlaceholder")}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4">
+          <ListToolbarPanel
+            search={
+              <Input
+                className="w-full max-w-sm"
+                placeholder={t("licenseCardsSearchPlaceholder")}
+                aria-label={t("licenseCardsSearchPlaceholder")}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            }
           />
-          <Button onClick={startCreateTemplate}>{t("licenseCardsCreateAction")}</Button>
+          <ListActionsRow
+            actions={
+              <>
+                <Button variant="primary" onClick={startCreateTemplate}>{t("licenseCardsCreateAction")}</Button>
+                <Button
+                  variant="outline"
+                  disabled={isImportingTemplate}
+                  onClick={() => importFileInputRef.current?.click()}
+                >
+                  {isImportingTemplate
+                    ? t("licenseCardsImportingTemplateAction")
+                    : t("licenseCardsImportAction")}
+                </Button>
+                <input
+                  ref={importFileInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(event) => {
+                    void handleImportTemplateFile(event.target.files?.[0] ?? null);
+                    event.target.value = "";
+                  }}
+                />
+              </>
+            }
+          />
         </div>
 
         {isLoading ? (
-          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+          <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : filteredTemplates.length === 0 ? (
           <EmptyState
             title={t("licenseCardsEmptyTitle")}
@@ -408,6 +501,16 @@ export default function LtfAdminLicenseCardsPage() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      disabled={busyTemplateId === template.id}
+                      onClick={() => void handleExportTemplate(template)}
+                    >
+                      {busyTemplateId === template.id
+                        ? t("licenseCardsExportingAction")
+                        : t("licenseCardsExportAction")}
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="destructive"
                       disabled={busyTemplateId === template.id}
                       onClick={() => startDeleteTemplate(template)}
@@ -439,7 +542,7 @@ export default function LtfAdminLicenseCardsPage() {
       >
         <div className="grid gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700">
+            <label className="text-sm font-medium text-foreground">
               {t("licenseCardsTemplateNameLabel")}
             </label>
             <Input
@@ -450,11 +553,10 @@ export default function LtfAdminLicenseCardsPage() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700">
+            <label className="text-sm font-medium text-foreground">
               {t("licenseCardsTemplateDescriptionLabel")}
             </label>
-            <textarea
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+            <AppTextarea
               placeholder={t("licenseCardsTemplateDescriptionPlaceholder")}
               value={newTemplateDescription}
               onChange={(event) => setNewTemplateDescription(event.target.value)}
@@ -492,7 +594,7 @@ export default function LtfAdminLicenseCardsPage() {
       >
         <div className="grid gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700">
+            <label className="text-sm font-medium text-foreground">
               {t("licenseCardsTemplateNameLabel")}
             </label>
             <Input
@@ -503,11 +605,10 @@ export default function LtfAdminLicenseCardsPage() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700">
+            <label className="text-sm font-medium text-foreground">
               {t("licenseCardsTemplateDescriptionLabel")}
             </label>
-            <textarea
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+            <AppTextarea
               placeholder={t("licenseCardsTemplateDescriptionPlaceholder")}
               value={cloneTemplateDescription}
               onChange={(event) => setCloneTemplateDescription(event.target.value)}
@@ -539,7 +640,7 @@ export default function LtfAdminLicenseCardsPage() {
         onClose={closeDeleteTemplateModal}
       >
         <div className="grid gap-4">
-          <p className="text-sm text-zinc-700">
+          <p className="text-sm text-muted">
             {t("licenseCardsDeleteModalConfirmHint", {
               name: deleteTargetTemplate?.name ?? "",
             })}

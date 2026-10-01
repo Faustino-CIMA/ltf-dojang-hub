@@ -9,6 +9,10 @@ import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
+import {
+  FormPanel,
+  ActionNotices
+} from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import {
@@ -27,6 +31,8 @@ type PaymentRow = {
   reference: string;
   cardLabel: string;
   amount: string;
+  statusLabel: string;
+  statusTone: "neutral" | "success" | "warning" | "danger";
   paidAt: string;
   recordedBy: string;
   notes: string;
@@ -124,21 +130,35 @@ export default function LtfFinancePaymentDetailPage() {
       manual: t("paymentProviderManual"),
       other: t("paymentProviderOther"),
     };
-    return payments.map((payment) => ({
-      id: payment.id,
-      methodLabel: methodLabels[payment.method] ?? payment.method,
-      providerLabel: providerLabels[payment.provider] ?? payment.provider,
-      reference: payment.reference || "-",
-      cardLabel:
-        payment.card_brand && payment.card_last4
-          ? `${payment.card_brand.toUpperCase()} •••• ${payment.card_last4}`
-          : "-",
-      amount: `${payment.amount} ${payment.currency}`,
-      paidAt: formatDisplayDateTime(payment.paid_at),
-      recordedBy: payment.created_by ? String(payment.created_by) : "-",
-      notes: payment.notes || "-",
-    }));
-  }, [payments, t]);
+    return payments.map((payment) => {
+      const statusMeta =
+        payment.status === "pending"
+          ? { label: common("statusPending"), tone: "warning" as const }
+          : payment.status === "paid"
+            ? { label: common("statusPaid"), tone: "success" as const }
+            : payment.status === "failed"
+              ? { label: common("statusFailed"), tone: "danger" as const }
+              : payment.status === "cancelled"
+                ? { label: common("statusCancelled"), tone: "neutral" as const }
+                : { label: payment.status, tone: "neutral" as const };
+      return {
+        id: payment.id,
+        methodLabel: methodLabels[payment.method] ?? payment.method,
+        providerLabel: providerLabels[payment.provider] ?? payment.provider,
+        reference: payment.reference || "-",
+        cardLabel:
+          payment.card_brand && payment.card_last4
+            ? `${payment.card_brand.toUpperCase()} •••• ${payment.card_last4}`
+            : "-",
+        amount: `${payment.amount} ${payment.currency}`,
+        statusLabel: statusMeta.label,
+        statusTone: statusMeta.tone,
+        paidAt: formatDisplayDateTime(payment.paid_at),
+        recordedBy: payment.created_by ? String(payment.created_by) : "-",
+        notes: payment.notes || "-",
+      };
+    });
+  }, [common, payments, t]);
 
   const columns = [
     { key: "methodLabel", header: t("paymentMethodLabel") },
@@ -146,6 +166,11 @@ export default function LtfFinancePaymentDetailPage() {
     { key: "reference", header: t("paymentReferenceLabel") },
     { key: "cardLabel", header: t("paymentCardLabel") },
     { key: "amount", header: t("paymentAmountLabel") },
+    {
+      key: "statusLabel",
+      header: t("statusLabel"),
+      render: (row: PaymentRow) => <StatusBadge label={row.statusLabel} tone={row.statusTone} />,
+    },
     { key: "paidAt", header: t("paidAtLabel") },
     { key: "recordedBy", header: t("paymentRecordedByLabel") },
     { key: "notes", header: t("paymentNotesLabel") },
@@ -154,7 +179,7 @@ export default function LtfFinancePaymentDetailPage() {
   if (isLoading) {
     return (
       <LtfFinanceLayout title={t("paymentDetailTitle")} subtitle={t("paymentDetailSubtitle")}>
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} />
+        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfFinanceLayout>
     );
   }
@@ -169,20 +194,29 @@ export default function LtfFinancePaymentDetailPage() {
 
   return (
     <LtfFinanceLayout title={t("paymentDetailTitle")} subtitle={t("paymentDetailSubtitle")}>
-      <div className="mb-6">
-        <Button asChild variant="outline">
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" className="w-fit">
           <Link href={`/${locale}/dashboard/ltf-finance/payments`}>{t("backToPayments")}</Link>
         </Button>
+        {invoice.status !== "paid" && invoice.status !== "void" ? (
+          <Button asChild variant="primary">
+            <Link href={`/${locale}/dashboard/ltf-finance/payments/${invoice.id}/record`}>
+              {t("recordPaymentButton")}
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+
+      <FormPanel>
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("invoiceNumberLabel")}</span>
             <span className="font-medium">{invoice.invoice_number}</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted">{t("statusLabel")}</span>
+            <span className="text-xs text-muted">{t("invoiceStatusLabel")}</span>
             <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
           </div>
           <div className="flex flex-col gap-1">
@@ -202,10 +236,10 @@ export default function LtfFinancePaymentDetailPage() {
             </span>
           </div>
         </div>
-      </section>
+      </FormPanel>
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">
+      <section className="space-y-3">
+        <h2 className="text-section text-foreground">
           {t("paymentHistoryTitle")}
         </h2>
         {paymentRows.length === 0 ? (
