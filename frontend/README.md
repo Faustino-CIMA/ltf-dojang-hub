@@ -31,6 +31,12 @@ Club Admin pages:
 - Club admins (rubber-band): `/{locale}/dashboard/club/admins`
 - Membership fees: `/{locale}/dashboard/club/fees`
   - Add a fee from the card at the top. Edit on a fee corrects its name and current amount. Delete removes it and returns assigned members to the club default. Save new amount schedules a later price. Issued invoices stay unchanged.
+- Families: `/{locale}/dashboard/club/families`
+  - Members of a family share one invoice. Choose who receives the bill. Parents and guardians can be entered here and on a minor’s club record.
+- Billing: `/{locale}/dashboard/club/billing`
+  - A family row shows an invoice number only when one invoice covers every current member. The amount is that invoice’s total.
+- Club settings: `/{locale}/dashboard/club/settings`
+  - Website is printed under the club email on invoices the club sends to its members.
 
 Ops console (Django `is_superuser` only):
 - Overview: `/{locale}/dashboard/ops`

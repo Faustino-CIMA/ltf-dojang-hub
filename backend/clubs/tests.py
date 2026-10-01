@@ -310,6 +310,25 @@ class ClubApiTests(TestCase):
         self.assertEqual(self.club.email, "club@example.com")
         self.assertEqual(self.club.notification_emails(), ["club@example.com"])
 
+    def test_club_website_is_normalized_and_saved(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.patch(
+            f"/api/clubs/{self.club.id}/",
+            {"website": " www.vichten.lu "},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["website"], "https://www.vichten.lu")
+        self.club.refresh_from_db()
+        self.assertEqual(self.club.website, "https://www.vichten.lu")
+
+        rejected = self.client.patch(
+            f"/api/clubs/{self.club.id}/",
+            {"website": "not a website"},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_club_admin_can_patch_own_club_iban(self):
         self.client.force_authenticate(user=self.club_admin)
         response = self.client.patch(

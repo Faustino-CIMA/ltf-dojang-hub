@@ -51,6 +51,7 @@ const clubSchema = z.object({
   locality: z.string().optional(),
   iban: z.string().optional(),
   email: z.string().optional(),
+  website: z.string().optional(),
   communication_language: z.string().optional(),
 });
 
@@ -105,6 +106,7 @@ export default function ClubAdminSettingsPage() {
       locality: "",
       iban: "",
       email: "",
+      website: "",
       communication_language: "en",
     },
   });
@@ -123,6 +125,7 @@ export default function ClubAdminSettingsPage() {
       locality: "",
       iban: "",
       email: "",
+      website: "",
       communication_language: "en",
     });
     setClubIsActive(true);
@@ -156,6 +159,7 @@ export default function ClubAdminSettingsPage() {
         locality: club.locality ?? club.city ?? "",
         iban: club.iban ?? "",
         email: club.email ?? "",
+        website: club.website ?? "",
         communication_language: club.communication_language || "en",
       });
       setClubIsActive(club.is_active !== false);
@@ -379,6 +383,12 @@ export default function ClubAdminSettingsPage() {
                 <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
                 <Input type="email" placeholder="club@example.com" {...register("email")} />
                 <p className="text-xs text-muted">{t("clubEmailHint")}</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
+                <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
+                <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
               </div>
 
               <div className="space-y-2 md:col-span-2">

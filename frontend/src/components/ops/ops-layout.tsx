@@ -96,8 +96,9 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
+        group: { id: "operations", label: common("navGroupOperations") },
       })),
-    [locale, t],
+    [common, locale, t],
   );
 
   if (allowed !== true) {

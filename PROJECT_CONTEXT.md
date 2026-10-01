@@ -1,8 +1,8 @@
 **LTF Taekwondo License Manager — Master Summary (May 2026)**
-Last updated: 2026-09-29
+Last updated: 2026-10-01
 
 Current main branch state:
-- Version: v0.11.0 on `feature/module-club-management` — club training, promotion, shop, fees, Qualité+ subsidies, and the LTF license invoice letterhead (2026-09-27)
+- Version: v0.11.0 on `feature/module-club-management` — club training, promotion, shop, fees, Qualité+ subsidies, and the LTF license invoice letterhead (2026-09-27). Later work on this branch is still v0.11.0: club member invoice letterhead, family bill recipients, sidebar groups, and the club website (see CHANGELOG Unreleased).
 - Version: v0.10.0 on `feature/module-event-calendar` — Event engine, federation/club/member calendars, additive product codes (2026-09-11)
 - Version: v0.9.0 on `feature/module-entitlements` — product codes, install entitlements, per-club assignment, Preview prove-out (2026-09-06)
 - Version: v0.8.0 on `feature/ui-refresh-and-designer` — ops console, Club Admin rubber-band assignment (2026-09-04)
@@ -62,6 +62,7 @@ Rules we follow:
 - Modular entitlements: signed product codes on ops, install entitlement + per-club assignment, API 403 and hidden nav, Preview coming-soon prove-out. Redeem is additive. Never call a software entitlement a “license.” — completed (v0.9.0; additive redeem in v0.10.0). A server with no `MODULE_CODE_*` keys creates one Ed25519 keypair in the database (`ensure_module_keys` on startup, or the first Ops → Modules load) and a superuser can mint `LTF1.…` codes there. The install id is not a product code. `MODULE_CODE_PUBLIC_KEY` alone keeps minting off for an outside issuer. The private key is not printed; a database backup is the key backup.
 - Event calendar: one Event engine; federation calendar when entitled; club calendar when assigned; members see public dates; Public/Internal/Private spelled out; today is a filled date circle — completed (v0.10.0)
 - Club management: training timetable and rolls, belt promotion, coach pay periods, in-club shop, membership fees and family rebates, Qualité+ subsidy lists, and the federation license-invoice letterhead — completed (v0.11.0). The invoice footer Order column reads Order, Placed, Delivered, and Status. The Invoice column stays Invoice, Issued, Paid, and Status. On Club fees, Edit corrects a fee’s name and current amount on that card (the latest price row). Delete removes the fee and returns assigned members to the club default. Issued invoices stay unchanged. A later price still uses Save new amount.
+- Club member invoices use the club letterhead (footer logos: World Taekwondo, European Taekwondo Union, Luxembourg Taekwondo Federation). Federation license invoices are unchanged. A zero family rebate is omitted. The Total column euro has 2 mm on the right. A family is one invoice; the recipient is a member or a parent/guardian, and an all-minor family with nobody chosen cannot be issued. Billing shows an invoice number only beside that invoice’s stored total. Club settings stores a website printed under the club email. Sidebar links are grouped by module and the desktop sidebar can collapse to icons. Primary buttons rest white with a cyan edge. Entry fields are white and placeholders are light grey — on `feature/module-club-management`, still v0.11.0 (CHANGELOG Unreleased).
 - Full Finance Module (Order, OrderItem, Invoice, Payment with card details, Stripe Checkout + webhooks + manual record payment, audit logs) — completed
 - License & Grade History tracking with django-simple-history — completed
 - Profile Picture system (upload, crop/framing for 8:10 print, @imgly/background-removal-js) — completed
@@ -97,6 +98,8 @@ Rules we follow:
 - Club Admin payments do NOT require extra consent prompt
 - Batch orders create ONE Order + ONE Invoice (grouped)
 - Stripe uses invoice_number as reference (not order_number)
+- Club-to-member invoices use the club letterhead. Federation license invoices stay on the federation letterhead.
+- A family invoice is one club order. The printed recipient may be a guardian. The ledger member stays a family member. The printed name and address are copied onto the invoice when it is issued.
 - All history is immutable and audited
 - Docker backend, worker, and beat use the built image on Coolify/VPS deploys. Frontend message catalogs are copied to `/app/i18n_frontend`. Local live mounts belong in gitignored `docker-compose.override.yml`.
 - Moved from a fixed 40px button/control rule to a responsive token-based sizing system (40px desktop / 44px touch) driven by `pointer: coarse`

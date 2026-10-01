@@ -289,6 +289,13 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
     if ledger == Order.Ledger.CLUB:
         if invoice.delivery_method and invoice.delivery_method != Invoice.DeliveryMethod.EMAIL:
             return []
+        snapshot = [
+            line.strip()
+            for line in str(getattr(invoice, "bill_to_email", "") or "").splitlines()
+            if line.strip()
+        ]
+        if snapshot:
+            return list(dict.fromkeys(snapshot))
         if invoice.member_id:
             from clubmgmt.billing import invoice_emails
 

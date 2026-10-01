@@ -23,9 +23,9 @@
   --danger-foreground: oklch(99% 0 0);
   --default: oklch(93.5% 0.01 232);
   --default-foreground: oklch(24% 0.03 240);
-  --field-background: oklch(99.5% 0.004 232);
+  --field-background: #ffffff;
   --field-foreground: oklch(24% 0.03 240);
-  --field-placeholder: oklch(52% 0.02 232);
+  --field-placeholder: oklch(70% 0.014 232);
   --focus: oklch(54% 0.13 232);
   --muted: oklch(48% 0.025 232);
   --overlay: oklch(99.5% 0.003 232);
@@ -69,6 +69,7 @@
 
   /* Shell */
   --sidebar-width: 16.5rem;
+  --sidebar-width-collapsed: 4.5rem;
   --topbar-height: 4rem;
 
   /* Control & layout sizing (desktop / compact defaults) */
@@ -91,9 +92,9 @@
   --danger-foreground: oklch(99% 0 0);
   --default: oklch(28% 0.02 232);
   --default-foreground: oklch(97% 0.01 232);
-  --field-background: oklch(22% 0.02 240);
+  --field-background: oklch(28% 0.022 240);
   --field-foreground: oklch(97% 0.01 232);
-  --field-placeholder: oklch(68% 0.02 232);
+  --field-placeholder: oklch(76% 0.015 232);
   --focus: oklch(72% 0.12 232);
   --foreground: oklch(97% 0.01 232);
   --muted: oklch(72% 0.02 232);

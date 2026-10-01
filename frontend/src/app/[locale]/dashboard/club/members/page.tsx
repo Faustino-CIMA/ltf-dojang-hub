@@ -1037,8 +1037,9 @@ export default function ClubAdminMembersPage() {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Button
-                            variant="destructive"
-                            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
+                            type="button"
+                            variant="outline"
+                            size="sm"
                             aria-label={t("deleteAction")}
                             onClick={() => handleDelete(member)}
                           >

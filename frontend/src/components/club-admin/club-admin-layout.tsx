@@ -187,8 +187,32 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
   } satisfies ClubNavDef),
 ]);
 
+const CLUB_GROUP_RANK: Record<string, number> = {
+  club: 0,
+  clubManagement: 1,
+  calendar: 2,
+  preview: 3,
+};
+
+function clubNavGroup(id: string, label: (key: "navGroupClub" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
+  if (id === "admins" || id === "settings") {
+    return undefined;
+  }
+  if (id === "finance" || id === "families" || id === "shop" || id === "training" || id === "promotion") {
+    return { id: "clubManagement", label: label("navGroupClubManagement") };
+  }
+  if (id === "calendar") {
+    return { id: "calendar", label: label("navGroupCalendar") };
+  }
+  if (id === "preview") {
+    return { id: "preview", label: label("navGroupPreview") };
+  }
+  return { id: "club", label: label("navGroupClub") };
+}
+
 export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutProps) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
   const { selectedClubId } = useClubSelection();
@@ -231,27 +255,37 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
         if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
         return true;
-      }).map((def) => ({
-        id: def.id,
-        href: `/${locale}/${def.routePath}`,
-        label: t(def.labelKey),
-        icon: def.icon,
-        matchMode: def.matchMode,
-        extraMatchHrefs:
-          def.id === "finance"
-            ? [
-                `/${locale}/dashboard/club/orders`,
-                `/${locale}/dashboard/club/invoices`,
-                `/${locale}/dashboard/club/payments`,
-                `/${locale}/dashboard/club/income`,
-                `/${locale}/dashboard/club/expenses`,
-                `/${locale}/dashboard/club/reports`,
-              ]
-            : def.id === "printing"
-              ? [`/${locale}/dashboard/club/printer-profiles`]
-              : undefined,
-      })),
-    [calendarAssigned, clubMgmtAssigned, locale, previewAssigned, role, t]
+      }).map((def, index) => ({
+        index,
+        item: {
+          id: def.id,
+          href: `/${locale}/${def.routePath}`,
+          label: t(def.labelKey),
+          icon: def.icon,
+          matchMode: def.matchMode,
+          group: clubNavGroup(def.id, (key) => common(key)),
+          extraMatchHrefs:
+            def.id === "finance"
+              ? [
+                  `/${locale}/dashboard/club/orders`,
+                  `/${locale}/dashboard/club/invoices`,
+                  `/${locale}/dashboard/club/payments`,
+                  `/${locale}/dashboard/club/income`,
+                  `/${locale}/dashboard/club/expenses`,
+                  `/${locale}/dashboard/club/reports`,
+                ]
+              : def.id === "printing"
+                ? [`/${locale}/dashboard/club/printer-profiles`]
+                : undefined,
+        },
+      }))
+      .sort((left, right) => {
+        const leftRank = left.item.group ? (CLUB_GROUP_RANK[left.item.group.id] ?? 9) : 10;
+        const rightRank = right.item.group ? (CLUB_GROUP_RANK[right.item.group.id] ?? 9) : 10;
+        return leftRank - rightRank || left.index - right.index;
+      })
+      .map((entry) => entry.item),
+    [calendarAssigned, clubMgmtAssigned, common, locale, previewAssigned, role, t]
   );
 
   const isPrinting =

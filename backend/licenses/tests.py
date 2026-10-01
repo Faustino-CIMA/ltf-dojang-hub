@@ -3313,4 +3313,124 @@ class LtfLicenseInvoicePdfTests(TestCase):
         self.assertIn("Delivered", text)
         self.assertNotIn("Year", text)
 
+    def test_club_member_invoice_uses_the_model_layout(self):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        from clubmgmt.models import MemberAddress
+
+        admin = User.objects.create_user(username="club-inv-admin", password="pass12345", role=User.Roles.LTF_ADMIN)
+        club = Club.objects.create(
+            name="Taekwondo Vichten",
+            address_line1="52b, Rue Principale",
+            postal_code="9190",
+            locality="Vichten",
+            iban="LU510001111111111111",
+            email="club@vichten.lu",
+            created_by=admin,
+        )
+        member = Member.objects.create(club=club, first_name="Jose Carlos", last_name="Da Costa Ribeiro")
+        MemberAddress.objects.create(
+            member=member,
+            house_number="352d",
+            street="Rue des sute",
+            postal_code="3287",
+            locality="Mondorf-les-Bains",
+            use_for_invoice=True,
+        )
+        order = Order.objects.create(
+            club=club,
+            member=member,
+            ledger=Order.Ledger.CLUB,
+            status=Order.Status.PAID,
+            subtotal=Decimal("40.00"),
+            total=Decimal("40.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            description="Dobok KWON Clubline · 140 cm",
+            price_snapshot=Decimal("20.00"),
+            quantity=2,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            club=club,
+            member=member,
+            status=Invoice.Status.PAID,
+            subtotal=Decimal("40.00"),
+            total=Decimal("40.00"),
+            issued_at=timezone.now(),
+            paid_at=timezone.now(),
+        )
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["club_invoice"])
+        self.assertFalse(context["license_invoice"])
+        self.assertEqual(context["recipient_name"], "DA COSTA RIBEIRO Jose Carlos")
+        self.assertEqual(context["recipient_lines"][0], "352d, Rue des sute")
+        self.assertEqual(context["recipient_lines"][-1], "L-3287 Mondorf-les-Bains")
+        self.assertEqual(context["issuer"]["lines"][-1], "LUXEMBOURG")
+        self.assertEqual(context["issuer"]["email"], "club@vichten.lu")
+        self.assertEqual(context["issuer"]["website"], "")
+        club.website = "https://www.vichten.lu"
+        club.save(update_fields=["website"])
+        self.assertEqual(build_invoice_context(invoice)["issuer"]["website"], "https://www.vichten.lu")
+        self.assertEqual(context["club_rows"][0]["size"], "140 cm")
+        self.assertEqual(context["club_rows"][0]["label"], "Dobok KWON Clubline")
+        self.assertEqual(context["total_qty"], 2)
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        self.assertIsNotNone(pdf)
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("Item / service", text)
+        self.assertIn("Size", text)
+        self.assertIn("SEPA", text)
+        self.assertIn("WERO", text)
+        self.assertIn("otal Qty", text)
+        self.assertIn("40,00", text)
+        self.assertIn("DA COSTA RIBEIRO Jose Carlos", text)
+        self.assertIn("Subject:", text)
+        self.assertNotIn("LTF License Manager", text)
+
+    def test_club_invoice_omits_a_zero_family_rebate(self):
+        admin = User.objects.create_user(username="club-rebate-admin", password="pass12345", role=User.Roles.LTF_ADMIN)
+        club = Club.objects.create(name="Rebate Club", created_by=admin)
+        member = Member.objects.create(club=club, first_name="Ana", last_name="Costa")
+        order = Order.objects.create(
+            club=club,
+            member=member,
+            ledger=Order.Ledger.CLUB,
+            status=Order.Status.PENDING,
+            subtotal=Decimal("100.00"),
+            total=Decimal("100.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            description="Annual 2026 — Ana Costa (0.00% family rebate)",
+            price_snapshot=Decimal("100.00"),
+            quantity=1,
+        )
+        OrderItem.objects.create(
+            order=order,
+            description="Annual 2026 — Bea Costa (10.00% family rebate)",
+            price_snapshot=Decimal("90.00"),
+            quantity=1,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            club=club,
+            member=member,
+            status=Invoice.Status.ISSUED,
+            subtotal=Decimal("190.00"),
+            total=Decimal("190.00"),
+            issued_at=timezone.now(),
+        )
+        labels = [row["label"] for row in build_invoice_context(invoice)["club_rows"]]
+        self.assertCountEqual(
+            labels,
+            [
+                "Annual 2026 — Ana Costa",
+                "Annual 2026 — Bea Costa (10.00% family rebate)",
+            ],
+        )
+
 

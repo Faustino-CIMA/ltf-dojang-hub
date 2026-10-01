@@ -102,6 +102,7 @@ const LTF_FINANCE_NAV_DEFINITIONS: LtfFinanceNavDef[] = [
 
 export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayoutProps) {
   const t = useTranslations("LtfFinance");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
 
@@ -113,8 +114,9 @@ export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayout
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
+        group: { id: "finance", label: common("navGroupFinance") },
       })),
-    [locale, t]
+    [common, locale, t]
   );
 
   return (

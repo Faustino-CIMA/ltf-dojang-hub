@@ -490,6 +490,9 @@ class Invoice(models.Model):
 
     delivery_method = models.CharField(max_length=10, choices=DeliveryMethod.choices, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
+    bill_to_name = models.CharField(max_length=300, blank=True)
+    bill_to_email = models.TextField(blank=True)
+    bill_to_address = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

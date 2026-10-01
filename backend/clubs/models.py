@@ -4,11 +4,24 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from .languages import DEFAULT_CLUB_LANGUAGE, normalize_club_language
+
+_WEBSITE_VALIDATOR = URLValidator(schemes=["http", "https"])
+
+
+def normalize_club_website(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = f"https://{text}"
+    _WEBSITE_VALIDATOR(text)
+    return text
 
 def _validate_luxembourg_postal_code(postal_code: str) -> None:
     normalized_postal_code = str(postal_code or "").strip()
@@ -29,6 +42,7 @@ class Club(models.Model):
     iban = models.CharField(max_length=34, blank=True)
     bank_name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
+    website = models.URLField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
     communication_language = models.CharField(max_length=10, default=DEFAULT_CLUB_LANGUAGE)
     max_admins = models.PositiveIntegerField(default=10)
@@ -58,6 +72,10 @@ class Club(models.Model):
         self.iban = normalized_iban
         self.bank_name = derive_bank_name_from_iban(normalized_iban)
         self.communication_language = normalize_club_language(self.communication_language)
+        try:
+            self.website = normalize_club_website(self.website)
+        except ValidationError as exc:
+            raise ValidationError({"website": exc.messages}) from exc
 
     @property
     def formatted_address(self) -> str:

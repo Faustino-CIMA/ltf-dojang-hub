@@ -83,6 +83,56 @@
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
   }
+  /* Preflight sets appearance:button, which paints the native pressed control on Windows. */
+  button,
+  input:where([type="button"], [type="reset"], [type="submit"]),
+  ::file-selector-button {
+    appearance: none;
+  }
+  a[href],
+  button:not(:disabled),
+  input:where([type="button"], [type="reset"], [type="submit"], [type="checkbox"], [type="radio"], [type="file"]):not(:disabled),
+  select:not(:disabled),
+  summary,
+  label[for],
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="checkbox"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  input:where(
+    :not(
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      [type="checkbox"],
+      [type="radio"],
+      [type="file"],
+      [type="range"],
+      [type="color"],
+      [type="image"],
+      [type="hidden"]
+    )
+  ),
+  textarea,
+  select {
+    background-color: var(--field-background);
+    color: var(--field-foreground);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--field-placeholder);
+    opacity: 1;
+  }
 }
 
 @layer utilities {

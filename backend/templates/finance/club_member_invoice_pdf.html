@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 12mm 15mm 32mm 15mm;
+        @bottom-center {
+          content: element(invoice-meta);
+          width: 100%;
+          vertical-align: top;
+        }
+      }
+      @page:first {
+        margin-top: 0;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.regular }}");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.bold }}");
+        font-weight: 700;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.italic }}");
+        font-weight: 400;
+        font-style: italic;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.bold_italic }}");
+        font-weight: 700;
+        font-style: italic;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: #000;
+        font-family: "Invoice Sans", Arial, sans-serif;
+        font-size: 10pt;
+      }
+      .logo {
+        position: absolute;
+        top: 10mm;
+        left: 5mm;
+        width: 16.3mm;
+        height: 18mm;
+        object-fit: contain;
+      }
+      .club-name {
+        position: absolute;
+        top: 10.4mm;
+        left: 30mm;
+        margin: 0;
+        font-size: 12pt;
+        font-weight: 700;
+        line-height: 12pt;
+        white-space: nowrap;
+      }
+      .addr, .bank {
+        position: absolute;
+        top: 17.35mm;
+        margin: 0;
+        font-size: 9pt;
+        line-height: 3.66mm;
+      }
+      .addr { left: 30mm; }
+      .bank { left: 110.09mm; }
+      .addr p, .bank p { margin: 0; }
+      .mark {
+        position: absolute;
+        top: 45mm;
+        left: 5mm;
+        width: 57.54mm;
+        height: 35.03mm;
+        background: #ccd3ff;
+        border-radius: 6.07mm;
+      }
+      .slot {
+        position: absolute;
+        top: 2.35mm;
+        width: 25.01mm;
+        text-align: center;
+      }
+      .slot.left { left: 2.49mm; }
+      .slot.right { left: 30mm; }
+      .slot p {
+        margin: 0 0 1.95mm;
+        font-size: 9pt;
+        font-weight: 700;
+        line-height: 9pt;
+      }
+      .frame {
+        width: 25.01mm;
+        height: 25.01mm;
+        margin: 0 auto;
+        padding: 1.25mm;
+        background: #fff;
+        border-radius: 4.16mm;
+      }
+      .frame img {
+        width: 22.51mm;
+        height: 22.51mm;
+        display: block;
+        border-radius: 2.4mm;
+      }
+      .recipient {
+        position: absolute;
+        top: 43.86mm;
+        left: 93.04mm;
+        margin: 0;
+        font-size: 10pt;
+        line-height: 4.66mm;
+      }
+      .recipient p { margin: 0; }
+      .subject {
+        position: absolute;
+        top: 89.06mm;
+        left: 5.04mm;
+        margin: 0;
+        font-size: 10pt;
+        line-height: 10pt;
+      }
+      .fold {
+        position: absolute;
+        top: 99.01mm;
+        left: 0;
+        width: 10mm;
+        height: 0;
+        border-top: 0.5pt solid #616161;
+      }
+      .lead { height: 104.41mm; }
+      .block { width: 175mm; margin-left: 5mm; }
+      table.lines, table.body {
+        width: 175mm;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      table.lines th {
+        font-style: italic;
+        font-weight: 400;
+        font-size: 8pt;
+        text-align: center;
+        padding: 0 0 0.34mm;
+        line-height: 8pt;
+      }
+      .sheet {
+        border: 0.5pt solid #808080;
+        border-radius: 1.7mm;
+        overflow: hidden;
+        width: 175mm;
+      }
+      .sheet.pad { min-height: 133.8mm; }
+      table.body td {
+        padding: 1.51mm 1.6mm 0.95mm;
+        border-bottom: 0.5pt solid #b2b2b2;
+        vertical-align: middle;
+        font-size: 10pt;
+        line-height: 10pt;
+      }
+      table.body td.left { text-align: left; padding-left: 2mm; }
+      table.body td.center { text-align: center; }
+      table.body td.right { text-align: right; padding-right: 0.92mm; }
+      table.body td.right.total { padding-right: 2mm; }
+      .grand {
+        width: 175mm;
+        margin: 1.77mm 0 0 5mm;
+        padding-right: 1.93mm;
+        text-align: right;
+        font-size: 10pt;
+        line-height: 10pt;
+      }
+      .grand span { margin-left: 11.55mm; }
+      .closing {
+        position: running(invoice-meta);
+        height: 32mm;
+      }
+      .foot {
+        position: relative;
+        height: 32mm;
+      }
+      .foot img { position: absolute; object-fit: contain; }
+      .logo-wt { left: 3.73mm; top: 0; width: 37.54mm; height: 21.45mm; }
+      .logo-etu { left: 44.96mm; top: 4.53mm; width: 39.10mm; height: 13.35mm; object-fit: fill; }
+      .logo-ltf { left: 90.16mm; top: 3.35mm; width: 29.67mm; height: 16.69mm; }
+      .meta {
+        position: absolute;
+        left: 126.78mm;
+        top: 3.8mm;
+        margin: 0;
+        font-size: 9pt;
+        line-height: 3.65mm;
+      }
+      .meta p { margin: 0; white-space: nowrap; }
+      .meta .label {
+        display: inline-block;
+        width: 15.6mm;
+        text-align: right;
+        margin-right: 1.4mm;
+      }
+      .badge {
+        display: inline-block;
+        background: #00a933;
+        color: #fff;
+        font-weight: 700;
+        font-size: 9pt;
+        line-height: 3.2mm;
+        margin-left: 0.57mm;
+        padding: 0.2mm 0.7mm;
+      }
+    </style>
+  </head>
+  <body>
+    {% if issuer.logo_uri %}
+    <img class="logo" src="{{ issuer.logo_uri }}" alt="" />
+    {% endif %}
+    <p class="club-name">{{ issuer.name }}</p>
+    <div class="addr">
+      {% for line in issuer.lines %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <div class="bank">
+      {% if issuer.iban %}<p>{{ issuer.iban }}</p>{% endif %}
+      {% if issuer.email %}<p>{{ issuer.email }}</p>{% endif %}
+      {% if issuer.website %}<p>{{ issuer.website }}</p>{% endif %}
+    </div>
+
+    <div class="mark">
+      <div class="slot left">
+        <p>SEPA</p>
+        <div class="frame">{% if sepa_slot_qr %}<img src="data:image/png;base64,{{ sepa_slot_qr }}" alt="" />{% endif %}</div>
+      </div>
+      <div class="slot right">
+        <p>WERO</p>
+        <div class="frame">{% if wero_slot_qr %}<img src="data:image/png;base64,{{ wero_slot_qr }}" alt="" />{% endif %}</div>
+      </div>
+    </div>
+    <div class="recipient">
+      <p>{{ recipient_name }}</p>
+      {% for line in recipient_lines %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <p class="subject">Subject: {{ invoice.invoice_number }}</p>
+    <div class="fold"></div>
+    <div class="lead"></div>
+
+    <table class="lines block">
+      <colgroup>
+        <col style="width: 112.32mm" />
+        <col style="width: 18.48mm" />
+        <col style="width: 5.2mm" />
+        <col style="width: 18.42mm" />
+        <col style="width: 20.58mm" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Item / service</th>
+          <th>Size</th>
+          <th>Qty</th>
+          <th>Unit</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+    </table>
+    <div class="sheet block{% if pad_table %} pad{% endif %}">
+      <table class="body">
+        <colgroup>
+          <col style="width: 112.32mm" />
+          <col style="width: 18.48mm" />
+          <col style="width: 5.2mm" />
+          <col style="width: 18.42mm" />
+          <col style="width: 20.58mm" />
+        </colgroup>
+        <tbody>
+          {% for row in club_rows %}
+          <tr>
+            <td class="left">{{ row.label }}</td>
+            <td class="center">{{ row.size }}</td>
+            <td class="center">{{ row.quantity }}</td>
+            <td class="right">{{ row.unit_price }}</td>
+            <td class="right total">{{ row.line_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="grand"><span>Total Qty : {{ total_qty }}</span><span>Total : {{ total_amount }}</span></p>
+
+    <div class="closing">
+      <div class="foot">
+        {% if footer_logos.world %}<img class="logo-wt" src="{{ footer_logos.world }}" alt="" />{% endif %}
+        {% if footer_logos.europe %}<img class="logo-etu" src="{{ footer_logos.europe }}" alt="" />{% endif %}
+        {% if footer_logos.ltf %}<img class="logo-ltf" src="{{ footer_logos.ltf }}" alt="" />{% endif %}
+        <div class="meta">
+          <p><span class="label">Invoice :</span>{{ invoice.invoice_number }}</p>
+          <p><span class="label">Issued :</span>{{ issued_on }}</p>
+          <p><span class="label">Paid :</span>{{ paid_on }}</p>
+          <p><span class="label">Status :</span>{% if invoice_status_done %}<span class="badge">{{ invoice_status_label }}</span>{% else %}{{ invoice_status_label }}{% endif %}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

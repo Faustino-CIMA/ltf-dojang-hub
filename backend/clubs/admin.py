@@ -5,7 +5,7 @@ from .models import BrandingAsset, Club, FederationProfile
 
 @admin.register(Club)
 class ClubAdmin(admin.ModelAdmin):
-    list_display = ("name", "locality", "postal_code", "email", "iban", "bank_name", "created_by")
+    list_display = ("name", "locality", "postal_code", "email", "website", "iban", "bank_name", "created_by")
     search_fields = (
         "name",
         "locality",
@@ -13,6 +13,7 @@ class ClubAdmin(admin.ModelAdmin):
         "address_line1",
         "city",
         "email",
+        "website",
         "iban",
         "bank_name",
     )

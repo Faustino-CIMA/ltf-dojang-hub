@@ -208,11 +208,17 @@ class MemberContact(models.Model):
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="member_links")
     relation = models.CharField(max_length=20, choices=Relation.choices)
     is_emergency = models.BooleanField(default=False)
+    is_primary = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["id"]
         constraints = [
             models.UniqueConstraint(fields=["member", "person"], name="clubmgmt_member_person_uniq"),
+            models.UniqueConstraint(
+                fields=["member"],
+                condition=Q(is_primary=True),
+                name="clubmgmt_one_primary_contact",
+            ),
         ]
 
 
@@ -240,6 +246,18 @@ class Family(models.Model):
         null=True,
         blank=True,
         related_name="families_invoiced",
+    )
+    bill_to_person = models.ForeignKey(
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="families_billed",
+    )
+    bill_to_delivery = models.CharField(
+        max_length=10,
+        choices=MemberRecord.InvoiceDelivery.choices,
+        blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

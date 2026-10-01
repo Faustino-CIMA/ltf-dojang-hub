@@ -12,6 +12,10 @@ from django.template.loader import render_to_string
 from .models import Invoice, Order
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_ZERO_FAMILY_REBATE = re.compile(
+    r"\s*\((?:0+(?:[.,]0+)?\s*%|0+(?:[.,]0+)?\s*EUR)\s+family rebate\)",
+    re.IGNORECASE,
+)
 _LTF_LETTERHEAD = {
     "name": "Luxembourg Taekwondo Federation",
     "lines": ["3, Route d'Arlon", "L-8009 Strassen", "LUXEMBOURG"],
@@ -76,6 +80,90 @@ def _club_lines(club) -> list[str]:
     if postal:
         lines.append(postal)
     return lines
+
+
+_QR_BLUE = "#0081b0"
+
+
+def _asset_file_uri(asset) -> str:
+    if asset is None or not getattr(asset, "file", None):
+        return ""
+    try:
+        path = Path(asset.file.path)
+    except (NotImplementedError, ValueError, OSError):
+        return ""
+    if path.suffix.lower() == ".svg":
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return ""
+        embedded = re.search(r'href="(data:image/png;base64,[^"]+)"', text)
+        if embedded:
+            return embedded.group(1)
+    try:
+        return path.resolve().as_uri()
+    except (OSError, ValueError):
+        return ""
+
+
+def _selected_logo_uri(logos, preferred) -> str:
+    chosen = None
+    for usage in preferred:
+        chosen = next((row for row in logos if row.usage_type == usage), None)
+        if chosen:
+            break
+    if chosen is None and logos:
+        chosen = logos[0]
+    return _asset_file_uri(chosen)
+
+
+def _club_logo_uri(club) -> str:
+    if club is None:
+        return ""
+    from clubs.models import BrandingAsset
+
+    logos = list(
+        BrandingAsset.objects.filter(
+            club=club,
+            asset_type=BrandingAsset.AssetType.LOGO,
+            is_selected=True,
+        )
+    )
+    return _selected_logo_uri(
+        logos,
+        (
+            BrandingAsset.UsageType.INVOICE,
+            BrandingAsset.UsageType.PRINT,
+            BrandingAsset.UsageType.GENERAL,
+            BrandingAsset.UsageType.DIGITAL,
+        ),
+    )
+
+
+def _bundled_logo_uri(filename: str) -> str:
+    path = Path(__file__).resolve().parents[1] / "templates" / "finance" / filename
+    if not path.is_file():
+        return ""
+    try:
+        return path.resolve().as_uri()
+    except (OSError, ValueError):
+        return ""
+
+
+def _invoice_sans_uris() -> dict[str, str]:
+    """Arial-metric faces so club invoices match the model letterhead."""
+    names = {
+        "regular": "fonts/LiberationSans-Regular.ttf",
+        "bold": "fonts/LiberationSans-Bold.ttf",
+        "italic": "fonts/LiberationSans-Italic.ttf",
+        "bold_italic": "fonts/LiberationSans-BoldItalic.ttf",
+    }
+    return {key: _bundled_logo_uri(filename) for key, filename in names.items()}
+
+
+def _grouped_iban(value: str) -> str:
+    compact = re.sub(r"\s+", "", value or "")
+    return " ".join(compact[index : index + 4] for index in range(0, len(compact), 4))
 
 
 def _federation_logo_uri() -> str:
@@ -155,6 +243,63 @@ def _member_name(member) -> str:
     last = str(member.last_name or "").strip().upper()
     first = str(member.first_name or "").strip()
     return " ".join(part for part in (last, first) if part)
+
+
+def _club_issuer(club) -> dict:
+    lines = _club_lines(club)
+    if lines and not any("luxembourg" in line.casefold() for line in lines):
+        lines.append("LUXEMBOURG")
+    return {
+        "name": club.name if club is not None else "",
+        "lines": lines,
+        "iban": _grouped_iban(getattr(club, "iban", "") or ""),
+        "email": str(getattr(club, "email", "") or "").strip(),
+        "website": str(getattr(club, "website", "") or "").strip(),
+        "logo_uri": _club_logo_uri(club),
+    }
+
+
+def _member_invoice_lines(member) -> list[str]:
+    if member is None:
+        return []
+    try:
+        from clubmgmt.billing import invoice_address
+
+        address = invoice_address(member) or {}
+    except Exception:
+        return []
+    number = str(address.get("house_number") or "").strip()
+    street = str(address.get("street") or "").strip()
+    if number and street:
+        line1 = f"{number}, {street}"
+    else:
+        line1 = street or number
+    lines = [line for line in (line1, str(address.get("line2") or "").strip()) if line]
+    postal = _postal_locality(str(address.get("postal_code") or ""), str(address.get("locality") or ""))
+    if postal:
+        lines.append(postal)
+    return lines
+
+
+def _club_item_rows(items) -> list[dict]:
+    rows = []
+    for item in items:
+        label = _ZERO_FAMILY_REBATE.sub("", invoice_item_label(item)).strip()
+        size = ""
+        if " · " in label:
+            label, size = label.rsplit(" · ", 1)
+            size = size.strip()
+            label = _ZERO_FAMILY_REBATE.sub("", label).strip()
+        rows.append(
+            {
+                "label": label,
+                "size": size,
+                "quantity": item.quantity,
+                "unit_price": euro_amount(item.price_snapshot),
+                "line_total": euro_amount(item.price_snapshot * item.quantity),
+            }
+        )
+    return rows
 
 
 def _license_rows(items) -> list[dict]:
@@ -269,9 +414,50 @@ def build_invoice_context(invoice: Invoice) -> dict:
             Invoice.DeliveryMethod.HAND: "In person",
         }.get(invoice.delivery_method, "")
     license_invoice = _is_ltf_license_invoice(invoice)
+    club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice
     license_rows = _license_rows(items) if license_invoice else []
+    club_rows = _club_item_rows(items) if club_invoice else []
     order_delivered = order.status == Order.Status.PAID
     invoice_paid = invoice.status == Invoice.Status.PAID
+    if license_invoice:
+        issuer = _issuer()
+        recipient_name = invoice.club.name if invoice.club_id else ""
+        recipient_lines = _club_lines(invoice.club)
+        total_qty = sum(row["quantity"] for row in license_rows)
+        sepa_slot_qr = build_qr_base64("SEPA", fill_color="#1d4e89")
+        wero_slot_qr = build_qr_base64("WERO", fill_color="#1d4e89")
+    elif club_invoice:
+        issuer = _club_issuer(invoice.club)
+        recipient_name = str(getattr(invoice, "bill_to_name", "") or "").strip() or _member_name(invoice.member)
+        if not recipient_name and bill_to:
+            recipient_name = bill_to["name"]
+        snapshot_address = str(getattr(invoice, "bill_to_address", "") or "").strip()
+        if snapshot_address:
+            recipient_lines = [line.strip() for line in snapshot_address.splitlines() if line.strip()]
+        else:
+            recipient_lines = _member_invoice_lines(invoice.member)
+        total_qty = sum(row["quantity"] for row in club_rows)
+        due = invoice.outstanding()
+        if due <= 0:
+            due = invoice.total
+        club_iban = re.sub(r"\s+", "", getattr(invoice.club, "iban", "") or "")
+        club_sepa = build_sepa_payload(
+            beneficiary=invoice.club.name if invoice.club_id else "",
+            iban=club_iban,
+            bic="",
+            remittance=f"Invoice {invoice.invoice_number}",
+            amount=due,
+            currency=invoice.currency,
+        )
+        sepa_slot_qr = build_qr_base64(club_sepa or "SEPA", fill_color=_QR_BLUE, border=1, box_size=6)
+        wero_slot_qr = build_qr_base64("WERO", fill_color=_QR_BLUE, border=1, box_size=6)
+    else:
+        issuer = None
+        recipient_name = invoice.club.name if invoice.club_id else ""
+        recipient_lines = []
+        total_qty = 0
+        sepa_slot_qr = ""
+        wero_slot_qr = ""
     return {
         "invoice": invoice,
         "order": order,
@@ -284,16 +470,18 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "payconiq_qr": payconiq_qr,
         "sepa_payload": sepa_payload,
         "sepa_qr": sepa_qr,
-        "sepa_slot_qr": build_qr_base64("SEPA", fill_color="#1d4e89") if license_invoice else "",
-        "wero_slot_qr": build_qr_base64("WERO", fill_color="#1d4e89") if license_invoice else "",
+        "sepa_slot_qr": sepa_slot_qr,
+        "wero_slot_qr": wero_slot_qr,
         "credited_total": invoice.credited_total(),
         "outstanding": invoice.outstanding(),
         "license_invoice": license_invoice,
+        "club_invoice": club_invoice,
         "license_rows": license_rows,
-        "issuer": _issuer() if license_invoice else None,
-        "recipient_name": invoice.club.name if invoice.club_id else "",
-        "recipient_lines": _club_lines(invoice.club) if license_invoice else [],
-        "total_qty": sum(row["quantity"] for row in license_rows),
+        "club_rows": club_rows,
+        "issuer": issuer,
+        "recipient_name": recipient_name,
+        "recipient_lines": recipient_lines,
+        "total_qty": total_qty,
         "total_amount": euro_amount(invoice.total),
         "issued_on": _short_date(invoice.issued_at),
         "paid_on": _short_date(invoice.paid_at),
@@ -303,21 +491,37 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "order_status_label": "Delivered" if order_delivered else order.get_status_display(),
         "invoice_status_done": invoice_paid,
         "order_status_done": order_delivered,
-        "pad_table": len(license_rows) <= 12,
+        "pad_table": (len(license_rows) if license_invoice else len(club_rows)) <= 12,
+        "footer_logos": {
+            "world": _bundled_logo_uri("world-taekwondo.png"),
+            "europe": _bundled_logo_uri("european-taekwondo.png"),
+            "ltf": _bundled_logo_uri("ltf-letterhead-logo.jpg"),
+        }
+        if club_invoice
+        else {},
+        "invoice_fonts": _invoice_sans_uris() if club_invoice else {},
     }
 
 
 def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -> bytes | None:
     if HTML is None:
         return None
-    pages = []
-    for invoice in invoices:
-        pages.append(build_invoice_context(invoice))
-    html = render_to_string(
+    from pypdf import PdfWriter
+
+    pages = [build_invoice_context(invoice) for invoice in invoices]
+    cover_html = render_to_string(
         "finance/billing_print_pack.html",
         {"year": year, "pages": pages, "count": len(pages)},
     )
-    return HTML(string=html, base_url=base_url).write_pdf()
+    writer = PdfWriter()
+    writer.append(BytesIO(HTML(string=cover_html, base_url=base_url).write_pdf()))
+    for invoice in invoices:
+        pdf = render_invoice_pdf(invoice, base_url=base_url)
+        if pdf:
+            writer.append(BytesIO(pdf))
+    buffer = BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
 
 
 def render_statement_pdf(context: dict, *, base_url: str) -> bytes | None:
@@ -331,19 +535,20 @@ def render_invoice_pdf(invoice: Invoice, *, base_url: str) -> bytes | None:
     if HTML is None:
         return None
     context = build_invoice_context(invoice)
-    template = (
-        "finance/ltf_license_invoice_pdf.html"
-        if context["license_invoice"]
-        else "finance/invoice_pdf.html"
-    )
+    if context["license_invoice"]:
+        template = "finance/ltf_license_invoice_pdf.html"
+    elif context["club_invoice"]:
+        template = "finance/club_member_invoice_pdf.html"
+    else:
+        template = "finance/invoice_pdf.html"
     html = render_to_string(template, context)
     return HTML(string=html, base_url=base_url).write_pdf()
 
 
-def build_qr_base64(payload: str, fill_color: str = "black") -> str:
+def build_qr_base64(payload: str, fill_color: str = "black", border: int = 2, box_size: int = 4) -> str:
     if not payload or qrcode is None:
         return ""
-    qr = qrcode.QRCode(box_size=4, border=2)
+    qr = qrcode.QRCode(box_size=box_size, border=border)
     qr.add_data(payload)
     qr.make(fit=True)
     img = qr.make_image(fill_color=fill_color, back_color="white")

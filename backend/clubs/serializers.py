@@ -1,13 +1,16 @@
 import re
 
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from .languages import normalize_club_language
-from .models import BrandingAsset, Club, FederationProfile
+from .models import BrandingAsset, Club, FederationProfile, normalize_club_website
 
 
 class ClubSerializer(serializers.ModelSerializer):
+    website = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
     class Meta:
         model = Club
         fields = [
@@ -22,6 +25,7 @@ class ClubSerializer(serializers.ModelSerializer):
             "iban",
             "bank_name",
             "email",
+            "website",
             "is_active",
             "communication_language",
             "max_admins",
@@ -43,6 +47,12 @@ class ClubSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         return str(value or "").strip()
+
+    def validate_website(self, value):
+        try:
+            return normalize_club_website(value)
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
 
     def validate_communication_language(self, value):
         return normalize_club_language(value)

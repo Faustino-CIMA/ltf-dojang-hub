@@ -24,6 +24,14 @@ from .access import (
     is_ltf_manager,
 )
 from .addresses import lookup_luxembourg
+from .guardians import (
+    PARENT_RELATIONS,
+    GuardianMatches,
+    _address_from_data,
+    is_underage_member,
+    ordered_memberships,
+    save_guardian,
+)
 from .member_match import adopt_member, link_contact_to_named_member, member_match_payload, members_with_name
 from .models import (
     Committee,
@@ -352,48 +360,66 @@ class MemberContactViewSet(viewsets.ModelViewSet):
         contacts = list(self.filter_queryset(self.get_queryset()))
         return Response(self.get_serializer(contacts, many=True).data)
 
+    def perform_update(self, serializer):
+        contact = serializer.save()
+        data = self.request.data
+        detail_keys = ("email", "phone", "street", "house_number", "line2", "postal_code", "locality", "country")
+        if not any(key in data for key in detail_keys):
+            return
+        from .guardians import remember_member_invoice_details, remember_person_invoice_details
+
+        address = _address_from_data(data)
+        remember_person_invoice_details(
+            contact.person,
+            email=data.get("email") or "",
+            phone=data.get("phone") or "",
+            address=address,
+        )
+        if contact.person.converted_member_id:
+            remember_member_invoice_details(
+                contact.person.converted_member,
+                email=data.get("email") or "",
+                phone=data.get("phone") or "",
+                address=address,
+                replace=True,
+            )
+
     @action(detail=False, methods=["post"], url_path="link")
     def link(self, request):
         member = Member.objects.filter(pk=request.data.get("member")).first()
         if member is None or not can_manage_club_records(request.user, member.club_id):
             raise PermissionDenied(detail="This module is not available.")
-        first_name = request.data.get("first_name") or ""
-        last_name = request.data.get("last_name") or ""
         relation = request.data.get("relation") or MemberContact.Relation.OTHER
-        if relation not in MemberContact.Relation.values:
-            raise ValidationError({"relation": "Choose a relation."})
-        different = bool(request.data.get("different_person"))
-        chosen_id = request.data.get("member_id")
-        matches = [] if different else members_with_name(member.club_id, first_name, last_name, exclude_ids=[member.id])
-        if chosen_id and not different:
-            matches = [item for item in matches if item.id == int(chosen_id)]
-            if not matches:
-                raise ValidationError({"member_id": "Choose one of the matching members."})
-        if not different and len(matches) > 1 and not chosen_id:
-            return Response({"matches": [member_match_payload(item) for item in matches]}, status=409)
-        linked_member = matches[0] if len(matches) == 1 else None
-        if linked_member:
-            person = Person.objects.filter(converted_member=linked_member).first()
-            if person is None:
-                person = Person.objects.create(
-                    club=member.club,
-                    first_name=first_name,
-                    last_name=last_name,
-                    sex=linked_member.sex,
-                )
-                person.converted_member = linked_member
-                person.save(update_fields=["converted_member"])
-        else:
-            person = Person.objects.create(club=member.club, first_name=first_name, last_name=last_name, sex="M")
-        contact = MemberContact.objects.filter(member=member, person=person).first()
-        if contact is None:
-            contact = MemberContact.objects.create(
-                member=member,
-                person=person,
+        also_family = bool(request.data.get("also_family"))
+        targets = [member]
+        if also_family:
+            seen = {member.id}
+            for family in Family.objects.filter(club_id=member.club_id, memberships__member=member).distinct():
+                for link in ordered_memberships(family):
+                    if link.member_id in seen or not is_underage_member(link.member):
+                        continue
+                    targets.append(link.member)
+                    seen.add(link.member_id)
+        try:
+            result = save_guardian(
+                club=member.club,
+                targets=targets,
+                first_name=request.data.get("first_name") or "",
+                last_name=request.data.get("last_name") or "",
                 relation=relation,
+                email=request.data.get("email") or "",
+                phone=request.data.get("phone") or "",
+                address=_address_from_data(request.data),
                 is_emergency=bool(request.data.get("is_emergency")),
+                different_person=bool(request.data.get("different_person")),
+                chosen_member_id=request.data.get("member_id"),
+                force_primary=False,
+                bill_when_family_has_no_recipient=relation in PARENT_RELATIONS,
             )
-        payload = MemberContactSerializer(contact).data
+        except GuardianMatches as exc:
+            return Response({"matches": exc.matches}, status=409)
+        linked_member = result["linked_member"]
+        payload = MemberContactSerializer(result["contact"]).data
         payload["already_member"] = linked_member is not None
         payload["linked_member_id"] = linked_member.id if linked_member else None
         payload["linked_member_name"] = f"{linked_member.first_name} {linked_member.last_name}".strip() if linked_member else ""
@@ -439,7 +465,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
     permission_classes = [ClubMgmtPermission]
 
     def get_queryset(self):
-        qs = Family.objects.prefetch_related("memberships__member")
+        qs = Family.objects.select_related("bill_to_person", "invoice_member").prefetch_related(
+            "memberships__member",
+            "memberships__member__club_contacts__person__emails",
+            "memberships__member__club_contacts__person__phones",
+            "bill_to_person__emails",
+        )
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
@@ -469,7 +500,11 @@ class FamilyViewSet(viewsets.ModelViewSet):
         family = self.get_object()
         if not can_manage_club_records(request.user, family.club_id):
             raise PermissionDenied(detail="This module is not available.")
-        FamilyMember.objects.filter(family=family, member_id=request.data.get("member")).delete()
+        removed_id = request.data.get("member")
+        FamilyMember.objects.filter(family=family, member_id=removed_id).delete()
+        if family.invoice_member_id and str(family.invoice_member_id) == str(removed_id):
+            family.invoice_member = None
+            family.save(update_fields=["invoice_member"])
         remaining = list(family.memberships.order_by("sort_order", "id"))
         for index, link in enumerate(remaining, start=1):
             if link.sort_order != index:
@@ -477,6 +512,38 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 link.save(update_fields=["sort_order"])
         family = self.get_object()
         return Response(FamilySerializer(family).data)
+
+    @action(detail=True, methods=["post"], url_path="add-parent")
+    def add_parent(self, request, pk=None):
+        family = self.get_object()
+        if not can_manage_club_records(request.user, family.club_id):
+            raise PermissionDenied(detail="This module is not available.")
+        links = ordered_memberships(family)
+        if not links:
+            raise ValidationError({"family": "Add members to the family first."})
+        minors = [link.member for link in links if is_underage_member(link.member)]
+        targets = minors or [link.member for link in links]
+        relation = request.data.get("relation") or MemberContact.Relation.FATHER
+        try:
+            save_guardian(
+                club=family.club,
+                targets=targets,
+                first_name=request.data.get("first_name") or "",
+                last_name=request.data.get("last_name") or "",
+                relation=relation,
+                email=request.data.get("email") or "",
+                phone=request.data.get("phone") or "",
+                address=_address_from_data(request.data),
+                is_emergency=bool(request.data.get("is_emergency", True)),
+                different_person=bool(request.data.get("different_person")),
+                chosen_member_id=request.data.get("member_id"),
+                force_primary=True,
+                bill_families=[family],
+            )
+        except GuardianMatches as exc:
+            return Response({"matches": exc.matches}, status=409)
+        family = self.get_object()
+        return Response(FamilySerializer(family).data, status=201)
 
     @action(detail=True, methods=["get"], url_path="invoice-preview")
     def invoice_preview(self, request, pk=None):
@@ -487,17 +554,20 @@ class FamilyViewSet(viewsets.ModelViewSet):
             year = int(request.query_params.get("year") or timezone.now().year)
         except (TypeError, ValueError):
             year = timezone.now().year
-        from .billing import household_plan
+        from .billing import describe_bill_to, household_plan
 
-        fee, unit, payer, lines, total = household_plan(club=family.club, year=year, family=family)
+        fee, unit, _payer, lines, total = household_plan(club=family.club, year=year, family=family)
+        described = describe_bill_to(family, ordered_memberships(family))
         return Response(
             {
                 "year": year,
                 "fee_id": fee.id,
                 "fee_name": fee.name,
-                "unit_amount": str(unit),
-                "payer_id": payer.id,
-                "payer_name": f"{payer.first_name} {payer.last_name}",
+                "unit_amount": str(unit) if unit is not None else "",
+                "payer_id": described["id"],
+                "payer_name": described["name"],
+                "payer_kind": described["kind"],
+                "needs_recipient": described["needs_recipient"],
                 "lines": lines,
                 "total": str(total),
                 "already_invoiced": _family_already_invoiced(family, year),
@@ -510,9 +580,19 @@ class FamilyViewSet(viewsets.ModelViewSet):
         if not can_manage_club_records(request.user, family.club_id):
             raise PermissionDenied(detail="This module is not available.")
         year = int(request.data.get("year") or timezone.now().year)
-        from .billing import create_membership_invoice, existing_membership_invoice, household_plan
+        from .billing import (
+            create_membership_invoice,
+            describe_bill_to,
+            existing_membership_invoice,
+            household_plan,
+            persist_default_recipient,
+        )
 
-        _fee, _unit, payer, lines, total = household_plan(club=family.club, year=year, family=family)
+        members = ordered_memberships(family)
+        persist_default_recipient(family, members)
+        family.refresh_from_db()
+        _fee, _unit, _payer, lines, total = household_plan(club=family.club, year=year, family=family)
+        described = describe_bill_to(family, ordered_memberships(family))
         member_ids = list(family.memberships.values_list("member_id", flat=True))
         if family.invoice_member_id:
             member_ids.append(family.invoice_member_id)
@@ -521,7 +601,13 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 {"year": "This family already has a membership invoice for that year."}
             )
         invoice = create_membership_invoice(
-            club=family.club, year=year, payer=payer, lines=lines, total=total, actor=request.user
+            club=family.club,
+            year=year,
+            payer=described["ledger_member"],
+            lines=lines,
+            total=total,
+            actor=request.user,
+            recipient=described,
         )
         return Response(
             {

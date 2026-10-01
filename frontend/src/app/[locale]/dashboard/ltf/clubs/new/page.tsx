@@ -29,6 +29,7 @@ const clubSchema = z.object({
     .optional()
     .refine((value) => !value || isValidIban(value), "Enter a valid IBAN."),
   email: z.string().optional(),
+  website: z.string().optional(),
 });
 
 type ClubFormValues = z.infer<typeof clubSchema>;
@@ -55,6 +56,7 @@ export default function LtfAdminCreateClubPage() {
       locality: "",
       iban: "",
       email: "",
+      website: "",
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
@@ -117,6 +119,12 @@ export default function LtfAdminCreateClubPage() {
               <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
               <Input type="email" placeholder="club@example.com" {...register("email")} />
               <p className="text-xs text-muted">{t("clubEmailHint")}</p>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
+              <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
+              <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
             </div>
 
             <div className="space-y-2">

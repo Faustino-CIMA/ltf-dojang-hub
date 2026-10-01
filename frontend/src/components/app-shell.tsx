@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
-import { Menu, X } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { logout } from "@/lib/auth-api";
@@ -33,6 +33,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+export type AppNavGroup = {
+  id: string;
+  label: string;
+};
+
 export type AppNavItem = {
   id: string;
   href: string;
@@ -40,7 +45,10 @@ export type AppNavItem = {
   icon: LucideIcon;
   matchMode: "exact" | "prefix";
   extraMatchHrefs?: string[];
+  group?: AppNavGroup;
 };
+
+const SIDEBAR_COLLAPSED_KEY = "ltf-sidebar-collapsed";
 
 type AppShellProps = {
   title: string;
@@ -97,6 +105,8 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const router = useRouter();
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [collapseReady, setCollapseReady] = useState(false);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
   const allowAllClubs = allowsAllClubsSelection(pathname);
@@ -120,6 +130,18 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
       setSelectedClubId(visibleClubId);
     }
   }, [allowAllClubs, visibleClubId, selectedClubId, setSelectedClubId]);
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+    setCollapseReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!collapseReady) {
+      return;
+    }
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  }, [collapseReady, collapsed]);
 
   useEffect(() => {
     if (!getToken()) {
@@ -184,53 +206,99 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
       !federationHref.includes("/dashboard/ops"),
   );
 
-  const sidebar = (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 px-5 py-5">
-        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[oklch(22%_0.06_232)]">
-          <Image src="/ltf-logo.svg" alt="LTF" width={88} height={28} className="h-6 w-auto" />
+  const renderSidebar = (iconOnly: boolean, showCollapse: boolean) => {
+    const blocks: Array<{ key: string; group: AppNavGroup | null; items: AppNavItem[] }> = [];
+    for (const item of navItems) {
+      const groupId = item.group?.id ?? "";
+      const last = blocks[blocks.length - 1];
+      if (last && (last.group?.id ?? "") === groupId) {
+        last.items.push(item);
+      } else {
+        blocks.push({ key: groupId || `plain-${item.id}`, group: item.group ?? null, items: [item] });
+      }
+    }
+
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className={cn("flex items-center gap-3 py-5", iconOnly ? "justify-center px-2" : "px-5")}>
+          <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[oklch(22%_0.06_232)]">
+            <Image src="/ltf-logo.svg" alt="LTF" width={88} height={28} className="h-6 w-auto" />
+          </div>
+          {iconOnly ? null : (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
+              <p className="truncate text-meta">LTF</p>
+            </div>
+          )}
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
-          <p className="truncate text-meta">LTF</p>
-        </div>
-      </div>
-      <nav aria-label={t("navigationLabel")} className="flex flex-1 flex-col gap-1 px-3 pb-4">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.id === activeId;
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => setNavOpen(false)}
-              className={cn(
-                "flex min-h-[var(--control-height)] items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted hover:bg-secondary hover:text-foreground"
-              )}
+        <nav aria-label={t("navigationLabel")} className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-4", iconOnly ? "px-2" : "px-3")}>
+          {blocks.map((block, index) => (
+            <div key={block.key} className="flex flex-col gap-1">
+              {index > 0 ? (
+                <div className={cn("mx-2 border-t border-border", iconOnly ? "my-1" : "mt-3")} role="presentation" />
+              ) : null}
+              {block.group && !iconOnly ? (
+                <p className={cn("px-3 pb-1 text-center text-sm font-normal italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}>
+                  {block.group.label}
+                </p>
+              ) : null}
+              {block.group && iconOnly ? <p className="sr-only">{block.group.label}</p> : null}
+              {block.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = item.id === activeId;
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    title={iconOnly ? item.label : undefined}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => setNavOpen(false)}
+                    className={cn(
+                      "flex min-h-[var(--control-height)] items-center rounded-[var(--radius-control)] text-sm font-medium transition-colors",
+                      iconOnly ? "justify-center px-0" : "gap-3 px-3",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span className={cn("truncate", iconOnly && "sr-only")}>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+        <div className={cn("mt-auto flex border-t border-border", iconOnly ? "flex-col items-center gap-1 px-2 py-2" : "items-center gap-2 px-3 py-3")}>
+          {showCollapse ? (
+            <button
+              type="button"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
+              aria-pressed={iconOnly}
+              aria-label={iconOnly ? t("sidebarExpand") : t("sidebarCollapse")}
+              onClick={() => setCollapsed((current) => !current)}
             >
-              <Icon className="size-4 shrink-0" aria-hidden />
-              <span className="truncate">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="mt-auto border-t border-border px-4 py-3">
-        <AppVersionLink />
+              {iconOnly ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+            </button>
+          ) : null}
+          <AppVersionLink className={iconOnly ? "sr-only" : "min-w-0"} />
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const isWorkspace = variant === "workspace";
 
   return (
     <div className={cn("bg-background", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}>
       {isWorkspace ? null : (
-        <aside className="sticky top-0 hidden h-screen w-[var(--sidebar-width)] shrink-0 border-r border-border bg-surface lg:block">
-          {sidebar}
+        <aside
+          className={cn(
+            "sticky top-0 hidden h-screen shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] duration-200 lg:block",
+            collapsed ? "w-[var(--sidebar-width-collapsed)]" : "w-[var(--sidebar-width)]"
+          )}
+        >
+          {renderSidebar(collapsed, true)}
         </aside>
       )}
 
@@ -251,7 +319,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
             >
               <X className="size-5" />
             </button>
-            {sidebar}
+            {renderSidebar(false, false)}
           </aside>
         </div>
       ) : null}

@@ -17,6 +17,7 @@ from licenses.services import cancel_pending_payments_for_invoice
 from members.models import Member
 
 from .access import can_manage_club_records
+from .guardians import needs_explicit_recipient, ordered_memberships, resolve_ledger_member
 from .models import (
     Family,
     FamilyRebateRule,
@@ -67,6 +68,173 @@ def format_address(address) -> str:
     line1 = " ".join(part for part in [address.street, address.house_number] if part).strip()
     lines = [line1, address.line2, " ".join(part for part in [address.postal_code, address.locality] if part).strip(), address.country]
     return "\n".join(part for part in lines if part)
+
+
+def _pdf_name(first_name: str, last_name: str) -> str:
+    last = str(last_name or "").strip().upper()
+    first = str(first_name or "").strip()
+    return " ".join(part for part in (last, first) if part)
+
+
+def _pdf_address_lines(address: dict | None) -> list[str]:
+    if not address:
+        return []
+    number = str(address.get("house_number") or "").strip()
+    street = str(address.get("street") or "").strip()
+    if number and street:
+        line1 = f"{number}, {street}"
+    else:
+        line1 = street or number
+    lines = [line for line in (line1, str(address.get("line2") or "").strip()) if line]
+    postal = str(address.get("postal_code") or "").strip()
+    locality = str(address.get("locality") or "").strip()
+    if len(postal) == 4 and postal.isdigit():
+        postal = f"L-{postal}"
+    postal_line = " ".join(part for part in (postal, locality) if part)
+    if postal_line:
+        lines.append(postal_line)
+    return lines
+
+
+def person_invoice_emails(person) -> list[str]:
+    preferred = [
+        email.strip()
+        for email in person.emails.filter(use_for_invoice=True).values_list("email", flat=True)
+        if email and str(email).strip()
+    ]
+    if preferred:
+        return list(dict.fromkeys(preferred))
+    fallback = [
+        email.strip()
+        for email in person.emails.values_list("email", flat=True)
+        if email and str(email).strip()
+    ]
+    return list(dict.fromkeys(fallback))
+
+
+def person_invoice_address(person) -> dict | None:
+    address = person.addresses.filter(use_for_invoice=True).first() or person.addresses.first()
+    if address is None:
+        return None
+    if not any([address.street, address.house_number, address.postal_code, address.locality]):
+        return None
+    return {
+        "street": address.street,
+        "house_number": address.house_number,
+        "line2": address.line2,
+        "postal_code": address.postal_code,
+        "locality": address.locality,
+        "country": address.country,
+        "formatted": format_address(address),
+    }
+
+
+def resolve_person_delivery(person, override: str = "") -> str:
+    emails = person_invoice_emails(person)
+    address = person_invoice_address(person)
+    preferred = override or ""
+    if preferred == MemberRecord.InvoiceDelivery.EMAIL and emails:
+        return MemberRecord.InvoiceDelivery.EMAIL
+    if preferred == MemberRecord.InvoiceDelivery.POST and address:
+        return MemberRecord.InvoiceDelivery.POST
+    if preferred == MemberRecord.InvoiceDelivery.HAND:
+        return MemberRecord.InvoiceDelivery.HAND
+    if emails:
+        return MemberRecord.InvoiceDelivery.EMAIL
+    if address:
+        return MemberRecord.InvoiceDelivery.POST
+    return MemberRecord.InvoiceDelivery.HAND
+
+
+def _contact_label(delivery: str, emails: list[str], address: dict | None, fallback: str) -> str:
+    if delivery == MemberRecord.InvoiceDelivery.EMAIL and emails:
+        return emails[0]
+    if delivery == MemberRecord.InvoiceDelivery.POST and address:
+        return address["formatted"].replace("\n", ", ")
+    return fallback
+
+
+def member_recipient(member) -> dict:
+    address = invoice_address(member)
+    emails = invoice_emails(member)
+    delivery = resolve_delivery(member)
+    name = f"{member.first_name} {member.last_name}".strip()
+    return {
+        "needs_recipient": False,
+        "kind": "member",
+        "id": member.id,
+        "member_id": member.id,
+        "ledger_member": member,
+        "name": name,
+        "pdf_name": _pdf_name(member.first_name, member.last_name),
+        "emails": emails,
+        "address": address,
+        "address_lines": _pdf_address_lines(address),
+        "delivery": delivery,
+        "contact_label": _contact_label(delivery, emails, address, member.first_name),
+    }
+
+
+def describe_bill_to(family, members) -> dict:
+    if family.bill_to_person_id and family.bill_to_person is not None:
+        person = family.bill_to_person
+        address = person_invoice_address(person)
+        emails = person_invoice_emails(person)
+        delivery = resolve_person_delivery(person, family.bill_to_delivery)
+        name = f"{person.first_name} {person.last_name}".strip()
+        return {
+            "needs_recipient": False,
+            "kind": "person",
+            "id": person.id,
+            "member_id": None,
+            "ledger_member": members[0].member,
+            "name": name,
+            "pdf_name": _pdf_name(person.first_name, person.last_name),
+            "emails": emails,
+            "address": address,
+            "address_lines": _pdf_address_lines(address),
+            "delivery": delivery,
+            "contact_label": _contact_label(delivery, emails, address, person.first_name),
+        }
+    if needs_explicit_recipient(family, members):
+        return {
+            "needs_recipient": True,
+            "kind": "missing",
+            "id": None,
+            "member_id": None,
+            "ledger_member": members[0].member,
+            "name": "",
+            "pdf_name": "",
+            "emails": [],
+            "address": None,
+            "address_lines": [],
+            "delivery": MemberRecord.InvoiceDelivery.HAND,
+            "contact_label": "",
+        }
+    return member_recipient(resolve_ledger_member(family, members))
+
+
+def persist_default_recipient(family, members) -> None:
+    if needs_explicit_recipient(family, members):
+        raise ValidationError({"bill_to": "Choose who receives the bill."})
+    if family.invoice_member_id or family.bill_to_person_id:
+        return
+    family.invoice_member = resolve_ledger_member(family, members)
+    family.bill_to_person = None
+    family.save(update_fields=["invoice_member", "bill_to_person"])
+
+
+def payer_payload_from_description(described: dict) -> dict:
+    return {
+        "id": described["id"],
+        "kind": described["kind"],
+        "member_id": described["member_id"],
+        "name": described["name"],
+        "delivery": described["delivery"],
+        "emails": described["emails"],
+        "address": described["address"],
+        "contact_label": described["contact_label"],
+    }
 
 
 def resolve_delivery(member) -> str:
@@ -157,14 +325,10 @@ def household_plan(*, club, year: int, family=None, member=None):
     if default_fee is None:
         raise ValidationError({"fee": "Set a membership fee first."})
     if family is not None:
-        members = list(
-            family.memberships.select_related("member", "member__club_record__membership_fee").order_by(
-                "sort_order", "id"
-            )
-        )
+        members = ordered_memberships(family)
         if not members:
             raise ValidationError({"family": "Add members to the family first."})
-        payer = family.invoice_member or members[0].member
+        payer = resolve_ledger_member(family, members)
         rules = {row.member_rank: row for row in FamilyRebateRule.objects.filter(club=club)}
         lines = []
         total = Decimal("0.00")
@@ -199,15 +363,100 @@ def _membership_invoices_q(club_id: int, year: int, member_ids: list[int]):
     )
 
 
+def membership_invoices(club_id: int, year: int, member_ids: list[int]) -> list[Invoice]:
+    if not member_ids:
+        return []
+    invoice_ids = _membership_invoices_q(club_id, year, member_ids).values_list("order__invoice__id", flat=True)
+    return list(
+        Invoice.objects.filter(id__in=invoice_ids)
+        .select_related("member", "order")
+        .prefetch_related("order__items")
+        .order_by("-id")
+    )
+
+
 def existing_membership_invoice(club_id: int, year: int, member_ids: list[int]) -> Invoice | None:
-    item = _membership_invoices_q(club_id, year, member_ids).select_related("order__invoice").order_by("-id").first()
-    if item is None:
-        return None
-    return item.order.invoice
+    found = membership_invoices(club_id, year, member_ids)
+    return found[0] if found else None
 
 
-def create_membership_invoice(*, club, year: int, payer, lines, total, actor=None) -> Invoice:
-    delivery = resolve_delivery(payer)
+def _name_on_invoice_line(description: str) -> str:
+    if " — " not in (description or ""):
+        return ""
+    return description.split(" — ", 1)[1].split(" (", 1)[0].strip()
+
+
+def invoice_covers_members(invoice: Invoice, members) -> bool:
+    """A family invoice names every current member. A one-person bill does not cover the family."""
+    expected = {f"{member.first_name} {member.last_name}".strip().casefold() for member in members}
+    expected.discard("")
+    if not expected:
+        return False
+    billed = {
+        _name_on_invoice_line(item.description).casefold()
+        for item in invoice.order.items.all()
+        if _name_on_invoice_line(item.description)
+    }
+    return expected <= billed
+
+
+def _lines_from_invoice(invoice: Invoice) -> list[dict]:
+    rows = []
+    for index, item in enumerate(invoice.order.items.all(), start=1):
+        amount = (Decimal(item.price_snapshot) * item.quantity).quantize(Decimal("0.01"))
+        rows.append(
+            {
+                "member_id": item.id,
+                "member_name": _name_on_invoice_line(item.description) or item.description,
+                "rank": index,
+                "percent_off": "0.00",
+                "amount_off": "",
+                "amount": f"{amount:.2f}",
+                "fee_id": None,
+                "fee_name": "",
+                "unit_amount": f"{amount:.2f}",
+            }
+        )
+    return rows
+
+
+def _member_invoice_payload(invoice: Invoice) -> dict:
+    member = invoice.member
+    name = f"{member.first_name} {member.last_name}".strip() if member is not None else (invoice.bill_to_name or "")
+    return {
+        "id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "total": f"{invoice.total:.2f}",
+        "status": invoice.status,
+        "member_name": name,
+    }
+
+
+def _family_rebate_note(line: dict) -> str:
+    amount_text = str(line.get("amount_off") or "").strip()
+    if amount_text:
+        try:
+            if Decimal(amount_text) > 0:
+                return f"{amount_text} EUR family rebate"
+        except Exception:
+            return f"{amount_text} EUR family rebate"
+        return ""
+    percent_text = str(line.get("percent_off") or "").strip()
+    if not percent_text:
+        return ""
+    try:
+        if Decimal(percent_text) > 0:
+            return f"{percent_text}% family rebate"
+    except Exception:
+        return f"{percent_text}% family rebate"
+    return ""
+
+
+def create_membership_invoice(*, club, year: int, payer, lines, total, actor=None, recipient=None) -> Invoice:
+    if recipient is None:
+        recipient = member_recipient(payer)
+    delivery = recipient["delivery"]
+    emails = [str(email).strip() for email in (recipient.get("emails") or []) if str(email).strip()]
     with transaction.atomic():
         order = Order.objects.create(
             club=club,
@@ -221,13 +470,13 @@ def create_membership_invoice(*, club, year: int, payer, lines, total, actor=Non
         )
         for line in lines:
             fee_name = line.get("fee_name") or "Membership"
-            if line.get("amount_off"):
-                rebate_note = f"{line['amount_off']} EUR family rebate"
-            else:
-                rebate_note = f"{line.get('percent_off') or '0'}% family rebate"
+            description = f"{fee_name} {year} — {line['member_name']}"
+            rebate_note = _family_rebate_note(line)
+            if rebate_note:
+                description = f"{description} ({rebate_note})"
             OrderItem.objects.create(
                 order=order,
-                description=f"{fee_name} {year} — {line['member_name']} ({rebate_note})",
+                description=description,
                 billing_year=year,
                 billing_club=club,
                 price_snapshot=line["amount"],
@@ -244,11 +493,14 @@ def create_membership_invoice(*, club, year: int, payer, lines, total, actor=Non
             total=total,
             issued_at=timezone.now(),
             delivery_method=delivery,
+            bill_to_name=recipient.get("pdf_name") or "",
+            bill_to_email="\n".join(emails),
+            bill_to_address="\n".join(recipient.get("address_lines") or []),
         )
-    if delivery == MemberRecord.InvoiceDelivery.EMAIL:
+    if delivery == MemberRecord.InvoiceDelivery.EMAIL and emails:
         from licenses.tasks import send_invoice_email
 
-        send_invoice_email.delay(invoice.id, invoice_emails(payer))
+        send_invoice_email.delay(invoice.id, emails)
     return invoice
 
 
@@ -258,17 +510,13 @@ def _payer_payload(member) -> dict:
     address = invoice_address(member)
     return {
         "id": member.id,
+        "kind": "member",
+        "member_id": member.id,
         "name": f"{member.first_name} {member.last_name}",
         "delivery": delivery,
         "emails": emails,
         "address": address,
-        "contact_label": (
-            emails[0]
-            if delivery == MemberRecord.InvoiceDelivery.EMAIL and emails
-            else address["formatted"].replace("\n", ", ")
-            if delivery == MemberRecord.InvoiceDelivery.POST and address
-            else member.first_name
-        ),
+        "contact_label": _contact_label(delivery, emails, address, member.first_name),
     }
 
 
@@ -278,15 +526,22 @@ def list_households(club, year: int) -> list[dict]:
         MembershipYearConfirmation.objects.filter(club=club, year=year).values_list("household_key", flat=True)
     )
     families = list(
-        Family.objects.filter(club=club).prefetch_related(
+        Family.objects.filter(club=club)
+        .select_related("bill_to_person", "invoice_member", "invoice_member__club_record")
+        .prefetch_related(
             "memberships__member__club_record__membership_fee",
-            "invoice_member",
+            "memberships__member__club_emails",
+            "memberships__member__club_addresses",
+            "bill_to_person__emails",
+            "bill_to_person__addresses",
+            "invoice_member__club_emails",
+            "invoice_member__club_addresses",
         )
     )
     in_family: set[int] = set()
     rows = []
     for family in families:
-        members = list(family.memberships.select_related("member").order_by("sort_order", "id"))
+        members = ordered_memberships(family)
         if not members:
             continue
         for link in members:
@@ -300,17 +555,29 @@ def list_households(club, year: int) -> list[dict]:
                 total = Decimal("0.00")
             else:
                 continue
+        described = describe_bill_to(family, members)
         member_ids = [link.member_id for link in members] + ([family.invoice_member_id] if family.invoice_member_id else [])
-        invoice = existing_membership_invoice(club.id, year, member_ids)
+        found = membership_invoices(club.id, year, member_ids)
+        member_objs = [link.member for link in members]
+        covered = next((inv for inv in found if invoice_covers_members(inv, member_objs)), None)
+        separate = [inv for inv in found if covered is None or inv.id != covered.id]
+        if covered is not None:
+            invoiced_lines = _lines_from_invoice(covered)
+            if invoiced_lines:
+                lines = invoiced_lines
+            total = covered.total
         rows.append(_household_row(
             household_id=f"family-{family.id}",
             kind="family",
             name=family.name,
             member_count=len(members),
             payer=payer,
+            payer_payload=payer_payload_from_description(described),
+            needs_recipient=described["needs_recipient"],
             lines=lines,
             total=total,
-            invoice=invoice,
+            invoice=covered,
+            separate_invoices=separate,
             fee_missing=fee is None,
             confirmed=f"family-{family.id}" in confirmed_keys,
         ))
@@ -328,6 +595,11 @@ def list_households(club, year: int) -> list[dict]:
         else:
             _fee, _unit, payer, lines, total = household_plan(club=club, year=year, member=member)
         invoice = existing_membership_invoice(club.id, year, [member.id])
+        if invoice is not None:
+            invoiced_lines = _lines_from_invoice(invoice)
+            if invoiced_lines:
+                lines = invoiced_lines
+            total = invoice.total
         rows.append(_household_row(
             household_id=f"member-{member.id}",
             kind="member",
@@ -343,15 +615,25 @@ def list_households(club, year: int) -> list[dict]:
     return rows
 
 
-def _household_row(*, household_id, kind, name, member_count, payer, lines, total, invoice, fee_missing, confirmed=False):
+def _household_row(*, household_id, kind, name, member_count, payer, lines, total, invoice, fee_missing, confirmed=False, payer_payload=None, needs_recipient=False, separate_invoices=None):
+    separate_invoices = list(separate_invoices or [])
     status = "ready"
+    blocker = ""
+    shown_total = invoice.total if invoice is not None else total
     if fee_missing:
         status = "blocked"
+        blocker = "Set a membership fee first."
     elif invoice is not None:
         status = "paid" if invoice.status == Invoice.Status.PAID else "invoiced"
+    elif separate_invoices:
+        status = "separate"
+    elif needs_recipient:
+        status = "blocked"
+        blocker = "Choose who receives the bill."
     elif Decimal(str(total)) <= Decimal("0.00"):
         status = "confirmed" if confirmed else "complimentary"
-    payer_payload = _payer_payload(payer)
+    if payer_payload is None:
+        payer_payload = _payer_payload(payer)
     return {
         "id": household_id,
         "kind": kind,
@@ -359,13 +641,15 @@ def _household_row(*, household_id, kind, name, member_count, payer, lines, tota
         "member_count": member_count,
         "payer": payer_payload,
         "lines": lines,
-        "total": str(total),
+        "total": f"{Decimal(shown_total):.2f}",
         "status": status,
         "invoice_id": invoice.id if invoice else None,
         "invoice_number": invoice.invoice_number if invoice else None,
         "invoice_status": invoice.status if invoice else None,
+        "member_invoices": [_member_invoice_payload(row) for row in separate_invoices],
         "delivery": payer_payload["delivery"] if invoice is None else (invoice.delivery_method or payer_payload["delivery"]),
-        "blocker": "Set a membership fee first." if fee_missing else "",
+        "needs_recipient": bool(needs_recipient and invoice is None and not separate_invoices and not fee_missing),
+        "blocker": blocker,
         "fee_id": lines[0]["fee_id"] if len(lines) == 1 else None,
         "fee_name": (
             lines[0]["fee_name"]
@@ -514,12 +798,29 @@ def issue_households(*, club, year: int, household_ids: list[str], actor=None) -
         if existing_membership_invoice(club.id, year, member_ids):
             skipped.append({"id": household_id, "reason": "Already invoiced."})
             continue
-        _fee, _unit, payer, lines, total = household_plan(club=club, year=year, family=family, member=member)
+        if family is not None:
+            family_members = ordered_memberships(family)
+            try:
+                persist_default_recipient(family, family_members)
+            except ValidationError:
+                skipped.append({"id": household_id, "reason": "Choose who receives the bill."})
+                continue
+            family.refresh_from_db()
+            recipient = describe_bill_to(family, ordered_memberships(family))
+        else:
+            recipient = member_recipient(member)
+        _fee, _unit, _payer, lines, total = household_plan(club=club, year=year, family=family, member=member)
         if total <= Decimal("0.00"):
             skipped.append({"id": household_id, "reason": "Complimentary membership is confirmed, not invoiced."})
             continue
         invoice = create_membership_invoice(
-            club=club, year=year, payer=payer, lines=lines, total=total, actor=actor
+            club=club,
+            year=year,
+            payer=recipient["ledger_member"],
+            lines=lines,
+            total=total,
+            actor=actor,
+            recipient=recipient,
         )
         created.append(
             {

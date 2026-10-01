@@ -21,6 +21,7 @@ export type Club = {
   iban: string;
   bank_name: string;
   email: string;
+  website: string;
   is_active: boolean;
   communication_language: string;
   max_admins: number;
@@ -219,6 +220,7 @@ export type ClubInput = {
   locality?: string;
   iban?: string;
   email?: string;
+  website?: string;
   is_active?: boolean;
   communication_language?: string;
 };

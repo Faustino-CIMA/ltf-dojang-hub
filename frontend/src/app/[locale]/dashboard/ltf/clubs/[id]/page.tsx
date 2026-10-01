@@ -47,6 +47,7 @@ type ClubEditValues = {
   locality: string;
   iban: string;
   email: string;
+  website: string;
   is_active: boolean;
   communication_language: string;
 };
@@ -60,6 +61,7 @@ function toClubEditValues(club: Club): ClubEditValues {
     locality: club.locality || club.city || "",
     iban: club.iban ?? "",
     email: club.email ?? "",
+    website: club.website ?? "",
     is_active: club.is_active !== false,
     communication_language: club.communication_language || "en",
   };
@@ -86,6 +88,7 @@ export default function LtfClubDetailPage() {
     locality: "",
     iban: "",
     email: "",
+    website: "",
     is_active: true,
     communication_language: "en",
   });
@@ -184,6 +187,7 @@ export default function LtfClubDetailPage() {
         locality: editValues.locality.trim(),
         iban: normalizedIban,
         email: editValues.email.trim(),
+        website: editValues.website.trim(),
         city: editValues.locality.trim(),
         address: editValues.address_line1.trim(),
         is_active: editValues.is_active,
@@ -280,6 +284,10 @@ export default function LtfClubDetailPage() {
                     <span className="text-xs text-muted">{t("clubEmailLabel")}</span>
                     <span className="font-medium">{club.email || "-"}</span>
                   </div>
+                  <div className="flex flex-col gap-1 md:col-span-2">
+                    <span className="text-xs text-muted">{t("clubWebsiteLabel")}</span>
+                    <span className="font-medium">{club.website || "-"}</span>
+                  </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("ibanLabel")}</span>
                     <span className="font-medium">{club.iban || "-"}</span>
@@ -362,6 +370,16 @@ export default function LtfClubDetailPage() {
                       placeholder="club@example.com"
                     />
                     <p className="text-xs text-muted">{t("clubEmailHint")}</p>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
+                    <Input
+                      type="url"
+                      value={editValues.website}
+                      onChange={(event) => handleOverviewFieldChange("website", event.target.value)}
+                      placeholder="https://www.club.lu"
+                    />
+                    <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
                   </div>
                   <div className="flex items-center gap-2 md:col-span-2">
                     <Checkbox

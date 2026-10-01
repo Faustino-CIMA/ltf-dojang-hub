@@ -100,8 +100,22 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
+function ltfNavGroup(id: string, label: (key: "navGroupFederation" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
+  if (id === "committee") {
+    return { id: "clubManagement", label: label("navGroupClubManagement") };
+  }
+  if (id === "calendar") {
+    return { id: "calendar", label: label("navGroupCalendar") };
+  }
+  if (id === "preview") {
+    return { id: "preview", label: label("navGroupPreview") };
+  }
+  return { id: "federation", label: label("navGroupFederation") };
+}
+
 export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProps) {
   const t = useTranslations("LtfAdmin");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
   const [modules, setModules] = useState<ModuleStatus | null>(null);
@@ -134,14 +148,23 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
         if (def.id === "calendar") return calendarEntitled;
         if (def.id === "committee") return clubMgmtEntitled;
         return true;
-      }).map((def) => ({
-        id: def.id,
-        href: def.href(locale),
-        label: t(def.labelKey),
-        icon: def.icon,
-        matchMode: def.matchMode,
-      })),
-    [calendarEntitled, clubMgmtEntitled, locale, previewEntitled, t]
+      }).map((def, index) => ({
+        index,
+        item: {
+          id: def.id,
+          href: def.href(locale),
+          label: t(def.labelKey),
+          icon: def.icon,
+          matchMode: def.matchMode,
+          group: ltfNavGroup(def.id, (key) => common(key)),
+        },
+      }))
+      .sort((left, right) => {
+        const rank = (id: string) => (id === "clubManagement" ? 1 : id === "calendar" ? 2 : id === "preview" ? 3 : 0);
+        return rank(left.item.group?.id ?? "") - rank(right.item.group?.id ?? "") || left.index - right.index;
+      })
+      .map((entry) => entry.item),
+    [calendarEntitled, clubMgmtEntitled, common, locale, previewEntitled, t]
   );
 
   return (

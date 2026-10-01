@@ -34,6 +34,7 @@ export type MemberRecord = {
   }>;
   last_checkup_on: string | null;
   is_underage: boolean;
+  family_name: string;
 };
 
 export type AddressLookup = {
@@ -77,10 +78,33 @@ export type ContactMemberMatch = {
   is_active: boolean;
 };
 
+export type MemberContactRow = {
+  id: number;
+  relation: string;
+  is_emergency: boolean;
+  is_primary: boolean;
+  person: number;
+  person_detail: {
+    first_name: string;
+    last_name: string;
+    sex: string;
+    converted_member: number | null;
+    emails: Array<{ email: string; use_for_invoice: boolean }>;
+    phones: Array<{ number: string; label: string }>;
+    addresses: Array<{
+      street: string;
+      house_number: string;
+      line2: string;
+      postal_code: string;
+      locality: string;
+      country: string;
+      use_for_invoice: boolean;
+    }>;
+  };
+};
+
 export function listContacts(memberId: number) {
-  return apiRequest<Array<{ id: number; relation: string; is_emergency: boolean; person: number; person_detail: { first_name: string; last_name: string; sex: string; converted_member: number | null } }>>(
-    `/api/club-management/contacts/?member=${memberId}`,
-  );
+  return apiRequest<MemberContactRow[]>(`/api/club-management/contacts/?member=${memberId}`);
 }
 
 export function findContactMemberMatches(clubId: number, firstName: string, lastName: string, excludeMemberId: number) {
@@ -128,10 +152,51 @@ export function convertPersonToMember(personId: number) {
   return apiRequest<{ member_id: number }>(`/api/club-management/people/${personId}/convert-to-member/`, { method: "POST" });
 }
 
+export type FamilyGuardian = {
+  person_id: number;
+  member_id: number | null;
+  name: string;
+  relation: string;
+  email: string;
+  phone: string;
+  is_primary: boolean;
+};
+
+export type FamilyRecord = {
+  id: number;
+  name: string;
+  invoice_member: number | null;
+  bill_to_person: number | null;
+  bill_to_name: string;
+  bill_to_delivery: "" | "email" | "post" | "hand";
+  needs_recipient: boolean;
+  guardians: FamilyGuardian[];
+  memberships: Array<{
+    member: number;
+    member_name: string;
+    sort_order: number;
+    date_of_birth: string | null;
+    is_underage: boolean;
+    dob_missing: boolean;
+  }>;
+};
+
 export function listFamilies(clubId: number) {
-  return apiRequest<Array<{ id: number; name: string; invoice_member: number | null; memberships: Array<{ member: number; member_name: string; sort_order: number }> }>>(
-    `/api/club-management/families/?club=${clubId}`,
-  );
+  return apiRequest<FamilyRecord[]>(`/api/club-management/families/?club=${clubId}`);
+}
+
+export function updateFamily(familyId: number, payload: Record<string, unknown>) {
+  return apiRequest<FamilyRecord>(`/api/club-management/families/${familyId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addFamilyParent(familyId: number, payload: Record<string, unknown>) {
+  return apiRequest<FamilyRecord | { matches: ContactMemberMatch[] }>(`/api/club-management/families/${familyId}/add-parent/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function createFamily(payload: Record<string, unknown>) {
@@ -157,8 +222,10 @@ export type FamilyInvoicePreview = {
   fee_id: number;
   fee_name: string;
   unit_amount: string;
-  payer_id: number;
+  payer_id: number | null;
   payer_name: string;
+  payer_kind?: "member" | "person" | "missing";
+  needs_recipient?: boolean;
   lines: Array<{
     member_id: number;
     member_name: string;
@@ -246,7 +313,9 @@ export type BillingHousehold = {
   name: string;
   member_count: number;
   payer: {
-    id: number;
+    id: number | null;
+    kind?: "member" | "person" | "missing";
+    member_id?: number | null;
     name: string;
     delivery: "email" | "post" | "hand";
     emails: string[];
@@ -255,11 +324,19 @@ export type BillingHousehold = {
   };
   lines: Array<FamilyInvoicePreview["lines"][number] & { fee_id?: number; fee_name?: string; unit_amount?: string }>;
   total: string;
-  status: "ready" | "blocked" | "invoiced" | "paid" | "complimentary" | "confirmed";
+  status: "ready" | "blocked" | "invoiced" | "paid" | "complimentary" | "confirmed" | "separate";
   invoice_id: number | null;
   invoice_number: string | null;
   invoice_status: string | null;
+  member_invoices?: Array<{
+    id: number;
+    invoice_number: string;
+    total: string;
+    status: string;
+    member_name: string;
+  }>;
   delivery: "email" | "post" | "hand";
+  needs_recipient?: boolean;
   blocker: string;
   fee_id: number | null;
   fee_name: string;

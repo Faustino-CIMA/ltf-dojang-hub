@@ -16,6 +16,7 @@ type MemberLayoutProps = {
 
 export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
   const t = useTranslations("Member");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
   const [calendarEntitled, setCalendarEntitled] = useState(false);
@@ -41,14 +42,16 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
         href: `/${locale}/dashboard/member`,
         label: t("navOverview"),
         icon: History,
-        matchMode: "exact",
+        matchMode: "exact" as const,
+        group: { id: "member", label: common("navGroupMember") },
       },
       {
         id: "photo",
         href: `/${locale}/dashboard/member/photo`,
         label: t("navPhoto"),
         icon: Camera,
-        matchMode: "prefix",
+        matchMode: "prefix" as const,
+        group: { id: "member", label: common("navGroupMember") },
       },
       ...(calendarEntitled
         ? [
@@ -58,11 +61,12 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
               label: t("navCalendar"),
               icon: CalendarDays,
               matchMode: "prefix" as const,
+              group: { id: "calendar", label: common("navGroupCalendar") },
             },
           ]
         : []),
     ],
-    [calendarEntitled, locale, t]
+    [calendarEntitled, common, locale, t]
   );
 
   return (

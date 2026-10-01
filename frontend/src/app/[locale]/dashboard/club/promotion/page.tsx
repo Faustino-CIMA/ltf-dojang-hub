@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -202,13 +203,14 @@ export default function PromotionPage() {
                         header: "",
                         render: (row: PromotionRule) => (
                           <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => beginEdit(row)}>
-                              {t("editAction")}
+                            <Button type="button" variant="outline" size="sm" aria-label={t("editAction")} onClick={() => beginEdit(row)}>
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
+                              aria-label={t("trainingRemove")}
                               onClick={() => {
                                 if (!selectedClubId) return;
                                 void deletePromotionRule(selectedClubId, row.id)
@@ -219,7 +221,7 @@ export default function PromotionPage() {
                                   .catch((error: Error) => setErrorMessage(error.message));
                               }}
                             >
-                              {t("trainingRemove")}
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         ),

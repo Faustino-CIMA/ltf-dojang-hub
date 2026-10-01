@@ -241,6 +241,225 @@ class ClubManagementTests(TestCase):
         self.assertEqual(len(removed.data["memberships"]), 1)
 
     @patch("licenses.tasks.send_invoice_email.delay")
+    def test_member_invoices_are_not_shown_as_the_family_invoice(self, _queued):
+        from .billing import create_membership_invoice, household_plan
+        from .models import MembershipFee, MembershipFeePrice
+
+        self._unlock()
+        self._auth(self.club_admin)
+        self._fee()
+        self.client.post(
+            "/api/club-management/rebate-rules/",
+            {"club": self.club.id, "member_rank": 2, "percent_off": "10.00"},
+            format="json",
+        )
+        self.client.post(
+            "/api/club-management/rebate-rules/",
+            {"club": self.club.id, "member_rank": 3, "percent_off": "25.00"},
+            format="json",
+        )
+        anna = Member.objects.create(club=self.club, first_name="Anna", last_name="Separate")
+        gosia = Member.objects.create(club=self.club, first_name="Gosia", last_name="Separate")
+        year = date.today().year
+        numbers = []
+        for member in (self.adult, anna, gosia):
+            _fee, _unit, payer, lines, total = household_plan(club=self.club, year=year, member=member)
+            invoice = create_membership_invoice(
+                club=self.club, year=year, payer=payer, lines=lines, total=total
+            )
+            numbers.append(invoice.invoice_number)
+            self.assertEqual(invoice.total, Decimal("100.00"))
+        family_id = self._family_with("Separate family", [self.adult, anna, gosia])
+        preview = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
+        row = next(item for item in preview.data["households"] if item["id"] == f"family-{family_id}")
+        self.assertIsNone(row["invoice_number"])
+        self.assertEqual(row["status"], "separate")
+        self.assertEqual(row["total"], "265.00")
+        self.assertEqual(sorted(item["total"] for item in row["member_invoices"]), ["100.00", "100.00", "100.00"])
+        self.assertCountEqual([item["invoice_number"] for item in row["member_invoices"]], numbers)
+        issued = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [f"family-{family_id}"]},
+            format="json",
+        )
+        self.assertEqual(issued.status_code, 201, issued.data)
+        self.assertEqual(issued.data["created_count"], 0)
+        self.assertEqual(issued.data["skipped"][0]["reason"], "Already invoiced.")
+
+        parent = Member.objects.create(club=self.club, first_name="Parent", last_name="Together")
+        child = Member.objects.create(club=self.club, first_name="Child", last_name="Together")
+        together_id = self._family_with("Together family", [parent, child])
+        created = self.client.post(
+            f"/api/club-management/families/{together_id}/create-invoice/",
+            {"year": year},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["total"], "190.00")
+        fee = MembershipFee.objects.get(club=self.club)
+        fee.amount = Decimal("150.00")
+        fee.save(update_fields=["amount"])
+        MembershipFeePrice.objects.filter(fee=fee).update(amount=Decimal("150.00"))
+        after = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
+        together = next(item for item in after.data["households"] if item["id"] == f"family-{together_id}")
+        self.assertEqual(together["invoice_number"], created.data["invoice_number"])
+        self.assertEqual(together["total"], "190.00")
+        self.assertEqual(together["status"], "invoiced")
+        separate = next(item for item in after.data["households"] if item["id"] == f"family-{family_id}")
+        self.assertIsNone(separate["invoice_number"])
+        self.assertEqual(sorted(item["total"] for item in separate["member_invoices"]), ["100.00", "100.00", "100.00"])
+
+    def _fee(self, name="Annual", amount="100.00"):
+        created = self.client.post(
+            "/api/club-management/membership-fees/",
+            {"club": self.club.id, "name": name, "amount": amount},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        return created.data
+
+    def _family_with(self, name, members):
+        created = self.client.post(
+            "/api/club-management/families/",
+            {"club": self.club.id, "name": name},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        for member in members:
+            added = self.client.post(
+                f"/api/club-management/families/{created.data['id']}/add-member/",
+                {"member": member.id},
+                format="json",
+            )
+            self.assertEqual(added.status_code, 200, added.data)
+        return created.data["id"]
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_family_invoice_is_one_bill_addressed_to_the_chosen_adult(self, queued):
+        self._unlock()
+        self._auth(self.club_admin)
+        self._fee()
+        child = Member.objects.create(
+            club=self.club,
+            first_name="Cara",
+            last_name="Child",
+            date_of_birth=date.today() - timedelta(days=365 * 8),
+        )
+        sibling = Member.objects.create(
+            club=self.club,
+            first_name="Dina",
+            last_name="Child",
+            date_of_birth=date.today() - timedelta(days=365 * 6),
+        )
+        family_id = self._family_with("Child family", [child, sibling, self.adult])
+        blocked = self.client.post(
+            "/api/club-management/families/",
+            {"club": self.club.id, "name": "Minors only"},
+            format="json",
+        )
+        minors_id = blocked.data["id"]
+        self.client.post(f"/api/club-management/families/{minors_id}/add-member/", {"member": child.id}, format="json")
+        self.client.post(f"/api/club-management/families/{minors_id}/add-member/", {"member": sibling.id}, format="json")
+        refused = self.client.post(
+            f"/api/club-management/families/{minors_id}/create-invoice/",
+            {"year": date.today().year},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertIn("bill_to", refused.data)
+        year = date.today().year
+        preview = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
+        minors = next(row for row in preview.data["households"] if row["id"] == f"family-{minors_id}")
+        self.assertEqual(minors["status"], "blocked")
+        self.assertTrue(minors["needs_recipient"])
+        invoice = self.client.post(
+            f"/api/club-management/families/{family_id}/create-invoice/",
+            {"year": year},
+            format="json",
+        )
+        self.assertEqual(invoice.status_code, 201, invoice.data)
+        self.assertEqual(OrderItem.objects.filter(order_id=invoice.data["order_id"]).count(), 3)
+        saved = Invoice.objects.get(pk=invoice.data["invoice_id"])
+        self.assertEqual(saved.member_id, self.adult.id)
+        self.assertEqual(saved.bill_to_name, "ADULT Bea")
+        again = self.client.post(
+            f"/api/club-management/families/{family_id}/create-invoice/",
+            {"year": year},
+            format="json",
+        )
+        self.assertEqual(again.status_code, 400)
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_guardian_receives_one_family_invoice(self, queued):
+        from licenses.pdf_utils import build_invoice_context
+
+        self._unlock()
+        self._auth(self.club_admin)
+        self._fee(amount="80.00")
+        child = Member.objects.create(
+            club=self.club,
+            first_name="Cara",
+            last_name="Minor",
+            date_of_birth=date.today() - timedelta(days=365 * 9),
+        )
+        sibling = Member.objects.create(
+            club=self.club,
+            first_name="Dina",
+            last_name="Minor",
+            date_of_birth=date.today() - timedelta(days=365 * 7),
+        )
+        family_id = self._family_with("Minor family", [child, sibling])
+        added = self.client.post(
+            f"/api/club-management/families/{family_id}/add-parent/",
+            {
+                "first_name": "Anna",
+                "last_name": "Parent",
+                "relation": "mother",
+                "email": "anna@example.com",
+                "phone": "+352 621 000",
+                "street": "Rue Test",
+                "house_number": "12",
+                "postal_code": "9182",
+                "locality": "Vichten",
+                "is_emergency": True,
+            },
+            format="json",
+        )
+        self.assertEqual(added.status_code, 201, added.data)
+        self.assertTrue(added.data["bill_to_person"])
+        self.assertIsNone(added.data["invoice_member"])
+        self.assertEqual(added.data["bill_to_name"], "Anna PARENT")
+        from .models import MemberContact, PersonEmail
+
+        person_id = added.data["bill_to_person"]
+        self.assertTrue(PersonEmail.objects.filter(person_id=person_id, email="anna@example.com", use_for_invoice=True).exists())
+        links = MemberContact.objects.filter(person_id=person_id, is_primary=True)
+        self.assertEqual(set(links.values_list("member_id", flat=True)), {child.id, sibling.id})
+        year = date.today().year
+        invoice = self.client.post(
+            f"/api/club-management/families/{family_id}/create-invoice/",
+            {"year": year},
+            format="json",
+        )
+        self.assertEqual(invoice.status_code, 201, invoice.data)
+        self.assertEqual(OrderItem.objects.filter(order_id=invoice.data["order_id"]).count(), 2)
+        saved = Invoice.objects.select_related("member").get(pk=invoice.data["invoice_id"])
+        self.assertEqual(saved.member_id, child.id)
+        self.assertEqual(saved.bill_to_name, "PARENT Anna")
+        self.assertIn("12, Rue Test", saved.bill_to_address)
+        self.assertIn("anna@example.com", saved.bill_to_email)
+        queued.assert_called()
+        self.assertIn("anna@example.com", queued.call_args[0][1])
+        context = build_invoice_context(saved)
+        self.assertEqual(context["recipient_name"], "PARENT Anna")
+        self.assertIn("12, Rue Test", context["recipient_lines"])
+        saved.bill_to_name = ""
+        saved.bill_to_address = ""
+        saved.bill_to_email = ""
+        context = build_invoice_context(saved)
+        self.assertEqual(context["recipient_name"], "MINOR Cara")
+
+    @patch("licenses.tasks.send_invoice_email.delay")
     def test_billing_run_issues_singleton_and_respects_delivery(self, queued):
         self._unlock()
         self._auth(self.club_admin)

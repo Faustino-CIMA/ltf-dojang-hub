@@ -51,7 +51,7 @@ function applyFeeToPreview(preview: BillingPreview, memberId: number, fee: Billi
     const total = lines.reduce((sum, line) => sum + Number(line.amount), 0).toFixed(2);
     const feeIds = new Set(lines.map((line) => line.fee_id));
     let status = household.status;
-    if (!["blocked", "invoiced", "paid"].includes(household.status)) {
+    if (!["blocked", "invoiced", "paid", "separate"].includes(household.status)) {
       status = Number(total) <= 0 ? (household.confirmed ? "confirmed" : "complimentary") : "ready";
     }
     return {
@@ -243,6 +243,7 @@ export default function ClubBillingPage() {
   const statusBadge = (status: BillingHousehold["status"]) => {
     if (status === "paid") return { label: t("billingPaid"), tone: "success" as const };
     if (status === "invoiced") return { label: t("billingInvoiced"), tone: "warning" as const };
+    if (status === "separate") return { label: t("billingNoFamilyInvoice"), tone: "warning" as const };
     if (status === "blocked") return { label: t("billingBlocked"), tone: "danger" as const };
     if (status === "confirmed") return { label: t("billingConfirmedStatus"), tone: "success" as const };
     if (status === "complimentary") return { label: t("billingComplimentary"), tone: "neutral" as const };
@@ -440,7 +441,7 @@ export default function ClubBillingPage() {
                               <Select
                                 value={row.fee_id ? String(row.fee_id) : ""}
                                 onValueChange={(value) => {
-                                  void handleFeeChange(row.payer.id, Number(value));
+                                  if (row.payer.member_id) void handleFeeChange(row.payer.member_id, Number(value));
                                 }}
                                 modal={false}
                               >
@@ -461,8 +462,39 @@ export default function ClubBillingPage() {
                         <td className="px-3 py-3 font-medium">{row.total} EUR</td>
                         <td className="px-3 py-3">
                           <StatusBadge label={status.label} tone={status.tone} />
-                          {row.invoice_number ? (
-                            <div className="mt-1 text-xs text-muted">{row.invoice_number}</div>
+                          {row.needs_recipient ? (
+                            <div className="mt-1 text-xs text-muted">{t("chooseBillRecipient")}</div>
+                          ) : row.blocker ? (
+                            <div className="mt-1 text-xs text-muted">{row.blocker}</div>
+                          ) : null}
+                          {row.status === "separate" ? (
+                            <div className="mt-1 space-y-1 text-xs text-muted">
+                              <p>{t("billingFamilyPriceNote")}</p>
+                              {(row.member_invoices ?? []).map((invoice) => (
+                                <p key={invoice.id}>
+                                  <Link
+                                    className="underline-offset-4 hover:underline"
+                                    href={`/${locale}/dashboard/club/invoices/${invoice.id}`}
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    {invoice.invoice_number}
+                                  </Link>
+                                  {` · ${invoice.total} EUR`}
+                                  {invoice.member_name ? ` · ${invoice.member_name}` : ""}
+                                </p>
+                              ))}
+                            </div>
+                          ) : row.invoice_number && row.invoice_id ? (
+                            <div className="mt-1 text-xs text-muted">
+                              <Link
+                                className="underline-offset-4 hover:underline"
+                                href={`/${locale}/dashboard/club/invoices/${row.invoice_id}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {row.invoice_number}
+                              </Link>
+                              {` · ${row.total} EUR`}
+                            </div>
                           ) : null}
                         </td>
                       </tr>
@@ -553,11 +585,37 @@ export default function ClubBillingPage() {
               ))}
             </ul>
             <p className="font-medium">{t("familyInvoiceTotal")}: {detail.total} EUR</p>
-            {detail.status === "ready" ? null : (
-              <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/members/${detail.payer.id}?tab=club-record`}>
+            {detail.status === "separate" ? (
+              <div className="space-y-1 text-muted">
+                <p>{t("billingFamilyPriceNote")}</p>
+                <p>{t("billingMemberInvoices")}</p>
+                {(detail.member_invoices ?? []).map((invoice) => (
+                  <p key={invoice.id}>
+                    <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/invoices/${invoice.id}`}>
+                      {invoice.invoice_number}
+                    </Link>
+                    {` · ${invoice.total} EUR`}
+                    {invoice.member_name ? ` · ${invoice.member_name}` : ""}
+                  </p>
+                ))}
+              </div>
+            ) : detail.invoice_id && detail.invoice_number ? (
+              <p>
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/invoices/${detail.invoice_id}`}>
+                  {detail.invoice_number}
+                </Link>
+                {` · ${detail.total} EUR`}
+              </p>
+            ) : null}
+            {detail.needs_recipient ? (
+              <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/families`}>
+                {t("chooseBillRecipient")}
+              </Link>
+            ) : detail.payer.member_id && detail.status !== "ready" ? (
+              <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/members/${detail.payer.member_id}?tab=club-record`}>
                 {t("openClubRecord")}
               </Link>
-            )}
+            ) : null}
           </div>
         ) : null}
       </Modal>

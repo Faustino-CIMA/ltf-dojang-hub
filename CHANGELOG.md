@@ -5,11 +5,24 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### User-facing
+- **Club member invoices:** Invoices a club sends to its own members use the club letterhead. Footer logos, left to right, are World Taekwondo, European Taekwondo Union, and Luxembourg Taekwondo Federation. Federation license invoices keep the federation letterhead.
+- **Family rebate on the line:** A zero family rebate is left off. A percent or a euro amount still prints in parentheses.
+- **Invoice total:** The euro sign in the Total column has 2 mm of room on the right.
+- **Family bills:** People in a family share one club invoice. The family card chooses who receives it: a family member, or a parent or guardian. If nobody is chosen and someone is 18 or older, the first adult receives it. If every member is under 18 and no recipient is set, that family cannot be invoiced until someone is chosen. Parents and guardians are entered on the family card or on a minor’s club record, and they become contacts. The name and address printed on an invoice stay as they were when it was issued.
+- **Club billing:** A family row shows an invoice number only when one invoice covers every current member, and the amount is that invoice’s total. Members who were billed separately keep their own invoices. The family price is not labelled with one of those numbers.
+- **Sidebar:** Links are grouped under a small italic module title. On a wide screen the sidebar can collapse to icons, and this browser remembers that choice.
+- **Buttons and fields:** Primary buttons are white with a cyan edge, and they fill cyan when the pointer is over them. Links and buttons use a hand pointer. Entry fields are white. Placeholder text is light grey.
+- **Promotion and members:** On the promotion rules table, Edit is a pencil and Remove is a trash icon. The members list uses the same trash icon, and it still opens that member’s delete page.
+- **Club website:** Club settings has a Website field under the club email. It is printed under the email on invoices the club sends to its members. An address without `http://` or `https://` is stored with `https://`. An empty website prints nothing. Federation invoices keep the federation website.
 - **LTF license invoices:** The Order column in the footer reads Order, Placed, Delivered, and Status. The Invoice column stays Invoice, Issued, Paid, and Status.
 - **Membership fees:** On Club fees, each fee can be renamed or have its current amount corrected, and it can be deleted. Deleting a fee returns assigned members to the club default. Invoices already issued stay as they are. A later price still uses Save new amount.
 - **Product codes:** A new server creates its own signing key and can mint codes from Ops → Modules. Paste the `LTF1.…` code, not the install id. The install id is only the label this server is bound to.
 
 ### Technical
+- Club member PDFs use `finance/club_member_invoice_pdf.html`. Federation license invoices still use `finance/ltf_license_invoice_pdf.html`.
+- `Club.website` is migration `clubs.0011_club_website`. `normalize_club_website` accepts only `http` and `https`.
+- A family has either `invoice_member` or `bill_to_person`. Issued invoices store `bill_to_name`, `bill_to_email`, and `bill_to_address` (`clubmgmt.0017_family_bill_to_and_primary_contact`, `licenses.0045_invoice_bill_to_snapshot`). The order stays linked to a family member.
+- Club billing treats an invoice as the family invoice only when every current member’s name is on that invoice’s lines.
 - `PATCH /api/club-management/membership-fees/{id}/` updates the fee name. A changed amount updates the latest price row and `MembershipFee.amount`. `DELETE` removes the fee. Assigned member records are set back to no fee (`on_delete=SET_NULL`).
 - `ensure_module_keys` runs after migrate. When `MODULE_CODE_PUBLIC_KEY` and `MODULE_CODE_PRIVATE_KEY` are unset, it stores one Ed25519 keypair on `InstallIdentity` and does not rotate it later. A database backup keeps that key. The private key is not printed and is hidden in the Django admin.
 - Opening Ops → Modules creates the same key if startup did not. Superusers can mint when this install holds the private key, including when `DJANGO_DEBUG` is false.

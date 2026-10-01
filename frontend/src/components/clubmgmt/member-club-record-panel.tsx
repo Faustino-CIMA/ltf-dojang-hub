@@ -25,6 +25,7 @@ import {
   saveMemberRecord,
   updateContact,
   updatePerson,
+  type MemberContactRow,
   type MemberRecord,
 } from "@/lib/clubmgmt-api";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/select";
 
 const RELATIONS = ["father", "mother", "grandfather", "grandmother", "uncle", "aunt", "brother", "sister", "guardian", "partner", "other"] as const;
+const PARENT_RELATIONS = new Set(["father", "mother", "guardian", "grandfather", "grandmother"]);
 const NONE_VALUE = "none";
 
 type ListKind = "email" | "phone" | "address" | "checkup" | "contact";
@@ -184,15 +186,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [checkups, setCheckups] = useState<Array<{ id: number; checked_on: string; notes: string }>>([]);
-  const [contacts, setContacts] = useState<
-    Array<{
-      id: number;
-      relation: string;
-      is_emergency: boolean;
-      person: number;
-      person_detail: { first_name: string; last_name: string; converted_member: number | null };
-    }>
-  >([]);
+  const [contacts, setContacts] = useState<MemberContactRow[]>([]);
   const [convertingPersonId, setConvertingPersonId] = useState<number | null>(null);
   const [fees, setFees] = useState<Array<{ id: number; name: string; amount: string }>>([]);
   const [adding, setAdding] = useState<ListKind | null>(null);
@@ -202,7 +196,16 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
   const [phoneDraft, setPhoneDraft] = useState({ number: "", label: "mobile" });
   const [addressDraft, setAddressDraft] = useState<AddressValue>(emptyAddress());
   const [checkupDraft, setCheckupDraft] = useState({ checked_on: "", notes: "" });
-  const [contactDraft, setContactDraft] = useState({ first_name: "", last_name: "", relation: "father", is_emergency: true });
+  const [contactDraft, setContactDraft] = useState({
+    first_name: "",
+    last_name: "",
+    relation: "father",
+    is_emergency: true,
+    email: "",
+    phone: "",
+    also_family: false,
+  });
+  const [contactAddress, setContactAddress] = useState<AddressValue>(emptyAddress());
   const [memberMatches, setMemberMatches] = useState<ContactMemberMatch[]>([]);
   const [differentPerson, setDifferentPerson] = useState(false);
   const [chosenMemberId, setChosenMemberId] = useState<number | null>(null);
@@ -315,7 +318,8 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     setPhoneDraft({ number: "", label: "mobile" });
     setAddressDraft({ ...emptyAddress(), use_for_invoice: record.addresses.every((row) => !row.use_for_invoice) });
     setCheckupDraft({ checked_on: "", notes: "" });
-    setContactDraft({ first_name: "", last_name: "", relation: "father", is_emergency: true });
+    setContactDraft({ first_name: "", last_name: "", relation: "father", is_emergency: true, email: "", phone: "", also_family: false });
+    setContactAddress(emptyAddress());
   };
 
   const handleReuseOverviewEmail = async () => {
@@ -347,7 +351,16 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       setCheckupDraft({ checked_on: "", notes: "" });
     }
     if (kind === "contact") {
-      setContactDraft({ first_name: "", last_name: "", relation: "father", is_emergency: true });
+      setContactDraft({
+        first_name: "",
+        last_name: "",
+        relation: "father",
+        is_emergency: true,
+        email: "",
+        phone: "",
+        also_family: Boolean(record.family_name),
+      });
+      setContactAddress(emptyAddress());
     }
     setAdding(kind);
     setEditingIndex(null);
@@ -386,12 +399,31 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     const row = contacts[index];
     setAdding("contact");
     setEditingIndex(index);
+    const email = row.person_detail.emails?.find((item) => item.use_for_invoice)?.email || row.person_detail.emails?.[0]?.email || "";
+    const phone = row.person_detail.phones?.[0]?.number || "";
+    const address = row.person_detail.addresses?.find((item) => item.use_for_invoice) || row.person_detail.addresses?.[0];
     setContactDraft({
       first_name: row.person_detail.first_name,
       last_name: row.person_detail.last_name,
       relation: row.relation,
       is_emergency: row.is_emergency,
+      email,
+      phone,
+      also_family: false,
     });
+    setContactAddress(
+      address
+        ? {
+            street: address.street,
+            house_number: address.house_number,
+            line2: address.line2,
+            postal_code: address.postal_code,
+            locality: address.locality,
+            country: address.country || "Luxembourg",
+            use_for_invoice: true,
+          }
+        : emptyAddress(),
+    );
   };
 
   const saveEmailDraft = async () => {
@@ -494,6 +526,19 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       setErrorMessage(t("contactRequired"));
       return;
     }
+    const parentDetails = record.is_underage || PARENT_RELATIONS.has(contactDraft.relation);
+    const detailPayload = parentDetails
+      ? {
+          email: contactDraft.email.trim(),
+          phone: contactDraft.phone.trim(),
+          street: contactAddress.street,
+          house_number: contactAddress.house_number,
+          line2: contactAddress.line2,
+          postal_code: contactAddress.postal_code,
+          locality: contactAddress.locality,
+          country: contactAddress.country,
+        }
+      : {};
     setSavingDraft(true);
     setErrorMessage(null);
     try {
@@ -503,6 +548,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         await updateContact(row.id, {
           relation: contactDraft.relation,
           is_emergency: contactDraft.is_emergency,
+          ...detailPayload,
         });
       } else {
         if (memberMatches.length > 1 && !differentPerson && !chosenMemberId) {
@@ -518,6 +564,8 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
           is_emergency: contactDraft.is_emergency,
           different_person: differentPerson,
           member_id: differentPerson ? undefined : chosenMemberId,
+          also_family: parentDetails && contactDraft.also_family,
+          ...detailPayload,
         });
         setSuccessMessage(linked.already_member ? t("contactAlreadyMember", { name: linked.linked_member_name }) : t("saved"));
         setDifferentPerson(false);
@@ -663,6 +711,33 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
           {t("emergency")}
         </label>
       </div>
+      {record.is_underage || PARENT_RELATIONS.has(contactDraft.relation) ? (
+        <div className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-2">
+            <Input
+              type="email"
+              placeholder={t("parentEmail")}
+              value={contactDraft.email}
+              onChange={(event) => setContactDraft({ ...contactDraft, email: event.target.value })}
+            />
+            <Input
+              placeholder={t("phone")}
+              value={contactDraft.phone}
+              onChange={(event) => setContactDraft({ ...contactDraft, phone: event.target.value })}
+            />
+          </div>
+          <LuAddressFields value={contactAddress} onChange={setContactAddress} />
+          {record.family_name && editingIndex === null ? (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={contactDraft.also_family}
+                onCheckedChange={(checked) => setContactDraft({ ...contactDraft, also_family: Boolean(checked) })}
+              />
+              {t("alsoForFamily", { name: record.family_name })}
+            </label>
+          ) : null}
+        </div>
+      ) : null}
       {memberMatches.length > 0 && !differentPerson ? (
         <div className="rounded-[var(--radius-form)] border border-border bg-secondary/50 p-3 text-sm">
           <p className="font-medium text-foreground">{t("contactMatchesTitle")}</p>
@@ -1063,6 +1138,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>
                       {row.person_detail.first_name} {row.person_detail.last_name} ({t(`relation_${row.relation}`)})
+                      {row.is_primary ? ` · ${t("primaryContact")}` : ""}
                       {row.is_emergency ? ` · ${t("emergency")}` : ""}
                     </span>
                     <div className="flex flex-wrap gap-2">

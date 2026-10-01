@@ -99,7 +99,7 @@ class MemberContactSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MemberContact
-        fields = ["id", "member", "person", "person_detail", "relation", "is_emergency"]
+        fields = ["id", "member", "person", "person_detail", "relation", "is_emergency", "is_primary"]
 
 
 class MemberRecordSerializer(serializers.ModelSerializer):
@@ -108,6 +108,7 @@ class MemberRecordSerializer(serializers.ModelSerializer):
     addresses = MemberAddressSerializer(source="member.club_addresses", many=True, read_only=True)
     last_checkup_on = serializers.SerializerMethodField()
     is_underage = serializers.SerializerMethodField()
+    family_name = serializers.SerializerMethodField()
     member_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -134,6 +135,7 @@ class MemberRecordSerializer(serializers.ModelSerializer):
             "addresses",
             "last_checkup_on",
             "is_underage",
+            "family_name",
         ]
 
     def get_last_checkup_on(self, obj):
@@ -142,6 +144,10 @@ class MemberRecordSerializer(serializers.ModelSerializer):
 
     def get_is_underage(self, obj):
         return obj.is_underage()
+
+    def get_family_name(self, obj):
+        link = obj.member.family_links.select_related("family").order_by("id").first()
+        return link.family.name if link is not None else ""
 
     def get_member_name(self, obj):
         return f"{obj.member.first_name} {obj.member.last_name}"
@@ -164,22 +170,106 @@ class MemberRecordSerializer(serializers.ModelSerializer):
 
 class FamilyMemberSerializer(serializers.ModelSerializer):
     member_name = serializers.SerializerMethodField()
+    date_of_birth = serializers.DateField(source="member.date_of_birth", read_only=True, allow_null=True)
+    is_underage = serializers.SerializerMethodField()
+    dob_missing = serializers.SerializerMethodField()
 
     class Meta:
         model = FamilyMember
-        fields = ["id", "member", "member_name", "sort_order"]
+        fields = ["id", "member", "member_name", "sort_order", "date_of_birth", "is_underage", "dob_missing"]
 
     def get_member_name(self, obj):
         return f"{obj.member.first_name} {obj.member.last_name}"
 
+    def get_is_underage(self, obj):
+        from .guardians import is_underage_member
+
+        return is_underage_member(obj.member)
+
+    def get_dob_missing(self, obj):
+        return not bool(obj.member.date_of_birth)
+
 
 class FamilySerializer(serializers.ModelSerializer):
     memberships = FamilyMemberSerializer(many=True, read_only=True)
+    guardians = serializers.SerializerMethodField()
+    bill_to_name = serializers.SerializerMethodField()
+    needs_recipient = serializers.SerializerMethodField()
 
     class Meta:
         model = Family
-        fields = ["id", "club", "name", "invoice_member", "memberships", "created_at"]
-        read_only_fields = ["created_at"]
+        fields = [
+            "id",
+            "club",
+            "name",
+            "invoice_member",
+            "bill_to_person",
+            "bill_to_name",
+            "bill_to_delivery",
+            "needs_recipient",
+            "guardians",
+            "memberships",
+            "created_at",
+        ]
+        read_only_fields = ["created_at", "bill_to_name", "needs_recipient", "guardians"]
+
+    def get_bill_to_name(self, obj):
+        person = obj.bill_to_person
+        if person is None:
+            return ""
+        return f"{person.first_name} {person.last_name}".strip()
+
+    def get_needs_recipient(self, obj):
+        from .guardians import needs_explicit_recipient, ordered_memberships
+
+        return needs_explicit_recipient(obj, ordered_memberships(obj))
+
+    def get_guardians(self, obj):
+        from .guardians import PARENT_RELATIONS
+
+        seen = set()
+        rows = []
+        for link in obj.memberships.all():
+            for contact in link.member.club_contacts.all():
+                if contact.relation not in PARENT_RELATIONS and not contact.is_primary:
+                    continue
+                if contact.person_id in seen:
+                    continue
+                seen.add(contact.person_id)
+                person = contact.person
+                emails = list(person.emails.all())
+                preferred = [row.email for row in emails if row.use_for_invoice and row.email]
+                phones = list(person.phones.all())
+                rows.append(
+                    {
+                        "person_id": person.id,
+                        "member_id": person.converted_member_id,
+                        "name": f"{person.first_name} {person.last_name}".strip(),
+                        "relation": contact.relation,
+                        "email": preferred[0] if preferred else (emails[0].email if emails else ""),
+                        "phone": phones[0].number if phones else "",
+                        "is_primary": contact.is_primary,
+                    }
+                )
+        return rows
+
+    def validate(self, attrs):
+        club = attrs.get("club") or (self.instance.club if self.instance is not None else None)
+        invoice_member = attrs.get("invoice_member", serializers.empty)
+        bill_to_person = attrs.get("bill_to_person", serializers.empty)
+        if invoice_member not in (serializers.empty, None) and club is not None and invoice_member.club_id != club.id:
+            raise serializers.ValidationError({"invoice_member": "Choose a member of this club."})
+        if bill_to_person not in (serializers.empty, None) and club is not None and bill_to_person.club_id != club.id:
+            raise serializers.ValidationError({"bill_to_person": "Choose a contact from this club."})
+        return attrs
+
+    def update(self, instance, validated_data):
+        if validated_data.get("invoice_member") is not None:
+            validated_data["bill_to_person"] = None
+            validated_data["bill_to_delivery"] = ""
+        elif validated_data.get("bill_to_person") is not None:
+            validated_data["invoice_member"] = None
+        return super().update(instance, validated_data)
 
 
 class FamilyRebateRuleSerializer(serializers.ModelSerializer):
