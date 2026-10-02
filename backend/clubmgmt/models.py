@@ -132,6 +132,7 @@ class MemberRecord(models.Model):
         blank=True,
         related_name="member_records",
     )
+    pays_license_fee = models.BooleanField(default=True)
     social_security_number = models.CharField(
         max_length=13,
         blank=True,
@@ -202,6 +203,7 @@ class MemberContact(models.Model):
         SISTER = "sister", _("Sister")
         GUARDIAN = "guardian", _("Guardian")
         PARTNER = "partner", _("Partner")
+        SPOUSE = "spouse", _("Spouse")
         OTHER = "other", _("Other")
 
     member = models.ForeignKey("members.Member", on_delete=models.CASCADE, related_name="club_contacts")
@@ -307,13 +309,71 @@ class MembershipFeePrice(models.Model):
         return row.amount if row else fee.amount
 
 
+class MembershipBilling(models.Model):
+    """One charge of the membership fee. A year with no rows is a single billing.
+
+    One billing per year carries the license fee. That is the first billing until
+    the club chooses another, for a season that opens on a later bill.
+    """
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="membership_billings")
+    year = models.PositiveIntegerField()
+    sequence = models.PositiveSmallIntegerField()
+    label = models.CharField(max_length=80, blank=True)
+    charges_license_fee = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["year", "sequence", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["club", "year", "sequence"], name="clubmgmt_billing_seq_uniq"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.year} #{self.sequence} {self.label}".strip()
+
+
+class ClubLicenseFee(models.Model):
+    """Charged once per member on the billing chosen for that year. Not rebated."""
+
+    club = models.OneToOneField("clubs.Club", on_delete=models.CASCADE, related_name="license_fee")
+    name = models.CharField(max_length=120, default="License fee")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        ordering = ["club_id"]
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.amount}"
+
+
+class ClubLicenseFeePrice(models.Model):
+    fee = models.ForeignKey(ClubLicenseFee, on_delete=models.CASCADE, related_name="prices")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    effective_from = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_from", "-id"]
+
+    @classmethod
+    def amount_for_year(cls, fee: ClubLicenseFee, year: int):
+        as_of = date(year, 12, 31)
+        row = cls.objects.filter(fee=fee, effective_from__lte=as_of).order_by("-effective_from", "-id").first()
+        return row.amount if row else fee.amount
+
+
 class FamilyRebateRule(models.Model):
-    """Rank 1 is full price. Rank 2 might be 10% off, rank 3 25%, rank 4 100%."""
+    """Rank 1 is full price unless it has its own rule.
+
+    A later rank with no rule pays full price. When applies_to_later is set, that
+    rebate also covers every following member until a later rank has its own rule.
+    """
 
     club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="family_rebate_rules")
     member_rank = models.PositiveSmallIntegerField()
     percent_off = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     amount_off = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    applies_to_later = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["member_rank"]
@@ -331,6 +391,7 @@ class MembershipYearConfirmation(models.Model):
         related_name="membership_year_confirmations",
     )
     year = models.PositiveIntegerField()
+    installment = models.PositiveSmallIntegerField(default=1)
     household_key = models.CharField(max_length=40)
     confirmed_at = models.DateTimeField(auto_now_add=True)
     confirmed_by = models.ForeignKey(
@@ -345,7 +406,7 @@ class MembershipYearConfirmation(models.Model):
         ordering = ["-year", "household_key"]
         constraints = [
             models.UniqueConstraint(
-                fields=["club", "year", "household_key"],
+                fields=["club", "year", "installment", "household_key"],
                 name="clubmgmt_year_confirm_uniq",
             ),
         ]

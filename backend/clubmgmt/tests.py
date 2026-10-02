@@ -165,6 +165,193 @@ class ClubManagementTests(TestCase):
         self.assertEqual(opened.data[0]["person_detail"]["converted_member"], faustino.id)
         self.assertFalse(Person.objects.filter(pk=loose.id).exists())
 
+    def test_contact_can_be_a_spouse(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        linked = self.client.post(
+            "/api/club-management/contacts/link/",
+            {
+                "member": self.adult.id,
+                "first_name": "Sam",
+                "last_name": "Spouse",
+                "relation": "spouse",
+            },
+            format="json",
+        )
+        self.assertEqual(linked.status_code, 201, linked.data)
+        from .models import MemberContact
+
+        contact = MemberContact.objects.get(member=self.adult)
+        self.assertEqual(contact.relation, MemberContact.Relation.SPOUSE)
+
+    def test_publication_consent_lists_active_members_and_exports(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        self._unlock()
+        self._auth(self.club_admin)
+        Member.objects.create(
+            club=self.club,
+            first_name="Old",
+            last_name="Left",
+            is_active=False,
+            date_of_birth=date(1990, 1, 1),
+        )
+        listed = self.client.get(f"/api/club-management/publication-consent/?club={self.club.id}")
+        self.assertEqual(listed.status_code, 200, listed.data)
+        names = [row["last_name"] for row in listed.data["members"]]
+        self.assertEqual(names, ["ADULT", "MEMBER"])
+        adult = listed.data["members"][0]
+        self.assertEqual(adult["first_name"], "Bea")
+        self.assertEqual(adult["age"], 25)
+        self.assertFalse(adult["publish_facebook"])
+        self.assertIsNotNone(adult["date_of_birth"])
+        saved = self.client.post(
+            f"/api/club-management/publication-consent/?club={self.club.id}",
+            {"member": self.adult.id, "publish_facebook": True, "publish_print": True},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertTrue(saved.data["publish_facebook"])
+        self.assertTrue(saved.data["publish_print"])
+        self.assertFalse(saved.data["publish_instagram"])
+        refused = self.client.post(
+            f"/api/club-management/publication-consent/?club={self.club.id}",
+            {"member": self.adult.id, "publish_x": "yes"},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400)
+        exported = self.client.get(f"/api/club-management/publication-consent/export.csv?club={self.club.id}")
+        self.assertEqual(exported.status_code, 200)
+        text = exported.content.decode("utf-8-sig")
+        self.assertIn("Last name,First name,Date of birth,Age,Facebook,Instagram,X,TikTok,Website,Print media", text)
+        self.assertIn("ADULT,Bea", text)
+        self.assertIn("Yes", text)
+        self.assertNotIn("LEFT", text)
+        workbook = load_workbook(BytesIO(self.client.get(
+            f"/api/club-management/publication-consent/export.xlsx?club={self.club.id}"
+        ).content))
+        sheet = workbook.active
+        self.assertEqual(sheet["E4"].value, "Facebook")
+        self.assertEqual(sheet["A5"].value, "ADULT")
+        self.assertEqual(sheet["E5"].value, "Yes")
+        pdf = self.client.get(f"/api/club-management/publication-consent/export.pdf?club={self.club.id}")
+        self.assertEqual(pdf.status_code, 200, pdf.content[:200])
+        self.assertTrue(pdf.content.startswith(b"%PDF"))
+        self.assertIn("attachment", pdf["Content-Disposition"])
+
+    def test_publication_column_and_pdf_consent_filter(self):
+        from .publication import filter_publication_rows, publication_rows
+
+        self._unlock()
+        self._auth(self.club_admin)
+        inactive = Member.objects.create(
+            club=self.club,
+            first_name="Old",
+            last_name="Left",
+            is_active=False,
+            date_of_birth=date(1990, 1, 1),
+        )
+        MemberRecord.objects.create(member=self.adult, pays_license_fee=False, publish_instagram=True)
+        column = self.client.post(
+            f"/api/club-management/publication-consent/column/?club={self.club.id}",
+            {"field": "publish_facebook", "value": True},
+            format="json",
+        )
+        self.assertEqual(column.status_code, 200, column.data)
+        by_name = {row["last_name"]: row for row in column.data["members"]}
+        self.assertEqual(set(by_name), {"ADULT", "MEMBER"})
+        self.assertTrue(by_name["ADULT"]["publish_facebook"])
+        self.assertTrue(by_name["ADULT"]["publish_instagram"])
+        self.assertTrue(by_name["MEMBER"]["publish_facebook"])
+        self.assertFalse(by_name["MEMBER"]["publish_instagram"])
+        adult_record = MemberRecord.objects.get(member=self.adult)
+        self.assertFalse(adult_record.pays_license_fee)
+        member_record = MemberRecord.objects.get(member=self.member)
+        self.assertTrue(member_record.pays_license_fee)
+        self.assertFalse(MemberRecord.objects.filter(member=inactive).exists())
+        cleared = self.client.post(
+            f"/api/club-management/publication-consent/column/?club={self.club.id}",
+            {"field": "publish_facebook", "value": False},
+            format="json",
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        self.assertTrue(all(not row["publish_facebook"] for row in cleared.data["members"]))
+        self.assertTrue(MemberRecord.objects.get(member=self.adult).publish_instagram)
+        refused_field = self.client.post(
+            f"/api/club-management/publication-consent/column/?club={self.club.id}",
+            {"field": "pays_license_fee", "value": False},
+            format="json",
+        )
+        self.assertEqual(refused_field.status_code, 400)
+        refused_value = self.client.post(
+            f"/api/club-management/publication-consent/column/?club={self.club.id}",
+            {"field": "publish_facebook", "value": "yes"},
+            format="json",
+        )
+        self.assertEqual(refused_value.status_code, 400)
+
+        mixed = Member.objects.create(club=self.club, first_name="Cal", last_name="Mixed")
+        self.client.post(
+            f"/api/club-management/publication-consent/?club={self.club.id}",
+            {"member": self.adult.id, "publish_facebook": True, "publish_instagram": True},
+            format="json",
+        )
+        self.client.post(
+            f"/api/club-management/publication-consent/?club={self.club.id}",
+            {"member": self.member.id, "publish_facebook": False, "publish_instagram": False},
+            format="json",
+        )
+        self.client.post(
+            f"/api/club-management/publication-consent/?club={self.club.id}",
+            {"member": mixed.id, "publish_facebook": True, "publish_instagram": False},
+            format="json",
+        )
+        rows = publication_rows(self.club)
+        channels = [("publish_facebook", "Facebook"), ("publish_instagram", "Instagram")]
+        denied, denied_scope = filter_publication_rows(rows, "denied", channels)
+        allowed, allowed_scope = filter_publication_rows(rows, "allowed", channels)
+        either, either_scope = filter_publication_rows(rows, "denied_any", channels)
+        everyone, everyone_scope = filter_publication_rows(rows, "all", channels)
+        self.assertEqual([row["last_name"] for row in denied], ["MEMBER"])
+        self.assertEqual(denied_scope, "Members not allowed on Facebook and Instagram")
+        self.assertEqual([row["last_name"] for row in allowed], ["ADULT"])
+        self.assertEqual(allowed_scope, "Members allowed on Facebook and Instagram")
+        self.assertEqual([row["last_name"] for row in either], ["MEMBER", "MIXED"])
+        self.assertEqual(either_scope, "Members not allowed on at least one of Facebook and Instagram")
+        self.assertEqual([row["last_name"] for row in everyone], ["ADULT", "MEMBER", "MIXED"])
+        self.assertEqual(everyone_scope, "All active members")
+        self.assertEqual(
+            self.client.get(
+                f"/api/club-management/publication-consent/export.pdf?club={self.club.id}&rule=denied&channels=publish_instagram,publish_facebook"
+            ).status_code,
+            200,
+        )
+        empty = self.client.get(
+            f"/api/club-management/publication-consent/export.pdf?club={self.club.id}&rule=allowed&channels=publish_tiktok"
+        )
+        self.assertEqual(empty.status_code, 200)
+        self.assertTrue(empty.content.startswith(b"%PDF"))
+        missing = self.client.get(
+            f"/api/club-management/publication-consent/export.pdf?club={self.club.id}&rule=denied"
+        )
+        self.assertEqual(missing.status_code, 400)
+        self.assertIn("channel", str(missing.data["detail"]).lower())
+        unknown = self.client.get(
+            f"/api/club-management/publication-consent/export.pdf?club={self.club.id}&rule=denied&channels=not_a_channel"
+        )
+        self.assertEqual(unknown.status_code, 400)
+        bad_rule = self.client.get(
+            f"/api/club-management/publication-consent/export.pdf?club={self.club.id}&rule=nope&channels=publish_facebook"
+        )
+        self.assertEqual(bad_rule.status_code, 400)
+        full_csv = self.client.get(f"/api/club-management/publication-consent/export.csv?club={self.club.id}")
+        text = full_csv.content.decode("utf-8-sig")
+        self.assertIn("MIXED,Cal", text)
+        self.assertIn("MEMBER,Ada", text)
+        self.assertNotIn("LEFT", text)
+
     @patch("licenses.tasks.send_invoice_email.delay")
     def test_family_invoice_applies_rebate(self, _queued):
         self._unlock()
@@ -239,6 +426,75 @@ class ClubManagementTests(TestCase):
         )
         self.assertEqual(removed.status_code, 200)
         self.assertEqual(len(removed.data["memberships"]), 1)
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_rebate_can_stay_for_following_members(self, _queued):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee()
+        created = []
+        for rank, percent in ((2, "10.00"), (3, "25.00"), (4, "50.00")):
+            rule = self.client.post(
+                "/api/club-management/rebate-rules/",
+                {"club": self.club.id, "member_rank": rank, "percent_off": percent},
+                format="json",
+            )
+            self.assertEqual(rule.status_code, 201, rule.data)
+            self.assertFalse(rule.data["applies_to_later"])
+            created.append(rule.data)
+        extra = [
+            Member.objects.create(club=self.club, first_name=name, last_name="Stay")
+            for name in ("Cara", "Dina", "Evan")
+        ]
+        family_id = self._family_with("Stay family", [self.adult, self.member, *extra])
+
+        def membership_amounts():
+            preview = self.client.get(
+                f"/api/club-management/families/{family_id}/invoice-preview/",
+                {"year": year},
+            )
+            self.assertEqual(preview.status_code, 200, preview.data)
+            return [line for line in preview.data["lines"] if not line.get("supplementary")]
+
+        before = membership_amounts()
+        self.assertEqual([line["amount"] for line in before], ["100.00", "90.00", "75.00", "50.00", "100.00"])
+        self.assertFalse(any(line.get("rebate_carried") for line in before))
+
+        stayed = self.client.patch(
+            f"/api/club-management/rebate-rules/{created[2]['id']}/",
+            {"applies_to_later": True},
+            format="json",
+        )
+        self.assertEqual(stayed.status_code, 200, stayed.data)
+        self.assertTrue(stayed.data["applies_to_later"])
+        carried = membership_amounts()
+        self.assertEqual([line["amount"] for line in carried], ["100.00", "90.00", "75.00", "50.00", "50.00"])
+        self.assertEqual(carried[4]["percent_off"], "50.00")
+        self.assertTrue(carried[4]["rebate_carried"])
+        self.assertFalse(carried[3]["rebate_carried"])
+
+        removed = self.client.delete(f"/api/club-management/rebate-rules/{created[1]['id']}/?club={self.club.id}")
+        self.assertEqual(removed.status_code, 204)
+        listed = self.client.get(f"/api/club-management/rebate-rules/?club={self.club.id}")
+        self.assertEqual(sorted(row["member_rank"] for row in listed.data), [2, 4])
+        after_delete = membership_amounts()
+        self.assertEqual(
+            [line["amount"] for line in after_delete],
+            ["100.00", "90.00", "100.00", "50.00", "50.00"],
+        )
+
+        gap = self.client.patch(
+            f"/api/club-management/rebate-rules/{created[0]['id']}/",
+            {"applies_to_later": True},
+            format="json",
+        )
+        self.assertEqual(gap.status_code, 200, gap.data)
+        filled = membership_amounts()
+        self.assertEqual([line["amount"] for line in filled], ["100.00", "90.00", "90.00", "50.00", "50.00"])
+        self.assertTrue(filled[2]["rebate_carried"])
+        self.assertEqual(filled[2]["percent_off"], "10.00")
+        self.assertFalse(filled[3]["rebate_carried"])
 
     @patch("licenses.tasks.send_invoice_email.delay")
     def test_member_invoices_are_not_shown_as_the_family_invoice(self, _queued):
@@ -334,6 +590,377 @@ class ClubManagementTests(TestCase):
             self.assertEqual(added.status_code, 200, added.data)
         return created.data["id"]
 
+    def _household(self, year, household_id, installment=1):
+        response = self.client.get(
+            f"/api/club-management/billing/?club={self.club.id}&year={year}&installment={installment}"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        row = next(item for item in response.data["households"] if item["id"] == household_id)
+        return response, row
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_two_billings_and_license_fee_are_not_rebated(self, _queued):
+        from .billing import license_fee_amount_for_year
+
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee()
+        for rank in (2, 3):
+            rule = self.client.post(
+                "/api/club-management/rebate-rules/",
+                {"club": self.club.id, "member_rank": rank, "percent_off": "50.00"},
+                format="json",
+            )
+            self.assertEqual(rule.status_code, 201, rule.data)
+        child = Member.objects.create(club=self.club, first_name="Cara", last_name="Child")
+        family_id = self._family_with("Three", [self.adult, self.member, child])
+        saved = self.client.put(
+            f"/api/club-management/license-fee/?club={self.club.id}",
+            {"name": "License fee", "amount": "30.00"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertEqual(saved.data["amount"], "30.00")
+        added = self.client.post(
+            f"/api/club-management/billings/?club={self.club.id}",
+            {"year": year, "label": "Autumn"},
+            format="json",
+        )
+        self.assertEqual(added.status_code, 201, added.data)
+        self.assertEqual([row["sequence"] for row in added.data["billings"]], [1, 2])
+        self.assertEqual(added.data["billings"][1]["label"], "Autumn")
+        third = self.client.post(
+            f"/api/club-management/billings/?club={self.club.id}",
+            {"year": year, "label": "Winter"},
+            format="json",
+        )
+        self.assertEqual([row["sequence"] for row in third.data["billings"]], [1, 2, 3])
+        removed = self.client.delete(
+            f"/api/club-management/billings/{third.data['billings'][2]['id']}/?club={self.club.id}"
+        )
+        self.assertEqual(removed.status_code, 204)
+        labeled = self.client.patch(
+            f"/api/club-management/billings/{added.data['billings'][1]['id']}/?club={self.club.id}",
+            {"label": "Autumn term"},
+            format="json",
+        )
+        self.assertEqual(labeled.status_code, 200, labeled.data)
+        self.assertEqual(labeled.data["label"], "Autumn term")
+
+        first_response, first = self._household(year, f"family-{family_id}", 1)
+        self.assertEqual(first_response.data["installment"], 1)
+        self.assertEqual(len(first_response.data["billings"]), 2)
+        self.assertEqual(first["total"], "290.00")
+        self.assertEqual(first["status"], "ready")
+        membership = [line for line in first["lines"] if not line.get("supplementary")]
+        license_lines = [line for line in first["lines"] if line.get("supplementary")]
+        self.assertEqual([line["amount"] for line in membership], ["100.00", "50.00", "50.00"])
+        self.assertEqual(
+            [(line["amount"], line["percent_off"], line["amount_off"]) for line in license_lines],
+            [("30.00", "0.00", ""), ("30.00", "0.00", ""), ("30.00", "0.00", "")],
+        )
+        _second_response, second = self._household(year, f"family-{family_id}", 2)
+        self.assertEqual(second["total"], "200.00")
+        self.assertFalse(any(line.get("supplementary") for line in second["lines"]))
+
+        issued = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "installment": 1, "household_ids": [f"family-{family_id}"]},
+            format="json",
+        )
+        self.assertEqual(issued.status_code, 201, issued.data)
+        self.assertEqual(issued.data["created"][0]["total"], "290.00")
+        license_items = OrderItem.objects.filter(
+            order__invoice__id=issued.data["created"][0]["invoice_id"],
+            is_license_fee=True,
+        )
+        self.assertEqual(license_items.count(), 3)
+        for item in license_items:
+            self.assertEqual(item.billing_installment, 1)
+            self.assertTrue(item.description.startswith(f"License fee {year} — "))
+            self.assertNotIn("rebate", item.description)
+        blocked = self.client.delete(
+            f"/api/club-management/billings/{added.data['billings'][0]['id']}/?club={self.club.id}"
+        )
+        self.assertEqual(blocked.status_code, 400)
+
+        family_preview = self.client.get(
+            f"/api/club-management/families/{family_id}/invoice-preview/",
+            {"year": year, "installment": 2},
+        )
+        self.assertEqual(family_preview.status_code, 200, family_preview.data)
+        self.assertFalse(family_preview.data["already_invoiced"])
+        self.assertEqual(family_preview.data["total"], "200.00")
+        already = self.client.get(
+            f"/api/club-management/families/{family_id}/invoice-preview/",
+            {"year": year, "installment": 1},
+        )
+        self.assertTrue(already.data["already_invoiced"])
+        second_issue = self.client.post(
+            f"/api/club-management/families/{family_id}/create-invoice/",
+            {"year": year, "installment": 2},
+            format="json",
+        )
+        self.assertEqual(second_issue.status_code, 201, second_issue.data)
+        self.assertEqual(second_issue.data["total"], "200.00")
+        second_items = OrderItem.objects.filter(order_id=second_issue.data["order_id"])
+        self.assertFalse(second_items.filter(is_license_fee=True).exists())
+        self.assertTrue(all(item.billing_installment == 2 for item in second_items))
+        duplicate = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "installment": 2, "household_ids": [f"family-{family_id}"]},
+            format="json",
+        )
+        self.assertEqual(duplicate.data["created_count"], 0)
+        self.assertEqual(duplicate.data["skipped"][0]["reason"], "Already invoiced.")
+
+        late = Member.objects.create(club=self.club, first_name="Late", last_name="Joiner")
+        _late_response, late_row = self._household(year, f"member-{late.id}", 2)
+        self.assertEqual(late_row["total"], "130.00")
+        self.assertEqual([line["amount"] for line in late_row["lines"] if line.get("supplementary")], ["30.00"])
+        late_issue = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "installment": 2, "household_ids": [f"member-{late.id}"]},
+            format="json",
+        )
+        self.assertEqual(late_issue.status_code, 201, late_issue.data)
+        self.assertEqual(late_issue.data["created"][0]["total"], "130.00")
+        _first_again, late_on_first = self._household(year, f"member-{late.id}", 1)
+        self.assertEqual(late_on_first["total"], "100.00")
+        self.assertFalse(any(line.get("supplementary") for line in late_on_first["lines"]))
+
+        priced = self.client.post(
+            f"/api/club-management/license-fee/add-price/?club={self.club.id}",
+            {"amount": "40.00", "effective_from": f"{year + 1}-01-01"},
+            format="json",
+        )
+        self.assertEqual(priced.status_code, 201, priced.data)
+        self.assertEqual(license_fee_amount_for_year(self.club, year), Decimal("30.00"))
+        self.assertEqual(license_fee_amount_for_year(self.club, year + 1), Decimal("40.00"))
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_license_fee_is_charged_when_membership_is_free(self, _queued):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee(amount="0.00")
+        saved = self.client.put(
+            f"/api/club-management/license-fee/?club={self.club.id}",
+            {"amount": "30.00"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        _preview, row = self._household(year, f"member-{self.adult.id}")
+        self.assertEqual(row["status"], "ready")
+        self.assertEqual(row["total"], "30.00")
+        issued = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [f"member-{self.adult.id}"]},
+            format="json",
+        )
+        self.assertEqual(issued.status_code, 201, issued.data)
+        self.assertEqual(issued.data["created"][0]["total"], "30.00")
+        issued_invoice = Invoice.objects.get(pk=issued.data["created"][0]["invoice_id"])
+        self.assertEqual(issued_invoice.status, Invoice.Status.ISSUED)
+        self.assertIsNone(issued_invoice.paid_at)
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_license_fee_is_optional_per_member_and_defaults_to_payable(self, _queued):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee()
+        saved = self.client.put(
+            f"/api/club-management/license-fee/?club={self.club.id}",
+            {"name": "Club license", "amount": "30.00"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        edited = self.client.put(
+            f"/api/club-management/license-fee/?club={self.club.id}",
+            {"name": "Club card", "amount": "25.00"},
+            format="json",
+        )
+        self.assertEqual(edited.status_code, 200, edited.data)
+        self.assertEqual(edited.data["name"], "Club card")
+        self.assertEqual(edited.data["amount"], "25.00")
+        record = self.client.get(f"/api/club-management/records/for-member/{self.adult.id}/")
+        self.assertEqual(record.status_code, 200, record.data)
+        self.assertTrue(record.data["pays_license_fee"])
+        _preview, paying = self._household(year, f"member-{self.member.id}")
+        self.assertEqual(paying["total"], "125.00")
+        self.assertTrue(any(line.get("supplementary") for line in paying["lines"]))
+        cleared = self.client.post(
+            f"/api/club-management/billing/member-license-fee/?club={self.club.id}",
+            {"member": self.adult.id, "pays_license_fee": False},
+            format="json",
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        self.assertFalse(cleared.data["pays_license_fee"])
+        _after, exempt = self._household(year, f"member-{self.adult.id}")
+        self.assertEqual(exempt["total"], "100.00")
+        self.assertFalse(any(line.get("supplementary") for line in exempt["lines"]))
+        self.assertFalse(next(line["pays_license_fee"] for line in exempt["lines"] if not line.get("supplementary")))
+        issued = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [f"member-{self.adult.id}", f"member-{self.member.id}"]},
+            format="json",
+        )
+        self.assertEqual(issued.status_code, 201, issued.data)
+        exempt_invoice = next(row for row in issued.data["created"] if row["id"] == f"member-{self.adult.id}")
+        paying_invoice = next(row for row in issued.data["created"] if row["id"] == f"member-{self.member.id}")
+        self.assertEqual(exempt_invoice["total"], "100.00")
+        self.assertEqual(paying_invoice["total"], "125.00")
+        self.assertFalse(
+            OrderItem.objects.filter(order__invoice__id=exempt_invoice["invoice_id"], is_license_fee=True).exists()
+        )
+        self.assertTrue(
+            OrderItem.objects.filter(order__invoice__id=paying_invoice["invoice_id"], is_license_fee=True).exists()
+        )
+
+    def test_single_billing_stays_the_default(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee()
+        preview, row = self._household(year, f"member-{self.adult.id}")
+        self.assertEqual(preview.data["billings"], [])
+        self.assertEqual(preview.data["installment"], 1)
+        self.assertEqual(preview.data["license_fee"]["amount"], "0.00")
+        self.assertEqual(row["total"], "100.00")
+        self.assertFalse(any(line.get("supplementary") for line in row["lines"]))
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_license_fee_is_not_added_after_the_first_bill(self, _queued):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee()
+        issued = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [f"member-{self.adult.id}"]},
+            format="json",
+        )
+        self.assertEqual(issued.status_code, 201, issued.data)
+        item = OrderItem.objects.get(order__invoice__id=issued.data["created"][0]["invoice_id"])
+        item.billing_installment = None
+        item.save(update_fields=["billing_installment"])
+        self.client.put(
+            f"/api/club-management/license-fee/?club={self.club.id}",
+            {"amount": "30.00"},
+            format="json",
+        )
+        self.client.post(
+            f"/api/club-management/billings/?club={self.club.id}",
+            {"year": year},
+            format="json",
+        )
+        _second, row = self._household(year, f"member-{self.adult.id}", 2)
+        self.assertEqual(row["status"], "ready")
+        self.assertEqual(row["total"], "100.00")
+        self.assertFalse(any(line.get("supplementary") for line in row["lines"]))
+
+    @patch("licenses.tasks.send_invoice_email.delay")
+    def test_license_fee_can_be_placed_on_a_later_billing(self, _queued):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = date.today().year
+        self._fee()
+        self.client.put(
+            f"/api/club-management/license-fee/?club={self.club.id}",
+            {"name": "License fee", "amount": "30.00"},
+            format="json",
+        )
+        added = self.client.post(
+            f"/api/club-management/billings/?club={self.club.id}",
+            {"year": year, "label": "September"},
+            format="json",
+        )
+        self.assertEqual(added.status_code, 201, added.data)
+        self.assertEqual([row["charges_license_fee"] for row in added.data["billings"]], [True, False])
+        _first, opening = self._household(year, f"member-{self.adult.id}", 1)
+        self.assertEqual(opening["total"], "130.00")
+        _second, later = self._household(year, f"member-{self.adult.id}", 2)
+        self.assertEqual(later["total"], "100.00")
+
+        september = added.data["billings"][1]
+        chosen = self.client.patch(
+            f"/api/club-management/billings/{september['id']}/?club={self.club.id}",
+            {"charges_license_fee": True},
+            format="json",
+        )
+        self.assertEqual(chosen.status_code, 200, chosen.data)
+        self.assertTrue(chosen.data["charges_license_fee"])
+        refused = self.client.patch(
+            f"/api/club-management/billings/{september['id']}/?club={self.club.id}",
+            {"charges_license_fee": False},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400)
+        listed = self.client.get(f"/api/club-management/billings/?club={self.club.id}&year={year}")
+        self.assertEqual([row["charges_license_fee"] for row in listed.data["billings"]], [False, True])
+        _moved_first, opening = self._household(year, f"member-{self.adult.id}", 1)
+        self.assertEqual(opening["total"], "100.00")
+        self.assertFalse(any(line.get("supplementary") for line in opening["lines"]))
+        _moved_second, later = self._household(year, f"member-{self.adult.id}", 2)
+        self.assertEqual(later["total"], "130.00")
+        self.assertEqual([line["amount"] for line in later["lines"] if line.get("supplementary")], ["30.00"])
+
+        removed = self.client.delete(f"/api/club-management/billings/{september['id']}/?club={self.club.id}")
+        self.assertEqual(removed.status_code, 204)
+        after_delete = self.client.get(f"/api/club-management/billings/?club={self.club.id}&year={year}")
+        self.assertEqual(
+            [(row["sequence"], row["charges_license_fee"]) for row in after_delete.data["billings"]],
+            [(1, True)],
+        )
+        restored = self.client.post(
+            f"/api/club-management/billings/?club={self.club.id}",
+            {"year": year, "label": "September"},
+            format="json",
+        )
+        september = next(row for row in restored.data["billings"] if row["sequence"] == 2)
+        self.client.patch(
+            f"/api/club-management/billings/{september['id']}/?club={self.club.id}",
+            {"charges_license_fee": True},
+            format="json",
+        )
+        january = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "installment": 1, "household_ids": [f"member-{self.adult.id}"]},
+            format="json",
+        )
+        self.assertEqual(january.status_code, 201, january.data)
+        self.assertEqual(january.data["created"][0]["total"], "100.00")
+        self.assertFalse(
+            OrderItem.objects.filter(order__invoice__id=january.data["created"][0]["invoice_id"], is_license_fee=True).exists()
+        )
+        season = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "installment": 2, "household_ids": [f"member-{self.adult.id}"]},
+            format="json",
+        )
+        self.assertEqual(season.status_code, 201, season.data)
+        self.assertEqual(season.data["created"][0]["total"], "130.00")
+        license_item = OrderItem.objects.get(order__invoice__id=season.data["created"][0]["invoice_id"], is_license_fee=True)
+        self.assertEqual(license_item.billing_installment, 2)
+
+        self.client.post(
+            f"/api/club-management/billings/?club={self.club.id}",
+            {"year": year, "label": "Winter"},
+            format="json",
+        )
+        late = Member.objects.create(club=self.club, first_name="Late", last_name="Joiner")
+        _late_early, early_row = self._household(year, f"member-{late.id}", 1)
+        self.assertEqual(early_row["total"], "100.00")
+        _late_season, season_row = self._household(year, f"member-{late.id}", 2)
+        self.assertEqual(season_row["total"], "130.00")
+        _late_next, next_row = self._household(year, f"member-{late.id}", 3)
+        self.assertEqual(next_row["total"], "130.00")
+        _adult_next, adult_next = self._household(year, f"member-{self.adult.id}", 3)
+        self.assertEqual(adult_next["total"], "100.00")
+        self.assertFalse(any(line.get("supplementary") for line in adult_next["lines"]))
+
     @patch("licenses.tasks.send_invoice_email.delay")
     def test_family_invoice_is_one_bill_addressed_to_the_chosen_adult(self, queued):
         self._unlock()
@@ -366,7 +993,7 @@ class ClubManagementTests(TestCase):
             format="json",
         )
         self.assertEqual(refused.status_code, 400, refused.data)
-        self.assertIn("bill_to", refused.data)
+        self.assertIn("receives the bill", refused.data.get("detail", ""))
         year = date.today().year
         preview = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
         minors = next(row for row in preview.data["households"] if row["id"] == f"family-{minors_id}")
@@ -524,9 +1151,13 @@ class ClubManagementTests(TestCase):
         self.assertEqual(len(preview.data["fees"]), 2)
         self.assertEqual(annual.status_code, 201)
 
-    def test_billing_zero_fee_is_complimentary_not_invoiced(self):
+    def test_billing_zero_total_is_issued_paid(self):
         self._unlock()
         self._auth(self.club_admin)
+        from clubmgmt.billing import paper_invoices
+
+        from .models import MembershipYearConfirmation
+
         paying = self.client.post(
             "/api/club-management/membership-fees/",
             {"club": self.club.id, "name": "Adult", "amount": "100.00"},
@@ -546,19 +1177,18 @@ class ClubManagementTests(TestCase):
         year = date.today().year
         preview = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
         self.assertEqual(preview.status_code, 200)
+        self.assertEqual(preview.data["summary"]["complimentary_count"], 0)
         coach = next(row for row in preview.data["households"] if row["id"] == f"member-{self.adult.id}")
         paying_row = next(row for row in preview.data["households"] if row["id"] == f"member-{self.member.id}")
-        self.assertEqual(coach["status"], "complimentary")
+        self.assertEqual(coach["status"], "ready")
         self.assertEqual(coach["total"], "0.00")
         self.assertEqual(paying_row["status"], "ready")
-        issued = self.client.post(
-            f"/api/club-management/billing/?club={self.club.id}",
-            {"year": year, "household_ids": [coach["id"], paying_row["id"]]},
-            format="json",
+        household = self.client.get(
+            f"/api/club-management/billing/household/?club={self.club.id}&household={coach['id']}&year={year}"
         )
-        self.assertEqual(issued.status_code, 201)
-        self.assertEqual(issued.data["created_count"], 1)
-        self.assertTrue(any(row["id"] == coach["id"] for row in issued.data["skipped"]))
+        self.assertEqual(household.status_code, 200, household.data)
+        self.assertFalse(household.data["already_confirmed"])
+        self.assertEqual(household.data["total"], "0.00")
         confirmed = self.client.post(
             f"/api/club-management/billing/confirm/?club={self.club.id}",
             {"year": year, "household_ids": [coach["id"]]},
@@ -566,6 +1196,15 @@ class ClubManagementTests(TestCase):
         )
         self.assertEqual(confirmed.status_code, 200)
         self.assertEqual(confirmed.data["confirmed_count"], 1)
+        issued = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [coach["id"], paying_row["id"]]},
+            format="json",
+        )
+        self.assertEqual(issued.status_code, 201, issued.data)
+        self.assertEqual(issued.data["created_count"], 1)
+        self.assertEqual(issued.data["created"][0]["id"], paying_row["id"])
+        self.assertEqual(issued.data["skipped"][0]["reason"], "Already confirmed for this year.")
         after = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
         coach_after = next(row for row in after.data["households"] if row["id"] == f"member-{self.adult.id}")
         self.assertEqual(coach_after["status"], "confirmed")
@@ -574,6 +1213,35 @@ class ClubManagementTests(TestCase):
                 club=self.club, member=self.adult, total=Decimal("0.00"), status=Invoice.Status.ISSUED
             ).exists()
         )
+        MembershipYearConfirmation.objects.filter(
+            club=self.club, year=year, household_key=coach["id"]
+        ).delete()
+        issued_zero = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [coach["id"]]},
+            format="json",
+        )
+        self.assertEqual(issued_zero.status_code, 201, issued_zero.data)
+        self.assertEqual(issued_zero.data["created_count"], 1)
+        self.assertEqual(issued_zero.data["created"][0]["total"], "0.00")
+        paid = Invoice.objects.select_related("order").get(pk=issued_zero.data["created"][0]["invoice_id"])
+        self.assertEqual(paid.status, Invoice.Status.PAID)
+        self.assertIsNotNone(paid.paid_at)
+        self.assertEqual(paid.order.status, Order.Status.PAID)
+        self.assertEqual(Payment.objects.filter(invoice=paid).count(), 0)
+        self.assertFalse(
+            paper_invoices(self.club.id, year, ["email", "post", "hand"]).filter(pk=paid.id).exists()
+        )
+        paid_list = self.client.get(f"/api/club-management/billing/?club={self.club.id}&year={year}")
+        coach_paid = next(row for row in paid_list.data["households"] if row["id"] == f"member-{self.adult.id}")
+        self.assertEqual(coach_paid["status"], "paid")
+        again = self.client.post(
+            f"/api/club-management/billing/?club={self.club.id}",
+            {"year": year, "household_ids": [coach["id"]]},
+            format="json",
+        )
+        self.assertEqual(again.data["created_count"], 0)
+        self.assertEqual(again.data["skipped"][0]["reason"], "Already invoiced.")
 
     def test_settle_zero_euro_membership_invoices(self):
         self._unlock()
@@ -597,7 +1265,15 @@ class ClubManagementTests(TestCase):
             ],
             total=Decimal("0.00"),
         )
-        self.assertEqual(order_invoice.status, Invoice.Status.ISSUED)
+        self.assertEqual(order_invoice.status, Invoice.Status.PAID)
+        self.assertIsNotNone(order_invoice.paid_at)
+        self.assertEqual(order_invoice.order.status, Order.Status.PAID)
+        order_invoice.status = Invoice.Status.ISSUED
+        order_invoice.paid_at = None
+        order_invoice.save(update_fields=["status", "paid_at", "updated_at"])
+        order = order_invoice.order
+        order.status = Order.Status.PENDING
+        order.save(update_fields=["status", "updated_at"])
         settled = settle_zero_euro_membership_invoices(club=self.club)
         self.assertGreaterEqual(settled, 1)
         order_invoice.refresh_from_db()

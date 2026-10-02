@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Publication consent</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm 12mm 32mm 12mm;
+        @bottom-center {
+          content: element(consent-foot);
+          width: 100%;
+          vertical-align: top;
+        }
+      }
+      @page:first {
+        margin-top: 0;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.regular }}");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.bold }}");
+        font-weight: 700;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.italic }}");
+        font-weight: 400;
+        font-style: italic;
+      }
+      @font-face {
+        font-family: "Invoice Sans";
+        src: url("{{ invoice_fonts.bold_italic }}");
+        font-weight: 700;
+        font-style: italic;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: #000;
+        font-family: "Invoice Sans", Arial, sans-serif;
+        font-size: 9pt;
+      }
+      .logo {
+        position: absolute;
+        top: 10mm;
+        left: 2mm;
+        width: 16.3mm;
+        height: 18mm;
+        object-fit: contain;
+      }
+      .club-name {
+        position: absolute;
+        top: 10.4mm;
+        left: 22mm;
+        margin: 0;
+        font-size: 12pt;
+        font-weight: 700;
+        line-height: 12pt;
+      }
+      .addr, .bank {
+        position: absolute;
+        top: 17.35mm;
+        margin: 0;
+        font-size: 9pt;
+        line-height: 3.66mm;
+      }
+      .addr { left: 22mm; }
+      .bank { left: 110mm; }
+      .addr p, .bank p { margin: 0; }
+      .lead { height: 38mm; }
+      h1 {
+        margin: 0 0 1.5mm;
+        font-size: 12pt;
+        line-height: 12pt;
+      }
+      .scope {
+        margin: 0 0 1mm;
+        font-size: 9pt;
+      }
+      .intro {
+        margin: 0 0 3mm;
+        font-size: 9pt;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      thead { display: table-header-group; }
+      th {
+        font-style: italic;
+        font-weight: 400;
+        font-size: 7.5pt;
+        text-align: center;
+        padding: 1mm 0.6mm;
+        border-bottom: 0.5pt solid #808080;
+        vertical-align: bottom;
+      }
+      th.name { text-align: left; }
+      td {
+        padding: 1.2mm 0.6mm;
+        border-bottom: 0.4pt solid #b2b2b2;
+        vertical-align: middle;
+        font-size: 8.5pt;
+        line-height: 9pt;
+      }
+      td.name { text-align: left; }
+      td.center { text-align: center; }
+      tr { break-inside: avoid; }
+      .closing { position: running(consent-foot); height: 32mm; }
+      .foot { position: relative; height: 32mm; }
+      .foot img { position: absolute; object-fit: contain; }
+      .logo-wt { left: 0; top: 0; width: 37.54mm; height: 21.45mm; }
+      .logo-etu { left: 41mm; top: 4.53mm; width: 39.10mm; height: 13.35mm; }
+      .logo-ltf { left: 84mm; top: 3.35mm; width: 29.67mm; height: 16.69mm; }
+      .meta {
+        position: absolute;
+        right: 0;
+        top: 3.8mm;
+        margin: 0;
+        font-size: 9pt;
+        line-height: 3.65mm;
+        text-align: left;
+      }
+      .meta p { margin: 0; white-space: nowrap; }
+      .meta .label {
+        display: inline-block;
+        width: 22mm;
+        text-align: right;
+        margin-right: 1.4mm;
+      }
+    </style>
+  </head>
+  <body>
+    {% if issuer.logo_uri %}
+    <img class="logo" src="{{ issuer.logo_uri }}" alt="" />
+    {% endif %}
+    <p class="club-name">{{ issuer.name }}</p>
+    <div class="addr">
+      {% for line in issuer.lines %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <div class="bank">
+      {% if issuer.iban %}<p>{{ issuer.iban }}</p>{% endif %}
+      {% if issuer.email %}<p>{{ issuer.email }}</p>{% endif %}
+      {% if issuer.website %}<p>{{ issuer.website }}</p>{% endif %}
+    </div>
+    <div class="lead"></div>
+    <h1>Publication consent</h1>
+    <p class="scope">{{ scope }}</p>
+    <p class="intro">{{ count }} member{{ count|pluralize }} · {{ printed_on }}</p>
+    {% if count == 0 %}<p class="intro">No members match this list.</p>{% endif %}
+    <table>
+      <colgroup>
+        <col style="width: 18%" />
+        <col style="width: 16%" />
+        <col style="width: 14%" />
+        <col style="width: 7%" />
+        <col style="width: 9%" />
+        <col style="width: 9%" />
+        <col style="width: 6%" />
+        <col style="width: 8%" />
+        <col style="width: 8%" />
+        <col style="width: 5%" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="name">Last name</th>
+          <th class="name">First name</th>
+          <th>Date of birth</th>
+          <th>Age</th>
+          {% for label in channels %}<th>{{ label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="name">{{ row.last_name }}</td>
+          <td class="name">{{ row.first_name }}</td>
+          <td class="center">{{ row.born_label }}</td>
+          <td class="center">{{ row.age_label }}</td>
+          {% for mark in row.marks %}<td class="center">{{ mark }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="closing">
+      <div class="foot">
+        {% if footer_logos.world %}<img class="logo-wt" src="{{ footer_logos.world }}" alt="" />{% endif %}
+        {% if footer_logos.europe %}<img class="logo-etu" src="{{ footer_logos.europe }}" alt="" />{% endif %}
+        {% if footer_logos.ltf %}<img class="logo-ltf" src="{{ footer_logos.ltf }}" alt="" />{% endif %}
+        <div class="meta">
+          <p><span class="label">Document :</span>Publication consent</p>
+          <p><span class="label">Date :</span>{{ printed_on }}</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

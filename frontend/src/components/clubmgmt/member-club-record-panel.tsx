@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const RELATIONS = ["father", "mother", "grandfather", "grandmother", "uncle", "aunt", "brother", "sister", "guardian", "partner", "other"] as const;
+const RELATIONS = ["father", "mother", "grandfather", "grandmother", "uncle", "aunt", "brother", "sister", "guardian", "partner", "spouse", "other"] as const;
 const PARENT_RELATIONS = new Set(["father", "mother", "guardian", "grandfather", "grandmother"]);
 const NONE_VALUE = "none";
 
@@ -246,6 +246,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ...nextRecord,
         invoice_delivery: nextRecord.invoice_delivery || "email",
         membership_fee: nextRecord.membership_fee ?? null,
+        pays_license_fee: nextRecord.pays_license_fee !== false,
         nationality_1: nationalityCodeFromStored(nextRecord.nationality_1),
         nationality_2: nationalityCodeFromStored(nextRecord.nationality_2),
         emails: nextRecord.emails.filter((row) => row.email.trim()),
@@ -280,6 +281,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       ...saved,
       invoice_delivery: saved.invoice_delivery || "email",
       membership_fee: saved.membership_fee ?? null,
+      pays_license_fee: saved.pays_license_fee !== false,
       nationality_1: nationalityCodeFromStored(saved.nationality_1),
       nationality_2: nationalityCodeFromStored(saved.nationality_2),
       emails: saved.emails.filter((row) => row.email.trim()),
@@ -833,6 +835,16 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
             locale={locale}
             onChange={(next) => setRecord({ ...record, nationality_2: next })}
           />
+          <div className="md:col-span-2">
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={record.pays_license_fee !== false}
+                onCheckedChange={(value) => setRecord({ ...record, pays_license_fee: value === true })}
+              />
+              <span className="text-sm font-medium">{t("paysLicenseFee")}</span>
+            </label>
+            <p className="mt-1 text-xs text-muted">{t("paysLicenseFeeHint")}</p>
+          </div>
           {fees.length > 0 ? (
             <div className="md:col-span-2">
               <Label>{t("memberFeeLabel")}</Label>
@@ -1050,7 +1062,47 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       </FormPanel>
 
       <FormPanel>
-        <h3 className="text-section text-foreground">{t("mediaConsent")}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-section text-foreground">{t("mediaConsent")}</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setRecord({
+                  ...record,
+                  publish_facebook: true,
+                  publish_instagram: true,
+                  publish_x: true,
+                  publish_tiktok: true,
+                  publish_webpage: true,
+                  publish_print: true,
+                })
+              }
+            >
+              {t("selectAll")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setRecord({
+                  ...record,
+                  publish_facebook: false,
+                  publish_instagram: false,
+                  publish_x: false,
+                  publish_tiktok: false,
+                  publish_webpage: false,
+                  publish_print: false,
+                })
+              }
+            >
+              {t("clearSelection")}
+            </Button>
+          </div>
+        </div>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
           {(
             [

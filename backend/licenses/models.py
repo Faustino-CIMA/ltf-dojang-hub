@@ -386,6 +386,8 @@ class OrderItem(models.Model):
     )
     description = models.CharField(max_length=255, blank=True)
     billing_year = models.PositiveIntegerField(null=True, blank=True)
+    billing_installment = models.PositiveSmallIntegerField(null=True, blank=True)
+    is_license_fee = models.BooleanField(default=False)
     billing_month = models.PositiveSmallIntegerField(null=True, blank=True)
     billing_club = models.ForeignKey(
         Club,

@@ -2,11 +2,24 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from . import views
+from .publication import (
+    PublicationConsentColumnView,
+    PublicationConsentCsvView,
+    PublicationConsentPdfView,
+    PublicationConsentView,
+    PublicationConsentXlsxView,
+)
 from .billing import (
     ClubBillingAssignFeeView,
     ClubBillingConfirmView,
+    ClubBillingHouseholdView,
+    ClubBillingMemberLicenseFeeView,
     ClubBillingPrintPackView,
     ClubBillingView,
+    ClubLicenseFeePriceView,
+    ClubLicenseFeeView,
+    MembershipBillingDetailView,
+    MembershipBillingListView,
 )
 from .subsidy_views import (
     ExtraordinarySubsidyDetailView,
@@ -67,9 +80,24 @@ urlpatterns = [
     path("addresses/", views.LuxembourgAddressView.as_view(), name="clubmgmt-addresses"),
     path("finance-access/", views.ClubFinanceAccessView.as_view(), name="clubmgmt-finance-access"),
     path("billing/", ClubBillingView.as_view(), name="clubmgmt-billing"),
+    path("billing/household/", ClubBillingHouseholdView.as_view(), name="clubmgmt-billing-household"),
     path("billing/confirm/", ClubBillingConfirmView.as_view(), name="clubmgmt-billing-confirm"),
     path("billing/print-pack/", ClubBillingPrintPackView.as_view(), name="clubmgmt-billing-print-pack"),
     path("billing/assign-fee/", ClubBillingAssignFeeView.as_view(), name="clubmgmt-billing-assign-fee"),
+    path(
+        "billing/member-license-fee/",
+        ClubBillingMemberLicenseFeeView.as_view(),
+        name="clubmgmt-billing-member-license-fee",
+    ),
+    path("billings/", MembershipBillingListView.as_view(), name="clubmgmt-billings"),
+    path("billings/<int:billing_id>/", MembershipBillingDetailView.as_view(), name="clubmgmt-billing-detail"),
+    path("license-fee/", ClubLicenseFeeView.as_view(), name="clubmgmt-license-fee"),
+    path("publication-consent/", PublicationConsentView.as_view(), name="clubmgmt-publication-consent"),
+    path("publication-consent/column/", PublicationConsentColumnView.as_view(), name="clubmgmt-publication-consent-column"),
+    path("publication-consent/export.csv", PublicationConsentCsvView.as_view(), name="clubmgmt-publication-consent-csv"),
+    path("publication-consent/export.xlsx", PublicationConsentXlsxView.as_view(), name="clubmgmt-publication-consent-xlsx"),
+    path("publication-consent/export.pdf", PublicationConsentPdfView.as_view(), name="clubmgmt-publication-consent-pdf"),
+    path("license-fee/add-price/", ClubLicenseFeePriceView.as_view(), name="clubmgmt-license-fee-price"),
     path("shop/overview/", ShopOverviewView.as_view(), name="clubmgmt-shop-overview"),
     path("shop/scan/", ShopScanView.as_view(), name="clubmgmt-shop-scan"),
     path("shop/catalogue.pdf", ShopCataloguePdfView.as_view(), name="clubmgmt-shop-catalogue"),

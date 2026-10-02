@@ -30,13 +30,13 @@ Club Admin pages:
 - Quick print: `/{locale}/dashboard/club/print-jobs/quick-print`
 - Club admins (rubber-band): `/{locale}/dashboard/club/admins`
 - Membership fees: `/{locale}/dashboard/club/fees`
-  - Add a fee from the card at the top. Edit on a fee corrects its name and current amount. Delete removes it and returns assigned members to the club default. Save new amount schedules a later price. Issued invoices stay unchanged.
+  - Add a fee from the card at the top. Edit on a fee corrects its name and current amount. Delete removes it and returns assigned members to the club default. Save new amount schedules a later price. Issued invoices stay unchanged. A year can have several billings, and each one charges the membership amount again. License fee billing chooses which one adds the license fee. Until another is chosen, the fee stays on the first billing.
 - Families: `/{locale}/dashboard/club/families`
-  - Members of a family share one invoice. Choose who receives the bill. Parents and guardians can be entered here and on a minor’s club record.
+  - Family cards start collapsed. They keep who is in the family and who receives the bill. Parents and guardians can be entered here and on a minor’s club record. Invoices are issued from Billing. Invoice preview opens the family invoice page.
 - Billing: `/{locale}/dashboard/club/billing`
-  - A family row shows an invoice number only when one invoice covers every current member. The amount is that invoice’s total.
+  - Review and issue sends the selected billing. A row opens that household’s invoice page. A family row shows an invoice number only when one invoice covers every current member, and the amount is that invoice’s total. A total of 0,00 is issued and marked paid.
 - Club settings: `/{locale}/dashboard/club/settings`
-  - Website is printed under the club email on invoices the club sends to its members.
+  - Website is printed under the club email on invoices the club sends to its members. When club management is assigned, Publication consent lists active members. A column header ticks that channel for every active member. The PDF can list members by consent. CSV and Excel include every active member.
 
 Ops console (Django `is_superuser` only):
 - Overview: `/{locale}/dashboard/ops`
