@@ -52,7 +52,9 @@ Preview prove-out (only when entitled / assigned):
 Event calendar (module `event_calendar`; federation when entitled, club when assigned):
 - LTF Admin: `/{locale}/dashboard/ltf/calendar`
 - Club Admin: `/{locale}/dashboard/club/calendar`
-- Member (public dates): `/{locale}/dashboard/member/calendar`
+- Member: `/{locale}/dashboard/member/calendar` for public dates, shared dates on an assigned calendar, and a presidents meeting when that member is the current president
+- A club event can be public, internal, private, or shared with every club and the LTF. An LTF event can also be limited to selected club presidents.
+- The Calendar link shows the count for the next two months and “new” until those events are opened. A club admin can set a reminder with Snooze for a day and Got it.
 
 Quick print entry points:
 - Members page stores selected member IDs and opens quick print:
