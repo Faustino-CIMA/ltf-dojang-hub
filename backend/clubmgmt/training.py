@@ -10,6 +10,8 @@ from members.models import Member
 
 from .holidays import is_public_holiday, is_school_holiday
 from .training_models import (
+    CoachOuting,
+    CoachPayRate,
     PublicHoliday,
     SchoolHoliday,
     TrainingAttendance,
@@ -166,12 +168,92 @@ def pay_periods(settings: TrainingSettings, year: int) -> list[dict]:
     return periods
 
 
-def coach_hour_report(club, year: int) -> dict:
+def _coach_name(user) -> str:
+    return f"{user.first_name} {user.last_name}".strip() or user.username
+
+
+def _money(amount: Decimal) -> str:
+    return f"{amount.quantize(Decimal('0.01')):.2f}"
+
+
+def outing_coaching_pay(outing: CoachOuting, rate: Decimal) -> Decimal:
+    if outing.coaching_amount is not None:
+        return outing.coaching_amount
+    return (outing.quantity * rate).quantize(Decimal("0.01"))
+
+
+def _rate_catalog(club, rates: dict[int, CoachPayRate]) -> list[dict]:
+    from django.contrib.auth import get_user_model
+
+    user_ids = set(club.trainers.values_list("id", flat=True))
+    user_ids.update(
+        TrainingSession.objects.filter(club=club, status=TrainingSession.Status.HELD).values_list("coaches__id", flat=True)
+    )
+    user_ids.update(rates)
+    user_ids.update(CoachOuting.objects.filter(club=club).values_list("coach_id", flat=True))
+    user_ids.discard(None)
+    users = list(get_user_model().objects.filter(id__in=user_ids))
+    rows = []
+    for user in sorted(users, key=lambda item: (_coach_name(item).lower(), item.id)):
+        rate_row = rates.get(user.id)
+        rows.append(
+            {
+                "user_id": user.id,
+                "name": _coach_name(user),
+                "basis": rate_row.basis if rate_row else "",
+                "rate": _money(rate_row.rate) if rate_row else "",
+            }
+        )
+    return rows
+
+
+def _serialize_outing(outing: CoachOuting, rates: dict[int, CoachPayRate]) -> dict:
+    rate_row = rates.get(outing.coach_id)
+    rate = rate_row.rate if rate_row else Decimal("0")
+    return {
+        "id": outing.id,
+        "user_id": outing.coach_id,
+        "name": _coach_name(outing.coach),
+        "held_on": outing.held_on.isoformat(),
+        "tournament": outing.name,
+        "quantity": _money(outing.quantity),
+        "coaching_amount": None if outing.coaching_amount is None else _money(outing.coaching_amount),
+        "fuel_amount": _money(outing.fuel_amount),
+        "hotel_amount": _money(outing.hotel_amount),
+        "coaching_pay": _money(outing_coaching_pay(outing, rate)),
+    }
+
+
+def coach_hour_report(club, year: int, *, include_pay: bool = False) -> dict:
     settings, _created = TrainingSettings.objects.get_or_create(club=club)
+    period_rows = pay_periods(settings, year)
     periods = []
-    sessions = TrainingSession.objects.filter(club=club, status=TrainingSession.Status.HELD).prefetch_related("coaches")
-    for period in pay_periods(settings, year):
+    if period_rows:
+        span_start = period_rows[0]["starts_on"]
+        span_end = period_rows[-1]["ends_on"]
+        sessions = list(
+            TrainingSession.objects.filter(
+                club=club,
+                status=TrainingSession.Status.HELD,
+                held_on__gte=span_start,
+                held_on__lte=span_end,
+            ).prefetch_related("coaches")
+        )
+    else:
+        span_start = None
+        span_end = None
+        sessions = []
+    rates: dict[int, CoachPayRate] = {}
+    outings: list[CoachOuting] = []
+    if include_pay:
+        rates = {row.coach_id: row for row in CoachPayRate.objects.filter(club=club)}
+        if span_start is not None and span_end is not None:
+            outings = list(
+                CoachOuting.objects.filter(club=club, held_on__gte=span_start, held_on__lte=span_end).select_related("coach")
+            )
+    for period in period_rows:
         totals: dict[int, Decimal] = {}
+        units: dict[int, int] = {}
         names: dict[int, str] = {}
         for session in sessions:
             if not (period["starts_on"] <= session.held_on <= period["ends_on"]):
@@ -179,19 +261,62 @@ def coach_hour_report(club, year: int) -> dict:
             hours = session_hours(session)
             for coach in session.coaches.all():
                 totals[coach.id] = totals.get(coach.id, Decimal("0")) + hours
-                names[coach.id] = f"{coach.first_name} {coach.last_name}".strip() or coach.username
+                units[coach.id] = units.get(coach.id, 0) + 1
+                names[coach.id] = _coach_name(coach)
+        period_outings = [outing for outing in outings if period["starts_on"] <= outing.held_on <= period["ends_on"]]
+        for outing in period_outings:
+            names.setdefault(outing.coach_id, _coach_name(outing.coach))
+            totals.setdefault(outing.coach_id, Decimal("0"))
+            units.setdefault(outing.coach_id, 0)
+        coaches = []
+        for user_id in sorted(names, key=lambda item: (names[item].lower(), item)):
+            row = {
+                "user_id": user_id,
+                "name": names[user_id],
+                "hours": f"{totals[user_id]:.2f}",
+                "units": str(units[user_id]),
+            }
+            if include_pay:
+                rate_row = rates.get(user_id)
+                basis = rate_row.basis if rate_row else ""
+                rate = rate_row.rate if rate_row else Decimal("0")
+                if basis == CoachPayRate.Basis.UNIT:
+                    training_pay = (Decimal(units[user_id]) * rate).quantize(Decimal("0.01"))
+                else:
+                    training_pay = (totals[user_id] * rate).quantize(Decimal("0.01"))
+                tournament_pay = Decimal("0")
+                fuel = Decimal("0")
+                hotel = Decimal("0")
+                for outing in period_outings:
+                    if outing.coach_id != user_id:
+                        continue
+                    tournament_pay += outing_coaching_pay(outing, rate)
+                    fuel += outing.fuel_amount
+                    hotel += outing.hotel_amount
+                tournament_pay = tournament_pay.quantize(Decimal("0.01"))
+                fuel = fuel.quantize(Decimal("0.01"))
+                hotel = hotel.quantize(Decimal("0.01"))
+                row.update(
+                    {
+                        "basis": basis,
+                        "rate": _money(rate) if rate_row else "",
+                        "training_pay": _money(training_pay),
+                        "tournament_pay": _money(tournament_pay),
+                        "fuel": _money(fuel),
+                        "hotel": _money(hotel),
+                        "total": _money(training_pay + tournament_pay + fuel + hotel),
+                    }
+                )
+            coaches.append(row)
         periods.append(
             {
                 "label": period["label"],
                 "starts_on": period["starts_on"].isoformat(),
                 "ends_on": period["ends_on"].isoformat(),
-                "coaches": [
-                    {"user_id": user_id, "name": names[user_id], "hours": f"{hours:.2f}"}
-                    for user_id, hours in sorted(totals.items(), key=lambda item: names[item[0]].lower())
-                ],
+                "coaches": coaches,
             }
         )
-    return {
+    payload = {
         "pay_frequency": settings.pay_frequency,
         "payday_day": settings.payday_day,
         "quarter_anchor_month": settings.quarter_anchor_month,
@@ -201,6 +326,10 @@ def coach_hour_report(club, year: int) -> dict:
         "second_payday_day": settings.second_payday_day,
         "periods": periods,
     }
+    if include_pay:
+        payload["rates"] = _rate_catalog(club, rates)
+        payload["outings"] = [_serialize_outing(outing, rates) for outing in outings]
+    return payload
 
 
 def member_training_hours(member: Member, *, since: date | None = None) -> dict:

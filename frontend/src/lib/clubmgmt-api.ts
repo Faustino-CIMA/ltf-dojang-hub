@@ -20,6 +20,7 @@ export type MemberRecord = {
   publish_print: boolean;
   invoice_delivery: "email" | "post" | "hand";
   membership_fee: number | null;
+  pays_license_fee: boolean;
   emails: Array<{ id: number; email: string; use_for_invoice: boolean }>;
   phones: Array<{ id: number; number: string; label: string }>;
   addresses: Array<{
@@ -185,6 +186,10 @@ export function listFamilies(clubId: number) {
   return apiRequest<FamilyRecord[]>(`/api/club-management/families/?club=${clubId}`);
 }
 
+export function getFamily(familyId: number, clubId: number) {
+  return apiRequest<FamilyRecord>(`/api/club-management/families/${familyId}/?club=${clubId}`);
+}
+
 export function updateFamily(familyId: number, payload: Record<string, unknown>) {
   return apiRequest<FamilyRecord>(`/api/club-management/families/${familyId}/`, {
     method: "PATCH",
@@ -226,6 +231,8 @@ export type FamilyInvoicePreview = {
   payer_name: string;
   payer_kind?: "member" | "person" | "missing";
   needs_recipient?: boolean;
+  installment?: number;
+  billings?: MembershipBillingRow[];
   lines: Array<{
     member_id: number;
     member_name: string;
@@ -233,25 +240,107 @@ export type FamilyInvoicePreview = {
     percent_off: string;
     amount_off?: string;
     amount: string;
+    fee_name?: string;
+    supplementary?: boolean;
+    rebate_carried?: boolean;
+    pays_license_fee?: boolean;
   }>;
   total: string;
+  license_fee?: { name: string; amount: string };
   already_invoiced: boolean;
+  already_confirmed?: boolean;
+  name?: string;
+  household_id?: string;
+  kind?: string;
 };
 
-export function previewFamilyInvoice(familyId: number, year: number) {
+export function previewFamilyInvoice(familyId: number, year: number, installment = 1) {
   return apiRequest<FamilyInvoicePreview>(
-    `/api/club-management/families/${familyId}/invoice-preview/?year=${year}`,
+    `/api/club-management/families/${familyId}/invoice-preview/?year=${year}&installment=${installment}`,
   );
 }
 
-export function createFamilyInvoice(familyId: number, year: number) {
+export function previewHousehold(clubId: number, householdId: string, year: number, installment = 1) {
+  const params = new URLSearchParams({
+    club: String(clubId),
+    household: householdId,
+    year: String(year),
+    installment: String(installment),
+  });
+  return apiRequest<FamilyInvoicePreview>(`/api/club-management/billing/household/?${params.toString()}`);
+}
+
+export function createFamilyInvoice(familyId: number, year: number, installment = 1) {
   return apiRequest<{ invoice_number: string; total: string; invoice_id: number; order_id: number }>(
     `/api/club-management/families/${familyId}/create-invoice/`,
     {
       method: "POST",
-      body: JSON.stringify({ year }),
+      body: JSON.stringify({ year, installment }),
     },
   );
+}
+
+export type MembershipBillingRow = {
+  id: number;
+  sequence: number;
+  label: string;
+  charges_license_fee?: boolean;
+};
+
+export type LicenseFee = {
+  id: number | null;
+  name: string;
+  amount: string;
+  prices: Array<{ id: number; amount: string; effective_from: string; created_at: string }>;
+};
+
+export function listBillings(clubId: number, year: number) {
+  return apiRequest<{ year: number; billings: MembershipBillingRow[] }>(
+    `/api/club-management/billings/?club=${clubId}&year=${year}`,
+  );
+}
+
+export function addBilling(clubId: number, year: number, label = "") {
+  return apiRequest<{ year: number; billings: MembershipBillingRow[] }>(
+    `/api/club-management/billings/?club=${clubId}`,
+    { method: "POST", body: JSON.stringify({ year, label }) },
+  );
+}
+
+export function updateBillingLabel(clubId: number, billingId: number, label: string) {
+  return apiRequest<MembershipBillingRow>(`/api/club-management/billings/${billingId}/?club=${clubId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ label }),
+  });
+}
+
+export function setLicenseFeeBilling(clubId: number, billingId: number) {
+  return apiRequest<MembershipBillingRow>(`/api/club-management/billings/${billingId}/?club=${clubId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ charges_license_fee: true }),
+  });
+}
+
+export function deleteBilling(clubId: number, billingId: number) {
+  return apiRequest<void>(`/api/club-management/billings/${billingId}/?club=${clubId}`, { method: "DELETE" });
+}
+
+export function getLicenseFee(clubId: number) {
+  return apiRequest<LicenseFee>(`/api/club-management/license-fee/?club=${clubId}`);
+}
+
+export function saveLicenseFee(clubId: number, payload: { name: string; amount: string }) {
+  return apiRequest<LicenseFee>(`/api/club-management/license-fee/?club=${clubId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addLicenseFeePrice(clubId: number, payload: { amount: string; effective_from?: string }) {
+  return apiRequest<LicenseFee>(`/api/club-management/license-fee/add-price/?club=${clubId}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function listFees(clubId: number) {
@@ -293,6 +382,7 @@ export type RebateRule = {
   member_rank: number;
   percent_off: string;
   amount_off: string | null;
+  applies_to_later: boolean;
 };
 
 export function listRebateRules(clubId: number) {
@@ -305,6 +395,10 @@ export function createRebateRule(payload: Record<string, unknown>) {
 
 export function updateRebateRule(ruleId: number, payload: Record<string, unknown>) {
   return apiRequest(`/api/club-management/rebate-rules/${ruleId}/`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function deleteRebateRule(ruleId: number) {
+  return apiRequest<void>(`/api/club-management/rebate-rules/${ruleId}/`, { method: "DELETE" });
 }
 
 export type BillingHousehold = {
@@ -322,7 +416,7 @@ export type BillingHousehold = {
     address: { formatted: string } | null;
     contact_label: string;
   };
-  lines: Array<FamilyInvoicePreview["lines"][number] & { fee_id?: number; fee_name?: string; unit_amount?: string }>;
+  lines: Array<FamilyInvoicePreview["lines"][number] & { fee_id?: number | null; fee_name?: string; unit_amount?: string }>;
   total: string;
   status: "ready" | "blocked" | "invoiced" | "paid" | "complimentary" | "confirmed" | "separate";
   invoice_id: number | null;
@@ -347,6 +441,9 @@ export type BillingFeeOption = { id: number; name: string; amount: string };
 
 export type BillingPreview = {
   year: number;
+  installment: number;
+  billings: MembershipBillingRow[];
+  license_fee: { name: string; amount: string };
   fee_set: boolean;
   fees: BillingFeeOption[];
   households: BillingHousehold[];
@@ -363,14 +460,24 @@ export type BillingPreview = {
   };
 };
 
-export function getClubBilling(clubId: number, year: number) {
-  return apiRequest<BillingPreview>(`/api/club-management/billing/?club=${clubId}&year=${year}`);
+export function getClubBilling(clubId: number, year: number, installment = 1) {
+  return apiRequest<BillingPreview>(
+    `/api/club-management/billing/?club=${clubId}&year=${year}&installment=${installment}`,
+  );
 }
 
-export function issueClubBilling(clubId: number, year: number, householdIds: string[]) {
+export function issueClubBilling(clubId: number, year: number, householdIds: string[], installment = 1) {
   return apiRequest<{
     year: number;
-    created: Array<{ id: string; invoice_id: number; invoice_number: string; delivery: string; total: string }>;
+    installment: number;
+    created: Array<{
+      id: string;
+      order_id?: number;
+      invoice_id: number;
+      invoice_number: string;
+      delivery: string;
+      total: string;
+    }>;
     skipped: Array<{ id: string; reason: string }>;
     created_count: number;
     email_count: number;
@@ -378,20 +485,102 @@ export function issueClubBilling(clubId: number, year: number, householdIds: str
     hand_count: number;
   }>(`/api/club-management/billing/?club=${clubId}`, {
     method: "POST",
-    body: JSON.stringify({ year, household_ids: householdIds }),
+    body: JSON.stringify({ year, installment, household_ids: householdIds }),
   });
 }
 
-export function confirmClubBilling(clubId: number, year: number, householdIds: string[]) {
+export function confirmClubBilling(clubId: number, year: number, householdIds: string[], installment = 1) {
   return apiRequest<{
     year: number;
+    installment: number;
     confirmed: Array<{ id: string }>;
     skipped: Array<{ id: string; reason: string }>;
     confirmed_count: number;
   }>(`/api/club-management/billing/confirm/?club=${clubId}`, {
     method: "POST",
-    body: JSON.stringify({ year, household_ids: householdIds }),
+    body: JSON.stringify({ year, installment, household_ids: householdIds }),
   });
+}
+
+export type PublicationConsentRow = {
+  member: number;
+  last_name: string;
+  first_name: string;
+  date_of_birth: string | null;
+  age: number | null;
+  publish_facebook: boolean;
+  publish_instagram: boolean;
+  publish_x: boolean;
+  publish_tiktok: boolean;
+  publish_webpage: boolean;
+  publish_print: boolean;
+};
+
+export type PublicationField = Exclude<keyof PublicationConsentRow, "member" | "last_name" | "first_name" | "date_of_birth" | "age">;
+
+export function listPublicationConsent(clubId: number) {
+  return apiRequest<{ members: PublicationConsentRow[] }>(`/api/club-management/publication-consent/?club=${clubId}`);
+}
+
+export function setPublicationConsent(clubId: number, memberId: number, flags: Partial<Record<PublicationField, boolean>>) {
+  return apiRequest<PublicationConsentRow>(`/api/club-management/publication-consent/?club=${clubId}`, {
+    method: "POST",
+    body: JSON.stringify({ member: memberId, ...flags }),
+  });
+}
+
+export function setPublicationColumn(clubId: number, field: PublicationField, value: boolean) {
+  return apiRequest<{ members: PublicationConsentRow[] }>(`/api/club-management/publication-consent/column/?club=${clubId}`, {
+    method: "POST",
+    body: JSON.stringify({ field, value }),
+  });
+}
+
+export type PublicationPdfRule = "all" | "allowed" | "denied" | "denied_any";
+
+export async function downloadPublicationConsent(
+  clubId: number,
+  format: "csv" | "xlsx" | "pdf",
+  pdf?: { rule: PublicationPdfRule; channels: PublicationField[] },
+) {
+  const token = getToken();
+  const params = new URLSearchParams({ club: String(clubId) });
+  if (format === "pdf" && pdf) {
+    params.set("rule", pdf.rule);
+    if (pdf.channels.length > 0) params.set("channels", pdf.channels.join(","));
+  }
+  const response = await fetch(`${API_URL}/api/club-management/publication-consent/export.${format}?${params.toString()}`, {
+    headers: { ...(token ? { Authorization: `Token ${token}` } : {}) },
+  });
+  if (!response.ok) {
+    let message = "Could not download the file.";
+    try {
+      const parsed = (await response.json()) as { detail?: string };
+      if (parsed?.detail) message = parsed.detail;
+    } catch {
+      /* keep fallback */
+    }
+    throw new Error(message);
+  }
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `publication-consent.${format}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+}
+
+export function setMemberLicenseFee(clubId: number, memberId: number, paysLicenseFee: boolean) {
+  return apiRequest<{ member: number; pays_license_fee: boolean }>(
+    `/api/club-management/billing/member-license-fee/?club=${clubId}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ member: memberId, pays_license_fee: paysLicenseFee }),
+    },
+  );
 }
 
 export function assignBillingFee(clubId: number, memberId: number, feeId: number) {
@@ -404,10 +593,15 @@ export function assignBillingFee(clubId: number, memberId: number, feeId: number
   );
 }
 
-export async function downloadBillingPrintPack(clubId: number, year: number, method: "paper" | "post" | "hand" = "paper") {
+export async function downloadBillingPrintPack(
+  clubId: number,
+  year: number,
+  method: "paper" | "post" | "hand" = "paper",
+  installment = 1,
+) {
   const token = getToken();
   const response = await fetch(
-    `${API_URL}/api/club-management/billing/print-pack/?club=${clubId}&year=${year}&method=${method}`,
+    `${API_URL}/api/club-management/billing/print-pack/?club=${clubId}&year=${year}&method=${method}&installment=${installment}`,
     { headers: { ...(token ? { Authorization: `Token ${token}` } : {}) } },
   );
   if (!response.ok) {

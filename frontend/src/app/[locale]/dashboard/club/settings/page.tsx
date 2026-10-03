@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Landmark, Settings, Users } from "lucide-react";
+import { Landmark, Newspaper, Settings, Users } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +33,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
+import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
 import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import {
   Select,
@@ -57,7 +58,7 @@ const clubSchema = z.object({
 
 type ClubFormValues = z.infer<typeof clubSchema>;
 
-const SETTINGS_TABS = ["profile", "trainers", "committee"] as const;
+const SETTINGS_TABS = ["profile", "trainers", "committee", "publication"] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 function parseSettingsTab(value: string | null): SettingsTab {
@@ -322,18 +323,22 @@ export default function ClubAdminSettingsPage() {
           <UnderlineTabs
             idPrefix="club-settings"
             ariaLabel={t("clubSettingsTabsAriaLabel")}
-            value={activeTab === "committee" && !clubMgmtOn ? "profile" : activeTab}
+            value={(activeTab === "committee" || activeTab === "publication") && !clubMgmtOn ? "profile" : activeTab}
             onChange={setActiveTab}
             options={[
               { value: "profile", label: t("clubSettingsProfileTab"), icon: Settings },
               { value: "trainers", label: t("clubSettingsTrainersTab"), icon: Users },
               ...(clubMgmtOn
-                ? [{ value: "committee" as const, label: t("clubSettingsCommitteeTab"), icon: Landmark }]
+                ? [
+                    { value: "committee" as const, label: t("clubSettingsCommitteeTab"), icon: Landmark },
+                    { value: "publication" as const, label: t("clubSettingsPublicationTab"), icon: Newspaper },
+                  ]
                 : []),
             ]}
           />
 
           {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
+          {activeTab === "publication" && clubMgmtOn ? <PublicationConsentPanel clubId={selectedClubId} /> : null}
 
           {activeTab === "trainers" ? (
             <ClubTrainersPanel
@@ -343,7 +348,7 @@ export default function ClubAdminSettingsPage() {
             />
           ) : null}
 
-          {activeTab === "profile" ? (
+          {activeTab === "profile" || ((activeTab === "committee" || activeTab === "publication") && !clubMgmtOn) ? (
           <>
           <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>

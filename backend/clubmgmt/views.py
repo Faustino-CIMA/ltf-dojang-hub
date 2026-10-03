@@ -2,7 +2,6 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -11,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from clubs.models import Club
-from licenses.models import Invoice, Order, OrderItem
 from members.models import Member
 from members.transfers import list_member_club_transfers
 from modules.registry import CLUB_MANAGEMENT_MODULE_ID
@@ -438,28 +436,6 @@ class MedicalCheckupViewSet(viewsets.ModelViewSet):
         return qs
 
 
-def _family_already_invoiced(family, year: int) -> bool:
-    member_ids = list(family.memberships.values_list("member_id", flat=True))
-    if family.invoice_member_id:
-        member_ids.append(family.invoice_member_id)
-    if not member_ids:
-        return False
-    return (
-        OrderItem.objects.filter(
-            order__club_id=family.club_id,
-            fee_type__isnull=True,
-            license__isnull=True,
-            order__invoice__status__in=[Invoice.Status.ISSUED, Invoice.Status.PAID],
-            order__member_id__in=member_ids,
-        )
-        .filter(
-            Q(billing_year=year)
-            | Q(billing_year__isnull=True, description__startswith=f"Membership {year}")
-        )
-        .exists()
-    )
-
-
 class FamilyViewSet(viewsets.ModelViewSet):
     serializer_class = FamilySerializer
     permission_classes = [ClubMgmtPermission]
@@ -554,70 +530,51 @@ class FamilyViewSet(viewsets.ModelViewSet):
             year = int(request.query_params.get("year") or timezone.now().year)
         except (TypeError, ValueError):
             year = timezone.now().year
-        from .billing import describe_bill_to, household_plan
+        from .billing import preview_household, resolve_installment
 
-        fee, unit, _payer, lines, total = household_plan(club=family.club, year=year, family=family)
-        described = describe_bill_to(family, ordered_memberships(family))
-        return Response(
-            {
-                "year": year,
-                "fee_id": fee.id,
-                "fee_name": fee.name,
-                "unit_amount": str(unit) if unit is not None else "",
-                "payer_id": described["id"],
-                "payer_name": described["name"],
-                "payer_kind": described["kind"],
-                "needs_recipient": described["needs_recipient"],
-                "lines": lines,
-                "total": str(total),
-                "already_invoiced": _family_already_invoiced(family, year),
-            }
+        installment = resolve_installment(family.club, year, request.query_params.get("installment"))
+        payload = preview_household(
+            club=family.club,
+            year=year,
+            household_id=f"family-{family.id}",
+            installment=installment,
         )
+        if payload is None:
+            return Response({"detail": "Family not found."}, status=404)
+        return Response(payload)
 
     @action(detail=True, methods=["post"], url_path="create-invoice")
     def create_invoice(self, request, pk=None):
         family = self.get_object()
         if not can_manage_club_records(request.user, family.club_id):
             raise PermissionDenied(detail="This module is not available.")
-        year = int(request.data.get("year") or timezone.now().year)
-        from .billing import (
-            create_membership_invoice,
-            describe_bill_to,
-            existing_membership_invoice,
-            household_plan,
-            persist_default_recipient,
-        )
+        try:
+            year = int(request.data.get("year") or timezone.now().year)
+        except (TypeError, ValueError):
+            return Response({"detail": "Enter a valid year."}, status=400)
+        from .billing import issue_households, resolve_installment
 
-        members = ordered_memberships(family)
-        persist_default_recipient(family, members)
-        family.refresh_from_db()
-        _fee, _unit, _payer, lines, total = household_plan(club=family.club, year=year, family=family)
-        described = describe_bill_to(family, ordered_memberships(family))
-        member_ids = list(family.memberships.values_list("member_id", flat=True))
-        if family.invoice_member_id:
-            member_ids.append(family.invoice_member_id)
-        if existing_membership_invoice(family.club_id, year, member_ids):
-            raise ValidationError(
-                {"year": "This family already has a membership invoice for that year."}
-            )
-        invoice = create_membership_invoice(
+        installment = resolve_installment(family.club, year, request.data.get("installment"))
+        result = issue_households(
             club=family.club,
             year=year,
-            payer=described["ledger_member"],
-            lines=lines,
-            total=total,
+            household_ids=[f"family-{family.id}"],
             actor=request.user,
-            recipient=described,
+            installment=installment,
         )
-        return Response(
-            {
-                "order_id": invoice.order_id,
-                "invoice_id": invoice.id,
-                "invoice_number": invoice.invoice_number,
-                "total": str(total),
-            },
-            status=201,
-        )
+        if result["created"]:
+            created = result["created"][0]
+            return Response(
+                {
+                    "order_id": created["order_id"],
+                    "invoice_id": created["invoice_id"],
+                    "invoice_number": created["invoice_number"],
+                    "total": created["total"],
+                },
+                status=201,
+            )
+        reason = result["skipped"][0]["reason"] if result["skipped"] else "Could not create the invoice."
+        return Response({"detail": reason}, status=400)
 
 
 class FamilyRebateRuleViewSet(viewsets.ModelViewSet):

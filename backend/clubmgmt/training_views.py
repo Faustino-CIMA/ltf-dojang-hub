@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -23,7 +25,7 @@ from .training import (
     set_attendance,
     week_bounds,
 )
-from .training_models import SchoolHoliday, TrainingSeries, TrainingSession, TrainingSettings
+from .training_models import CoachOuting, CoachPayRate, SchoolHoliday, TrainingSeries, TrainingSession, TrainingSettings
 
 
 def _club(request) -> Club:
@@ -253,8 +255,7 @@ class TrainingPayView(APIView):
 
     def get(self, request):
         club = _club(request)
-        year = int(request.query_params.get("year") or timezone.localdate().year)
-        return Response(coach_hour_report(club, year))
+        return _pay_response(request, club)
 
     def patch(self, request):
         club = Club.objects.get(pk=_require_admin(request))
@@ -284,8 +285,134 @@ class TrainingPayView(APIView):
             if day < 1 or day > 31:
                 raise ValidationError({"detail": "Enter a payday day from 1 to 31."})
         settings.save()
-        year = int(request.query_params.get("year") or timezone.localdate().year)
-        return Response(coach_hour_report(club, year))
+        return _pay_response(request, club)
+
+
+def _sees_pay(request, club_id: int) -> bool:
+    return can_manage_club_records(request.user, club_id) or is_ltf_manager(request.user)
+
+
+def _pay_response(request, club: Club) -> Response:
+    year = int(request.query_params.get("year") or timezone.localdate().year)
+    return Response(coach_hour_report(club, year, include_pay=_sees_pay(request, club.id)))
+
+
+def _parse_amount(value, field: str, *, blank_as_none: bool = False, default: Decimal | None = None) -> Decimal | None:
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        if blank_as_none:
+            return None
+        if default is not None:
+            return default
+        raise ValidationError({field: "Enter an amount."})
+    raw = str(value).strip().replace(" ", "").replace(",", ".")
+    try:
+        amount = Decimal(raw)
+    except InvalidOperation as error:
+        raise ValidationError({field: "Enter an amount."}) from error
+    if amount < 0:
+        raise ValidationError({field: "Enter an amount of 0 or more."})
+    if amount >= Decimal("1000000"):
+        raise ValidationError({field: "Enter an amount under 1000000."})
+    return amount.quantize(Decimal("0.01"))
+
+
+def _parse_coach_id(data) -> int:
+    try:
+        return int(data.get("coach_id"))
+    except (TypeError, ValueError) as error:
+        raise ValidationError({"coach_id": "Choose a coach."}) from error
+
+
+def _coach_for_club(club: Club, coach_id: int):
+    user = get_user_model().objects.filter(pk=coach_id).first()
+    if user is None:
+        raise ValidationError({"coach_id": "Choose a coach."})
+    if club.trainers.filter(pk=user.id).exists():
+        return user
+    if TrainingSession.objects.filter(club=club, coaches=user).exists():
+        return user
+    if CoachPayRate.objects.filter(club=club, coach=user).exists():
+        return user
+    if CoachOuting.objects.filter(club=club, coach=user).exists():
+        return user
+    raise ValidationError({"coach_id": "Choose a coach of this club."})
+
+
+def _apply_outing(outing: CoachOuting, data, *, partial: bool) -> None:
+    if not partial or "coach_id" in data:
+        outing.coach = _coach_for_club(outing.club, _parse_coach_id(data))
+    if not partial or "held_on" in data:
+        outing.held_on = _parse_date(data.get("held_on"), "held_on")
+    if not partial or "name" in data:
+        name = str(data.get("name") or "").strip()
+        if not name:
+            raise ValidationError({"name": "Name the tournament."})
+        outing.name = name[:160]
+    if not partial or "quantity" in data:
+        quantity = _parse_amount(data.get("quantity"), "quantity", default=Decimal("0"))
+        if quantity >= Decimal("10000"):
+            raise ValidationError({"quantity": "Enter fewer than 10000 hours or units."})
+        outing.quantity = quantity
+    if not partial or "coaching_amount" in data:
+        outing.coaching_amount = _parse_amount(data.get("coaching_amount"), "coaching_amount", blank_as_none=True)
+    if not partial or "fuel_amount" in data:
+        outing.fuel_amount = _parse_amount(data.get("fuel_amount"), "fuel_amount", default=Decimal("0"))
+    if not partial or "hotel_amount" in data:
+        outing.hotel_amount = _parse_amount(data.get("hotel_amount"), "hotel_amount", default=Decimal("0"))
+
+
+class CoachPayRateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        club = Club.objects.get(pk=_require_admin(request))
+        coach = _coach_for_club(club, _parse_coach_id(request.data))
+        basis = str(request.data.get("basis") or "")
+        if basis not in CoachPayRate.Basis.values:
+            raise ValidationError({"basis": "Choose hourly or a training unit."})
+        rate = _parse_amount(request.data.get("rate"), "rate", default=Decimal("0"))
+        CoachPayRate.objects.update_or_create(club=club, coach=coach, defaults={"basis": basis, "rate": rate})
+        return _pay_response(request, club)
+
+
+class CoachPayRateDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, user_id: int):
+        club = Club.objects.get(pk=_require_admin(request))
+        CoachPayRate.objects.filter(club=club, coach_id=user_id).delete()
+        return _pay_response(request, club)
+
+
+class CoachOutingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        club = Club.objects.get(pk=_require_admin(request))
+        outing = CoachOuting(club=club)
+        _apply_outing(outing, request.data, partial=False)
+        outing.save()
+        return _pay_response(request, club)
+
+
+class CoachOutingDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, outing_id: int):
+        club = Club.objects.get(pk=_require_admin(request))
+        outing = CoachOuting.objects.filter(club=club, id=outing_id).first()
+        if outing is None:
+            raise ValidationError({"detail": "That row was not found."})
+        _apply_outing(outing, request.data, partial=True)
+        outing.save()
+        return _pay_response(request, club)
+
+    def delete(self, request, outing_id: int):
+        club = Club.objects.get(pk=_require_admin(request))
+        deleted, _details = CoachOuting.objects.filter(club=club, id=outing_id).delete()
+        if not deleted:
+            raise ValidationError({"detail": "That row was not found."})
+        return _pay_response(request, club)
 
 
 def _session(request, session_id: int, *, admin: bool = False) -> TrainingSession:

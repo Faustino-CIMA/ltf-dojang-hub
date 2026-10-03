@@ -1,11 +1,13 @@
 from django.contrib import admin
 
 from .models import (
+    ClubLicenseFee,
     Committee,
     CommitteeMandate,
     Family,
     MedicalCheckup,
     MemberRecord,
+    MembershipBilling,
     MembershipFee,
     MembershipYearConfirmation,
     Person,
@@ -40,9 +42,19 @@ class MembershipFeeAdmin(admin.ModelAdmin):
     list_display = ("name", "club", "year", "amount")
 
 
+@admin.register(MembershipBilling)
+class MembershipBillingAdmin(admin.ModelAdmin):
+    list_display = ("club", "year", "sequence", "label", "charges_license_fee")
+
+
+@admin.register(ClubLicenseFee)
+class ClubLicenseFeeAdmin(admin.ModelAdmin):
+    list_display = ("club", "name", "amount")
+
+
 @admin.register(MembershipYearConfirmation)
 class MembershipYearConfirmationAdmin(admin.ModelAdmin):
-    list_display = ("club", "year", "household_key", "confirmed_at")
+    list_display = ("club", "year", "installment", "household_key", "confirmed_at")
 
 
 @admin.register(Committee)

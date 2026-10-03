@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Receipt, Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -19,15 +19,12 @@ import { downloadClubStatement } from "@/lib/club-finance-api";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  FamilyInvoicePreview,
   FamilyRecord,
   addFamilyMember,
   addFamilyParent,
   createFamily,
-  createFamilyInvoice,
   findContactMemberMatches,
   listFamilies,
-  previewFamilyInvoice,
   removeFamilyMember,
   updateFamily,
   type ContactMemberMatch,
@@ -51,13 +48,8 @@ function recipientValue(family: FamilyRecord) {
   return adult ? `member:${adult.member}` : "";
 }
 
-function rebateLabel(line: FamilyInvoicePreview["lines"][number]) {
-  const amount = Number(line.amount_off || 0);
-  if (amount > 0) return `${line.amount_off} EUR`;
-  const percent = Number(line.percent_off || 0);
-  if (percent > 0) return `${line.percent_off}%`;
-  return "";
-}
+const fieldClass =
+  "block h-[var(--control-height)] w-full max-w-sm rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm";
 
 type ClubMember = { id: number; first_name: string; last_name: string };
 
@@ -75,7 +67,7 @@ export default function ClubFamiliesPage() {
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [name, setName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [invoiceFamily, setInvoiceFamily] = useState<FamilyRecord | null>(null);
+  const [openFamilies, setOpenFamilies] = useState<Record<number, boolean>>({});
   const [parentFamily, setParentFamily] = useState<FamilyRecord | null>(null);
   const [parentDraft, setParentDraft] = useState({
     first_name: "",
@@ -89,10 +81,6 @@ export default function ClubFamiliesPage() {
   const [parentMatches, setParentMatches] = useState<ContactMemberMatch[]>([]);
   const [differentParent, setDifferentParent] = useState(false);
   const [chosenParentId, setChosenParentId] = useState<number | null>(null);
-  const [invoiceYear, setInvoiceYear] = useState(todayYear);
-  const [preview, setPreview] = useState<FamilyInvoicePreview | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [createdInvoice, setCreatedInvoice] = useState<{ id: number; number: string } | null>(null);
 
   const load = useCallback(async () => {
     if (selectedClubId == null) {
@@ -111,32 +99,6 @@ export default function ClubFamiliesPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const loadPreview = useCallback(
-    async (familyId: number, year: string) => {
-      if (!/^\d{4}$/.test(year)) {
-        setPreview(null);
-        return;
-      }
-      setPreviewError(null);
-      try {
-        const next = await previewFamilyInvoice(familyId, Number(year));
-        setPreview(next);
-      } catch (error) {
-        setPreview(null);
-        const message = error instanceof Error ? error.message : t("saveError");
-        setPreviewError(message);
-      }
-    },
-    [t],
-  );
-
-  useEffect(() => {
-    if (!invoiceFamily) {
-      return;
-    }
-    void loadPreview(invoiceFamily.id, invoiceYear);
-  }, [invoiceFamily, invoiceYear, loadPreview]);
 
   useEffect(() => {
     if (!parentFamily) return;
@@ -171,18 +133,6 @@ export default function ClubFamiliesPage() {
     return used;
   }, [families]);
 
-  const openInvoice = (family: FamilyRecord) => {
-    if (family.memberships.length === 0) {
-      setErrorMessage(t("familyInvoiceNoMembers"));
-      return;
-    }
-    setCreatedInvoice(null);
-    setPreview(null);
-    setPreviewError(null);
-    setInvoiceYear(todayYear());
-    setInvoiceFamily(family);
-  };
-
   return (
     <ClubAdminLayout title={t("familiesTitle")} subtitle={t("familiesBillingHint")}>
       <div className="space-y-6">
@@ -197,8 +147,8 @@ export default function ClubFamiliesPage() {
 
       <FormPanel>
         <h2 className="text-section text-foreground">{t("createFamily")}</h2>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-[16rem] flex-1 space-y-2">
+        <div className="mt-4 max-w-md space-y-3">
+          <div className="space-y-2">
             <Label htmlFor="family-name">{t("familyName")}</Label>
             <Input
               id="family-name"
@@ -243,13 +193,26 @@ export default function ClubFamiliesPage() {
         <div className="space-y-4">
           {families.map((family) => {
             const availableMembers = members.filter((member) => !membersInFamilies.has(member.id));
+            const open = Boolean(openFamilies[family.id]);
             return (
               <FormPanel key={family.id}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-section text-foreground">{family.name}</h2>
-                    <p className="mt-1 text-sm text-muted">{t("familyInvoiceHint")}</p>
-                  </div>
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                    aria-expanded={open}
+                    onClick={() => setOpenFamilies((current) => ({ ...current, [family.id]: !current[family.id] }))}
+                  >
+                    <ChevronDown
+                      className={`mt-1 h-4 w-4 shrink-0 text-muted transition-transform ${open ? "" : "-rotate-90"}`}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-section text-foreground">{family.name}</span>
+                      <span className="mt-1 block text-sm text-muted">
+                        {t("familyMemberCount", { count: family.memberships.length })}
+                      </span>
+                    </span>
+                  </button>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -273,18 +236,19 @@ export default function ClubFamiliesPage() {
                     >
                       {t("downloadStatementAction")}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      disabled={isSaving || family.memberships.length === 0 || family.needs_recipient}
-                      onClick={() => openInvoice(family)}
-                    >
-                      <Receipt className="h-4 w-4" />
-                      {t("createInvoice")}
-                    </Button>
+                    {family.memberships.length > 0 ? (
+                      <Button asChild variant="outline">
+                        <Link href={`/${locale}/dashboard/club/families/${family.id}/invoice`}>
+                          {t("familyInvoicePreview")}
+                        </Link>
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 
+                {open ? (
+                <>
+                <p className="mt-4 text-sm text-muted">{t("familyInvoiceHint")}</p>
                 {family.memberships.length === 0 ? (
                   <p className="mt-4 text-sm text-muted">{t("noMembers")}</p>
                 ) : (
@@ -333,11 +297,11 @@ export default function ClubFamiliesPage() {
                       {t("chooseBillRecipient")}
                     </p>
                   ) : null}
-                  <div>
+                  <div className="flex max-w-sm flex-col gap-2">
                     <Label htmlFor={`bill-to-${family.id}`}>{t("receivesTheBill")}</Label>
                     <select
                       id={`bill-to-${family.id}`}
-                      className="mt-2 h-[var(--control-height)] w-full max-w-sm rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
+                      className={fieldClass}
                       value={recipientValue(family)}
                       disabled={isSaving || family.memberships.length === 0}
                       onChange={async (event) => {
@@ -393,11 +357,11 @@ export default function ClubFamiliesPage() {
                     </select>
                   </div>
                   {family.bill_to_person ? (
-                    <div>
+                    <div className="flex max-w-sm flex-col gap-2">
                       <Label htmlFor={`bill-delivery-${family.id}`}>{t("deliveryLabel")}</Label>
                       <select
                         id={`bill-delivery-${family.id}`}
-                        className="mt-2 h-[var(--control-height)] w-full max-w-sm rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
+                        className={fieldClass}
                         value={family.bill_to_delivery}
                         disabled={isSaving}
                         onChange={async (event) => {
@@ -419,10 +383,11 @@ export default function ClubFamiliesPage() {
                       </select>
                     </div>
                   ) : null}
+                  <div className="flex max-w-sm flex-col gap-2">
                   <Label htmlFor={`add-member-${family.id}`}>{t("addMember")}</Label>
                   <select
                     id={`add-member-${family.id}`}
-                    className="mt-2 h-[var(--control-height)] w-full max-w-sm rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
+                    className={fieldClass}
                     value=""
                     disabled={isSaving || availableMembers.length === 0}
                     onChange={async (event) => {
@@ -448,7 +413,10 @@ export default function ClubFamiliesPage() {
                       </option>
                     ))}
                   </select>
+                  </div>
                 </div>
+                </>
+                ) : null}
               </FormPanel>
             );
           })}
@@ -457,168 +425,71 @@ export default function ClubFamiliesPage() {
       </div>
 
       <Modal
-        isOpen={invoiceFamily !== null}
-        onClose={() => {
-          setInvoiceFamily(null);
-          setCreatedInvoice(null);
-          setPreview(null);
-        }}
-        title={t("familyInvoicePreview")}
-        description={invoiceFamily ? invoiceFamily.name : undefined}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="invoice-year">{t("familyInvoiceYear")}</Label>
-            <Input
-              id="invoice-year"
-              value={invoiceYear}
-              onChange={(event) => setInvoiceYear(event.target.value.replace(/\D/g, "").slice(0, 4))}
-              inputMode="numeric"
-            />
-          </div>
-
-          {previewError ? <p className="text-sm text-muted">{previewError}</p> : null}
-
-          {preview ? (
-            <div className="space-y-3">
-              <p className="text-sm">
-                {preview.needs_recipient
-                  ? t("chooseBillRecipient")
-                  : t("familyOneInvoice", { name: preview.payer_name })}
-              </p>
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <p>
-                  <span className="text-muted">{t("familyInvoiceFee")}: </span>
-                  {preview.fee_name}
-                  {preview.unit_amount ? ` · ${preview.unit_amount} EUR` : ""}
-                </p>
-                <p>
-                  <span className="text-muted">{t("familyInvoicePayer")}: </span>
-                  {preview.payer_name || t("chooseBillRecipient")}
-                </p>
-              </div>
-              {preview.already_invoiced ? (
-                <p className="rounded-[var(--radius-form)] border border-border bg-secondary/50 px-3 py-2 text-sm">
-                  {t("familyInvoiceAlready", { year: preview.year })}
-                </p>
-              ) : null}
-              <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-secondary/70 text-xs uppercase tracking-wide text-muted">
-                    <tr>
-                      <th className="px-3 py-2">{t("familyInvoiceRank")}</th>
-                      <th className="px-3 py-2">{t("addMember")}</th>
-                      <th className="px-3 py-2">{t("familyInvoiceRebate")}</th>
-                      <th className="px-3 py-2">{t("familyInvoiceAmount")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.lines.map((line) => (
-                      <tr key={line.member_id} className="border-t border-border">
-                        <td className="px-3 py-2">{line.rank}</td>
-                        <td className="px-3 py-2">{line.member_name}</td>
-                        <td className="px-3 py-2">{rebateLabel(line)}</td>
-                        <td className="px-3 py-2">{line.amount} EUR</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-right text-sm font-semibold">
-                {t("familyInvoiceTotal")}: {preview.total} EUR
-              </p>
-            </div>
-          ) : null}
-
-          {createdInvoice ? (
-            <Link
-              className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
-              href={`/${locale}/dashboard/club/invoices/${createdInvoice.id}`}
-            >
-              {t("familyInvoiceOpen", { number: createdInvoice.number })}
-            </Link>
-          ) : (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="primary"
-                disabled={isSaving || !preview || preview.already_invoiced || preview.needs_recipient}
-                onClick={async () => {
-                  if (!invoiceFamily || !preview) {
-                    return;
-                  }
-                  setIsSaving(true);
-                  try {
-                    const invoice = await createFamilyInvoice(invoiceFamily.id, preview.year);
-                    setCreatedInvoice({ id: invoice.invoice_id, number: invoice.invoice_number });
-                    setSuccessMessage(
-                      t("invoiceCreated", { number: invoice.invoice_number, total: invoice.total }),
-                    );
-                    setPreview({ ...preview, already_invoiced: true });
-                  } catch (error) {
-                    setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-              >
-                {t("familyInvoiceConfirm")}
-              </Button>
-            </div>
-          )}
-        </div>
-      </Modal>
-
-      <Modal
         isOpen={parentFamily !== null}
         onClose={() => setParentFamily(null)}
         title={t("addParentOrGuardian")}
         description={parentFamily ? parentFamily.name : undefined}
       >
         <div className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-2">
-            <Input
-              placeholder={t("firstName")}
-              value={parentDraft.first_name}
-              onChange={(event) => setParentDraft({ ...parentDraft, first_name: event.target.value })}
-              onBlur={() => setParentDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))}
-            />
-            <Input
-              placeholder={t("lastName")}
-              value={parentDraft.last_name}
-              onChange={(event) => setParentDraft({ ...parentDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })}
-              onBlur={() => setParentDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))}
-            />
-            <select
-              className="h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
-              value={parentDraft.relation}
-              onChange={(event) => setParentDraft({ ...parentDraft, relation: event.target.value })}
-            >
-              {["father", "mother", "guardian", "grandfather", "grandmother", "uncle", "aunt", "other"].map((relation) => (
-                <option key={relation} value={relation}>
-                  {t(`relation_${relation}`)}
-                </option>
-              ))}
-            </select>
-            <Input
-              type="email"
-              placeholder={t("parentEmail")}
-              value={parentDraft.email}
-              onChange={(event) => setParentDraft({ ...parentDraft, email: event.target.value })}
-            />
-            <Input
-              placeholder={t("phone")}
-              value={parentDraft.phone}
-              onChange={(event) => setParentDraft({ ...parentDraft, phone: event.target.value })}
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={parentDraft.is_emergency}
-                onCheckedChange={(checked) => setParentDraft({ ...parentDraft, is_emergency: Boolean(checked) })}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="parent-first-name">{t("firstName")}</Label>
+              <Input
+                id="parent-first-name"
+                value={parentDraft.first_name}
+                onChange={(event) => setParentDraft({ ...parentDraft, first_name: event.target.value })}
+                onBlur={() => setParentDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))}
               />
-              {t("emergency")}
-            </label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parent-last-name">{t("lastName")}</Label>
+              <Input
+                id="parent-last-name"
+                value={parentDraft.last_name}
+                onChange={(event) => setParentDraft({ ...parentDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })}
+                onBlur={() => setParentDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parent-relation">{t("relationLabel")}</Label>
+              <select
+                id="parent-relation"
+                className="block h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
+                value={parentDraft.relation}
+                onChange={(event) => setParentDraft({ ...parentDraft, relation: event.target.value })}
+              >
+                {["father", "mother", "guardian", "grandfather", "grandmother", "uncle", "aunt", "other"].map((relation) => (
+                  <option key={relation} value={relation}>
+                    {t(`relation_${relation}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parent-email">{t("parentEmail")}</Label>
+              <Input
+                id="parent-email"
+                type="email"
+                value={parentDraft.email}
+                onChange={(event) => setParentDraft({ ...parentDraft, email: event.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parent-phone">{t("phone")}</Label>
+              <Input
+                id="parent-phone"
+                value={parentDraft.phone}
+                onChange={(event) => setParentDraft({ ...parentDraft, phone: event.target.value })}
+              />
+            </div>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={parentDraft.is_emergency}
+              onCheckedChange={(checked) => setParentDraft({ ...parentDraft, is_emergency: Boolean(checked) })}
+            />
+            {t("emergency")}
+          </label>
           <LuAddressFields value={parentAddress} onChange={setParentAddress} />
           {parentMatches.length > 0 && !differentParent ? (
             <div className="rounded-[var(--radius-form)] border border-border bg-secondary/50 p-3 text-sm">
@@ -649,10 +520,11 @@ export default function ClubFamiliesPage() {
               {t("contactDifferentPerson")}
             </label>
           ) : null}
-          <div className="flex justify-end">
+          <div className="flex">
             <Button
               type="button"
               variant="primary"
+              className="w-full sm:ml-auto sm:w-auto"
               disabled={isSaving}
               onClick={async () => {
                 if (!parentFamily) return;

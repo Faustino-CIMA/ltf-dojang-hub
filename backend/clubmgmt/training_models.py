@@ -179,3 +179,49 @@ class BeltTestResult(models.Model):
 
     class Meta:
         unique_together = [("belt_test", "member")]
+
+
+class CoachPayRate(models.Model):
+    """Euro rate for one coach. Hourly uses the length of each held class. A unit is one held class."""
+
+    class Basis(models.TextChoices):
+        HOURLY = "hourly", _("Per hour")
+        UNIT = "unit", _("Per training unit")
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="coach_pay_rates")
+    coach = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="coach_pay_rates")
+    basis = models.CharField(max_length=20, choices=Basis.choices, default=Basis.HOURLY)
+    rate = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["coach_id"]
+        unique_together = [("club", "coach")]
+
+    def __str__(self) -> str:
+        return f"{self.coach_id} {self.basis} {self.rate}"
+
+
+class CoachOuting(models.Model):
+    """Tournament coaching, fuel, and hotel for one coach on one date.
+
+    A set coaching amount replaces quantity times the current rate.
+    An empty coaching amount uses that rate. Fuel and hotel are the amounts entered.
+    """
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="coach_outings")
+    coach = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="coach_outings")
+    held_on = models.DateField()
+    name = models.CharField(max_length=160)
+    quantity = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    coaching_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    fuel_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    hotel_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["held_on", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.held_on}"

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -27,10 +28,10 @@ import {
   BillingHousehold,
   BillingPreview,
   assignBillingFee,
-  confirmClubBilling,
   downloadBillingPrintPack,
   getClubBilling,
   issueClubBilling,
+  setMemberLicenseFee,
 } from "@/lib/clubmgmt-api";
 
 function applyFeeToPreview(preview: BillingPreview, memberId: number, fee: BillingFeeOption): BillingPreview {
@@ -39,7 +40,7 @@ function applyFeeToPreview(preview: BillingPreview, memberId: number, fee: Billi
       return household;
     }
     const lines = household.lines.map((line) => {
-      if (line.member_id !== memberId) {
+      if (line.member_id !== memberId || line.supplementary) {
         return line;
       }
       const percent = Number(line.percent_off || 0);
@@ -49,24 +50,46 @@ function applyFeeToPreview(preview: BillingPreview, memberId: number, fee: Billi
       return { ...line, fee_id: fee.id, fee_name: fee.name, unit_amount: fee.amount, amount };
     });
     const total = lines.reduce((sum, line) => sum + Number(line.amount), 0).toFixed(2);
-    const feeIds = new Set(lines.map((line) => line.fee_id));
+    const membership = lines.filter((line) => !line.supplementary);
+    const feeIds = new Set(membership.map((line) => line.fee_id));
     let status = household.status;
     if (!["blocked", "invoiced", "paid", "separate"].includes(household.status)) {
-      status = Number(total) <= 0 ? (household.confirmed ? "confirmed" : "complimentary") : "ready";
+      status = Number(total) <= 0 && household.confirmed ? "confirmed" : "ready";
     }
     return {
       ...household,
       lines,
       total,
       status,
-      fee_id: feeIds.size === 1 ? (lines[0]?.fee_id ?? null) : null,
-      fee_name: feeIds.size === 1 ? (lines[0]?.fee_name ?? "") : "",
+      fee_id: membership.length === 1 ? (membership[0]?.fee_id ?? null) : null,
+      fee_name: feeIds.size === 1 ? (membership[0]?.fee_name ?? "") : "",
     };
   });
   return { ...preview, households };
 }
 
-type StatusFilter = "all" | "ready" | "complimentary" | "confirmed" | "invoiced" | "paid";
+function applyLicensePayable(preview: BillingPreview, memberId: number, pays: boolean): BillingPreview {
+  const households = preview.households.map((household) => {
+    if (!household.lines.some((line) => line.member_id === memberId && !line.supplementary && line.pays_license_fee !== undefined)) {
+      return household;
+    }
+    let lines = household.lines.map((line) =>
+      line.member_id === memberId && !line.supplementary ? { ...line, pays_license_fee: pays } : line,
+    );
+    if (!pays) {
+      lines = lines.filter((line) => !(line.supplementary && line.member_id === memberId));
+    }
+    const total = lines.reduce((sum, line) => sum + Number(line.amount), 0).toFixed(2);
+    let status = household.status;
+    if (!["blocked", "invoiced", "paid", "separate"].includes(household.status)) {
+      status = Number(total) <= 0 && household.confirmed ? "confirmed" : "ready";
+    }
+    return { ...household, lines, total, status };
+  });
+  return { ...preview, households };
+}
+
+type StatusFilter = "all" | "ready" | "confirmed" | "invoiced" | "paid";
 
 function yearOptions(current: number) {
   return [current + 1, current, current - 1, current - 2];
@@ -75,9 +98,15 @@ function yearOptions(current: number) {
 export default function ClubBillingPage() {
   const t = useTranslations("ClubMgmt");
   const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const currentYear = new Date().getFullYear();
   const { selectedClubId } = useClubSelection();
-  const [year, setYear] = useState(String(currentYear));
+  const [year, setYear] = useState(() => {
+    const raw = searchParams.get("year");
+    return raw && /^\d{4}$/.test(raw) ? raw : String(currentYear);
+  });
+  const [installment, setInstallment] = useState(() => searchParams.get("installment") || "1");
   const [preview, setPreview] = useState<BillingPreview | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -85,19 +114,14 @@ export default function ClubBillingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmComplimentaryOpen, setConfirmComplimentaryOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [detail, setDetail] = useState<BillingHousehold | null>(null);
   const hasLoadedRef = useRef(false);
 
   const applyPreview = useCallback((response: BillingPreview, preserveSelection: boolean) => {
     setPreview(response);
-    setDetail((current) =>
-      current ? response.households.find((row) => row.id === current.id) ?? current : null
-    );
     const selectableIds = response.households
-      .filter((row) => row.status === "ready" || row.status === "complimentary")
+      .filter((row) => row.status === "ready")
       .map((row) => row.id);
     setSelected((current) => {
       if (preserveSelection) {
@@ -115,7 +139,7 @@ export default function ClubBillingPage() {
       setErrorMessage(null);
     }
     try {
-      const response = await getClubBilling(selectedClubId, Number(year));
+      const response = await getClubBilling(selectedClubId, Number(year), Number(installment) || 1);
       hasLoadedRef.current = true;
       applyPreview(response, silent);
     } catch (error) {
@@ -125,7 +149,7 @@ export default function ClubBillingPage() {
         setIsLoading(false);
       }
     }
-  }, [applyPreview, selectedClubId, t, year]);
+  }, [applyPreview, installment, selectedClubId, t, year]);
 
   useEffect(() => {
     void load();
@@ -142,10 +166,8 @@ export default function ClubBillingPage() {
   }, [preview, search, statusFilter]);
 
   const selectedRows = rows.filter((row) => selected.has(row.id) && row.status === "ready");
-  const selectedComplimentary = rows.filter((row) => selected.has(row.id) && row.status === "complimentary");
   const selectedTotal = selectedRows.reduce((sum, row) => sum + Number(row.total), 0);
-  const canPickFee = (status: BillingHousehold["status"]) =>
-    status === "ready" || status === "complimentary" || status === "confirmed";
+  const canPickFee = (status: BillingHousehold["status"]) => status === "ready" || status === "confirmed";
 
   const toggle = (id: string, selectable: boolean) => {
     if (!selectable) return;
@@ -168,12 +190,32 @@ export default function ClubBillingPage() {
     const scrollY = window.scrollY;
     const nextPreview = applyFeeToPreview(preview, memberId, fee);
     setPreview(nextPreview);
-    setDetail((current) =>
-      current ? nextPreview.households.find((row) => row.id === current.id) ?? current : null
-    );
     setErrorMessage(null);
     try {
       await assignBillingFee(selectedClubId, memberId, feeId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      await load({ silent: true });
+    } finally {
+      window.setTimeout(() => {
+        window.scrollTo({ top: scrollY, behavior: "instant" });
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }, 0);
+    }
+  };
+
+  const handleLicenseFeeChange = async (memberId: number, pays: boolean) => {
+    if (!selectedClubId || !preview) {
+      return;
+    }
+    const scrollY = window.scrollY;
+    setPreview(applyLicensePayable(preview, memberId, pays));
+    setErrorMessage(null);
+    try {
+      await setMemberLicenseFee(selectedClubId, memberId, pays);
+      await load({ silent: true });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("saveError"));
       await load({ silent: true });
@@ -196,6 +238,7 @@ export default function ClubBillingPage() {
         selectedClubId,
         Number(year),
         selectedRows.map((row) => row.id),
+        Number(installment) || 1,
       );
       setConfirmOpen(false);
       setSuccessMessage(
@@ -214,24 +257,14 @@ export default function ClubBillingPage() {
     }
   };
 
-  const handleConfirmComplimentary = async () => {
-    if (!selectedClubId) return;
-    setIsSaving(true);
-    setErrorMessage(null);
-    try {
-      const result = await confirmClubBilling(
-        selectedClubId,
-        Number(year),
-        selectedComplimentary.map((row) => row.id),
-      );
-      setConfirmComplimentaryOpen(false);
-      setSuccessMessage(t("billingConfirmed", { count: result.confirmed_count, year }));
-      await load();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-    } finally {
-      setIsSaving(false);
-    }
+  const openHousehold = (row: BillingHousehold) => {
+    const id = row.id.slice(row.id.indexOf("-") + 1);
+    const params = new URLSearchParams({ year, installment, from: "billing" });
+    const path =
+      row.kind === "family"
+        ? `/${locale}/dashboard/club/families/${id}/invoice`
+        : `/${locale}/dashboard/club/billing/members/${id}`;
+    router.push(`${path}?${params.toString()}`);
   };
 
   const deliveryBadge = (delivery: BillingHousehold["delivery"]) => {
@@ -262,17 +295,40 @@ export default function ClubBillingPage() {
             setSuccessMessage(null);
           }}
         />
-        <div className="flex flex-wrap items-end justify-between gap-4 rounded-[var(--radius-card)] border border-border bg-[var(--surface)] p-4">
-          <div className="space-y-2">
+        <div className="space-y-4 rounded-[var(--radius-card)] border border-border bg-[var(--surface)] p-4">
+          <div className="flex flex-wrap gap-4">
+          <div className="w-full max-w-[12rem] space-y-2">
             <label className="text-sm font-medium">{t("billingYear")}</label>
-            <Select value={year} onValueChange={setYear}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <Select
+              value={year}
+              onValueChange={(value) => {
+                setYear(value);
+                setInstallment("1");
+              }}
+            >
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {yearOptions(currentYear).map((option) => (
                   <SelectItem key={option} value={String(option)}>{option}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          {(preview?.billings?.length ?? 0) > 1 ? (
+            <div className="w-full max-w-[16rem] space-y-2">
+              <label className="text-sm font-medium">{t("billingInstallment")}</label>
+              <Select value={installment} onValueChange={setInstallment}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {preview?.billings.map((row) => (
+                    <SelectItem key={row.id} value={String(row.sequence)}>
+                      {row.label || t("billingInstallmentNumber", { sequence: row.sequence })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -286,21 +342,13 @@ export default function ClubBillingPage() {
                   return;
                 }
                 try {
-                  await downloadBillingPrintPack(selectedClubId, Number(year), "paper");
+                  await downloadBillingPrintPack(selectedClubId, Number(year), "paper", Number(installment) || 1);
                 } catch (error) {
                   setErrorMessage(error instanceof Error ? error.message : t("printPackEmpty"));
                 }
               }}
             >
               {t("printPackAction")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={selectedComplimentary.length === 0}
-              onClick={() => setConfirmComplimentaryOpen(true)}
-            >
-              {t("confirmComplimentaryAction")}
             </Button>
             <Button
               type="button"
@@ -312,6 +360,9 @@ export default function ClubBillingPage() {
             </Button>
           </div>
         </div>
+        {(preview?.billings?.length ?? 0) > 1 ? (
+          <PageNotice tone="info">{t("billingInstallmentHint")}</PageNotice>
+        ) : null}
         {preview && !preview.fee_set ? (
           <PageNotice tone="warning">
             {t("billingNoFee")}{" "}
@@ -320,8 +371,8 @@ export default function ClubBillingPage() {
             </Link>
           </PageNotice>
         ) : null}
-        {preview && ((preview.summary.complimentary_count ?? 0) > 0 || (preview.summary.confirmed_count ?? 0) > 0) ? (
-          <PageNotice tone="info">{t("billingComplimentaryHint")}</PageNotice>
+        {preview && (preview.summary.confirmed_count ?? 0) > 0 ? (
+          <PageNotice tone="info">{t("billingConfirmedEarlier")}</PageNotice>
         ) : null}
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
@@ -351,18 +402,6 @@ export default function ClubBillingPage() {
                   >
                     {t("selectReady")}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setSelected(
-                        new Set(preview.households.filter((row) => row.status === "complimentary").map((row) => row.id)),
-                      )
-                    }
-                  >
-                    {t("selectComplimentary")}
-                  </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => setSelected(new Set())}>
                     {t("clearSelection")}
                   </Button>
@@ -383,7 +422,6 @@ export default function ClubBillingPage() {
                 options={[
                   { value: "all", title: t("billingFilterAll"), count: preview.households.length },
                   { value: "ready", title: t("billingReady"), count: preview.summary.ready_count },
-                  { value: "complimentary", title: t("billingComplimentary"), count: preview.summary.complimentary_count ?? 0 },
                   { value: "confirmed", title: t("billingConfirmedStatus"), count: preview.summary.confirmed_count ?? 0 },
                   { value: "invoiced", title: t("billingInvoiced"), count: preview.households.filter((row) => row.status === "invoiced").length },
                   { value: "paid", title: t("billingPaid"), count: preview.households.filter((row) => row.status === "paid").length },
@@ -399,6 +437,9 @@ export default function ClubBillingPage() {
                     <th className="px-3 py-2">{t("familyInvoicePayer")}</th>
                     <th className="px-3 py-2">{t("deliveryLabel")}</th>
                     {(preview.fees?.length ?? 0) > 1 ? <th className="px-3 py-2">{t("memberFeeLabel")}</th> : null}
+                    {Number(preview.license_fee?.amount || 0) > 0 ? (
+                      <th className="px-3 py-2">{t("licenseFeeTitle")}</th>
+                    ) : null}
                     <th className="px-3 py-2">{t("familyInvoiceTotal")}</th>
                     <th className="px-3 py-2">{t("billingStatus")}</th>
                   </tr>
@@ -411,15 +452,13 @@ export default function ClubBillingPage() {
                       <tr
                         key={row.id}
                         className="cursor-pointer border-t border-border hover:bg-secondary/40"
-                        onClick={() => setDetail(row)}
+                        onClick={() => openHousehold(row)}
                       >
                         <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             checked={selected.has(row.id)}
-                            disabled={row.status !== "ready" && row.status !== "complimentary"}
-                            onCheckedChange={() =>
-                              toggle(row.id, row.status === "ready" || row.status === "complimentary")
-                            }
+                            disabled={row.status !== "ready"}
+                            onCheckedChange={() => toggle(row.id, row.status === "ready")}
                           />
                         </td>
                         <td className="px-3 py-3">
@@ -457,6 +496,25 @@ export default function ClubBillingPage() {
                             ) : (
                               <span className="text-sm">{row.fee_name || t("billingMixedFees")}</span>
                             )}
+                          </td>
+                        ) : null}
+                        {Number(preview.license_fee?.amount || 0) > 0 ? (
+                          <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                            <div className="space-y-2">
+                              {row.lines
+                                .filter((line) => !line.supplementary && line.pays_license_fee !== undefined)
+                                .map((line) => (
+                                  <label key={line.member_id} className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={line.pays_license_fee !== false}
+                                      onCheckedChange={(value) => void handleLicenseFeeChange(line.member_id, value === true)}
+                                    />
+                                    <span className="text-sm">
+                                      {row.kind === "family" ? line.member_name : t("paysLicenseFee")}
+                                    </span>
+                                  </label>
+                                ))}
+                            </div>
                           </td>
                         ) : null}
                         <td className="px-3 py-3 font-medium">{row.total} EUR</td>
@@ -529,95 +587,6 @@ export default function ClubBillingPage() {
             </Button>
           </div>
         </div>
-      </Modal>
-
-      <Modal
-        title={t("confirmComplimentaryAction")}
-        description={t("billingConfirmComplimentaryHint")}
-        isOpen={confirmComplimentaryOpen}
-        onClose={() => setConfirmComplimentaryOpen(false)}
-      >
-        <div className="space-y-3 text-sm">
-          <p>{t("billingConfirmComplimentaryCount", { count: selectedComplimentary.length, year })}</p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setConfirmComplimentaryOpen(false)}>{t("cancel")}</Button>
-            <Button type="button" variant="primary" disabled={isSaving} onClick={() => void handleConfirmComplimentary()}>
-              {isSaving ? t("saving") : t("confirmComplimentaryAction")}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        title={detail?.name ?? ""}
-        isOpen={Boolean(detail)}
-        onClose={() => setDetail(null)}
-      >
-        {detail ? (
-          <div className="space-y-3 text-sm">
-            <p>{detail.payer.name} · {deliveryBadge(detail.delivery).label}</p>
-            <p className="text-muted">{detail.payer.contact_label}</p>
-            <ul className="space-y-2">
-              {detail.lines.map((line) => (
-                <li key={line.member_id} className="flex flex-wrap items-center justify-between gap-3">
-                  <span>{line.member_name}</span>
-                  {(preview?.fees?.length ?? 0) > 1 && canPickFee(detail.status) ? (
-                    <Select
-                      value={line.fee_id ? String(line.fee_id) : ""}
-                      onValueChange={(value) => {
-                        void handleFeeChange(line.member_id, Number(value));
-                      }}
-                      modal={false}
-                    >
-                      <SelectTrigger className="w-[11rem]"><SelectValue /></SelectTrigger>
-                      <SelectContent position="popper" onCloseAutoFocus={(event) => event.preventDefault()}>
-                        {(preview?.fees ?? []).map((fee) => (
-                          <SelectItem key={fee.id} value={String(fee.id)}>
-                            {fee.name} · {fee.amount} EUR
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span>{line.fee_name ? `${line.fee_name} · ` : ""}{line.amount} EUR</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <p className="font-medium">{t("familyInvoiceTotal")}: {detail.total} EUR</p>
-            {detail.status === "separate" ? (
-              <div className="space-y-1 text-muted">
-                <p>{t("billingFamilyPriceNote")}</p>
-                <p>{t("billingMemberInvoices")}</p>
-                {(detail.member_invoices ?? []).map((invoice) => (
-                  <p key={invoice.id}>
-                    <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/invoices/${invoice.id}`}>
-                      {invoice.invoice_number}
-                    </Link>
-                    {` · ${invoice.total} EUR`}
-                    {invoice.member_name ? ` · ${invoice.member_name}` : ""}
-                  </p>
-                ))}
-              </div>
-            ) : detail.invoice_id && detail.invoice_number ? (
-              <p>
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/invoices/${detail.invoice_id}`}>
-                  {detail.invoice_number}
-                </Link>
-                {` · ${detail.total} EUR`}
-              </p>
-            ) : null}
-            {detail.needs_recipient ? (
-              <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/families`}>
-                {t("chooseBillRecipient")}
-              </Link>
-            ) : detail.payer.member_id && detail.status !== "ready" ? (
-              <Link className="text-primary underline-offset-4 hover:underline" href={`/${locale}/dashboard/club/members/${detail.payer.member_id}?tab=club-record`}>
-                {t("openClubRecord")}
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
       </Modal>
     </ClubAdminLayout>
   );

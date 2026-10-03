@@ -123,6 +123,7 @@ class MemberRecordSerializer(serializers.ModelSerializer):
             "joined_at",
             "invoice_delivery",
             "membership_fee",
+            "pays_license_fee",
             "medical_notes",
             "publish_facebook",
             "publish_instagram",
@@ -277,7 +278,7 @@ class FamilyRebateRuleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FamilyRebateRule
-        fields = ["id", "club", "member_rank", "percent_off", "amount_off"]
+        fields = ["id", "club", "member_rank", "percent_off", "amount_off", "applies_to_later"]
 
     def validate(self, attrs):
         amount = attrs.get("amount_off", None)
