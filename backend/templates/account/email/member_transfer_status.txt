@@ -2,4 +2,4 @@ The transfer of {{ member_name }} from {{ from_club }} to {{ to_club }} was {{ k
 
 Open: {{ action_url }}
 
-LTF License Manager
+LTF Dojang Hub

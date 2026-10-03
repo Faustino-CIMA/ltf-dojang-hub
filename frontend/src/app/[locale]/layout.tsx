@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LTF License Manager",
-  description: "Taekwondo license management for LTF",
+  title: "LTF Dojang Hub",
+  description: "The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, and a shared calendar.",
 };
 
 type LocaleLayoutProps = Readonly<{

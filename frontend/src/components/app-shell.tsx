@@ -46,6 +46,8 @@ export type AppNavItem = {
   matchMode: "exact" | "prefix";
   extraMatchHrefs?: string[];
   group?: AppNavGroup;
+  badgeCount?: number;
+  badgeNew?: string;
 };
 
 const SIDEBAR_COLLAPSED_KEY = "ltf-sidebar-collapsed";
@@ -227,7 +229,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           {iconOnly ? null : (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
-              <p className="truncate text-meta">LTF</p>
+              <p className="truncate text-meta">{t("appTagline")}</p>
             </div>
           )}
         </div>
@@ -246,21 +248,46 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
               {block.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = item.id === activeId;
+                const countLabel = item.badgeCount ? (item.badgeCount > 99 ? "99+" : String(item.badgeCount)) : "";
+                const attentionLabel = [item.badgeNew, countLabel].filter(Boolean).join(" ");
+                const accessibleName = attentionLabel ? `${item.label}, ${attentionLabel}` : undefined;
                 return (
                   <Link
                     key={item.id}
                     href={item.href}
-                    title={iconOnly ? item.label : undefined}
+                    title={iconOnly ? accessibleName ?? item.label : undefined}
+                    aria-label={accessibleName}
                     aria-current={isActive ? "page" : undefined}
                     onClick={() => setNavOpen(false)}
                     className={cn(
-                      "flex min-h-[var(--control-height)] items-center rounded-[var(--radius-control)] text-sm font-medium transition-colors",
+                      "relative flex min-h-[var(--control-height)] items-center rounded-[var(--radius-control)] text-sm font-medium transition-colors",
                       iconOnly ? "justify-center px-0" : "gap-3 px-3",
+                      item.badgeCount || item.badgeNew ? "pt-3" : "",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted hover:bg-secondary hover:text-foreground"
                     )}
                   >
+                    {item.badgeNew ? (
+                      <span
+                        className={cn(
+                          "pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-[10px] font-semibold leading-none",
+                          isActive ? "text-primary-foreground" : "text-primary"
+                        )}
+                      >
+                        {item.badgeNew}
+                      </span>
+                    ) : null}
+                    {countLabel ? (
+                      <span
+                        className={cn(
+                          "pointer-events-none absolute right-1 top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-4",
+                          isActive ? "bg-surface text-primary" : "bg-primary text-primary-foreground"
+                        )}
+                      >
+                        {countLabel}
+                      </span>
+                    ) : null}
                     <Icon className="size-4 shrink-0" aria-hidden />
                     <span className={cn("truncate", iconOnly && "sr-only")}>{item.label}</span>
                   </Link>

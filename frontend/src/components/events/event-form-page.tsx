@@ -17,7 +17,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
-import { createEvent, deleteEvent, getEvent, updateEvent, type EventVisibility } from "@/lib/events-api";
+import { EventReminderPanel } from "@/components/events/event-reminder-panel";
+import { notifyCalendarAttention } from "@/components/events/use-calendar-attention";
+import { getClubs } from "@/lib/club-admin-api";
+import {
+  createEvent,
+  deleteEvent,
+  getEvent,
+  updateEvent,
+  type CalendarEvent,
+  type EventKind,
+  type EventVisibility,
+} from "@/lib/events-api";
 
 type FormVariant = "ltf" | "club" | "member";
 
@@ -26,16 +37,31 @@ type EventFormPageProps = {
   eventId?: number;
 };
 
-const schema = z.object({
-  title: z.string().min(1),
-  description: z.string().optional(),
-  venue_name: z.string().optional(),
-  venue_address: z.string().optional(),
-  starts_local: z.string().min(1),
-  ends_local: z.string().min(1),
-  all_day: z.boolean(),
-  visibility: z.enum(["public", "internal", "private"]),
-});
+const selectClass =
+  "block h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm";
+
+const schema = z
+  .object({
+    title: z.string().min(1),
+    description: z.string().optional(),
+    venue_name: z.string().optional(),
+    venue_address: z.string().optional(),
+    starts_local: z.string().min(1),
+    ends_local: z.string().min(1),
+    all_day: z.boolean(),
+    kind: z.enum(["calendar", "kyorugi", "poomsae"]),
+    visibility: z.enum(["public", "internal", "private", "shared", "presidents"]),
+    audience_clubs: z.array(z.number()),
+  })
+  .superRefine((values, ctx) => {
+    if (values.visibility === "presidents" && values.audience_clubs.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["audience_clubs"],
+        message: "presidents",
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -65,6 +91,8 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
   const { selectedClubId } = useClubSelection();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(variant !== "member");
+  const [clubs, setClubs] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadedEvent, setLoadedEvent] = useState<CalendarEvent | null>(null);
   const listHref =
     variant === "ltf"
       ? `/${locale}/dashboard/ltf/calendar`
@@ -82,10 +110,31 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
       starts_local: "",
       ends_local: "",
       all_day: false,
+      kind: "calendar",
       visibility: "public",
+      audience_clubs: [],
     },
   });
   const allDay = form.watch("all_day");
+  const visibility = form.watch("visibility");
+  const audienceClubs = form.watch("audience_clubs");
+
+  useEffect(() => {
+    if (variant !== "ltf") return;
+    let cancelled = false;
+    getClubs()
+      .then((rows) => {
+        if (!cancelled) {
+          setClubs(rows.filter((club) => club.is_active).map((club) => ({ id: club.id, name: club.name })));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setClubs([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [variant]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -93,6 +142,8 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
     getEvent(eventId)
       .then((event) => {
         if (cancelled) return;
+        setLoadedEvent(event);
+        notifyCalendarAttention();
         setCanEdit(event.can_edit && variant !== "member");
         form.reset({
           title: event.title,
@@ -100,7 +151,9 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
           venue_name: event.venue_name,
           venue_address: event.venue_address,
           all_day: event.all_day,
+          kind: event.kind,
           visibility: event.visibility,
+          audience_clubs: event.audience_clubs ?? [],
           starts_local: toLocalValue(event.starts_at, event.all_day),
           ends_local: toLocalValue(event.ends_at, event.all_day),
         });
@@ -127,12 +180,13 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
       venue_name: values.venue_name ?? "",
       venue_address: values.venue_address ?? "",
       all_day: values.all_day,
+      kind: values.kind as EventKind,
       visibility: values.visibility as EventVisibility,
+      audience_clubs: values.visibility === "presidents" ? values.audience_clubs : [],
       starts_at: fromLocalValue(values.starts_local, values.all_day, false),
       ends_at: fromLocalValue(values.ends_local, values.all_day, true),
       owner_scope: variant === "club" ? ("club" as const) : ("federation" as const),
       club: variant === "club" ? selectedClubId : null,
-      kind: "calendar" as const,
     };
     try {
       if (eventId) {
@@ -159,10 +213,22 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
 
   const readOnly = !canEdit;
   const title = eventId ? t("calendarEditTitle") : t("calendarNewTitle");
+  const visibilityOptions =
+    variant === "ltf"
+      ? (["public", "internal", "private", "shared", "presidents"] as const)
+      : (["public", "internal", "private", "shared"] as const);
 
   const body = (
     <>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+      {variant === "club" && eventId && loadedEvent ? (
+        <EventReminderPanel
+          eventId={eventId}
+          startsAt={loadedEvent.starts_at}
+          endsAt={loadedEvent.ends_at}
+          initial={loadedEvent.reminder}
+        />
+      ) : null}
       <FormPanel>
         <form onSubmit={onSubmit} className="grid gap-4">
           <div>
@@ -217,12 +283,22 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
             <Label htmlFor="venue_address">{t("calendarFieldAddress")}</Label>
             <Input id="venue_address" className="mt-1" disabled={readOnly} {...form.register("venue_address")} />
           </div>
+          <div className="flex max-w-sm flex-col gap-2">
+            <Label htmlFor="kind">{t("calendarFieldKind")}</Label>
+            <select id="kind" className={selectClass} disabled={readOnly} {...form.register("kind")}>
+              {(["calendar", "kyorugi", "poomsae"] as const).map((value) => (
+                <option key={value} value={value}>
+                  {t(`calendarKind_${value}`)}
+                </option>
+              ))}
+            </select>
+          </div>
           {variant !== "member" ? (
             <fieldset className="grid gap-2">
               <legend className="text-sm font-medium leading-none">{t("calendarFieldVisibility")}</legend>
               <p className="text-sm text-muted">{t("calendarVisibilityIntro")}</p>
-              {(["public", "internal", "private"] as const).map((value) => {
-                const checked = form.watch("visibility") === value;
+              {visibilityOptions.map((value) => {
+                const checked = visibility === value;
                 const scope = variant === "club" ? "club" : "federation";
                 return (
                   <label
@@ -251,6 +327,36 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
                   </label>
                 );
               })}
+              {visibility === "presidents" && variant === "ltf" ? (
+                <fieldset className="grid gap-2 pt-2">
+                  <legend className="text-sm font-medium leading-none">{t("calendarAudienceClubs")}</legend>
+                  <p className="text-sm text-muted">{t("calendarAudienceClubsHint")}</p>
+                  {clubs.map((club) => {
+                    const checked = audienceClubs.includes(club.id);
+                    const inputId = `audience-club-${club.id}`;
+                    return (
+                      <div key={club.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={inputId}
+                          checked={checked}
+                          disabled={readOnly}
+                          onCheckedChange={(next) => {
+                            const current = form.getValues("audience_clubs");
+                            const without = current.filter((id) => id !== club.id);
+                            form.setValue("audience_clubs", next ? [...without, club.id] : without, {
+                              shouldValidate: true,
+                            });
+                          }}
+                        />
+                        <Label htmlFor={inputId}>{club.name}</Label>
+                      </div>
+                    );
+                  })}
+                  {form.formState.errors.audience_clubs ? (
+                    <p className="text-sm text-destructive">{t("calendarNeedPresidents")}</p>
+                  ) : null}
+                </fieldset>
+              ) : null}
             </fieldset>
           ) : null}
           <div className="flex flex-wrap gap-3">

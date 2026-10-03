@@ -1,5 +1,5 @@
 """
-Django settings for LTF License Manager.
+Django settings for LTF Dojang Hub.
 """
 
 import base64
@@ -400,8 +400,8 @@ DASHBOARD_OVERVIEW_CACHE_TTL_SECONDS = config(
 
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "LTF License Manager API",
-    "DESCRIPTION": "API for managing LTF Taekwondo licenses",
+    "TITLE": "LTF Dojang Hub API",
+    "DESCRIPTION": "API for the Luxembourg Taekwondo Federation dojang hub.",
     "VERSION": "0.4.0",
 }
 

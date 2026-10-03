@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
   EVENT_CALENDAR_MODULE_ID,
@@ -140,6 +141,10 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
   const previewEntitled = isInstallEntitled(modules, PREVIEW_MODULE_ID);
   const calendarEntitled = isInstallEntitled(modules, EVENT_CALENDAR_MODULE_ID);
   const clubMgmtEntitled = isInstallEntitled(modules, CLUB_MANAGEMENT_MODULE_ID);
+  const calendarAttention = useCalendarAttention({
+    enabled: calendarEntitled,
+    scope: "federation",
+  });
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
@@ -157,6 +162,7 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
           icon: def.icon,
           matchMode: def.matchMode,
           group: ltfNavGroup(def.id, (key) => common(key)),
+          ...(def.id === "calendar" ? calendarAttention : {}),
         },
       }))
       .sort((left, right) => {
@@ -164,7 +170,7 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
         return rank(left.item.group?.id ?? "") - rank(right.item.group?.id ?? "") || left.index - right.index;
       })
       .map((entry) => entry.item),
-    [calendarEntitled, clubMgmtEntitled, common, locale, previewEntitled, t]
+    [calendarAttention, calendarEntitled, clubMgmtEntitled, common, locale, previewEntitled, t]
   );
 
   return (

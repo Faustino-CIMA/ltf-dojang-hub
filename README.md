@@ -1,13 +1,13 @@
-# LTF License Manager
+# LTF Dojang Hub
 
-Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federation (LTF).
+The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, the shop, and a shared calendar.
 
 ## Release Notes
 
-This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. Coach pay is recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
+This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. The calendar can keep a date inside a club, share it with every club and the LTF, or limit a presidents meeting to the invited presidents. The Calendar link counts the next two months and shows new until those events are opened. A club admin can set a reminder. The application is called LTF Dojang Hub. Coach pay, the calendar audiences, the Calendar link, reminders, and the name are recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
 
-- See `CHANGELOG.md` **Unreleased** for coach pay, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay work. No v0.12.0 tag has been created.
+- See `CHANGELOG.md` **Unreleased** for coach pay, calendar audiences, the Calendar link, reminders, and the LTF Dojang Hub name, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay, calendar, and rename work. No v0.12.0 tag has been created.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
 ## CI (GitHub Actions)
@@ -48,8 +48,8 @@ Quick install scripts (optional):
 1. Clone the repo and enter the folder:
 
 ```
-git clone https://github.com/Faustino-CIMA/tkdlicensemanager.git
-cd tkdlicensemanager
+git clone https://github.com/Faustino-CIMA/ltf-dojang-hub.git
+cd ltf-dojang-hub
 ```
 
 2. Copy env template and adjust if needed:

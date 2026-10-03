@@ -5,10 +5,15 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### User-facing
+- **LTF Dojang Hub:** The application is now called LTF Dojang Hub. The front page, sign-in, welcome back, and the club, federation, and member overviews describe the desk: members, licenses, training, billing, the shop, and the shared calendar, with room for more of the dojang.
 - **Coach pay:** On Coach pay, a club admin sets each coach to an hourly rate or to one amount per held class. A held class counts in full for every coach on it. The period shows hours, units, training pay, tournament coaching, fuel, hotel, and the total. A tournament, fuel, or hotel row uses its date to pick the period. Leave the coaching fee empty to use the coach's rate. Enter a fee, including 0, when that day is not paid at the rate. Coaches still see hours and units. Only a club admin sees and edits the amounts. A new rate recalculates the open periods. Membership invoices already issued stay as they are.
+- **Calendar audiences:** A club date can stay inside the club. Private is that club’s admins only. Internal is that club’s admins and coaches, for a staff outing such as Europapark. Public stays with that club’s members and with LTF Admin. All clubs and the LTF puts the date on the LTF calendar and on every club calendar, with the kind and the club name, so another club can see a Kyorugi or Poomsae day. A Club presidents meeting is an LTF event. Tick the clubs. Only LTF Admins and the current president of each ticked club can see it. The president needs a login on their member record. The calendar does not block a second event on the same day.
+- **Calendar link:** The Calendar link shows how many events fall in the next two months. It also shows “new” until each of those events has been opened. A club admin can set a reminder on an event, including the day it should appear. On that day a reminder shows Snooze for a day and Got it. Snooze hides it until the next day. Got it does not show that reminder again.
 
 ### Technical
 - `CoachPayRate` and `CoachOuting` are migration `clubmgmt.0023_coach_pay`. `GET /api/club-management/training/coach-hours/` adds units for everyone and euro amounts for a club admin. Rates are saved and removed at `training/coach-pay-rates/`. Tournament, fuel, and hotel rows are created, updated, and removed at `training/coach-outings/`.
+- Event visibility adds `shared` and `presidents`. `Event.audience_clubs` is migration `events.0002_event_audiences`. Kind `calendar`, `kyorugi`, and `poomsae` can be saved. A federation or club calendar includes shared dates, and a club calendar includes presidents meetings for that club. Each row is then hidden unless that person may see it.
+- `EventAttention` is migration `events.0003_event_attention`. `GET /api/events/summary/` returns the next two months. Opening an event marks it seen. A club admin saves, snoozes, and dismisses a reminder at `/api/events/{id}/reminder/`, `reminder-snooze/`, and `reminder-dismiss/`. Due reminders are `GET /api/events/reminders/`.
 
 ## [0.12.0] - 2026-10-02
 

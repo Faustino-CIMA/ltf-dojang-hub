@@ -226,7 +226,7 @@ def send_member_transfer_status_email(transfer, *, kind: str, locale: str | None
 
 
 def send_password_reset_email(user, reset_url):
-    subject = "Reset your LTF License Manager password"
+    subject = "Reset your LTF Dojang Hub password"
     context = {"user": user, "reset_url": reset_url}
     html = render_to_string("account/email/password_reset.html", context)
     text = render_to_string("account/email/password_reset.txt", context)

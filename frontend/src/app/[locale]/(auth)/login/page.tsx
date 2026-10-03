@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const t = useTranslations("Auth");
+  const common = useTranslations("Common");
   const router = useRouter();
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -91,6 +92,7 @@ export default function LoginPage() {
         <div className="app-panel w-full max-w-md p-8">
           <div className="lg:hidden">
             <Image src="/ltf-logo.svg" alt="LTF" width={140} height={42} className="h-9 w-auto" priority />
+            <p className="mt-3 text-sm font-semibold tracking-tight text-foreground">{common("appTitle")}</p>
           </div>
           <h2 className="mt-2 text-title text-foreground lg:mt-0">{t("loginTitle")}</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">{t("loginSubtitle")}</p>
