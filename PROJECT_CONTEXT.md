@@ -1,4 +1,4 @@
-**LTF Taekwondo License Manager — Master Summary (May 2026)**
+**LTF Dojang Hub — Master Summary (May 2026)**
 Last updated: 2026-10-02
 
 Current main branch state:

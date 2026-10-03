@@ -17,6 +17,8 @@ class Event(models.Model):
         PUBLIC = "public", "Public"
         INTERNAL = "internal", "Internal"
         PRIVATE = "private", "Private"
+        SHARED = "shared", "All clubs and the LTF"
+        PRESIDENTS = "presidents", "Club presidents"
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -38,6 +40,11 @@ class Event(models.Model):
         max_length=16,
         choices=Visibility.choices,
         default=Visibility.PUBLIC,
+    )
+    audience_clubs = models.ManyToManyField(
+        "clubs.Club",
+        blank=True,
+        related_name="president_events",
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -67,3 +74,27 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class EventAttention(models.Model):
+    """Per-user visit and reminder state for one event."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_attentions",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="attentions",
+    )
+    seen_at = models.DateTimeField(null=True, blank=True)
+    remind_on = models.DateField(null=True, blank=True)
+    snoozed_until = models.DateTimeField(null=True, blank=True)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "event"], name="evt_attention_user_event"),
+        ]

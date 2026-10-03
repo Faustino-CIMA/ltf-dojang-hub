@@ -1,6 +1,6 @@
-# LTF License Manager
+# LTF Dojang Hub
 
-Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federation (LTF).
+The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, the shop, and a shared calendar.
 
 ## Release Notes
 
@@ -48,8 +48,8 @@ Quick install scripts (optional):
 1. Clone the repo and enter the folder:
 
 ```
-git clone https://github.com/Faustino-CIMA/tkdlicensemanager.git
-cd tkdlicensemanager
+git clone https://github.com/Faustino-CIMA/ltf-dojang-hub.git
+cd ltf-dojang-hub
 ```
 
 2. Copy env template and adjust if needed:

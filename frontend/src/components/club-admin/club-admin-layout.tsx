@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 
 import { IncomingTransferNotice } from "@/components/club-admin/incoming-transfer-notice";
+import { EventReminderToasts } from "@/components/events/event-reminder-toasts";
+import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import { ClubPrintingTabs } from "@/components/club-admin/club-printing-tabs";
 import { ClubTrainingTabs } from "@/components/club-admin/club-training-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -243,6 +245,11 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
   const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
   const calendarAssigned = isClubModuleAssigned(modules, EVENT_CALENDAR_MODULE_ID, selectedClubId);
   const clubMgmtAssigned = isClubModuleAssigned(modules, CLUB_MANAGEMENT_MODULE_ID, selectedClubId);
+  const calendarAttention = useCalendarAttention({
+    enabled: calendarAssigned,
+    scope: "club",
+    clubId: selectedClubId,
+  });
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
@@ -264,6 +271,7 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
           icon: def.icon,
           matchMode: def.matchMode,
           group: clubNavGroup(def.id, (key) => common(key)),
+          ...(def.id === "calendar" ? calendarAttention : {}),
           extraMatchHrefs:
             def.id === "finance"
               ? [
@@ -285,7 +293,7 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         return leftRank - rightRank || left.index - right.index;
       })
       .map((entry) => entry.item),
-    [calendarAssigned, clubMgmtAssigned, common, locale, previewAssigned, role, t]
+    [calendarAssigned, calendarAttention, clubMgmtAssigned, common, locale, previewAssigned, role, t]
   );
 
   const isPrinting =
@@ -295,6 +303,7 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
   return (
     <AppShell title={title} subtitle={subtitle} navItems={navItems}>
       <IncomingTransferNotice />
+      {role === "club_admin" ? <EventReminderToasts /> : null}
       {isPrinting || isTraining ? (
         <div className="space-y-6">
           {isPrinting ? <ClubPrintingTabs /> : null}

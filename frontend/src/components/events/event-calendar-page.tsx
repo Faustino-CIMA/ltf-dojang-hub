@@ -10,11 +10,13 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { MemberLayout } from "@/components/member/member-layout";
+import { notifyCalendarAttention, notifyCalendarReminders } from "@/components/events/use-calendar-attention";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { apiRequest } from "@/lib/api";
 import { formatDisplayDateTime } from "@/lib/date-display";
-import { listEvents, type CalendarEvent } from "@/lib/events-api";
+import { listEvents, markEventSeen, setEventReminder, type CalendarEvent } from "@/lib/events-api";
 
 type CalendarVariant = "ltf" | "club" | "member";
 
@@ -42,6 +44,20 @@ function eventDayKey(iso: string) {
   return iso.slice(0, 10);
 }
 
+function toDateInput(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function visibilityTone(visibility: CalendarEvent["visibility"]): "success" | "warning" | "neutral" {
+  if (visibility === "public") return "success";
+  if (visibility === "internal") return "warning";
+  if (visibility === "shared") return "warning";
+  return "neutral";
+}
+
 export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   const t = useTranslations("Events");
   const locale = useLocale();
@@ -50,6 +66,8 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [armedReminders, setArmedReminders] = useState<Record<number, string>>({});
+  const [isClubAdmin, setIsClubAdmin] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(isoDate(now));
 
@@ -80,6 +98,11 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
         to: range.to,
       });
       setEvents(rows);
+      const armed: Record<number, string> = {};
+      for (const row of rows) {
+        if (row.reminder?.remind_on) armed[row.id] = row.reminder.remind_on;
+      }
+      setArmedReminders(armed);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("calendarLoadError"));
       setEvents([]);
@@ -89,6 +112,31 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (variant !== "club") return;
+    let cancelled = false;
+    apiRequest<{ role: string }>("/api/auth/me/")
+      .then((me) => {
+        if (!cancelled) setIsClubAdmin(me.role === "club_admin");
+      })
+      .catch(() => {
+        if (!cancelled) setIsClubAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [variant]);
+
+  const armReminder = async (event: CalendarEvent) => {
+    const today = toDateInput(new Date().toISOString());
+    const eventDay = toDateInput(event.starts_at);
+    const remindOn = eventDay && eventDay < today ? today : eventDay;
+    if (!remindOn) return;
+    const saved = await setEventReminder(event.id, remindOn);
+    setArmedReminders((current) => ({ ...current, [event.id]: saved.remind_on ?? remindOn }));
+    notifyCalendarReminders();
+  };
 
   const days = useMemo(() => {
     const first = startOfMonth(year, month);
@@ -240,18 +288,48 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
                     : `/${locale}/dashboard/club/calendar/${event.id}`;
               return (
                 <li key={event.id}>
-                  <Link href={href} className="app-panel block p-4 hover:bg-secondary/50">
+                  <Link
+                    href={href}
+                    className="app-panel block p-4 hover:bg-secondary/50"
+                    onClick={() => {
+                      void markEventSeen(event.id).then(() => notifyCalendarAttention());
+                    }}
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-foreground">{event.title}</p>
                       <StatusBadge
                         label={t(`calendarVisibility_${event.visibility}`)}
-                        tone={event.visibility === "public" ? "success" : event.visibility === "internal" ? "warning" : "neutral"}
+                        tone={visibilityTone(event.visibility)}
                       />
                     </div>
                     <p className="mt-1 text-sm text-muted">
                       {event.all_day ? t("calendarAllDay") : formatDisplayDateTime(event.starts_at)}
+                      {event.kind !== "calendar" ? ` · ${t(`calendarKind_${event.kind}`)}` : ""}
+                      {event.club_name ? ` · ${event.club_name}` : ""}
                       {event.venue_name ? ` · ${event.venue_name}` : ""}
                     </p>
+                    {variant === "club" && isClubAdmin ? (
+                      <div className="mt-3">
+                        {armedReminders[event.id] ? (
+                          <p className="text-sm text-muted">{t("calendarReminderSet")}</p>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(click) => {
+                              click.preventDefault();
+                              click.stopPropagation();
+                              void armReminder(event).catch((error) => {
+                                setErrorMessage(error instanceof Error ? error.message : t("calendarSaveError"));
+                              });
+                            }}
+                          >
+                            {t("calendarRemindMe")}
+                          </Button>
+                        )}
+                      </div>
+                    ) : null}
                   </Link>
                 </li>
               );

@@ -5,4 +5,4 @@ A club admin of {{ from_club }} requested to transfer {{ member_name }} to {{ to
 {% endif %}
 Review: {{ action_url }}
 
-LTF License Manager
+LTF Dojang Hub

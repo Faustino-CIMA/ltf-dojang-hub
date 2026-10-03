@@ -2,7 +2,7 @@ import { apiRequest } from "./api";
 
 export type EventKind = "calendar" | "kyorugi" | "poomsae";
 export type EventOwnerScope = "federation" | "club";
-export type EventVisibility = "public" | "internal" | "private";
+export type EventVisibility = "public" | "internal" | "private" | "shared" | "presidents";
 
 export type CalendarEvent = {
   id: number;
@@ -18,10 +18,31 @@ export type CalendarEvent = {
   ends_at: string;
   all_day: boolean;
   visibility: EventVisibility;
+  audience_clubs: number[];
   created_by: number | null;
   created_at: string;
   updated_at: string;
   can_edit: boolean;
+  reminder: EventReminder | null;
+};
+
+export type EventReminder = {
+  remind_on: string | null;
+  snoozed_until: string | null;
+  dismissed: boolean;
+};
+
+export type CalendarSummary = {
+  upcoming_count: number;
+  unseen_count: number;
+};
+
+export type DueReminder = {
+  id: number;
+  title: string;
+  starts_at: string;
+  club_name: string | null;
+  remind_on: string;
 };
 
 export type EventPayload = {
@@ -36,6 +57,7 @@ export type EventPayload = {
   ends_at: string;
   all_day?: boolean;
   visibility?: EventVisibility;
+  audience_clubs?: number[];
 };
 
 export type EventListQuery = {
@@ -79,4 +101,35 @@ export function updateEvent(id: number, payload: Partial<EventPayload>) {
 
 export function deleteEvent(id: number) {
   return apiRequest<null>(`/api/events/${id}/`, { method: "DELETE" });
+}
+
+export function getCalendarSummary(params: EventListQuery = {}) {
+  return apiRequest<CalendarSummary>(`/api/events/summary/${buildQuery(params)}`);
+}
+
+export function markEventSeen(id: number) {
+  return apiRequest<null>(`/api/events/${id}/seen/`, { method: "POST" });
+}
+
+export function setEventReminder(id: number, remindOn: string) {
+  return apiRequest<EventReminder>(`/api/events/${id}/reminder/`, {
+    method: "POST",
+    body: JSON.stringify({ remind_on: remindOn }),
+  });
+}
+
+export function clearEventReminder(id: number) {
+  return apiRequest<null>(`/api/events/${id}/reminder/`, { method: "DELETE" });
+}
+
+export function snoozeEventReminder(id: number) {
+  return apiRequest<EventReminder>(`/api/events/${id}/reminder-snooze/`, { method: "POST" });
+}
+
+export function dismissEventReminder(id: number) {
+  return apiRequest<EventReminder>(`/api/events/${id}/reminder-dismiss/`, { method: "POST" });
+}
+
+export function listDueReminders() {
+  return apiRequest<DueReminder[]>("/api/events/reminders/");
 }

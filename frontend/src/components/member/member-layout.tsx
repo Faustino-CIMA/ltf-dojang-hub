@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { CalendarDays, Camera, History } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import { EVENT_CALENDAR_MODULE_ID, getModuleStatus, isInstallEntitled } from "@/lib/modules-api";
 
 type MemberLayoutProps = {
@@ -20,6 +21,7 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
   const [calendarEntitled, setCalendarEntitled] = useState(false);
+  const calendarAttention = useCalendarAttention({ enabled: calendarEntitled });
 
   useEffect(() => {
     let cancelled = false;
@@ -62,11 +64,12 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
               icon: CalendarDays,
               matchMode: "prefix" as const,
               group: { id: "calendar", label: common("navGroupCalendar") },
+              ...calendarAttention,
             },
           ]
         : []),
     ],
-    [calendarEntitled, common, locale, t]
+    [calendarAttention, calendarEntitled, common, locale, t]
   );
 
   return (

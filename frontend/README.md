@@ -1,6 +1,6 @@
-# Frontend (LTF License Manager)
+# Frontend (LTF Dojang Hub)
 
-Next.js 16 App Router frontend for the LTF License Manager.
+Next.js 16 App Router frontend for LTF Dojang Hub.
 
 For complete project setup (Docker-first), environment variables, deployment notes, and troubleshooting, see the root `README.md`.
 

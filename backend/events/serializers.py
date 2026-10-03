@@ -6,6 +6,7 @@ from .models import Event
 class EventSerializer(serializers.ModelSerializer):
     club_name = serializers.CharField(source="club.name", read_only=True)
     can_edit = serializers.SerializerMethodField()
+    reminder = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
@@ -23,12 +24,14 @@ class EventSerializer(serializers.ModelSerializer):
             "ends_at",
             "all_day",
             "visibility",
+            "audience_clubs",
             "created_by",
             "created_at",
             "updated_at",
             "can_edit",
+            "reminder",
         ]
-        read_only_fields = ["created_by", "created_at", "updated_at", "club_name", "can_edit"]
+        read_only_fields = ["created_by", "created_at", "updated_at", "club_name", "can_edit", "reminder"]
 
     def get_can_edit(self, obj: Event) -> bool:
         request = self.context.get("request")
@@ -37,22 +40,51 @@ class EventSerializer(serializers.ModelSerializer):
 
         return can_manage_event(user, obj)
 
-    def validate_kind(self, value: str) -> str:
-        if value != Event.Kind.CALENDAR:
-            raise serializers.ValidationError(
-                "Kyorugi and Poomsae events need those tournament modules."
-            )
-        return value
+    def get_reminder(self, obj: Event):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return None
+        cached = getattr(obj, "my_attention", None)
+        if cached is None:
+            attention = obj.attentions.filter(user=user).first()
+        else:
+            attention = cached[0] if cached else None
+        if attention is None or attention.remind_on is None or attention.dismissed_at is not None:
+            return None
+        return {
+            "remind_on": attention.remind_on.isoformat(),
+            "snoozed_until": attention.snoozed_until.isoformat() if attention.snoozed_until else None,
+            "dismissed": False,
+        }
 
     def validate(self, attrs):
         owner_scope = attrs.get("owner_scope", getattr(self.instance, "owner_scope", None))
         club = attrs.get("club", getattr(self.instance, "club", None))
         starts_at = attrs.get("starts_at", getattr(self.instance, "starts_at", None))
         ends_at = attrs.get("ends_at", getattr(self.instance, "ends_at", None))
+        visibility = attrs.get("visibility", getattr(self.instance, "visibility", None))
         if owner_scope == Event.OwnerScope.CLUB and club is None:
             raise serializers.ValidationError({"club": "A club event needs a club."})
         if owner_scope == Event.OwnerScope.FEDERATION and club is not None:
             raise serializers.ValidationError({"club": "A federation event cannot be tied to a club."})
         if starts_at and ends_at and ends_at < starts_at:
             raise serializers.ValidationError({"ends_at": "End must be on or after the start."})
+        if visibility == Event.Visibility.PRESIDENTS:
+            if owner_scope != Event.OwnerScope.FEDERATION:
+                raise serializers.ValidationError(
+                    {"visibility": "A presidents meeting is an LTF event."}
+                )
+            if "audience_clubs" in attrs:
+                audience = attrs.get("audience_clubs") or []
+            elif self.instance is not None:
+                audience = self.instance.audience_clubs.all()
+            else:
+                audience = []
+            if not audience:
+                raise serializers.ValidationError(
+                    {"audience_clubs": "Tick at least one club."}
+                )
+        else:
+            attrs["audience_clubs"] = []
         return attrs

@@ -165,18 +165,22 @@ export function HomeLanding() {
             </Link>
           </div>
         </div>
-        <div className="app-panel grid gap-4 p-6">
+        <div className="app-panel grid gap-4 p-6 sm:grid-cols-2">
           <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--accent)_12%,white)] p-4">
             <p className="text-meta">{t("tileMembersLabel")}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{t("tileMembersValue")}</p>
+            <p className="mt-1 text-xl font-semibold leading-snug">{t("tileMembersValue")}</p>
           </div>
           <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--success)_14%,white)] p-4">
             <p className="text-meta">{t("tileLicensesLabel")}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{t("tileLicensesValue")}</p>
+            <p className="mt-1 text-xl font-semibold leading-snug">{t("tileLicensesValue")}</p>
           </div>
           <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--warning)_16%,white)] p-4">
-            <p className="text-meta">{t("tilePrintLabel")}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{t("tilePrintValue")}</p>
+            <p className="text-meta">{t("tileDojangLabel")}</p>
+            <p className="mt-1 text-xl font-semibold leading-snug">{t("tileDojangValue")}</p>
+          </div>
+          <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,oklch(54%_0.16_25)_12%,white)] p-4">
+            <p className="text-meta">{t("tileAheadLabel")}</p>
+            <p className="mt-1 text-xl font-semibold leading-snug">{t("tileAheadValue")}</p>
           </div>
         </div>
       </div>

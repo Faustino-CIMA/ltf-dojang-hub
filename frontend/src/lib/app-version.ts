@@ -1,6 +1,6 @@
 export const APP_VERSION = "0.12.0";
 
-export const GITHUB_REPO_URL = "https://github.com/Faustino-CIMA/tkdlicensemanager";
+export const GITHUB_REPO_URL = "https://github.com/Faustino-CIMA/ltf-dojang-hub";
 export const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases`;
 
 export type AppRelease = {
