@@ -254,3 +254,266 @@ class TrainingTests(TestCase):
         self.assertFalse(TrainingSession.objects.filter(series_id=created.data["id"], held_on=date(2026, 6, 1)).exists())
         moved = TrainingSession.objects.get(series_id=created.data["id"], held_on=date(2026, 6, 2))
         self.assertEqual(moved.name, "Tuesday kids")
+
+    def _hold(self, held_on: str, start: str, end: str, coach_ids: list[int]) -> int:
+        created = self.client.post(
+            f"/api/club-management/training/sessions/?club={self.club.id}",
+            {
+                "name": "Pay class",
+                "audience": "adults",
+                "held_on": held_on,
+                "start_time": start,
+                "end_time": end,
+                "coach_ids": coach_ids,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        saved = self.client.put(
+            f"/api/club-management/training/sessions/{created.data['id']}/attendance/?club={self.club.id}",
+            {"member_ids": [self.child.id], "coach_ids": coach_ids},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        return created.data["id"]
+
+    def _july(self, report):
+        return next(row for row in report.data["periods"] if row["ends_on"] == "2026-07-15")
+
+    def _row(self, period, user_id: int):
+        return next(row for row in period["coaches"] if row["user_id"] == user_id)
+
+    def test_coach_pay_uses_the_rate_basis_and_dated_tournament_costs(self):
+        assistant = User.objects.create_user(
+            username="train-assistant",
+            password="pass12345",
+            role=User.Roles.COACH,
+            first_name="Ada",
+            last_name="Assist",
+        )
+        traveller = User.objects.create_user(
+            username="train-traveller",
+            password="pass12345",
+            role=User.Roles.COACH,
+            first_name="Bea",
+            last_name="Only",
+        )
+        self.club.trainers.add(assistant, traveller)
+        stranger = User.objects.create_user(username="train-stranger", password="pass12345", role=User.Roles.COACH)
+        monthly = self.client.patch(
+            f"/api/club-management/training/coach-hours/?club={self.club.id}&year=2026",
+            {"pay_frequency": "monthly", "payday_day": 15},
+            format="json",
+        )
+        self.assertEqual(monthly.status_code, 200, monthly.data)
+        self.assertIn("rates", monthly.data)
+        self.assertIn("outings", monthly.data)
+        rejected = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": stranger.id, "basis": "hourly", "rate": "10"},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        negative = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": self.coach.id, "basis": "hourly", "rate": "-1"},
+            format="json",
+        )
+        self.assertEqual(negative.status_code, 400, negative.data)
+        rated = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": self.coach.id, "basis": "hourly", "rate": "20,5"},
+            format="json",
+        )
+        self.assertEqual(rated.status_code, 200, rated.data)
+        kim_rate = next(row for row in rated.data["rates"] if row["user_id"] == self.coach.id)
+        self.assertEqual(kim_rate["basis"], "hourly")
+        self.assertEqual(kim_rate["rate"], "20.50")
+
+        self._hold("2026-06-23", "17:00", "18:30", [self.coach.id])
+        class_b = self._hold("2026-06-24", "18:00", "19:00", [self.coach.id])
+        self._hold("2026-06-25", "10:00", "12:00", [self.coach.id, assistant.id])
+        scheduled = self.client.post(
+            f"/api/club-management/training/sessions/?club={self.club.id}",
+            {
+                "name": "Not held",
+                "audience": "adults",
+                "held_on": "2026-06-26",
+                "start_time": "10:00",
+                "end_time": "11:00",
+                "coach_ids": [self.coach.id],
+            },
+            format="json",
+        )
+        self.assertEqual(scheduled.status_code, 201, scheduled.data)
+        self.assertEqual(scheduled.data["status"], "scheduled")
+
+        report = self.client.get(f"/api/club-management/training/coach-hours/?club={self.club.id}&year=2026")
+        july = self._july(report)
+        kim = self._row(july, self.coach.id)
+        ada = self._row(july, assistant.id)
+        self.assertEqual(kim["hours"], "4.50")
+        self.assertEqual(kim["units"], "3")
+        self.assertEqual(kim["training_pay"], "92.25")
+        self.assertEqual(kim["total"], "92.25")
+        self.assertEqual(ada["hours"], "2.00")
+        self.assertEqual(ada["units"], "1")
+        self.assertEqual(ada["rate"], "")
+        self.assertEqual(ada["training_pay"], "0.00")
+        june = next(row for row in report.data["periods"] if row["ends_on"] == "2026-06-15")
+        self.assertEqual(june["coaches"], [])
+
+        outing = self.client.post(
+            f"/api/club-management/training/coach-outings/?club={self.club.id}&year=2026",
+            {
+                "coach_id": self.coach.id,
+                "held_on": "2026-07-01",
+                "name": "Open Luxembourg",
+                "quantity": "3",
+                "fuel_amount": "12.50",
+                "hotel_amount": "80",
+            },
+            format="json",
+        )
+        self.assertEqual(outing.status_code, 200, outing.data)
+        kim = self._row(self._july(outing), self.coach.id)
+        self.assertEqual(kim["tournament_pay"], "61.50")
+        self.assertEqual(kim["fuel"], "12.50")
+        self.assertEqual(kim["hotel"], "80.00")
+        self.assertEqual(kim["total"], "246.25")
+        open_row = next(row for row in outing.data["outings"] if row["tournament"] == "Open Luxembourg")
+        self.assertIsNone(open_row["coaching_amount"])
+        self.assertEqual(open_row["coaching_pay"], "61.50")
+
+        travel = self.client.post(
+            f"/api/club-management/training/coach-outings/?club={self.club.id}&year=2026",
+            {
+                "coach_id": traveller.id,
+                "held_on": "2026-06-20",
+                "name": "Travel only",
+                "quantity": "0",
+                "coaching_amount": "0",
+                "fuel_amount": "15",
+                "hotel_amount": "40",
+            },
+            format="json",
+        )
+        self.assertEqual(travel.status_code, 200, travel.data)
+        bea = self._row(self._july(travel), traveller.id)
+        self.assertEqual(bea["hours"], "0.00")
+        self.assertEqual(bea["units"], "0")
+        self.assertEqual(bea["training_pay"], "0.00")
+        self.assertEqual(bea["tournament_pay"], "0.00")
+        self.assertEqual(bea["total"], "55.00")
+
+        unit = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": self.coach.id, "basis": "unit", "rate": "10"},
+            format="json",
+        )
+        kim = self._row(self._july(unit), self.coach.id)
+        self.assertEqual(kim["hours"], "4.50")
+        self.assertEqual(kim["training_pay"], "30.00")
+        self.assertEqual(kim["tournament_pay"], "30.00")
+        self.assertEqual(kim["total"], "152.50")
+
+        flat = self.client.patch(
+            f"/api/club-management/training/coach-outings/{open_row['id']}/?club={self.club.id}&year=2026",
+            {"coaching_amount": "100"},
+            format="json",
+        )
+        self.assertEqual(flat.status_code, 200, flat.data)
+        kim = self._row(self._july(flat), self.coach.id)
+        self.assertEqual(kim["tournament_pay"], "100.00")
+        self.assertEqual(kim["total"], "222.50")
+
+        expenses = self.client.patch(
+            f"/api/club-management/training/coach-outings/{open_row['id']}/?club={self.club.id}&year=2026",
+            {"coaching_amount": "0"},
+            format="json",
+        )
+        kim = self._row(self._july(expenses), self.coach.id)
+        self.assertEqual(kim["tournament_pay"], "0.00")
+        self.assertEqual(kim["total"], "122.50")
+
+        outside = self.client.post(
+            f"/api/club-management/training/coach-outings/?club={self.club.id}&year=2026",
+            {
+                "coach_id": self.coach.id,
+                "held_on": "2025-01-01",
+                "name": "Last season",
+                "fuel_amount": "9",
+            },
+            format="json",
+        )
+        self.assertEqual(outside.status_code, 200, outside.data)
+        self.assertFalse(any(row["tournament"] == "Last season" for row in outside.data["outings"]))
+        previous = self.client.get(f"/api/club-management/training/coach-hours/?club={self.club.id}&year=2025")
+        last_season = next(row for row in previous.data["outings"] if row["tournament"] == "Last season")
+        self.assertEqual(last_season["fuel_amount"], "9.00")
+        january = next(row for row in previous.data["periods"] if row["ends_on"] == "2025-01-15")
+        self.assertEqual(self._row(january, self.coach.id)["fuel"], "9.00")
+        self.assertEqual(self._row(january, self.coach.id)["hours"], "0.00")
+
+        higher = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": self.coach.id, "basis": "unit", "rate": "40"},
+            format="json",
+        )
+        kim = self._row(self._july(higher), self.coach.id)
+        self.assertEqual(kim["training_pay"], "120.00")
+        self.assertEqual(kim["total"], "212.50")
+
+        cancelled = self.client.patch(
+            f"/api/club-management/training/sessions/{class_b}/?club={self.club.id}",
+            {"status": "cancelled"},
+            format="json",
+        )
+        self.assertEqual(cancelled.status_code, 200, cancelled.data)
+        after_cancel = self.client.get(f"/api/club-management/training/coach-hours/?club={self.club.id}&year=2026")
+        kim = self._row(self._july(after_cancel), self.coach.id)
+        self.assertEqual(kim["hours"], "3.50")
+        self.assertEqual(kim["units"], "2")
+        self.assertEqual(kim["training_pay"], "80.00")
+        self.assertEqual(kim["total"], "172.50")
+
+        zero = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": self.coach.id, "basis": "hourly", "rate": "0"},
+            format="json",
+        )
+        kim = self._row(self._july(zero), self.coach.id)
+        self.assertEqual(kim["hours"], "3.50")
+        self.assertEqual(kim["rate"], "0.00")
+        self.assertEqual(kim["training_pay"], "0.00")
+        self.assertEqual(kim["total"], "92.50")
+
+        cleared = self.client.delete(
+            f"/api/club-management/training/coach-pay-rates/{self.coach.id}/?club={self.club.id}&year=2026"
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        kim = self._row(self._july(cleared), self.coach.id)
+        self.assertEqual(kim["rate"], "")
+        self.assertEqual(kim["hours"], "3.50")
+        self.assertEqual(kim["training_pay"], "0.00")
+        bea_row = next(row for row in cleared.data["outings"] if row["tournament"] == "Travel only")
+        removed = self.client.delete(
+            f"/api/club-management/training/coach-outings/{bea_row['id']}/?club={self.club.id}&year=2026"
+        )
+        self.assertFalse(any(row["user_id"] == traveller.id for row in self._july(removed)["coaches"]))
+
+        self.client.force_authenticate(user=self.coach)
+        hidden = self.client.get(f"/api/club-management/training/coach-hours/?club={self.club.id}&year=2026")
+        self.assertEqual(hidden.status_code, 200, hidden.data)
+        self.assertNotIn("rates", hidden.data)
+        self.assertNotIn("outings", hidden.data)
+        visible = self._row(self._july(hidden), self.coach.id)
+        self.assertEqual(visible["hours"], "3.50")
+        self.assertEqual(visible["units"], "2")
+        self.assertNotIn("training_pay", visible)
+        forbidden = self.client.post(
+            f"/api/club-management/training/coach-pay-rates/?club={self.club.id}&year=2026",
+            {"coach_id": self.coach.id, "basis": "hourly", "rate": "10"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.data)

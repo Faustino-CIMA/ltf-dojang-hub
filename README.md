@@ -4,10 +4,10 @@ Modern, secure Taekwondo license management for the Luxembourg Taekwondo Federat
 
 ## Release Notes
 
-This working tree is **v0.12.0** on `feature/club-multiple-billings`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, and publication consent. It is not merged to `main`.
+This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. Coach pay is recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
 
-- See `CHANGELOG.md` **0.12.0** for this release, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.11.0`. `main` is still that line until this branch is merged.
+- See `CHANGELOG.md` **Unreleased** for coach pay, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay work. No v0.12.0 tag has been created.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
 ## CI (GitHub Actions)

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Calendar, CalendarDays, CalendarRange, Clock, Palmtree, Timer } from "lucide-react";
+import { Calendar, CalendarDays, CalendarRange, Clock, Palmtree, Wallet } from "lucide-react";
 
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 
@@ -44,7 +44,7 @@ export function ClubTrainingTabs() {
         { value: "year", label: t("trainingYear"), icon: CalendarRange },
         { value: "timetable", label: t("trainingTimetable"), icon: Clock },
         { value: "holidays", label: t("trainingHolidays"), icon: Palmtree },
-        { value: "hours", label: t("trainingCoachHours"), icon: Timer },
+        { value: "hours", label: t("trainingCoachHours"), icon: Wallet },
       ]}
     />
   );

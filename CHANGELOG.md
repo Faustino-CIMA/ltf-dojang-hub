@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### User-facing
+- **Coach pay:** On Coach pay, a club admin sets each coach to an hourly rate or to one amount per held class. A held class counts in full for every coach on it. The period shows hours, units, training pay, tournament coaching, fuel, hotel, and the total. A tournament, fuel, or hotel row uses its date to pick the period. Leave the coaching fee empty to use the coach's rate. Enter a fee, including 0, when that day is not paid at the rate. Coaches still see hours and units. Only a club admin sees and edits the amounts. A new rate recalculates the open periods. Membership invoices already issued stay as they are.
+
+### Technical
+- `CoachPayRate` and `CoachOuting` are migration `clubmgmt.0023_coach_pay`. `GET /api/club-management/training/coach-hours/` adds units for everyone and euro amounts for a club admin. Rates are saved and removed at `training/coach-pay-rates/`. Tournament, fuel, and hotel rows are created, updated, and removed at `training/coach-outings/`.
+
 ## [0.12.0] - 2026-10-02
 
 ### User-facing

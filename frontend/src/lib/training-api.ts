@@ -116,6 +116,42 @@ export function deleteSchoolHoliday(clubId: number, holidayId: number) {
 
 export type PayFrequency = "monthly" | "quarterly" | "twice";
 
+export type CoachPayBasis = "hourly" | "unit";
+
+export type CoachPeriodRow = {
+  user_id: number;
+  name: string;
+  hours: string;
+  units: string;
+  basis?: CoachPayBasis | "";
+  rate?: string;
+  training_pay?: string;
+  tournament_pay?: string;
+  fuel?: string;
+  hotel?: string;
+  total?: string;
+};
+
+export type CoachPayRateRow = {
+  user_id: number;
+  name: string;
+  basis: CoachPayBasis | "";
+  rate: string;
+};
+
+export type CoachOutingRow = {
+  id: number;
+  user_id: number;
+  name: string;
+  held_on: string;
+  tournament: string;
+  quantity: string;
+  coaching_amount: string | null;
+  fuel_amount: string;
+  hotel_amount: string;
+  coaching_pay: string;
+};
+
 export type CoachHourReport = {
   pay_frequency: PayFrequency;
   payday_day: number;
@@ -124,7 +160,9 @@ export type CoachHourReport = {
   first_payday_day: number;
   second_payday_month: number;
   second_payday_day: number;
-  periods: { label: string; starts_on: string; ends_on: string; coaches: { user_id: number; name: string; hours: string }[] }[];
+  periods: { label: string; starts_on: string; ends_on: string; coaches: CoachPeriodRow[] }[];
+  rates?: CoachPayRateRow[];
+  outings?: CoachOutingRow[];
 };
 
 export function getCoachHours(clubId: number, year: number) {
@@ -210,4 +248,39 @@ export function savePaydays(clubId: number, year: number, payload: Record<string
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export function saveCoachPayRate(
+  clubId: number,
+  year: number,
+  payload: { coach_id: number; basis: CoachPayBasis; rate: string },
+) {
+  return apiRequest<CoachHourReport>(`/api/club-management/training/coach-pay-rates/?${clubQuery(clubId)}&year=${year}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCoachPayRate(clubId: number, year: number, userId: number) {
+  return apiRequest<CoachHourReport>(
+    `/api/club-management/training/coach-pay-rates/${userId}/?${clubQuery(clubId)}&year=${year}`,
+    { method: "DELETE" },
+  );
+}
+
+export function saveCoachOuting(clubId: number, year: number, payload: Record<string, unknown>, outingId?: number) {
+  const path = outingId
+    ? `/api/club-management/training/coach-outings/${outingId}/?${clubQuery(clubId)}&year=${year}`
+    : `/api/club-management/training/coach-outings/?${clubQuery(clubId)}&year=${year}`;
+  return apiRequest<CoachHourReport>(path, {
+    method: outingId ? "PATCH" : "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCoachOuting(clubId: number, year: number, outingId: number) {
+  return apiRequest<CoachHourReport>(
+    `/api/club-management/training/coach-outings/${outingId}/?${clubQuery(clubId)}&year=${year}`,
+    { method: "DELETE" },
+  );
 }

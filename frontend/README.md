@@ -35,6 +35,8 @@ Club Admin pages:
   - Family cards start collapsed. They keep who is in the family and who receives the bill. Parents and guardians can be entered here and on a minor’s club record. Invoices are issued from Billing. Invoice preview opens the family invoice page.
 - Billing: `/{locale}/dashboard/club/billing`
   - Review and issue sends the selected billing. A row opens that household’s invoice page. A family row shows an invoice number only when one invoice covers every current member, and the amount is that invoice’s total. A total of 0,00 is issued and marked paid.
+- Coach pay: `/{locale}/dashboard/club/training/hours`
+  - A club admin sets each coach to an hourly rate or one amount per held class. Tournament, fuel, and hotel rows use their date. Coaches see hours and units. Only a club admin sees the amounts.
 - Club settings: `/{locale}/dashboard/club/settings`
   - Website is printed under the club email on invoices the club sends to its members. When club management is assigned, Publication consent lists active members. A column header ticks that channel for every active member. The PDF can list members by consent. CSV and Excel include every active member.
 
