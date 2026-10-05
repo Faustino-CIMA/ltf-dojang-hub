@@ -1248,6 +1248,7 @@
     "printJobsLoadError": "Failed to load print jobs.",
     "printJobsActionSuccess": "Print job action queued.",
     "printJobsActionError": "Print job action failed.",
+    "printJobsDeletedSuccess": "Print job deleted.",
     "printJobLabel": "Job",
     "printJobTemplateVersionLabel": "Template version",
     "printJobItemsLabel": "Items",

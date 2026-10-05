@@ -9,6 +9,7 @@ import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,13 +22,6 @@ import {
   SelectionMeta,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
 
@@ -201,45 +195,37 @@ export default function LtfAdminClubsPage() {
           <ListActionsRow
             actions={
               <>
-                <Select
-                  value=""
-                  onValueChange={(value) => {
-                    if (value === "create") {
-                      router.push(`/${locale}/dashboard/ltf/clubs/new`);
-                    }
-                    if (value === "import-clubs") {
-                      router.push(`/${locale}/dashboard/ltf/import?type=clubs`);
-                    }
-                    if (value === "import-members") {
-                      router.push(`/${locale}/dashboard/ltf/import?type=members`);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="min-w-[11rem]" aria-label={t("clubsMenuLabel")}>
-                    <SelectValue placeholder={t("clubsMenuLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="create">{t("createClub")}</SelectItem>
-                    <SelectItem value="import-clubs">{importT("importClubs")}</SelectItem>
-                    <SelectItem value="import-members">{importT("importMembers")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value=""
+                <ActionMenu
+                  label={t("clubsMenuLabel")}
+                  actions={[
+                    {
+                      key: "create",
+                      label: t("createClub"),
+                      onSelect: () => router.push(`/${locale}/dashboard/ltf/clubs/new`),
+                    },
+                    {
+                      key: "import-clubs",
+                      label: importT("importClubs"),
+                      onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=clubs`),
+                    },
+                    {
+                      key: "import-members",
+                      label: importT("importMembers"),
+                      onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=members`),
+                    },
+                  ]}
+                />
+                <ActionMenu
+                  label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
-                  onValueChange={(value) => {
-                    if (value === "delete") {
-                      setIsBatchDeleteOpen(true);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="min-w-[11rem]" aria-label={common("batchActionsLabel")}>
-                    <SelectValue placeholder={common("batchActionsLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="delete">{common("batchDeleteLabel")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                  actions={[
+                    {
+                      key: "delete",
+                      label: common("batchDeleteLabel"),
+                      onSelect: () => setIsBatchDeleteOpen(true),
+                    },
+                  ]}
+                />
                 <SelectionMeta
                   count={selectedIds.length}
                   countLabel={t("selectedCountLabel", { count: selectedIds.length })}
@@ -317,8 +303,9 @@ export default function LtfAdminClubsPage() {
                 render: (club) => (
                   <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
                     <Button
-                      variant="destructive"
-                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
+                      type="button"
+                      variant="outline"
+                      size="sm"
                       aria-label={t("deleteAction")}
                       onClick={() => handleDelete(club)}
                     >

@@ -17,6 +17,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -469,8 +470,9 @@ export default function LtfAdminLicensesPage() {
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
-            variant="destructive"
-            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
+            type="button"
+            variant="outline"
+            size="sm"
             aria-label={t("deleteAction")}
             onClick={() => handleDelete(license)}
           >
@@ -523,37 +525,19 @@ export default function LtfAdminLicensesPage() {
           <ListActionsRow
             actions={
               <>
-                <Select
-                  value=""
-                  onValueChange={(value) => {
-                    if (value === "create") {
-                      startCreate();
-                    }
-                  }}
-                >
-                  <SelectTrigger className="min-w-[11rem]" aria-label={t("licensesMenuLabel")}>
-                    <SelectValue placeholder={t("licensesMenuLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="create">{t("createLicense")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value=""
+                <ActionMenu
+                  label={t("licensesMenuLabel")}
+                  actions={[
+                    { key: "create", label: t("createLicense"), onSelect: startCreate },
+                  ]}
+                />
+                <ActionMenu
+                  label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
-                  onValueChange={(value) => {
-                    if (value === "delete") {
-                      openBatchDeletePage();
-                    }
-                  }}
-                >
-                  <SelectTrigger className="min-w-[11rem]" aria-label={common("batchActionsLabel")}>
-                    <SelectValue placeholder={common("batchActionsLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="delete">{common("batchDeleteLabel")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                  actions={[
+                    { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
+                  ]}
+                />
                 <SelectionMeta
                   count={selectedIds.length}
                   countLabel={t("selectedCountLabel", { count: selectedIds.length })}

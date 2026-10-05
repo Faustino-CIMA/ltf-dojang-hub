@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Trash2 } from "lucide-react";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -24,6 +26,7 @@ import {
   PrintJob,
   PrintJobStatus,
   cancelPrintJob,
+  deletePrintJob,
   downloadPrintJobPdf,
   executePrintJob,
   getPrintJobs,
@@ -44,6 +47,7 @@ function openBlobInNewTab(blob: Blob) {
 
 export default function ClubPrintJobsPage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const pathname = usePathname();
   const router = useRouter();
   const locale = pathname?.split("/")[1] || "en";
@@ -56,6 +60,8 @@ export default function ClubPrintJobsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const [jobToDelete, setJobToDelete] = useState<PrintJob | null>(null);
+  const isDeletingRef = useRef(false);
   const [clubNameById, setClubNameById] = useState<Record<number, string>>({});
 
   const canManagePrintJobs = currentRole === "club_admin";
@@ -158,6 +164,28 @@ export default function ClubPrintJobsPage() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("printJobsActionError"));
     } finally {
+      setActiveJobId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!jobToDelete || isDeletingRef.current) {
+      return;
+    }
+    isDeletingRef.current = true;
+    setActiveJobId(jobToDelete.id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await deletePrintJob(jobToDelete.id);
+      setJobToDelete(null);
+      setSuccessMessage(t("printJobsDeletedSuccess"));
+      await loadJobs();
+    } catch (error) {
+      setJobToDelete(null);
+      setErrorMessage(error instanceof Error ? error.message : t("printJobsActionError"));
+    } finally {
+      isDeletingRef.current = false;
       setActiveJobId(null);
     }
   };
@@ -300,6 +328,16 @@ export default function ClubPrintJobsPage() {
                           >
                             {t("printJobDownloadPdfAction")}
                           </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={t("deleteAction")}
+                            disabled={isJobBusy || job.status === "queued" || job.status === "running"}
+                            onClick={() => setJobToDelete(job)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -310,6 +348,19 @@ export default function ClubPrintJobsPage() {
           </div>
         )}
       </div>
+      <DeleteConfirmModal
+        isOpen={jobToDelete !== null}
+        title={common("deleteTitle", { item: jobToDelete?.job_number ?? t("printJobLabel") })}
+        description={common("deleteDescriptionWithName", { name: jobToDelete?.job_number ?? "" })}
+        confirmLabel={common("deleteConfirmButton")}
+        cancelLabel={common("deleteCancelButton")}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => {
+          if (activeJobId === null) {
+            setJobToDelete(null);
+          }
+        }}
+      />
     </ClubAdminLayout>
   );
 }

@@ -1249,6 +1249,7 @@
     "printJobsLoadError": "Drockjobs konnten net geluede ginn.",
     "printJobsActionSuccess": "Drockjob-Aktioun gouf an d'Queue gesat.",
     "printJobsActionError": "Drockjob-Aktioun ass feelgeschloen.",
+    "printJobsDeletedSuccess": "Drockjob geläscht.",
     "printJobLabel": "Job",
     "printJobTemplateVersionLabel": "Template-Versioun",
     "printJobItemsLabel": "Elementer",

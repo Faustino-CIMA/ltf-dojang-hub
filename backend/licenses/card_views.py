@@ -847,7 +847,7 @@ class PrintJobViewSet(
         if _is_ltf_admin(user):
             queryset = base_queryset.all()
         if _is_club_admin(user):
-            object_actions = {"retrieve", "execute", "retry", "cancel", "pdf", "history"}
+            object_actions = {"retrieve", "execute", "retry", "cancel", "pdf", "history", "destroy"}
             if self.action in object_actions:
                 queryset = base_queryset.all()
             else:
@@ -990,6 +990,31 @@ class PrintJobViewSet(
 
         response_serializer = PrintJobSerializer(print_job, context={"request": request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        print_job = self.get_object()
+        self._ensure_club_admin_scope(request.user, print_job)
+        with transaction.atomic():
+            locked_job = PrintJob.objects.select_for_update().get(id=print_job.id)
+            if locked_job.status in {PrintJob.Status.QUEUED, PrintJob.Status.RUNNING}:
+                return Response(
+                    {"detail": "Cancel this print job before deleting it."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            artifact_name = locked_job.artifact_pdf.name
+            self._log_print_job_event(
+                print_job=locked_job,
+                action="deleted",
+                message="Print job deleted.",
+                metadata={
+                    "job_number": locked_job.job_number,
+                    "status": locked_job.status,
+                },
+            )
+            locked_job.delete()
+        if artifact_name:
+            print_job.artifact_pdf.storage.delete(artifact_name)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def retrieve(self, request, *args, **kwargs):
         print_job = self.get_object()

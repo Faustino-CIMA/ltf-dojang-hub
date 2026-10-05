@@ -10,6 +10,7 @@ import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -790,58 +791,41 @@ export default function ClubAdminMembersPage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             {canManageMembers ? (
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
-                <Select
-                  value=""
-                  onValueChange={(value) => {
-                    if (value === "create") {
-                      startCreate();
-                    }
-                    if (value === "import") {
-                      router.push(`/${locale}/dashboard/club/members/import`);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="min-w-[11rem]" aria-label={t("membersMenuLabel")}>
-                    <SelectValue placeholder={t("membersMenuLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="create">{t("createMember")}</SelectItem>
-                    <SelectItem value="import">{importT("importMembers")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ActionMenu
+                  label={t("membersMenuLabel")}
+                  actions={[
+                    { key: "create", label: t("createMember"), onSelect: startCreate },
+                    {
+                      key: "import",
+                      label: importT("importMembers"),
+                      onSelect: () => router.push(`/${locale}/dashboard/club/members/import`),
+                    },
+                  ]}
+                />
 
-                <Select
-                  value=""
+                <ActionMenu
+                  label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
-                  onValueChange={(value) => {
-                    if (value === "delete") {
-                      openBatchDeletePage();
-                    }
-                    if (value === "print-cards") {
-                      openQuickPrintPage();
-                    }
-                    if (value === "order-license") {
-                      openOrderPage();
-                    }
-                    if (value === "change-status") {
-                      if (selectedIds.length > 0) {
-                        setBulkStatusOpen(true);
-                      }
-                    }
-                  }}
-                >
-                  <SelectTrigger className="min-w-[11rem]" aria-label={common("batchActionsLabel")}>
-                    <SelectValue placeholder={common("batchActionsLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="delete">{common("batchDeleteLabel")}</SelectItem>
-                    <SelectItem value="print-cards" disabled={!selectedClubId}>
-                      {t("actionPrintCards")}
-                    </SelectItem>
-                    <SelectItem value="order-license">{t("actionOrderLicense")}</SelectItem>
-                    <SelectItem value="change-status">{t("actionChangeStatus")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                  actions={[
+                    { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
+                    {
+                      key: "print-cards",
+                      label: t("actionPrintCards"),
+                      disabled: !selectedClubId,
+                      onSelect: openQuickPrintPage,
+                    },
+                    { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
+                    {
+                      key: "change-status",
+                      label: t("actionChangeStatus"),
+                      onSelect: () => {
+                        if (selectedIds.length > 0) {
+                          setBulkStatusOpen(true);
+                        }
+                      },
+                    },
+                  ]}
+                />
 
                 {selectedIds.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">

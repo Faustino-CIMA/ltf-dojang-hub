@@ -4,9 +4,9 @@ The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training,
 
 ## Release Notes
 
-This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. The calendar can keep a date inside a club, share it with every club and the LTF, or limit a presidents meeting to the invited presidents. The Calendar link counts the next two months and shows new until those events are opened. A club admin can set a reminder. The application is called LTF Dojang Hub. Coach pay, the calendar audiences, the Calendar link, reminders, and the name are recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
+This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. The calendar can keep a date inside a club, share it with every club and the LTF, or limit a presidents meeting to the invited presidents. The Calendar link counts the next two months and shows new until those events are opened. A club admin can set a reminder. The application is called LTF Dojang Hub. A club print from the members list includes that member’s current license year. A club admin can delete a finished print job from the club print-jobs table. Members, Clubs, and Licenses menus open as popovers, and those lists use the outline trash button. Coach pay, the calendar audiences, the Calendar link, reminders, the name, license-card printing, and these list controls are recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
 
-- See `CHANGELOG.md` **Unreleased** for coach pay, calendar audiences, the Calendar link, reminders, and the LTF Dojang Hub name, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- See `CHANGELOG.md` **Unreleased** for coach pay, calendar audiences, the Calendar link, reminders, the LTF Dojang Hub name, license-card printing, and the list menus, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
 - Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay, calendar, and rename work. No v0.12.0 tag has been created.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 
@@ -393,7 +393,7 @@ Print artifact lifecycle:
 
 Role split:
 - LTF Admin: manages templates/versions, dual-side designer payloads, simulation previews, and can execute/retry/cancel any print job.
-- Club Admin: can quick-print from own-club members or licenses, execute/retry/cancel own-club print jobs, and view own-club print history.
+- Club Admin: can quick-print from own-club members or licenses, execute/retry/cancel own-club print jobs, delete a draft, succeeded, failed, or cancelled own-club job, and view own-club print history. A queued or running job has to be cancelled before it can be deleted. A print started from the members list uses the member’s current license, so the license year is printed.
 
 ### License Card v2.1.2 Quick Usage (v0.3.6)
 
@@ -436,6 +436,7 @@ Primary API workflow:
   - `POST /api/print-jobs/{id}/execute/`
   - `POST /api/print-jobs/{id}/retry/`
   - `POST /api/print-jobs/{id}/cancel/`
+  - `DELETE /api/print-jobs/{id}/`
   - `GET /api/print-jobs/{id}/pdf/`
   - `GET /api/print-jobs/{id}/history/`
 - Designer asset libraries (LTF Admin):

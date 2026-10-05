@@ -944,6 +944,12 @@ export function cancelPrintJob(id: number) {
   });
 }
 
+export function deletePrintJob(id: number) {
+  return apiRequest<null>(`/api/print-jobs/${id}/`, {
+    method: "DELETE",
+  });
+}
+
 export async function downloadPrintJobPdf(id: number): Promise<Blob> {
   const token = getToken();
   const response = await fetch(`${API_URL}/api/print-jobs/${id}/pdf/`, {

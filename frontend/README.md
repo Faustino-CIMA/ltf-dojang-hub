@@ -69,7 +69,10 @@ The quick print page creates and executes a print job in one flow using:
 Print jobs pages support:
 - status filtering/search,
 - execute/retry/cancel actions,
-- PDF download when status is `succeeded`.
+- PDF download when status is `succeeded`,
+- delete on the club print-jobs table for a draft, succeeded, failed, or cancelled job. A queued or running job stays until it is cancelled. The LTF print-jobs page has no delete button.
+
+Members, Actions, Clubs, and Licenses on the club members list, the LTF clubs list, and the LTF licenses list open as popovers. The label uses the normal field text color. The trash button on those lists, and on the club print-jobs table, is the outline button used on the members list.
 
 License Card v2 designer capabilities:
 - Full-height design workspace (no LTF sidebar). Tools, canvas, and inspector stay on screen; preview/print opens from the top bar.
@@ -91,4 +94,4 @@ Relevant frontend API client helpers (`src/lib/license-card-api.ts`):
 - `getCardTemplateVersionSheetPreviewPdf()`
 - `getCardTemplateVersionCardPreviewHtml()`
 - `getMemberLicenseCardPreview()`
-- `createPrintJob()`, `executePrintJob()`, `retryPrintJob()`, `cancelPrintJob()`, `downloadPrintJobPdf()`
+- `createPrintJob()`, `executePrintJob()`, `retryPrintJob()`, `cancelPrintJob()`, `deletePrintJob()`, `downloadPrintJobPdf()`

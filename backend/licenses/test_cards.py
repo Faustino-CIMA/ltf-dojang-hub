@@ -700,6 +700,46 @@ class LicenseCardRoleAccessTests(TestCase):
         denied_response = self.client.get("/api/print-jobs/")
         self.assertEqual(denied_response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_club_admin_deletes_own_print_job_and_keeps_a_running_job(self):
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(
+            "/api/print-jobs/",
+            {
+                "club": self.club.id,
+                "template_version": self.published_version.id,
+                "license_ids": [self.own_license.id],
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        job_id = created.data["id"]
+
+        other_job = PrintJob.objects.create(
+            club=self.other_club,
+            template_version=self.published_version,
+            total_items=0,
+            requested_by=self.ltf_admin,
+        )
+        denied = self.client.delete(f"/api/print-jobs/{other_job.id}/")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(PrintJob.objects.filter(id=other_job.id).exists())
+
+        running_job = PrintJob.objects.create(
+            club=self.club,
+            template_version=self.published_version,
+            status=PrintJob.Status.RUNNING,
+            total_items=0,
+            requested_by=self.club_admin,
+        )
+        blocked = self.client.delete(f"/api/print-jobs/{running_job.id}/")
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(PrintJob.objects.filter(id=running_job.id).exists())
+
+        deleted = self.client.delete(f"/api/print-jobs/{job_id}/")
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(PrintJob.objects.filter(id=job_id).exists())
+        self.assertFalse(PrintJobItem.objects.filter(print_job_id=job_id).exists())
+
 
 class LicenseCardVersionWorkflowTests(TestCase):
     def setUp(self):
