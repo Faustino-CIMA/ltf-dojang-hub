@@ -600,6 +600,28 @@ def _resolve_member_portrait(
     }
 
 
+def resolve_printable_license(
+    member: Member,
+    *,
+    club_id: int | None = None,
+) -> License | None:
+    """Current license for a card when the caller did not pick one.
+
+    An active license wins. Otherwise the newest pending license is used.
+    Expired licenses are left off the card.
+    """
+    queryset = member.licenses.filter(
+        status__in=[License.Status.ACTIVE, License.Status.PENDING]
+    )
+    if club_id is not None:
+        queryset = queryset.filter(club_id=club_id)
+    queryset = queryset.order_by("-year", "-id")
+    license_record = queryset.filter(status=License.Status.ACTIVE).first()
+    if license_record is None:
+        license_record = queryset.first()
+    return license_record
+
+
 def _resolve_entities(
     *,
     member_id: int | None,
@@ -640,6 +662,14 @@ def _resolve_entities(
             raise CardRenderError("member_id does not belong to club_id.")
         if club is None:
             club = member.club
+
+    if license_record is None and member is not None:
+        license_record = resolve_printable_license(
+            member,
+            club_id=club.id if club is not None else None,
+        )
+        if license_record is not None and club is None:
+            club = license_record.club
 
     return member, license_record, club
 

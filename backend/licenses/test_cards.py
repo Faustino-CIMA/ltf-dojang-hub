@@ -3676,6 +3676,61 @@ class PrintJobExecutionPipelineTests(TestCase):
         )
         self.assertEqual(dual_side_job["side"], PrintJob.Side.BOTH)
 
+    def test_member_only_print_uses_the_active_license_year(self):
+        pending_year = timezone.localdate().year + 1
+        License.objects.create(
+            member=self.member_one,
+            club=self.club,
+            license_type=self.license_type,
+            year=pending_year,
+            status=License.Status.PENDING,
+        )
+        year_version = self._create_published_template_version(
+            design_payload={
+                "elements": [
+                    {
+                        "id": "license-year",
+                        "type": "text",
+                        "x_mm": "4.00",
+                        "y_mm": "4.00",
+                        "width_mm": "30.00",
+                        "height_mm": "8.00",
+                        "merge_field": "license.year",
+                        "text": "{{license.year}}",
+                    }
+                ]
+            },
+            paper_profile=None,
+        )
+        created_job = self._create_print_job(
+            user=self.club_admin,
+            payload={
+                "club": self.club.id,
+                "template_version": year_version.id,
+                "member_ids": [self.member_one.id],
+            },
+        )
+        item = PrintJobItem.objects.get(print_job_id=created_job["id"])
+        self.assertEqual(item.license_id, self.license_one.id)
+
+        self.client.force_authenticate(user=self.club_admin)
+        with patch(
+            "licenses.print_jobs.render_pdf_bytes_from_html",
+            return_value=b"%PDF-1.4\n",
+        ) as render_pdf_mock:
+            execute_response = self.client.post(
+                f"/api/print-jobs/{created_job['id']}/execute/",
+                {},
+                format="json",
+            )
+        self.assertIn(
+            execute_response.status_code,
+            {status.HTTP_200_OK, status.HTTP_202_ACCEPTED},
+        )
+        rendered_html = str(render_pdf_mock.call_args.args[0])
+        self.assertIn(str(self.license_one.year), rendered_html)
+        self.assertNotIn(str(pending_year), rendered_html)
+
     def test_execute_honors_front_back_and_both_side_selection(self):
         dual_side_version = self._create_published_template_version(
             design_payload=_sample_dual_side_design_payload(),

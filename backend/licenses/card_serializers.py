@@ -11,6 +11,7 @@ from rest_framework import serializers
 from clubs.models import Club
 from members.models import Member
 
+from .card_rendering import resolve_printable_license
 from .card_registry import (
     ALLOWED_MERGE_FIELDS,
     CARD_SIDE_BACK,
@@ -704,7 +705,12 @@ class PrintJobCreateSerializer(serializers.Serializer):
         for member in members:
             if member.id in license_member_ids:
                 continue
-            resolved_items.append({"member": member, "license": None})
+            resolved_items.append(
+                {
+                    "member": member,
+                    "license": resolve_printable_license(member, club_id=club.id),
+                }
+            )
 
         if not resolved_items:
             raise serializers.ValidationError({"detail": "No printable items were resolved."})

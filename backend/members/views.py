@@ -36,6 +36,7 @@ from licenses.card_rendering import (
     CardRenderError,
     build_card_simulation_payload,
     build_preview_data,
+    resolve_printable_license,
     resolve_published_standard_card_version,
 )
 from licenses.models import License, LicenseHistoryEvent
@@ -214,9 +215,6 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         member = self.get_object()
         license_id_raw = str(request.query_params.get("license_id") or "").strip()
         side = str(request.query_params.get("side") or "front").strip() or "front"
-        current_licenses = member.licenses.filter(
-            status__in=[License.Status.ACTIVE, License.Status.PENDING]
-        ).order_by("-year", "-id")
         license_record = None
         if license_id_raw:
             try:
@@ -224,9 +222,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             except (TypeError, ValueError):
                 license_record = None
         if license_record is None:
-            license_record = current_licenses.filter(status=License.Status.ACTIVE).first()
-        if license_record is None:
-            license_record = current_licenses.first()
+            license_record = resolve_printable_license(member)
         version = resolve_published_standard_card_version()
         if version is None:
             return Response(
