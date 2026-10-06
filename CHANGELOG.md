@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### User-facing
+- **Subsidies:** The headcount is the January snapshot. A member who holds a licence for the year stays in it when the club marks them inactive later. Every licensed member is counted in the age row for 31 December. A coach or official aged 35 or over is included in Veterans / masters, and is still listed again under other licences.
 - **Members menu:** Members and Actions on the club members list, Clubs and Actions on the LTF clubs list, and Licenses and Actions on the LTF licenses list open as popovers. Those labels use the normal field text color. The print-job, LTF clubs, and LTF licenses trash buttons match the outline trash button on the members list.
 - **Print jobs:** The club print jobs table has a trash button. Confirming it removes that job and its PDF. A job that is queued or still running has to be cancelled first.
 - **License cards:** A club print started from the members list uses that member’s current license, so the license year is printed. An active license is used when the member has one. Printing a chosen row from the licenses list still prints that license.

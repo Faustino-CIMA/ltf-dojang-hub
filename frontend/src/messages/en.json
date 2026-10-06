@@ -650,7 +650,7 @@
     "subsidiesExportYouthXlsx": "Youth list XLSX",
     "subsidiesEffectifs": "Headcount for MyGuichet",
     "subsidiesHeadcountCategory": "Category",
-    "subsidiesEffectifsHint": "Ages are on 31 December. Youth over 16 are 16–17, seniors 18–34, and veterans or masters 35 and over. Other licences are listed again and are not added to the club total. Members without a licence are one total, not split by sex.",
+    "subsidiesEffectifsHint": "The headcount is the January snapshot. A member who holds a licence for the year stays in it if the club marks them inactive later. Ages are on 31 December. Every licensed member is counted once: youth over 16 are 16–17, seniors 18–34, and veterans or masters 35 and over. A coach or official is included in that age row. Other licences are listed again and are not added to the club total. Members without a licence are one total, not split by sex.",
     "subsidiesMale": "Male",
     "subsidiesFemale": "Female",
     "subsidiesTotal": "Total",

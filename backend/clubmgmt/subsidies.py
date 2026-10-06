@@ -208,8 +208,13 @@ def sync_subsidy_income(season: SubsidySeason, actor, *, update_existing: bool =
 def build_dossier(club, year: int) -> dict:
     season = get_or_create_season(club, year)
     cutoff = date(year, 12, 31)
-    members = list(Member.objects.filter(club=club, is_active=True).select_related("club_record"))
+    # The ministry freezes the headcount in January. A licence for the year is
+    # that snapshot. The member record does not store when it was marked
+    # inactive, so a later inactive flag does not remove a licensed member.
     licensed = _licensed_ids(club.id, year)
+    members = list(
+        Member.objects.filter(club=club, id__in=licensed).select_related("club_record")
+    )
     bands = {
         "male_under_16": 0,
         "female_under_16": 0,
@@ -399,10 +404,11 @@ def _is_competition_athlete(member) -> bool:
 def headcount_rows(club, year: int, season: SubsidySeason, members, licensed: set[int]) -> list[dict]:
     """Rows shaped like the MyGuichet effectifs page.
 
-    Ages are on 31 December. Youth over 16 are 16–17, seniors 18–34, and
-    veterans/masters 35 and over. Competition rows count a licensed member
-    whose role is Athlete or unset. Other rows count that role even when the
-    person is also an athlete, and they are not added again into the club total.
+    Ages are on 31 December. Every licensed member is counted once, including a
+    member marked inactive after the January snapshot: youth over 16 are 16–17,
+    seniors 18–34, and veterans/masters 35 and over. A coach or official is not
+    left out of that age row. Other rows list that role again and are not added
+    into the club total.
     """
     cutoff = date(year, 12, 31)
     age_counts = {key: {"M": 0, "F": 0} for key in ("under_16", "youth_16", "senior", "master", "unknown")}
@@ -412,8 +418,7 @@ def headcount_rows(club, year: int, season: SubsidySeason, members, licensed: se
             continue
         sex = _sex_key(member)
         roles = _roles(member)
-        if _is_competition_athlete(member):
-            age_counts[_age_band(age_on(member.date_of_birth, cutoff))][sex] += 1
+        age_counts[_age_band(age_on(member.date_of_birth, cutoff))][sex] += 1
         if Member.LicenseRole.FAN in roles:
             other["leisure"][sex] += 1
         if Member.LicenseRole.OFFICIAL in roles:
@@ -785,7 +790,9 @@ def youth_xlsx(club, year: int) -> bytes:
     sheet["A2"] = f"Effectifs {year} · âges au 31 décembre"
     sheet["A3"] = (
         "Jeunes > 16 ans = 16–17 ans. Seniors = 18–34 ans. Vétérans / Masters = 35 ans et plus. "
-        "Les autres licences ne sont pas ajoutées au total : une personne déjà comptée comme athlète y figure une seconde fois. "
+        "Chaque licencié compte une fois dans sa catégorie d'âge, y compris un entraîneur ou un dirigeant. "
+        "Les autres licences ne sont pas ajoutées au total : cette personne y figure une seconde fois. "
+        "Un licencié marqué inactif après l'instantané de janvier reste compté. "
         "Les non-licenciés sont un seul total, sans répartition par sexe."
     )
     sheet["A3"].alignment = Alignment(wrap_text=True, vertical="top")

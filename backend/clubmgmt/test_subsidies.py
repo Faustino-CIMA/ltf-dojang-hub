@@ -234,7 +234,16 @@ class SubsidyTests(TestCase):
             primary_license_role=Member.LicenseRole.COACH,
         )
         license_type = LicenseType.objects.get(code="ath-sub")
-        for member in (senior, coach):
+        left = Member.objects.create(
+            club=self.club,
+            first_name="Max",
+            last_name="Left",
+            date_of_birth=date(2014, 6, 1),
+            sex=Member.Sex.MALE,
+            primary_license_role=Member.LicenseRole.ATHLETE,
+            is_active=False,
+        )
+        for member in (senior, coach, left):
             License.objects.create(
                 member=member,
                 club=self.club,
@@ -256,16 +265,23 @@ class SubsidyTests(TestCase):
         effectifs = workbook["Effectifs"]
         labels = {effectifs.cell(row, 1).value: row for row in range(6, 24)}
         under = labels["Jeunes < 16 ans"]
-        self.assertIsNone(effectifs.cell(under, 2).value)
+        self.assertEqual(effectifs.cell(under, 2).value, 1)
         self.assertEqual(effectifs.cell(under, 3).value, 1)
         seniors = labels["Seniors (18–34)"]
         self.assertEqual(effectifs.cell(seniors, 2).value, 1)
+        masters = labels["Vétérans / Masters (35+)"]
+        self.assertIsNone(effectifs.cell(masters, 2).value)
+        self.assertEqual(effectifs.cell(masters, 3).value, 1)
         coaches = labels["Entraîneurs / Moniteurs"]
         self.assertEqual(effectifs.cell(coaches, 3).value, 1)
         self.assertEqual(effectifs.cell(labels["Effectifs non licenciés du club"], 4).value, 2)
         names = workbook["Jeunes moins de 16"]
-        self.assertEqual(names["A2"].value, "YOUTH")
-        self.assertEqual(names["B2"].value, "Ada")
+        youth_names = {
+            names.cell(row, 1).value: names.cell(row, 2).value
+            for row in range(2, names.max_row + 1)
+        }
+        self.assertEqual(youth_names["YOUTH"], "Ada")
+        self.assertEqual(youth_names["LEFT"], "Max")
 
     def test_countersigned_trainers_list(self):
         Member.objects.create(
