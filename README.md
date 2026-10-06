@@ -9,6 +9,7 @@ This working tree is **v0.12.0** on `main`: several membership billings a year, 
 - See `CHANGELOG.md` **Unreleased** for coach pay, calendar audiences, the Calendar link, reminders, the LTF Dojang Hub name, license-card printing, and the list menus, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
 - Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay, calendar, and rename work. No v0.12.0 tag has been created.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
+- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`.
 
 ## CI (GitHub Actions)
 
@@ -221,9 +222,10 @@ _Caption: Example terminal output for building and checking running containers._
 ## Project Structure
 
 ```
-/backend   Django + DRF API
-/frontend  Next.js App Router UI
-/infra     Infrastructure scaffolding for deployment-related assets
+/backend          Django + DRF API
+/frontend         Next.js App Router UI
+/infra            Infrastructure scaffolding for deployment-related assets
+/docs/user-manual Multilingual user manuals (EN, DE, FR, LB): PDFs, Markdown sources, and rebuild tools
 ```
 
 ## Environment Variables

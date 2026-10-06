@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+
+- Replace the previous user manuals with the multilingual EN/DE/FR/LB set in `docs/user-manual/` (sources, rebuild tooling, and PDFs).
+- Clarify club expense list and form subtitles so they refer to the club ledger, not federation accounts (`clubExpensesSubtitle`, `clubExpenseFormSubtitle`).
+
 ### User-facing
 - **Subsidies:** The headcount is the January snapshot. A member who holds a licence for the year stays in it when the club marks them inactive later. Every licensed member is counted in the age row for 31 December. A coach or official aged 35 or over is included in Veterans / masters, and is still listed again under other licences.
 - **Members menu:** Members and Actions on the club members list, Clubs and Actions on the LTF clubs list, and Licenses and Actions on the LTF licenses list open as popovers. Those labels use the normal field text color. The print-job, LTF clubs, and LTF licenses trash buttons match the outline trash button on the members list.

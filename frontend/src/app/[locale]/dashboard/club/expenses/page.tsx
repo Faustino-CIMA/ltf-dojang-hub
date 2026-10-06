@@ -92,7 +92,7 @@ export default function ClubExpensesPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / resolveListPageSize(pageSize, totalCount)));
 
   return (
-    <ClubAdminLayout title={t("expensesTitle")} subtitle={t("expensesSubtitle")}>
+    <ClubAdminLayout title={t("expensesTitle")} subtitle={t("clubExpensesSubtitle")}>
       <div className="space-y-6">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />

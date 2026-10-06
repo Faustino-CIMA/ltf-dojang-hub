@@ -102,7 +102,7 @@ export default function ClubExpenseCreatePage() {
   };
 
   return (
-    <ClubAdminLayout title={t("recordExpenseAction")} subtitle={t("expenseFormSubtitle")}>
+    <ClubAdminLayout title={t("recordExpenseAction")} subtitle={t("clubExpenseFormSubtitle")}>
       <div className="space-y-6">
         <ClubFinanceTabs />
         <Button asChild variant="outline" className="w-fit">

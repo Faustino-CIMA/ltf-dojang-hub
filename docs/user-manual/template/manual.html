@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="{{ meta.html_lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ meta.title }} – {{ meta.subtitle }}</title>
+<meta name="author" content="Luxembourg Taekwondo Federation">
+<meta name="description" content="{{ meta.subtitle }}">
+<meta name="keywords" content="LTF, Dojang Hub, Taekwondo, {{ meta.labels.manual }}">
+<meta name="generator" content="LTF manual build.py">
+<meta name="dcterms.created" content="{{ built }}">
+<link rel="stylesheet" href="file://{{ here }}/template/manual.css">
+<style>
+main a[href^="#"]::after { content: "\00a0(" "{{ meta.labels.page_abbr }}\00a0" target-counter(attr(href), page) ")"; color: #5b6875; font-size: 88%; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="cover-top">
+    <img class="cover-logo" src="file://{{ here }}/assets/ltf-logo.png" alt="LTF">
+    <div class="cover-kicker">{{ meta.labels.manual }}</div>
+  </div>
+  <h1 class="cover-title">{{ meta.title }}</h1>
+  <p class="cover-sub">{{ meta.subtitle }}</p>
+  <p class="cover-roles">{{ meta.cover_roles }}</p>
+  <div class="cover-shot"><img src="file://{{ here }}/figures/{{ meta.ui }}/cover.png" alt=""></div>
+  <div class="cover-foot">
+    <span>{{ meta.labels.app_version }} 0.12.0</span>
+    <span>{{ meta.labels.edition }} {{ meta.edition }}</span>
+    <span>{{ meta.labels.lang_name }}</span>
+  </div>
+</section>
+
+<section class="imprint">
+  {{ meta.imprint }}
+</section>
+
+<nav class="toc" id="toc">
+  <h1 class="toc-title">{{ meta.labels.contents }}</h1>
+  <ul>
+  {% for level, anchor, text in toc %}
+    <li class="toc-l{{ level }}"><a href="#{{ anchor }}"><span class="toc-text">{{ text }}</span></a></li>
+  {% endfor %}
+    <li class="toc-l1"><a href="#glossary"><span class="toc-text">{{ meta.labels.glossary }}</span></a></li>
+    <li class="toc-l1"><a href="#index"><span class="toc-text">{{ meta.labels.index }}</span></a></li>
+  </ul>
+</nav>
+
+<main class="body">
+{{ body }}
+</main>
+
+<section class="glossary">
+  <h1 id="glossary" class="unnumbered">{{ meta.labels.glossary }}</h1>
+  <p class="lead">{{ meta.labels.glossary_intro }}</p>
+  <table class="gloss">
+    <thead><tr><th>{{ meta.labels.term }}</th><th>{{ meta.labels.en_screen }}</th><th>{{ meta.labels.lb_screen }}</th><th>{{ meta.labels.meaning }}</th></tr></thead>
+    <tbody>
+    {% for g in glossary %}
+      <tr><td class="g-term">{{ g.term }}</td><td class="g-ui">{{ g.en }}</td><td class="g-ui">{{ g.lb }}</td><td>{{ g.text }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="index">
+  <h1 id="index" class="unnumbered">{{ meta.labels.index }}</h1>
+  <div class="index-cols">
+  {% for letter, items in letters %}
+    <div class="ix-letter">{{ letter }}</div>
+    {% for term, anchors in items %}
+      <div class="ix-entry">{{ term }}{% for a in anchors %}<a class="ix-ref" href="#{{ a }}"></a>{% endfor %}</div>
+    {% endfor %}
+  {% endfor %}
+  </div>
+</section>
+
+</body>
+</html>

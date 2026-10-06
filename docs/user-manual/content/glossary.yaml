@@ -1,0 +1,156 @@
+# Shared glossary. "key" is the app's UI string shown in the EN and LB columns.
+- key: Common.roleClubAdmin
+  en: {term: Club admin, text: "A person who runs the club in the app. Made by another club admin or by the LTF."}
+  de: {term: Club-Admin, text: "Person, die den Verein in der App verwaltet. Wird von einem anderen Club-Admin oder der LTF ernannt."}
+  fr: {term: Administrateur de club, text: "Personne qui gère le club dans l'application. Nommée par un autre administrateur ou par la LTF."}
+  lb: {term: Club-Admin, text: "Persoun, déi de Veräin an der App geréiert. Gëtt vun engem anere Club-Admin oder vun der LTF ernannt."}
+- key: Common.roleCoach
+  en: {term: Coach, text: "Adult member who teaches. Sees the training week and takes the roll; more coach features are planned."}
+  de: {term: Trainer, text: "Erwachsenes Mitglied, das unterrichtet. Sieht die Trainingswoche und erfasst die Anwesenheit; weitere Trainerfunktionen sind geplant."}
+  fr: {term: Entraîneur, text: "Membre adulte qui enseigne. Voit la semaine d'entraînement et fait l'appel ; d'autres fonctions pour les entraîneurs sont prévues."}
+  lb: {term: Trainer, text: "Erwuessene Member, deen trainéiert. Gesäit d'Trainingswoch an hëlt d'Präsenz; weider Funktioune fir Trainer si geplangt."}
+- key: Common.roleMember
+  en: {term: Member, text: "Athlete of a club. Members and parents have no login; the club keeps their data."}
+  de: {term: Mitglied, text: "Sportler eines Vereins. Mitglieder und Eltern haben keinen Login; der Verein pflegt ihre Daten."}
+  fr: {term: Membre, text: "Sportif d'un club. Les membres et les parents n'ont pas d'identifiant ; le club gère leurs données."}
+  lb: {term: Member, text: "Sportler vun engem Veräin. Memberen an Elteren hu kee Login; de Veräin këmmert sech ëm hir Donnéeën."}
+- key: Common.roleLtfAdmin
+  en: {term: LTF Admin, text: "Federation office. Manages clubs, licences, cards and the federation calendar."}
+  de: {term: LTF-Admin, text: "Verbandsbüro. Verwaltet Vereine, Lizenzen, Karten und den Verbandskalender."}
+  fr: {term: Admin LTF, text: "Secrétariat de la fédération. Gère les clubs, les licences, les cartes et le calendrier fédéral."}
+  lb: {term: LTF-Admin, text: "Büro vun der Federatioun. Geréiert Veräiner, Lizenzen, Kaarten an de Kalenner vun der Federatioun."}
+- key: Common.roleLtfFinance
+  en: {term: LTF Finance, text: "Federation treasurer. Prices, invoices to clubs, payments and federation books."}
+  de: {term: LTF-Finanzen, text: "Verbandsschatzmeister. Preise, Rechnungen an Vereine, Zahlungen und Verbandsbuchhaltung."}
+  fr: {term: Finances LTF, text: "Trésorier de la fédération. Prix, factures aux clubs, paiements et comptabilité fédérale."}
+  lb: {term: LTF-Finanzen, text: "Keesseminister vun der Federatioun. Präisser, Rechnungen un d'Veräiner, Bezuelungen a Comptabilitéit."}
+- key: navLicenses
+  en: {term: Licence, text: "Yearly LTF licence an athlete needs to train and compete. Pending until the LTF has been paid."}
+  de: {term: Lizenz, text: "Jährliche LTF-Lizenz, die ein Sportler zum Trainieren und für Wettkämpfe braucht. Ausstehend, bis die LTF bezahlt ist."}
+  fr: {term: Licence, text: "Licence LTF annuelle nécessaire pour s'entraîner et participer aux compétitions. En attente jusqu'au paiement à la LTF."}
+  lb: {term: Lizenz, text: "Jäerlech LTF-Lizenz, déi e Sportler fir ze trainéieren an op Concoursen ze goen brauch. Ausstoend, bis d'LTF bezuelt ass."}
+- key: actionPrintCards
+  en: {term: Licence card, text: "Printed card with photo, grade, licence number and QR code."}
+  de: {term: Lizenzkarte, text: "Gedruckte Karte mit Foto, Grad, Lizenznummer und QR-Code."}
+  fr: {term: Carte de licence, text: "Carte imprimée avec photo, grade, numéro de licence et code QR."}
+  lb: {term: Lizenzkaart, text: "Gedréckte Kaart mat Foto, Grad, Lizenznummer a QR-Code."}
+- key: navTransfers
+  en: {term: Transfer, text: "Move of a member from one club to another; the receiving club must accept."}
+  de: {term: Transfer, text: "Wechsel eines Mitglieds in einen anderen Verein; der aufnehmende Verein muss zustimmen."}
+  fr: {term: Transfert, text: "Passage d'un membre vers un autre club ; le club d'accueil doit accepter."}
+  lb: {term: Transfer, text: "Wiessel vun engem Member an en anere Veräin; deen neie Veräin muss akzeptéieren."}
+- key: ClubMgmt.contacts
+  en: {term: Contact person, text: "Parent, guardian or emergency contact stored in the club record."}
+  de: {term: Kontaktperson, text: "Elternteil, Vormund oder Notfallkontakt in der Vereinsakte."}
+  fr: {term: Personne de contact, text: "Parent, tuteur ou contact d'urgence enregistré dans le dossier du club."}
+  lb: {term: Kontaktpersoun, text: "Elteren, Tuteur oder Noutfallkontakt am Dossier vum Veräin."}
+- key: navFamilies
+  en: {term: Family, text: "Members billed together on one invoice, with family rebates by rank."}
+  de: {term: Familie, text: "Mitglieder, die gemeinsam auf einer Rechnung abgerechnet werden, mit Familienrabatt nach Rang."}
+  fr: {term: Famille, text: "Membres facturés ensemble sur une seule facture, avec remise familiale selon le rang."}
+  lb: {term: Famill, text: "Memberen, déi zesummen op enger Rechnung stinn, mat Familljerabatt no Rang."}
+- key: navMembershipFees
+  en: {term: Membership fee, text: "The club's yearly dues, set in the price list and charged on each billing."}
+  de: {term: Mitgliedsbeitrag, text: "Jahresbeitrag des Vereins; in der Preisliste festgelegt und bei jeder Abrechnung berechnet."}
+  fr: {term: Cotisation, text: "Cotisation annuelle du club, définie dans la liste de prix et facturée à chaque facturation."}
+  lb: {term: Cotisatioun, text: "Jäerleche Bäitrag vum Veräin, an der Präislëscht festgeluecht an op all Facturatioun gerechent."}
+- key: ClubMgmt.licenseFeeTitle
+  en: {term: Licence fee, text: "Amount the club charges a member for their LTF licence, once per season, normally on the first bill of the season."}
+  de: {term: Lizenzgebühr, text: "Betrag, den der Verein einem Mitglied für die LTF-Lizenz berechnet; einmal pro Saison, normalerweise mit der ersten Rechnung der Saison."}
+  fr: {term: Frais de licence, text: "Montant que le club facture au membre pour sa licence LTF, une fois par saison, normalement sur la première facture de la saison."}
+  lb: {term: Lizenzkäschten, text: "Montant, deen de Veräin engem Member fir seng LTF-Lizenz rechent, eemol pro Saison, normalerweis mat der éischter Rechnung vun der Saison."}
+- key: navBilling
+  en: {term: Billing, text: "Issuing the membership invoices of a year, or one round of them."}
+  de: {term: Abrechnung, text: "Ausstellen der Mitgliedsrechnungen eines Jahres oder einer Runde davon."}
+  fr: {term: Facturation, text: "Émission des factures de cotisation d'une année, ou d'une série de celles-ci."}
+  lb: {term: Facturatioun, text: "D'Ausstelle vun de Memberrechnungen vun engem Joer oder vun enger Ronn dovun."}
+- key: ClubMgmt.billingBlocked
+  en: {term: Blocked household, text: "Household that cannot be billed yet, for example no bill recipient for a child."}
+  de: {term: Blockierter Haushalt, text: "Haushalt, der noch nicht abgerechnet werden kann, z. B. kein Rechnungsempfänger für ein Kind."}
+  fr: {term: Foyer bloqué, text: "Foyer qui ne peut pas encore être facturé, par ex. pas de destinataire pour un enfant."}
+  lb: {term: Blockéierte Stot, text: "Stot, deen nach net ka facturéiert ginn, z. B. keen Empfänger fir d'Rechnung vun engem Kand."}
+- key: clubSettingsCommitteeTab
+  en: {term: Committee office, text: "President, treasurer, secretary… Only current office holders may record payments."}
+  de: {term: Vorstandsamt, text: "Präsident, Kassierer, Sekretär… Nur amtierende Vorstandsmitglieder dürfen Zahlungen erfassen."}
+  fr: {term: Mandat au comité, text: "Président, trésorier, secrétaire… Seuls les titulaires actuels peuvent enregistrer des paiements."}
+  lb: {term: Mandat am Comité, text: "President, Keesseminister, Sekretär… Nëmmen aktuell Mandatsträger kënne Bezuelungen erfaassen."}
+- key: creditNotesTitle
+  en: {term: Credit note, text: "Document that reduces what is owed on an invoice."}
+  de: {term: Gutschrift, text: "Beleg, der den offenen Betrag einer Rechnung verringert."}
+  fr: {term: Note de crédit, text: "Document qui réduit le montant dû d'une facture."}
+  lb: {term: Gutschrëft, text: "Beleg, deen de Montant op enger Rechnung reduzéiert."}
+- key: navBank
+  en: {term: Bank reconciliation, text: "Matching an uploaded bank statement with the payments and entries in the books."}
+  de: {term: Bankabgleich, text: "Abgleich eines hochgeladenen Kontoauszugs mit Zahlungen und Buchungen."}
+  fr: {term: Rapprochement bancaire, text: "Comparaison d'un relevé bancaire importé avec les paiements et les écritures."}
+  lb: {term: Bankofgläich, text: "Vergläich vun engem eropgeluedenen Auszuch mat de Bezuelungen an de Buchungen."}
+- key: navSubsidies
+  en: {term: Subsidy file, text: "Yearly application to the ministry via MyGuichet; the app prepares the lists."}
+  de: {term: Subventionsakte, text: "Jährlicher Antrag beim Ministerium über MyGuichet; die App bereitet die Listen vor."}
+  fr: {term: Dossier de subsides, text: "Demande annuelle au ministère via MyGuichet ; l'application prépare les listes."}
+  lb: {term: Subsiddossier, text: "Jäerlechen Undrag beim Ministère iwwer MyGuichet; d'App preparéiert d'Lëschten."}
+- key: subsidiesQualite
+  en: {term: Qualité+, text: "Ministry grant per licensed athlete under 16; the app estimates €150 each."}
+  de: {term: Qualité+, text: "Ministeriumszuschuss pro lizenziertem Sportler unter 16; die App schätzt 150 € pro Person."}
+  fr: {term: Qualité+, text: "Subside ministériel par sportif licencié de moins de 16 ans ; l'application estime 150 € chacun."}
+  lb: {term: Qualité+, text: "Subside vum Ministère pro lizenzéierte Sportler ënner 16; d'App rechent 150 € pro Kapp."}
+- key: subsidiesEqf
+  en: {term: EQF level, text: "Coach qualification level used for coach points (1 to 6, with 2 bis)."}
+  de: {term: EQF-Stufe, text: "Qualifikationsstufe des Trainers für die Trainerpunkte (1 bis 6, mit 2 bis)."}
+  fr: {term: Niveau EQF, text: "Niveau de qualification de l'entraîneur pour les points entraîneurs (1 à 6, avec 2 bis)."}
+  lb: {term: EQF-Niveau, text: "Qualifikatiounsniveau vum Trainer fir d'Trainerpunkten (1 bis 6, mat 2 bis)."}
+- key: trainingOpenRoll
+  en: {term: Roll, text: "Attendance list of one class. Saving it marks the class as held."}
+  de: {term: Anwesenheitsliste, text: "Anwesenheit einer Trainingseinheit. Beim Speichern gilt die Einheit als gehalten."}
+  fr: {term: Appel, text: "Liste de présence d'un cours. L'enregistrer marque le cours comme donné."}
+  lb: {term: Präsenz, text: "Präsenzlëscht vun engem Cours. Wann se gespäichert ass, gëllt de Cours als ofgehalen."}
+- key: trainingRegulars
+  en: {term: Usual students, text: "Students pre-selected on every roll of a weekly class."}
+  de: {term: Stammschüler, text: "Schüler, die bei jeder Anwesenheitsliste einer Wochenstunde vorausgewählt sind."}
+  fr: {term: Élèves habituels, text: "Élèves présélectionnés à chaque appel d'un cours hebdomadaire."}
+  lb: {term: Gewéinlech Schüler, text: "Schüler, déi bei all Präsenz vun engem Wochecours scho gewielt sinn."}
+- key: navPromotion
+  en: {term: Promotion rule, text: "Training hours required before the next grade, counted from the last grade."}
+  de: {term: Beförderungsregel, text: "Trainingsstunden bis zum nächsten Grad, gezählt ab dem letzten Grad."}
+  fr: {term: Règle de promotion, text: "Heures d'entraînement requises avant le grade suivant, comptées depuis le dernier grade."}
+  lb: {term: Promotiounsregel, text: "Trainingsstonnen, déi bis zum nächste Grad néideg sinn, gezielt vum leschte Grad un."}
+- key: trainingBeltTests
+  en: {term: Belt test, text: "Grading session where candidates pass or fail; a pass records the new grade."}
+  de: {term: Gürtelprüfung, text: "Prüfung, bei der Kandidaten bestehen oder nicht; Bestehen trägt den neuen Grad ein."}
+  fr: {term: Passage de grade, text: "Examen où les candidats réussissent ou échouent ; une réussite enregistre le nouveau grade."}
+  lb: {term: Gürtelprüfung, text: "Prüfung, wou d'Kandidaten bestinn oder net; wie besteet, kritt den neie Grad agedroen."}
+- key: Events.calendarFieldVisibility
+  en: {term: Visibility, text: "Who can see a calendar event: public, internal, private, all clubs, presidents."}
+  de: {term: Sichtbarkeit, text: "Wer ein Kalenderereignis sieht: öffentlich, intern, privat, alle Vereine, Präsidenten."}
+  fr: {term: Visibilité, text: "Qui voit un événement : public, interne, privé, tous les clubs, présidents."}
+  lb: {term: Visibilitéit, text: "Wie en Evenement gesäit: ëffentlech, intern, privat, all Veräiner, Presidenten."}
+- key: navShop
+  en: {term: Desk sale, text: "Sale of club equipment at the club desk, paid now or later."}
+  de: {term: Verkauf am Tresen, text: "Verkauf von Vereinsausrüstung am Empfang, sofort oder später bezahlt."}
+  fr: {term: Vente au comptoir, text: "Vente de matériel du club à l'accueil, payée tout de suite ou plus tard."}
+  lb: {term: Verkaf um Comptoir, text: "Verkaf vun Equipement vum Veräin um Comptoir, direkt oder méi spéit bezuelt."}
+- key: ClubMgmt.mediaConsent
+  en: {term: Publication consent, text: "Whether a member's photo may appear on the website, in print or on social media."}
+  de: {term: Veröffentlichungseinwilligung, text: "Ob Fotos eines Mitglieds auf der Website, in Printmedien oder sozialen Netzwerken erscheinen dürfen."}
+  fr: {term: Consentement de publication, text: "Si la photo d'un membre peut paraître sur le site, dans la presse ou sur les réseaux sociaux."}
+  lb: {term: Accord fir d'Publikatioun, text: "Ob d'Fotoe vun engem Member um Internetsite, an der Press oder op sozialen Netzwierker däerfe gewise ginn."}
+- key: ClubMgmt.checkups
+  en: {term: Médico sportif, text: "Sports medical check-up; its date is kept in the club record."}
+  de: {term: Médico sportif, text: "Sportärztliche Untersuchung; das Datum steht in der Vereinsakte."}
+  fr: {term: Médico-sportif, text: "Examen médico-sportif ; la date est conservée dans le dossier du club."}
+  lb: {term: Médico sportif, text: "Sportmedezinesch Ënnersichung; den Datum steet am Dossier vum Veräin."}
+- key: clubTouristThresholdLabel
+  en: {term: Club tourist, text: "Member flagged by the LTF after many club changes; transfers still work."}
+  de: {term: Vereinstourist, text: "Mitglied, das nach vielen Vereinswechseln markiert wird; Transfers bleiben möglich."}
+  fr: {term: Touriste de club, text: "Membre signalé après de nombreux changements de club ; les transferts restent possibles."}
+  lb: {term: Clubtourist, text: "Member, deen no ville Clubwiesselen markéiert gëtt; Transferte bleiwe méiglech."}
+- key: Import.importMembers
+  en: {term: Import, text: "Creating many members at once from a CSV file, in five steps."}
+  de: {term: Import, text: "Viele Mitglieder auf einmal aus einer CSV-Datei anlegen, in fünf Schritten."}
+  fr: {term: Import, text: "Créer de nombreux membres d'un coup à partir d'un fichier CSV, en cinq étapes."}
+  lb: {term: Import, text: "Vill Memberen op eemol aus enger CSV-Datei uleeën, a fënnef Schrëtt."}
+- key: ""
+  en: {term: Module, text: "Part of the app switched on per club by the LTF, such as club management or the event calendar."}
+  de: {term: Modul, text: "Teil der App, den die LTF pro Verein freischaltet, z. B. Vereinsverwaltung oder Veranstaltungskalender."}
+  fr: {term: Module, text: "Partie de l'application activée par club par la LTF, par ex. gestion du club ou calendrier."}
+  lb: {term: Modul, text: "Deel vun der App, deen d'LTF pro Veräin fräischalt, z. B. Clubverwaltung oder Evenementskalenner."}

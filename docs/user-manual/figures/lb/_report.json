@@ -1,0 +1,355 @@
+{
+ "signin": {
+  "found": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "problems": []
+ },
+ "shell": {
+  "found": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "problems": []
+ },
+ "club-overview": {
+  "found": [
+   1,
+   2
+  ],
+  "problems": []
+ },
+ "members-list": {
+  "found": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "problems": []
+ },
+ "members-actions": {
+  "found": [
+   1,
+   2,
+   3
+  ],
+  "problems": []
+ },
+ "members-menu": {
+  "found": [
+   1,
+   2
+  ],
+  "problems": []
+ },
+ "member-detail": {
+  "found": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ],
+  "problems": []
+ },
+ "member-record": {
+  "found": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "problems": []
+ },
+ "member-licence": {
+  "found": [],
+  "problems": []
+ },
+ "member-grades": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "member-new": {
+  "found": [],
+  "problems": []
+ },
+ "import": {
+  "found": [],
+  "problems": []
+ },
+ "order-licenses": {
+  "found": [],
+  "problems": []
+ },
+ "licences": {
+  "found": [],
+  "problems": []
+ },
+ "print-jobs": {
+  "found": [],
+  "problems": []
+ },
+ "print-history": {
+  "found": [],
+  "problems": []
+ },
+ "transfers": {
+  "found": [],
+  "problems": []
+ },
+ "transfer-request": {
+  "found": [],
+  "problems": []
+ },
+ "transfers-in": {
+  "found": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "problems": []
+ },
+ "families": {
+  "found": [],
+  "problems": []
+ },
+ "fees": {
+  "found": [],
+  "problems": []
+ },
+ "billing": {
+  "found": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "problems": []
+ },
+ "invoices": {
+  "found": [],
+  "problems": []
+ },
+ "record-payment": {
+  "found": [],
+  "problems": []
+ },
+ "reports": {
+  "found": [],
+  "problems": []
+ },
+ "bank": {
+  "found": [],
+  "problems": []
+ },
+ "subsidies": {
+  "found": [],
+  "problems": []
+ },
+ "training-week": {
+  "found": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "problems": []
+ },
+ "roll": {
+  "found": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "problems": []
+ },
+ "timetable": {
+  "found": [],
+  "problems": []
+ },
+ "holidays": {
+  "found": [],
+  "problems": []
+ },
+ "coach-pay": {
+  "found": [],
+  "problems": []
+ },
+ "month": {
+  "found": [],
+  "problems": []
+ },
+ "promotion": {
+  "found": [],
+  "problems": []
+ },
+ "belt-test": {
+  "found": [],
+  "problems": []
+ },
+ "shop-sell": {
+  "found": [
+   1,
+   2,
+   3
+  ],
+  "problems": []
+ },
+ "shop-items": {
+  "found": [],
+  "problems": []
+ },
+ "shop-item": {
+  "found": [],
+  "problems": []
+ },
+ "calendar": {
+  "found": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "problems": []
+ },
+ "event-form": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "club-profile": {
+  "found": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "problems": []
+ },
+ "club-coaches": {
+  "found": [],
+  "problems": []
+ },
+ "committee": {
+  "found": [],
+  "problems": []
+ },
+ "club-admins": {
+  "found": [],
+  "problems": []
+ },
+ "coach-week": {
+  "found": [],
+  "problems": []
+ },
+ "member-home": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "photo": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-overview": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-clubs": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-club": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-club-admins": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-transfers": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-licences": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-cards": {
+  "found": [],
+  "problems": []
+ },
+ "designer": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-print-jobs": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-settings": {
+  "found": [],
+  "problems": []
+ },
+ "ltf-calendar-form": {
+  "found": [],
+  "problems": []
+ },
+ "fin-overview": {
+  "found": [],
+  "problems": []
+ },
+ "fin-invoice": {
+  "found": [],
+  "problems": []
+ },
+ "fin-settings": {
+  "found": [],
+  "problems": []
+ },
+ "fin-billing": {
+  "found": [],
+  "problems": []
+ },
+ "fin-reports": {
+  "found": [],
+  "problems": []
+ },
+ "ops-modules": {
+  "found": [],
+  "problems": []
+ },
+ "cover": {
+  "found": [],
+  "problems": []
+ },
+ "privacy": {
+  "found": [],
+  "problems": []
+ }
+}

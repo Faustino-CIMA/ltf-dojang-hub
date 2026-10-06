@@ -298,7 +298,7 @@ export default function ClubExpenseDetailPage() {
 
         {canRecordPayments && !isLocked ? (
           <FormPanel>
-            <h2 className="mb-4 text-section text-foreground">{t("expenseFormSubtitle")}</h2>
+            <h2 className="mb-4 text-section text-foreground">{t("clubExpenseFormSubtitle")}</h2>
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
