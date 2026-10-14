@@ -395,7 +395,7 @@ Print artifact lifecycle:
 
 Role split:
 - LTF Admin: manages templates/versions, dual-side designer payloads, simulation previews, and can execute/retry/cancel any print job.
-- Club Admin: can quick-print from own-club members or licenses, execute/retry/cancel own-club print jobs, delete a draft, succeeded, failed, or cancelled own-club job, and view own-club print history. A queued or running job has to be cancelled before it can be deleted. A print started from the members list uses the member’s current license, so the license year is printed.
+- Club Admin: can execute/retry/cancel own-club print jobs, preview or download the PDF, delete a draft, succeeded, failed, or cancelled own-club job, and view own-club print history. A queued or running job has to be cancelled before it can be deleted. LTF Admin can do the same for any club's job.
 
 ### License Card v2.1.2 Quick Usage (v0.3.6)
 
@@ -403,16 +403,15 @@ LTF Admin flow:
 1. Open `/{locale}/dashboard/ltf/license-cards`.
 2. Create or select a template, then open the designer.
 3. Build both `front` and `back` sides, run side-aware previews (`preview-data`, live simulation HTML, card/sheet PDF), then publish.
-4. Validate print behavior from the print-jobs page (`create -> execute -> download PDF -> history`).
+4. Validate print behavior from the print-jobs page (`execute -> preview or download PDF -> history`). Printing is grouped with printer profiles under one Printing item.
 
 Club Admin flow:
-1. Open `/{locale}/dashboard/club/print-jobs/quick-print`.
-2. Select members/licenses and run quick print using the latest published template.
-3. Confirm job reaches `succeeded` and artifact download works from history.
+1. Open `/{locale}/dashboard/club/print-jobs`.
+2. Confirm a succeeded job can be previewed and downloaded, and that delete asks for confirmation.
 
 v0.3.6 Printer profiles (user-owned) notes:
 - Printer profiles are owner-scoped: each user (LTF Admin or Club Admin) sees and manages only their own profiles.
-- LTF Admin: full CRUD at `/{locale}/dashboard/ltf/printer-profiles`. Club Admin: select own profile when creating quick-print jobs (members, licenses, quick-print page).
+- LTF Admin: full CRUD at `/{locale}/dashboard/ltf/printer-profiles`, on the Printing tabs next to card print jobs. Club Admin: manage profiles at `/{locale}/dashboard/club/printer-profiles`.
 - Offsets (`x_offset_mm`, `y_offset_mm`) are applied only in the final PDF; designer canvas and live simulation are unchanged.
 - Sheet preview and print execution apply the selected `printer_profile` offsets in final PDF rendering.
 - LP798 geometry and sheet-slot placement remain locked (`85.00x55.00`, margins/gaps `15/10/15` and `10/0`) with guide neutrality preserved.

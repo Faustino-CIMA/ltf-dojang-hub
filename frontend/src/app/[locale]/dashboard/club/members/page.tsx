@@ -78,7 +78,6 @@ const MEMBERS_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
 
 const BATCH_DELETE_STORAGE_KEY = "club_members_batch_delete_payload";
 const ORDER_LICENSE_STORAGE_KEY = "club_members_order_license_payload";
-const QUICK_PRINT_STORAGE_KEY = "club_quick_print_payload";
 
 function memberToUpdateBody(member: Member, is_active: boolean) {
   return {
@@ -562,25 +561,6 @@ export default function ClubAdminMembersPage() {
     router.push(`/${locale}/dashboard/club/members/order-licenses`);
   };
 
-  const openQuickPrintPage = () => {
-    if (!canManageMembers || selectedIds.length === 0 || !selectedClubId) {
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        QUICK_PRINT_STORAGE_KEY,
-        JSON.stringify({
-          source: "members",
-          selectedClubId,
-          memberIds: selectedIds,
-          licenseIds: [],
-          printerProfileId: null,
-        })
-      );
-    }
-    router.push(`/${locale}/dashboard/club/print-jobs/quick-print`);
-  };
-
   const applyMemberStatus = async (member: Member, nextIsActive: boolean) => {
     if (!canManageMembers) {
       return;
@@ -814,12 +794,6 @@ export default function ClubAdminMembersPage() {
                   disabled={selectedIds.length === 0}
                   actions={[
                     { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
-                    {
-                      key: "print-cards",
-                      label: t("actionPrintCards"),
-                      disabled: !selectedClubId,
-                      onSelect: openQuickPrintPage,
-                    },
                     { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
                     {
                       key: "change-status",

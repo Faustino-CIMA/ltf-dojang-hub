@@ -1,6 +1,7 @@
 import { API_URL, apiRequest } from "./api";
 import { getToken } from "./auth";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
+import { filenameFromContentDisposition } from "./print-job-pdf";
 
 type ApiCallOptions = {
   signal?: AbortSignal;
@@ -315,23 +316,6 @@ export type PrintJob = {
   created_at: string;
   updated_at: string;
   items: PrintJobItem[];
-};
-
-export type PrintJobInput = {
-  club: number;
-  template_version: number;
-  paper_profile?: number | null;
-  printer_profile?: number | null;
-  printer_profile_id?: number | null;
-  side?: PrintJobSide;
-  member_ids?: number[];
-  license_ids?: number[];
-  selected_slots?: number[];
-  include_bleed_guide?: boolean;
-  include_safe_area_guide?: boolean;
-  bleed_mm?: number | string;
-  safe_area_mm?: number | string;
-  metadata?: Record<string, unknown>;
 };
 
 export type CardPreviewRequestInput = {
@@ -899,30 +883,6 @@ export function getPrintJob(id: number, options?: ApiCallOptions) {
   });
 }
 
-export function createPrintJob(input: PrintJobInput) {
-  const { printer_profile_id, ...restInput } = input;
-  const payload: Omit<PrintJobInput, "printer_profile_id"> = {
-    ...restInput,
-  };
-
-  // Keep frontend create payload on *_id while honoring current backend field naming.
-  if (
-    typeof printer_profile_id === "number" &&
-    Number.isInteger(printer_profile_id) &&
-    printer_profile_id > 0
-  ) {
-    payload.printer_profile = printer_profile_id;
-  }
-  if (payload.printer_profile === null) {
-    delete payload.printer_profile;
-  }
-
-  return apiRequest<PrintJob>("/api/print-jobs/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 export function executePrintJob(id: number) {
   return apiRequest<PrintJob>(`/api/print-jobs/${id}/execute/`, {
     method: "POST",
@@ -950,7 +910,12 @@ export function deletePrintJob(id: number) {
   });
 }
 
-export async function downloadPrintJobPdf(id: number): Promise<Blob> {
+export type PrintJobPdfFile = {
+  blob: Blob;
+  filename: string | null;
+};
+
+export async function downloadPrintJobPdf(id: number): Promise<PrintJobPdfFile> {
   const token = getToken();
   const response = await fetch(`${API_URL}/api/print-jobs/${id}/pdf/`, {
     method: "GET",
@@ -966,7 +931,10 @@ export async function downloadPrintJobPdf(id: number): Promise<Blob> {
         `Request failed with ${response.status}`
     );
   }
-  return response.blob();
+  return {
+    blob: await response.blob(),
+    filename: filenameFromContentDisposition(response.headers.get("Content-Disposition")),
+  };
 }
 
 function normalizeApiErrorMessage(message: string, contentType: string | null): string {

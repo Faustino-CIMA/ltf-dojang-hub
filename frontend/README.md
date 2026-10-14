@@ -26,8 +26,8 @@ LTF Admin pages:
 - Print jobs: `/{locale}/dashboard/ltf/license-cards/print-jobs`
 
 Club Admin pages:
-- Print jobs history: `/{locale}/dashboard/club/print-jobs`
-- Quick print: `/{locale}/dashboard/club/print-jobs/quick-print`
+- Print jobs: `/{locale}/dashboard/club/print-jobs`
+- Printer profiles: `/{locale}/dashboard/club/printer-profiles` (same Printing section as print jobs)
 - Club admins (rubber-band): `/{locale}/dashboard/club/admins`
 - Membership fees: `/{locale}/dashboard/club/fees`
   - Add a fee from the card at the top. Edit on a fee corrects its name and current amount. Delete removes it and returns assigned members to the club default. Save new amount schedules a later price. Issued invoices stay unchanged. A year can have several billings, and each one charges the membership amount again. License fee billing chooses which one adds the license fee. Until another is chosen, the fee stays on the first billing.
@@ -56,23 +56,15 @@ Event calendar (module `event_calendar`; federation when entitled, club when ass
 - A club event can be public, internal, private, or shared with every club and the LTF. An LTF event can also be limited to selected club presidents.
 - The Calendar link shows the count for the next two months and “new” until those events are opened. A club admin can set a reminder with Snooze for a day and Got it.
 
-Quick print entry points:
-- Members page stores selected member IDs and opens quick print:
-  - `/{locale}/dashboard/club/members`
-- Licenses page stores selected license IDs and opens quick print:
-  - `/{locale}/dashboard/club/licenses`
-
-The quick print page creates and executes a print job in one flow using:
-- `POST /api/print-jobs/`
-- `POST /api/print-jobs/{id}/execute/`
-
 Print jobs pages support:
 - status filtering/search,
-- execute/retry/cancel actions,
-- PDF download when status is `succeeded`,
-- delete on the club print-jobs table for a draft, succeeded, failed, or cancelled job. A queued or running job stays until it is cancelled. The LTF print-jobs page has no delete button.
+- Preview PDF (opens the file) and Download PDF (saves `license-cards_<club-or-LTF>_<job id>_<YYYY-MM-DD>.pdf`) when status is `succeeded`,
+- execute/retry/cancel in the row menu,
+- delete, with confirmation, for a draft, succeeded, failed, or cancelled job on both the club and LTF tables. A queued or running job stays until it is cancelled.
 
-Members, Actions, Clubs, and Licenses on the club members list, the LTF clubs list, and the LTF licenses list open as popovers. The label uses the normal field text color. The trash button on those lists, and on the club print-jobs table, is the outline button used on the members list.
+LTF Printing is one sidebar item with tabs for card print jobs and printer profiles, matching the club Printing section.
+
+Members, Actions, Clubs, and Licenses on the club members list, the LTF clubs list, and the LTF licenses list open as popovers. The label uses the normal field text color. Print-job rows use outline buttons with an icon and a short label for preview, download, and delete. Execute, retry, and cancel stay in the row menu.
 
 License Card v2 designer capabilities:
 - Full-height design workspace (no LTF sidebar). Tools, canvas, and inspector stay on screen; preview/print opens from the top bar.
@@ -94,4 +86,4 @@ Relevant frontend API client helpers (`src/lib/license-card-api.ts`):
 - `getCardTemplateVersionSheetPreviewPdf()`
 - `getCardTemplateVersionCardPreviewHtml()`
 - `getMemberLicenseCardPreview()`
-- `createPrintJob()`, `executePrintJob()`, `retryPrintJob()`, `cancelPrintJob()`, `deletePrintJob()`, `downloadPrintJobPdf()`
+- `executePrintJob()`, `retryPrintJob()`, `cancelPrintJob()`, `deletePrintJob()`, `downloadPrintJobPdf()`

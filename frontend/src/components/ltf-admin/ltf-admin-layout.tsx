@@ -7,7 +7,6 @@ import {
   ArrowLeftRight,
   Building2,
   CalendarDays,
-  CreditCard,
   Landmark,
   IdCard,
   LayoutDashboard,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { LtfPrintingTabs } from "@/components/ltf-admin/ltf-printing-tabs";
 import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
@@ -49,9 +49,8 @@ type LtfNavDef = {
     | "navMembers"
     | "navLicenses"
     | "navLicenseCards"
-    | "navLicenseCardPrintJobs"
+    | "navPrinting"
     | "navLicenseTypes"
-    | "navPrinterProfiles"
     | "navSettings"
     | "navPreview"
     | "navCalendar"
@@ -75,9 +74,9 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
     icon: Sparkles,
   },
   {
-    id: "license-card-print-jobs",
+    id: "printing",
     href: (l) => `/${l}/dashboard/ltf/license-cards/print-jobs`,
-    labelKey: "navLicenseCardPrintJobs",
+    labelKey: "navPrinting",
     matchMode: "prefix",
     icon: Printer,
   },
@@ -87,13 +86,6 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
     labelKey: "navLicenseTypes",
     matchMode: "prefix",
     icon: Layers,
-  },
-  {
-    id: "printer-profiles",
-    href: (l) => `/${l}/dashboard/ltf/printer-profiles`,
-    labelKey: "navPrinterProfiles",
-    matchMode: "prefix",
-    icon: CreditCard,
   },
   { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix", icon: Settings },
   { id: "calendar", href: (l) => `/${l}/dashboard/ltf/calendar`, labelKey: "navCalendar", matchMode: "prefix", icon: CalendarDays },
@@ -123,6 +115,9 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
   const isDesignerWorkspace = /\/dashboard\/ltf\/license-cards\/[^/]+\/designer(?:\/|$)/.test(
     pathname || ""
   );
+  const isPrinting =
+    pathname?.includes("/dashboard/ltf/license-cards/print-jobs") ||
+    pathname?.includes("/dashboard/ltf/printer-profiles");
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +158,9 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
           matchMode: def.matchMode,
           group: ltfNavGroup(def.id, (key) => common(key)),
           ...(def.id === "calendar" ? calendarAttention : {}),
+          ...(def.id === "printing"
+            ? { extraMatchHrefs: [`/${locale}/dashboard/ltf/printer-profiles`] }
+            : {}),
         },
       }))
       .sort((left, right) => {
@@ -180,7 +178,14 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
       navItems={navItems}
       variant={isDesignerWorkspace ? "workspace" : "default"}
     >
-      {children}
+      {isPrinting ? (
+        <div className="space-y-6">
+          <LtfPrintingTabs />
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </AppShell>
   );
 }

@@ -29,7 +29,7 @@
   de: {term: Lizenz, text: "Jährliche LTF-Lizenz, die ein Sportler zum Trainieren und für Wettkämpfe braucht. Ausstehend, bis die LTF bezahlt ist."}
   fr: {term: Licence, text: "Licence LTF annuelle nécessaire pour s'entraîner et participer aux compétitions. En attente jusqu'au paiement à la LTF."}
   lb: {term: Lizenz, text: "Jäerlech LTF-Lizenz, déi e Sportler fir ze trainéieren an op Concoursen ze goen brauch. Ausstoend, bis d'LTF bezuelt ass."}
-- key: actionPrintCards
+- key: LtfAdmin.navLicenseCards
   en: {term: Licence card, text: "Printed card with photo, grade, licence number and QR code."}
   de: {term: Lizenzkarte, text: "Gedruckte Karte mit Foto, Grad, Lizenznummer und QR-Code."}
   fr: {term: Carte de licence, text: "Carte imprimée avec photo, grade, numéro de licence et code QR."}

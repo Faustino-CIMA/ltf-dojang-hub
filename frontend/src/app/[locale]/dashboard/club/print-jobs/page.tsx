@@ -1,17 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { PrintJobRowActions } from "@/components/print-jobs/print-job-row-actions";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { PopoverSelect } from "@/components/ui/popover-select";
-import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiRequest } from "@/lib/api";
 import { getClubs } from "@/lib/club-admin-api";
@@ -27,25 +26,15 @@ import {
   getPrintJobs,
   retryPrintJob,
 } from "@/lib/license-card-api";
+import { downloadPdfFile, openPdfPreview, printJobPdfFilename } from "@/lib/print-job-pdf";
 
 type AuthMeResponse = {
   role: string;
 };
 
-function openBlobInNewTab(blob: Blob) {
-  const url = window.URL.createObjectURL(blob);
-  window.open(url, "_blank", "noopener,noreferrer");
-  window.setTimeout(() => {
-    window.URL.revokeObjectURL(url);
-  }, 15000);
-}
-
 export default function ClubPrintJobsPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
-  const pathname = usePathname();
-  const router = useRouter();
-  const locale = pathname?.split("/")[1] || "en";
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [isRoleLoading, setIsRoleLoading] = useState(true);
   const [jobs, setJobs] = useState<PrintJob[]>([]);
@@ -186,13 +175,35 @@ export default function ClubPrintJobsPage() {
     }
   };
 
+  const pdfFilename = (job: PrintJob, serverFilename: string | null) =>
+    serverFilename ||
+    printJobPdfFilename({
+      clubName: clubNameById[job.club],
+      jobId: job.id,
+      createdAt: job.created_at,
+    });
+
+  const handlePreviewPdf = async (job: PrintJob) => {
+    setActiveJobId(job.id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const file = await downloadPrintJobPdf(job.id);
+      openPdfPreview(file.blob);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("printJobsActionError"));
+    } finally {
+      setActiveJobId(null);
+    }
+  };
+
   const handleDownloadPdf = async (job: PrintJob) => {
     setActiveJobId(job.id);
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const blob = await downloadPrintJobPdf(job.id);
-      openBlobInNewTab(blob);
+      const file = await downloadPrintJobPdf(job.id);
+      downloadPdfFile(file.blob, pdfFilename(job, file.filename));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("printJobsActionError"));
     } finally {
@@ -243,12 +254,6 @@ export default function ClubPrintJobsPage() {
               { value: "cancelled", label: t("printJobStatusCancelled") },
             ]}
           />
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/${locale}/dashboard/club/print-jobs/quick-print`)}
-          >
-            {t("quickPrintCreateAction")}
-          </Button>
           <Button variant="outline" disabled={isLoading} onClick={() => void loadJobs()}>
             {isLoading ? t("refreshingAction") : t("refreshAction")}
           </Button>
@@ -313,46 +318,27 @@ export default function ClubPrintJobsPage() {
               {
                 key: "actions",
                 header: t("actionsLabel"),
-                render: (job) => {
-                  const isJobBusy = activeJobId === job.id;
-                  return (
-                    <RowActionMenu
-                      label={common("rowActionsLabel")}
-                      actions={[
-                        {
-                          key: "execute",
-                          label: t("printJobExecuteAction"),
-                          disabled: isJobBusy || !["draft", "failed"].includes(job.status),
-                          onSelect: () => void executeAction(job.id, () => executePrintJob(job.id)),
-                        },
-                        {
-                          key: "retry",
-                          label: t("printJobRetryAction"),
-                          disabled: isJobBusy || !["failed", "cancelled"].includes(job.status),
-                          onSelect: () => void executeAction(job.id, () => retryPrintJob(job.id)),
-                        },
-                        {
-                          key: "cancel",
-                          label: t("printJobCancelAction"),
-                          disabled: isJobBusy || ["succeeded", "cancelled"].includes(job.status),
-                          onSelect: () => void executeAction(job.id, () => cancelPrintJob(job.id)),
-                        },
-                        {
-                          key: "pdf",
-                          label: t("printJobDownloadPdfAction"),
-                          disabled: isJobBusy || job.status !== "succeeded" || !job.artifact_pdf,
-                          onSelect: () => void handleDownloadPdf(job),
-                        },
-                        {
-                          key: "delete",
-                          label: t("deleteAction"),
-                          disabled: isJobBusy || job.status === "queued" || job.status === "running",
-                          onSelect: () => setJobToDelete(job),
-                        },
-                      ]}
-                    />
-                  );
-                },
+                render: (job) => (
+                  <PrintJobRowActions
+                    job={job}
+                    busy={activeJobId === job.id}
+                    labels={{
+                      preview: t("printJobPreviewPdfAction"),
+                      download: t("printJobDownloadPdfAction"),
+                      delete: t("deleteAction"),
+                      menu: common("rowActionsLabel"),
+                      execute: t("printJobExecuteAction"),
+                      retry: t("printJobRetryAction"),
+                      cancel: t("printJobCancelAction"),
+                    }}
+                    onPreview={(selected) => void handlePreviewPdf(selected)}
+                    onDownload={(selected) => void handleDownloadPdf(selected)}
+                    onDelete={setJobToDelete}
+                    onExecute={(selected) => void executeAction(selected.id, () => executePrintJob(selected.id))}
+                    onRetry={(selected) => void executeAction(selected.id, () => retryPrintJob(selected.id))}
+                    onCancel={(selected) => void executeAction(selected.id, () => cancelPrintJob(selected.id))}
+                  />
+                ),
               },
             ]}
           />

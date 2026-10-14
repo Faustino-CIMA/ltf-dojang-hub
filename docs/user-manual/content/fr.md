@@ -336,9 +336,8 @@ Cliquez sur un nom pour ouvrir le membre. Le menu [[Common.batchActionsLabel]] a
 ![Actions pour les membres sélectionnés](fig:members-actions)
 
 <div class="legend" markdown="1">
-1. [[actionPrintCards]] – voir [Imprimer les cartes de licence](#print-cards).
-2. [[actionOrderLicense]] – voir [Commander des licences](#order-licences).
-3. [[actionChangeStatus]] – rendre des membres actifs ou inactifs.
+1. [[actionOrderLicense]] – voir [Commander des licences](#order-licences).
+2. [[actionChangeStatus]] – rendre des membres actifs ou inactifs.
 </div>
 
 > [!WARNING]
@@ -446,20 +445,20 @@ La commande et sa facture apparaissent dans [[navFinance]] › [[navOrders]] et 
 
 ## La liste des licences {#licences}
 
-[[navLicenses]] affiche toutes les licences du club avec leur statut : [[filterActiveTitle]], [[filterPendingTitle]] ou [[filterExpiredTitle]] (active, en attente, expirée). Recherchez par membre, année ou statut. Cochez des licences et utilisez [[Common.batchActionsLabel]] › [[actionPrintCards]] pour imprimer leurs cartes.
+[[navLicenses]] affiche toutes les licences du club avec leur statut : [[filterActiveTitle]], [[filterPendingTitle]] ou [[filterExpiredTitle]] (active, en attente, expirée). Recherchez par membre, année ou statut.
 
 ![La liste des licences](fig:licences)
 
 ## Imprimer les cartes de licence {#print-cards}
 
-1. Cochez les membres (dans [[navMembers]]) ou les licences (dans [[navLicenses]]) dont vous voulez les cartes.
-2. Ouvrez [[Common.batchActionsLabel]] et cliquez sur [[actionPrintCards]]. La page [[quickPrintTitle]] s'ouvre.
-3. Vérifiez le [[quickPrintTemplateLabel]] et le [[quickPrintPaperProfileLabel]]. Choisissez un [[quickPrintPrinterProfileLabel]] si votre imprimante a besoin d'un décalage.
-4. Vous imprimez sur une planche déjà entamée ? Dans [[quickPrintSlotPickerTitle]], cliquez sur les emplacements libres.
-5. Cliquez sur [[quickPrintCreateAction]].
-6. Ouvrez [[quickPrintOpenHistoryAction]] et cliquez sur [[printJobDownloadPdfAction]] quand la tâche affiche [[printJobStatusSucceeded]]. Imprimez le PDF à 100 % (sans « ajuster à la page »).
+[[navPrinting]] liste les tâches d'impression de cartes du club. La même section ouvre aussi [[navPrinterProfiles]], où le décalage X/Y d'une imprimante est enregistré.
 
-![Impression rapide](fig:print-jobs)
+1. Ouvrez [[navPrinting]].
+2. Quand une tâche affiche [[printJobStatusSucceeded]], cliquez sur [[printJobPreviewPdfAction]] pour ouvrir le PDF, ou sur [[printJobDownloadPdfAction]] pour enregistrer `license-cards_<club>_<tâche>_<date>.pdf`. Imprimez le fichier à 100 % (sans « ajuster à la page »).
+3. [[printJobExecuteAction]], [[printJobRetryAction]] et [[printJobCancelAction]] restent dans le menu de la ligne.
+4. Cliquez sur [[deleteAction]] et confirmez pour retirer une tâche brouillon, réussie, échouée ou annulée. Annulez d'abord une tâche en file ou en cours.
+
+![Tâches d'impression](fig:print-jobs)
 
 > [!TIP]
 > Si l'impression est décalée de quelques millimètres, demandez à la LTF un profil d'imprimante avec le bon décalage X/Y plutôt que de modifier la carte.
@@ -916,7 +915,7 @@ Une liste de contrôle pour les bénévoles pressés. Chaque ligne renvoie à la
 
 <p class="roles"><span class="chip">LTF Admin</span></p>
 
-Le menu de la fédération ([[Common.navGroupFederation]]) contient [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navLicenseCardPrintJobs]], [[LtfAdmin.navLicenseTypes]], [[LtfAdmin.navPrinterProfiles]] et [[LtfAdmin.navSettings]], ainsi que [[LtfAdmin.navCommittee]] et [[LtfAdmin.navCalendar]].
+Le menu de la fédération ([[Common.navGroupFederation]]) contient [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navPrinting]], [[LtfAdmin.navLicenseTypes]] et [[LtfAdmin.navSettings]], ainsi que [[LtfAdmin.navCommittee]] et [[LtfAdmin.navCalendar]].
 
 ## Aperçu de la fédération {#ltf-overview}
 
@@ -941,7 +940,7 @@ L'aperçu compte les clubs, les membres et les licences. Sa liste d'actions sign
 
 ## Cartes de licence {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] contient les modèles de carte. Ouvrez un modèle dans l'éditeur pour placer la photo, le nom, le grade, le numéro de licence et le code QR. Publiez une version et définissez-la par défaut : les administrateurs de club imprimeront avec elle. [[LtfAdmin.navLicenseCardPrintJobs]] montre toutes les tâches d'impression de tous les clubs ; [[LtfAdmin.navPrinterProfiles]] enregistre le décalage X/Y des imprimantes connues.
+[[LtfAdmin.navLicenseCards]] contient les modèles de carte. Ouvrez un modèle dans l'éditeur pour placer la photo, le nom, le grade, le numéro de licence et le code QR. Publiez une version et définissez-la par défaut : les administrateurs de club imprimeront avec elle. [[LtfAdmin.navPrinting]] regroupe [[LtfAdmin.navLicenseCardPrintJobs]] et [[LtfAdmin.navPrinterProfiles]] comme sur le tableau de bord du club. Les tâches d'impression listent les jobs de tous les clubs, avec aperçu, téléchargement et suppression. Les profils d'imprimante enregistrent le décalage X/Y des imprimantes connues.
 
 ![L'éditeur de cartes](fig:designer)
 
