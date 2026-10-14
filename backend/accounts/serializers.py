@@ -1,12 +1,15 @@
 from allauth.account.models import EmailAddress
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    home_club_id = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -20,7 +23,14 @@ class UserSerializer(serializers.ModelSerializer):
             "is_email_verified",
             "consent_given",
             "consent_given_at",
+            "home_club_id",
         ]
+
+    def get_home_club_id(self, obj):
+        try:
+            return obj.member_profile.club_id
+        except ObjectDoesNotExist:
+            return None
 
 
 class EmptySerializer(serializers.Serializer):

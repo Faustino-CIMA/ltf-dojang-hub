@@ -27,6 +27,7 @@ export type Club = {
   max_admins: number;
   created_by: number;
   admins: number[];
+  is_home?: boolean;
   created_at: string;
   updated_at: string;
 };

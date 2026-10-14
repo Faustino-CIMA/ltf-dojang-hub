@@ -20,6 +20,7 @@ import {
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { LtfPrintingTabs } from "@/components/ltf-admin/ltf-printing-tabs";
+import { ltfSidebarGroup } from "@/lib/sidebar-groups";
 import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
@@ -93,19 +94,6 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
-function ltfNavGroup(id: string, label: (key: "navGroupFederation" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
-  if (id === "committee") {
-    return { id: "clubManagement", label: label("navGroupClubManagement") };
-  }
-  if (id === "calendar") {
-    return { id: "calendar", label: label("navGroupCalendar") };
-  }
-  if (id === "preview") {
-    return { id: "preview", label: label("navGroupPreview") };
-  }
-  return { id: "federation", label: label("navGroupFederation") };
-}
-
 export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProps) {
   const t = useTranslations("LtfAdmin");
   const common = useTranslations("Common");
@@ -156,7 +144,10 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
           label: t(def.labelKey),
           icon: def.icon,
           matchMode: def.matchMode,
-          group: ltfNavGroup(def.id, (key) => common(key)),
+          group: {
+            id: ltfSidebarGroup(def.id).id,
+            label: common(ltfSidebarGroup(def.id).labelKey),
+          },
           ...(def.id === "calendar" ? calendarAttention : {}),
           ...(def.id === "printing"
             ? { extraMatchHrefs: [`/${locale}/dashboard/ltf/printer-profiles`] }
@@ -164,7 +155,7 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
         },
       }))
       .sort((left, right) => {
-        const rank = (id: string) => (id === "clubManagement" ? 1 : id === "calendar" ? 2 : id === "preview" ? 3 : 0);
+        const rank = (id: string) => (id === "calendar" ? 1 : id === "preview" ? 2 : 0);
         return rank(left.item.group?.id ?? "") - rank(right.item.group?.id ?? "") || left.index - right.index;
       })
       .map((entry) => entry.item),

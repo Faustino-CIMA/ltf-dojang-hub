@@ -582,4 +582,3 @@ OPS_TOKEN_TOUCH_INTERVAL_SECONDS = config("OPS_TOKEN_TOUCH_INTERVAL_SECONDS", ca
 OPS_QUERY_TIMEOUT_MS = config("OPS_QUERY_TIMEOUT_MS", cast=int, default=5000)
 OPS_QUERY_MAX_ROWS = config("OPS_QUERY_MAX_ROWS", cast=int, default=500)
 OPS_I18N_DIR = config("OPS_I18N_DIR", default="/app/i18n_frontend")
-OPS_DOCKER_SOCKET = config("OPS_DOCKER_SOCKET", default="")

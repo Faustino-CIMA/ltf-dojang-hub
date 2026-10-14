@@ -31,6 +31,7 @@ import { ClubPrintingTabs } from "@/components/club-admin/club-printing-tabs";
 import { ClubTrainingTabs } from "@/components/club-admin/club-training-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { clubSidebarGroup } from "@/lib/sidebar-groups";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
   EVENT_CALENDAR_MODULE_ID,
@@ -196,22 +197,6 @@ const CLUB_GROUP_RANK: Record<string, number> = {
   preview: 3,
 };
 
-function clubNavGroup(id: string, label: (key: "navGroupClub" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
-  if (id === "admins" || id === "settings") {
-    return undefined;
-  }
-  if (id === "finance" || id === "families" || id === "shop" || id === "training" || id === "promotion") {
-    return { id: "clubManagement", label: label("navGroupClubManagement") };
-  }
-  if (id === "calendar") {
-    return { id: "calendar", label: label("navGroupCalendar") };
-  }
-  if (id === "preview") {
-    return { id: "preview", label: label("navGroupPreview") };
-  }
-  return { id: "club", label: label("navGroupClub") };
-}
-
 export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutProps) {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
@@ -262,31 +247,34 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
         if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
         return true;
-      }).map((def, index) => ({
-        index,
-        item: {
-          id: def.id,
-          href: `/${locale}/${def.routePath}`,
-          label: t(def.labelKey),
-          icon: def.icon,
-          matchMode: def.matchMode,
-          group: clubNavGroup(def.id, (key) => common(key)),
-          ...(def.id === "calendar" ? calendarAttention : {}),
-          extraMatchHrefs:
-            def.id === "finance"
-              ? [
-                  `/${locale}/dashboard/club/orders`,
-                  `/${locale}/dashboard/club/invoices`,
-                  `/${locale}/dashboard/club/payments`,
-                  `/${locale}/dashboard/club/income`,
-                  `/${locale}/dashboard/club/expenses`,
-                  `/${locale}/dashboard/club/reports`,
-                ]
-              : def.id === "printing"
-                ? [`/${locale}/dashboard/club/printer-profiles`]
-                : undefined,
-        },
-      }))
+      }).map((def, index) => {
+        const group = clubSidebarGroup(def.id);
+        return {
+          index,
+          item: {
+            id: def.id,
+            href: `/${locale}/${def.routePath}`,
+            label: t(def.labelKey),
+            icon: def.icon,
+            matchMode: def.matchMode,
+            group: group ? { id: group.id, label: common(group.labelKey) } : undefined,
+            ...(def.id === "calendar" ? calendarAttention : {}),
+            extraMatchHrefs:
+              def.id === "finance"
+                ? [
+                    `/${locale}/dashboard/club/orders`,
+                    `/${locale}/dashboard/club/invoices`,
+                    `/${locale}/dashboard/club/payments`,
+                    `/${locale}/dashboard/club/income`,
+                    `/${locale}/dashboard/club/expenses`,
+                    `/${locale}/dashboard/club/reports`,
+                  ]
+                : def.id === "printing"
+                  ? [`/${locale}/dashboard/club/printer-profiles`]
+                  : undefined,
+          },
+        };
+      })
       .sort((left, right) => {
         const leftRank = left.item.group ? (CLUB_GROUP_RANK[left.item.group.id] ?? 9) : 10;
         const rightRank = right.item.group ? (CLUB_GROUP_RANK[right.item.group.id] ?? 9) : 10;

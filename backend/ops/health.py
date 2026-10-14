@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import socket
 import time
@@ -123,53 +122,6 @@ def probe_env_keys() -> dict:
     return _status(True, "presence only, values are never returned", {"configured": checks, "missing": missing})
 
 
-def probe_docker() -> dict | None:
-    socket_path = str(getattr(settings, "OPS_DOCKER_SOCKET", "") or "").strip()
-    if not socket_path:
-        return None
-    try:
-        payload = _docker_get(socket_path, "/containers/json?all=1")
-        containers = []
-        for item in payload:
-            names = item.get("Names") or []
-            name = names[0].lstrip("/") if names else item.get("Id", "")[:12]
-            state = item.get("State") or ""
-            status = item.get("Status") or ""
-            health = ((item.get("State") or {}) if isinstance(item.get("State"), dict) else {}) or {}
-            health_status = ""
-            inspect_health = item.get("Status") or ""
-            containers.append(
-                {
-                    "name": name,
-                    "state": state if isinstance(state, str) else str(state),
-                    "status": status,
-                    "health": health_status or inspect_health,
-                }
-            )
-        ok = all((c.get("state") or "").lower() in {"running", "created"} for c in containers) if containers else False
-        return _status(ok or bool(containers), f"{len(containers)} containers", {"containers": containers})
-    except Exception as exc:
-        return _status(False, str(exc)[:300])
-
-
-def _docker_get(socket_path: str, path: str):
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(3)
-    sock.connect(socket_path)
-    request = f"GET {path} HTTP/1.1\r\nHost: docker\r\nConnection: close\r\n\r\n"
-    sock.sendall(request.encode("ascii"))
-    chunks = []
-    while True:
-        data = sock.recv(65536)
-        if not data:
-            break
-        chunks.append(data)
-    sock.close()
-    raw = b"".join(chunks).decode("utf-8", errors="replace")
-    _, _, body = raw.partition("\r\n\r\n")
-    return json.loads(body or "[]")
-
-
 def collect_health() -> dict:
     checks = {
         "postgres": probe_postgres(),
@@ -180,9 +132,6 @@ def collect_health() -> dict:
         "migrations": probe_migrations(),
         "env_keys": probe_env_keys(),
     }
-    docker = probe_docker()
-    if docker is not None:
-        checks["docker"] = docker
     overall = all(item.get("ok") for key, item in checks.items() if key != "env_keys")
     return {
         "ok": overall,
