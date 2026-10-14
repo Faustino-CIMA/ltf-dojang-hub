@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, OuterRef, Q, Sum
+from django.db.models import Count, DecimalField, Exists, F, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
@@ -26,6 +26,7 @@ from accounts.permissions import (
     IsLtfFinanceOrLtfAdmin,
 )
 from clubmgmt.access import can_record_club_payments
+from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
 
 from clubs.models import Club
@@ -37,6 +38,7 @@ from .models import (
     ClubFeeBillingSchedule,
     ClubFeePrice,
     ClubFeeType,
+    CreditNote,
     Expense,
     ExpenseCategory,
     FinanceAuditLog,
@@ -228,6 +230,62 @@ def _apply_order_issue_filter(queryset, issue):
     ).distinct()
 
 
+INVOICE_LIST_ORDERING = {
+    "invoice_number": ("invoice_number", "id"),
+    "club": ("club__name", "id"),
+    "status": ("status", "id"),
+    "quantity": ("item_quantity", "id"),
+    "total": ("total", "id"),
+    "outstanding": ("outstanding_amount", "id"),
+    "issued_at": ("issued_at", "id"),
+}
+
+
+def _annotate_invoice_outstanding(queryset):
+    decimal_field = DecimalField(max_digits=12, decimal_places=2)
+    paid = (
+        Payment.objects.filter(invoice_id=OuterRef("pk"), status=Payment.Status.PAID)
+        .values("invoice_id")
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
+    credited = (
+        CreditNote.objects.filter(invoice_id=OuterRef("pk"))
+        .values("invoice_id")
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
+    return queryset.annotate(
+        paid_total_amount=Coalesce(
+            Subquery(paid[:1]),
+            Value(Decimal("0.00")),
+            output_field=decimal_field,
+        ),
+        credited_total_amount=Coalesce(
+            Subquery(credited[:1]),
+            Value(Decimal("0.00")),
+            output_field=decimal_field,
+        ),
+    ).annotate(
+        outstanding_amount=F("total") - F("credited_total_amount") - F("paid_total_amount")
+    )
+
+
+def _order_invoice_queryset(view, queryset):
+    if getattr(view, "action", None) != "list":
+        return queryset.order_by("-created_at", "-id")
+    ordering = (view.request.query_params.get("ordering") or "").strip()
+    key = ordering[1:] if ordering.startswith("-") else ordering
+    if key == "outstanding":
+        queryset = _annotate_invoice_outstanding(queryset)
+    return apply_list_ordering(
+        queryset,
+        ordering,
+        allowed=INVOICE_LIST_ORDERING,
+        default=("-created_at", "-id"),
+    )
+
+
 def _apply_payment_issue_filter(queryset, issue):
     if (issue or "").strip() != "failed_or_cancelled_30d":
         return queryset
@@ -317,7 +375,20 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 search_filter = search_filter | Q(year=int(search_value))
             queryset = queryset.filter(search_filter)
 
-        return queryset.order_by("-year", "-created_at")
+        ordering = self.request.query_params.get("ordering") if self.action == "list" else None
+        return apply_list_ordering(
+            queryset,
+            ordering,
+            allowed={
+                "member": ("member__last_name", "member__first_name", "id"),
+                "club": ("club__name", "member__last_name", "member__first_name", "id"),
+                "license_type": ("license_type__name", "member__last_name", "id"),
+                "year": ("year", "member__last_name", "member__first_name", "id"),
+                "status": ("status", "member__last_name", "id"),
+                "issued_at": ("issued_at", "id"),
+            },
+            default=("-year", "-created_at", "-id"),
+        )
 
     def perform_create(self, serializer):
         license_record = serializer.save()
@@ -763,7 +834,7 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
             queryset = _apply_invoice_issue_filter(
                 queryset, self.request.query_params.get("issue")
             )
-            return queryset.order_by("-created_at")
+            return _order_invoice_queryset(self, queryset)
         return Invoice.objects.none()
 
     def get_permissions(self):
@@ -2274,7 +2345,7 @@ class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
         queryset = _apply_invoice_issue_filter(
             queryset, self.request.query_params.get("issue")
         )
-        return queryset.order_by("-created_at")
+        return _order_invoice_queryset(self, queryset)
 
     def get_permissions(self):
         return [IsClubAdmin()]

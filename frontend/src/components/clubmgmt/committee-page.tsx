@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Member, getMembersList, getMembersPage } from "@/lib/club-admin-api";
 import { createCommittee, createMandate, deleteMandate, listCommittees, updateMandate } from "@/lib/clubmgmt-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 
 const ROLES = [
@@ -106,7 +107,7 @@ function todayIso() {
 }
 
 function displayMemberName(member: Member) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function memberIsAdult(member: Member, asOf = new Date()): boolean {

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { formatFullName } from "@/lib/person-name";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
@@ -108,7 +109,7 @@ export default function LtfLicenseBatchDeletePage() {
             : "warning";
         return {
           id: license.id,
-          memberLabel: member ? `${member.first_name} ${member.last_name}` : t("unknownMember"),
+          memberLabel: member ? formatFullName(member) : t("unknownMember"),
           clubLabel: club?.name ?? t("unknownClub"),
           yearLabel: String(license.year),
           statusLabel,
@@ -177,7 +178,7 @@ export default function LtfLicenseBatchDeletePage() {
         deleted += 1;
       } catch {
         const member = memberById.get(license.member);
-        const memberLabel = member ? `${member.first_name} ${member.last_name}` : t("unknownMember");
+        const memberLabel = member ? formatFullName(member) : t("unknownMember");
         failedItems.push(`${memberLabel} · ${license.year}`);
       }
     }

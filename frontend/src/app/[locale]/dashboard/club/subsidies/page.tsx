@@ -21,6 +21,7 @@ import {
   NestedTable,
 } from "@/components/ui/list-page-chrome";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatFullName } from "@/lib/person-name";
 import {
   createExtraordinarySubsidy,
   deleteExtraordinarySubsidy,
@@ -756,7 +757,7 @@ export default function ClubSubsidiesPage() {
                     <tbody>
                       {dossier.youth.map((row) => (
                         <tr key={row.id} className="border-b border-border last:border-0">
-                          <td className="px-4 py-3 text-sm">{row.first_name} {row.last_name}</td>
+                          <td className="px-4 py-3 text-sm">{formatFullName(row)}</td>
                           <td className="px-4 py-3 text-sm text-muted">{row.date_of_birth}</td>
                           <td className="px-4 py-3">
                             <Input

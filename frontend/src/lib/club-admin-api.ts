@@ -336,6 +336,7 @@ type MemberListQueryParams = {
   isActive?: boolean;
   ids?: number[];
   issue?: MemberIssueFilter;
+  ordering?: string;
 };
 
 type MemberPageParams = MemberListQueryParams & {
@@ -359,6 +360,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.issue) {
     search.set("issue", params.issue);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }
@@ -578,6 +582,7 @@ type LicenseListQueryParams = {
   memberId?: number;
   memberIds?: number[];
   clubId?: number;
+  ordering?: string;
 };
 
 type LicensePageParams = LicenseListQueryParams & {
@@ -604,6 +609,9 @@ function buildLicenseListQuery(params?: LicenseListQueryParams) {
   }
   if (typeof params?.clubId === "number") {
     search.set("club_id", String(params.clubId));
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }

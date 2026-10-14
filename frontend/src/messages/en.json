@@ -58,6 +58,8 @@
     "batchDeleteLabel": "Delete selected",
     "selectAllLabel": "Select all rows",
     "selectRowLabel": "Select row",
+    "fullNameLabel": "Full name",
+    "rowActionsLabel": "Row actions",
     "statusDraft": "Draft",
     "statusPending": "Pending",
     "statusPaid": "Paid",

@@ -1,17 +1,28 @@
-import { Fragment } from "react";
+"use client";
 
-type Column<T> = {
+import { Fragment, useMemo, type ReactNode } from "react";
+
+import { SortableColumnHeader } from "@/components/ui/sortable-column-header";
+import { directedCompare, toggleSort, type TableSort } from "@/lib/table-sort";
+
+export type EntityTableColumn<T> = {
   key: string;
-  header: React.ReactNode;
-  render?: (row: T) => React.ReactNode;
+  header: ReactNode;
+  render?: (row: T) => ReactNode;
+  sortable?: boolean;
+  sortValue?: (row: T) => unknown;
 };
 
 type EntityTableProps<T> = {
-  columns: Array<Column<T>>;
+  columns: Array<EntityTableColumn<T>>;
   rows: T[];
   onRowClick?: (row: T) => void;
   /** Extra full-width row rendered under a data row. Return null to keep the row closed. */
-  renderDetail?: (row: T) => React.ReactNode | null;
+  renderDetail?: (row: T) => ReactNode | null;
+  sort?: TableSort | null;
+  onSortChange?: (sort: TableSort) => void;
+  /** Sort the rows passed in. Use this when the table already has every row. */
+  clientSort?: boolean;
 };
 
 export function EntityTable<T extends { id: number | string }>({
@@ -19,22 +30,56 @@ export function EntityTable<T extends { id: number | string }>({
   rows,
   onRowClick,
   renderDetail,
+  sort = null,
+  onSortChange,
+  clientSort = false,
 }: EntityTableProps<T>) {
   const isClickable = Boolean(onRowClick);
+  const displayedRows = useMemo(() => {
+    if (!clientSort || !sort) {
+      return rows;
+    }
+    const column = columns.find((item) => item.key === sort.key && item.sortValue);
+    if (!column?.sortValue) {
+      return rows;
+    }
+    const getValue = column.sortValue;
+    return [...rows].sort((left, right) => directedCompare(getValue(left), getValue(right), sort.direction));
+  }, [clientSort, columns, rows, sort]);
+
   return (
     <div className="app-panel overflow-x-auto">
       <table className="min-w-full text-left text-sm">
         <thead className="border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted">
           <tr>
-            {columns.map((column) => (
-              <th key={column.key} className="px-4 py-3 font-medium">
-                {column.header}
-              </th>
-            ))}
+            {columns.map((column) => {
+              const active = Boolean(sort && sort.key === column.key);
+              const ariaSort = column.sortable
+                ? active
+                  ? sort?.direction === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none"
+                : undefined;
+              return (
+                <th key={column.key} className="px-4 py-3 font-medium" aria-sort={ariaSort} scope="col">
+                  {column.sortable && onSortChange ? (
+                    <SortableColumnHeader
+                      label={column.header}
+                      active={active}
+                      direction={active ? sort?.direction : undefined}
+                      onSort={() => onSortChange(toggleSort(sort, column.key))}
+                    />
+                  ) : (
+                    column.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-border/80">
-          {rows.map((row) => {
+          {displayedRows.map((row) => {
             const detail = renderDetail?.(row) ?? null;
             return (
               <Fragment key={row.id}>
@@ -70,7 +115,7 @@ export function EntityTable<T extends { id: number | string }>({
                 >
                   {columns.map((column) => (
                     <td key={column.key} className="px-4 py-3">
-                      {column.render ? column.render(row) : (row as Record<string, React.ReactNode>)[column.key]}
+                      {column.render ? column.render(row) : (row as Record<string, ReactNode>)[column.key]}
                     </td>
                   ))}
                 </tr>

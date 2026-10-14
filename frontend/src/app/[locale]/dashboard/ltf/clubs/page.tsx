@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/list-page-chrome";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
+import { sortRowsByKey, type TableSort } from "@/lib/table-sort";
 
 export default function LtfAdminClubsPage() {
   const t = useTranslations("LtfAdmin");
@@ -42,6 +43,7 @@ export default function LtfAdminClubsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedClubId } = useClubSelection();
@@ -89,17 +91,28 @@ export default function LtfAdminClubsPage() {
     });
   }, [clubs, searchQuery, selectedClubId]);
 
+  const sortedClubs = useMemo(
+    () =>
+      sortRowsByKey(searchedClubs, tableSort, {
+        name: (club) => club.name,
+        is_active: (club) => club.is_active,
+        postal_code: (club) => club.postal_code,
+        locality: (club) => club.locality || club.city || "",
+      }),
+    [searchedClubs, tableSort]
+  );
+
   const resolvedPageSize =
-    pageSize === "all" ? Math.max(searchedClubs.length, 1) : Number(pageSize);
-  const totalPages = Math.max(1, Math.ceil(searchedClubs.length / resolvedPageSize));
+    pageSize === "all" ? Math.max(sortedClubs.length, 1) : Number(pageSize);
+  const totalPages = Math.max(1, Math.ceil(sortedClubs.length / resolvedPageSize));
   const pagedClubs = useMemo(() => {
     const startIndex = (currentPage - 1) * resolvedPageSize;
-    return searchedClubs.slice(startIndex, startIndex + resolvedPageSize);
-  }, [currentPage, searchedClubs, resolvedPageSize]);
+    return sortedClubs.slice(startIndex, startIndex + resolvedPageSize);
+  }, [currentPage, sortedClubs, resolvedPageSize]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId]);
+  }, [searchQuery, pageSize, selectedClubId, tableSort]);
 
   const allFilteredIds = useMemo(() => searchedClubs.map((club) => club.id), [searchedClubs]);
   const allSelected =
@@ -280,10 +293,11 @@ export default function LtfAdminClubsPage() {
                   </span>
                 ),
               },
-              { key: "name", header: t("clubNameLabel") },
+              { key: "name", header: t("clubNameLabel"), sortable: true },
               {
                 key: "is_active",
                 header: t("clubStatusLabel"),
+                sortable: true,
                 render: (club) => (
                   <StatusBadge
                     label={club.is_active ? t("clubStatusActive") : t("clubStatusInactive")}
@@ -291,10 +305,11 @@ export default function LtfAdminClubsPage() {
                   />
                 ),
               },
-              { key: "postal_code", header: t("postalCodeLabel") },
+              { key: "postal_code", header: t("postalCodeLabel"), sortable: true },
               {
                 key: "locality",
                 header: t("localityLabel"),
+                sortable: true,
                 render: (club) => club.locality || club.city,
               },
               {
@@ -316,6 +331,8 @@ export default function LtfAdminClubsPage() {
               },
             ]}
             rows={pagedClubs}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(club) => router.push(`/${locale}/dashboard/ltf/clubs/${club.id}`)}
           />
         )}

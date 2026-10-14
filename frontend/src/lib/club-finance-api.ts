@@ -25,6 +25,7 @@ type ClubListQueryParams = {
   status?: string;
   issue?: string;
   ledger?: string;
+  ordering?: string;
 };
 
 type ClubPageParams = ClubListQueryParams & {
@@ -48,6 +49,9 @@ function buildClubListQuery(params?: ClubListQueryParams) {
   }
   if (params?.ledger) {
     search.set("ledger", params.ledger);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }

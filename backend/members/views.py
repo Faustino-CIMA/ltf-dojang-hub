@@ -12,6 +12,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
 from .models import GradePromotionHistory, Member, MemberTransfer
 from .serializers import (
@@ -152,7 +153,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 filter=Q(transfers__status=MemberTransfer.Status.COMPLETED),
             )
         )
-        return queryset.prefetch_related(
+        queryset = queryset.prefetch_related(
             Prefetch(
                 "licenses",
                 queryset=License.objects.filter(
@@ -162,7 +163,23 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 .order_by("-year", "id"),
                 to_attr="current_licenses_prefetched",
             )
-        ).order_by("last_name", "first_name", "id")
+        )
+        ordering = self.request.query_params.get("ordering") if self.action == "list" else None
+        return apply_list_ordering(
+            queryset,
+            ordering,
+            allowed={
+                "name": ("last_name", "first_name", "id"),
+                "club": ("club__name", "last_name", "first_name", "id"),
+                "ltf_licenseid": ("ltf_licenseid", "last_name", "first_name", "id"),
+                "belt_rank": ("belt_rank", "last_name", "first_name", "id"),
+                "is_active": ("is_active", "last_name", "first_name", "id"),
+                "sex": ("sex", "last_name", "first_name", "id"),
+                "date_of_birth": ("date_of_birth", "last_name", "first_name", "id"),
+                "email": ("email", "last_name", "first_name", "id"),
+            },
+            default=("last_name", "first_name", "id"),
+        )
 
     def destroy(self, request, *args, **kwargs):
         try:

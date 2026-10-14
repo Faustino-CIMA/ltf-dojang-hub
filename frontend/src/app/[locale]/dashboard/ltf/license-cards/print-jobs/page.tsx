@@ -8,8 +8,9 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
-import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import {
   ListActionsRow,
   ListToolbarPanel,
@@ -18,6 +19,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiRequest } from "@/lib/api";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { type TableSort } from "@/lib/table-sort";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
 import { Club, getClubs } from "@/lib/ltf-admin-api";
 import {
@@ -58,6 +60,7 @@ function openBlobInNewTab(blob: Blob) {
 
 export default function LtfAdminLicenseCardPrintJobsPage() {
   const t = useTranslations("LtfAdmin");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [isRoleLoading, setIsRoleLoading] = useState(true);
@@ -65,6 +68,7 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PrintJobStatusFilter>("all");
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -263,36 +267,30 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
               />
             }
             filters={
-              <FilterPills
-                layout="wrap"
-                ariaLabel={t("printJobsStatusFilterAriaLabel")}
+              <PopoverSelect
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onValueChange={(value) => setStatusFilter(value as PrintJobStatusFilter)}
+                ariaLabel={t("printJobsStatusFilterAriaLabel")}
                 options={[
                   {
                     value: "all",
-                    title: t("filterAllTitle"),
-                    count: printJobFacetCounts.all,
+                    label: `${t("licenseCardPrintJobsStatusFilterAll")} (${printJobFacetCounts.all})`,
                   },
                   {
                     value: "open",
-                    title: t("printJobFilterOpenTitle"),
-                    count: printJobFacetCounts.open,
+                    label: `${t("printJobFilterOpenTitle")} (${printJobFacetCounts.open})`,
                   },
                   {
                     value: "succeeded",
-                    title: t("licenseCardPrintJobStatusSucceeded"),
-                    count: printJobFacetCounts.succeeded,
+                    label: `${t("licenseCardPrintJobStatusSucceeded")} (${printJobFacetCounts.succeeded})`,
                   },
                   {
                     value: "failed",
-                    title: t("licenseCardPrintJobStatusFailed"),
-                    count: printJobFacetCounts.failed,
+                    label: `${t("licenseCardPrintJobStatusFailed")} (${printJobFacetCounts.failed})`,
                   },
                   {
                     value: "cancelled",
-                    title: t("licenseCardPrintJobStatusCancelled"),
-                    count: printJobFacetCounts.cancelled,
+                    label: `${t("licenseCardPrintJobStatusCancelled")} (${printJobFacetCounts.cancelled})`,
                   },
                 ]}
               />
@@ -316,22 +314,42 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
           />
         ) : (
           <EntityTable
+            clientSort
+            sort={tableSort}
+            onSortChange={setTableSort}
+            rows={filteredJobs}
             columns={[
-              { key: "job_number", header: t("licenseCardPrintJobLabel") },
+              {
+                key: "job_number",
+                header: t("licenseCardPrintJobLabel"),
+                sortable: true,
+                sortValue: (job) => job.job_number,
+              },
               {
                 key: "club",
                 header: t("clubLabel"),
+                sortable: true,
+                sortValue: (job) => clubNameById[job.club] || String(job.club),
                 render: (job) => clubNameById[job.club] || String(job.club),
               },
               {
                 key: "template_version",
                 header: t("licenseCardPrintJobTemplateVersionLabel"),
+                sortable: true,
+                sortValue: (job) => job.template_version,
                 render: (job) => `#${job.template_version}`,
               },
-              { key: "total_items", header: t("licenseCardPrintJobItemsLabel") },
+              {
+                key: "total_items",
+                header: t("licenseCardPrintJobItemsLabel"),
+                sortable: true,
+                sortValue: (job) => job.total_items,
+              },
               {
                 key: "status",
                 header: t("statusLabel"),
+                sortable: true,
+                sortValue: (job) => job.status,
                 render: (job) => {
                   const statusMeta = getStatusMeta(job.status);
                   return <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />;
@@ -340,11 +358,15 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
               {
                 key: "created_at",
                 header: t("createdAtLabel"),
+                sortable: true,
+                sortValue: (job) => job.created_at,
                 render: (job) => formatDisplayDateTime(job.created_at),
               },
               {
                 key: "updated_at",
                 header: t("updatedAtLabel"),
+                sortable: true,
+                sortValue: (job) => job.updated_at,
                 render: (job) => formatDisplayDateTime(job.updated_at),
               },
               {
@@ -353,45 +375,39 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
                 render: (job) => {
                   const isJobBusy = activeJobId === job.id;
                   return (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isJobBusy || !["draft", "failed"].includes(job.status)}
-                        onClick={() => void executeAction(job.id, () => executePrintJob(job.id))}
-                      >
-                        {t("licenseCardPrintJobExecuteAction")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isJobBusy || !["failed", "cancelled"].includes(job.status)}
-                        onClick={() => void executeAction(job.id, () => retryPrintJob(job.id))}
-                      >
-                        {t("licenseCardPrintJobRetryAction")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isJobBusy || ["succeeded", "cancelled"].includes(job.status)}
-                        onClick={() => void executeAction(job.id, () => cancelPrintJob(job.id))}
-                      >
-                        {t("licenseCardPrintJobCancelAction")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isJobBusy || job.status !== "succeeded" || !job.artifact_pdf}
-                        onClick={() => void handleDownloadPdf(job)}
-                      >
-                        {t("licenseCardPrintJobDownloadPdfAction")}
-                      </Button>
-                    </div>
+                    <RowActionMenu
+                      label={common("rowActionsLabel")}
+                      actions={[
+                        {
+                          key: "execute",
+                          label: t("licenseCardPrintJobExecuteAction"),
+                          disabled: isJobBusy || !["draft", "failed"].includes(job.status),
+                          onSelect: () => void executeAction(job.id, () => executePrintJob(job.id)),
+                        },
+                        {
+                          key: "retry",
+                          label: t("licenseCardPrintJobRetryAction"),
+                          disabled: isJobBusy || !["failed", "cancelled"].includes(job.status),
+                          onSelect: () => void executeAction(job.id, () => retryPrintJob(job.id)),
+                        },
+                        {
+                          key: "cancel",
+                          label: t("licenseCardPrintJobCancelAction"),
+                          disabled: isJobBusy || ["succeeded", "cancelled"].includes(job.status),
+                          onSelect: () => void executeAction(job.id, () => cancelPrintJob(job.id)),
+                        },
+                        {
+                          key: "pdf",
+                          label: t("licenseCardPrintJobDownloadPdfAction"),
+                          disabled: isJobBusy || job.status !== "succeeded" || !job.artifact_pdf,
+                          onSelect: () => void handleDownloadPdf(job),
+                        },
+                      ]}
+                    />
                   );
                 },
               },
             ]}
-            rows={filteredJobs}
           />
         )}
       </div>

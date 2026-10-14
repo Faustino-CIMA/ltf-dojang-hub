@@ -13,6 +13,7 @@ import { FloatingNotice, FormPanel } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
   AddClubAdminResponse,
@@ -33,12 +34,11 @@ const CARD_SELECTED = "border-primary";
 const CARD_IDLE = "border-border hover:border-primary/50";
 
 function displayMemberName(member: ClubAdminAssignmentMember) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function displayAdminName(admin: ClubAdminAssignmentAdmin) {
-  const full = `${admin.first_name} ${admin.last_name}`.trim();
-  return admin.member_name || full || admin.username;
+  return formatFullName(admin) || admin.member_name || admin.username;
 }
 
 function relativePoint(box: DOMRect, container: HTMLElement, x: number, y: number): Point {

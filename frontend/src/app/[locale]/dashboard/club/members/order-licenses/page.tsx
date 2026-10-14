@@ -18,6 +18,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { ActionNotices, FormPanel, PageNotice } from "@/components/ui/list-page-chrome";
+import { formatFullName } from "@/lib/person-name";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Select,
@@ -575,7 +576,7 @@ export default function ClubMembersOrderLicensesPage() {
         const blocked = ineligibleByMemberId.get(member.id);
         return {
           id: member.id,
-          memberName: `${member.first_name} ${member.last_name}`,
+          memberName: formatFullName(member),
           status: blocked ? "blocked" : "ready",
           reason: blocked ? blocked.messages.join(" • ") : t("orderLicenseReadyReason"),
         };

@@ -1,5 +1,6 @@
 import { API_URL, apiRequest } from "./api";
 import { getToken } from "./auth";
+import { formatFullName } from "./person-name";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
 
 type ApiCallOptions = {
@@ -25,7 +26,10 @@ export function orderItemMemberDisplay(
   membersById?: Record<number, { first_name: string; last_name: string; ltf_licenseid?: string }>,
   unknownLabel = "Unknown member"
 ): { name: string; ltfLicenseId: string } {
-  const fromItem = `${item.member_first_name ?? ""} ${item.member_last_name ?? ""}`.trim();
+  const fromItem = formatFullName({
+    first_name: item.member_first_name,
+    last_name: item.member_last_name,
+  });
   if (fromItem) {
     return {
       name: fromItem,
@@ -35,7 +39,7 @@ export function orderItemMemberDisplay(
   const memberId = item.member_id ?? item.license?.member ?? null;
   const member = memberId != null ? membersById?.[memberId] : undefined;
   if (member) {
-    const name = `${member.first_name} ${member.last_name}`.trim();
+    const name = formatFullName(member);
     return {
       name: name || unknownLabel,
       ltfLicenseId: (member.ltf_licenseid ?? "").trim() || "-",
@@ -456,6 +460,7 @@ type FinanceInvoiceQueryParams = {
   status?: string;
   clubId?: number;
   issue?: string;
+  ordering?: string;
 };
 
 type FinanceInvoicePageParams = FinanceInvoiceQueryParams & {
@@ -476,6 +481,9 @@ function buildFinanceInvoiceQuery(params?: FinanceInvoiceQueryParams) {
   }
   if (params?.issue) {
     search.set("issue", params.issue);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }

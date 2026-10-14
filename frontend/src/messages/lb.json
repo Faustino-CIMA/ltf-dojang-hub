@@ -58,6 +58,8 @@
     "batchDeleteLabel": "Ausgewielte läschen",
     "selectAllLabel": "All Reien auswielen",
     "selectRowLabel": "Rei auswielen",
+    "fullNameLabel": "Vollstännegen Numm",
+    "rowActionsLabel": "Rei-Aktiounen",
     "statusDraft": "Brouillon",
     "statusPending": "Ofhängeg",
     "statusPaid": "Bezuelt",
