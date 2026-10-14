@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -7,7 +8,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from allauth.account.models import EmailAddress
 
-from .health import collect_health, probe_docker
+from .health import DockerEndpoint, _read_http, collect_health, probe_docker
 from .i18n import flatten_messages, unflatten_messages
 from .models import AuthEvent, OpsAuditLog, SecurityAlert, TranslationOverride
 
@@ -212,13 +213,114 @@ class DockerHealthTests(TestCase):
         self.club_admin.save(update_fields=["is_superuser", "is_staff"])
 
     @override_settings(OPS_DOCKER_SOCKET="")
-    def test_unset_socket_still_reports_docker(self):
+    @patch("ops.health._configured_docker_host", return_value="")
+    @patch("ops.health.os.path.exists", return_value=False)
+    def test_unset_socket_is_unknown_not_down(self, _exists, _host):
         result = probe_docker()
-        self.assertFalse(result["ok"])
+        self.assertIsNone(result["ok"])
+        self.assertFalse(result["configured"])
+        self.assertEqual(result["state"], "unknown")
         self.assertIn("not configured", result["detail"].lower())
         health = collect_health()
         self.assertIn("docker", health["checks"])
+        self.assertIsNone(health["checks"]["docker"]["ok"])
         self.assertEqual(health["checks"]["docker"]["detail"], result["detail"])
+
+    @override_settings(OPS_DOCKER_SOCKET="/tmp/ltf-missing-docker.sock")
+    def test_explicit_missing_socket_is_down(self):
+        result = probe_docker()
+        self.assertIs(result["ok"], False)
+        self.assertTrue(result["configured"])
+        self.assertEqual(result["state"], "down")
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    @patch("ops.health._docker_get", return_value=[])
+    @patch("ops.health._configured_docker_host", return_value="unix:///custom/docker.sock")
+    def test_docker_host_unix_socket(self, _host, docker_get):
+        result = probe_docker()
+        endpoint, path = docker_get.call_args[0]
+        self.assertIsInstance(endpoint, DockerEndpoint)
+        self.assertEqual(endpoint.kind, "unix")
+        self.assertEqual(endpoint.target, "/custom/docker.sock")
+        self.assertEqual(path, "/containers/json?all=1")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["state"], "up")
+        self.assertEqual(result["detail"], "0 running, 0 containers")
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    @patch("ops.health._docker_get")
+    @patch("ops.health._configured_docker_host", return_value="")
+    def test_default_socket_when_present(self, _host, docker_get):
+        docker_get.return_value = [
+            {"Names": ["/ltf-backend"], "State": "running", "Status": "Up 2 hours"},
+            {"Names": ["/ltf-db"], "State": "exited", "Status": "Exited"},
+        ]
+
+        def exists(path):
+            return path == "/var/run/docker.sock"
+
+        with patch("ops.health.os.path.exists", side_effect=exists):
+            result = probe_docker()
+        endpoint = docker_get.call_args[0][0]
+        self.assertEqual(endpoint.target, "/var/run/docker.sock")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["detail"], "1 running, 2 containers")
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    @patch("ops.health._docker_get", return_value=[])
+    @patch("ops.health._configured_docker_host", return_value="tcp://127.0.0.1:2375")
+    def test_docker_host_tcp(self, _host, docker_get):
+        result = probe_docker()
+        endpoint = docker_get.call_args[0][0]
+        self.assertEqual(endpoint.kind, "tcp")
+        self.assertEqual(endpoint.target, "127.0.0.1")
+        self.assertEqual(endpoint.port, 2375)
+        self.assertTrue(result["ok"])
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    @patch("ops.health._configured_docker_host", return_value="https://127.0.0.1:2376")
+    def test_tls_docker_host_is_down(self, _host):
+        result = probe_docker()
+        self.assertIs(result["ok"], False)
+        self.assertIn("TLS", result["detail"])
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    @patch("ops.health._configured_docker_host", return_value="npipe:////./pipe/docker_engine")
+    def test_named_pipe_host_is_down(self, _host):
+        result = probe_docker()
+        self.assertIs(result["ok"], False)
+        self.assertTrue(result["configured"])
+        self.assertIn("named pipe", result["detail"].lower())
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    @patch("ops.health._docker_get", side_effect=PermissionError("[Errno 13] Permission denied"))
+    @patch("ops.health._configured_docker_host", return_value="")
+    @patch("ops.health.os.path.exists", return_value=True)
+    def test_permission_denied_mentions_socket_group(self, _exists, _host, _docker_get):
+        result = probe_docker()
+        self.assertIs(result["ok"], False)
+        self.assertIn("permission denied", result["detail"].lower())
+        self.assertIn("group", result["detail"].lower())
+
+    def test_chunked_docker_http_body_is_decoded(self):
+        payload = b'[{"Names":["/api"],"State":"running"}]'
+        raw = (
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+            + format(len(payload), "x").encode()
+            + b"\r\n"
+            + payload
+            + b"\r\n0\r\n\r\n"
+        )
+        status, body = _read_http(_ChunkReader(raw, size=7))
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)[0]["Names"], ["/api"])
+
+    def test_content_length_docker_http_body_is_decoded(self):
+        payload = b"[]"
+        raw = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n[]TRAILING"
+        status, body = _read_http(_ChunkReader(raw, size=5))
+        self.assertEqual(status, 200)
+        self.assertEqual(body, payload)
 
     @override_settings(OPS_DOCKER_SOCKET="/var/run/docker.sock")
     @patch("ops.health._docker_get")
@@ -228,11 +330,14 @@ class DockerHealthTests(TestCase):
         ]
         result = probe_docker()
         self.assertTrue(result["ok"])
-        self.assertEqual(result["detail"], "1 containers")
+        self.assertEqual(result["state"], "up")
+        self.assertEqual(result["detail"], "1 running, 1 containers")
         self.assertEqual(result["containers"][0]["name"], "ltf-backend")
 
     @override_settings(OPS_DOCKER_SOCKET="")
-    def test_club_admin_superuser_overview_includes_docker(self):
+    @patch("ops.health._configured_docker_host", return_value="")
+    @patch("ops.health.os.path.exists", return_value=False)
+    def test_club_admin_superuser_overview_includes_docker(self, _exists, _host):
         token = Token.objects.create(user=self.club_admin)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
         response = self.client.get("/api/ops/overview/")
@@ -240,6 +345,39 @@ class DockerHealthTests(TestCase):
         docker = response.data["health"]["checks"]["docker"]
         self.assertIn("detail", docker)
         self.assertIn("ok", docker)
+        self.assertIsNone(docker["ok"])
+        self.assertFalse(docker["configured"])
+
+    @patch("ops.health.probe_postgres", return_value={"ok": True, "detail": "connected"})
+    @patch("ops.health.probe_redis", return_value={"ok": True, "detail": "reachable"})
+    @patch("ops.health.probe_celery", return_value={"ok": True, "detail": "workers responded"})
+    @patch("ops.health.probe_smtp", return_value={"ok": True, "detail": "open"})
+    @patch("ops.health.probe_media", return_value={"ok": True, "detail": "writable"})
+    @patch("ops.health.probe_migrations", return_value={"ok": True, "detail": "up to date"})
+    @patch("ops.health.probe_env_keys", return_value={"ok": True, "detail": "presence only"})
+    @patch(
+        "ops.health.probe_docker",
+        return_value={"ok": None, "detail": "not configured", "configured": False, "state": "unknown"},
+    )
+    def test_unknown_docker_does_not_fail_overall_health(self, *_mocks):
+        health = collect_health()
+        self.assertTrue(health["ok"])
+        self.assertIsNone(health["checks"]["docker"]["ok"])
+
+
+class _ChunkReader:
+    def __init__(self, payload: bytes, size: int = 8):
+        self.payload = payload
+        self.size = size
+        self.offset = 0
+
+    def recv(self, count: int) -> bytes:
+        if self.offset >= len(self.payload):
+            return b""
+        take = min(self.size, count, len(self.payload) - self.offset)
+        chunk = self.payload[self.offset : self.offset + take]
+        self.offset += take
+        return chunk
 
 
 class I18nHelperTests(TestCase):

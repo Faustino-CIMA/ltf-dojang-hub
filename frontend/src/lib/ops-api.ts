@@ -3,8 +3,10 @@ import { getToken } from "./auth";
 import type { PaginatedResponse } from "./pagination";
 
 export type HealthCheck = {
-  ok: boolean;
+  ok: boolean | null;
   detail: string;
+  configured?: boolean;
+  state?: string;
   [key: string]: unknown;
 };
 

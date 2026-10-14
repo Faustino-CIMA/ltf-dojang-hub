@@ -27,6 +27,21 @@ function asHealthCheck(value: HealthCheck | null | undefined): HealthCheck | nul
   return value;
 }
 
+export type HealthCardState = "up" | "ok" | "down" | "unknown" | "missing";
+
+export function healthCardState(key: string, check: HealthCheck | null): HealthCardState {
+  if (!check) {
+    return "missing";
+  }
+  if (check.configured === false || check.ok == null) {
+    return "unknown";
+  }
+  if (check.ok === false) {
+    return "down";
+  }
+  return key === "docker" ? "up" : "ok";
+}
+
 export function healthDetailText(detail: unknown): string {
   if (typeof detail === "string") {
     return detail;

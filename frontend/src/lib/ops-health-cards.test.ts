@@ -1,4 +1,4 @@
-import { healthDetailText, orderOpsHealthChecks } from "./ops-health-cards";
+import { healthCardState, healthDetailText, orderOpsHealthChecks } from "./ops-health-cards";
 
 const KNOWN = ["postgres", "docker"];
 
@@ -27,6 +27,17 @@ describe("ops health cards", () => {
       ["postgres"],
     );
     expect(ordered.map((row) => row.key)).toEqual(["postgres", "queue"]);
+  });
+
+  it("treats an unconfigured docker check as unknown and a live daemon as up", () => {
+    expect(healthCardState("docker", { ok: null, detail: "not configured", configured: false })).toBe("unknown");
+    expect(healthCardState("docker", { ok: false, detail: "Docker socket is not configured", configured: false })).toBe(
+      "unknown",
+    );
+    expect(healthCardState("docker", { ok: true, detail: "2 running, 2 containers", configured: true })).toBe("up");
+    expect(healthCardState("postgres", { ok: true, detail: "connected" })).toBe("ok");
+    expect(healthCardState("docker", { ok: false, detail: "permission denied", configured: true })).toBe("down");
+    expect(healthCardState("docker", null)).toBe("missing");
   });
 
   it("renders object details as text so a card cannot crash the grid", () => {
