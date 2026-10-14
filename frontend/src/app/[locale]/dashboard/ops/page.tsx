@@ -6,7 +6,6 @@ import {
   Activity,
   AlertTriangle,
   CircleHelp,
-  Container,
   Database,
   GitBranch,
   HardDrive,
@@ -31,7 +30,7 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
-import { healthCardState, healthDetailText, orderOpsHealthChecks } from "@/lib/ops-health-cards";
+import { healthDetailText, orderOpsHealthChecks } from "@/lib/ops-health-cards";
 import { getOpsOverview, getOpsSessions, type OpsOverview, type OpsSession } from "@/lib/ops-api";
 
 const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
@@ -42,7 +41,6 @@ const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
   { key: "media", icon: HardDrive },
   { key: "migrations", icon: GitBranch },
   { key: "env_keys", icon: KeyRound },
-  { key: "docker", icon: Container },
 ];
 
 function checkLabel(t: ReturnType<typeof useTranslations>, name: string) {
@@ -113,7 +111,7 @@ export default function OpsOverviewPage() {
   const orderedChecks = orderOpsHealthChecks(
     overview?.health.checks,
     HEALTH_CHECKS.map((row) => row.key),
-  );
+  ).filter((row) => row.key !== "docker");
 
   return (
     <OpsLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")}>
@@ -188,31 +186,21 @@ export default function OpsOverviewPage() {
               })
             : orderedChecks.map(({ key, check }) => {
                 const Icon = HEALTH_CHECKS.find((row) => row.key === key)?.icon ?? Server;
-                const state = healthCardState(key, check);
-                const badge =
-                  state === "up"
-                    ? { label: t("statusUp"), tone: "success" as const }
-                    : state === "ok"
-                      ? { label: t("statusOk"), tone: "success" as const }
-                      : state === "down"
-                        ? { label: t("statusDown"), tone: "danger" as const }
-                        : state === "unknown"
-                          ? { label: t("statusNotConfigured"), tone: "neutral" as const }
-                          : { label: t("statusUnavailable"), tone: "neutral" as const };
-                const detail =
-                  state === "unknown" && key === "docker"
-                    ? t("healthDockerNotConfigured")
-                    : check
-                      ? healthDetailText(check.detail) || t("healthMissing")
-                      : t("healthMissing");
                 return (
                   <div key={key} className="app-panel relative p-4">
                     <HealthCheckTitle
                       name={key}
                       icon={Icon}
-                      badge={<StatusBadge label={badge.label} tone={badge.tone} />}
+                      badge={
+                        <StatusBadge
+                          label={check ? (check.ok ? t("statusOk") : t("statusDown")) : t("statusUnavailable")}
+                          tone={check ? (check.ok ? "success" : "danger") : "neutral"}
+                        />
+                      }
                     />
-                    <p className="mt-2 text-sm text-muted">{detail}</p>
+                    <p className="mt-2 text-sm text-muted">
+                      {check ? healthDetailText(check.detail) || t("healthMissing") : t("healthMissing")}
+                    </p>
                   </div>
                 );
               })}

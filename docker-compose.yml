@@ -96,7 +96,6 @@ services:
       mkdir -p /app/media /app/staticfiles /app/.cursor 2>/dev/null || true &&
       chown -R $$APP_UID:$$APP_GID /app/media /app/staticfiles /app/.cursor /var/lib/celerybeat 2>/dev/null || true &&
       sh /app/scripts/check-env.sh &&
-      sh /app/scripts/prepare-docker-socket.sh &&
       runuser -u app -- sh -lc 'python manage.py migrate --noinput &&
       python manage.py ensure_module_keys &&
       python manage.py seed_card_print_fonts &&
@@ -108,12 +107,10 @@ services:
       --threads $${GUNICORN_THREADS:-2}
       --timeout $${GUNICORN_TIMEOUT:-120}
       --access-logfile -'"
-    # Named volumes for app data. The Docker socket is an ops-only mount so the
-    # health card can see the daemon; it is not a source bind mount.
+    # Named volumes only (see file header). Message catalogs are copied in the image.
     volumes:
       - staticfiles_data:/app/staticfiles
       - mediafiles_data:/app/media
-      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:8000:8000"
     healthcheck:
