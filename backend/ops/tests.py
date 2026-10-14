@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -5,6 +7,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from allauth.account.models import EmailAddress
 
+from .health import collect_health, probe_docker
 from .i18n import flatten_messages, unflatten_messages
 from .models import AuthEvent, OpsAuditLog, SecurityAlert, TranslationOverride
 
@@ -193,6 +196,50 @@ class OpsAuthTests(TestCase):
         response = self.client.get("/api/i18n/en/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get("Auth", {}).get("loginTitle"), "Ops Sign in")
+
+
+class DockerHealthTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.club_admin = User.objects.create_user(
+            username="clubsuper",
+            email="clubsuper@example.com",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club_admin.is_superuser = True
+        self.club_admin.is_staff = True
+        self.club_admin.save(update_fields=["is_superuser", "is_staff"])
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    def test_unset_socket_still_reports_docker(self):
+        result = probe_docker()
+        self.assertFalse(result["ok"])
+        self.assertIn("not configured", result["detail"].lower())
+        health = collect_health()
+        self.assertIn("docker", health["checks"])
+        self.assertEqual(health["checks"]["docker"]["detail"], result["detail"])
+
+    @override_settings(OPS_DOCKER_SOCKET="/var/run/docker.sock")
+    @patch("ops.health._docker_get")
+    def test_completed_docker_probe_stays_in_the_payload(self, docker_get):
+        docker_get.return_value = [
+            {"Names": ["/ltf-backend"], "State": "running", "Status": "Up 2 hours"},
+        ]
+        result = probe_docker()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["detail"], "1 containers")
+        self.assertEqual(result["containers"][0]["name"], "ltf-backend")
+
+    @override_settings(OPS_DOCKER_SOCKET="")
+    def test_club_admin_superuser_overview_includes_docker(self):
+        token = Token.objects.create(user=self.club_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        response = self.client.get("/api/ops/overview/")
+        self.assertEqual(response.status_code, 200)
+        docker = response.data["health"]["checks"]["docker"]
+        self.assertIn("detail", docker)
+        self.assertIn("ok", docker)
 
 
 class I18nHelperTests(TestCase):

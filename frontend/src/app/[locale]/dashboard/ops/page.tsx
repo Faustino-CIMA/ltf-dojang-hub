@@ -31,7 +31,8 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
-import { getOpsOverview, getOpsSessions, type HealthCheck, type OpsOverview, type OpsSession } from "@/lib/ops-api";
+import { healthDetailText, orderOpsHealthChecks } from "@/lib/ops-health-cards";
+import { getOpsOverview, getOpsSessions, type OpsOverview, type OpsSession } from "@/lib/ops-api";
 
 const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
   { key: "postgres", icon: Database },
@@ -113,14 +114,10 @@ export default function OpsOverviewPage() {
     void load();
   }, [load]);
 
-  const checks = overview ? Object.entries(overview.health.checks) : [];
-  const orderedChecks = [
-    ...HEALTH_CHECKS.filter((row) => checks.some(([name]) => name === row.key)).map((row) => {
-      const found = checks.find(([name]) => name === row.key);
-      return [row.key, found?.[1]] as [string, HealthCheck | undefined];
-    }),
-    ...checks.filter(([name]) => !HEALTH_CHECKS.some((row) => row.key === name)),
-  ];
+  const orderedChecks = orderOpsHealthChecks(
+    overview?.health.checks,
+    HEALTH_CHECKS.map((row) => row.key),
+  );
 
   return (
     <OpsLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")}>
@@ -193,19 +190,23 @@ export default function OpsOverviewPage() {
                   />
                 );
               })
-            : orderedChecks.map(([name, check]) => {
-                const Icon = HEALTH_CHECKS.find((row) => row.key === name)?.icon ?? Server;
-                if (!check) {
-                  return null;
-                }
+            : orderedChecks.map(({ key, check }) => {
+                const Icon = HEALTH_CHECKS.find((row) => row.key === key)?.icon ?? Server;
                 return (
-                  <div key={name} className="app-panel relative p-4">
+                  <div key={key} className="app-panel relative p-4">
                     <HealthCheckTitle
-                      name={name}
+                      name={key}
                       icon={Icon}
-                      badge={<StatusBadge label={check.ok ? t("statusOk") : t("statusDown")} tone={toneForOk(check.ok)} />}
+                      badge={
+                        <StatusBadge
+                          label={check ? (check.ok ? t("statusOk") : t("statusDown")) : t("statusUnavailable")}
+                          tone={check ? toneForOk(Boolean(check.ok)) : "neutral"}
+                        />
+                      }
                     />
-                    <p className="mt-2 text-sm text-muted">{check.detail}</p>
+                    <p className="mt-2 text-sm text-muted">
+                      {check ? healthDetailText(check.detail) || t("healthMissing") : t("healthMissing")}
+                    </p>
                   </div>
                 );
               })}

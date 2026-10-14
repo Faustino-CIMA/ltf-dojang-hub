@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Scale, ScrollText, Wallet } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { ltfFinanceSidebarGroup } from "@/lib/sidebar-groups";
 
 type LtfFinanceLayoutProps = {
   title: string;
@@ -114,7 +115,10 @@ export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayout
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
-        group: { id: "finance", label: common("navGroupFinance") },
+        group: {
+          id: ltfFinanceSidebarGroup().id,
+          label: common(ltfFinanceSidebarGroup().labelKey),
+        },
       })),
     [common, locale, t]
   );

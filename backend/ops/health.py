@@ -123,10 +123,10 @@ def probe_env_keys() -> dict:
     return _status(True, "presence only, values are never returned", {"configured": checks, "missing": missing})
 
 
-def probe_docker() -> dict | None:
+def probe_docker() -> dict:
     socket_path = str(getattr(settings, "OPS_DOCKER_SOCKET", "") or "").strip()
     if not socket_path:
-        return None
+        return _status(False, "Docker socket is not configured", {"configured": False})
     try:
         payload = _docker_get(socket_path, "/containers/json?all=1")
         containers = []
@@ -147,9 +147,13 @@ def probe_docker() -> dict | None:
                 }
             )
         ok = all((c.get("state") or "").lower() in {"running", "created"} for c in containers) if containers else False
-        return _status(ok or bool(containers), f"{len(containers)} containers", {"containers": containers})
+        return _status(
+            ok or bool(containers),
+            f"{len(containers)} containers",
+            {"containers": containers, "configured": True},
+        )
     except Exception as exc:
-        return _status(False, str(exc)[:300])
+        return _status(False, str(exc)[:300], {"configured": True})
 
 
 def _docker_get(socket_path: str, path: str):
@@ -181,9 +185,11 @@ def collect_health() -> dict:
         "env_keys": probe_env_keys(),
     }
     docker = probe_docker()
-    if docker is not None:
-        checks["docker"] = docker
-    overall = all(item.get("ok") for key, item in checks.items() if key != "env_keys")
+    checks["docker"] = docker
+    skipped = {"env_keys"}
+    if docker.get("configured") is False:
+        skipped.add("docker")
+    overall = all(item.get("ok") for key, item in checks.items() if key not in skipped)
     return {
         "ok": overall,
         "generated_at": timezone.now().isoformat(),
