@@ -336,9 +336,8 @@ Click a name to open the member. The [[Common.batchActionsLabel]] menu works on 
 ![Actions for selected members](fig:members-actions)
 
 <div class="legend" markdown="1">
-1. [[actionPrintCards]] – see [Printing licence cards](#print-cards).
-2. [[actionOrderLicense]] – see [Ordering licences](#order-licences).
-3. [[actionChangeStatus]] – make members active or inactive.
+1. [[actionOrderLicense]] – see [Ordering licences](#order-licences).
+2. [[actionChangeStatus]] – make members active or inactive.
 </div>
 
 > [!WARNING]
@@ -446,20 +445,19 @@ The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navIn
 
 ## The licences list {#licences}
 
-[[navLicenses]] shows every licence of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Tick licences and use [[Common.batchActionsLabel]] › [[actionPrintCards]] to print their cards.
+[[navLicenses]] shows every licence of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status.
 
 ![The licences list](fig:licences)
 
 ## Printing licence cards {#print-cards}
 
-1. Tick the members (in [[navMembers]]) or licences (in [[navLicenses]]) whose cards you want.
-2. Open [[Common.batchActionsLabel]] and click [[actionPrintCards]]. The page [[quickPrintTitle]] opens.
-3. Check the [[quickPrintTemplateLabel]] and [[quickPrintPaperProfileLabel]]. Choose a [[quickPrintPrinterProfileLabel]] if your printer needs an offset.
-4. Printing on a sheet that is already partly used? In [[quickPrintSlotPickerTitle]], click the free slots.
-5. Click [[quickPrintCreateAction]].
-6. Open [[quickPrintOpenHistoryAction]] and click [[printJobDownloadPdfAction]] when the job shows [[printJobStatusSucceeded]]. Print the PDF at 100 % (no “fit to page”).
+[[navPrinting]] lists the club's card print jobs. The same section also opens [[navPrinterProfiles]], where a printer's X/Y offset is stored.
 
-![Quick print](fig:print-jobs)
+1. Open [[navPrinting]].
+2. Open the row menu. When a job shows [[printJobStatusSucceeded]], click [[printJobPreviewPdfAction]] to open the PDF, or [[printJobDownloadPdfAction]] to save `license-cards_<club>_<job>_<date>.pdf`. Print the file at 100 % (no “fit to page”).
+3. The same menu holds [[printJobExecuteAction]], [[printJobRetryAction]] and [[printJobCancelAction]]. [[deleteAction]] is last. Confirm to remove a draft, succeeded, failed or cancelled job. Cancel a queued or running job before deleting it.
+
+![Print jobs](fig:print-jobs)
 
 > [!TIP]
 > If the print sits a few millimetres off, ask the LTF for a printer profile with the right X/Y offset instead of changing the card design.
@@ -916,7 +914,7 @@ A checklist for the busy volunteer. Each line links to the section that explains
 
 <p class="roles"><span class="chip">LTF Admin</span></p>
 
-The federation menu ([[Common.navGroupFederation]]) contains [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navLicenseCardPrintJobs]], [[LtfAdmin.navLicenseTypes]], [[LtfAdmin.navPrinterProfiles]] and [[LtfAdmin.navSettings]], plus [[LtfAdmin.navCommittee]] and [[LtfAdmin.navCalendar]].
+The federation menu ([[Common.navGroupFederation]]) contains [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navPrinting]], [[LtfAdmin.navLicenseTypes]] and [[LtfAdmin.navSettings]], plus [[LtfAdmin.navCommittee]] and [[LtfAdmin.navCalendar]].
 
 ## Federation overview {#ltf-overview}
 
@@ -941,7 +939,7 @@ The overview counts clubs, members and licences, and its action queue lists club
 
 ## Licence cards {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, licence number and QR code. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navLicenseCardPrintJobs]] shows every print job of every club; [[LtfAdmin.navPrinterProfiles]] stores the X/Y offsets of known printers.
+[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, licence number and QR code. The row menu also sets the default, saves a copy, exports, or deletes the template. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as the club dashboard. Print jobs lists every club's jobs; preview, download and delete are in the row menu. Printer profiles stores the X/Y offsets of known printers.
 
 ![The card designer](fig:designer)
 

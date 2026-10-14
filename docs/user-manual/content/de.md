@@ -336,9 +336,8 @@ Ein Klick auf einen Namen öffnet das Mitglied. Das Menü [[Common.batchActionsL
 ![Aktionen für ausgewählte Mitglieder](fig:members-actions)
 
 <div class="legend" markdown="1">
-1. [[actionPrintCards]] – siehe [Lizenzkarten drucken](#print-cards).
-2. [[actionOrderLicense]] – siehe [Lizenzen bestellen](#order-licences).
-3. [[actionChangeStatus]] – Mitglieder aktiv oder inaktiv setzen.
+1. [[actionOrderLicense]] – siehe [Lizenzen bestellen](#order-licences).
+2. [[actionChangeStatus]] – Mitglieder aktiv oder inaktiv setzen.
 </div>
 
 > [!WARNING]
@@ -446,20 +445,19 @@ Bestellung und Rechnung erscheinen unter [[navFinance]] › [[navOrders]] und [[
 
 ## Die Lizenzliste {#licences}
 
-[[navLicenses]] zeigt alle Lizenzen des Vereins mit Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]] (aktiv, ausstehend, abgelaufen). Suchen Sie nach Mitglied, Jahr oder Status. Haken Sie Lizenzen an und nutzen Sie [[Common.batchActionsLabel]] › [[actionPrintCards]], um ihre Karten zu drucken.
+[[navLicenses]] zeigt alle Lizenzen des Vereins mit Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]] (aktiv, ausstehend, abgelaufen). Suchen Sie nach Mitglied, Jahr oder Status.
 
 ![Die Lizenzliste](fig:licences)
 
 ## Lizenzkarten drucken {#print-cards}
 
-1. Haken Sie die Mitglieder (unter [[navMembers]]) oder Lizenzen (unter [[navLicenses]]) an, deren Karten Sie drucken möchten.
-2. Öffnen Sie [[Common.batchActionsLabel]] und klicken Sie auf [[actionPrintCards]]. Die Seite [[quickPrintTitle]] öffnet sich.
-3. Prüfen Sie [[quickPrintTemplateLabel]] und [[quickPrintPaperProfileLabel]]. Wählen Sie ein [[quickPrintPrinterProfileLabel]], wenn Ihr Drucker einen Versatz braucht.
-4. Drucken Sie auf einen schon angebrochenen Bogen? Klicken Sie unter [[quickPrintSlotPickerTitle]] auf die freien Felder.
-5. Klicken Sie auf [[quickPrintCreateAction]].
-6. Öffnen Sie [[quickPrintOpenHistoryAction]] und klicken Sie auf [[printJobDownloadPdfAction]], sobald der Auftrag [[printJobStatusSucceeded]] zeigt. Drucken Sie das PDF in 100 % (ohne „An Seite anpassen“).
+[[navPrinting]] listet die Kartendruckaufträge des Vereins. Derselbe Bereich öffnet auch [[navPrinterProfiles]], wo der X/Y-Versatz eines Druckers gespeichert ist.
 
-![Schnelldruck](fig:print-jobs)
+1. Öffnen Sie [[navPrinting]].
+2. Öffnen Sie das Zeilenmenü. Zeigt ein Auftrag [[printJobStatusSucceeded]], klicken Sie auf [[printJobPreviewPdfAction]], um das PDF zu öffnen, oder auf [[printJobDownloadPdfAction]], um `license-cards_<Verein>_<Auftrag>_<Datum>.pdf` zu speichern. Drucken Sie die Datei in 100 % (ohne „An Seite anpassen“).
+3. Im selben Menü stehen [[printJobExecuteAction]], [[printJobRetryAction]] und [[printJobCancelAction]]. [[deleteAction]] steht zuletzt. Bestätigen Sie, um einen Entwurf, einen erfolgreichen, fehlgeschlagenen oder abgebrochenen Auftrag zu entfernen. Einen Auftrag in der Warteschlange oder in Arbeit müssen Sie zuerst abbrechen.
+
+![Druckaufträge](fig:print-jobs)
 
 > [!TIP]
 > Sitzt der Druck einige Millimeter daneben, bitten Sie die LTF um ein Druckerprofil mit dem passenden X/Y-Versatz, statt das Kartendesign zu ändern.
@@ -916,7 +914,7 @@ Eine Checkliste für vielbeschäftigte Ehrenamtliche. Jede Zeile verweist auf de
 
 <p class="roles"><span class="chip">LTF Admin</span></p>
 
-Das Verbandsmenü ([[Common.navGroupFederation]]) enthält [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navLicenseCardPrintJobs]], [[LtfAdmin.navLicenseTypes]], [[LtfAdmin.navPrinterProfiles]] und [[LtfAdmin.navSettings]], dazu [[LtfAdmin.navCommittee]] und [[LtfAdmin.navCalendar]].
+Das Verbandsmenü ([[Common.navGroupFederation]]) enthält [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navPrinting]], [[LtfAdmin.navLicenseTypes]] und [[LtfAdmin.navSettings]], dazu [[LtfAdmin.navCommittee]] und [[LtfAdmin.navCalendar]].
 
 ## Verbandsübersicht {#ltf-overview}
 
@@ -941,7 +939,7 @@ Die Übersicht zählt Vereine, Mitglieder und Lizenzen. Ihre Aufgabenliste zeigt
 
 ## Lizenzkarten {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] enthält die Kartenvorlagen. Öffnen Sie eine Vorlage im Designer, um Foto, Name, Grad, Lizenznummer und QR-Code zu platzieren. Veröffentlichen Sie eine Version und legen Sie sie als Standard fest: Damit drucken die Club-Admins. [[LtfAdmin.navLicenseCardPrintJobs]] zeigt jeden Druckauftrag aller Vereine; [[LtfAdmin.navPrinterProfiles]] speichert den X/Y-Versatz bekannter Drucker.
+[[LtfAdmin.navLicenseCards]] enthält die Kartenvorlagen. Öffnen Sie eine Vorlage im Designer, um Foto, Name, Grad, Lizenznummer und QR-Code zu platzieren. Das Zeilenmenü setzt sie außerdem als Standard, speichert eine Kopie, exportiert oder löscht die Vorlage. Veröffentlichen Sie eine Version und legen Sie sie als Standard fest: Damit drucken die Club-Admins. [[LtfAdmin.navPrinting]] fasst [[LtfAdmin.navLicenseCardPrintJobs]] und [[LtfAdmin.navPrinterProfiles]] so zusammen wie das Vereins-Dashboard. Druckaufträge listen die Jobs aller Vereine; Vorschau, Download und Löschen stehen im Zeilenmenü. Druckerprofile speichern den X/Y-Versatz bekannter Drucker.
 
 ![Der Karten-Designer](fig:designer)
 

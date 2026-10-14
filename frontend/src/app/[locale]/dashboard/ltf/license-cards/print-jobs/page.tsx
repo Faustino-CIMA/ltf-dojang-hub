@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { PrintJobRowActions } from "@/components/print-jobs/print-job-row-actions";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { PopoverSelect } from "@/components/ui/popover-select";
-import { RowActionMenu } from "@/components/ui/row-action-menu";
 import {
   ListActionsRow,
   ListToolbarPanel,
@@ -26,11 +27,13 @@ import {
   PrintJob,
   PrintJobStatus,
   cancelPrintJob,
+  deletePrintJob,
   downloadPrintJobPdf,
   executePrintJob,
   getPrintJobs,
   retryPrintJob,
 } from "@/lib/license-card-api";
+import { downloadPdfFile, openPdfPreview, printJobPdfFilename } from "@/lib/print-job-pdf";
 
 type AuthMeResponse = {
   role: string;
@@ -50,14 +53,6 @@ function jobMatchesStatusFilter(job: PrintJob, filter: PrintJobStatusFilter) {
   return job.status === filter;
 }
 
-function openBlobInNewTab(blob: Blob) {
-  const url = window.URL.createObjectURL(blob);
-  window.open(url, "_blank", "noopener,noreferrer");
-  window.setTimeout(() => {
-    window.URL.revokeObjectURL(url);
-  }, 15000);
-}
-
 export default function LtfAdminLicenseCardPrintJobsPage() {
   const t = useTranslations("LtfAdmin");
   const common = useTranslations("Common");
@@ -73,6 +68,8 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const [jobToDelete, setJobToDelete] = useState<PrintJob | null>(null);
+  const isDeletingRef = useRef(false);
 
   const canManagePrintJobs = currentRole === "ltf_admin";
   const fallbackRoute = getDashboardRouteForRole(currentRole ?? "", locale) ?? `/${locale}/dashboard`;
@@ -203,13 +200,61 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!jobToDelete || isDeletingRef.current) {
+      return;
+    }
+    isDeletingRef.current = true;
+    setActiveJobId(jobToDelete.id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await deletePrintJob(jobToDelete.id);
+      setJobToDelete(null);
+      setSuccessMessage(t("licenseCardPrintJobsDeletedSuccess"));
+      await loadJobs();
+    } catch (error) {
+      setJobToDelete(null);
+      setErrorMessage(
+        error instanceof Error ? error.message : t("licenseCardPrintJobsActionError")
+      );
+    } finally {
+      isDeletingRef.current = false;
+      setActiveJobId(null);
+    }
+  };
+
+  const pdfFilename = (job: PrintJob, serverFilename: string | null) =>
+    serverFilename ||
+    printJobPdfFilename({
+      clubName: clubNameById[job.club],
+      jobId: job.id,
+      createdAt: job.created_at,
+    });
+
+  const handlePreviewPdf = async (job: PrintJob) => {
+    setActiveJobId(job.id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const file = await downloadPrintJobPdf(job.id);
+      openPdfPreview(file.blob);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("licenseCardPrintJobsActionError")
+      );
+    } finally {
+      setActiveJobId(null);
+    }
+  };
+
   const handleDownloadPdf = async (job: PrintJob) => {
     setActiveJobId(job.id);
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const blob = await downloadPrintJobPdf(job.id);
-      openBlobInNewTab(blob);
+      const file = await downloadPrintJobPdf(job.id);
+      downloadPdfFile(file.blob, pdfFilename(job, file.filename));
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : t("licenseCardPrintJobsActionError")
@@ -372,45 +417,49 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
               {
                 key: "actions",
                 header: t("actionsLabel"),
-                render: (job) => {
-                  const isJobBusy = activeJobId === job.id;
-                  return (
-                    <RowActionMenu
-                      label={common("rowActionsLabel")}
-                      actions={[
-                        {
-                          key: "execute",
-                          label: t("licenseCardPrintJobExecuteAction"),
-                          disabled: isJobBusy || !["draft", "failed"].includes(job.status),
-                          onSelect: () => void executeAction(job.id, () => executePrintJob(job.id)),
-                        },
-                        {
-                          key: "retry",
-                          label: t("licenseCardPrintJobRetryAction"),
-                          disabled: isJobBusy || !["failed", "cancelled"].includes(job.status),
-                          onSelect: () => void executeAction(job.id, () => retryPrintJob(job.id)),
-                        },
-                        {
-                          key: "cancel",
-                          label: t("licenseCardPrintJobCancelAction"),
-                          disabled: isJobBusy || ["succeeded", "cancelled"].includes(job.status),
-                          onSelect: () => void executeAction(job.id, () => cancelPrintJob(job.id)),
-                        },
-                        {
-                          key: "pdf",
-                          label: t("licenseCardPrintJobDownloadPdfAction"),
-                          disabled: isJobBusy || job.status !== "succeeded" || !job.artifact_pdf,
-                          onSelect: () => void handleDownloadPdf(job),
-                        },
-                      ]}
-                    />
-                  );
-                },
+                render: (job) => (
+                  <PrintJobRowActions
+                    job={job}
+                    busy={activeJobId === job.id}
+                    labels={{
+                      preview: t("licenseCardPrintJobPreviewPdfAction"),
+                      download: t("licenseCardPrintJobDownloadPdfAction"),
+                      delete: t("deleteAction"),
+                      menu: common("rowActionsLabel"),
+                      execute: t("licenseCardPrintJobExecuteAction"),
+                      retry: t("licenseCardPrintJobRetryAction"),
+                      cancel: t("licenseCardPrintJobCancelAction"),
+                    }}
+                    onPreview={(selected) => void handlePreviewPdf(selected)}
+                    onDownload={(selected) => void handleDownloadPdf(selected)}
+                    onDelete={setJobToDelete}
+                    onExecute={(selected) =>
+                      void executeAction(selected.id, () => executePrintJob(selected.id))
+                    }
+                    onRetry={(selected) => void executeAction(selected.id, () => retryPrintJob(selected.id))}
+                    onCancel={(selected) =>
+                      void executeAction(selected.id, () => cancelPrintJob(selected.id))
+                    }
+                  />
+                ),
               },
             ]}
           />
         )}
       </div>
+      <DeleteConfirmModal
+        isOpen={jobToDelete !== null}
+        title={common("deleteTitle", { item: jobToDelete?.job_number ?? t("licenseCardPrintJobLabel") })}
+        description={common("deleteDescriptionWithName", { name: jobToDelete?.job_number ?? "" })}
+        confirmLabel={common("deleteConfirmButton")}
+        cancelLabel={common("deleteCancelButton")}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => {
+          if (activeJobId === null) {
+            setJobToDelete(null);
+          }
+        }}
+      />
     </LtfAdminLayout>
   );
 }

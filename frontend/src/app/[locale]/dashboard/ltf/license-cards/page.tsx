@@ -13,6 +13,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { LicenseCardRowActions } from "@/components/ltf-admin/license-card-row-actions";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ type AuthMeResponse = {
 
 export default function LtfAdminLicenseCardsPage() {
   const t = useTranslations("LtfAdmin");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
   const [currentRole, setCurrentRole] = useState<string | null>(null);
@@ -467,57 +469,31 @@ export default function LtfAdminLicenseCardsPage() {
                 key: "actions",
                 header: t("actionsLabel"),
                 render: (template: CardTemplate) => (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        router.push(
-                          `/${locale}/dashboard/ltf/license-cards/${template.id}/designer`
-                        );
-                      }}
-                    >
-                      {t("licenseCardsOpenDesignerAction")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={template.is_default || busyTemplateId === template.id}
-                      onClick={() => {
-                        void handleSetDefaultTemplate(template);
-                      }}
-                    >
-                      {template.is_default
-                        ? t("licenseCardsStatusDefault")
-                        : t("licenseCardsSetDefaultAction")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busyTemplateId === template.id}
-                      onClick={() => startCloneTemplate(template)}
-                    >
-                      {t("licenseCardsCloneAction")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busyTemplateId === template.id}
-                      onClick={() => void handleExportTemplate(template)}
-                    >
-                      {busyTemplateId === template.id
-                        ? t("licenseCardsExportingAction")
-                        : t("licenseCardsExportAction")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={busyTemplateId === template.id}
-                      onClick={() => startDeleteTemplate(template)}
-                    >
-                      {t("licenseCardsDeleteTemplateAction")}
-                    </Button>
-                  </div>
+                  <LicenseCardRowActions
+                    isDefault={template.is_default}
+                    busy={busyTemplateId === template.id}
+                    labels={{
+                      menu: common("rowActionsLabel"),
+                      openDesigner: t("licenseCardsOpenDesignerAction"),
+                      setDefault: t("licenseCardsSetDefaultAction"),
+                      alreadyDefault: t("licenseCardsStatusDefault"),
+                      clone: t("licenseCardsCloneAction"),
+                      export: t("licenseCardsExportAction"),
+                      exporting: t("licenseCardsExportingAction"),
+                      delete: t("licenseCardsDeleteTemplateAction"),
+                    }}
+                    onOpenDesigner={() => {
+                      router.push(
+                        `/${locale}/dashboard/ltf/license-cards/${template.id}/designer`
+                      );
+                    }}
+                    onSetDefault={() => {
+                      void handleSetDefaultTemplate(template);
+                    }}
+                    onClone={() => startCloneTemplate(template)}
+                    onExport={() => void handleExportTemplate(template)}
+                    onDelete={() => startDeleteTemplate(template)}
+                  />
                 ),
               },
             ]}

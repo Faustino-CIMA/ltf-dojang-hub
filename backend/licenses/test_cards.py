@@ -740,6 +740,43 @@ class LicenseCardRoleAccessTests(TestCase):
         self.assertFalse(PrintJob.objects.filter(id=job_id).exists())
         self.assertFalse(PrintJobItem.objects.filter(print_job_id=job_id).exists())
 
+    def test_ltf_admin_deletes_any_club_job_and_other_roles_cannot(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        created = self.client.post(
+            "/api/print-jobs/",
+            {
+                "club": self.other_club.id,
+                "template_version": self.published_version.id,
+                "license_ids": [self.other_license.id],
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        job_id = created.data["id"]
+
+        for user in (self.ltf_finance, self.coach, self.member_user):
+            with self.subTest(role=user.role):
+                self.client.force_authenticate(user=user)
+                denied = self.client.delete(f"/api/print-jobs/{job_id}/")
+                self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+                self.assertTrue(PrintJob.objects.filter(id=job_id).exists())
+
+        queued_job = PrintJob.objects.create(
+            club=self.other_club,
+            template_version=self.published_version,
+            status=PrintJob.Status.QUEUED,
+            total_items=0,
+            requested_by=self.ltf_admin,
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        blocked = self.client.delete(f"/api/print-jobs/{queued_job.id}/")
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(PrintJob.objects.filter(id=queued_job.id).exists())
+
+        deleted = self.client.delete(f"/api/print-jobs/{job_id}/")
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(PrintJob.objects.filter(id=job_id).exists())
+
 
 class LicenseCardVersionWorkflowTests(TestCase):
     def setUp(self):
@@ -4756,6 +4793,10 @@ class PrintJobExecutionPipelineTests(TestCase):
 
         response = self.client.get(f"/api/print-jobs/{job_id}/pdf/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        disposition = response["Content-Disposition"]
+        self.assertIn("attachment;", disposition)
+        self.assertIn(f"license-cards_print-club_{job_id}_", disposition)
+        self.assertIn(".pdf", disposition)
         self.assertTrue(
             FinanceAuditLog.objects.filter(
                 action="print_job.pdf_downloaded",

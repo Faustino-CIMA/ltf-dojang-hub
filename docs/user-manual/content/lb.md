@@ -336,9 +336,8 @@ E Klick op en Numm mécht de Member op. De Menü [[Common.batchActionsLabel]] g�
 ![Aktioune fir déi ausgewielte Memberen](fig:members-actions)
 
 <div class="legend" markdown="1">
-1. [[actionPrintCards]] – kuckt [Lizenzkaarten drécken](#print-cards).
-2. [[actionOrderLicense]] – kuckt [Lizenze bestellen](#order-licences).
-3. [[actionChangeStatus]] – Memberen aktiv oder inaktiv setzen.
+1. [[actionOrderLicense]] – kuckt [Lizenze bestellen](#order-licences).
+2. [[actionChangeStatus]] – Memberen aktiv oder inaktiv setzen.
 </div>
 
 > [!WARNING]
@@ -446,20 +445,19 @@ D'Bestellung an hir Rechnung erschéngen ënner [[navFinance]] › [[navOrders]]
 
 ## D'Lizenzlëscht {#licences}
 
-[[navLicenses]] weist all Lizenz vum Veräin mat hirem Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]]. Sicht no Member, Joer oder Status. Kräizt Lizenzen un a benotzt [[Common.batchActionsLabel]] › [[actionPrintCards]], fir hir Kaarten ze drécken.
+[[navLicenses]] weist all Lizenz vum Veräin mat hirem Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]]. Sicht no Member, Joer oder Status.
 
 ![D'Lizenzlëscht](fig:licences)
 
 ## Lizenzkaarten drécken {#print-cards}
 
-1. Kräizt d'Memberen (ënner [[navMembers]]) oder d'Lizenzen (ënner [[navLicenses]]) un, där hir Kaarten Dir drécke wëllt.
-2. Maacht [[Common.batchActionsLabel]] op a klickt op [[actionPrintCards]]. D'Säit [[quickPrintTitle]] geet op.
-3. Kontrolléiert [[quickPrintTemplateLabel]] an [[quickPrintPaperProfileLabel]]. Wielt e [[quickPrintPrinterProfileLabel]], wann Ären Drécker eng Verrécklung brauch.
-4. Dréckt Dir op e Blat, dat schonn ugefaangen ass? Klickt ënner [[quickPrintSlotPickerTitle]] op déi fräi Plazen.
-5. Klickt op [[quickPrintCreateAction]].
-6. Maacht [[quickPrintOpenHistoryAction]] op a klickt op [[printJobDownloadPdfAction]], soubal den Optrag [[printJobStatusSucceeded]] weist. Dréckt de PDF op 100 % (ouni „un d'Säit upassen“).
+[[navPrinting]] weist d'Kaarten-Drockopträg vum Veräin. Déi selwecht Sektioun mécht och [[navPrinterProfiles]] op, wou d'X/Y-Verrécklung vun engem Drécker gespäichert ass.
 
-![Séier drécken](fig:print-jobs)
+1. Maacht [[navPrinting]] op.
+2. Maacht d'Zeilemenü op. Wann en Optrag [[printJobStatusSucceeded]] weist, klickt op [[printJobPreviewPdfAction]], fir de PDF opzemaachen, oder op [[printJobDownloadPdfAction]], fir `license-cards_<Veräin>_<Optrag>_<Datum>.pdf` ze späicheren. Dréckt de Fichier op 100 % (ouni „un d'Säit upassen“).
+3. Am selwechte Menü stinn [[printJobExecuteAction]], [[printJobRetryAction]] an [[printJobCancelAction]]. [[deleteAction]] steet als lescht. Confirméiert, fir e Brouillon, en erfollegräichen, feelgeschloenen oder annuléierten Optrag ewechzehuelen. En Optrag an der Queue oder am Gaang muss fir d'éischt ofgebrach ginn.
+
+![Drockopträg](fig:print-jobs)
 
 > [!TIP]
 > Wann den Drock e puer Millimeter dernieft ass, frot d'LTF no engem Drockerprofil mat der passender X/Y-Verrécklung, amplaz den Design vun der Kaart z'änneren.
@@ -916,7 +914,7 @@ Eng Checklëscht fir de Benevole, deen net vill Zäit huet. All Zeil weist op de
 
 <p class="roles"><span class="chip">LTF-Admin</span></p>
 
-De Menü vun der Federatioun ([[Common.navGroupFederation]]) enthält [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navLicenseCardPrintJobs]], [[LtfAdmin.navLicenseTypes]], [[LtfAdmin.navPrinterProfiles]] an [[LtfAdmin.navSettings]], dozou [[LtfAdmin.navCommittee]] an [[LtfAdmin.navCalendar]].
+De Menü vun der Federatioun ([[Common.navGroupFederation]]) enthält [[LtfAdmin.navOverview]], [[LtfAdmin.navClubs]], [[LtfAdmin.navClubAdmins]], [[LtfAdmin.navMemberTransfers]], [[LtfAdmin.navMembers]], [[LtfAdmin.navLicenses]], [[LtfAdmin.navLicenseCards]], [[LtfAdmin.navPrinting]], [[LtfAdmin.navLicenseTypes]] an [[LtfAdmin.navSettings]], dozou [[LtfAdmin.navCommittee]] an [[LtfAdmin.navCalendar]].
 
 ## Iwwersiicht vun der Federatioun {#ltf-overview}
 
@@ -941,7 +939,7 @@ D'Iwwersiicht zielt Veräiner, Memberen a Lizenzen. Hir Lëscht vun Aktiounen we
 
 ## Lizenzkaarten {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] enthält d'Modeller vun de Kaarten. Maacht e Modell am Designer op, fir de Foto, den Numm, de Grad, d'Lizenznummer an de QR-Code ze placéieren. Publizéiert eng Versioun a setzt se als Standard: domat drécken d'Club-Admins. [[LtfAdmin.navLicenseCardPrintJobs]] weist all Drockoptrag vun alle Veräiner; [[LtfAdmin.navPrinterProfiles]] späichert d'X/Y-Verrécklung vu bekannten Drécker.
+[[LtfAdmin.navLicenseCards]] enthält d'Modeller vun de Kaarten. Maacht e Modell am Designer op, fir de Foto, den Numm, de Grad, d'Lizenznummer an de QR-Code ze placéieren. D'Zeilemenü setzt en och als Standard, späichert eng Kopie, exportéiert oder läscht de Modell. Publizéiert eng Versioun a setzt se als Standard: domat drécken d'Club-Admins. [[LtfAdmin.navPrinting]] gruppéiert [[LtfAdmin.navLicenseCardPrintJobs]] an [[LtfAdmin.navPrinterProfiles]] esou wéi um Club-Dashboard. D'Drockopträg weisen d'Jobs vun alle Veräiner; Kucken, Eroflueden a Läschen stinn am Zeilemenü. D'Dréckerprofiler späicheren d'X/Y-Verrécklung vu bekannten Drécker.
 
 ![De Kaarten-Designer](fig:designer)
 
