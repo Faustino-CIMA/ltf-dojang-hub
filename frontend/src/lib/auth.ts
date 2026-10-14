@@ -9,6 +9,7 @@ export type AuthUser = {
   is_email_verified: boolean;
   consent_given: boolean;
   consent_given_at: string | null;
+  home_club_id?: number | null;
 };
 
 export type AuthResponse = {

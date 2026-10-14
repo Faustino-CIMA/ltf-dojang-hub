@@ -107,7 +107,7 @@ export function persistSelectedClubId(id: number | null) {
 }
 
 export function resolveAssignedClubId(
-  clubs: Array<{ id: number }>,
+  clubs: Array<{ id: number; is_home?: boolean }>,
   preferred: number | null
 ): number | null {
   if (clubs.length === 0) {
@@ -115,6 +115,10 @@ export function resolveAssignedClubId(
   }
   if (preferred && clubs.some((club) => club.id === preferred)) {
     return preferred;
+  }
+  const homeClub = clubs.find((club) => club.is_home);
+  if (homeClub) {
+    return homeClub.id;
   }
   return clubs[0].id;
 }
@@ -127,7 +131,6 @@ export function ClubSelectionProvider({ children }: { children: React.ReactNode 
 
   const isDashboardRoute = Boolean(pathname?.includes("/dashboard"));
   const allowAllClubs = allowsAllClubsSelection(pathname);
-  const defaultToAllClubs = allowAllClubs;
 
   const setSelectedClubId = useCallback((id: number | null) => {
     const nextId = allowAllClubs
@@ -152,16 +155,14 @@ export function ClubSelectionProvider({ children }: { children: React.ReactNode 
           return;
         }
         const storedId = readStoredClubId();
-        const nextId = defaultToAllClubs
-          ? null
-          : allowAllClubs
-            ? storedId && response.some((club) => club.id === storedId)
-              ? storedId
-              : null
-            : resolveAssignedClubId(response, storedId);
+        const nextId = allowAllClubs ? null : resolveAssignedClubId(response, storedId);
         setClubs(response);
         setSelectedClubIdState(nextId);
-        persistSelectedClubId(nextId);
+        // LTF pages show every club until the user picks one. Do not erase a
+        // club-page selection that is already stored for this session.
+        if (!allowAllClubs) {
+          persistSelectedClubId(nextId);
+        }
       } catch {
         if (!cancelled) {
           setClubs([]);
@@ -178,7 +179,7 @@ export function ClubSelectionProvider({ children }: { children: React.ReactNode 
     return () => {
       cancelled = true;
     };
-  }, [allowAllClubs, defaultToAllClubs, isDashboardRoute]);
+  }, [allowAllClubs, isDashboardRoute]);
 
   const value = useMemo(
     () => ({ clubs, selectedClubId, setSelectedClubId, isLoading }),

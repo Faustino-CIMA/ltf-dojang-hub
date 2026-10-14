@@ -1,6 +1,6 @@
 import re
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from rest_framework import serializers
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
@@ -10,6 +10,7 @@ from .models import BrandingAsset, Club, FederationProfile, normalize_club_websi
 
 class ClubSerializer(serializers.ModelSerializer):
     website = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    is_home = serializers.SerializerMethodField()
 
     class Meta:
         model = Club
@@ -31,10 +32,29 @@ class ClubSerializer(serializers.ModelSerializer):
             "max_admins",
             "created_by",
             "admins",
+            "is_home",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["bank_name", "created_by", "created_at", "updated_at"]
+        read_only_fields = ["bank_name", "created_by", "is_home", "created_at", "updated_at"]
+
+    def get_is_home(self, obj):
+        return self._home_club_id() == obj.id
+
+    def _home_club_id(self):
+        if getattr(self, "_home_club_resolved", False):
+            return getattr(self, "_cached_home_club_id", None)
+        self._home_club_resolved = True
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        home_id = None
+        if user is not None and getattr(user, "is_authenticated", False):
+            try:
+                home_id = user.member_profile.club_id
+            except ObjectDoesNotExist:
+                home_id = None
+        self._cached_home_club_id = home_id
+        return home_id
 
     def validate_postal_code(self, value):
         return str(value or "").strip()

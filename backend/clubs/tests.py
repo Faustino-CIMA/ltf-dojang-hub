@@ -115,6 +115,37 @@ class ClubApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
 
+    def test_club_list_marks_the_admins_member_club_as_home(self):
+        other = Club.objects.create(
+            name="Second Club",
+            city="Esch",
+            address="2 Side St",
+            created_by=self.ltf_admin,
+        )
+        other.admins.add(self.club_admin)
+        Member.objects.create(
+            user=self.club_admin,
+            club=self.club,
+            first_name="Ada",
+            last_name="Admin",
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.get("/api/clubs/")
+        self.assertEqual(response.status_code, 200)
+        by_id = {row["id"]: row for row in response.data}
+        self.assertEqual(set(by_id), {self.club.id, other.id})
+        self.assertTrue(by_id[self.club.id]["is_home"])
+        self.assertFalse(by_id[other.id]["is_home"])
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200)
+        self.assertEqual(me.data["home_club_id"], self.club.id)
+
+    def test_me_home_club_is_null_without_a_member_profile(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data["home_club_id"])
+
     def test_cannot_delete_club_with_members(self):
         member = Member.objects.create(
             club=self.club,

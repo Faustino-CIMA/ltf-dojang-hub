@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase, override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -5,6 +7,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from allauth.account.models import EmailAddress
 
+from .health import collect_health
 from .i18n import flatten_messages, unflatten_messages
 from .models import AuthEvent, OpsAuditLog, SecurityAlert, TranslationOverride
 
@@ -94,6 +97,7 @@ class OpsAuthTests(TestCase):
         response = self.client.get("/api/ops/overview/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("health", response.data)
+        self.assertNotIn("docker", response.data["health"]["checks"])
 
     def test_logout_deletes_token_and_records_event(self):
         login = self._login("opsroot")
@@ -193,6 +197,24 @@ class OpsAuthTests(TestCase):
         response = self.client.get("/api/i18n/en/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get("Auth", {}).get("loginTitle"), "Ops Sign in")
+
+
+class HealthSummaryTests(TestCase):
+    @patch("ops.health.probe_postgres", return_value={"ok": True, "detail": "connected"})
+    @patch("ops.health.probe_redis", return_value={"ok": True, "detail": "reachable"})
+    @patch("ops.health.probe_celery", return_value={"ok": True, "detail": "workers responded"})
+    @patch("ops.health.probe_smtp", return_value={"ok": True, "detail": "open"})
+    @patch("ops.health.probe_media", return_value={"ok": True, "detail": "writable"})
+    @patch("ops.health.probe_migrations", return_value={"ok": True, "detail": "up to date"})
+    @patch("ops.health.probe_env_keys", return_value={"ok": True, "detail": "presence only"})
+    def test_overall_health_does_not_depend_on_docker(self, *_mocks):
+        health = collect_health()
+        self.assertNotIn("docker", health["checks"])
+        self.assertEqual(
+            set(health["checks"]),
+            {"postgres", "redis", "celery", "smtp", "media", "migrations", "env_keys"},
+        )
+        self.assertTrue(health["ok"])
 
 
 class I18nHelperTests(TestCase):
