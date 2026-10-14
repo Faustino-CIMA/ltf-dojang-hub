@@ -3,25 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Trash2 } from "lucide-react";
-
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
 import { getClubs } from "@/lib/club-admin-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { type TableSort } from "@/lib/table-sort";
 import {
   PrintJob,
   PrintJobStatus,
@@ -56,6 +51,7 @@ export default function ClubPrintJobsPage() {
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PrintJobStatus | "all">("all");
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -232,23 +228,21 @@ export default function ClubPrintJobsPage() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
-          <Select
+          <PopoverSelect
+            className="w-[200px]"
             value={statusFilter}
             onValueChange={(value) => setStatusFilter(value as PrintJobStatus | "all")}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={t("statusLabel")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("printJobsStatusFilterAll")}</SelectItem>
-              <SelectItem value="draft">{t("printJobStatusDraft")}</SelectItem>
-              <SelectItem value="queued">{t("printJobStatusQueued")}</SelectItem>
-              <SelectItem value="running">{t("printJobStatusRunning")}</SelectItem>
-              <SelectItem value="succeeded">{t("printJobStatusSucceeded")}</SelectItem>
-              <SelectItem value="failed">{t("printJobStatusFailed")}</SelectItem>
-              <SelectItem value="cancelled">{t("printJobStatusCancelled")}</SelectItem>
-            </SelectContent>
-          </Select>
+            ariaLabel={t("statusLabel")}
+            options={[
+              { value: "all", label: t("printJobsStatusFilterAll") },
+              { value: "draft", label: t("printJobStatusDraft") },
+              { value: "queued", label: t("printJobStatusQueued") },
+              { value: "running", label: t("printJobStatusRunning") },
+              { value: "succeeded", label: t("printJobStatusSucceeded") },
+              { value: "failed", label: t("printJobStatusFailed") },
+              { value: "cancelled", label: t("printJobStatusCancelled") },
+            ]}
+          />
           <Button
             variant="outline"
             onClick={() => router.push(`/${locale}/dashboard/club/print-jobs/quick-print`)}
@@ -265,87 +259,103 @@ export default function ClubPrintJobsPage() {
         ) : filteredJobs.length === 0 ? (
           <EmptyState title={t("printJobsEmptyTitle")} description={t("printJobsEmptySubtitle")} />
         ) : (
-          <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card shadow-sm">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
-                <tr>
-                  <th className="px-4 py-3 font-medium">{t("printJobLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("clubLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("printJobTemplateVersionLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("printJobItemsLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("statusLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("createdAtLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("updatedAtLabel")}</th>
-                  <th className="px-4 py-3 font-medium">{t("actionsLabel")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredJobs.map((job) => {
+          <EntityTable
+            clientSort
+            sort={tableSort}
+            onSortChange={setTableSort}
+            rows={filteredJobs}
+            columns={[
+              { key: "job_number", header: t("printJobLabel"), sortable: true, sortValue: (job) => job.job_number },
+              {
+                key: "club",
+                header: t("clubLabel"),
+                sortable: true,
+                sortValue: (job) => clubNameById[job.club] || String(job.club),
+                render: (job) => clubNameById[job.club] || String(job.club),
+              },
+              {
+                key: "template_version",
+                header: t("printJobTemplateVersionLabel"),
+                sortable: true,
+                sortValue: (job) => job.template_version,
+                render: (job) => `#${job.template_version}`,
+              },
+              {
+                key: "total_items",
+                header: t("printJobItemsLabel"),
+                sortable: true,
+                sortValue: (job) => job.total_items,
+              },
+              {
+                key: "status",
+                header: t("statusLabel"),
+                sortable: true,
+                sortValue: (job) => job.status,
+                render: (job) => {
                   const statusMeta = getStatusMeta(job.status);
+                  return <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />;
+                },
+              },
+              {
+                key: "created_at",
+                header: t("createdAtLabel"),
+                sortable: true,
+                sortValue: (job) => job.created_at,
+                render: (job) => formatDisplayDateTime(job.created_at),
+              },
+              {
+                key: "updated_at",
+                header: t("updatedAtLabel"),
+                sortable: true,
+                sortValue: (job) => job.updated_at,
+                render: (job) => formatDisplayDateTime(job.updated_at),
+              },
+              {
+                key: "actions",
+                header: t("actionsLabel"),
+                render: (job) => {
                   const isJobBusy = activeJobId === job.id;
                   return (
-                    <tr key={job.id} className="text-foreground">
-                      <td className="px-4 py-3 font-medium">{job.job_number}</td>
-                      <td className="px-4 py-3">{clubNameById[job.club] || String(job.club)}</td>
-                      <td className="px-4 py-3">#{job.template_version}</td>
-                      <td className="px-4 py-3">{job.total_items}</td>
-                      <td className="px-4 py-3">
-                        <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
-                      </td>
-                      <td className="px-4 py-3">{formatDisplayDateTime(job.created_at)}</td>
-                      <td className="px-4 py-3">{formatDisplayDateTime(job.updated_at)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isJobBusy || !["draft", "failed"].includes(job.status)}
-                            onClick={() => void executeAction(job.id, () => executePrintJob(job.id))}
-                          >
-                            {t("printJobExecuteAction")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isJobBusy || !["failed", "cancelled"].includes(job.status)}
-                            onClick={() => void executeAction(job.id, () => retryPrintJob(job.id))}
-                          >
-                            {t("printJobRetryAction")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isJobBusy || ["succeeded", "cancelled"].includes(job.status)}
-                            onClick={() => void executeAction(job.id, () => cancelPrintJob(job.id))}
-                          >
-                            {t("printJobCancelAction")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isJobBusy || job.status !== "succeeded" || !job.artifact_pdf}
-                            onClick={() => void handleDownloadPdf(job)}
-                          >
-                            {t("printJobDownloadPdfAction")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            aria-label={t("deleteAction")}
-                            disabled={isJobBusy || job.status === "queued" || job.status === "running"}
-                            onClick={() => setJobToDelete(job)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                    <RowActionMenu
+                      label={common("rowActionsLabel")}
+                      actions={[
+                        {
+                          key: "execute",
+                          label: t("printJobExecuteAction"),
+                          disabled: isJobBusy || !["draft", "failed"].includes(job.status),
+                          onSelect: () => void executeAction(job.id, () => executePrintJob(job.id)),
+                        },
+                        {
+                          key: "retry",
+                          label: t("printJobRetryAction"),
+                          disabled: isJobBusy || !["failed", "cancelled"].includes(job.status),
+                          onSelect: () => void executeAction(job.id, () => retryPrintJob(job.id)),
+                        },
+                        {
+                          key: "cancel",
+                          label: t("printJobCancelAction"),
+                          disabled: isJobBusy || ["succeeded", "cancelled"].includes(job.status),
+                          onSelect: () => void executeAction(job.id, () => cancelPrintJob(job.id)),
+                        },
+                        {
+                          key: "pdf",
+                          label: t("printJobDownloadPdfAction"),
+                          disabled: isJobBusy || job.status !== "succeeded" || !job.artifact_pdf,
+                          onSelect: () => void handleDownloadPdf(job),
+                        },
+                        {
+                          key: "delete",
+                          label: t("deleteAction"),
+                          disabled: isJobBusy || job.status === "queued" || job.status === "running",
+                          onSelect: () => setJobToDelete(job),
+                        },
+                      ]}
+                    />
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+            ]}
+          />
         )}
       </div>
       <DeleteConfirmModal

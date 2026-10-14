@@ -18,6 +18,7 @@ import {
   getMembersList,
 } from "@/lib/club-admin-api";
 import { apiRequest } from "@/lib/api";
+import { formatFullName } from "@/lib/person-name";
 
 const BATCH_DELETE_STORAGE_KEY = "club_members_batch_delete_payload";
 
@@ -124,7 +125,7 @@ export default function ClubMembersBatchDeletePage() {
     () =>
       selectedMembers.map((member) => ({
         id: member.id,
-        memberLabel: `${member.first_name} ${member.last_name}`,
+        memberLabel: formatFullName(member),
         ltfLicenseId: member.ltf_licenseid || "—",
         statusLabel: member.is_active ? t("activeLabel") : t("inactiveLabel"),
         statusTone: member.is_active ? "success" : "danger",
@@ -208,7 +209,7 @@ export default function ClubMembersBatchDeletePage() {
         await deleteMember(member.id);
         deleted += 1;
       } catch {
-        failedItems.push(`${member.first_name} ${member.last_name}`);
+        failedItems.push(formatFullName(member));
       }
     }
 

@@ -27,6 +27,8 @@ import {
   getClubs,
   getMembersPage,
 } from "@/lib/ltf-admin-api";
+import { formatFullName } from "@/lib/person-name";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 function parseMemberIssue(value: string | null): MemberIssueFilter | null {
   if (value === "no_valid_license" || value === "missing_ltf_licenseid") {
@@ -56,6 +58,8 @@ export default function LtfAdminMembersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [memberFacetCounts, setMemberFacetCounts] = useState({
     all: 0,
     active: 0,
@@ -91,6 +95,7 @@ export default function LtfAdminMembersPage() {
             clubId,
             isActive: isActiveFilter,
             issue: issue ?? undefined,
+            ordering,
           }),
           getMembersPage({
             page: 1,
@@ -130,7 +135,7 @@ export default function LtfAdminMembersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, isActiveFilter, issue, membersListPageSize, searchQuery, selectedClubId]);
+  }, [currentPage, isActiveFilter, issue, membersListPageSize, ordering, searchQuery, selectedClubId]);
 
   useEffect(() => {
     void loadData();
@@ -138,7 +143,7 @@ export default function LtfAdminMembersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue]);
+  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue, tableSort]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -176,10 +181,11 @@ export default function LtfAdminMembersPage() {
     () => [
       {
         key: "name",
-        header: t("memberLabel"),
+        header: common("fullNameLabel"),
+        sortable: true,
         render: (row: Member) => (
           <span className="inline-flex flex-wrap items-center gap-2">
-            <span>{`${row.first_name} ${row.last_name}`}</span>
+            <span>{formatFullName(row)}</span>
             {row.is_club_tourist ? <StatusBadge label={t("clubTouristBadge")} tone="warning" /> : null}
           </span>
         ),
@@ -187,21 +193,25 @@ export default function LtfAdminMembersPage() {
       {
         key: "club",
         header: t("clubLabel"),
+        sortable: true,
         render: (row: Member) => clubById.get(row.club)?.name ?? t("unknownClub"),
       },
       {
         key: "ltf_licenseid",
         header: t("ltfLicenseLabel"),
+        sortable: true,
         render: (row: Member) => row.ltf_licenseid || "-",
       },
       {
         key: "belt_rank",
         header: t("beltRankLabel"),
+        sortable: true,
         render: (row: Member) => row.belt_rank || "-",
       },
       {
         key: "is_active",
         header: t("statusLabel"),
+        sortable: true,
         render: (row: Member) => (
           <StatusBadge
             label={row.is_active ? t("activeLabel") : t("inactiveLabel")}
@@ -230,7 +240,7 @@ export default function LtfAdminMembersPage() {
         },
       },
     ],
-    [clubById, getLicenseStatusMeta, t]
+    [clubById, common, getLicenseStatusMeta, t]
   );
 
   return (
@@ -319,6 +329,8 @@ export default function LtfAdminMembersPage() {
           <EntityTable
             columns={columns}
             rows={members}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(member) => router.push(`/${locale}/dashboard/ltf/members/${member.id}`)}
           />
         )}

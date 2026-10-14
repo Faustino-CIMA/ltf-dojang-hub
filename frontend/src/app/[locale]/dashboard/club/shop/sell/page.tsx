@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { ShopCameraScan } from "@/components/clubmgmt/shop-camera-scan";
 import { ClubShopTabs } from "@/components/clubmgmt/shop-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { formatFullName } from "@/lib/person-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -379,7 +380,7 @@ export default function ClubShopSellPage() {
                   <Input
                     id="shop-sold-to"
                     className="mt-1"
-                    value={soldToMember ? `${soldToMember.first_name} ${soldToMember.last_name}` : memberQuery}
+                    value={soldToMember ? formatFullName(soldToMember) : memberQuery}
                     onChange={(event) => {
                       setMemberId("walkin");
                       setMemberQuery(event.target.value);
@@ -401,7 +402,7 @@ export default function ClubShopSellPage() {
                                 setMemberQuery("");
                               }}
                             >
-                              {member.first_name} {member.last_name}
+                              {formatFullName(member)}
                             </button>
                           </li>
                         ))

@@ -17,6 +17,7 @@ import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getClubTrainers } from "@/lib/club-admin-api";
+import { formatFullName } from "@/lib/person-name";
 import {
   createTrainingSession,
   getTrainingWeek,
@@ -183,7 +184,7 @@ export default function TrainingWeekPage() {
                           onClick={() => setCoachIds((current) => (on ? current.filter((id) => id !== coach.user_id) : [...current, coach.user_id]))}
                           className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
                         >
-                          {coach.first_name} {coach.last_name}
+                          {formatFullName(coach)}
                         </button>
                       );
                     })}

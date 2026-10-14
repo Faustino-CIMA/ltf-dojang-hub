@@ -16,13 +16,14 @@ import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getClubTrainers, getMembersList, type Member } from "@/lib/club-admin-api";
+import { formatFullName } from "@/lib/person-name";
 import { getTrainingSeries, saveTrainingSeries, type TrainingAudience, type TrainingSeries } from "@/lib/training-api";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
 const AUDIENCES: TrainingAudience[] = ["kids", "adults", "belt_test", "competition", "other"];
 
 function personName(member: { first_name: string; last_name: string }) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function ageToday(iso: string | null) {

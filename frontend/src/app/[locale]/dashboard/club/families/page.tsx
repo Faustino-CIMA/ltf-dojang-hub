@@ -15,6 +15,7 @@ import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getMembers } from "@/lib/club-admin-api";
+import { formatFullName } from "@/lib/person-name";
 import { downloadClubStatement } from "@/lib/club-finance-api";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -409,7 +410,7 @@ export default function ClubFamiliesPage() {
                     <option value="">{t("addMember")}</option>
                     {availableMembers.map((member) => (
                       <option key={member.id} value={member.id}>
-                        {member.first_name} {member.last_name}
+                        {formatFullName(member)}
                       </option>
                     ))}
                   </select>

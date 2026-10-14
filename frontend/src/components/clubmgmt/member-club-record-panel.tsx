@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatFullName } from "@/lib/person-name";
 import {
   convertPersonToMember,
   findContactMemberMatches,
@@ -1189,7 +1190,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>
-                      {row.person_detail.first_name} {row.person_detail.last_name} ({t(`relation_${row.relation}`)})
+                      {formatFullName(row.person_detail)} ({t(`relation_${row.relation}`)})
                       {row.is_primary ? ` · ${t("primaryContact")}` : ""}
                       {row.is_emergency ? ` · ${t("emergency")}` : ""}
                     </span>

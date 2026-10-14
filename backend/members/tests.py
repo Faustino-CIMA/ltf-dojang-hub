@@ -896,6 +896,69 @@ class MemberApiTests(TestCase):
             str(thumbnail_response.get("Content-Type", "")).startswith("image/")
         )
 
+    def test_member_list_orders_by_last_name_then_first_name(self):
+        Member.objects.create(
+            club=self.club,
+            first_name="Zoe",
+            last_name="Adams",
+            is_active=True,
+        )
+        Member.objects.create(
+            club=self.club,
+            first_name="Amy",
+            last_name="Adams",
+            is_active=True,
+        )
+        self.client.force_authenticate(user=self.club_admin)
+
+        ascending = self.client.get("/api/members/", {"ordering": "name"})
+        self.assertEqual(ascending.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [(row["last_name"], row["first_name"]) for row in ascending.data],
+            [("ADAMS", "Amy"), ("ADAMS", "Zoe"), ("GRAY", "Noah"), ("LEE", "Mia")],
+        )
+
+        descending = self.client.get("/api/members/", {"ordering": "-name"})
+        self.assertEqual(
+            [(row["last_name"], row["first_name"]) for row in descending.data],
+            [("LEE", "Mia"), ("GRAY", "Noah"), ("ADAMS", "Zoe"), ("ADAMS", "Amy")],
+        )
+
+        ignored = self.client.get("/api/members/", {"ordering": "not-a-column"})
+        self.assertEqual(ignored.status_code, status.HTTP_200_OK)
+        self.assertEqual(ignored.data[0]["last_name"], "ADAMS")
+
+    def test_license_list_orders_by_member_name_across_pages(self):
+        early = Member.objects.create(
+            club=self.club,
+            first_name="Amy",
+            last_name="Adams",
+            is_active=True,
+        )
+        License.objects.create(
+            member=early,
+            club=self.club,
+            license_type=self.license_type,
+            year=2024,
+            status=License.Status.ACTIVE,
+        )
+        License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2026,
+            status=License.Status.ACTIVE,
+        )
+        self.client.force_authenticate(user=self.club_admin)
+
+        by_member = self.client.get("/api/licenses/", {"ordering": "member", "page": 1, "page_size": 1})
+        self.assertEqual(by_member.status_code, status.HTTP_200_OK)
+        self.assertEqual(by_member.data["count"], 2)
+        self.assertEqual(by_member.data["results"][0]["member"], early.id)
+
+        by_year = self.client.get("/api/licenses/", {"ordering": "-year"})
+        self.assertEqual([row["year"] for row in by_year.data], [2026, 2024])
+
 
 class GradePromotionModelTests(TestCase):
     def setUp(self):

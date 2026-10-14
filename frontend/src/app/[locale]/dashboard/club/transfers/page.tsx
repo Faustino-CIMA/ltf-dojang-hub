@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { FloatingNotice, FormPanel } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
   MemberTransfer,
@@ -42,7 +43,7 @@ const CARD_SELECTED = "border-primary";
 const CARD_IDLE = "border-border hover:border-primary/50";
 
 function displayMemberName(member: { first_name: string; last_name: string }) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function relativePoint(box: DOMRect, container: HTMLElement, x: number, y: number): Point {

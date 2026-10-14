@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { SortableColumnHeader } from "@/components/ui/sortable-column-header";
 import {
   downloadPublicationConsent,
   listPublicationConsent,
@@ -18,6 +19,8 @@ import {
   type PublicationPdfRule,
 } from "@/lib/clubmgmt-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName, fullNameSortKey } from "@/lib/person-name";
+import { sortRowsByKey, type TableSort } from "@/lib/table-sort";
 
 const CHANNELS: Array<{ field: PublicationField; labelKey?: "webpage" | "printMedia"; label?: string }> = [
   { field: "publish_facebook", label: "Facebook" },
@@ -52,6 +55,8 @@ function pdfMemberCount(rows: PublicationConsentRow[], rule: PublicationPdfRule,
 
 export function PublicationConsentPanel({ clubId }: { clubId: number }) {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [rows, setRows] = useState<PublicationConsentRow[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"csv" | "xlsx" | "pdf" | null>(null);
@@ -76,6 +81,16 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
   }, [load]);
 
   const channelLabel = (channel: (typeof CHANNELS)[number]) => (channel.labelKey ? t(channel.labelKey) : channel.label || "");
+
+  const visibleRows = useMemo(
+    () =>
+      sortRowsByKey(rows ?? [], tableSort, {
+        name: (row) => fullNameSortKey(row),
+        date_of_birth: (row) => row.date_of_birth,
+        age: (row) => row.age,
+      }),
+    [rows, tableSort]
+  );
 
   const toggle = async (row: PublicationConsentRow, field: PublicationField, value: boolean) => {
     setRows((current) => current?.map((item) => (item.member === row.member ? { ...item, [field]: value } : item)) ?? current);
@@ -215,10 +230,48 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-secondary/70 text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-3 py-2" rowSpan={2}>{t("lastName")}</th>
-                <th className="px-3 py-2" rowSpan={2}>{t("firstName")}</th>
-                <th className="px-3 py-2" rowSpan={2}>{t("publicationDob")}</th>
-                <th className="px-3 py-2" rowSpan={2}>{t("publicationAge")}</th>
+                <th className="px-3 py-2" rowSpan={2} scope="col" aria-sort={tableSort?.key === "name" ? (tableSort.direction === "asc" ? "ascending" : "descending") : "none"}>
+                  <SortableColumnHeader
+                    label={common("fullNameLabel")}
+                    active={tableSort?.key === "name"}
+                    direction={tableSort?.key === "name" ? tableSort.direction : undefined}
+                    onSort={() =>
+                      setTableSort((current) =>
+                        !current || current.key !== "name"
+                          ? { key: "name", direction: "asc" }
+                          : { key: "name", direction: current.direction === "asc" ? "desc" : "asc" }
+                      )
+                    }
+                  />
+                </th>
+                <th className="px-3 py-2" rowSpan={2} scope="col" aria-sort={tableSort?.key === "date_of_birth" ? (tableSort.direction === "asc" ? "ascending" : "descending") : "none"}>
+                  <SortableColumnHeader
+                    label={t("publicationDob")}
+                    active={tableSort?.key === "date_of_birth"}
+                    direction={tableSort?.key === "date_of_birth" ? tableSort.direction : undefined}
+                    onSort={() =>
+                      setTableSort((current) =>
+                        !current || current.key !== "date_of_birth"
+                          ? { key: "date_of_birth", direction: "asc" }
+                          : { key: "date_of_birth", direction: current.direction === "asc" ? "desc" : "asc" }
+                      )
+                    }
+                  />
+                </th>
+                <th className="px-3 py-2" rowSpan={2} scope="col" aria-sort={tableSort?.key === "age" ? (tableSort.direction === "asc" ? "ascending" : "descending") : "none"}>
+                  <SortableColumnHeader
+                    label={t("publicationAge")}
+                    active={tableSort?.key === "age"}
+                    direction={tableSort?.key === "age" ? tableSort.direction : undefined}
+                    onSort={() =>
+                      setTableSort((current) =>
+                        !current || current.key !== "age"
+                          ? { key: "age", direction: "asc" }
+                          : { key: "age", direction: current.direction === "asc" ? "desc" : "asc" }
+                      )
+                    }
+                  />
+                </th>
                 <th className="px-3 py-2 text-center" colSpan={CHANNELS.length}>{t("mediaConsent")}</th>
               </tr>
               <tr>
@@ -238,10 +291,9 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {visibleRows.map((row) => (
                 <tr key={row.member} className="border-t border-border">
-                  <td className="px-3 py-3 font-medium">{row.last_name}</td>
-                  <td className="px-3 py-3">{row.first_name}</td>
+                  <td className="px-3 py-3 font-medium">{formatFullName(row)}</td>
                   <td className="px-3 py-3">{row.date_of_birth ? formatDisplayDate(row.date_of_birth) : "—"}</td>
                   <td className="px-3 py-3">{row.age == null ? "—" : row.age}</td>
                   {CHANNELS.map((channel) => (
@@ -249,7 +301,7 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
                       <Checkbox
                         checked={row[channel.field]}
                         disabled={columnSaving != null}
-                        aria-label={`${row.first_name} ${row.last_name} ${channelLabel(channel)}`}
+                        aria-label={`${formatFullName(row)} ${channelLabel(channel)}`}
                         onCheckedChange={(value) => void toggle(row, channel.field, value === true)}
                       />
                     </td>

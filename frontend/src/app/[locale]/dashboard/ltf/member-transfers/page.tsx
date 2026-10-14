@@ -13,6 +13,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatFullName } from "@/lib/person-name";
 import {
   getMemberTransfers,
   getTransferMovements,
@@ -74,7 +75,7 @@ export default function LtfMemberTransfersPage() {
                       render: (row) => (
                         <span className="inline-flex flex-wrap items-center gap-2">
                           <span>
-                            {row.first_name} {row.last_name}
+                            {formatFullName(row)}
                           </span>
                           <StatusBadge label={t("clubTouristBadge")} tone="warning" />
                         </span>
@@ -136,7 +137,7 @@ export default function LtfMemberTransfersPage() {
                             className="font-medium text-foreground underline-offset-2 hover:underline"
                             href={`/${locale}/dashboard/ltf/members/${row.member?.id}`}
                           >
-                            {row.member?.first_name} {row.member?.last_name}
+                            {formatFullName(row.member)}
                           </Link>
                         </td>
                         <td className="px-2 py-2">{row.from_club.name}</td>
@@ -164,7 +165,7 @@ export default function LtfMemberTransfersPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-foreground">
-                          {item.member.first_name} {item.member.last_name}
+                          {formatFullName(item.member)}
                         </p>
                         <p className="mt-1 text-sm text-muted">
                           {item.from_club.name} → {item.to_club.name}

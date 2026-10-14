@@ -12,6 +12,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { FilterPills } from "@/components/ui/filter-pills";
@@ -29,6 +30,7 @@ import {
   getClubInvoicesPage,
 } from "@/lib/club-finance-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { openInvoicePdf } from "@/lib/invoice-pdf";
 import { isClubLedger } from "@/lib/ltf-finance-api";
 
@@ -60,6 +62,8 @@ export default function ClubAdminInvoicesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [invoiceFacetCounts, setInvoiceFacetCounts] = useState({
     all: 0,
     draft: 0,
@@ -118,6 +122,7 @@ export default function ClubAdminInvoicesPage() {
                 status: statusFilterParam,
                 issue: overdueIssue ? "overdue_7d" : undefined,
                 ledger,
+                ordering,
               },
               { signal: controller.signal }
             ),
@@ -166,7 +171,7 @@ export default function ClubAdminInvoicesPage() {
         }
       }
     },
-    [currentPage, invoicesListPageSize, ledgerFilter, overdueIssue, searchQuery, selectedClubId, statusFilterParam, t]
+    [currentPage, invoicesListPageSize, ledgerFilter, ordering, overdueIssue, searchQuery, selectedClubId, statusFilterParam, t]
   );
 
   useEffect(() => {
@@ -259,13 +264,14 @@ export default function ClubAdminInvoicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId, invoiceStatusFilter, ledgerFilter, overdueIssue]);
+  }, [searchQuery, pageSize, selectedClubId, invoiceStatusFilter, ledgerFilter, overdueIssue, tableSort]);
 
   const columns = [
-    { key: "invoice_number", header: t("invoiceNumberLabel") },
+    { key: "invoice_number", header: t("invoiceNumberLabel"), sortable: true },
     {
       key: "status",
       header: t("statusLabel"),
+      sortable: true,
       render: (row: FinanceInvoice) => {
         const meta = getInvoiceStatusMeta(row.status);
         return <StatusBadge label={meta.label} tone={meta.tone} />;
@@ -274,21 +280,25 @@ export default function ClubAdminInvoicesPage() {
     {
       key: "quantity",
       header: t("qtyLabel"),
+      sortable: true,
       render: (row: FinanceInvoice) => getInvoiceQuantity(row),
     },
     {
       key: "total",
       header: t("totalLabel"),
+      sortable: true,
       render: (row: FinanceInvoice) => `${row.total} ${row.currency}`,
     },
     {
       key: "outstanding",
       header: t("outstandingLabel"),
+      sortable: true,
       render: (row: FinanceInvoice) => `${row.outstanding ?? row.total} ${row.currency}`,
     },
     {
       key: "issued_at",
       header: t("issuedAtLabel"),
+      sortable: true,
       render: (row: FinanceInvoice) => formatDisplayDateTime(row.issued_at),
     },
     {
@@ -300,31 +310,37 @@ export default function ClubAdminInvoicesPage() {
         const clubInternal = isClubLedger(row);
         const canPayFederation = isOpen && !clubInternal;
         const canRecord = canRecordPayments && isOpen && clubInternal;
+        const paying = activeOrderId === row.order;
         return (
-          <div className="flex flex-col gap-2">
-            {canPayFederation ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePayNow(row)}
-                disabled={activeOrderId === row.order}
-              >
-                {activeOrderId === row.order ? common("paymentProcessing") : common("payNow")}
-              </Button>
-            ) : null}
-            {canRecord ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push(`/${locale}/dashboard/club/payments/${row.id}/record`)}
-              >
-                {t("recordPaymentButton")}
-              </Button>
-            ) : null}
-            <Button variant="ghost" size="sm" onClick={() => handleInvoicePdf(row.id)}>
-              {common("invoicePdfLabel")}
-            </Button>
-          </div>
+          <RowActionMenu
+            label={common("rowActionsLabel")}
+            actions={[
+              ...(canPayFederation
+                ? [
+                    {
+                      key: "pay",
+                      label: paying ? common("paymentProcessing") : common("payNow"),
+                      disabled: paying,
+                      onSelect: () => void handlePayNow(row),
+                    },
+                  ]
+                : []),
+              ...(canRecord
+                ? [
+                    {
+                      key: "record",
+                      label: t("recordPaymentButton"),
+                      onSelect: () => router.push(`/${locale}/dashboard/club/payments/${row.id}/record`),
+                    },
+                  ]
+                : []),
+              {
+                key: "pdf",
+                label: common("invoicePdfLabel"),
+                onSelect: () => void handleInvoicePdf(row.id),
+              },
+            ]}
+          />
         );
       },
     },
@@ -432,6 +448,8 @@ export default function ClubAdminInvoicesPage() {
           <EntityTable
             columns={columns}
             rows={invoices}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(row) => router.push(`/${locale}/dashboard/club/invoices/${row.id}`)}
           />
         )}

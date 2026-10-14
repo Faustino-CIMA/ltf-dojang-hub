@@ -34,6 +34,8 @@ import {
   updateMember,
 } from "@/lib/club-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName } from "@/lib/person-name";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 type AuthMeResponse = { role: string };
 
@@ -119,6 +121,8 @@ export default function ClubAdminMembersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [selectionHydrated, setSelectionHydrated] = useState(false);
   const [statusFilterHydrated, setStatusFilterHydrated] = useState(false);
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
@@ -178,6 +182,7 @@ export default function ClubAdminMembersPage() {
             clubId,
             isActive: isActiveFilter,
             issue: issue ?? undefined,
+            ordering,
           }),
           getMembersPage({
             page: 1,
@@ -225,6 +230,7 @@ export default function ClubAdminMembersPage() {
     setSelectedClubId,
     isActiveFilter,
     issue,
+    ordering,
   ]);
 
   useEffect(() => {
@@ -287,7 +293,7 @@ export default function ClubAdminMembersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue]);
+  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue, tableSort]);
 
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/club/members`);
@@ -936,11 +942,16 @@ export default function ClubAdminMembersPage() {
                     },
                   ]
                 : []),
-              { key: "first_name", header: t("firstNameLabel") },
-              { key: "last_name", header: t("lastNameLabel") },
+              {
+                key: "name",
+                header: common("fullNameLabel"),
+                sortable: true,
+                render: (member: Member) => formatFullName(member),
+              },
               {
                 key: "sex",
                 header: t("sexLabel"),
+                sortable: true,
                 render: (member) => (
                   <span
                     className="inline-flex h-[var(--control-height)] w-[var(--control-height)] items-center justify-center text-2xl font-semibold leading-none"
@@ -951,8 +962,8 @@ export default function ClubAdminMembersPage() {
                   </span>
                 ),
               },
-              { key: "belt_rank", header: t("beltRankLabel") },
-              { key: "ltf_licenseid", header: t("ltfLicenseLabel") },
+              { key: "belt_rank", header: t("beltRankLabel"), sortable: true },
+              { key: "ltf_licenseid", header: t("ltfLicenseLabel"), sortable: true },
               {
                 key: "current_licenses",
                 header: t("licensesColumnLabel"),
@@ -977,11 +988,13 @@ export default function ClubAdminMembersPage() {
               {
                 key: "date_of_birth",
                 header: t("dobLabel"),
+                sortable: true,
                 render: (member) => formatDisplayDate(member.date_of_birth),
               },
               {
                 key: "is_active",
                 header: t("isActiveLabel"),
+                sortable: true,
                 render: (member) => {
                   const isUpdating = statusUpdatingSet.has(member.id);
                   if (!canManageMembers) {
@@ -1036,6 +1049,8 @@ export default function ClubAdminMembersPage() {
                 : []),
             ]}
             rows={members}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(member) => router.push(`/${locale}/dashboard/club/members/${member.id}`)}
           />
         )}

@@ -12,12 +12,12 @@ import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Trash2 } from "lucide-react";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +54,8 @@ import {
   updateLicense,
 } from "@/lib/ltf-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName } from "@/lib/person-name";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 const licenseSchema = z.object({
   club: z.string().min(1, "Club is required"),
@@ -90,6 +92,8 @@ export default function LtfAdminLicensesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [licenseFacetCounts, setLicenseFacetCounts] = useState({
     all: 0,
     active: 0,
@@ -146,6 +150,7 @@ export default function LtfAdminLicensesPage() {
           q,
           clubId,
           status: statusFilterParam,
+          ordering,
         }),
         getLicenseTypes(),
         getLicensesPage({ page: 1, pageSize: 1, q, clubId }),
@@ -183,7 +188,7 @@ export default function LtfAdminLicensesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, headerClubId, licensesListPageSize, searchQuery, setValue, statusFilterParam, watch]);
+  }, [currentPage, headerClubId, licensesListPageSize, ordering, searchQuery, setValue, statusFilterParam, watch]);
 
   useEffect(() => {
     void loadData();
@@ -191,7 +196,7 @@ export default function LtfAdminLicensesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [headerClubId, searchQuery, pageSize, statusFilterParam]);
+  }, [headerClubId, searchQuery, pageSize, statusFilterParam, tableSort]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -426,27 +431,31 @@ export default function LtfAdminLicensesPage() {
     },
     {
       key: "member",
-      header: t("memberLabel"),
+      header: common("fullNameLabel"),
+      sortable: true,
       render: (license: License) => {
         const member = memberById.get(license.member);
-        return member ? `${member.first_name} ${member.last_name}` : t("unknownMember");
+        return member ? formatFullName(member) : t("unknownMember");
       },
     },
     {
       key: "club",
       header: t("clubLabel"),
+      sortable: true,
       render: (license: License) => clubById.get(license.club)?.name ?? t("unknownClub"),
     },
     {
       key: "license_type",
       header: t("licenseTypeLabel"),
+      sortable: true,
       render: (license: License) =>
         licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType"),
     },
-    { key: "year", header: t("yearLabel") },
+    { key: "year", header: t("yearLabel"), sortable: true },
     {
       key: "status",
       header: t("statusLabel"),
+      sortable: true,
       render: (license: License) => (
         <StatusBadge label={getStatusLabel(license.status)} tone={getStatusTone(license.status)} />
       ),
@@ -454,31 +463,20 @@ export default function LtfAdminLicensesPage() {
     {
       key: "issued_at",
       header: t("issuedAtLabel"),
+      sortable: true,
       render: (license: License) => formatIssuedAt(license.issued_at),
     },
     {
       key: "actions",
       header: t("actionsLabel"),
       render: (license: License) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
-            aria-label={t("editAction")}
-            onClick={() => startEdit(license)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={t("deleteAction")}
-            onClick={() => handleDelete(license)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        <RowActionMenu
+          label={common("rowActionsLabel")}
+          actions={[
+            { key: "edit", label: t("editAction"), onSelect: () => startEdit(license) },
+            { key: "delete", label: t("deleteAction"), onSelect: () => handleDelete(license) },
+          ]}
+        />
       ),
     },
   ];
@@ -568,7 +566,12 @@ export default function LtfAdminLicensesPage() {
         ) : licenses.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noLicensesResultsSubtitle")} />
         ) : (
-          <EntityTable columns={columns} rows={licenses} />
+          <EntityTable
+            columns={columns}
+            rows={licenses}
+            sort={tableSort}
+            onSortChange={setTableSort}
+          />
         )}
       </div>
 
@@ -611,7 +614,7 @@ export default function LtfAdminLicensesPage() {
               <SelectContent>
                 {clubMembers.map((member) => (
                   <SelectItem key={member.id} value={String(member.id)}>
-                    {member.first_name} {member.last_name}
+                    {formatFullName(member)}
                   </SelectItem>
                 ))}
               </SelectContent>

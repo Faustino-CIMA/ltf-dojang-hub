@@ -21,6 +21,7 @@ import { FloatingNotice, FormPanel, PageNotice } from "@/components/ui/list-page
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
   AddClubAdminResponse,
@@ -42,12 +43,11 @@ type PendingAssign = {
 };
 
 function displayMemberName(member: AssignmentMember) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function displayAdminName(admin: AssignmentAdmin) {
-  const full = `${admin.first_name} ${admin.last_name}`.trim();
-  return admin.member_name || full || admin.username;
+  return formatFullName(admin) || admin.member_name || admin.username;
 }
 
 function matchesQuery(haystack: string, query: string) {

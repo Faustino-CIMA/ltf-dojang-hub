@@ -20,11 +20,14 @@ import {
   getMembersList,
 } from "@/lib/club-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName } from "@/lib/person-name";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
+import { PopoverSelect } from "@/components/ui/popover-select";
 import { apiRequest } from "@/lib/api";
 import {
   Select,
@@ -67,6 +70,8 @@ export default function ClubAdminLicensesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [actionsHintOpen, setActionsHintOpen] = useState(false);
   const [licenseFacetCounts, setLicenseFacetCounts] = useState({
     all: 0,
@@ -157,6 +162,7 @@ export default function ClubAdminLicensesPage() {
             clubId: effectiveClubId,
             q,
             status: statusFilterParam,
+            ordering,
           }),
           getLicensesPage({
             page: 1,
@@ -220,6 +226,7 @@ export default function ClubAdminLicensesPage() {
     selectedClubId,
     setSelectedClubId,
     statusFilterParam,
+    ordering,
   ]);
 
   useEffect(() => {
@@ -284,7 +291,7 @@ export default function ClubAdminLicensesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, licenseStatusFilter]);
+  }, [searchQuery, selectedClubId, pageSize, licenseStatusFilter, tableSort]);
 
   const toggleSelectAllLicenses = () => {
     if (!canManageLicenses) {
@@ -396,22 +403,25 @@ export default function ClubAdminLicensesPage() {
       : []),
     {
       key: "member",
-      header: t("memberLabel"),
+      header: common("fullNameLabel"),
+      sortable: true,
       render: (license: License) => {
         const member = memberById.get(license.member);
-        return member ? `${member.first_name} ${member.last_name}` : t("unknownMember");
+        return member ? formatFullName(member) : t("unknownMember");
       },
     },
-    { key: "year", header: t("yearLabel") },
+    { key: "year", header: t("yearLabel"), sortable: true },
     {
       key: "license_type",
       header: t("licenseTypeLabel"),
+      sortable: true,
       render: (license: License) =>
         licenseTypeNameById.get(license.license_type) ?? t("unknownLicenseType"),
     },
     {
       key: "status",
       header: t("statusLabel"),
+      sortable: true,
       render: (license: License) => (
         <StatusBadge label={getStatusLabel(license.status)} tone={getStatusTone(license.status)} />
       ),
@@ -419,6 +429,7 @@ export default function ClubAdminLicensesPage() {
     {
       key: "issued_at",
       header: t("issuedAtLabel"),
+      sortable: true,
       render: (license: License) => formatIssuedAt(license.issued_at),
     },
   ];
@@ -475,45 +486,40 @@ export default function ClubAdminLicensesPage() {
             <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
               {canManageLicenses ? (
                 <>
-                  <Select
+                  <PopoverSelect
                     value=""
                     disabled={selectedLicenseIds.length === 0}
+                    ariaLabel={common("batchActionsLabel")}
+                    placeholder={common("batchActionsLabel")}
+                    options={[
+                      {
+                        value: "print-cards",
+                        label: t("actionPrintCards"),
+                        disabled: !selectedClubId,
+                      },
+                    ]}
                     onValueChange={(value) => {
                       if (value === "print-cards") {
                         openQuickPrintPage();
                       }
                     }}
-                  >
-                    <SelectTrigger className="min-w-[11rem]" aria-label={common("batchActionsLabel")}>
-                      <SelectValue placeholder={common("batchActionsLabel")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="print-cards" disabled={!selectedClubId}>
-                        {t("actionPrintCards")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
+                  />
+                  <PopoverSelect
                     value={selectedQuickPrintPrinterProfileValue}
                     onValueChange={setSelectedQuickPrintPrinterProfileValue}
-                  >
-                    <SelectTrigger
-                      className="min-w-[11rem]"
-                      aria-label={t("quickPrintEntryPrinterProfileLabel")}
-                    >
-                      <SelectValue placeholder={t("quickPrintEntryPrinterProfilePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_PRINTER_PROFILE_VALUE}>
-                        {t("quickPrintPrinterProfileNoneOption")}
-                      </SelectItem>
-                      {printerProfiles.map((profile) => (
-                        <SelectItem key={profile.id} value={String(profile.id)}>
-                          {profile.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    ariaLabel={t("quickPrintEntryPrinterProfileLabel")}
+                    placeholder={t("quickPrintEntryPrinterProfilePlaceholder")}
+                    options={[
+                      {
+                        value: NO_PRINTER_PROFILE_VALUE,
+                        label: t("quickPrintPrinterProfileNoneOption"),
+                      },
+                      ...printerProfiles.map((profile) => ({
+                        value: String(profile.id),
+                        label: profile.name,
+                      })),
+                    ]}
+                  />
                 </>
               ) : null}
 
@@ -586,6 +592,8 @@ export default function ClubAdminLicensesPage() {
           <EntityTable
             columns={columns}
             rows={licenses}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(license) =>
               router.push(`/${locale}/dashboard/club/members/${license.member}`)
             }

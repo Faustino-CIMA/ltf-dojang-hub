@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
   addClubTrainer,
@@ -239,7 +240,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
         <div className="mt-6">
           <p className="text-sm text-muted">
             {selectedMember
-              ? t("trainersConnectingHint", { name: `${selectedMember.first_name} ${selectedMember.last_name}`.trim() })
+              ? t("trainersConnectingHint", { name: formatFullName(selectedMember) })
               : t("trainersIdleHint")}
           </p>
           {selectedMember ? (
@@ -280,7 +281,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
                         className={cn(CARD_BASE, selected ? "border-primary" : "border-border hover:border-primary/50")}
                       >
                         <p className="font-medium text-foreground">
-                          {member.first_name} {member.last_name}
+                          {formatFullName(member)}
                         </p>
                         <p className="mt-0.5 text-xs text-muted">{member.email || t("trainerNoEmail")}</p>
                       </button>
@@ -330,7 +331,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
                         />
                         <span>
                           <p className="text-sm font-medium text-foreground">
-                            {trainer.first_name} {trainer.last_name}
+                            {formatFullName(trainer)}
                           </p>
                           <p className="text-xs text-muted">{t("trainerQualite")}</p>
                         </span>
@@ -367,7 +368,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
       )}
       <Modal
         title={t("trainerEmailRequired")}
-        description={pendingMember ? `${pendingMember.first_name} ${pendingMember.last_name}` : undefined}
+        description={pendingMember ? formatFullName(pendingMember) : undefined}
         isOpen={pendingMember != null}
         onClose={() => {
           setPendingMember(null);
