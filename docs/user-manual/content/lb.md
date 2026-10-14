@@ -454,9 +454,8 @@ D'Bestellung an hir Rechnung erschéngen ënner [[navFinance]] › [[navOrders]]
 [[navPrinting]] weist d'Kaarten-Drockopträg vum Veräin. Déi selwecht Sektioun mécht och [[navPrinterProfiles]] op, wou d'X/Y-Verrécklung vun engem Drécker gespäichert ass.
 
 1. Maacht [[navPrinting]] op.
-2. Wann en Optrag [[printJobStatusSucceeded]] weist, klickt op [[printJobPreviewPdfAction]], fir de PDF opzemaachen, oder op [[printJobDownloadPdfAction]], fir `license-cards_<Veräin>_<Optrag>_<Datum>.pdf` ze späicheren. Dréckt de Fichier op 100 % (ouni „un d'Säit upassen“).
-3. [[printJobExecuteAction]], [[printJobRetryAction]] an [[printJobCancelAction]] bleiwen am Zeilemenü.
-4. Klickt op [[deleteAction]] a confirméiert, fir e Brouillon, en erfollegräichen, feelgeschloenen oder annuléierten Optrag ewechzehuelen. En Optrag an der Queue oder am Gaang muss fir d'éischt ofgebrach ginn.
+2. Maacht d'Zeilemenü op. Wann en Optrag [[printJobStatusSucceeded]] weist, klickt op [[printJobPreviewPdfAction]], fir de PDF opzemaachen, oder op [[printJobDownloadPdfAction]], fir `license-cards_<Veräin>_<Optrag>_<Datum>.pdf` ze späicheren. Dréckt de Fichier op 100 % (ouni „un d'Säit upassen“).
+3. Am selwechte Menü stinn [[printJobExecuteAction]], [[printJobRetryAction]] an [[printJobCancelAction]]. [[deleteAction]] steet als lescht. Confirméiert, fir e Brouillon, en erfollegräichen, feelgeschloenen oder annuléierten Optrag ewechzehuelen. En Optrag an der Queue oder am Gaang muss fir d'éischt ofgebrach ginn.
 
 ![Drockopträg](fig:print-jobs)
 
@@ -940,7 +939,7 @@ D'Iwwersiicht zielt Veräiner, Memberen a Lizenzen. Hir Lëscht vun Aktiounen we
 
 ## Lizenzkaarten {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] enthält d'Modeller vun de Kaarten. Maacht e Modell am Designer op, fir de Foto, den Numm, de Grad, d'Lizenznummer an de QR-Code ze placéieren. Publizéiert eng Versioun a setzt se als Standard: domat drécken d'Club-Admins. [[LtfAdmin.navPrinting]] gruppéiert [[LtfAdmin.navLicenseCardPrintJobs]] an [[LtfAdmin.navPrinterProfiles]] esou wéi um Club-Dashboard. D'Drockopträg weisen d'Jobs vun alle Veräiner, mat Kucken, Eroflueden a Läschen. D'Dréckerprofiler späicheren d'X/Y-Verrécklung vu bekannten Drécker.
+[[LtfAdmin.navLicenseCards]] enthält d'Modeller vun de Kaarten. Maacht e Modell am Designer op, fir de Foto, den Numm, de Grad, d'Lizenznummer an de QR-Code ze placéieren. D'Zeilemenü setzt en och als Standard, späichert eng Kopie, exportéiert oder läscht de Modell. Publizéiert eng Versioun a setzt se als Standard: domat drécken d'Club-Admins. [[LtfAdmin.navPrinting]] gruppéiert [[LtfAdmin.navLicenseCardPrintJobs]] an [[LtfAdmin.navPrinterProfiles]] esou wéi um Club-Dashboard. D'Drockopträg weisen d'Jobs vun alle Veräiner; Kucken, Eroflueden a Läschen stinn am Zeilemenü. D'Dréckerprofiler späicheren d'X/Y-Verrécklung vu bekannten Drécker.
 
 ![De Kaarten-Designer](fig:designer)
 

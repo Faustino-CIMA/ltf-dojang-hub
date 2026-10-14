@@ -8,7 +8,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 const itemClassName =
-  "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
+  "flex min-h-10 w-full items-center gap-2 rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0";
+
+const destructiveItemClassName =
+  "text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive";
 
 function focusItem(list: HTMLElement | null, current: Element | null, step: 1 | -1 | "first" | "last") {
   const items = Array.from(list?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
@@ -81,7 +84,7 @@ export function RowActionMenu({
             type="button"
             role="menuitem"
             disabled={action.disabled}
-            className={cn(itemClassName)}
+            className={cn(itemClassName, action.destructive && destructiveItemClassName)}
             onClick={(event) => {
               event.stopPropagation();
               if (action.disabled) {
@@ -91,6 +94,7 @@ export function RowActionMenu({
               action.onSelect();
             }}
           >
+            {action.icon}
             {action.label}
           </button>
         ))}

@@ -51,78 +51,83 @@ function job(overrides: Partial<PrintJob> = {}): PrintJob {
   };
 }
 
+function renderActions(overrides: Partial<PrintJob> = {}, handlers: Partial<Record<string, jest.Mock>> = {}) {
+  const onPreview = handlers.onPreview ?? jest.fn();
+  const onDownload = handlers.onDownload ?? jest.fn();
+  const onDelete = handlers.onDelete ?? jest.fn();
+  const onExecute = handlers.onExecute ?? jest.fn();
+  const onRetry = handlers.onRetry ?? jest.fn();
+  const onCancel = handlers.onCancel ?? jest.fn();
+  render(
+    <PrintJobRowActions
+      job={job(overrides)}
+      busy={false}
+      labels={labels}
+      onPreview={onPreview}
+      onDownload={onDownload}
+      onDelete={onDelete}
+      onExecute={onExecute}
+      onRetry={onRetry}
+      onCancel={onCancel}
+    />
+  );
+  return { onPreview, onDownload, onDelete, onExecute, onRetry, onCancel };
+}
+
+function openMenu() {
+  fireEvent.click(screen.getByRole("button", { name: "Row actions" }));
+}
+
 describe("PrintJobRowActions", () => {
-  it("shows labeled icon buttons and keeps rare actions in the menu", () => {
-    const onDelete = jest.fn();
-    const onExecute = jest.fn();
-    render(
-      <PrintJobRowActions
-        job={job()}
-        busy={false}
-        labels={labels}
-        onPreview={jest.fn()}
-        onDownload={jest.fn()}
-        onDelete={onDelete}
-        onExecute={onExecute}
-        onRetry={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
+  it("keeps every action in the row menu, with delete last and destructive", () => {
+    const { onDelete, onExecute } = renderActions();
 
-    expect(screen.getByRole("button", { name: "Preview PDF" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Download PDF" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Preview PDF" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Row actions" }));
+    openMenu();
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "Preview PDF",
+      "Download PDF",
+      "Execute",
+      "Retry",
+      "Cancel",
+      "Delete",
+    ]);
+    for (const item of items) {
+      expect(item.querySelector("svg")).not.toBeNull();
+    }
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveClass("text-destructive");
+
+    expect(screen.getByRole("menuitem", { name: "Preview PDF" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Download PDF" })).toBeDisabled();
     fireEvent.click(screen.getByRole("menuitem", { name: "Execute" }));
     expect(onExecute).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("menuitem", { name: "Preview PDF" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Download PDF" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
   });
 
   it("enables preview and download only when the PDF artifact is ready", () => {
-    const onPreview = jest.fn();
-    const onDownload = jest.fn();
-    render(
-      <PrintJobRowActions
-        job={job({ status: "succeeded", artifact_pdf: "/media/job.pdf" })}
-        busy={false}
-        labels={labels}
-        onPreview={onPreview}
-        onDownload={onDownload}
-        onDelete={jest.fn()}
-        onExecute={jest.fn()}
-        onRetry={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
+    const { onPreview, onDownload } = renderActions({
+      status: "succeeded",
+      artifact_pdf: "/media/job.pdf",
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
-    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    openMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Preview PDF" }));
+    openMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Download PDF" }));
     expect(onPreview).toHaveBeenCalledTimes(1);
     expect(onDownload).toHaveBeenCalledTimes(1);
   });
 
   it("blocks delete while a job is queued or running", () => {
-    const onDelete = jest.fn();
-    render(
-      <PrintJobRowActions
-        job={job({ status: "running" })}
-        busy={false}
-        labels={labels}
-        onPreview={jest.fn()}
-        onDownload={jest.fn()}
-        onDelete={onDelete}
-        onExecute={jest.fn()}
-        onRetry={jest.fn()}
-        onCancel={jest.fn()}
-      />
-    );
+    const { onDelete } = renderActions({ status: "running" });
 
-    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    openMenu();
+    const deleteItem = screen.getByRole("menuitem", { name: "Delete" });
+    expect(deleteItem).toBeDisabled();
+    fireEvent.click(deleteItem);
     expect(onDelete).not.toHaveBeenCalled();
   });
 });

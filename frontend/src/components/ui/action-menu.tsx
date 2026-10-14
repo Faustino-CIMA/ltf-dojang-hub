@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -8,6 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 export type MenuAction = {
   key: string;
   label: string;
+  icon?: ReactNode;
+  destructive?: boolean;
   disabled?: boolean;
   onSelect: () => void;
 };

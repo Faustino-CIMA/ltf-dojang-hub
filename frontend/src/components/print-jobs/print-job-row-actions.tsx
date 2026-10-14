@@ -1,8 +1,7 @@
 "use client";
 
-import { Download, Eye, Trash2 } from "lucide-react";
+import { Ban, Download, Eye, Play, RotateCcw, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { type PrintJob, type PrintJobStatus } from "@/lib/license-card-api";
 
@@ -46,60 +45,53 @@ export function PrintJobRowActions({
   const deleteBlocked = DELETE_BLOCKED_STATUSES.includes(job.status);
 
   return (
-    <div className="flex flex-nowrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={busy || !pdfReady}
-        onClick={() => onPreview(job)}
-      >
-        <Eye aria-hidden="true" />
-        {labels.preview}
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={busy || !pdfReady}
-        onClick={() => onDownload(job)}
-      >
-        <Download aria-hidden="true" />
-        {labels.download}
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={busy || deleteBlocked}
-        onClick={() => onDelete(job)}
-      >
-        <Trash2 aria-hidden="true" />
-        {labels.delete}
-      </Button>
-      <RowActionMenu
-        label={labels.menu}
-        actions={[
-          {
-            key: "execute",
-            label: labels.execute,
-            disabled: busy || !["draft", "failed"].includes(job.status),
-            onSelect: () => onExecute(job),
-          },
-          {
-            key: "retry",
-            label: labels.retry,
-            disabled: busy || !["failed", "cancelled"].includes(job.status),
-            onSelect: () => onRetry(job),
-          },
-          {
-            key: "cancel",
-            label: labels.cancel,
-            disabled: busy || ["succeeded", "cancelled"].includes(job.status),
-            onSelect: () => onCancel(job),
-          },
-        ]}
-      />
-    </div>
+    <RowActionMenu
+      label={labels.menu}
+      actions={[
+        {
+          key: "preview",
+          label: labels.preview,
+          icon: <Eye aria-hidden="true" />,
+          disabled: busy || !pdfReady,
+          onSelect: () => onPreview(job),
+        },
+        {
+          key: "download",
+          label: labels.download,
+          icon: <Download aria-hidden="true" />,
+          disabled: busy || !pdfReady,
+          onSelect: () => onDownload(job),
+        },
+        {
+          key: "execute",
+          label: labels.execute,
+          icon: <Play aria-hidden="true" />,
+          disabled: busy || !["draft", "failed"].includes(job.status),
+          onSelect: () => onExecute(job),
+        },
+        {
+          key: "retry",
+          label: labels.retry,
+          icon: <RotateCcw aria-hidden="true" />,
+          disabled: busy || !["failed", "cancelled"].includes(job.status),
+          onSelect: () => onRetry(job),
+        },
+        {
+          key: "cancel",
+          label: labels.cancel,
+          icon: <Ban aria-hidden="true" />,
+          disabled: busy || ["succeeded", "cancelled"].includes(job.status),
+          onSelect: () => onCancel(job),
+        },
+        {
+          key: "delete",
+          label: labels.delete,
+          icon: <Trash2 aria-hidden="true" />,
+          destructive: true,
+          disabled: busy || deleteBlocked,
+          onSelect: () => onDelete(job),
+        },
+      ]}
+    />
   );
 }

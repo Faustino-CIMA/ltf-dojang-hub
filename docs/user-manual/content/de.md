@@ -454,9 +454,8 @@ Bestellung und Rechnung erscheinen unter [[navFinance]] › [[navOrders]] und [[
 [[navPrinting]] listet die Kartendruckaufträge des Vereins. Derselbe Bereich öffnet auch [[navPrinterProfiles]], wo der X/Y-Versatz eines Druckers gespeichert ist.
 
 1. Öffnen Sie [[navPrinting]].
-2. Zeigt ein Auftrag [[printJobStatusSucceeded]], klicken Sie auf [[printJobPreviewPdfAction]], um das PDF zu öffnen, oder auf [[printJobDownloadPdfAction]], um `license-cards_<Verein>_<Auftrag>_<Datum>.pdf` zu speichern. Drucken Sie die Datei in 100 % (ohne „An Seite anpassen“).
-3. [[printJobExecuteAction]], [[printJobRetryAction]] und [[printJobCancelAction]] bleiben im Zeilenmenü.
-4. Klicken Sie auf [[deleteAction]] und bestätigen Sie, um einen Entwurf, einen erfolgreichen, fehlgeschlagenen oder abgebrochenen Auftrag zu entfernen. Einen Auftrag in der Warteschlange oder in Arbeit müssen Sie zuerst abbrechen.
+2. Öffnen Sie das Zeilenmenü. Zeigt ein Auftrag [[printJobStatusSucceeded]], klicken Sie auf [[printJobPreviewPdfAction]], um das PDF zu öffnen, oder auf [[printJobDownloadPdfAction]], um `license-cards_<Verein>_<Auftrag>_<Datum>.pdf` zu speichern. Drucken Sie die Datei in 100 % (ohne „An Seite anpassen“).
+3. Im selben Menü stehen [[printJobExecuteAction]], [[printJobRetryAction]] und [[printJobCancelAction]]. [[deleteAction]] steht zuletzt. Bestätigen Sie, um einen Entwurf, einen erfolgreichen, fehlgeschlagenen oder abgebrochenen Auftrag zu entfernen. Einen Auftrag in der Warteschlange oder in Arbeit müssen Sie zuerst abbrechen.
 
 ![Druckaufträge](fig:print-jobs)
 
@@ -940,7 +939,7 @@ Die Übersicht zählt Vereine, Mitglieder und Lizenzen. Ihre Aufgabenliste zeigt
 
 ## Lizenzkarten {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] enthält die Kartenvorlagen. Öffnen Sie eine Vorlage im Designer, um Foto, Name, Grad, Lizenznummer und QR-Code zu platzieren. Veröffentlichen Sie eine Version und legen Sie sie als Standard fest: Damit drucken die Club-Admins. [[LtfAdmin.navPrinting]] fasst [[LtfAdmin.navLicenseCardPrintJobs]] und [[LtfAdmin.navPrinterProfiles]] so zusammen wie das Vereins-Dashboard. Druckaufträge listen die Jobs aller Vereine, mit Vorschau, Download und Löschen. Druckerprofile speichern den X/Y-Versatz bekannter Drucker.
+[[LtfAdmin.navLicenseCards]] enthält die Kartenvorlagen. Öffnen Sie eine Vorlage im Designer, um Foto, Name, Grad, Lizenznummer und QR-Code zu platzieren. Das Zeilenmenü setzt sie außerdem als Standard, speichert eine Kopie, exportiert oder löscht die Vorlage. Veröffentlichen Sie eine Version und legen Sie sie als Standard fest: Damit drucken die Club-Admins. [[LtfAdmin.navPrinting]] fasst [[LtfAdmin.navLicenseCardPrintJobs]] und [[LtfAdmin.navPrinterProfiles]] so zusammen wie das Vereins-Dashboard. Druckaufträge listen die Jobs aller Vereine; Vorschau, Download und Löschen stehen im Zeilenmenü. Druckerprofile speichern den X/Y-Versatz bekannter Drucker.
 
 ![Der Karten-Designer](fig:designer)
 

@@ -454,9 +454,8 @@ The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navIn
 [[navPrinting]] lists the club's card print jobs. The same section also opens [[navPrinterProfiles]], where a printer's X/Y offset is stored.
 
 1. Open [[navPrinting]].
-2. When a job shows [[printJobStatusSucceeded]], click [[printJobPreviewPdfAction]] to open the PDF, or [[printJobDownloadPdfAction]] to save `license-cards_<club>_<job>_<date>.pdf`. Print the file at 100 % (no “fit to page”).
-3. [[printJobExecuteAction]], [[printJobRetryAction]] and [[printJobCancelAction]] stay in the row menu.
-4. Click [[deleteAction]] and confirm to remove a draft, succeeded, failed or cancelled job. Cancel a queued or running job before deleting it.
+2. Open the row menu. When a job shows [[printJobStatusSucceeded]], click [[printJobPreviewPdfAction]] to open the PDF, or [[printJobDownloadPdfAction]] to save `license-cards_<club>_<job>_<date>.pdf`. Print the file at 100 % (no “fit to page”).
+3. The same menu holds [[printJobExecuteAction]], [[printJobRetryAction]] and [[printJobCancelAction]]. [[deleteAction]] is last. Confirm to remove a draft, succeeded, failed or cancelled job. Cancel a queued or running job before deleting it.
 
 ![Print jobs](fig:print-jobs)
 
@@ -940,7 +939,7 @@ The overview counts clubs, members and licences, and its action queue lists club
 
 ## Licence cards {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, licence number and QR code. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as the club dashboard. Print jobs lists every club's jobs, with preview, download and delete. Printer profiles stores the X/Y offsets of known printers.
+[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, licence number and QR code. The row menu also sets the default, saves a copy, exports, or deletes the template. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as the club dashboard. Print jobs lists every club's jobs; preview, download and delete are in the row menu. Printer profiles stores the X/Y offsets of known printers.
 
 ![The card designer](fig:designer)
 

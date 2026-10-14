@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Eye, Trash2 } from "lucide-react";
 
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 
@@ -40,5 +41,33 @@ describe("RowActionMenu", () => {
     const menu = screen.getByRole("menu", { name: "Row actions" });
     fireEvent.keyDown(menu, { key: "ArrowDown" });
     expect(document.activeElement).toHaveAccessibleName("Cancel");
+  });
+
+  it("shows an icon beside the label and styles a destructive action", () => {
+    render(
+      <RowActionMenu
+        label="Row actions"
+        actions={[
+          {
+            key: "preview",
+            label: "Preview PDF",
+            icon: <Eye aria-hidden="true" />,
+            onSelect: () => undefined,
+          },
+          {
+            key: "delete",
+            label: "Delete",
+            icon: <Trash2 aria-hidden="true" />,
+            destructive: true,
+            onSelect: () => undefined,
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Row actions" }));
+    const preview = screen.getByRole("menuitem", { name: "Preview PDF" });
+    expect(preview.querySelector("svg")).not.toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveClass("text-destructive");
   });
 });

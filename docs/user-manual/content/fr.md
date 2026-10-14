@@ -454,9 +454,8 @@ La commande et sa facture apparaissent dans [[navFinance]] › [[navOrders]] et 
 [[navPrinting]] liste les tâches d'impression de cartes du club. La même section ouvre aussi [[navPrinterProfiles]], où le décalage X/Y d'une imprimante est enregistré.
 
 1. Ouvrez [[navPrinting]].
-2. Quand une tâche affiche [[printJobStatusSucceeded]], cliquez sur [[printJobPreviewPdfAction]] pour ouvrir le PDF, ou sur [[printJobDownloadPdfAction]] pour enregistrer `license-cards_<club>_<tâche>_<date>.pdf`. Imprimez le fichier à 100 % (sans « ajuster à la page »).
-3. [[printJobExecuteAction]], [[printJobRetryAction]] et [[printJobCancelAction]] restent dans le menu de la ligne.
-4. Cliquez sur [[deleteAction]] et confirmez pour retirer une tâche brouillon, réussie, échouée ou annulée. Annulez d'abord une tâche en file ou en cours.
+2. Ouvrez le menu de la ligne. Quand une tâche affiche [[printJobStatusSucceeded]], cliquez sur [[printJobPreviewPdfAction]] pour ouvrir le PDF, ou sur [[printJobDownloadPdfAction]] pour enregistrer `license-cards_<club>_<tâche>_<date>.pdf`. Imprimez le fichier à 100 % (sans « ajuster à la page »).
+3. Le même menu contient [[printJobExecuteAction]], [[printJobRetryAction]] et [[printJobCancelAction]]. [[deleteAction]] est en dernier. Confirmez pour retirer une tâche brouillon, réussie, échouée ou annulée. Annulez d'abord une tâche en file ou en cours.
 
 ![Tâches d'impression](fig:print-jobs)
 
@@ -940,7 +939,7 @@ L'aperçu compte les clubs, les membres et les licences. Sa liste d'actions sign
 
 ## Cartes de licence {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] contient les modèles de carte. Ouvrez un modèle dans l'éditeur pour placer la photo, le nom, le grade, le numéro de licence et le code QR. Publiez une version et définissez-la par défaut : les administrateurs de club imprimeront avec elle. [[LtfAdmin.navPrinting]] regroupe [[LtfAdmin.navLicenseCardPrintJobs]] et [[LtfAdmin.navPrinterProfiles]] comme sur le tableau de bord du club. Les tâches d'impression listent les jobs de tous les clubs, avec aperçu, téléchargement et suppression. Les profils d'imprimante enregistrent le décalage X/Y des imprimantes connues.
+[[LtfAdmin.navLicenseCards]] contient les modèles de carte. Ouvrez un modèle dans l'éditeur pour placer la photo, le nom, le grade, le numéro de licence et le code QR. Le menu de la ligne définit aussi le modèle par défaut, en enregistre une copie, l'exporte ou le supprime. Publiez une version et définissez-la par défaut : les administrateurs de club imprimeront avec elle. [[LtfAdmin.navPrinting]] regroupe [[LtfAdmin.navLicenseCardPrintJobs]] et [[LtfAdmin.navPrinterProfiles]] comme sur le tableau de bord du club. Les tâches d'impression listent les jobs de tous les clubs ; l'aperçu, le téléchargement et la suppression sont dans le menu de la ligne. Les profils d'imprimante enregistrent le décalage X/Y des imprimantes connues.
 
 ![L'éditeur de cartes](fig:designer)
 

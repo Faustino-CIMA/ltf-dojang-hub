@@ -58,13 +58,12 @@ Event calendar (module `event_calendar`; federation when entitled, club when ass
 
 Print jobs pages support:
 - status filtering/search,
-- Preview PDF (opens the file) and Download PDF (saves `license-cards_<club-or-LTF>_<job id>_<YYYY-MM-DD>.pdf`) when status is `succeeded`,
-- execute/retry/cancel in the row menu,
+- a row menu whose order is Preview PDF (opens the file), Download PDF (saves `license-cards_<club-or-LTF>_<job id>_<YYYY-MM-DD>.pdf`) when status is `succeeded`, then execute, retry, and cancel, with delete last,
 - delete, with confirmation, for a draft, succeeded, failed, or cancelled job on both the club and LTF tables. A queued or running job stays until it is cancelled.
 
-LTF Printing is one sidebar item with tabs for card print jobs and printer profiles, matching the club Printing section.
+LTF Printing is one sidebar item with tabs for card print jobs and printer profiles, matching the club Printing section. License card template rows use the same row menu for open designer, set default, save as new, export, and delete.
 
-Members, Actions, Clubs, and Licenses on the club members list, the LTF clubs list, and the LTF licenses list open as popovers. The label uses the normal field text color. Print-job rows use outline buttons with an icon and a short label for preview, download, and delete. Execute, retry, and cancel stay in the row menu.
+Members, Actions, Clubs, and Licenses on the club members list, the LTF clubs list, and the LTF licenses list open as popovers. The label uses the normal field text color.
 
 License Card v2 designer capabilities:
 - Full-height design workspace (no LTF sidebar). Tools, canvas, and inspector stay on screen; preview/print opens from the top bar.
