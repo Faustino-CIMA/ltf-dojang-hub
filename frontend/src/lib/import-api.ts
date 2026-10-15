@@ -25,6 +25,9 @@ type ImportRow = {
   errors: string[];
   duplicate: boolean;
   existing_id: number | null;
+  disposition?: "create" | "update" | "skip";
+  changed_fields?: string[];
+  match_by?: "ltf_licenseid" | "wt_licenseid" | "name_dob" | null;
 };
 
 type ConfirmResponse = {
@@ -43,7 +46,8 @@ export async function previewImport(
   file: File,
   mapping?: Record<string, string>,
   clubId?: number,
-  dateFormat?: string
+  dateFormat?: string,
+  updateMode?: string
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -55,6 +59,9 @@ export async function previewImport(
   }
   if (dateFormat) {
     formData.append("date_format", dateFormat);
+  }
+  if (updateMode) {
+    formData.append("update_mode", updateMode);
   }
 
   return upload<PreviewResponse>(`/api/imports/${type}/preview/`, formData);
@@ -79,11 +86,12 @@ export async function confirmImport(
   type: ImportType,
   file: File,
   mapping: Record<string, string>,
-  actions: Array<{ row_index: number; action: "create" | "skip" }>,
+  actions: Array<{ row_index: number; action: "create" | "update" | "skip" }>,
   clubId?: number,
   dateFormat?: string,
   rowOverrides?: ConfirmRowOverridePayload[],
-  membershipYearPolicies?: MembershipYearPoliciesPayload
+  membershipYearPolicies?: MembershipYearPoliciesPayload,
+  updateMode?: string
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -100,6 +108,9 @@ export async function confirmImport(
   }
   if (membershipYearPolicies?.enabled) {
     formData.append("membership_year_policies", JSON.stringify(membershipYearPolicies));
+  }
+  if (updateMode) {
+    formData.append("update_mode", updateMode);
   }
 
   return upload<ConfirmResponse>(`/api/imports/${type}/confirm/`, formData);

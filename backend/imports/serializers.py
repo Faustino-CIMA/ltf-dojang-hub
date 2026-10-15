@@ -23,6 +23,7 @@ class ImportPreviewResponseSerializer(serializers.Serializer):
 
 class ImportConfirmResponseSerializer(serializers.Serializer):
     created = serializers.IntegerField()
+    updated = serializers.IntegerField(required=False)
     skipped = serializers.IntegerField()
     errors = serializers.ListField(child=serializers.DictField())
     club_id = serializers.IntegerField(required=False)

@@ -12,9 +12,17 @@ from clubs.banking import derive_bank_name_from_iban, is_valid_iban, normalize_i
 from clubs.models import Club
 from members.models import Member
 from members.services import apply_ltf_license_id_import_prefix, ltf_license_prefix_rewrite_policy
+from ops.request_utils import write_ops_audit
 
 from .csv_utils import read_csv, to_row_dict
 from .mapping import detect_membership_end_date_header, suggest_member_mapping
+from .member_match import (
+    MemberMatchIndex,
+    json_safe,
+    parse_update_mode,
+    plan_member_row,
+    remember_planned_member,
+)
 from .serializers import (
     ImportBaseSerializer,
     ImportConfirmResponseSerializer,
@@ -305,6 +313,131 @@ def get_member_club_id(request):
     return club_id, None
 
 
+def parse_member_import_row(
+    row_data,
+    mapping,
+    date_format,
+    headers,
+    *,
+    rewrite_enabled,
+    has_row_override=False,
+    override=None,
+):
+    override = override or {}
+    errors = []
+    first_name = row_data.get(mapping.get("first_name", ""), "").strip()
+    last_name = row_data.get(mapping.get("last_name", ""), "").strip()
+    if not first_name:
+        errors.append("first_name is required")
+    if not last_name:
+        errors.append("last_name is required")
+
+    dob_header = str(mapping.get("date_of_birth") or "").strip()
+    dob = parse_date(
+        row_data.get(dob_header, "").strip() if dob_header else "",
+        errors,
+        "date_of_birth",
+        date_format,
+    )
+    sex_header = str(mapping.get("sex") or "").strip()
+    sex_value = normalize_sex(
+        row_data.get(sex_header, "").strip() if sex_header else "",
+        errors,
+    )
+    is_active_header = str(mapping.get("is_active") or "").strip()
+    is_active_mapped = bool(is_active_header)
+    is_active_value = parse_boolean(
+        row_data.get(is_active_header, "").strip() if is_active_header else "",
+        errors,
+        "is_active",
+    )
+    if has_row_override and is_active_mapped and "is_active" in override:
+        override_active = override.get("is_active")
+        if override_active is True or override_active is False:
+            is_active_value = override_active
+
+    primary_license_role = resolve_license_role_value(
+        has_row_override,
+        override,
+        "primary_license_role",
+        row_data.get(mapping.get("primary_license_role", ""), "").strip(),
+        errors,
+    )
+    secondary_license_role = resolve_license_role_value(
+        has_row_override,
+        override,
+        "secondary_license_role",
+        row_data.get(mapping.get("secondary_license_role", ""), "").strip(),
+        errors,
+    )
+    if secondary_license_role and not primary_license_role:
+        errors.append("secondary_license_role requires primary_license_role")
+    if (
+        primary_license_role
+        and secondary_license_role
+        and primary_license_role == secondary_license_role
+    ):
+        errors.append("secondary_license_role must differ from primary_license_role")
+
+    wt_licenseid, ltf_licenseid, ltf_rewritten = resolve_import_license_ids(
+        row_data, mapping, rewrite_enabled
+    )
+    belt_header = str(mapping.get("belt_rank") or "").strip()
+    email_header = str(mapping.get("email") or "").strip()
+    return {
+        "errors": errors,
+        "first_name": first_name,
+        "last_name": last_name,
+        "date_of_birth": dob,
+        "belt_rank": row_data.get(belt_header, "").strip() if belt_header else "",
+        "email": row_data.get(email_header, "").strip() if email_header else "",
+        "wt_licenseid": wt_licenseid,
+        "ltf_licenseid": ltf_licenseid,
+        "ltf_rewritten": ltf_rewritten,
+        "sex": sex_value,
+        "is_active": is_active_value,
+        "is_active_mapped": is_active_mapped,
+        "primary_license_role": primary_license_role,
+        "secondary_license_role": secondary_license_role,
+        "membership_end_year": membership_end_year_for_row(
+            row_data, mapping, date_format, headers
+        ),
+    }
+
+
+def _preview_payload(parsed):
+    dob = parsed["date_of_birth"]
+    return {
+        "first_name": parsed["first_name"],
+        "last_name": parsed["last_name"],
+        "date_of_birth": dob.isoformat() if dob else None,
+        "belt_rank": parsed["belt_rank"],
+        "email": parsed["email"],
+        "wt_licenseid": parsed["wt_licenseid"],
+        "ltf_licenseid": parsed["ltf_licenseid"],
+        "sex": parsed["sex"],
+        "is_active": parsed["is_active"],
+        "primary_license_role": parsed["primary_license_role"],
+        "secondary_license_role": parsed["secondary_license_role"],
+        "membership_end_year": parsed["membership_end_year"],
+    }
+
+
+def _record_member_import_update(request, member, changes: dict):
+    serialized = {}
+    for field, new_value in changes.items():
+        previous = getattr(member, field, None)
+        serialized[field] = {"from": json_safe(previous), "to": json_safe(new_value)}
+    write_ops_audit(
+        request,
+        action="member_import_update",
+        target_type="member",
+        target_id=member.pk,
+        message="Member import updated " + ", ".join(serialized),
+        metadata={"changes": serialized, "club_id": member.club_id},
+    )
+
+
 class ClubImportPreviewView(views.APIView):
     parser_classes = [MultiPartParser]
     permission_classes = [IsLtfAdmin]
@@ -491,115 +624,48 @@ class MemberImportPreviewView(views.APIView):
                 status=400,
             )
 
-        existing_members = {
-            (m.first_name.lower(), m.last_name.lower()): m.id
-            for m in Member.objects.filter(club_id=club_id).only("id", "first_name", "last_name")
-        }
-        existing_wt_ids = {
-            value.strip().upper()
-            for value in Member.objects.exclude(wt_licenseid="")
-            .values_list("wt_licenseid", flat=True)
-            .iterator()
-            if value
-        }
-        existing_ltf_ids = {
-            value.strip().upper()
-            for value in Member.objects.exclude(ltf_licenseid="")
-            .values_list("ltf_licenseid", flat=True)
-            .iterator()
-            if value
-        }
-        seen_wt_ids = set()
-        seen_ltf_ids = set()
+        update_mode = parse_update_mode(request.data.get("update_mode"))
+        match_index = MemberMatchIndex(club_id)
         rewrite_enabled = ltf_license_prefix_rewrite_policy()["enabled"]
         rewritten_count = 0
+        summary = {"create": 0, "update": 0, "skip": 0}
 
         preview_rows = []
         for index, row in enumerate(rows, start=1):
             row_data = to_row_dict(headers, row)
-            errors = []
-            first_name = row_data.get(first_header, "").strip()
-            last_name = row_data.get(last_header, "").strip()
-            if not first_name:
-                errors.append("first_name is required")
-            if not last_name:
-                errors.append("last_name is required")
-
-            dob = parse_date(
-                row_data.get(mapping.get("date_of_birth", ""), "").strip(),
-                errors,
-                "date_of_birth",
+            parsed = parse_member_import_row(
+                row_data,
+                mapping,
                 date_format,
+                headers,
+                rewrite_enabled=rewrite_enabled,
             )
-            sex_value = normalize_sex(
-                row_data.get(mapping.get("sex", ""), "").strip(),
-                errors,
-            )
-            is_active_value = parse_boolean(
-                row_data.get(mapping.get("is_active", ""), "").strip(),
-                errors,
-                "is_active",
-            )
-            primary_license_role = normalize_license_role(
-                row_data.get(mapping.get("primary_license_role", ""), "").strip(),
-                errors,
-                "primary_license_role",
-            )
-            secondary_license_role = normalize_license_role(
-                row_data.get(mapping.get("secondary_license_role", ""), "").strip(),
-                errors,
-                "secondary_license_role",
-            )
-            if secondary_license_role and not primary_license_role:
-                errors.append("secondary_license_role requires primary_license_role")
-            if (
-                primary_license_role
-                and secondary_license_role
-                and primary_license_role == secondary_license_role
-            ):
-                errors.append("secondary_license_role must differ from primary_license_role")
-            duplicate_id = (
-                existing_members.get((first_name.lower(), last_name.lower()))
-                if first_name and last_name
-                else None
-            )
-            wt_licenseid, ltf_licenseid, ltf_rewritten = resolve_import_license_ids(
-                row_data, mapping, rewrite_enabled
-            )
-            if ltf_rewritten:
+            if parsed["ltf_rewritten"]:
                 rewritten_count += 1
-            if wt_licenseid:
-                if wt_licenseid in existing_wt_ids or wt_licenseid in seen_wt_ids:
-                    errors.append("wt_licenseid must be unique")
-                seen_wt_ids.add(wt_licenseid)
-            if ltf_licenseid:
-                if ltf_licenseid in existing_ltf_ids or ltf_licenseid in seen_ltf_ids:
-                    errors.append("ltf_licenseid must be unique")
-                seen_ltf_ids.add(ltf_licenseid)
-            membership_end_year = membership_end_year_for_row(
-                row_data, mapping, date_format, headers
+            plan = plan_member_row(
+                user=request.user,
+                club_id=club_id,
+                update_mode=update_mode,
+                mapping=mapping,
+                match_index=match_index,
+                parsed=parsed,
             )
-
+            if not plan["errors"] and plan["disposition"] in {"create", "update"}:
+                remember_planned_member(
+                    match_index, club_id=club_id, parsed=parsed, plan=plan
+                )
+            if not plan["errors"]:
+                summary[plan["disposition"]] += 1
             preview_rows.append(
                 {
                     "row_index": index,
-                    "data": {
-                        "first_name": first_name,
-                        "last_name": last_name,
-                        "date_of_birth": dob.isoformat() if dob else None,
-                        "belt_rank": row_data.get(mapping.get("belt_rank", ""), "").strip(),
-                        "email": row_data.get(mapping.get("email", ""), "").strip(),
-                        "wt_licenseid": wt_licenseid,
-                        "ltf_licenseid": ltf_licenseid,
-                        "sex": sex_value,
-                        "is_active": is_active_value,
-                        "primary_license_role": primary_license_role,
-                        "secondary_license_role": secondary_license_role,
-                        "membership_end_year": membership_end_year,
-                    },
-                    "errors": errors,
-                    "duplicate": bool(duplicate_id),
-                    "existing_id": duplicate_id,
+                    "data": _preview_payload(parsed),
+                    "errors": plan["errors"],
+                    "duplicate": plan["duplicate"],
+                    "existing_id": plan["existing_id"],
+                    "disposition": plan["disposition"],
+                    "changed_fields": plan["changed_fields"],
+                    "match_by": plan["match_by"],
                 }
             )
 
@@ -609,6 +675,8 @@ class MemberImportPreviewView(views.APIView):
                 "rows": preview_rows,
                 "total_rows": len(rows),
                 "club_id": club_id,
+                "update_mode": update_mode,
+                "summary": summary,
                 "membership_end_date_header": detect_membership_end_date_header(
                     headers, mapping
                 ),
@@ -660,24 +728,11 @@ class MemberImportConfirmView(views.APIView):
             )
 
         created = 0
+        updated = 0
         skipped = 0
         row_errors = []
-        existing_wt_ids = {
-            value.strip().upper()
-            for value in Member.objects.exclude(wt_licenseid="")
-            .values_list("wt_licenseid", flat=True)
-            .iterator()
-            if value
-        }
-        existing_ltf_ids = {
-            value.strip().upper()
-            for value in Member.objects.exclude(ltf_licenseid="")
-            .values_list("ltf_licenseid", flat=True)
-            .iterator()
-            if value
-        }
-        created_wt_ids = set()
-        created_ltf_ids = set()
+        update_mode = parse_update_mode(request.data.get("update_mode"))
+        match_index = MemberMatchIndex(club_id)
         rewrite_enabled = ltf_license_prefix_rewrite_policy()["enabled"]
         rewritten_count = 0
 
@@ -696,83 +751,46 @@ class MemberImportConfirmView(views.APIView):
                 if year_policy == "skip":
                     skipped += 1
                     continue
-                errors = []
-                first_name = row_data.get(first_header, "").strip()
-                last_name = row_data.get(last_header, "").strip()
-                if not first_name:
-                    errors.append("first_name is required")
-                if not last_name:
-                    errors.append("last_name is required")
 
-                dob = parse_date(
-                    row_data.get(mapping.get("date_of_birth", ""), "").strip(),
-                    errors,
-                    "date_of_birth",
-                    date_format,
-                )
-                sex_value = normalize_sex(
-                    row_data.get(mapping.get("sex", ""), "").strip(),
-                    errors,
-                )
-                is_active_value = parse_boolean(
-                    row_data.get(mapping.get("is_active", ""), "").strip(),
-                    errors,
-                    "is_active",
-                )
-
-                # Get row overrides if present (Step 3 role corrections from frontend)
                 has_row_override = index in row_overrides
                 override = row_overrides.get(index, {})
-                primary_license_role = resolve_license_role_value(
-                    has_row_override,
-                    override,
-                    "primary_license_role",
-                    row_data.get(mapping.get("primary_license_role", ""), "").strip(),
-                    errors,
+                parsed = parse_member_import_row(
+                    row_data,
+                    mapping,
+                    date_format,
+                    headers,
+                    rewrite_enabled=rewrite_enabled,
+                    has_row_override=has_row_override,
+                    override=override,
                 )
-                secondary_license_role = resolve_license_role_value(
-                    has_row_override,
-                    override,
-                    "secondary_license_role",
-                    row_data.get(mapping.get("secondary_license_role", ""), "").strip(),
-                    errors,
+                plan = plan_member_row(
+                    user=request.user,
+                    club_id=club_id,
+                    update_mode=update_mode,
+                    mapping=mapping,
+                    match_index=match_index,
+                    parsed=parsed,
                 )
-
-                if secondary_license_role and not primary_license_role:
-                    errors.append("secondary_license_role requires primary_license_role")
-                if (
-                    primary_license_role
-                    and secondary_license_role
-                    and primary_license_role == secondary_license_role
-                ):
-                    errors.append("secondary_license_role must differ from primary_license_role")
-                wt_licenseid, ltf_licenseid, ltf_rewritten = resolve_import_license_ids(
-                    row_data, mapping, rewrite_enabled
-                )
-                if wt_licenseid:
-                    if wt_licenseid in existing_wt_ids or wt_licenseid in created_wt_ids:
-                        errors.append("wt_licenseid must be unique")
-                if ltf_licenseid:
-                    if ltf_licenseid in existing_ltf_ids or ltf_licenseid in created_ltf_ids:
-                        errors.append("ltf_licenseid must be unique")
-
-                if errors:
-                    row_errors.append({"row_index": index, "errors": errors})
+                if plan["errors"]:
+                    row_errors.append({"row_index": index, "errors": plan["errors"]})
                     continue
-                member_payload = {
-                    "club_id": club_id,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "date_of_birth": dob,
-                    "belt_rank": row_data.get(mapping.get("belt_rank", ""), "").strip(),
-                    "email": row_data.get(mapping.get("email", ""), "").strip(),
-                    "wt_licenseid": wt_licenseid,
-                    "ltf_licenseid": ltf_licenseid,
-                    "primary_license_role": primary_license_role,
-                    "secondary_license_role": secondary_license_role,
-                }
-                if sex_value:
-                    member_payload["sex"] = sex_value
+                if plan["disposition"] == "skip":
+                    skipped += 1
+                    continue
+                if plan["disposition"] == "update":
+                    member = plan["member"]
+                    changes = plan["changes"]
+                    _record_member_import_update(request, member, changes)
+                    for field, value in changes.items():
+                        setattr(member, field, value)
+                    member.save(update_fields=[*changes.keys(), "updated_at"])
+                    match_index.reindex(member)
+                    if parsed["ltf_rewritten"]:
+                        rewritten_count += 1
+                    updated += 1
+                    continue
+
+                is_active_value = parsed["is_active"]
                 if has_row_override and "is_active" in override:
                     override_active = override.get("is_active")
                     if override_active is True or override_active is False:
@@ -781,23 +799,36 @@ class MemberImportConfirmView(views.APIView):
                     is_active_value = True
                 elif year_policy == "inactive":
                     is_active_value = False
+                member_payload = {
+                    "club_id": club_id,
+                    "first_name": parsed["first_name"],
+                    "last_name": parsed["last_name"],
+                    "date_of_birth": parsed["date_of_birth"],
+                    "belt_rank": parsed["belt_rank"],
+                    "email": parsed["email"],
+                    "wt_licenseid": parsed["wt_licenseid"],
+                    "ltf_licenseid": parsed["ltf_licenseid"],
+                    "primary_license_role": parsed["primary_license_role"],
+                    "secondary_license_role": parsed["secondary_license_role"],
+                }
+                if parsed["sex"]:
+                    member_payload["sex"] = parsed["sex"]
                 if is_active_value is not None:
                     member_payload["is_active"] = is_active_value
-                Member.objects.create(**member_payload)
-                if wt_licenseid:
-                    created_wt_ids.add(wt_licenseid)
-                if ltf_licenseid:
-                    created_ltf_ids.add(ltf_licenseid)
-                if ltf_rewritten:
+                created_member = Member.objects.create(**member_payload)
+                match_index.register(created_member)
+                if parsed["ltf_rewritten"]:
                     rewritten_count += 1
                 created += 1
 
         return response.Response(
             {
                 "created": created,
+                "updated": updated,
                 "skipped": skipped,
                 "errors": row_errors,
                 "club_id": club_id,
+                "update_mode": update_mode,
                 "ltf_license_prefix_rewrite": ltf_license_prefix_rewrite_policy(
                     rewritten_count=rewritten_count
                 ),

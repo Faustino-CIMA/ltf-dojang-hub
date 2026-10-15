@@ -119,30 +119,36 @@ class Member(models.Model):
             ),
         ]
 
+    @staticmethod
+    def normalize_first_name(value) -> str:
+        first_name_value = str(value or "").strip()
+        if not first_name_value:
+            return ""
+        formatted_words = []
+        for word in first_name_value.split():
+            if "-" in word:
+                formatted_words.append("-".join(part.capitalize() for part in word.split("-")))
+            else:
+                formatted_words.append(word.capitalize())
+        return " ".join(formatted_words)
+
+    @staticmethod
+    def normalize_last_name(value) -> str:
+        last_name_value = str(value or "").strip()
+        if not last_name_value:
+            return ""
+        formatted_words = []
+        for word in last_name_value.split():
+            if "-" in word:
+                formatted_words.append("-".join(part.upper() for part in word.split("-")))
+            else:
+                formatted_words.append(word.upper())
+        return " ".join(formatted_words)
+
     def save(self, *args, **kwargs):
         # Normalize names for consistent display/searching.
-        first_name_value = str(self.first_name or "")
-        if first_name_value:
-            words = first_name_value.split()
-            formatted_words = []
-            for word in words:
-                if "-" in word:
-                    formatted_words.append(
-                        "-".join(part.capitalize() for part in word.split("-"))
-                    )
-                else:
-                    formatted_words.append(word.capitalize())
-            self.first_name = " ".join(formatted_words)
-        last_name_value = str(self.last_name or "")
-        if last_name_value:
-            words = last_name_value.split()
-            formatted_words = []
-            for word in words:
-                if "-" in word:
-                    formatted_words.append("-".join(part.upper() for part in word.split("-")))
-                else:
-                    formatted_words.append(word.upper())
-            self.last_name = " ".join(formatted_words)
+        self.first_name = self.normalize_first_name(self.first_name)
+        self.last_name = self.normalize_last_name(self.last_name)
         primary_role = self.canonicalize_license_role(self.primary_license_role)
         if primary_role:
             self.primary_license_role = primary_role
