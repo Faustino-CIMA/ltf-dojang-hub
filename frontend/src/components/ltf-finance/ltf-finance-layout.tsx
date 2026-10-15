@@ -2,16 +2,18 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Scale, ScrollText, Wallet } from "lucide-react";
 
-import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
 import { ltfFinanceSidebarGroup } from "@/lib/sidebar-groups";
 
 type LtfFinanceLayoutProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  persistent?: boolean;
 };
 
 type NavMatchMode = "exact" | "prefix";
@@ -101,7 +103,8 @@ const LTF_FINANCE_NAV_DEFINITIONS: LtfFinanceNavDef[] = [
   },
 ];
 
-export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayoutProps) {
+function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle });
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -123,9 +126,30 @@ export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayout
     [common, locale, t]
   );
 
+  const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
+  const titleText = pageHeader.title || activeLabel;
+
   return (
-    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      <div className="space-y-6">{children}</div>
-    </AppShell>
+    <DashboardShellContext.Provider value={pageHeader.shell}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems}>
+        <div className="space-y-6">{children}</div>
+      </AppShell>
+    </DashboardShellContext.Provider>
+  );
+}
+
+export function LtfFinanceLayout({ title = "", subtitle, children, persistent = false }: LtfFinanceLayoutProps) {
+  const shell = useContext(DashboardShellContext);
+  if (persistent || !shell) {
+    return (
+      <LtfFinanceShell title={title} subtitle={subtitle}>
+        {children}
+      </LtfFinanceShell>
+    );
+  }
+  return (
+    <DashboardHeaderSync title={title} subtitle={subtitle}>
+      {children}
+    </DashboardHeaderSync>
   );
 }

@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
   Building2,
@@ -18,7 +18,8 @@ import {
   Users,
 } from "lucide-react";
 
-import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
 import { LtfPrintingTabs } from "@/components/ltf-admin/ltf-printing-tabs";
 import { ltfSidebarGroup } from "@/lib/sidebar-groups";
 import { useCalendarAttention } from "@/components/events/use-calendar-attention";
@@ -32,9 +33,10 @@ import {
 } from "@/lib/modules-api";
 
 type LtfAdminLayoutProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  persistent?: boolean;
 };
 
 type NavMatchMode = "exact" | "prefix";
@@ -94,7 +96,8 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
-export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProps) {
+function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle });
   const t = useTranslations("LtfAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -162,21 +165,42 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
     [calendarAttention, calendarEntitled, clubMgmtEntitled, common, locale, previewEntitled, t]
   );
 
+  const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
+  const titleText = pageHeader.title || activeLabel;
+
   return (
-    <AppShell
-      title={title}
-      subtitle={subtitle}
-      navItems={navItems}
-      variant={isDesignerWorkspace ? "workspace" : "default"}
-    >
-      {isPrinting ? (
-        <div className="space-y-6">
-          <LtfPrintingTabs />
-          {children}
-        </div>
-      ) : (
-        children
-      )}
-    </AppShell>
+    <DashboardShellContext.Provider value={pageHeader.shell}>
+      <AppShell
+        title={titleText}
+        subtitle={pageHeader.subtitle}
+        navItems={navItems}
+        variant={isDesignerWorkspace ? "workspace" : "default"}
+      >
+        {isPrinting ? (
+          <div className="space-y-6">
+            <LtfPrintingTabs />
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </AppShell>
+    </DashboardShellContext.Provider>
+  );
+}
+
+export function LtfAdminLayout({ title = "", subtitle, children, persistent = false }: LtfAdminLayoutProps) {
+  const shell = useContext(DashboardShellContext);
+  if (persistent || !shell) {
+    return (
+      <LtfAdminShell title={title} subtitle={subtitle}>
+        {children}
+      </LtfAdminShell>
+    );
+  }
+  return (
+    <DashboardHeaderSync title={title} subtitle={subtitle}>
+      {children}
+    </DashboardHeaderSync>
   );
 }

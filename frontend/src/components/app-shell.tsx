@@ -81,7 +81,7 @@ function itemMatches(pathname: string, item: AppNavItem) {
   return (item.extraMatchHrefs ?? []).some((href) => pathMatches(pathname, href, "prefix"));
 }
 
-function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
+export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   if (!pathname) {
     return null;
   }
@@ -233,14 +233,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
             </div>
           )}
         </div>
-        <nav aria-label={t("navigationLabel")} className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-4", iconOnly ? "px-2" : "px-3")}>
+        <nav aria-label={t("navigationLabel")} className={cn("sidebar-scroll flex min-h-0 flex-1 flex-col gap-1 pb-4", iconOnly ? "px-2" : "px-3")}>
           {blocks.map((block, index) => (
             <div key={block.key} className="flex flex-col gap-1">
               {index > 0 ? (
                 <div className={cn("mx-2 border-t border-border", iconOnly ? "my-1" : "mt-3")} role="presentation" />
               ) : null}
               {block.group && !iconOnly ? (
-                <p className={cn("px-3 pb-1 text-center text-sm font-normal italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}>
+                <p className={cn("sidebar-group-label px-3 pb-1 text-center text-sm italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}>
                   {block.group.label}
                 </p>
               ) : null}
@@ -258,11 +258,11 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                     title={iconOnly ? accessibleName ?? item.label : undefined}
                     aria-label={accessibleName}
                     aria-current={isActive ? "page" : undefined}
+                    data-has-badge={item.badgeCount || item.badgeNew ? "true" : undefined}
                     onClick={() => setNavOpen(false)}
                     className={cn(
-                      "relative flex min-h-[var(--control-height)] items-center rounded-[var(--radius-control)] text-sm font-medium transition-colors",
-                      iconOnly ? "justify-center px-0" : "gap-3 px-3",
-                      item.badgeCount || item.badgeNew ? "pt-3" : "",
+                      "sidebar-nav-link relative transition-colors",
+                      iconOnly && "sidebar-nav-link-icon",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted hover:bg-secondary hover:text-foreground"
@@ -288,7 +288,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                         {countLabel}
                       </span>
                     ) : null}
-                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <Icon className="sidebar-nav-icon size-4 shrink-0" aria-hidden />
                     <span className={cn("truncate", iconOnly && "sr-only")}>{item.label}</span>
                   </Link>
                 );
