@@ -14,13 +14,6 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   ConfirmResponse,
   ImportRow,
   LtfLicensePrefixRewritePolicy,
@@ -44,6 +37,7 @@ import {
   unusedSourceHeaders,
 } from "@/lib/import-mapping";
 import { importResultTone, type ImportResultTone } from "@/lib/import-result";
+import { showImportWizardPrevious } from "@/lib/import-wizard-nav";
 import {
   DEFAULT_MEMBER_UPDATE_MODE,
   defaultMemberRowAction,
@@ -1185,6 +1179,18 @@ export function ImportWizardPage({
     value: option,
     label: dateFormatLabel(option),
   }));
+  const membershipYearOptions = [
+    { value: "skip", label: t("membershipYearSkip") },
+    { value: "active", label: t("membershipYearImportActive") },
+    { value: "inactive", label: t("membershipYearImportInactive") },
+  ];
+  const licenseRoleOptions = [
+    { value: "__none__", label: clubT("roleNoneOption") },
+    ...LICENSE_ROLE_VALUES.map((role) => ({
+      value: role,
+      label: clubT(licenseRoleMessageKey(role)),
+    })),
+  ];
   const changedFieldLabel = (field: string) => {
     const labels: Record<string, string> = {
       first_name: t("firstNameLabel"),
@@ -1309,7 +1315,7 @@ export function ImportWizardPage({
     resetFlow();
   };
 
-  const showBackButton = step !== "source";
+  const showBackButton = showImportWizardPrevious(step);
   const showListButton = step === "source" || step === "result";
   const summaryPreviewState: "idle" | "ready" | "stale" | "current" = !file
     ? "idle"
@@ -1398,19 +1404,20 @@ export function ImportWizardPage({
               {canSwitchType ? (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t("importTypeLabel")}</label>
-                  <Select value={importType} onValueChange={handleTypeChange}>
-                    <SelectTrigger className="w-64">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allowedTypes.includes("clubs") ? (
-                        <SelectItem value="clubs">{t("importClubs")}</SelectItem>
-                      ) : null}
-                      {allowedTypes.includes("members") ? (
-                        <SelectItem value="members">{t("importMembers")}</SelectItem>
-                      ) : null}
-                    </SelectContent>
-                  </Select>
+                  <PopoverSelect
+                    value={importType}
+                    onValueChange={handleTypeChange}
+                    ariaLabel={t("importTypeLabel")}
+                    className="w-64"
+                    options={[
+                      ...(allowedTypes.includes("clubs")
+                        ? [{ value: "clubs", label: t("importClubs") }]
+                        : []),
+                      ...(allowedTypes.includes("members")
+                        ? [{ value: "members", label: t("importMembers") }]
+                        : []),
+                    ]}
+                  />
                 </div>
               ) : null}
 
@@ -1419,21 +1426,20 @@ export function ImportWizardPage({
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">{t("clubLabel")}</label>
                     {allowClubSelection && !fixedClubId ? (
-                      <Select
+                      <PopoverSelect
                         value={selectedClubId ? String(selectedClubId) : ""}
                         onValueChange={handleClubChange}
-                      >
-                        <SelectTrigger className="w-80">
-                          <SelectValue placeholder={t("selectClubPlaceholder")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clubOptions.map((club) => (
-                            <SelectItem key={club.id} value={String(club.id)}>
-                              {club.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        ariaLabel={t("clubLabel")}
+                        placeholder={t("selectClubPlaceholder")}
+                        searchable
+                        searchPlaceholder={t("searchOptions")}
+                        emptyMessage={t("noMatches")}
+                        className="w-80"
+                        options={clubOptions.map((club) => ({
+                          value: String(club.id),
+                          label: club.name,
+                        }))}
+                      />
                     ) : (
                       <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
                         {selectedClubName ?? "-"}
@@ -1567,6 +1573,9 @@ export function ImportWizardPage({
                             onValueChange={(value) => setFieldMapping(field.key, value)}
                             ariaLabel={`${t("sourceColumnLabel")}: ${field.label}`}
                             placeholder={t("selectColumnPlaceholder")}
+                            searchable
+                            searchPlaceholder={t("searchColumns")}
+                            emptyMessage={t("noMatches")}
                             className="w-72"
                             options={[
                               { value: "__none__", label: t("notMappedOption") },
@@ -1669,7 +1678,7 @@ export function ImportWizardPage({
                               <td className="px-3 py-2 font-medium">{year}</td>
                               <td className="px-3 py-2">{count}</td>
                               <td className="px-3 py-2">
-                                <Select
+                                <PopoverSelect
                                   value={membershipYearPolicies[year] ?? "skip"}
                                   onValueChange={(value) => {
                                     const policy = value as MembershipYearPolicy;
@@ -1684,20 +1693,10 @@ export function ImportWizardPage({
                                       membershipUnknownPolicy
                                     );
                                   }}
-                                >
-                                  <SelectTrigger className="w-64">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="skip">{t("membershipYearSkip")}</SelectItem>
-                                    <SelectItem value="active">
-                                      {t("membershipYearImportActive")}
-                                    </SelectItem>
-                                    <SelectItem value="inactive">
-                                      {t("membershipYearImportInactive")}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  ariaLabel={`${t("membershipYearActionColumn")} ${year}`}
+                                  className="w-64"
+                                  options={membershipYearOptions}
+                                />
                               </td>
                             </tr>
                           ))}
@@ -1708,27 +1707,17 @@ export function ImportWizardPage({
                               </td>
                               <td className="px-3 py-2">{membershipYearSummary.unknown}</td>
                               <td className="px-3 py-2">
-                                <Select
+                                <PopoverSelect
                                   value={membershipUnknownPolicy}
                                   onValueChange={(value) => {
                                     const policy = value as MembershipYearPolicy;
                                     setMembershipUnknownPolicy(policy);
                                     applyYearPolicyState(true, membershipYearPolicies, policy);
                                   }}
-                                >
-                                  <SelectTrigger className="w-64">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="skip">{t("membershipYearSkip")}</SelectItem>
-                                    <SelectItem value="active">
-                                      {t("membershipYearImportActive")}
-                                    </SelectItem>
-                                    <SelectItem value="inactive">
-                                      {t("membershipYearImportInactive")}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  ariaLabel={t("membershipYearUnknown")}
+                                  className="w-64"
+                                  options={membershipYearOptions}
+                                />
                               </td>
                             </tr>
                           ) : null}
@@ -1928,7 +1917,7 @@ export function ImportWizardPage({
                                       <label className="block text-xs text-muted">
                                         {t("primaryLicenseRoleLabel")}:
                                       </label>
-                                      <Select
+                                      <PopoverSelect
                                         value={primaryValue}
                                         onValueChange={(value) => {
                                           const name =
@@ -1948,25 +1937,19 @@ export function ImportWizardPage({
                                             roleLabel: rLabel,
                                           });
                                         }}
-                                      >
-                                        <SelectTrigger className="h-8 w-full rounded-[var(--radius-form)] text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="__none__">{clubT("roleNoneOption")}</SelectItem>
-                                          {LICENSE_ROLE_VALUES.map((role) => (
-                                            <SelectItem key={role} value={role}>
-                                              {clubT(licenseRoleMessageKey(role))}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                        ariaLabel={t("primaryLicenseRoleLabel")}
+                                        searchable
+                                        searchPlaceholder={t("searchOptions")}
+                                        emptyMessage={t("noMatches")}
+                                        className="w-full"
+                                        options={licenseRoleOptions}
+                                      />
                                     </div>
                                     <div className="space-y-1">
                                       <label className="block text-xs text-muted">
                                         {t("secondaryLicenseRoleLabel")}:
                                       </label>
-                                      <Select
+                                      <PopoverSelect
                                         value={secondaryValue}
                                         onValueChange={(value) => {
                                           const name =
@@ -1986,22 +1969,20 @@ export function ImportWizardPage({
                                             roleLabel: rLabel,
                                           });
                                         }}
+                                        ariaLabel={t("secondaryLicenseRoleLabel")}
                                         disabled={!primarySelected}
-                                      >
-                                        <SelectTrigger
-                                          className={`h-8 w-full rounded-[var(--radius-form)] text-xs ${!primarySelected ? "opacity-50" : ""}`}
-                                        >
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="__none__">{clubT("roleNoneOption")}</SelectItem>
-                                          {secondaryOptions.map((role) => (
-                                            <SelectItem key={role} value={role}>
-                                              {clubT(licenseRoleMessageKey(role))}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                        searchable
+                                        searchPlaceholder={t("searchOptions")}
+                                        emptyMessage={t("noMatches")}
+                                        className="w-full"
+                                        options={[
+                                          { value: "__none__", label: clubT("roleNoneOption") },
+                                          ...secondaryOptions.map((role) => ({
+                                            value: role,
+                                            label: clubT(licenseRoleMessageKey(role)),
+                                          })),
+                                        ]}
+                                      />
                                     </div>
                                     {hasSameRoles ? (
                                       <p className="text-xs font-medium text-destructive">
@@ -2011,7 +1992,7 @@ export function ImportWizardPage({
                                   </div>
                                 </div>
                               ) : null}
-                              <Select
+                              <PopoverSelect
                                 value={
                                   hasSameRoles
                                     ? "skip"
@@ -2027,19 +2008,20 @@ export function ImportWizardPage({
                                   if (!hasSameRoles) setRowAction(row.row_index, value);
                                 }}
                                 disabled={hasSameRoles}
-                              >
-                                <SelectTrigger className={`w-full ${hasSameRoles ? "opacity-50" : ""}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {isMembersImport && row.disposition === "update" ? (
-                                    <SelectItem value="update">{t("updateAction")}</SelectItem>
-                                  ) : (
-                                    <SelectItem value="create">{t("createAction")}</SelectItem>
-                                  )}
-                                  <SelectItem value="skip">{t("skipAction")}</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                ariaLabel={`${t("actionLabel")} ${row.row_index}`}
+                                className="w-full"
+                                options={
+                                  isMembersImport && row.disposition === "update"
+                                    ? [
+                                        { value: "update", label: t("updateAction") },
+                                        { value: "skip", label: t("skipAction") },
+                                      ]
+                                    : [
+                                        { value: "create", label: t("createAction") },
+                                        { value: "skip", label: t("skipAction") },
+                                      ]
+                                }
+                              />
                             </div>
                           </td>
                         </tr>
@@ -2310,13 +2292,13 @@ export function ImportWizardPage({
         </aside>
       </div>
 
-      <section className="rounded-[var(--radius-card)] bg-card p-4 shadow-sm">
+      <section className="rounded-[var(--radius-card)] bg-card p-4 shadow-sm" data-wizard-nav>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             {showListButton ? (
               <Button variant="outline" asChild>
                 <Link href={step === "result" ? successHrefByType[importType] : backHrefByType[importType]}>
-                  {step === "result" ? t("backToList") : t("cancelAndBack")}
+                  {step === "result" ? t("backToMembers") : t("cancelAndBack")}
                 </Link>
               </Button>
             ) : null}
@@ -2326,7 +2308,12 @@ export function ImportWizardPage({
               </Button>
             ) : null}
           </div>
-          <Button variant="primary" onClick={handlePrimaryAction} disabled={primaryDisabled}>
+          <Button
+            variant="primary"
+            onClick={handlePrimaryAction}
+            disabled={primaryDisabled}
+            data-import-another={step === "result" ? "true" : undefined}
+          >
             {isLoading ? t("loadingAction") : primaryLabel}
           </Button>
         </div>
