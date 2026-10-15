@@ -427,3 +427,57 @@
 .app-loading-shimmer {
   animation: health-shimmer 1.4s ease-in-out infinite;
 }
+
+/* Unlayered so item metrics win over utility classes. Active, hover, and rest
+   only change color and shadow; the box stays on these tokens. */
+.sidebar-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--scrollbar) transparent;
+  scrollbar-gutter: stable;
+}
+
+.sidebar-group-label {
+  overflow: hidden;
+  font-weight: var(--sidebar-group-font-weight);
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav-link {
+  box-sizing: border-box;
+  display: flex;
+  height: var(--sidebar-item-height);
+  min-height: var(--sidebar-item-height);
+  max-height: var(--sidebar-item-height);
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 var(--sidebar-item-padding-x);
+  border-width: 0;
+  border-style: solid;
+  border-color: transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--text-body);
+  font-weight: var(--sidebar-item-font-weight);
+  line-height: 1.25rem;
+}
+
+.sidebar-nav-link-icon {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.sidebar-nav-link[data-has-badge="true"] {
+  align-items: end;
+  height: var(--sidebar-item-height);
+  padding-bottom: 0.375rem;
+}
+
+.sidebar-nav-link .sidebar-nav-icon {
+  width: var(--sidebar-item-icon-size);
+  height: var(--sidebar-item-icon-size);
+  flex-shrink: 0;
+}

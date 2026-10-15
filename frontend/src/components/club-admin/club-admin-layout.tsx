@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
 import {
@@ -30,7 +30,8 @@ import { useCalendarAttention } from "@/components/events/use-calendar-attention
 import { ClubPrintingTabs } from "@/components/club-admin/club-printing-tabs";
 import { ClubTrainingTabs } from "@/components/club-admin/club-training-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
-import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
 import { clubSidebarGroup } from "@/lib/sidebar-groups";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
@@ -42,9 +43,10 @@ import {
 } from "@/lib/modules-api";
 
 type ClubAdminLayoutProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  persistent?: boolean;
 };
 
 type NavMatchMode = "exact" | "prefix";
@@ -197,7 +199,8 @@ const CLUB_GROUP_RANK: Record<string, number> = {
   preview: 3,
 };
 
-export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutProps) {
+function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle });
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -287,20 +290,44 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
   const isPrinting =
     pathname?.includes("/dashboard/club/print-jobs") || pathname?.includes("/dashboard/club/printer-profiles");
   const isTraining = pathname?.includes("/dashboard/club/training");
+  const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
+  const titleText = pageHeader.title || activeLabel;
 
   return (
-    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      <IncomingTransferNotice />
-      {role === "club_admin" ? <EventReminderToasts /> : null}
-      {isPrinting || isTraining ? (
-        <div className="space-y-6">
-          {isPrinting ? <ClubPrintingTabs /> : null}
-          {isTraining ? <ClubTrainingTabs /> : null}
-          {children}
-        </div>
-      ) : (
-        children
-      )}
-    </AppShell>
+    <DashboardShellContext.Provider value={pageHeader.shell}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems}>
+        <IncomingTransferNotice />
+        {role === "club_admin" ? <EventReminderToasts /> : null}
+        {isPrinting || isTraining ? (
+          <div className="space-y-6">
+            {isPrinting ? <ClubPrintingTabs /> : null}
+            {isTraining ? <ClubTrainingTabs /> : null}
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </AppShell>
+    </DashboardShellContext.Provider>
   );
+}
+
+export function ClubAdminLayout({ title = "", subtitle, children, persistent = false }: ClubAdminLayoutProps) {
+  const shell = useDashboardShellContext();
+  if (persistent || !shell) {
+    return (
+      <ClubAdminShell title={title} subtitle={subtitle}>
+        {children}
+      </ClubAdminShell>
+    );
+  }
+  return (
+    <DashboardHeaderSync title={title} subtitle={subtitle}>
+      {children}
+    </DashboardHeaderSync>
+  );
+}
+
+function useDashboardShellContext() {
+  return useContext(DashboardShellContext);
 }

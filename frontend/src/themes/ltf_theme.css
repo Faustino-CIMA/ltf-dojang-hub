@@ -70,6 +70,11 @@
   /* Shell */
   --sidebar-width: 16.5rem;
   --sidebar-width-collapsed: 4.5rem;
+  --sidebar-item-height: var(--control-height);
+  --sidebar-item-padding-x: 0.75rem;
+  --sidebar-item-font-weight: 500;
+  --sidebar-item-icon-size: 1rem;
+  --sidebar-group-font-weight: 400;
   --topbar-height: 4rem;
 
   /* Control & layout sizing (desktop / compact defaults) */
