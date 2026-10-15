@@ -1082,6 +1082,39 @@ class MemberImportTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Member.objects.count(), 1)
 
+    def test_confirm_stores_dotted_month_first_and_excel_dates(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        cases = (
+            ("DD.MM.YYYY", "14.03.2015", date(2015, 3, 14), "Ana"),
+            ("MM/DD/YYYY", "03/14/2016", date(2016, 3, 14), "Ben"),
+            ("EXCEL", "36526", date(2000, 1, 1), "Cam"),
+        )
+        for date_format, raw, expected, first_name in cases:
+            with self.subTest(date_format=date_format):
+                csv_data = f"first_name,last_name,date_of_birth\n{first_name},Ng,{raw}\n"
+                file_obj = BytesIO(csv_data.encode("utf-8"))
+                file_obj.name = f"members-{date_format}.csv"
+                response = self.client.post(
+                    "/api/imports/members/confirm/",
+                    {
+                        "file": file_obj,
+                        "mapping": json.dumps(
+                            {
+                                "first_name": "first_name",
+                                "last_name": "last_name",
+                                "date_of_birth": "date_of_birth",
+                            }
+                        ),
+                        "club_id": self.club.id,
+                        "date_format": date_format,
+                    },
+                    format="multipart",
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+                self.assertEqual(response.data["created"], 1)
+                member = Member.objects.get(first_name=first_name)
+                self.assertEqual(member.date_of_birth, expected)
+
     def test_confirm_rejects_duplicate_ltf_licenseid(self):
         Member.objects.create(
             club=self.club,

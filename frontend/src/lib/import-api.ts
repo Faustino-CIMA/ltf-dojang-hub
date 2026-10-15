@@ -29,6 +29,7 @@ type ImportRow = {
 
 type ConfirmResponse = {
   created: number;
+  updated?: number;
   skipped: number;
   errors: Array<{ row_index: number; errors: string[] }>;
   club_id?: number;

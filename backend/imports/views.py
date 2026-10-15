@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from django.db import transaction
 from drf_spectacular.utils import extend_schema
@@ -168,19 +168,39 @@ def resolve_license_role_value(has_row_override, override, field_name, csv_value
     return normalize_license_role(csv_value, errors, field_name)
 
 
+def excel_serial_to_date(value):
+    text = str(value or "").strip()
+    if not re.fullmatch(r"\d+(?:\.0+)?", text):
+        return None
+    serial = int(float(text))
+    # Excel's 1900 date system, including the fictitious 1900-02-29, so modern
+    # dates use the 1899-12-30 epoch.
+    if serial < 1 or serial > 80000:
+        return None
+    return date(1899, 12, 30) + timedelta(days=serial)
+
+
 def parse_date(value, errors, field_name, date_format):
     if not value:
         return None
 
+    raw = str(value).strip()
+    if date_format == "EXCEL":
+        parsed = excel_serial_to_date(raw)
+        if parsed is None:
+            errors.append(f"{field_name} must match {date_format}")
+        return parsed
+
     formats = {
         "YYYY-MM-DD": "%Y-%m-%d",
         "DD/MM/YYYY": "%d/%m/%Y",
+        "MM/DD/YYYY": "%m/%d/%Y",
         "DD-MM-YYYY": "%d-%m-%Y",
         "DD.MM.YYYY": "%d.%m.%Y",
     }
     pattern = formats.get(date_format, "%Y-%m-%d")
     try:
-        parsed = date.fromisoformat(value) if pattern == "%Y-%m-%d" else datetime.strptime(value, pattern).date()
+        parsed = date.fromisoformat(raw) if pattern == "%Y-%m-%d" else datetime.strptime(raw, pattern).date()
         return parsed
     except Exception:
         errors.append(f"{field_name} must match {date_format}")

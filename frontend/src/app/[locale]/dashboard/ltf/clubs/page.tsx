@@ -221,11 +221,6 @@ export default function LtfAdminClubsPage() {
                       label: importT("importClubs"),
                       onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=clubs`),
                     },
-                    {
-                      key: "import-members",
-                      label: importT("importMembers"),
-                      onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=members`),
-                    },
                   ]}
                 />
                 <ActionMenu
