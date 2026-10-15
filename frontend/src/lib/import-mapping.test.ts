@@ -70,6 +70,20 @@ describe("import mapping", () => {
     expect(mapping.membership_end_date).toBeUndefined();
   });
 
+  it("maps WT license ID variants to the member id field", () => {
+    for (const header of ["WT license ID", "WT License Id", "wt_license_id", "WT-Lizenz-ID"]) {
+      const mapping = buildAutoMapping(MEMBER_FIELDS, ["Preferred First Name", header]);
+      expect(mapping.wt_licenseid).toBe(header);
+      expect(mapping.ltf_licenseid).toBeUndefined();
+    }
+  });
+
+  it("still maps the SimplyCompete Member ID column to the LTF license", () => {
+    const mapping = buildAutoMapping(MEMBER_FIELDS, ["Member ID", "WT-Lizenz-ID"]);
+    expect(mapping.ltf_licenseid).toBe("Member ID");
+    expect(mapping.wt_licenseid).toBe("WT-Lizenz-ID");
+  });
+
   it("does not list the helper column as an unused source header", () => {
     const unused = unusedSourceHeaders(
       SIMPLYCOMPETE_HEADERS,

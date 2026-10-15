@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +42,7 @@ type MemberStatusFilter = "all" | "active" | "inactive";
 
 export default function LtfAdminMembersPage() {
   const t = useTranslations("LtfAdmin");
+  const importT = useTranslations("Import");
   const common = useTranslations("Common");
   const pathname = usePathname();
   const router = useRouter();
@@ -306,7 +308,21 @@ export default function LtfAdminMembersPage() {
           />
 
           <ListActionsRow
-            actions={<p className="text-sm text-muted">{t("membersReadOnlyHint")}</p>}
+            actions={
+              <div className="flex flex-wrap items-center gap-3">
+                <ActionMenu
+                  label={t("membersMenuLabel")}
+                  actions={[
+                    {
+                      key: "import-members",
+                      label: importT("importMembers"),
+                      onSelect: () => router.push(`/${locale}/dashboard/ltf/members/import`),
+                    },
+                  ]}
+                />
+                <p className="text-sm text-muted">{t("membersReadOnlyHint")}</p>
+              </div>
+            }
             pagination={
               <ListPagination
                 currentPage={currentPage}

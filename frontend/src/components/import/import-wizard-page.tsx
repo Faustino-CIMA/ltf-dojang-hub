@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { ImportSuccessConfetti } from "@/components/import/import-success-confetti";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -11,6 +12,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
+import { PopoverSelect } from "@/components/ui/popover-select";
 import {
   Select,
   SelectContent,
@@ -28,10 +30,27 @@ import {
   previewImport,
 } from "@/lib/import-api";
 import {
+  dateValuesFromTable,
+  detectDateFormat,
+  IMPORT_DATE_FORMATS,
+  parseCsv,
+  isImportDateFormat,
+  type DateFormatDetection,
+  type ImportDateFormat,
+} from "@/lib/import-date-format";
+import {
   applySuggestedMapping,
   detectMembershipEndDateHeader,
   unusedSourceHeaders,
 } from "@/lib/import-mapping";
+import { importResultTone, type ImportResultTone } from "@/lib/import-result";
+import {
+  DEFAULT_MEMBER_UPDATE_MODE,
+  defaultMemberRowAction,
+  isMemberUpdateMode,
+  memberPreviewOutcome,
+  type MemberUpdateMode,
+} from "@/lib/import-update";
 import {
   LICENSE_ROLE_VALUES,
   type LicenseRoleValue,
@@ -41,9 +60,8 @@ import {
 
 type ImportType = "clubs" | "members";
 type WizardStep = "source" | "mapping" | "preview" | "confirm" | "result";
-type RowAction = "create" | "skip";
-type PreviewFilter = "all" | "ready" | "duplicate" | "invalid" | "skipped";
-type DateFormat = "YYYY-MM-DD" | "DD/MM/YYYY" | "DD-MM-YYYY" | "DD.MM.YYYY";
+type RowAction = "create" | "update" | "skip";
+type PreviewFilter = "all" | "ready" | "duplicate" | "invalid" | "skipped" | "create" | "update";
 
 // Role override for a single row
 type RowRoleOverride = {
@@ -71,7 +89,7 @@ function buildConfirmRowOverrides(
 
   for (const row of rows) {
     const action = rowActions[row.row_index] ?? "create";
-    if (action !== "create") {
+    if (action === "skip") {
       continue;
     }
 
@@ -90,7 +108,11 @@ function buildConfirmRowOverrides(
       primary_license_role: sanitizeRoleForOverride(primaryRaw),
       secondary_license_role: sanitizeRoleForOverride(secondaryRaw),
     };
-    if (statusOverrides && Object.prototype.hasOwnProperty.call(statusOverrides, row.row_index)) {
+    if (
+      action === "create" &&
+      statusOverrides &&
+      Object.prototype.hasOwnProperty.call(statusOverrides, row.row_index)
+    ) {
       payload.is_active = statusOverrides[row.row_index];
     }
     result.push(payload);
@@ -100,7 +122,7 @@ function buildConfirmRowOverrides(
 }
 
 // Display status includes "review" for role-related issues
-type RowDisplayStatus = "ready" | "duplicate" | "invalid" | "skipped" | "review";
+type RowDisplayStatus = "ready" | "duplicate" | "invalid" | "skipped" | "review" | "create" | "update";
 
 type FieldOption = {
   key: string;
@@ -130,16 +152,15 @@ type SummaryCounts = {
   duplicate: number;
   invalid: number;
   skipped: number;
+  create: number;
+  update: number;
 };
 
-const DATE_FORMAT_OPTIONS: DateFormat[] = [
-  "YYYY-MM-DD",
-  "DD/MM/YYYY",
-  "DD-MM-YYYY",
-  "DD.MM.YYYY",
-];
-
-
+const EMPTY_DATE_DETECTION: DateFormatDetection = {
+  status: "empty",
+  format: null,
+  candidates: [],
+};
 
 function membershipEndYearFromRow(row: ImportRow): number | null {
   const raw = row.data.membership_end_year;
@@ -166,15 +187,18 @@ function applyMembershipYearPolicies(options: {
   const actions: Record<number, RowAction> = {};
   const statusOverrides: Record<number, boolean> = {};
   for (const row of options.rows) {
+    const matchedAction = defaultMemberRowAction(row);
     if (!options.enabled) {
-      actions[row.row_index] = "create";
+      actions[row.row_index] = matchedAction;
       continue;
     }
     const year = membershipEndYearFromRow(row);
     const policy =
       year == null ? options.unknownPolicy : options.yearPolicies[year] ?? options.unknownPolicy;
-    if (policy === "skip") {
+    if (policy === "skip" || matchedAction === "skip") {
       actions[row.row_index] = "skip";
+    } else if (matchedAction === "update") {
+      actions[row.row_index] = "update";
     } else {
       actions[row.row_index] = "create";
       statusOverrides[row.row_index] = policy === "active";
@@ -231,9 +255,9 @@ const SECONDARY_MISSING_VALUES = new Set([
   "n/a",
 ]);
 
-function isEmptyRoleValue(value: string | null | undefined): boolean {
-  if (value === null || value === undefined) {
-    return true;
+function isEmptyRoleValue(value: string | number | boolean | null | undefined): boolean {
+  if (value === null || value === undefined || typeof value === "boolean" || typeof value === "number") {
+    return value == null || value === "";
   }
   const trimmed = String(value).trim().toLowerCase();
   return SECONDARY_MISSING_VALUES.has(trimmed);
@@ -469,6 +493,16 @@ function getRowDisplayStatus(
   if (hasRealErrors(row, isMembersImport)) {
     return "invalid";
   }
+  if (isMembersImport) {
+    const outcome = memberPreviewOutcome({ ...row, errors: [] }, action);
+    if (outcome === "update") {
+      return "update";
+    }
+    if (outcome === "skip") {
+      return "skipped";
+    }
+    return "create";
+  }
   if (row.duplicate) {
     return "duplicate";
   }
@@ -479,6 +513,8 @@ function getRowDisplayStatus(
 function getFilterCategory(status: RowDisplayStatus): PreviewFilter {
   // Review rows are counted as invalid for filter buttons
   if (status === "review") return "invalid";
+  if (status === "create") return "create";
+  if (status === "update") return "update";
   return status;
 }
 
@@ -493,6 +529,8 @@ function buildSummary(
     duplicate: 0,
     invalid: 0,
     skipped: 0,
+    create: 0,
+    update: 0,
   };
   for (const row of rows) {
     const action = actions[row.row_index] ?? "create";
@@ -537,7 +575,9 @@ export function ImportWizardPage({
   const [selectedClubId, setSelectedClubId] = useState<number | null>(
     fixedClubId ?? (clubOptions[0]?.id ?? null)
   );
-  const [dateFormat, setDateFormat] = useState<DateFormat>("YYYY-MM-DD");
+  const [dateFormat, setDateFormat] = useState<ImportDateFormat | "">("");
+  const [dateDetection, setDateDetection] = useState<DateFormatDetection>(EMPTY_DATE_DETECTION);
+  const [importOutcome, setImportOutcome] = useState<ImportResultTone | null>(null);
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("all");
   const [isPreviewDirty, setIsPreviewDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -553,6 +593,7 @@ export function ImportWizardPage({
     useState<MembershipYearPolicy>("skip");
   const [membershipEndDateHeader, setMembershipEndDateHeader] = useState<string | null>(null);
   const [statusOverrides, setStatusOverrides] = useState<Record<number, boolean>>({});
+  const [memberUpdateMode, setMemberUpdateMode] = useState<MemberUpdateMode>(DEFAULT_MEMBER_UPDATE_MODE);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canSwitchType = allowedTypes.length > 1;
@@ -706,28 +747,6 @@ export function ImportWizardPage({
     }
   }, [clubOptions, fixedClubId, selectedClubId]);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !isMembersImport) {
-      return;
-    }
-    const savedDateFormat = window.sessionStorage.getItem("import_members_date_format");
-    if (
-      savedDateFormat === "YYYY-MM-DD" ||
-      savedDateFormat === "DD/MM/YYYY" ||
-      savedDateFormat === "DD-MM-YYYY" ||
-      savedDateFormat === "DD.MM.YYYY"
-    ) {
-      setDateFormat(savedDateFormat);
-    }
-  }, [isMembersImport]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isMembersImport) {
-      return;
-    }
-    window.sessionStorage.setItem("import_members_date_format", dateFormat);
-  }, [dateFormat, isMembersImport]);
-
   const resetFlow = () => {
     setStep("source");
     setFile(null);
@@ -747,6 +766,9 @@ export function ImportWizardPage({
     setHasPreviewRun(false);
     setErrorMessage(null);
     setResult(null);
+    setImportOutcome(null);
+    setDateFormat("");
+    setDateDetection(EMPTY_DATE_DETECTION);
     setRewritePolicy(null);
     setIsLoading(false);
   };
@@ -771,6 +793,9 @@ export function ImportWizardPage({
     setHasPreviewRun(false);
     setErrorMessage(null);
     setResult(null);
+    setImportOutcome(null);
+    setDateFormat("");
+    setDateDetection(EMPTY_DATE_DETECTION);
     setRewritePolicy(null);
     if (fixedClubId) {
       setSelectedClubId(fixedClubId);
@@ -786,6 +811,7 @@ export function ImportWizardPage({
     setPreviewRows([]);
     setActions({});
     setResult(null);
+    setImportOutcome(null);
   };
 
   const handleTypeChange = (value: string) => {
@@ -808,19 +834,35 @@ export function ImportWizardPage({
   };
 
   const handleDateFormatChange = (value: string) => {
-    if (
-      value !== "YYYY-MM-DD" &&
-      value !== "DD/MM/YYYY" &&
-      value !== "DD-MM-YYYY" &&
-      value !== "DD.MM.YYYY"
-    ) {
+    if (!isImportDateFormat(value)) {
       return;
     }
     setDateFormat(value);
     invalidatePreview();
-    if (step !== "source") {
+    if (step === "preview" || step === "confirm" || step === "result") {
       setStep("source");
     }
+  };
+
+  const applyDetectedDateFormat = (nextHeaders: string[], fileText: string) => {
+    if (!isMembersImport) {
+      setDateDetection(EMPTY_DATE_DETECTION);
+      return;
+    }
+    const table = parseCsv(fileText);
+    const detection = detectDateFormat(
+      dateValuesFromTable(nextHeaders.length > 0 ? nextHeaders : (table[0] ?? []), table.slice(1))
+    );
+    setDateDetection(detection);
+    if (detection.status === "detected" && detection.format) {
+      setDateFormat(detection.format);
+      return;
+    }
+    if (detection.status === "ambiguous") {
+      setDateFormat("");
+      return;
+    }
+    setDateFormat("YYYY-MM-DD");
   };
 
   const handleFileChange = async (nextFile: File | null) => {
@@ -832,6 +874,9 @@ export function ImportWizardPage({
       setPreviewRows([]);
       setActions({});
       setResult(null);
+      setImportOutcome(null);
+      setDateFormat("");
+      setDateDetection(EMPTY_DATE_DETECTION);
       setMembershipEndDateHeader(null);
       setHasPreviewRun(false);
       setIsPreviewDirty(false);
@@ -846,16 +891,23 @@ export function ImportWizardPage({
     setIsLoading(true);
     setFile(nextFile);
     setResult(null);
+    setImportOutcome(null);
     setStep("source");
     try {
-      const preview = await previewImport(
-        importType,
-        nextFile,
-        undefined,
-        selectedClubId ?? undefined,
-        isMembersImport ? dateFormat : undefined
-      );
-      setHeaders(preview.headers ?? []);
+      const [preview, fileText] = await Promise.all([
+        previewImport(
+          importType,
+          nextFile,
+          undefined,
+          selectedClubId ?? undefined,
+          isMembersImport ? dateFormat || undefined : undefined,
+          isMembersImport ? memberUpdateMode : undefined
+        ),
+        nextFile.text(),
+      ]);
+      const nextHeaders = preview.headers ?? [];
+      applyDetectedDateFormat(nextHeaders, fileText);
+      setHeaders(nextHeaders);
       setSampleRows(preview.sample_rows ?? []);
       setRewritePolicy(isMembersImport ? preview.ltf_license_prefix_rewrite ?? null : null);
       setMembershipEndDateHeader(
@@ -865,7 +917,7 @@ export function ImportWizardPage({
           : null
       );
       setMapping(
-        applySuggestedMapping(currentFields, preview.headers ?? [], preview.suggested_mapping)
+        applySuggestedMapping(currentFields, nextHeaders, preview.suggested_mapping)
       );
       setPreviewRows([]);
       setActions({});
@@ -927,7 +979,8 @@ export function ImportWizardPage({
         file,
         mapping,
         selectedClubId ?? undefined,
-        isMembersImport ? dateFormat : undefined
+        isMembersImport ? dateFormat : undefined,
+        isMembersImport ? memberUpdateMode : undefined
       );
       const rows = preview.rows ?? [];
       const helperHeader =
@@ -1014,23 +1067,39 @@ export function ImportWizardPage({
         selectedClubId ?? undefined,
         isMembersImport ? dateFormat : undefined,
         rowOverrides,
-        membershipYearPoliciesPayload
+        membershipYearPoliciesPayload,
+        isMembersImport ? memberUpdateMode : undefined
       );
       setResult(importResult);
+      setImportOutcome(importResultTone(importResult));
       setRewritePolicy(isMembersImport ? importResult.ltf_license_prefix_rewrite ?? rewritePolicy : null);
       setStep("result");
     } catch (error) {
+      setResult(null);
+      setImportOutcome("error");
       setErrorMessage(error instanceof Error ? error.message : t("importFailed"));
+      setStep("result");
     } finally {
       setIsLoading(false);
     }
   };
 
   const setRowAction = (rowIndex: number, value: string) => {
-    if (value !== "create" && value !== "skip") {
+    if (value !== "create" && value !== "update" && value !== "skip") {
       return;
     }
     setActions((previous) => ({ ...previous, [rowIndex]: value }));
+  };
+
+  const handleUpdateModeChange = (value: string) => {
+    if (!isMemberUpdateMode(value) || value === memberUpdateMode) {
+      return;
+    }
+    setMemberUpdateMode(value);
+    invalidatePreview();
+    if (step === "preview" || step === "confirm" || step === "result") {
+      setStep("mapping");
+    }
   };
 
   // Apply a confirmed role override (called after user confirms the modal)
@@ -1069,7 +1138,7 @@ export function ImportWizardPage({
       for (const row of effectivePreviewRows) {
         const currentAction = next[row.row_index] ?? "create";
         const status = getRowDisplayStatus(row, currentAction, isMembersImport);
-        if (status === "ready") {
+        if (status === "ready" || status === "create") {
           next[row.row_index] = "create";
         }
       }
@@ -1105,12 +1174,87 @@ export function ImportWizardPage({
     result: t("resultStepTitle"),
   };
   const currentStepIndex = stepOrder.indexOf(step);
+  const resultTone: ImportResultTone | null =
+    step === "result" ? (importOutcome ?? importResultTone(result)) : null;
+  const dateFormatLabel = (format: string) => (format === "EXCEL" ? t("dateFormatExcel") : format);
+  const activeDateFormatLabel = dateFormat ? dateFormatLabel(dateFormat) : "-";
+  const createdCount = result?.created ?? 0;
+  const updatedCount = result?.updated ?? 0;
+  const skippedCount = result?.skipped ?? 0;
+  const dateFormatOptions = IMPORT_DATE_FORMATS.map((option) => ({
+    value: option,
+    label: dateFormatLabel(option),
+  }));
+  const changedFieldLabel = (field: string) => {
+    const labels: Record<string, string> = {
+      first_name: t("firstNameLabel"),
+      last_name: t("lastNameLabel"),
+      date_of_birth: t("dobLabel"),
+      belt_rank: t("beltRankLabel"),
+      email: t("emailLabel"),
+      wt_licenseid: t("wtLicenseLabel"),
+      ltf_licenseid: t("ltfLicenseLabel"),
+      sex: t("sexLabel"),
+      is_active: t("isActiveLabel"),
+      primary_license_role: t("primaryLicenseRoleLabel"),
+      secondary_license_role: t("secondaryLicenseRoleLabel"),
+    };
+    return labels[field] ?? field;
+  };
+  const updateModeControl = isMembersImport ? (
+    <div className="space-y-2" data-update-mode={memberUpdateMode}>
+      <label className="text-sm font-medium text-foreground">{t("updateModeLabel")}</label>
+      <PopoverSelect
+        value={memberUpdateMode}
+        onValueChange={handleUpdateModeChange}
+        ariaLabel={t("updateModeLabel")}
+        options={[
+          { value: "create_only", label: t("updateModeCreateOnly") },
+          { value: "create_and_update", label: t("updateModeCreateAndUpdate") },
+        ]}
+        className="w-80"
+      />
+      <p className="text-sm text-muted">{t("updateModeHint")}</p>
+    </div>
+  ) : null;
+  const dateFormatControl =
+    isMembersImport && file && headers.length > 0 ? (
+      <div className="space-y-2" data-date-format-status={dateDetection.status}>
+        <label className="text-sm font-medium text-foreground">{t("dateFormatLabel")}</label>
+        {dateDetection.status === "detected" && dateDetection.format ? (
+          <p className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
+            {t("dateFormatDetected", { format: dateFormatLabel(dateDetection.format) })}
+          </p>
+        ) : null}
+        {dateDetection.status === "ambiguous" ? (
+          <p className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-warning">
+            {t("dateFormatAmbiguous")}
+          </p>
+        ) : null}
+        {dateDetection.status === "empty" ? (
+          <p className="text-sm text-muted">
+            {t("dateFormatNone", { format: dateFormatLabel(dateFormat || "YYYY-MM-DD") })}
+          </p>
+        ) : null}
+        <PopoverSelect
+          value={dateFormat}
+          onValueChange={handleDateFormatChange}
+          ariaLabel={t("dateFormatLabel")}
+          placeholder={t("dateFormatPlaceholder")}
+          options={dateFormatOptions}
+          className="w-64"
+        />
+        {dateDetection.status === "detected" ? (
+          <p className="text-sm text-muted">{t("dateFormatOverrideHint")}</p>
+        ) : null}
+      </div>
+    ) : null;
 
   const canContinueFromSource =
     Boolean(file) &&
     headers.length > 0 &&
     !isLoading &&
-    (!isMembersImport || Boolean(selectedClubId));
+    (!isMembersImport || (Boolean(selectedClubId) && Boolean(dateFormat)));
   const canRunPreview =
     Boolean(file) &&
     mappingComplete &&
@@ -1210,11 +1354,22 @@ export function ImportWizardPage({
           {stepOrder.map((stepItem, index) => {
             const isCurrent = stepItem === step;
             const isDone = index < currentStepIndex;
+            const resultClass =
+              stepItem === "result" && resultTone === "success"
+                ? "border-success bg-success text-success-foreground"
+                : stepItem === "result" && resultTone === "warning"
+                ? "badge-warning"
+                : stepItem === "result" && resultTone === "error"
+                ? "badge-danger"
+                : null;
             return (
               <span
                 key={stepItem}
+                data-result-tone={stepItem === "result" ? resultTone ?? undefined : undefined}
                 className={`inline-flex items-center gap-2 rounded-[var(--radius-form)] border px-3 py-1 text-xs font-medium ${
-                  isCurrent
+                  resultClass
+                    ? resultClass
+                    : isCurrent
                     ? "border-primary bg-primary text-primary-foreground"
                     : isDone
                     ? "badge-success"
@@ -1285,22 +1440,7 @@ export function ImportWizardPage({
                       </div>
                     )}
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">{t("dateFormatLabel")}</label>
-                    <Select value={dateFormat} onValueChange={handleDateFormatChange}>
-                      <SelectTrigger className="w-64">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DATE_FORMAT_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {updateModeControl}
                 </div>
               ) : null}
 
@@ -1375,6 +1515,8 @@ export function ImportWizardPage({
                   </div>
                 </div>
               ) : null}
+
+              {dateFormatControl}
             </div>
           ) : null}
 
@@ -1386,6 +1528,7 @@ export function ImportWizardPage({
               </div>
               {prefixNotice}
               {membershipHelperNotice}
+              {dateFormatControl}
 
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={headers.length === 0}>
@@ -1419,22 +1562,20 @@ export function ImportWizardPage({
                         <td className="px-3 py-2">{field.label}</td>
                         <td className="px-3 py-2">{field.required ? t("requiredBadge") : "-"}</td>
                         <td className="px-3 py-2">
-                          <Select
+                          <PopoverSelect
                             value={mapping[field.key] ?? "__none__"}
                             onValueChange={(value) => setFieldMapping(field.key, value)}
-                          >
-                            <SelectTrigger className="w-72">
-                              <SelectValue placeholder={t("selectColumnPlaceholder")} />
-                            </SelectTrigger>
-                            <SelectContent position="popper">
-                              <SelectItem value="__none__">{t("notMappedOption")}</SelectItem>
-                              {mappingSourceHeaders.map((header, headerIndex) => (
-                                <SelectItem key={`${headerIndex}-${header}`} value={header}>
-                                  {header}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            ariaLabel={`${t("sourceColumnLabel")}: ${field.label}`}
+                            placeholder={t("selectColumnPlaceholder")}
+                            className="w-72"
+                            options={[
+                              { value: "__none__", label: t("notMappedOption") },
+                              ...mappingSourceHeaders.map((header) => ({
+                                value: header,
+                                label: header,
+                              })),
+                            ]}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -1465,6 +1606,30 @@ export function ImportWizardPage({
               </div>
               {prefixNotice}
               {membershipHelperNotice}
+              {updateModeControl}
+
+              {isMembersImport ? (
+                <div className="grid gap-3 md:grid-cols-3" data-preview-totals>
+                  <div
+                    className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-success"
+                    data-preview-count="create"
+                  >
+                    <span className="font-medium">{t("resultCreated")}:</span> {summary.create}
+                  </div>
+                  <div
+                    className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground"
+                    data-preview-count="update"
+                  >
+                    <span className="font-medium">{t("resultUpdated")}:</span> {summary.update}
+                  </div>
+                  <div
+                    className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground"
+                    data-preview-count="skip"
+                  >
+                    <span className="font-medium">{t("resultSkipped")}:</span> {summary.skipped}
+                  </div>
+                </div>
+              ) : null}
 
               {showMembershipYearPanel ? (
                 <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 p-4">
@@ -1582,13 +1747,21 @@ export function ImportWizardPage({
 
               <div className="flex flex-wrap gap-2">
                 {(
-                  [
-                    { id: "all", label: t("filterAll"), count: summary.total },
-                    { id: "ready", label: t("statusReady"), count: summary.ready },
-                    { id: "duplicate", label: t("statusDuplicate"), count: summary.duplicate },
-                    { id: "invalid", label: t("statusInvalid"), count: summary.invalid },
-                    { id: "skipped", label: t("statusSkipped"), count: summary.skipped },
-                  ] as const
+                  isMembersImport
+                    ? [
+                        { id: "all" as const, label: t("filterAll"), count: summary.total },
+                        { id: "create" as const, label: t("statusCreate"), count: summary.create },
+                        { id: "update" as const, label: t("statusUpdate"), count: summary.update },
+                        { id: "skipped" as const, label: t("statusSkipped"), count: summary.skipped },
+                        { id: "invalid" as const, label: t("statusInvalid"), count: summary.invalid },
+                      ]
+                    : [
+                        { id: "all" as const, label: t("filterAll"), count: summary.total },
+                        { id: "ready" as const, label: t("statusReady"), count: summary.ready },
+                        { id: "duplicate" as const, label: t("statusDuplicate"), count: summary.duplicate },
+                        { id: "invalid" as const, label: t("statusInvalid"), count: summary.invalid },
+                        { id: "skipped" as const, label: t("statusSkipped"), count: summary.skipped },
+                      ]
                 ).map((filterItem) => {
                   const active = previewFilter === filterItem.id;
                   return (
@@ -1679,13 +1852,19 @@ export function ImportWizardPage({
                       );
 
                       return (
-                        <tr key={row.row_index} className="border-t border-border text-foreground">
+                        <tr
+                          key={row.row_index}
+                          className="border-t border-border text-foreground"
+                          data-preview-outcome={status}
+                        >
                           <td className="px-2 py-2">{row.row_index}</td>
                           <td className="px-2 py-2">
                             <span
                               className={`inline-flex rounded-[var(--radius-form)] border px-2 py-0.5 text-xs font-medium ${
-                                status === "ready"
+                                status === "ready" || status === "create"
                                   ? "badge-success"
+                                  : status === "update"
+                                  ? "badge-info"
                                   : status === "duplicate"
                                   ? "badge-warning"
                                   : status === "invalid"
@@ -1697,6 +1876,10 @@ export function ImportWizardPage({
                             >
                               {status === "ready"
                                 ? t("statusReady")
+                                : status === "create"
+                                ? t("statusCreate")
+                                : status === "update"
+                                ? t("statusUpdate")
                                 : status === "duplicate"
                                 ? t("statusDuplicate")
                                 : status === "invalid"
@@ -1716,10 +1899,16 @@ export function ImportWizardPage({
                               )
                               .map(([key, value]) => `${key}: ${value}`)
                               .join(", ")}
+                            {status === "update" && (row.changed_fields?.length ?? 0) > 0 ? (
+                              <p className="mt-1 text-muted">
+                                {t("changedFieldsLabel")}:{" "}
+                                {row.changed_fields?.map((field) => changedFieldLabel(field)).join(", ")}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-2 py-2 text-xs text-destructive">
                             {row.errors.join(", ")}
-                            {row.duplicate ? ` ${t("duplicateHint")}` : ""}
+                            {!isMembersImport && row.duplicate ? ` ${t("duplicateHint")}` : ""}
                             {hasSameRoles && (
                               <span>
                                 {row.errors.length > 0 || row.duplicate ? " — " : ""}
@@ -1823,7 +2012,17 @@ export function ImportWizardPage({
                                 </div>
                               ) : null}
                               <Select
-                                value={hasSameRoles ? "skip" : action}
+                                value={
+                                  hasSameRoles
+                                    ? "skip"
+                                    : row.disposition === "update"
+                                    ? action === "skip"
+                                      ? "skip"
+                                      : "update"
+                                    : action === "update"
+                                    ? "create"
+                                    : action
+                                }
                                 onValueChange={(value) => {
                                   if (!hasSameRoles) setRowAction(row.row_index, value);
                                 }}
@@ -1833,7 +2032,11 @@ export function ImportWizardPage({
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="create">{t("createAction")}</SelectItem>
+                                  {isMembersImport && row.disposition === "update" ? (
+                                    <SelectItem value="update">{t("updateAction")}</SelectItem>
+                                  ) : (
+                                    <SelectItem value="create">{t("createAction")}</SelectItem>
+                                  )}
                                   <SelectItem value="skip">{t("skipAction")}</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -1892,18 +2095,37 @@ export function ImportWizardPage({
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-                  <p>
-                    <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
-                  </p>
+                  {isMembersImport ? (
+                    <>
+                      <p>
+                        <span className="font-medium">{t("resultCreated")}:</span> {summary.create}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("resultUpdated")}:</span> {summary.update}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("resultSkipped")}:</span> {summary.skipped}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
                   <p>
@@ -1917,7 +2139,7 @@ export function ImportWizardPage({
                         {selectedClubName ?? "-"}
                       </p>
                       <p>
-                        <span className="font-medium">{t("dateFormatLabel")}:</span> {dateFormat}
+                        <span className="font-medium">{t("dateFormatLabel")}:</span> {activeDateFormatLabel}
                       </p>
                     </>
                   ) : null}
@@ -1932,6 +2154,7 @@ export function ImportWizardPage({
 
           {step === "result" ? (
             <div className="space-y-5">
+              <ImportSuccessConfetti active={resultTone === "success"} />
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("resultStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("resultStepSubtitle")}</p>
@@ -1939,14 +2162,52 @@ export function ImportWizardPage({
               {prefixNotice}
               {membershipHelperNotice}
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <p
+                className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${
+                  resultTone === "success"
+                    ? "banner-success"
+                    : resultTone === "warning"
+                    ? "banner-warning"
+                    : "banner-danger"
+                }`}
+                data-import-outcome={resultTone ?? "error"}
+              >
+                {resultTone === "success"
+                  ? t("importSuccessMessage", {
+                      created: createdCount,
+                      updated: updatedCount,
+                      skipped: skippedCount,
+                    })
+                  : resultTone === "warning"
+                  ? t("importWarningMessage", {
+                      created: createdCount,
+                      updated: updatedCount,
+                      skipped: skippedCount,
+                    })
+                  : t("importErrorMessage", {
+                      created: createdCount,
+                      updated: updatedCount,
+                      skipped: skippedCount,
+                    })}
+              </p>
+
+              <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-success">
-                  <span className="font-medium">{t("resultCreated")}:</span> {result?.created ?? 0}
+                  <span className="font-medium">{t("resultCreated")}:</span> {createdCount}
                 </div>
                 <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-                  <span className="font-medium">{t("resultSkipped")}:</span> {result?.skipped ?? 0}
+                  <span className="font-medium">{t("resultUpdated")}:</span> {updatedCount}
                 </div>
-                <div className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-danger">
+                <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
+                  <span className="font-medium">{t("resultSkipped")}:</span> {skippedCount}
+                </div>
+                <div
+                  className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${
+                    (result?.errors.length ?? 0) > 0
+                      ? "banner-danger"
+                      : "border-border bg-secondary text-foreground"
+                  }`}
+                >
                   <span className="font-medium">{t("resultErrors")}:</span> {result?.errors.length ?? 0}
                 </div>
               </div>
@@ -1988,25 +2249,44 @@ export function ImportWizardPage({
                   <span className="font-medium">{t("clubLabel")}:</span> {selectedClubName ?? "-"}
                 </p>
                 <p>
-                  <span className="font-medium">{t("dateFormatLabel")}:</span> {dateFormat}
+                  <span className="font-medium">{t("dateFormatLabel")}:</span> {activeDateFormatLabel}
                 </p>
               </>
             ) : null}
             <p>
               <span className="font-medium">{t("totalRowsLabel")}:</span> {summary.total}
             </p>
-            <p>
-              <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
-            </p>
-            <p>
-              <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
-            </p>
-            <p>
-              <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
-            </p>
-            <p>
-              <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
-            </p>
+            {isMembersImport ? (
+              <>
+                <p>
+                  <span className="font-medium">{t("resultCreated")}:</span> {summary.create}
+                </p>
+                <p>
+                  <span className="font-medium">{t("resultUpdated")}:</span> {summary.update}
+                </p>
+                <p>
+                  <span className="font-medium">{t("resultSkipped")}:</span> {summary.skipped}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
+                </p>
+              </>
+            )}
           </div>
           <p
             className={`mt-4 rounded-[var(--radius-form)] border px-3 py-2 text-xs ${

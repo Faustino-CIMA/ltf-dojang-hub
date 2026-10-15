@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -20,15 +20,21 @@ export default function LtfImportPage() {
   const t = useTranslations("Import");
   const ltfT = useTranslations("LtfAdmin");
   const pathname = usePathname();
+  const router = useRouter();
   const locale = pathname?.split("/")[1] || "en";
   const searchParams = useSearchParams();
+  const legacyMemberImport = searchParams.get("type") === "members";
 
   const [clubOptions, setClubOptions] = useState<ClubOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { selectedClubId } = useClubSelection();
 
-  const defaultType = searchParams.get("type") === "members" ? "members" : "clubs";
+  useEffect(() => {
+    if (legacyMemberImport) {
+      router.replace(`/${locale}/dashboard/ltf/members/import`);
+    }
+  }, [legacyMemberImport, locale, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -87,22 +93,30 @@ export default function LtfImportPage() {
     [t]
   );
 
+  if (legacyMemberImport) {
+    return (
+      <LtfAdminLayout title={t("importMembers")} subtitle={t("wizardSubtitleMembers")}>
+        <LoadingCardGrid title={ltfT("loadingTitle")} description={ltfT("loadingSubtitle")} />
+      </LtfAdminLayout>
+    );
+  }
+
   return (
-    <LtfAdminLayout title={t("importWizardTitle")} subtitle={t("wizardSubtitleLtf")}>
+    <LtfAdminLayout title={t("importClubs")} subtitle={t("importClubsSubtitle")}>
       <ActionNotices error={error} onDismiss={() => setError(null)} />
       {isLoading && clubOptions.length === 0 ? (
         <LoadingCardGrid title={ltfT("loadingTitle")} description={ltfT("loadingSubtitle")} />
       ) : null}
       <ImportWizardPage
-        allowedTypes={["clubs", "members"]}
-        defaultType={defaultType}
+        allowedTypes={["clubs"]}
+        defaultType="clubs"
         allowClubSelection={!selectedClubId}
         fixedClubId={selectedClubId}
         clubOptions={clubOptions}
         fieldsByType={fieldsByType}
         backHrefByType={{
           clubs: `/${locale}/dashboard/ltf/clubs`,
-          members: `/${locale}/dashboard/ltf/clubs`,
+          members: `/${locale}/dashboard/ltf/members`,
         }}
         successHrefByType={{
           clubs: `/${locale}/dashboard/ltf/clubs`,

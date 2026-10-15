@@ -21,7 +21,15 @@ MEMBER_HEADER_ALIASES = {
     "email": ["e-mail", "email address", "e mail"],
     "date_of_birth": ["date of birth", "dob", "birth date", "birthday", "birthdate"],
     "belt_rank": ["belt rank", "belt", "grade", "rank"],
-    "wt_licenseid": ["wt license id", "wt license", "wt id", "world taekwondo id"],
+    "wt_licenseid": [
+        "wt license id",
+        "wt license",
+        "wt id",
+        "world taekwondo id",
+        "wt lizenz id",
+        "wt lizenz",
+        "wt-lizenz-id",
+    ],
     "ltf_licenseid": [
         "ltf license id",
         "ltf license",

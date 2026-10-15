@@ -1082,7 +1082,40 @@ class MemberImportTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Member.objects.count(), 1)
 
-    def test_confirm_rejects_duplicate_ltf_licenseid(self):
+    def test_confirm_stores_dotted_month_first_and_excel_dates(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        cases = (
+            ("DD.MM.YYYY", "14.03.2015", date(2015, 3, 14), "Ana"),
+            ("MM/DD/YYYY", "03/14/2016", date(2016, 3, 14), "Ben"),
+            ("EXCEL", "36526", date(2000, 1, 1), "Cam"),
+        )
+        for date_format, raw, expected, first_name in cases:
+            with self.subTest(date_format=date_format):
+                csv_data = f"first_name,last_name,date_of_birth\n{first_name},Ng,{raw}\n"
+                file_obj = BytesIO(csv_data.encode("utf-8"))
+                file_obj.name = f"members-{date_format}.csv"
+                response = self.client.post(
+                    "/api/imports/members/confirm/",
+                    {
+                        "file": file_obj,
+                        "mapping": json.dumps(
+                            {
+                                "first_name": "first_name",
+                                "last_name": "last_name",
+                                "date_of_birth": "date_of_birth",
+                            }
+                        ),
+                        "club_id": self.club.id,
+                        "date_format": date_format,
+                    },
+                    format="multipart",
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+                self.assertEqual(response.data["created"], 1)
+                member = Member.objects.get(first_name=first_name)
+                self.assertEqual(member.date_of_birth, expected)
+
+    def test_confirm_create_only_skips_existing_ltf_licenseid(self):
         Member.objects.create(
             club=self.club,
             first_name="Existing",
@@ -1109,8 +1142,12 @@ class MemberImportTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["created"], 0)
-        self.assertEqual(len(response.data["errors"]), 1)
-        self.assertIn("ltf_licenseid must be unique", response.data["errors"][0]["errors"])
+        self.assertEqual(response.data["updated"], 0)
+        self.assertEqual(response.data["skipped"], 1)
+        self.assertEqual(response.data["errors"], [])
+        self.assertEqual(Member.objects.count(), 1)
+        existing = Member.objects.get(ltf_licenseid="LTF-000777")
+        self.assertEqual(existing.first_name, "Existing")
 
     def test_preview_reports_invalid_license_role(self):
         self.client.force_authenticate(user=self.ltf_admin)
@@ -1474,6 +1511,313 @@ class MemberImportTests(TestCase):
         self.assertEqual(response.data["created"], 1)
         member = Member.objects.get(first_name="Ana", last_name="NG")
         self.assertTrue(member.is_active)
+
+    def _member_file(self, csv_data, name="members.csv"):
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = name
+        return file_obj
+
+    def test_preview_matches_ltf_then_wt_then_name_and_dob_in_club(self):
+        other_club = Club.objects.create(name="South Club", created_by=self.ltf_admin)
+        ada = Member.objects.create(
+            club=self.club,
+            first_name="Ada",
+            last_name="Ng",
+            date_of_birth=date(2000, 1, 1),
+            email="ada@old.test",
+            ltf_licenseid="LTF-1",
+            wt_licenseid="WT-1",
+        )
+        ben = Member.objects.create(
+            club=self.club,
+            first_name="Ben",
+            last_name="Kay",
+            date_of_birth=date(2001, 2, 2),
+            email="ben@old.test",
+            wt_licenseid="WT-2",
+        )
+        cam = Member.objects.create(
+            club=self.club,
+            first_name="Cam",
+            last_name="Ort",
+            date_of_birth=date(2002, 3, 3),
+            email="cam@old.test",
+        )
+        Member.objects.create(
+            club=other_club,
+            first_name="Nia",
+            last_name="Fox",
+            date_of_birth=date(1999, 9, 9),
+            email="nia@old.test",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = (
+            "first_name,last_name,date_of_birth,email,ltf_id,wt_id\n"
+            "Renamed,Person,1990-01-01,ada@new.test,LTF-1,\n"
+            "Zoe,Kay,2010-01-01,ben@new.test,,WT-2\n"
+            "cam,ort,2002-03-03,cam@new.test,,\n"
+            "Cam,Ort,,cam-name-only@test,,\n"
+            "Nia,Fox,1999-09-09,nia@new.test,,\n"
+        )
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "date_of_birth": "date_of_birth",
+            "email": "email",
+            "ltf_licenseid": "ltf_id",
+            "wt_licenseid": "wt_id",
+        }
+        response = self.client.post(
+            "/api/imports/members/preview/",
+            {
+                "file": self._member_file(csv_data),
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_and_update",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        rows = response.data["rows"]
+        self.assertEqual(rows[0]["match_by"], "ltf_licenseid")
+        self.assertEqual(rows[0]["existing_id"], ada.id)
+        self.assertEqual(rows[0]["disposition"], "update")
+        self.assertIn("email", rows[0]["changed_fields"])
+        self.assertIn("first_name", rows[0]["changed_fields"])
+        self.assertEqual(rows[1]["match_by"], "wt_licenseid")
+        self.assertEqual(rows[1]["existing_id"], ben.id)
+        self.assertEqual(rows[1]["disposition"], "update")
+        self.assertEqual(rows[2]["match_by"], "name_dob")
+        self.assertEqual(rows[2]["existing_id"], cam.id)
+        self.assertEqual(rows[2]["disposition"], "update")
+        self.assertEqual(rows[2]["changed_fields"], ["email"])
+        self.assertEqual(rows[3]["disposition"], "create")
+        self.assertIsNone(rows[3]["match_by"])
+        self.assertIsNone(rows[3]["existing_id"])
+        self.assertEqual(rows[4]["disposition"], "create")
+        self.assertIsNone(rows[4]["existing_id"])
+        self.assertEqual(response.data["summary"], {"create": 2, "update": 3, "skip": 0})
+
+        file_obj = self._member_file(csv_data, "members-skip.csv")
+        skip_preview = self.client.post(
+            "/api/imports/members/preview/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_only",
+            },
+            format="multipart",
+        )
+        self.assertEqual(skip_preview.status_code, status.HTTP_200_OK, skip_preview.data)
+        skipped = skip_preview.data["rows"]
+        self.assertEqual(skipped[0]["disposition"], "skip")
+        self.assertEqual(skipped[0]["existing_id"], ada.id)
+        self.assertEqual(skipped[0]["changed_fields"], [])
+        self.assertEqual(skipped[3]["disposition"], "create")
+        self.assertEqual(skipped[4]["disposition"], "create")
+
+    def test_update_does_not_blank_unmapped_or_empty_fields(self):
+        member = Member.objects.create(
+            club=self.club,
+            first_name="Ada",
+            last_name="Ng",
+            date_of_birth=date(2000, 1, 1),
+            email="ada@old.test",
+            belt_rank="Black",
+            sex=Member.Sex.FEMALE,
+            is_active=True,
+            primary_license_role="Athlete",
+            secondary_license_role="Coach",
+            ltf_licenseid="LTF-1",
+            wt_licenseid="WT-1",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,date_of_birth,email,belt_rank,ltf_id,active\nAda,Ng,,ada@new.test,,LTF-1,\n"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "date_of_birth": "date_of_birth",
+            "email": "email",
+            "belt_rank": "belt_rank",
+            "ltf_licenseid": "ltf_id",
+            "is_active": "active",
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": self._member_file(csv_data),
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_and_update",
+                "date_format": "YYYY-MM-DD",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["updated"], 1)
+        self.assertEqual(response.data["created"], 0)
+        self.assertEqual(response.data["errors"], [])
+        member.refresh_from_db()
+        self.assertEqual(member.email, "ada@new.test")
+        self.assertEqual(member.belt_rank, "Black")
+        self.assertEqual(member.date_of_birth, date(2000, 1, 1))
+        self.assertEqual(member.primary_license_role, "Athlete")
+        self.assertEqual(member.secondary_license_role, "Coach")
+        self.assertTrue(member.is_active)
+        self.assertEqual(member.sex, Member.Sex.FEMALE)
+        self.assertEqual(member.wt_licenseid, "WT-1")
+        self.assertEqual(member.club_id, self.club.id)
+
+        from ops.models import OpsAuditLog
+
+        audit = OpsAuditLog.objects.get(action="member_import_update", target_id=str(member.id))
+        self.assertEqual(audit.metadata["changes"]["email"]["from"], "ada@old.test")
+        self.assertEqual(audit.metadata["changes"]["email"]["to"], "ada@new.test")
+        self.assertNotIn("belt_rank", audit.metadata["changes"])
+        self.assertNotIn("is_active", audit.metadata["changes"])
+        self.assertNotIn("primary_license_role", audit.metadata["changes"])
+
+    def test_update_keeps_club_role_and_status_unless_those_columns_are_mapped(self):
+        member = Member.objects.create(
+            club=self.club,
+            first_name="Ada",
+            last_name="Ng",
+            email="ada@old.test",
+            is_active=True,
+            primary_license_role="Athlete",
+            ltf_licenseid="LTF-9",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = (
+            "first_name,last_name,email,role,active,ltf_id\n"
+            "Ada,Ng,ada@new.test,Coach,false,LTF-9\n"
+        )
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "email": "email",
+            "ltf_licenseid": "ltf_id",
+            "primary_license_role": "role",
+            "is_active": "active",
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": self._member_file(csv_data, "members-status.csv"),
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_and_update",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["updated"], 1)
+        member.refresh_from_db()
+        self.assertEqual(member.email, "ada@new.test")
+        self.assertEqual(member.primary_license_role, "Coach")
+        self.assertFalse(member.is_active)
+        self.assertEqual(member.club_id, self.club.id)
+
+    def test_club_admin_cannot_update_member_from_another_club(self):
+        other_club = Club.objects.create(name="South Club", created_by=self.ltf_admin)
+        member = Member.objects.create(
+            club=other_club,
+            first_name="Nia",
+            last_name="Fox",
+            email="nia@old.test",
+            ltf_licenseid="LTF-9",
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        csv_data = "first_name,last_name,email,ltf_id\nNia,Fox,nia@stolen.test,LTF-9\n"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "email": "email",
+            "ltf_licenseid": "ltf_id",
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": self._member_file(csv_data, "members-other-club.csv"),
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_and_update",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["updated"], 0)
+        self.assertEqual(response.data["created"], 0)
+        self.assertEqual(len(response.data["errors"]), 1)
+        member.refresh_from_db()
+        self.assertEqual(member.email, "nia@old.test")
+        self.assertEqual(member.club_id, other_club.id)
+
+        from ops.models import OpsAuditLog
+
+        self.assertFalse(
+            OpsAuditLog.objects.filter(action="member_import_update", target_id=str(member.id)).exists()
+        )
+
+        self.client.force_authenticate(user=self.ltf_admin)
+        allowed = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": self._member_file(csv_data, "members-ltf-update.csv"),
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_and_update",
+            },
+            format="multipart",
+        )
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK, allowed.data)
+        self.assertEqual(allowed.data["updated"], 1)
+        member.refresh_from_db()
+        self.assertEqual(member.email, "nia@stolen.test")
+        self.assertEqual(member.club_id, other_club.id)
+
+    def test_update_rejects_license_id_owned_by_someone_else(self):
+        ada = Member.objects.create(
+            club=self.club,
+            first_name="Ada",
+            last_name="Ng",
+            ltf_licenseid="LTF-1",
+            wt_licenseid="WT-1",
+            email="ada@old.test",
+        )
+        Member.objects.create(
+            club=self.club,
+            first_name="Ben",
+            last_name="Kay",
+            ltf_licenseid="LTF-2",
+            wt_licenseid="WT-2",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,email,ltf_id,wt_id\nAda,Ng,ada@new.test,LTF-1,WT-2\n"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "email": "email",
+            "ltf_licenseid": "ltf_id",
+            "wt_licenseid": "wt_id",
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": self._member_file(csv_data, "members-conflict.csv"),
+                "mapping": json.dumps(mapping),
+                "club_id": self.club.id,
+                "update_mode": "create_and_update",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["updated"], 0)
+        self.assertIn("wt_licenseid must be unique", response.data["errors"][0]["errors"])
+        ada.refresh_from_db()
+        self.assertEqual(ada.email, "ada@old.test")
+        self.assertEqual(ada.wt_licenseid, "WT-1")
 
 
 class LtfLicensePrefixRewriteTests(TestCase):
