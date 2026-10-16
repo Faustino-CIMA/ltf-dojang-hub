@@ -9,6 +9,7 @@ import {
   Award,
   History,
   IdCard,
+  Landmark,
   User,
 } from "lucide-react";
 
@@ -24,6 +25,8 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { MemberClubMovementPanel } from "@/components/member/member-club-movement-panel";
+import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
+import { apiRequest } from "@/lib/api";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import {
   downloadMemberProfilePicture,
@@ -39,6 +42,7 @@ const MEMBER_DETAIL_TABS = [
   "current-licenses",
   "license-history",
   "grades",
+  "committee",
   "club-movements",
 ] as const;
 
@@ -70,6 +74,7 @@ export default function LtfMemberDetailPage() {
   const [clubMoves, setClubMoves] = useState<MemberClubTransferHistory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTabState(urlTab);
@@ -103,11 +108,13 @@ export default function LtfMemberDetailPage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [memberResponse, historyResponse, movementResponse] = await Promise.all([
+      const [memberResponse, historyResponse, movementResponse, me] = await Promise.all([
         getMember(memberId),
         getMemberHistory(memberId),
         getMemberClubTransfers(memberId),
+        apiRequest<{ role: string }>("/api/auth/me/"),
       ]);
+      setCurrentRole(me.role);
       setMember(memberResponse);
       setHistory(historyResponse);
       setClubMoves(movementResponse);
@@ -142,6 +149,8 @@ export default function LtfMemberDetailPage() {
     return years.size;
   }, [history]);
   const gradeHistoryCount = history?.grade_history.length ?? 0;
+  const committeeCount = history?.committee_history?.length ?? 0;
+  const showCommittee = currentRole !== "ltf_finance";
   const clubMovementCount = clubMoves?.completed_transfer_count ?? 0;
 
   const title = member
@@ -209,6 +218,16 @@ export default function LtfMemberDetailPage() {
                   icon: Award,
                   count: gradeHistoryCount,
                 },
+                ...(showCommittee
+                  ? [
+                      {
+                        value: "committee" as const,
+                        label: t("memberCommitteeTab"),
+                        icon: Landmark,
+                        count: committeeCount,
+                      },
+                    ]
+                  : []),
                 {
                   value: "club-movements",
                   label: t("memberClubMovementsTab"),
@@ -326,6 +345,10 @@ export default function LtfMemberDetailPage() {
                     <MemberHistoryTimeline {...historyTimelineShared} visibleSection="grades" />
                   </div>
                 </FormPanel>
+              ) : null}
+
+              {activeTab === "committee" && showCommittee ? (
+                <MemberCommitteePanel terms={history?.committee_history ?? []} />
               ) : null}
 
               {activeTab === "club-movements" ? (

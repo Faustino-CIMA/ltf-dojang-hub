@@ -10,6 +10,7 @@ import {
   ClipboardList,
   History,
   IdCard,
+  Landmark,
   Pencil,
   User,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import {
 } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { MemberClubRecordPanel } from "@/components/clubmgmt/member-club-record-panel";
+import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { downloadClubStatement } from "@/lib/club-finance-api";
 import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
@@ -112,6 +114,7 @@ const MEMBER_DETAIL_TABS = [
   "current-licenses",
   "license-history",
   "grades",
+  "committee",
   "club-movements",
 ] as const;
 
@@ -395,6 +398,8 @@ export default function ClubMemberDetailPage() {
     return years.size;
   }, [history]);
   const gradeHistoryCount = history?.grade_history.length ?? 0;
+  const committeeCount = history?.committee_history?.length ?? 0;
+  const showCommittee = currentRole !== "ltf_finance";
   const clubMovementCount = clubMoves?.completed_transfer_count ?? 0;
 
   const title = member
@@ -495,6 +500,16 @@ export default function ClubMemberDetailPage() {
                   icon: Award,
                   count: gradeHistoryCount,
                 },
+                ...(showCommittee
+                  ? [
+                      {
+                        value: "committee" as const,
+                        label: t("memberCommitteeTab"),
+                        icon: Landmark,
+                        count: committeeCount,
+                      },
+                    ]
+                  : []),
                 {
                   value: "club-movements",
                   label: t("memberClubMovementsTab"),
@@ -916,6 +931,10 @@ export default function ClubMemberDetailPage() {
                   />
                 </div>
               </FormPanel>
+            ) : null}
+
+            {activeTab === "committee" && showCommittee ? (
+              <MemberCommitteePanel terms={history?.committee_history ?? []} />
             ) : null}
 
             {activeTab === "club-movements" ? (

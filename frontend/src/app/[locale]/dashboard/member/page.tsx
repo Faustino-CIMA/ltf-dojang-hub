@@ -8,6 +8,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberLayout } from "@/components/member/member-layout";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
+import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { apiRequest } from "@/lib/api";
 import {
@@ -151,6 +152,8 @@ export default function MemberDashboardPage() {
               licenseHistory={history?.license_history ?? []}
               gradeHistory={history?.grade_history ?? []}
             />
+
+            <MemberCommitteePanel terms={history?.committee_history ?? []} />
           </div>
         )}
       </div>

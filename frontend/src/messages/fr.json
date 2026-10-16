@@ -1,0 +1,53 @@
+{
+  "ClubAdmin": {
+    "memberCommitteeTab": "Comité"
+  },
+  "LtfAdmin": {
+    "memberCommitteeTab": "Comité"
+  },
+  "ClubMgmt": {
+    "committeeRemoveDescription": "Supprimez cette fonction seulement si elle a été saisie par erreur. Pour noter qu'une personne a quitté le poste, mettez fin au mandat.",
+    "committeeHistoryTitle": "Historique du comité",
+    "committeeHistorySubtitle": "Qui a occupé chaque fonction, et de quand à quand.",
+    "committeeMemberSubtitle": "Fonctions occupées par cette personne.",
+    "committeeHistoryEmpty": "Personne n'a encore occupé de fonction.",
+    "committeeAddPastTerm": "Ajouter une fonction passée",
+    "committeeColumnPerson": "Personne",
+    "committeeColumnRole": "Fonction",
+    "committeeColumnClub": "Club",
+    "committeeColumnStart": "Du",
+    "committeeColumnEnd": "Au",
+    "committeeColumnStatus": "Statut",
+    "committeeFilterAll": "Toutes",
+    "committeeFilterCurrent": "En cours",
+    "committeeFilterPast": "Passées",
+    "committeeFilterLabel": "Filtrer l'historique du comité",
+    "committeeRowActions": "Actions",
+    "committeeEditTerm": "Modifier",
+    "committeeReplaceTerm": "Remplacer",
+    "committeeEndTerm": "Terminer le mandat",
+    "committeeDeleteTerm": "Supprimer",
+    "committeePastTitle": "Ajouter une fonction passée",
+    "committeeEditTitle": "Modifier la fonction",
+    "committeeReplaceTitle": "Transmettre cette fonction",
+    "committeeEndTitle": "Terminer cette fonction",
+    "committeeDeletePanelTitle": "Supprimer cette fonction",
+    "committeeReplaceHint": "À cette date, la nouvelle personne prend la fonction. La personne précédente s'arrête le même jour.",
+    "committeeEndHint": "À partir de cette date, la fonction est vacante. La personne ne l'occupe que les jours d'avant.",
+    "committeePastHint": "Notez quelqu'un qui a déjà occupé cette fonction. Les deux dates sont obligatoires.",
+    "committeeEditHint": "Corrigez ce mandat. Deux personnes ne peuvent pas occuper la même fonction unique le même jour.",
+    "committeeNewMember": "Nouvelle personne",
+    "committeeEndDate": "Date de fin",
+    "committeeNotes": "Notes",
+    "committeeSaveTerm": "Enregistrer",
+    "committeeReplaced": "{name} reprend {role} le {date}.",
+    "committeeEnded": "Fonction terminée.",
+    "committeePastAdded": "Fonction passée enregistrée.",
+    "committeeUpdated": "Fonction mise à jour.",
+    "committeeNeedMember": "Choisissez un membre.",
+    "committeeNeedEnd": "Choisissez une date de fin.",
+    "committeeEndBeforeStart": "La fin doit être le jour du début ou après.",
+    "committeeUpcoming": "À venir",
+    "committeeOfficeActions": "Actions pour {role}"
+  }
+}

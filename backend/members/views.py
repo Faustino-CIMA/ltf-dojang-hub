@@ -14,6 +14,9 @@ from rest_framework.views import APIView
 
 from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
+from clubmgmt.models import CommitteeMandate
+from clubmgmt.serializers import CommitteeTermHistorySerializer
+
 from .models import GradePromotionHistory, Member, MemberTransfer
 from .serializers import (
     GradePromotionCreateSerializer,
@@ -339,6 +342,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 Q(order__isnull=False) | Q(payment__isnull=False)
             )
             grade_payload = []
+            committee_payload = []
         else:
             grade_queryset = (
                 GradePromotionHistory.objects.select_related("club", "examiner_user")
@@ -346,6 +350,12 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 .order_by("-promotion_date", "-created_at")
             )
             grade_payload = GradePromotionHistorySerializer(grade_queryset, many=True).data
+            term_queryset = (
+                CommitteeMandate.objects.select_related("committee", "committee__club")
+                .filter(member=member)
+                .order_by("-started_on", "-id")
+            )
+            committee_payload = CommitteeTermHistorySerializer(term_queryset, many=True).data
 
         return Response(
             {
@@ -354,6 +364,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                     license_queryset, many=True
                 ).data,
                 "grade_history": grade_payload,
+                "committee_history": committee_payload,
             }
         )
 

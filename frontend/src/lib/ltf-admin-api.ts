@@ -1,5 +1,6 @@
 import { getToken } from "./auth";
 import { API_URL, apiRequest } from "./api";
+import type { CommitteeTerm } from "./club-admin-api";
 import type { LicenseRoleValue } from "./license-roles";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
 
@@ -147,6 +148,7 @@ export type MemberHistoryResponse = {
   member_id: number;
   license_history: LicenseHistoryEvent[];
   grade_history: GradeHistoryEntry[];
+  committee_history?: CommitteeTerm[];
 };
 
 export type ClubInput = {

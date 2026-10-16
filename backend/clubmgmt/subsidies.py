@@ -123,9 +123,8 @@ def _officer_name(club, roles: list[str], *, formal: bool = False) -> str:
             committee__scope=Committee.Scope.CLUB,
             committee__club=club,
             role__in=roles,
-            started_on__lte=today,
         )
-        .filter(Q(ended_on__isnull=True) | Q(ended_on__gte=today))
+        .filter(CommitteeMandate.active_q(today))
         .select_related("member", "person")
         .first()
     )

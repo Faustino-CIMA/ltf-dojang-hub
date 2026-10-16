@@ -2,27 +2,35 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Trash2 } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { CommitteeHistoryTable, CommitteeOfficeMenu, type CommitteeMandateRow } from "@/components/clubmgmt/committee-history-table";
+import { CommitteeTermPanel, type CommitteePanelState } from "@/components/clubmgmt/committee-term-panel";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
-import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PopoverSelect } from "@/components/ui/popover-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Member, getMembersList, getMembersPage } from "@/lib/club-admin-api";
-import { createCommittee, createMandate, deleteMandate, listCommittees, updateMandate } from "@/lib/clubmgmt-api";
+import {
+  isActiveOn,
+  isOpenTerm,
+  mandateHolderName,
+  todayIso,
+} from "@/lib/committee-terms";
+import {
+  createCommittee,
+  createMandate,
+  deleteMandate,
+  listCommittees,
+  replaceMandate,
+  updateMandate,
+  type CommitteeMandateDto,
+} from "@/lib/clubmgmt-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
@@ -40,17 +48,7 @@ const ROLES = [
 
 type Role = (typeof ROLES)[number];
 
-type Mandate = {
-  id: number;
-  role: string;
-  title: string;
-  member: number | null;
-  member_name: string;
-  person: number | null;
-  person_name: string;
-  started_on: string;
-  ended_on: string | null;
-};
+type Mandate = CommitteeMandateDto;
 
 const UNIQUE_ROLES = new Set<Role>([
   "president",
@@ -60,16 +58,12 @@ const UNIQUE_ROLES = new Set<Role>([
   "secretary",
 ]);
 
-function isCurrent(mandate: Mandate) {
-  return !mandate.ended_on;
-}
-
-function roleIsTaken(mandates: Mandate[], role: Role, title = "") {
+function roleIsTaken(mandates: Mandate[], role: Role, title = "", day = todayIso()) {
   if (!UNIQUE_ROLES.has(role) && role !== "other") {
     return false;
   }
   return mandates.some((mandate) => {
-    if (!isCurrent(mandate) || mandate.role !== role) {
+    if (!isOpenTerm(mandate, day) || mandate.role !== role) {
       return false;
     }
     if (role === "other") {
@@ -101,10 +95,6 @@ const CARD_BASE =
 const CARD_SELECTED = "border-primary";
 const CARD_IDLE = "border-border hover:border-primary/50";
 const CARD_VACANT = "border-dashed border-primary/50 bg-[color-mix(in_oklab,var(--primary)_6%,white)]";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function displayMemberName(member: Member) {
   return formatFullName(member);
@@ -167,14 +157,20 @@ function isVacant(mandate: Mandate) {
 }
 
 function holderName(mandate: Mandate) {
-  return mandate.member_name || mandate.person_name;
+  return mandateHolderName(mandate);
+}
+
+function onBoard(mandate: Mandate, day: string) {
+  if (isVacant(mandate)) {
+    return isOpenTerm(mandate, day);
+  }
+  return isActiveOn(mandate, day);
 }
 
 type Props = { variant: "club" | "ltf"; embed?: boolean };
 
 export function CommitteePage({ variant, embed = false }: Props) {
   const t = useTranslations("ClubMgmt");
-  const common = useTranslations("Common");
   const { selectedClubId } = useClubSelection();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -184,7 +180,8 @@ export function CommitteePage({ variant, embed = false }: Props) {
   const [members, setMembers] = useState<Member[]>([]);
   const [memberQuery, setMemberQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [mandateToDelete, setMandateToDelete] = useState<Mandate | null>(null);
+  const [panel, setPanel] = useState<CommitteePanelState | null>(null);
+  const today = todayIso();
 
   const boardRef = useRef<HTMLDivElement | null>(null);
   const mandateRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -326,6 +323,11 @@ export function CommitteePage({ variant, embed = false }: Props) {
       dropRubberBand();
       return;
     }
+    if (mandate.member || mandate.person) {
+      setPanel({ mode: "replace", mandate, memberId: member.id });
+      dropRubberBand();
+      return;
+    }
     setIsSaving(true);
     setErrorMessage(null);
     try {
@@ -362,18 +364,105 @@ export function CommitteePage({ variant, embed = false }: Props) {
     setSelectedMandateId(null);
   };
 
-  const confirmDeleteMandate = async () => {
-    if (!mandateToDelete) {
-      return;
-    }
+  const closePanel = () => setPanel(null);
+
+  const saveEdit = async (mandate: CommitteeMandateRow, values: { role: string; title: string; member: number | null; started_on: string; ended_on: string | null; notes: string }) => {
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      await deleteMandate(mandateToDelete.id);
-      if (selectedMandateId === mandateToDelete.id) {
+      await updateMandate(mandate.id, {
+        role: values.role,
+        title: values.title,
+        member: values.member,
+        person: null,
+        started_on: values.started_on,
+        ended_on: values.ended_on,
+        notes: values.notes,
+      });
+      setSuccessMessage(t("committeeUpdated"));
+      closePanel();
+      await load();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveReplace = async (mandate: CommitteeMandateRow, values: { member: number; started_on: string }) => {
+    const member = adultMembers.find((row) => row.id === values.member);
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await replaceMandate(mandate.id, values);
+      setSuccessMessage(
+        t("committeeReplaced", {
+          name: member ? displayMemberName(member) : "",
+          role: t(`role_${mandate.role}`),
+          date: formatDisplayDate(values.started_on),
+        }),
+      );
+      closePanel();
+      dropRubberBand();
+      await load();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveEnd = async (mandate: CommitteeMandateRow, endedOn: string) => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await updateMandate(mandate.id, { ended_on: endedOn });
+      setSuccessMessage(t("committeeEnded"));
+      closePanel();
+      await load();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const savePast = async (values: { role: string; title: string; member: number | null; started_on: string; ended_on: string | null; notes: string }) => {
+    if (!panel || panel.mode !== "past" || values.member == null || !values.ended_on) {
+      return;
+    }
+    const committeeId = panel.committeeId;
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await createMandate({
+        committee: committeeId,
+        role: values.role,
+        title: values.title,
+        member: values.member,
+        started_on: values.started_on,
+        ended_on: values.ended_on,
+        notes: values.notes,
+      });
+      setSuccessMessage(t("committeePastAdded"));
+      closePanel();
+      await load();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const confirmDeleteMandate = async (mandate: CommitteeMandateRow) => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await deleteMandate(mandate.id);
+      if (selectedMandateId === mandate.id) {
         dropRubberBand();
       }
-      setMandateToDelete(null);
+      closePanel();
       setSuccessMessage(t("committeeRemoved"));
       await load();
     } catch (error) {
@@ -433,9 +522,11 @@ export function CommitteePage({ variant, embed = false }: Props) {
 
       {committees.map((committee) => {
         const draft = draftFor(committee.id, committee.mandates);
-        const vacantCount = committee.mandates.filter(isVacant).length;
-        const filledCount = committee.mandates.length - vacantCount;
-        const draftTaken = roleIsTaken(committee.mandates, draft.role, draft.title);
+        const boardMandates = committee.mandates.filter((mandate) => onBoard(mandate, today));
+        const vacantCount = boardMandates.filter(isVacant).length;
+        const filledCount = boardMandates.length - vacantCount;
+        const draftTaken = roleIsTaken(committee.mandates, draft.role, draft.title, today);
+        const openPanel = (next: CommitteePanelState) => setPanel(next);
         return (
           <FormPanel key={committee.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -455,7 +546,8 @@ export function CommitteePage({ variant, embed = false }: Props) {
             <div className="mt-5 grid gap-3 rounded-[var(--radius-card)] border border-border bg-secondary/50 p-4 md:grid-cols-4">
               <div className="space-y-2 md:col-span-2">
                 <Label>{t("committeeOffices")}</Label>
-                <Select
+                <PopoverSelect
+                  ariaLabel={t("committeeOffices")}
                   value={draft.role}
                   onValueChange={(value) =>
                     setDrafts((current) => ({
@@ -463,21 +555,15 @@ export function CommitteePage({ variant, embed = false }: Props) {
                       [committee.id]: { ...draft, role: value as Role },
                     }))
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((role) => {
-                      const taken = UNIQUE_ROLES.has(role) && roleIsTaken(committee.mandates, role);
-                      return (
-                        <SelectItem key={role} value={role} disabled={taken}>
-                          {taken ? `${t(`role_${role}`)} (${t("current")})` : t(`role_${role}`)}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                  options={ROLES.map((role) => {
+                    const taken = UNIQUE_ROLES.has(role) && roleIsTaken(committee.mandates, role, "", today);
+                    return {
+                      value: role,
+                      label: taken ? `${t(`role_${role}`)} (${t("current")})` : t(`role_${role}`),
+                      disabled: taken,
+                    };
+                  })}
+                />
                 {draftTaken && UNIQUE_ROLES.has(draft.role) ? (
                   <p className="text-xs text-muted">{t("committeeRoleTaken", { role: t(`role_${draft.role}`) })}</p>
                 ) : null}
@@ -530,10 +616,15 @@ export function CommitteePage({ variant, embed = false }: Props) {
                           title: draft.role === "other" ? draft.title.trim() : "",
                           member: null,
                           member_name: "",
+                          member_first_name: "",
+                          member_last_name: "",
                           person: null,
                           person_name: "",
+                          person_first_name: "",
+                          person_last_name: "",
                           started_on: draft.started_on,
                           ended_on: null,
+                          notes: "",
                         },
                       ];
                       setDrafts((current) => ({
@@ -610,11 +701,11 @@ export function CommitteePage({ variant, embed = false }: Props) {
                 <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted">
                   {t("committeeOffices")}
                 </p>
-                {committee.mandates.length === 0 ? (
+                {boardMandates.length === 0 ? (
                   <p className="px-2 py-6 text-center text-sm text-muted">{t("committeeEmptySubtitle")}</p>
                 ) : (
                   <div className="space-y-2">
-                    {committee.mandates.map((mandate) => {
+                    {boardMandates.map((mandate) => {
                       const vacant = isVacant(mandate);
                       const selected = selectedMandateId === mandate.id;
                       return (
@@ -654,19 +745,14 @@ export function CommitteePage({ variant, embed = false }: Props) {
                                 label={vacant ? t("committeeVacant") : t("current")}
                                 tone={vacant ? "warning" : "success"}
                               />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                disabled={isSaving}
-                                aria-label={t("committeeRemoveTitle", { role: t(`role_${mandate.role}`) })}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setMandateToDelete(mandate);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <CommitteeOfficeMenu
+                                mandate={mandate}
+                                today={today}
+                                onEdit={(row) => openPanel({ mode: "edit", mandate: row })}
+                                onReplace={(row) => openPanel({ mode: "replace", mandate: row })}
+                                onEnd={(row) => openPanel({ mode: "end", mandate: row })}
+                                onDelete={(row) => openPanel({ mode: "delete", mandate: row })}
+                              />
                             </div>
                           </div>
                           <p className="mt-2 text-sm text-foreground">
@@ -674,9 +760,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
                           </p>
                           <p className="mt-1 text-xs text-muted">
                             {formatDisplayDate(mandate.started_on)}
-                            {mandate.ended_on
-                              ? ` → ${formatDisplayDate(mandate.ended_on)}`
-                              : ` → ${t("current")}`}
+                            {` → ${t("current")}`}
                           </p>
                         </div>
                       );
@@ -730,22 +814,52 @@ export function CommitteePage({ variant, embed = false }: Props) {
                 )}
               </div>
             </div>
+
+            <div className="mt-6 space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-section text-foreground">{t("committeeHistoryTitle")}</h3>
+                  <p className="mt-1 text-sm text-muted">{t("committeeHistorySubtitle")}</p>
+                </div>
+                <Button type="button" variant="outline" onClick={() => openPanel({ mode: "past", committeeId: committee.id })}>
+                  {t("committeeAddPastTerm")}
+                </Button>
+              </div>
+              <CommitteeHistoryTable
+                mandates={committee.mandates}
+                canManage
+                today={today}
+                onEdit={(row) => openPanel({ mode: "edit", mandate: row })}
+                onReplace={(row) => openPanel({ mode: "replace", mandate: row })}
+                onEnd={(row) => openPanel({ mode: "end", mandate: row })}
+                onDelete={(row) => openPanel({ mode: "delete", mandate: row })}
+              />
+            </div>
           </FormPanel>
         );
       })}
 
-      <DeleteConfirmModal
-        isOpen={mandateToDelete !== null}
-        title={t("committeeRemoveTitle", {
-          role: mandateToDelete ? t(`role_${mandateToDelete.role}`) : "",
-        })}
-        description={t("committeeRemoveDescription")}
-        confirmLabel={t("committeeRemove")}
-        cancelLabel={common("deleteCancelButton")}
-        onConfirm={() => {
-          void confirmDeleteMandate();
+      <CommitteeTermPanel
+        panel={panel}
+        members={adultMembers.map((member) => ({ id: member.id, name: displayMemberName(member) }))}
+        roles={ROLES.map((role) => ({ value: role, label: t(`role_${role}`) }))}
+        busy={isSaving}
+        onClose={closePanel}
+        onEdit={(mandate, values) => {
+          void saveEdit(mandate, values);
         }}
-        onCancel={() => setMandateToDelete(null)}
+        onReplace={(mandate, values) => {
+          void saveReplace(mandate, values);
+        }}
+        onEnd={(mandate, endedOn) => {
+          void saveEnd(mandate, endedOn);
+        }}
+        onCreatePast={(values) => {
+          void savePast(values);
+        }}
+        onDelete={(mandate) => {
+          void confirmDeleteMandate(mandate);
+        }}
       />
     </div>
   );

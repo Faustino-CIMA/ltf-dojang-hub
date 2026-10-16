@@ -173,10 +173,24 @@ export type GradeHistoryEntry = {
   created_at: string;
 };
 
+export type CommitteeTerm = {
+  id: number;
+  role: string;
+  title: string;
+  scope: string;
+  committee_name: string;
+  club_id: number | null;
+  club_name: string;
+  started_on: string;
+  ended_on: string | null;
+  is_current: boolean;
+};
+
 export type MemberHistoryResponse = {
   member_id: number;
   license_history: LicenseHistoryEvent[];
   grade_history: GradeHistoryEntry[];
+  committee_history?: CommitteeTerm[];
 };
 
 export type MemberInput = {
