@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ("clubmgmt", "0023_coach_pay"),
+        ("clubmgmt", "0024_alter_membershipfee_options"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
