@@ -1,0 +1,53 @@
+{
+  "ClubAdmin": {
+    "memberCommitteeTab": "Vorstand"
+  },
+  "LtfAdmin": {
+    "memberCommitteeTab": "Vorstand"
+  },
+  "ClubMgmt": {
+    "committeeRemoveDescription": "Löschen Sie dieses Amt nur, wenn es versehentlich angelegt wurde. Wer ausgeschieden ist, bekommt ein Enddatum.",
+    "committeeHistoryTitle": "Vorstandshistorie",
+    "committeeHistorySubtitle": "Wer welches Amt hatte, und von wann bis wann.",
+    "committeeMemberSubtitle": "Ämter, die diese Person innehatte.",
+    "committeeHistoryEmpty": "Noch hat niemand ein Amt innegehabt.",
+    "committeeAddPastTerm": "Früheres Amt hinzufügen",
+    "committeeColumnPerson": "Person",
+    "committeeColumnRole": "Amt",
+    "committeeColumnClub": "Verein",
+    "committeeColumnStart": "Von",
+    "committeeColumnEnd": "Bis",
+    "committeeColumnStatus": "Status",
+    "committeeFilterAll": "Alle",
+    "committeeFilterCurrent": "Aktuell",
+    "committeeFilterPast": "Früher",
+    "committeeFilterLabel": "Vorstandshistorie filtern",
+    "committeeRowActions": "Aktionen",
+    "committeeEditTerm": "Bearbeiten",
+    "committeeReplaceTerm": "Ersetzen",
+    "committeeEndTerm": "Amt beenden",
+    "committeeDeleteTerm": "Löschen",
+    "committeePastTitle": "Früheres Amt",
+    "committeeEditTitle": "Amt bearbeiten",
+    "committeeReplaceTitle": "Amt übergeben",
+    "committeeEndTitle": "Amt beenden",
+    "committeeDeletePanelTitle": "Amt löschen",
+    "committeeReplaceHint": "An diesem Tag übernimmt die neue Person das Amt. Die bisherige Person hört am selben Tag auf.",
+    "committeeEndHint": "Ab diesem Tag ist das Amt frei. Die Person hat es nur an den Tagen davor.",
+    "committeePastHint": "Tragen Sie jemanden ein, der dieses Amt früher hatte. Beide Daten sind nötig.",
+    "committeeEditHint": "Korrigieren Sie diese Amtszeit. Zwei Personen können dasselbe Einzelamt nicht am selben Tag haben.",
+    "committeeNewMember": "Neue Person",
+    "committeeEndDate": "Enddatum",
+    "committeeNotes": "Notizen",
+    "committeeSaveTerm": "Speichern",
+    "committeeReplaced": "{name} übernimmt {role} am {date}.",
+    "committeeEnded": "Amt beendet.",
+    "committeePastAdded": "Früheres Amt gespeichert.",
+    "committeeUpdated": "Amt aktualisiert.",
+    "committeeNeedMember": "Wählen Sie ein Mitglied.",
+    "committeeNeedEnd": "Wählen Sie ein Enddatum.",
+    "committeeEndBeforeStart": "Das Ende muss am Anfang oder danach liegen.",
+    "committeeUpcoming": "Geplant",
+    "committeeOfficeActions": "Aktionen für {role}"
+  }
+}

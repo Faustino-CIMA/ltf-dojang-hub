@@ -64,7 +64,7 @@ class CommitteeAdmin(admin.ModelAdmin):
 
 @admin.register(CommitteeMandate)
 class CommitteeMandateAdmin(admin.ModelAdmin):
-    list_display = ("committee", "role", "member", "person", "started_on", "ended_on")
+    list_display = ("committee", "role", "member", "person", "started_on", "ended_on", "recorded_by")
 
 
 @admin.register(ShopItem)

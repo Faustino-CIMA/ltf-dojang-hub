@@ -97,6 +97,33 @@ function buildRequestSignal(externalSignal?: AbortSignal | null) {
   };
 }
 
+function collectJsonMessage(value: unknown): string {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(collectJsonMessage).filter(Boolean).join(" ");
+  }
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+  const record = value as Record<string, unknown>;
+  const preferred = ["non_field_errors", "detail", "message", "error"];
+  for (const key of preferred) {
+    const found = collectJsonMessage(record[key]);
+    if (found) {
+      return found;
+    }
+  }
+  for (const nested of Object.values(record)) {
+    const found = collectJsonMessage(nested);
+    if (found) {
+      return found;
+    }
+  }
+  return "";
+}
+
 async function executeApiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getToken();
   const requestUrl = `${API_URL}${path}`;
@@ -161,14 +188,9 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
           message?: string;
           error?: string;
         };
-        if (Array.isArray(parsed?.non_field_errors) && parsed.non_field_errors.length > 0) {
-          normalizedMessage = parsed.non_field_errors.join(" ");
-        } else if (typeof parsed?.detail === "string") {
-          normalizedMessage = parsed.detail;
-        } else if (typeof parsed?.message === "string") {
-          normalizedMessage = parsed.message;
-        } else if (typeof parsed?.error === "string") {
-          normalizedMessage = parsed.error;
+        const fieldMessage = collectJsonMessage(parsed);
+        if (fieldMessage) {
+          normalizedMessage = fieldMessage;
         }
       } catch {
         normalizedMessage = message;

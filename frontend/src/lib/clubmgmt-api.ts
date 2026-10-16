@@ -629,12 +629,34 @@ export function getClubFinanceAccess(clubId: number | null) {
   );
 }
 
+export type CommitteeMandateDto = {
+  id: number;
+  role: string;
+  title: string;
+  member: number | null;
+  member_name: string;
+  member_first_name: string;
+  member_last_name: string;
+  person: number | null;
+  person_name: string;
+  person_first_name: string;
+  person_last_name: string;
+  started_on: string;
+  ended_on: string | null;
+  notes: string;
+};
+
+export type CommitteeDto = {
+  id: number;
+  name: string;
+  scope: string;
+  mandates: CommitteeMandateDto[];
+};
+
 export function listCommittees(params: { scope: string; club?: number }) {
   const q = new URLSearchParams({ scope: params.scope });
   if (params.club) q.set("club", String(params.club));
-  return apiRequest<Array<{ id: number; name: string; scope: string; mandates: Array<{ id: number; role: string; title: string; member: number | null; member_name: string; person: number | null; person_name: string; started_on: string; ended_on: string | null }> }>>(
-    `/api/club-management/committees/?${q.toString()}`,
-  );
+  return apiRequest<CommitteeDto[]>(`/api/club-management/committees/?${q.toString()}`);
 }
 
 export function createCommittee(payload: Record<string, unknown>) {
@@ -655,6 +677,13 @@ export function updateMandate(id: number, payload: Record<string, unknown>) {
 export function deleteMandate(id: number) {
   return apiRequest<void>(`/api/club-management/mandates/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export function replaceMandate(id: number, payload: { member: number; started_on: string }) {
+  return apiRequest<CommitteeMandateDto>(`/api/club-management/mandates/${id}/replace/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

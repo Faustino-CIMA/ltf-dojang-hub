@@ -1,4 +1,3 @@
-from django.db.models import Q
 from django.utils import timezone
 
 from modules.entitlements import is_club_assigned, is_install_entitled
@@ -48,9 +47,8 @@ def current_bank_access_mandate(user, club_id: int | None):
             role__in=CommitteeMandate.UNIQUE_CURRENT_ROLES,
             committee__scope=Committee.Scope.CLUB,
             committee__club_id=club_id,
-            started_on__lte=today,
         )
-        .filter(Q(ended_on__isnull=True) | Q(ended_on__gte=today))
+        .filter(CommitteeMandate.active_q(today))
         .first()
     )
 
@@ -71,3 +69,12 @@ def can_view_club_books(user, club_id: int | None) -> bool:
 
 def can_mutate_club_books(user, club_id: int | None) -> bool:
     return can_record_club_payments(user, club_id)
+
+
+def can_edit_committee(user, committee) -> bool:
+    """Club admins edit their own club committee. LTF admins edit every committee."""
+    if is_ltf_manager(user):
+        return True
+    if getattr(committee, "scope", None) != Committee.Scope.CLUB:
+        return False
+    return can_manage_club_records(user, getattr(committee, "club_id", None))

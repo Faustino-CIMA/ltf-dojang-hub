@@ -467,8 +467,19 @@ class CommitteeMandate(models.Model):
         related_name="committee_mandates",
     )
     started_on = models.DateField()
+    # Exclusive: the person holds the office while started_on <= day < ended_on.
+    # An empty end date means the term is still open. On a handover, the old
+    # end date equals the new start date, so the new holder has the office that day.
     ended_on = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_committee_mandates",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
 
     UNIQUE_CURRENT_ROLES = frozenset(
         {
@@ -482,6 +493,18 @@ class CommitteeMandate(models.Model):
 
     class Meta:
         ordering = ["-started_on", "id"]
+
+    @classmethod
+    def active_q(cls, day: date) -> Q:
+        """Offices held on day: start <= day and (no end, or end is after day)."""
+        return Q(started_on__lte=day) & (Q(ended_on__isnull=True) | Q(ended_on__gt=day))
+
+    def is_active_on(self, day: date) -> bool:
+        if self.started_on > day:
+            return False
+        if self.ended_on is None:
+            return True
+        return self.ended_on > day
 
     @staticmethod
     def member_is_adult(member, as_of: date | None = None) -> bool:
@@ -516,9 +539,10 @@ class CommitteeMandate(models.Model):
             qs = qs.filter(title=title or "")
         if exclude_pk:
             qs = qs.exclude(pk=exclude_pk)
-        qs = qs.filter(Q(ended_on__isnull=True) | Q(ended_on__gte=started_on))
+        # Ranges are [start, end). Touching at the handover date is allowed.
+        qs = qs.filter(Q(ended_on__isnull=True) | Q(ended_on__gt=started_on))
         if ended_on is not None:
-            qs = qs.filter(started_on__lte=ended_on)
+            qs = qs.filter(started_on__lt=ended_on)
         return qs.exists()
 
     def clean(self):

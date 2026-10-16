@@ -1,4 +1,3 @@
-from django.db.models import Q
 from django.utils import timezone
 
 from clubmgmt.models import Committee, CommitteeMandate
@@ -84,9 +83,8 @@ def current_president_club_ids(user) -> set[int]:
                 member=member,
                 role=CommitteeMandate.Role.PRESIDENT,
                 committee__scope=Committee.Scope.CLUB,
-                started_on__lte=today,
             )
-            .filter(Q(ended_on__isnull=True) | Q(ended_on__gte=today))
+            .filter(CommitteeMandate.active_q(today))
             .values_list("committee__club_id", flat=True)
         )
     user._event_president_club_ids = ids
