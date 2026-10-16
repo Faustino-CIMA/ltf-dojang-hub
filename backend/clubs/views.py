@@ -190,6 +190,17 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         return super().partial_update(request, *args, **kwargs)
 
+    @action(detail=True, methods=["get"], url_path="module-fees")
+    def module_fees(self, request, pk=None):
+        """Price list for club admins. Reachable when the club has no module switched on."""
+        user = request.user
+        if user.role not in {"club_admin", "ltf_finance", "ltf_admin"} and not user.is_superuser:
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        club = self.get_object()
+        from licenses.module_fees import module_fee_quote
+
+        return Response(module_fee_quote(club))
+
     @action(detail=False, methods=["get"], url_path="communication-languages")
     def communication_languages(self, request):
         return Response(

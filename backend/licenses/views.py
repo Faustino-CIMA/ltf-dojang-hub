@@ -13,6 +13,7 @@ from drf_spectacular.utils import extend_schema
 import stripe
 from rest_framework import permissions, serializers, status, viewsets, mixins
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
 from django.http import HttpResponse
@@ -2204,12 +2205,28 @@ class LicensePriceViewSet(
 
 class ClubFeeTypeViewSet(viewsets.ModelViewSet):
     serializer_class = ClubFeeTypeSerializer
-    queryset = ClubFeeType.objects.prefetch_related("prices").all().order_by("name")
+    queryset = (
+        ClubFeeType.objects.annotate(invoice_count=Count("order_items"))
+        .prefetch_related("prices")
+        .all()
+        .order_by("name")
+    )
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
             return [IsLtfFinanceOrLtfAdmin()]
         return [IsLtfFinance()]
+
+    def destroy(self, request, *args, **kwargs):
+        fee_type = self.get_object()
+        if fee_type.order_items.exists():
+            if fee_type.is_active:
+                fee_type.is_active = False
+                fee_type.save(update_fields=["is_active", "updated_at"])
+            fee_type.invoice_count = fee_type.order_items.count()
+            return Response(self.get_serializer(fee_type).data)
+        self.perform_destroy(fee_type)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ClubFeePriceViewSet(
@@ -2237,7 +2254,11 @@ class ClubFeePriceViewSet(
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+        fee_type = serializer.validated_data.get("fee_type")
+        user = self.request.user
+        if fee_type is not None and fee_type.module_id and getattr(user, "role", "") != "ltf_finance":
+            raise PermissionDenied("Only LTF Finance can set module fees.")
+        serializer.save(created_by=user if user.is_authenticated else None)
 
 
 class ClubFeeBillingScheduleViewSet(

@@ -296,7 +296,7 @@ def _club_item_rows(items) -> list[dict]:
                 "size": size,
                 "quantity": item.quantity,
                 "unit_price": euro_amount(item.price_snapshot),
-                "line_total": euro_amount(item.price_snapshot * item.quantity),
+                "line_total": euro_amount(item.line_amount()),
             }
         )
     return rows
@@ -322,7 +322,7 @@ def _license_rows(items) -> list[dict]:
                 "license_id": license_id,
                 "quantity": item.quantity,
                 "unit_price": euro_amount(item.price_snapshot),
-                "line_total": euro_amount(item.price_snapshot * item.quantity),
+                "line_total": euro_amount(item.line_amount()),
                 "sort_name": _member_name(member).casefold(),
             }
         )
@@ -338,6 +338,10 @@ def _is_ltf_license_invoice(invoice: Invoice) -> bool:
 
 
 def invoice_item_label(item) -> str:
+    if getattr(item, "active_member_count", None) is not None or getattr(item, "minimum_applied", False):
+        description = (item.description or "").strip()
+        if description:
+            return description
     if item.license_id and item.license is not None:
         license_type = item.license.license_type
         name = license_type.name if license_type is not None else (item.description or "License")
@@ -365,7 +369,7 @@ def build_invoice_context(invoice: Invoice) -> dict:
                 "label": invoice_item_label(item),
                 "quantity": item.quantity,
                 "unit_price": item.price_snapshot,
-                "line_total": item.price_snapshot * item.quantity,
+                "line_total": item.line_amount(),
             }
         )
     payconiq_url = ""

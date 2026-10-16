@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -19,6 +20,11 @@ from .models import (
     Invoice,
     Order,
     OrderItem,
+)
+from .module_fees import (
+    active_member_count,
+    module_fee_line_description,
+    quote_price,
 )
 from .services import cancel_pending_payments_for_invoice
 
@@ -105,14 +111,76 @@ def _skip_row(*, club: Club, fee_type: ClubFeeType, reason: str, invoice_number:
     }
 
 
+@dataclass
+class PlannedLine:
+    fee_type: ClubFeeType
+    price: ClubFeePrice
+    quantity: int
+    month: int | None
+    year: int
+    description: str
+    price_snapshot: Decimal
+    charged_amount: Decimal
+    active_member_count: int | None = None
+    minimum_applied: bool = False
+
+
+def _plan_module_line(fee_type: ClubFeeType, club: Club, price: ClubFeePrice, period_year: int):
+    from modules.entitlements import is_club_assigned
+
+    if not fee_type.module_id or not is_club_assigned(fee_type.module_id, club.id):
+        return None
+    count = active_member_count(club.id, period_year)
+    quoted = quote_price(
+        amount=price.amount,
+        pricing_type=price.pricing_type,
+        minimum_amount=price.minimum_amount,
+        active_members=count,
+    )
+    if quoted["charged_amount"] <= 0:
+        return None
+    per_member = price.pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER
+    quantity = count if per_member and count > 0 else 1
+    return PlannedLine(
+        fee_type=fee_type,
+        price=price,
+        quantity=quantity,
+        month=None,
+        year=period_year,
+        description=module_fee_line_description(
+            name=fee_type.name,
+            year=period_year,
+            pricing_type=price.pricing_type,
+            amount=price.amount,
+            active_members=count if per_member else None,
+            minimum_applied=quoted["minimum_applied"],
+        ),
+        price_snapshot=price.amount,
+        charged_amount=quoted["charged_amount"],
+        active_member_count=quoted["active_member_count"],
+        minimum_applied=quoted["minimum_applied"],
+    )
+
+
 def _plan_line(fee_type: ClubFeeType, club: Club, billed_on: date, period_year: int, month: int | None):
     price = ClubFeePrice.get_active_price(fee_type=fee_type, as_of=billed_on)
     if price is None:
         return None
+    if fee_type.module_id:
+        return _plan_module_line(fee_type, club, price, period_year)
     quantity = _quantity_for_fee(fee_type, club)
     if quantity <= 0:
         return None
-    return (fee_type, price, quantity, month, period_year)
+    return PlannedLine(
+        fee_type=fee_type,
+        price=price,
+        quantity=quantity,
+        month=month,
+        year=period_year,
+        description=_line_description(fee_type, period_year, month),
+        price_snapshot=price.amount,
+        charged_amount=price.amount * quantity,
+    )
 
 
 def bill_club_fees(
@@ -138,12 +206,16 @@ def bill_club_fees(
                 continue
             try:
                 with transaction.atomic():
-                    planned: dict[int, tuple[ClubFeeType, ClubFeePrice, int, int | None, int]] = {}
+                    planned: dict[int, PlannedLine] = {}
                     to_void: dict[int, Invoice] = {}
                     for fee_type in fee_types:
                         if not fee_type.is_active:
                             continue
-                        month = period_month_for(fee_type, billed_on, recurrence)
+                        month = (
+                            None
+                            if fee_type.module_id
+                            else period_month_for(fee_type, billed_on, recurrence)
+                        )
                         existing = existing_charge(
                             club=club, fee_type=fee_type, year=period_year, month=month
                         )
@@ -223,8 +295,8 @@ def bill_club_fees(
                         )
 
                     items = list(planned.values())
-                    currency = items[0][1].currency
-                    subtotal = sum((price.amount * quantity for _fee, price, quantity, _month, _year in items), Decimal("0.00"))
+                    currency = items[0].price.currency
+                    subtotal = sum((line.charged_amount for line in items), Decimal("0.00"))
                     order = Order.objects.create(
                         club=club,
                         member=None,
@@ -240,17 +312,20 @@ def bill_club_fees(
                             OrderItem(
                                 order=order,
                                 license=None,
-                                fee_type=fee_type,
-                                description=_line_description(fee_type, year, month),
-                                billing_year=year,
-                                billing_month=month,
+                                fee_type=line.fee_type,
+                                description=line.description,
+                                billing_year=line.year,
+                                billing_month=line.month,
                                 billing_club=club,
-                                period_key=period_key_for(year, month),
+                                period_key=period_key_for(line.year, line.month),
                                 charge_active=True,
-                                price_snapshot=price.amount,
-                                quantity=quantity,
+                                price_snapshot=line.price_snapshot,
+                                quantity=line.quantity,
+                                active_member_count=line.active_member_count,
+                                minimum_applied=line.minimum_applied,
+                                charged_amount=line.charged_amount,
                             )
-                            for fee_type, price, quantity, month, year in items
+                            for line in items
                         ]
                     )
                     invoice = Invoice.objects.create(
@@ -275,7 +350,7 @@ def bill_club_fees(
                             "billed_on": billed_on.isoformat(),
                             "period_year": period_year,
                             "rebill": rebill,
-                            "fee_type_ids": [fee_type.id for fee_type, _price, _qty, _month, _year in items],
+                            "fee_type_ids": [line.fee_type.id for line in items],
                             "schedule_id": schedule.id if schedule else None,
                             "total": str(subtotal),
                         },

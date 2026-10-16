@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### User-facing
+- **Module fees:** LTF Finance can set a yearly price for Club management and the event calendar. A price is either a flat amount or an amount times the club's active members, with an optional minimum. Billing uses the existing Billing tab and skips a club already invoiced for that year. Only an active club with the module switched on is billed. An unpaid invoice leaves the module on. Club admins can read Modules and prices on the club profile, including when no module is switched on. The yearly figure there is an estimate.
+
+### Technical
+- `ClubFeeType.module_id` and module price rows (`pricing_type`, `minimum_amount`) are migration `licenses.0048_module_fees`. An active member is a member of the club with an active or pending licence for the billing year (`licenses.module_fees.active_member_count`). A per-member invoice line stores that count and says when the minimum fee applied. `GET /api/clubs/{id}/module-fees/` is readable by that club's admin without any module switched on. Only LTF Finance can change the prices.
+
 ### Documentation
 
 - Replace the previous user manuals with the multilingual EN/DE/FR/LB set in `docs/user-manual/` (sources, rebuild tooling, and PDFs).

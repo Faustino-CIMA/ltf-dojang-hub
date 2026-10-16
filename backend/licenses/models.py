@@ -117,12 +117,20 @@ class ClubFeeType(models.Model):
     description = models.TextField(blank=True)
     cadence = models.CharField(max_length=20, choices=Cadence.choices, default=Cadence.ONE_OFF)
     year = models.PositiveIntegerField(null=True, blank=True)
+    module_id = models.CharField(max_length=64, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["module_id"],
+                condition=Q(module_id__isnull=False) & ~Q(module_id=""),
+                name="uniq_club_fee_module",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -134,6 +142,10 @@ class ClubFeeType(models.Model):
 
 
 class ClubFeePrice(models.Model):
+    class PricingType(models.TextChoices):
+        FLAT = "flat", "Flat"
+        PER_ACTIVE_MEMBER = "per_active_member", "Per active member"
+
     objects = models.Manager()
     fee_type = models.ForeignKey(
         ClubFeeType,
@@ -141,6 +153,12 @@ class ClubFeePrice(models.Model):
         related_name="prices",
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    pricing_type = models.CharField(
+        max_length=32,
+        choices=PricingType.choices,
+        default=PricingType.FLAT,
+    )
+    minimum_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, default="EUR")
     effective_from = models.DateField(default=timezone.localdate)
     created_by = models.ForeignKey(
@@ -400,6 +418,9 @@ class OrderItem(models.Model):
     charge_active = models.BooleanField(default=False)
     price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)  # type: ignore[arg-type]
+    active_member_count = models.PositiveIntegerField(null=True, blank=True)
+    minimum_applied = models.BooleanField(default=False)
+    charged_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -409,6 +430,11 @@ class OrderItem(models.Model):
                 name="uniq_active_club_fee_period",
             )
         ]
+
+    def line_amount(self) -> Decimal:
+        if self.charged_amount is not None:
+            return self.charged_amount
+        return self.price_snapshot * self.quantity
 
     def __str__(self) -> str:
         if self.license_id:

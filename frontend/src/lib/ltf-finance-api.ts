@@ -269,6 +269,7 @@ export type LicenseTypePolicy = {
 };
 
 export type ClubFeeCadence = "one_off" | "annual" | "per_member" | "per_event";
+export type ModuleFeePricingType = "flat" | "per_active_member";
 
 export type ClubFeeType = {
   id: number;
@@ -277,9 +278,14 @@ export type ClubFeeType = {
   description: string;
   cadence: ClubFeeCadence;
   year: number | null;
+  module_id?: string | null;
   is_active: boolean;
+  has_invoices?: boolean;
   current_amount: string | null;
   current_currency: string | null;
+  current_pricing_type?: ModuleFeePricingType | null;
+  current_minimum_amount?: string | null;
+  current_effective_from?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -288,10 +294,36 @@ export type ClubFeePrice = {
   id: number;
   fee_type: number;
   amount: string;
+  pricing_type?: ModuleFeePricingType;
+  minimum_amount?: string | null;
   currency: string;
   effective_from: string;
   created_by: number | null;
   created_at: string;
+};
+
+export type ClubModuleFeeRow = {
+  module_id: string;
+  name: string;
+  enabled: boolean;
+  has_price: boolean;
+  pricing_type: ModuleFeePricingType | null;
+  amount: string | null;
+  currency: string;
+  minimum_amount: string | null;
+  effective_from: string | null;
+  active_member_count: number;
+  calculated_amount: string | null;
+  estimated_amount: string | null;
+  minimum_applied: boolean;
+};
+
+export type ClubModuleFeeQuote = {
+  club_id: number;
+  year: number;
+  active_member_count: number;
+  estimate: boolean;
+  modules: ClubModuleFeeRow[];
 };
 
 export type FinanceLicenseType = {
@@ -762,14 +794,17 @@ export function getClubFeeTypes(options?: ApiCallOptions) {
 }
 
 export function createClubFeeType(input: {
-  name: string;
+  name?: string;
   description?: string;
   cadence?: ClubFeeCadence;
   year?: number | null;
+  module_id?: string | null;
   is_active?: boolean;
   initial_amount?: string;
   initial_currency?: string;
   initial_effective_from?: string;
+  initial_pricing_type?: ModuleFeePricingType;
+  initial_minimum_amount?: string | null;
 }) {
   return apiRequest<ClubFeeType>("/api/club-fee-types/", {
     method: "POST",
@@ -777,10 +812,21 @@ export function createClubFeeType(input: {
   });
 }
 
+export function updateClubFeeType(id: number, input: { is_active?: boolean; description?: string }) {
+  return apiRequest<ClubFeeType>(`/api/club-fee-types/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export function deleteClubFeeType(id: number) {
-  return apiRequest<void>(`/api/club-fee-types/${id}/`, {
+  return apiRequest<ClubFeeType | null>(`/api/club-fee-types/${id}/`, {
     method: "DELETE",
   });
+}
+
+export function getClubModuleFees(clubId: number) {
+  return apiRequest<ClubModuleFeeQuote>(`/api/clubs/${clubId}/module-fees/`);
 }
 
 export function getClubFeePrices(params?: { feeTypeId?: number }, options?: ApiCallOptions) {
@@ -799,6 +845,8 @@ export function createClubFeePrice(input: {
   amount: string;
   currency?: string;
   effective_from?: string;
+  pricing_type?: ModuleFeePricingType;
+  minimum_amount?: string | null;
 }) {
   return apiRequest<ClubFeePrice>("/api/club-fee-prices/", {
     method: "POST",

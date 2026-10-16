@@ -33,8 +33,10 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
+import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
 import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
 import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { getClubModuleFees, type ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
 import {
   Select,
   SelectContent,
@@ -86,6 +88,7 @@ export default function ClubAdminSettingsPage() {
   const [isLoadingLogos, setIsLoadingLogos] = useState(false);
   const [logosLoadError, setLogosLoadError] = useState<string | null>(null);
   const [clubIsActive, setClubIsActive] = useState(true);
+  const [moduleFees, setModuleFees] = useState<ClubModuleFeeQuote | null>(null);
   const [languages, setLanguages] = useState<ClubCommunicationLanguage[]>([
     { code: "en", name: "English" },
     { code: "lb", name: "Lëtzebuergesch" },
@@ -218,6 +221,24 @@ export default function ClubAdminSettingsPage() {
   useEffect(() => {
     void loadLogos();
   }, [loadLogos]);
+
+  useEffect(() => {
+    if (!selectedClubId) {
+      setModuleFees(null);
+      return;
+    }
+    let cancelled = false;
+    getClubModuleFees(selectedClubId)
+      .then((quote) => {
+        if (!cancelled) setModuleFees(quote);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleFees(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -445,6 +466,8 @@ export default function ClubAdminSettingsPage() {
               </div>
             </form>
           </section>
+
+          {moduleFees ? <ClubModulePrices quote={moduleFees} /> : null}
 
           <BrandingLogosManager
             logos={clubLogos}

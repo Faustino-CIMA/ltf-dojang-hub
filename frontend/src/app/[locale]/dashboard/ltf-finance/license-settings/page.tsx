@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Boxes,
   Building2,
   CalendarDays,
   Check,
@@ -56,6 +57,7 @@ import {
   createLicensePrice,
   deleteClubFeeType,
   deleteFinanceLicenseType,
+  updateClubFeeType,
   getClubFeeBillingSchedules,
   getClubFeePrices,
   getClubFeeTypes,
@@ -63,10 +65,11 @@ import {
   getLicensePrices,
   updateClubFeeBillingSchedule,
 } from "@/lib/ltf-finance-api";
+import { ModuleFeesPanel, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Club, getClubs, updateClub } from "@/lib/club-admin-api";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-display";
 
-const SETTINGS_TABS = ["license-types", "license-prices", "club-fees", "billing"] as const;
+const SETTINGS_TABS = ["license-types", "license-prices", "club-fees", "module-fees", "billing"] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 function parseSettingsTab(value: string | null): SettingsTab {
@@ -363,10 +366,22 @@ export default function LtfFinanceLicenseSettingsPage() {
     return t("clubFeeCadenceOneOff");
   };
 
+  const catalogFees = useMemo(
+    () => clubFeeTypes.filter((fee) => !fee.module_id),
+    [clubFeeTypes]
+  );
+  const moduleFees = useMemo(
+    () => clubFeeTypes.filter((fee) => Boolean(fee.module_id)),
+    [clubFeeTypes]
+  );
   const activeFees = useMemo(
     () => clubFeeTypes.filter((fee) => fee.is_active),
     [clubFeeTypes]
   );
+  const feeDisplayName = (fee: ClubFeeType) => {
+    const key = moduleFeeLabelKey(fee.module_id);
+    return key ? t(key) : fee.name;
+  };
   const activeClubCount = useMemo(
     () => clubs.filter((club) => club.is_active).length,
     [clubs]
@@ -555,6 +570,7 @@ export default function LtfFinanceLicenseSettingsPage() {
           { value: "license-types", label: t("settingsTabLicenseTypes"), icon: IdCard },
           { value: "license-prices", label: t("settingsTabLicensePrices"), icon: CircleDollarSign },
           { value: "club-fees", label: t("settingsTabClubFees"), icon: Receipt },
+          { value: "module-fees", label: t("settingsTabModuleFees"), icon: Boxes },
           { value: "billing", label: t("settingsTabBilling"), icon: ScrollText },
         ]}
       />
@@ -807,11 +823,11 @@ export default function LtfFinanceLicenseSettingsPage() {
             </div>
           </FormPanel>
 
-          {clubFeeTypes.length === 0 ? (
+          {catalogFees.length === 0 ? (
             <EmptyState title={t("clubFeeEmptyTitle")} description={t("clubFeeEmptySubtitle")} />
           ) : (
             <div className="space-y-5">
-              {clubFeeTypes.map((feeType) => {
+              {catalogFees.map((feeType) => {
                 const rows = pricesByFeeType[feeType.id] ?? [];
                 const draft = feePriceDrafts[feeType.id] ?? { amount: "", effectiveFrom: "" };
                 const isSavingFeePrice = Boolean(savingFeePriceByType[feeType.id]);
@@ -916,6 +932,57 @@ export default function LtfFinanceLicenseSettingsPage() {
             </div>
           )}
         </div>
+      ) : null}
+
+      {activeTab === "module-fees" ? (
+        <ModuleFeesPanel
+          fees={moduleFees}
+          prices={clubFeePrices}
+          onNotice={(kind, message) => {
+            if (kind === "error") {
+              setErrorMessage(message);
+              setSuccessMessage(null);
+            } else {
+              setSuccessMessage(message);
+              setErrorMessage(null);
+            }
+          }}
+          onCreate={async (draft) => {
+            await createClubFeeType({
+              module_id: draft.moduleId,
+              cadence: "annual",
+              is_active: true,
+              initial_amount: draft.amount.trim(),
+              initial_currency: "EUR",
+              initial_effective_from: draft.effectiveFrom || undefined,
+              initial_pricing_type: draft.pricingType,
+              initial_minimum_amount: draft.minimum.trim() ? draft.minimum.trim() : null,
+            });
+            await loadData();
+          }}
+          onSave={async (fee, draft) => {
+            if (fee.is_active !== draft.isActive) {
+              await updateClubFeeType(fee.id, { is_active: draft.isActive });
+            }
+            await createClubFeePrice({
+              fee_type: fee.id,
+              amount: draft.amount.trim(),
+              currency: fee.current_currency ?? "EUR",
+              effective_from: draft.effectiveFrom || undefined,
+              pricing_type: draft.pricingType,
+              minimum_amount: draft.minimum.trim() ? draft.minimum.trim() : null,
+            });
+            await loadData();
+          }}
+          onRemove={async (fee) => {
+            const result = await deleteClubFeeType(fee.id);
+            await loadData();
+            if (result && result.is_active === false) {
+              return "switched_off";
+            }
+            return "deleted";
+          }}
+        />
       ) : null}
 
       {activeTab === "billing" ? (
@@ -1036,7 +1103,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold text-foreground">{fee.name}</p>
+                          <p className="text-sm font-semibold text-foreground">{feeDisplayName(fee)}</p>
                           {selected ? (
                             <span className="inline-flex items-center gap-1 rounded-[var(--radius-chip)] bg-primary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
                               <Check className="h-3 w-3" />
@@ -1055,6 +1122,9 @@ export default function LtfFinanceLicenseSettingsPage() {
                   })}
                 </div>
               )}
+              {activeFees.some((fee) => selectedFeeIds.includes(fee.id) && fee.module_id) ? (
+                <p className="mt-3 text-sm text-muted">{t("moduleFeeBillingHint")}</p>
+              ) : null}
             </div>
 
             <div className="mt-6">
