@@ -45,4 +45,41 @@ describe("PopoverSelect", () => {
     fireEvent.click(document.activeElement as HTMLElement);
     expect(onValueChange).toHaveBeenCalledWith("draft");
   });
+
+  it("filters a long list from the search field", () => {
+    const onValueChange = jest.fn();
+    const columns = [
+      { value: "first", label: "First Name" },
+      { value: "last", label: "Last Name" },
+      { value: "wt", label: "WT license ID" },
+      { value: "email", label: "Email" },
+    ];
+    render(
+      <PopoverSelect
+        value="first"
+        onValueChange={onValueChange}
+        options={columns}
+        ariaLabel="Source column"
+        searchable
+        searchPlaceholder="Search columns"
+        emptyMessage="No columns match"
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Source column" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search columns" }), {
+      target: { value: "wt" },
+    });
+    expect(screen.getByRole("option", { name: "WT license ID" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Email" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search columns" }), {
+      target: { value: "zzzz" },
+    });
+    expect(screen.getByText("No columns match")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search columns" }), {
+      target: { value: "license" },
+    });
+    fireEvent.click(screen.getByRole("option", { name: "WT license ID" }));
+    expect(onValueChange).toHaveBeenCalledWith("wt");
+  });
 });
