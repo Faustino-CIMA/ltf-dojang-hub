@@ -18,7 +18,9 @@ import { MemberHistoryTimeline } from "@/components/history/member-history-timel
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   FormPanel,
   PageNotice,
@@ -29,12 +31,23 @@ import { MemberCommitteePanel } from "@/components/member/member-committee-panel
 import { apiRequest } from "@/lib/api";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import {
-  downloadMemberProfilePicture,
+  Club,
+  LicenseType,
+  LtfStaffInput,
   Member,
   MemberHistoryResponse,
+  createLtfStaff,
+  deleteLtfStaff,
+  downloadMemberProfilePicture,
+  getClubs,
+  getLicenseTypes,
   getMember,
   getMemberHistory,
+  issueLtfStaffLicense,
+  revokeLtfStaffLicense,
+  updateLtfStaff,
 } from "@/lib/ltf-admin-api";
+import { formatFullName } from "@/lib/person-name";
 import { getMemberClubTransfers, MemberClubTransferHistory } from "@/lib/club-admin-api";
 
 const MEMBER_DETAIL_TABS = [
@@ -75,6 +88,11 @@ export default function LtfMemberDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
+  const [panelMode, setPanelMode] = useState<StaffPanelMode | null>(null);
+  const [panelBusy, setPanelBusy] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTabState(urlTab);
@@ -108,13 +126,17 @@ export default function LtfMemberDetailPage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [memberResponse, historyResponse, movementResponse, me] = await Promise.all([
+      const [memberResponse, historyResponse, movementResponse, me, clubRows, typeRows] = await Promise.all([
         getMember(memberId),
         getMemberHistory(memberId),
         getMemberClubTransfers(memberId),
         apiRequest<{ role: string }>("/api/auth/me/"),
+        getClubs().catch(() => [] as Club[]),
+        getLicenseTypes().catch(() => [] as LicenseType[]),
       ]);
       setCurrentRole(me.role);
+      setClubs(clubRows);
+      setLicenseTypes(typeRows);
       setMember(memberResponse);
       setHistory(historyResponse);
       setClubMoves(movementResponse);
@@ -154,8 +176,55 @@ export default function LtfMemberDetailPage() {
   const clubMovementCount = clubMoves?.completed_transfer_count ?? 0;
 
   const title = member
-    ? t("memberDetailTitle", { name: `${member.first_name} ${member.last_name}` })
+    ? t("memberDetailTitle", { name: formatFullName(member) })
     : t("memberDetailTitleFallback");
+  const canManageStaff = currentRole === "ltf_admin";
+  const staffFunctionLabel = (() => {
+    const name = member?.ltf_staff?.function;
+    if (name === "secretary") return t("staffFunctionSecretary");
+    if (name === "photographer") return t("staffFunctionPhotographer");
+    if (name === "other") return t("staffFunctionOther");
+    return "";
+  })();
+
+  const submitPanel = async (mode: StaffPanelMode, input: LtfStaffInput) => {
+    if (!member) return;
+    setPanelBusy(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      if (mode === "create") {
+        await createLtfStaff({ ...input, member_id: member.id, locale });
+      } else if (mode === "edit") {
+        await updateLtfStaff(member.id, { ...input, locale });
+      } else if (mode === "issue" && input.license_type && input.license_year) {
+        await issueLtfStaffLicense(member.id, input.license_type, input.license_year);
+      } else if (mode === "revoke") {
+        await revokeLtfStaffLicense(member.id);
+      } else if (mode === "delete") {
+        const result = await deleteLtfStaff(member.id);
+        if (result.deleted_member) {
+          router.push(`/${locale}/dashboard/ltf/members`);
+          return;
+        }
+      }
+      setSuccessMessage(
+        mode === "issue"
+          ? t("staffLicenseIssued")
+          : mode === "revoke"
+            ? t("staffLicenseRevoked")
+            : mode === "delete"
+              ? t("staffDeleted")
+              : t("staffSaved")
+      );
+      setPanelMode(null);
+      await loadMember();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("staffSaved"));
+    } finally {
+      setPanelBusy(false);
+    }
+  };
 
   const historyTimelineShared = {
     licenseTitle: t("licenseHistoryTitle"),
@@ -170,7 +239,6 @@ export default function LtfMemberDetailPage() {
     gradeIssuedByLabel: t("historyGradeIssuedByColumn"),
     previousPageLabel: commonT("paginationPrevious"),
     nextPageLabel: commonT("paginationNext"),
-    pageLabel: commonT("paginationPage"),
     licenseHistory: history?.license_history ?? [],
     gradeHistory: history?.grade_history ?? [],
   };
@@ -182,7 +250,14 @@ export default function LtfMemberDetailPage() {
           <Link href={`/${locale}/dashboard/ltf/members`}>{t("backToMembers")}</Link>
         </Button>
 
-        <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+        <ActionNotices
+          error={errorMessage}
+          success={successMessage}
+          onDismiss={() => {
+            setErrorMessage(null);
+            setSuccessMessage(null);
+          }}
+        />
 
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
@@ -286,12 +361,31 @@ export default function LtfMemberDetailPage() {
                   </div>
                   <div className="mt-4 grid gap-3 text-sm text-foreground md:grid-cols-2">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted">{t("firstNameLabel")}</span>
-                      <span className="font-medium">{member.first_name}</span>
+                      <span className="text-xs text-muted">{commonT("fullNameLabel")}</span>
+                      <span className="inline-flex flex-wrap items-center gap-2 font-medium">
+                        {formatFullName(member)}
+                        {member.is_ltf_staff ? <StatusBadge label={staffFunctionLabel} tone="info" /> : null}
+                      </span>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted">{t("lastNameLabel")}</span>
-                      <span className="font-medium">{member.last_name}</span>
+                      <span className="text-xs text-muted">{t("clubLabel")}</span>
+                      <span className="font-medium">
+                        {member.club
+                          ? (clubs.find((club) => club.id === member.club)?.name ?? t("unknownClub"))
+                          : t("ltfStaffClubLabel")}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted">{t("staffDetailFunction")}</span>
+                      <span className="font-medium">{staffFunctionLabel || "-"}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted">{t("staffDetailLogin")}</span>
+                      <span className="font-medium">
+                        {member.linked_user
+                          ? `${member.linked_user.username} (${member.linked_user.role})`
+                          : t("staffNoLogin")}
+                      </span>
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted">{t("beltRankLabel")}</span>
@@ -302,6 +396,27 @@ export default function LtfMemberDetailPage() {
                       <span className="font-medium">{member.ltf_licenseid || "-"}</span>
                     </div>
                   </div>
+                  {canManageStaff ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setPanelMode(member.is_ltf_staff ? "edit" : "create")}
+                      >
+                        {member.is_ltf_staff ? t("staffEditAction") : t("staffAddAction")}
+                      </Button>
+                      {!member.club && !member.current_licenses?.some((item) => item.status === "active" || item.status === "pending") ? (
+                        <Button type="button" onClick={() => setPanelMode("issue")}>
+                          {t("staffIssueAction")}
+                        </Button>
+                      ) : null}
+                      {!member.club && member.current_licenses?.some((item) => item.status === "active" || item.status === "pending") ? (
+                        <Button type="button" variant="outline" onClick={() => setPanelMode("revoke")}>
+                          {t("staffRevokeAction")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </FormPanel>
               ) : null}
 
@@ -370,6 +485,15 @@ export default function LtfMemberDetailPage() {
           </div>
         )}
       </div>
+      <LtfStaffPanel
+        mode={panelMode}
+        member={member}
+        clubs={clubs}
+        licenseTypes={licenseTypes}
+        busy={panelBusy}
+        onClose={() => setPanelMode(null)}
+        onSubmit={(mode, input) => void submitPanel(mode, input)}
+      />
     </LtfAdminLayout>
   );
 }

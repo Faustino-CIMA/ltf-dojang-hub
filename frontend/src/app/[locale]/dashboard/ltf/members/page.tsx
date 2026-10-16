@@ -8,9 +8,12 @@ import { X } from "lucide-react";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import {
   ListActionsRow,
   ListPagination,
@@ -21,12 +24,22 @@ import {
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { apiRequest } from "@/lib/api";
 import {
   Club,
+  LicenseType,
+  LtfStaffInput,
   Member,
   MemberIssueFilter,
+  MemberRoster,
+  createLtfStaff,
+  deleteLtfStaff,
   getClubs,
+  getLicenseTypes,
   getMembersPage,
+  issueLtfStaffLicense,
+  revokeLtfStaffLicense,
+  updateLtfStaff,
 } from "@/lib/ltf-admin-api";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
@@ -39,6 +52,14 @@ function parseMemberIssue(value: string | null): MemberIssueFilter | null {
 }
 
 type MemberStatusFilter = "all" | "active" | "inactive";
+
+function staffFunctionLabel(t: (key: string) => string, member: Member) {
+  const name = member.ltf_staff?.function;
+  if (name === "secretary") return t("staffFunctionSecretary");
+  if (name === "photographer") return t("staffFunctionPhotographer");
+  if (name === "other") return t("staffFunctionOther");
+  return t("ltfStaffBadge");
+}
 
 export default function LtfAdminMembersPage() {
   const t = useTranslations("LtfAdmin");
@@ -55,6 +76,13 @@ export default function LtfAdminMembersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("all");
+  const [roster, setRoster] = useState<MemberRoster>("all");
+  const [role, setRole] = useState<string | null>(null);
+  const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
+  const [panelMode, setPanelMode] = useState<StaffPanelMode | null>(null);
+  const [panelMember, setPanelMember] = useState<Member | null>(null);
+  const [panelBusy, setPanelBusy] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
@@ -87,7 +115,7 @@ export default function LtfAdminMembersPage() {
     const q = searchQuery || undefined;
     const clubId = selectedClubId ?? undefined;
     try {
-      const [clubsResponse, membersResponse, allCountRes, activeCountRes, inactiveCountRes] =
+      const [clubsResponse, membersResponse, allCountRes, activeCountRes, inactiveCountRes, me] =
         await Promise.all([
           getClubs(),
           getMembersPage({
@@ -97,6 +125,7 @@ export default function LtfAdminMembersPage() {
             clubId,
             isActive: isActiveFilter,
             issue: issue ?? undefined,
+            roster,
             ordering,
           }),
           getMembersPage({
@@ -106,6 +135,7 @@ export default function LtfAdminMembersPage() {
             clubId,
             isActive: undefined,
             issue: issue ?? undefined,
+            roster,
           }),
           getMembersPage({
             page: 1,
@@ -114,6 +144,7 @@ export default function LtfAdminMembersPage() {
             clubId,
             isActive: true,
             issue: issue ?? undefined,
+            roster,
           }),
           getMembersPage({
             page: 1,
@@ -122,8 +153,11 @@ export default function LtfAdminMembersPage() {
             clubId,
             isActive: false,
             issue: issue ?? undefined,
+            roster,
           }),
+          apiRequest<{ role: string }>("/api/auth/me/"),
         ]);
+      setRole(me.role);
       setClubs(clubsResponse);
       setMembers(membersResponse.results);
       setTotalCount(membersResponse.count);
@@ -137,7 +171,7 @@ export default function LtfAdminMembersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, isActiveFilter, issue, membersListPageSize, ordering, searchQuery, selectedClubId]);
+  }, [currentPage, isActiveFilter, issue, membersListPageSize, ordering, roster, searchQuery, selectedClubId]);
 
   useEffect(() => {
     void loadData();
@@ -145,7 +179,7 @@ export default function LtfAdminMembersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue, tableSort]);
+  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue, roster, tableSort]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -157,6 +191,50 @@ export default function LtfAdminMembersPage() {
   }, [searchInput]);
 
   const clubById = useMemo(() => new Map(clubs.map((club) => [club.id, club])), [clubs]);
+  const canManageStaff = role === "ltf_admin";
+
+  const openPanel = useCallback(async (mode: StaffPanelMode, member: Member | null) => {
+    setPanelMember(member);
+    setPanelMode(mode);
+    if (licenseTypes.length === 0) {
+      try {
+        setLicenseTypes(await getLicenseTypes());
+      } catch {
+        setLicenseTypes([]);
+      }
+    }
+  }, [licenseTypes.length]);
+
+  const submitPanel = async (mode: StaffPanelMode, input: LtfStaffInput) => {
+    setPanelBusy(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      if (mode === "create") {
+        await createLtfStaff({ ...input, locale });
+        setSuccessMessage(t("staffSaved"));
+      } else if (mode === "edit" && panelMember) {
+        await updateLtfStaff(panelMember.id, { ...input, locale });
+        setSuccessMessage(t("staffSaved"));
+      } else if (mode === "issue" && panelMember && input.license_type && input.license_year) {
+        await issueLtfStaffLicense(panelMember.id, input.license_type, input.license_year);
+        setSuccessMessage(t("staffLicenseIssued"));
+      } else if (mode === "revoke" && panelMember) {
+        await revokeLtfStaffLicense(panelMember.id);
+        setSuccessMessage(t("staffLicenseRevoked"));
+      } else if (mode === "delete" && panelMember) {
+        await deleteLtfStaff(panelMember.id);
+        setSuccessMessage(t("staffDeleted"));
+      }
+      setPanelMode(null);
+      setPanelMember(null);
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("staffSaved"));
+    } finally {
+      setPanelBusy(false);
+    }
+  };
   const totalPages = Math.max(1, Math.ceil(totalCount / membersListPageSize));
 
   const dismissIssueFilter = () => {
@@ -188,6 +266,7 @@ export default function LtfAdminMembersPage() {
         render: (row: Member) => (
           <span className="inline-flex flex-wrap items-center gap-2">
             <span>{formatFullName(row)}</span>
+            {row.is_ltf_staff ? <StatusBadge label={staffFunctionLabel(t, row)} tone="info" /> : null}
             {row.is_club_tourist ? <StatusBadge label={t("clubTouristBadge")} tone="warning" /> : null}
           </span>
         ),
@@ -196,7 +275,8 @@ export default function LtfAdminMembersPage() {
         key: "club",
         header: t("clubLabel"),
         sortable: true,
-        render: (row: Member) => clubById.get(row.club)?.name ?? t("unknownClub"),
+        render: (row: Member) =>
+          row.club ? (clubById.get(row.club)?.name ?? t("unknownClub")) : t("ltfStaffClubLabel"),
       },
       {
         key: "ltf_licenseid",
@@ -241,13 +321,69 @@ export default function LtfAdminMembersPage() {
           );
         },
       },
+      ...(canManageStaff
+        ? [
+            {
+              key: "actions",
+              header: <span className="sr-only">{t("staffRowActions")}</span>,
+              render: (row: Member) => {
+                const current = row.current_licenses?.[0];
+                const hasCurrent = current?.status === "active" || current?.status === "pending";
+                return (
+                  <RowActionMenu
+                    label={t("staffRowActions")}
+                    actions={[
+                      {
+                        key: "edit",
+                        label: t("staffEditAction"),
+                        onSelect: () => void openPanel(row.is_ltf_staff ? "edit" : "create", row),
+                      },
+                      ...(!row.club && !hasCurrent
+                        ? [
+                            {
+                              key: "issue",
+                              label: t("staffIssueAction"),
+                              onSelect: () => void openPanel("issue", row),
+                            },
+                          ]
+                        : []),
+                      ...(!row.club && hasCurrent
+                        ? [
+                            {
+                              key: "revoke",
+                              label: t("staffRevokeAction"),
+                              onSelect: () => void openPanel("revoke", row),
+                            },
+                          ]
+                        : []),
+                      {
+                        key: "delete",
+                        label: t("staffDeleteAction"),
+                        destructive: true,
+                        disabled: !row.is_ltf_staff,
+                        onSelect: () => void openPanel("delete", row),
+                      },
+                    ]}
+                  />
+                );
+              },
+            },
+          ]
+        : []),
     ],
-    [clubById, common, getLicenseStatusMeta, t]
+    [canManageStaff, clubById, common, getLicenseStatusMeta, openPanel, t]
   );
 
   return (
     <LtfAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")}>
-      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+      <ActionNotices
+        error={errorMessage}
+        success={successMessage}
+        onDismiss={() => {
+          setErrorMessage(null);
+          setSuccessMessage(null);
+        }}
+      />
 
       <div className="space-y-6">
         {issue ? (
@@ -289,20 +425,32 @@ export default function LtfAdminMembersPage() {
             }
             filters={
               issue ? undefined : (
-                <FilterPills
-                  ariaLabel={t("membersStatusFilterAriaLabel")}
-                  value={memberStatusFilter}
-                  onChange={setMemberStatusFilter}
-                  options={[
-                    { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
-                    { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
-                    {
-                      value: "inactive",
-                      title: t("filterInactiveTitle"),
-                      count: memberFacetCounts.inactive,
-                    },
-                  ]}
-                />
+                <div className="flex flex-col gap-2">
+                  <FilterPills
+                    ariaLabel={t("staffFilterAriaLabel")}
+                    value={roster}
+                    onChange={setRoster}
+                    options={[
+                      { value: "all", title: t("staffFilterAll") },
+                      { value: "club", title: t("staffFilterClub") },
+                      { value: "staff", title: t("staffFilterStaff") },
+                    ]}
+                  />
+                  <FilterPills
+                    ariaLabel={t("membersStatusFilterAriaLabel")}
+                    value={memberStatusFilter}
+                    onChange={setMemberStatusFilter}
+                    options={[
+                      { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
+                      { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
+                      {
+                        value: "inactive",
+                        title: t("filterInactiveTitle"),
+                        count: memberFacetCounts.inactive,
+                      },
+                    ]}
+                  />
+                </div>
               )
             }
           />
@@ -310,6 +458,11 @@ export default function LtfAdminMembersPage() {
           <ListActionsRow
             actions={
               <div className="flex flex-wrap items-center gap-3">
+                {canManageStaff ? (
+                  <Button type="button" onClick={() => void openPanel("create", null)}>
+                    {t("staffAddAction")}
+                  </Button>
+                ) : null}
                 <ActionMenu
                   label={t("membersMenuLabel")}
                   actions={[
@@ -351,6 +504,18 @@ export default function LtfAdminMembersPage() {
           />
         )}
       </div>
+      <LtfStaffPanel
+        mode={panelMode}
+        member={panelMember}
+        clubs={clubs}
+        licenseTypes={licenseTypes}
+        busy={panelBusy}
+        onClose={() => {
+          setPanelMode(null);
+          setPanelMember(null);
+        }}
+        onSubmit={(mode, input) => void submitPanel(mode, input)}
+      />
     </LtfAdminLayout>
   );
 }

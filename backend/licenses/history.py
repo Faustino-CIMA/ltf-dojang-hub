@@ -20,10 +20,12 @@ def create_license_history_event(
     metadata: dict[str, Any] | None = None,
     event_at=None,
 ) -> LicenseHistoryEvent:
+    club = license_record.club if license_record.club_id else None
+    club_name = club.name if club is not None else "LTF"
     return LicenseHistoryEvent.objects.create(
         member=license_record.member,
         license=license_record,
-        club=license_record.club,
+        club=club,
         order=order,
         payment=payment,
         actor=actor if actor and actor.is_authenticated else None,
@@ -34,7 +36,7 @@ def create_license_history_event(
         license_year=license_record.year,
         status_before=status_before,
         status_after=status_after or license_record.status,
-        club_name_snapshot=license_record.club.name,
+        club_name_snapshot=club_name,
     )
 
 

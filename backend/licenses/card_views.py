@@ -1341,7 +1341,7 @@ class CardDesignerMembersLookupView(APIView):
             {
                 "id": int(member.id),
                 "label": f"{member.first_name} {member.last_name}".strip(),
-                "subtitle": f"{member.club.name} · {member.ltf_licenseid or 'No LTF ID'}",
+                "subtitle": f"{member.club.name if member.club_id else 'LTF'} · {member.ltf_licenseid or 'No LTF ID'}",
             }
             for member in members
         ]

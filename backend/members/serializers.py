@@ -48,6 +48,9 @@ class MemberSerializer(serializers.ModelSerializer):
     current_licenses = serializers.SerializerMethodField()
     completed_transfer_count = serializers.SerializerMethodField()
     is_club_tourist = serializers.SerializerMethodField()
+    is_ltf_staff = serializers.SerializerMethodField()
+    ltf_staff = serializers.SerializerMethodField()
+    linked_user = serializers.SerializerMethodField()
     ltf_license_prefix = serializers.ChoiceField(
         choices=[("LUX", "LUX"), ("LTF", "LTF")],
         write_only=True,
@@ -77,6 +80,9 @@ class MemberSerializer(serializers.ModelSerializer):
             "current_licenses",
             "completed_transfer_count",
             "is_club_tourist",
+            "is_ltf_staff",
+            "ltf_staff",
+            "linked_user",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -92,6 +98,9 @@ class MemberSerializer(serializers.ModelSerializer):
             "current_licenses",
             "completed_transfer_count",
             "is_club_tourist",
+            "is_ltf_staff",
+            "ltf_staff",
+            "linked_user",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -122,6 +131,12 @@ class MemberSerializer(serializers.ModelSerializer):
         if primary_role and secondary_role and primary_role == secondary_role:
             raise serializers.ValidationError(
                 {"secondary_license_role": "Secondary role must differ from primary role."}
+            )
+        if self.instance is None and not attrs.get("club"):
+            raise serializers.ValidationError({"club": "Club is required."})
+        if self.instance is not None and "club" in attrs and attrs.get("club") is None:
+            raise serializers.ValidationError(
+                {"club": "Use LTF staff to record someone with no club."}
             )
         return attrs
 
@@ -215,6 +230,37 @@ class MemberSerializer(serializers.ModelSerializer):
 
     def get_is_club_tourist(self, obj: Member):
         return is_club_tourist(self.get_completed_transfer_count(obj), self._tourist_threshold())
+
+    def _current_staff_row(self, obj: Member):
+        rows = getattr(obj, "current_ltf_staff_rows", None)
+        if rows is not None:
+            return rows[0] if rows else None
+        from .ltf_staff import current_staff_function
+
+        return current_staff_function(obj)
+
+    def get_ltf_staff(self, obj: Member):
+        row = self._current_staff_row(obj)
+        if row is None:
+            return None
+        return {
+            "id": row.id,
+            "function": row.function,
+            "started_on": row.started_on,
+            "ended_on": row.ended_on,
+        }
+
+    def get_is_ltf_staff(self, obj: Member):
+        return self._current_staff_row(obj) is not None
+
+    def get_linked_user(self, obj: Member):
+        if not obj.user_id or obj.user is None:
+            return None
+        return {
+            "id": obj.user_id,
+            "username": obj.user.username,
+            "role": obj.user.role,
+        }
 
     def get_current_licenses(self, obj: Member):
         prefetched = getattr(obj, "current_licenses_prefetched", None)

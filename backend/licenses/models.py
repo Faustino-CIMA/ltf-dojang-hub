@@ -212,7 +212,14 @@ class License(models.Model):
         REVOKED = "revoked", "Revoked"
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="licenses")
-    club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="licenses")
+    # Empty when the LTF issues a licence for staff who are not in a club. No order is created.
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.PROTECT,
+        related_name="licenses",
+        null=True,
+        blank=True,
+    )
     license_type = models.ForeignKey(
         LicenseType,
         on_delete=models.PROTECT,
@@ -280,6 +287,8 @@ class LicenseHistoryEvent(models.Model):
         Club,
         on_delete=models.PROTECT,
         related_name="license_history_events",
+        null=True,
+        blank=True,
     )
     order = models.ForeignKey(
         "Order",

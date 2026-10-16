@@ -300,6 +300,10 @@ class OrderCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({"items": "At least one item is required."})
         if member is None:
             raise serializers.ValidationError({"member": "Member is required to create licenses."})
+        if member.club_id is None:
+            raise serializers.ValidationError(
+                {"member": "LTF staff without a club are licensed by the federation, not by a club order."}
+            )
         if member.club_id != club.id:
             raise serializers.ValidationError(
                 {"member": "Member does not belong to the specified club."}

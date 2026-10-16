@@ -41,7 +41,14 @@ class Member(models.Model):
         blank=True,
         related_name="member_profile",
     )
-    club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="members")
+    # Empty for LTF staff who are not in a club. A club member may also hold a staff function.
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.PROTECT,
+        related_name="members",
+        null=True,
+        blank=True,
+    )
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     sex = models.CharField(max_length=1, choices=Sex.choices, default=Sex.MALE)
@@ -159,6 +166,47 @@ class Member(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+
+class LtfStaffFunction(models.Model):
+    """A dated LTF job. It can sit on a club member or on someone with no club."""
+
+    class Function(models.TextChoices):
+        SECRETARY = "secretary", _("Secretary")
+        PHOTOGRAPHER = "photographer", _("Photographer")
+        OTHER = "other", _("Other staff")
+
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="ltf_staff_functions",
+    )
+    function = models.CharField(max_length=32, choices=Function.choices)
+    started_on = models.DateField(null=True, blank=True)
+    # Exclusive end, matching committee terms: the function is held while day < ended_on.
+    ended_on = models.DateField(null=True, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_ltf_staff_functions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-started_on", "-id"]
+        indexes = [
+            models.Index(fields=["member", "ended_on"], name="ltf_staff_member_end_idx"),
+        ]
+
+    def clean(self):
+        if self.started_on and self.ended_on and self.ended_on < self.started_on:
+            raise ValidationError({"ended_on": _("End must be on or after the start.")})
+
+    def __str__(self):
+        return f"{self.member} · {self.function}"
 
 
 class MemberLicenseIdCounter(models.Model):

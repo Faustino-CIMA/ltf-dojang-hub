@@ -103,6 +103,7 @@ export default function LtfAdminOverviewPage() {
           <section className="grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-4">
             <SummaryCard title={t("totalClubs")} value={String(overview.cards.total_clubs)} icon={Building2} tone="accent" />
             <SummaryCard title={t("activeMembers")} value={String(overview.cards.active_members)} icon={Users} tone="success" />
+            <SummaryCard title={t("ltfStaffCount")} value={String(overview.cards.ltf_staff)} icon={Users} tone="accent" />
             <SummaryCard title={t("activeLicenses")} value={String(overview.cards.active_licenses)} icon={IdCard} tone="success" />
             <SummaryCard title={t("pendingLicenses")} value={String(overview.cards.pending_licenses)} icon={Clock3} tone="warning" />
             <SummaryCard title={t("expiredLicenses")} value={String(overview.cards.expired_licenses)} icon={Clock3} tone="neutral" />

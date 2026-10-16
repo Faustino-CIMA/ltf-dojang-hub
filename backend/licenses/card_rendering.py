@@ -653,14 +653,19 @@ def _resolve_entities(
         if member is not None and member.id != license_record.member_id:
             raise CardRenderError("member_id does not match license_id.")
         member = license_record.member
-        if club is not None and club.id != license_record.club_id:
+        if (
+            club is not None
+            and license_record.club_id is not None
+            and club.id != license_record.club_id
+        ):
             raise CardRenderError("club_id does not match license_id.")
-        club = license_record.club
+        if license_record.club_id:
+            club = license_record.club
 
     if member is not None:
-        if club is not None and member.club_id != club.id:
+        if club is not None and member.club_id is not None and member.club_id != club.id:
             raise CardRenderError("member_id does not belong to club_id.")
-        if club is None:
+        if club is None and (license_record is None or license_record.club_id):
             club = member.club
 
     if license_record is None and member is not None:
@@ -672,6 +677,17 @@ def _resolve_entities(
             club = license_record.club
 
     return member, license_record, club
+
+
+def _card_club_name(member: Member | None, license_record: License | None, club: Club | None) -> str:
+    """Club line on a card. A federation-issued staff licence prints LTF."""
+    if license_record is not None and license_record.club_id is None:
+        return "LTF"
+    if club is not None:
+        return club.name
+    if member is not None and member.club_id is None:
+        return "LTF"
+    return ""
 
 
 def _format_license_role_label(value: Any) -> str:
@@ -716,7 +732,7 @@ def _build_context(
         "secondary_license_role": (
             str(member.secondary_license_role) if member and member.secondary_license_role else ""
         ),
-        "club.name": club.name if club else "",
+        "club.name": _card_club_name(member, license_record, club),
         "club.logo_print_url": _resolve_club_logo_print_url(club),
         "license.type_name": (
             license_record.license_type.name
