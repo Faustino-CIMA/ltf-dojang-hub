@@ -1362,7 +1362,7 @@ export function ImportWizardPage({
             const isDone = index < currentStepIndex;
             const resultClass =
               stepItem === "result" && resultTone === "success"
-                ? "border-success bg-success text-success-foreground"
+                ? "badge-success"
                 : stepItem === "result" && resultTone === "warning"
                 ? "badge-warning"
                 : stepItem === "result" && resultTone === "error"
