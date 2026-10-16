@@ -35,14 +35,14 @@ class LicenseTypePolicyAdmin(admin.ModelAdmin):
 
 @admin.register(ClubFeeType)
 class ClubFeeTypeAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "cadence", "is_active")
+    list_display = ("name", "code", "cadence", "module_id", "is_active")
     list_filter = ("cadence", "is_active")
     search_fields = ("name", "code")
 
 
 @admin.register(ClubFeePrice)
 class ClubFeePriceAdmin(admin.ModelAdmin):
-    list_display = ("fee_type", "amount", "currency", "effective_from")
+    list_display = ("fee_type", "amount", "pricing_type", "minimum_amount", "currency", "effective_from")
     list_filter = ("currency",)
     search_fields = ("fee_type__name", "fee_type__code")
 
