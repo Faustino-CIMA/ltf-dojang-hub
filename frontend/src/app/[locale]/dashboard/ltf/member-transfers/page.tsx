@@ -81,7 +81,11 @@ export default function LtfMemberTransfersPage() {
                         </span>
                       ),
                     },
-                    { key: "club_name", header: t("clubLabel") },
+                    {
+                      key: "club_name",
+                      header: t("clubLabel"),
+                      render: (row) => (row.club_id ? row.club_name : t("noClub")),
+                    },
                     { key: "ltf_licenseid", header: t("ltfLicenseLabel") },
                     { key: "completed_transfer_count", header: t("clubMovementCountLabel") },
                   ]}

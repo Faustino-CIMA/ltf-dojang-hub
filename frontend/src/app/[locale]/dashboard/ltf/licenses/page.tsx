@@ -54,6 +54,7 @@ import {
   updateLicense,
 } from "@/lib/ltf-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
@@ -442,7 +443,11 @@ export default function LtfAdminLicensesPage() {
       key: "club",
       header: t("clubLabel"),
       sortable: true,
-      render: (license: License) => clubById.get(license.club)?.name ?? t("unknownClub"),
+      render: (license: License) =>
+        displayClubName(license.club, license.club ? clubById.get(license.club)?.name : "", {
+          noClub: t("noClub"),
+          unknownClub: t("unknownClub"),
+        }),
     },
     {
       key: "license_type",

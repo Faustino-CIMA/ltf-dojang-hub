@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
@@ -12,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { displayClubName } from "@/lib/club-label";
 import { GradeHistoryEntry, LicenseHistoryEvent } from "@/lib/ltf-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
 
@@ -415,6 +417,7 @@ export function MemberHistoryTimeline({
   gradeHistory,
   visibleSection = "all",
 }: HistoryTimelineProps) {
+  const t = useTranslations("LtfAdmin");
   const [licensePage, setLicensePage] = useState(1);
   const [gradePage, setGradePage] = useState(1);
   const [gradeFormOpen, setGradeFormOpen] = useState(false);
@@ -640,6 +643,15 @@ export function MemberHistoryTimeline({
             <HistoryEntityTable
               columns={[
                 { key: "year", header: licenseYearLabel, render: (row) => row.license_year },
+                {
+                  key: "club",
+                  header: t("clubLabel"),
+                  render: (row) =>
+                    displayClubName(row.club, row.club ? row.club_name_snapshot : "", {
+                      noClub: t("noClub"),
+                      unknownClub: t("unknownClub"),
+                    }),
+                },
                 {
                   key: "type",
                   header: licenseTypeLabel,

@@ -461,7 +461,9 @@ export default function ClubAdminsPage() {
                             className={cn(CARD_BASE, selected ? CARD_SELECTED : CARD_IDLE)}
                           >
                             <p className="font-medium text-foreground">{displayMemberName(member)}</p>
-                            <p className="mt-0.5 text-xs text-muted">{member.club_name}</p>
+                            <p className="mt-0.5 text-xs text-muted">
+                              {member.club_id ? member.club_name : common("noClub")}
+                            </p>
                             <div className="mt-2 flex flex-wrap gap-1.5">
                               {member.has_valid_license ? (
                                 <StatusBadge label={t("transferLicensedBadge")} tone="success" />

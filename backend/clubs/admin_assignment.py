@@ -58,7 +58,7 @@ def _serialize_assignment_member(member: Member) -> dict:
         "last_name": member.last_name,
         "email": member.email or "",
         "club_id": member.club_id,
-        "club_name": member.club.name if member.club_id else "LTF",
+        "club_name": member.club.name if member.club_id else "",
         "has_valid_license": bool(getattr(member, "has_valid_license", False)),
         "user_id": member.user_id,
         "username": member.user.username if member.user_id else "",

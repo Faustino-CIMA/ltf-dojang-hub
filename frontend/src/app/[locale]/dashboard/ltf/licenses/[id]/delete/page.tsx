@@ -8,6 +8,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
+import { displayClubName } from "@/lib/club-label";
 import { formatDisplayDate } from "@/lib/date-display";
 import {
   Club,
@@ -142,7 +143,12 @@ export default function LtfLicenseDeletePage() {
               </div>
               <div>
                 <dt className="text-muted">{t("clubLabel")}</dt>
-                <dd className="font-medium text-foreground">{club?.name ?? t("unknownClub")}</dd>
+                <dd className="font-medium text-foreground">
+                  {displayClubName(license.club, club?.name, {
+                    noClub: t("noClub"),
+                    unknownClub: t("unknownClub"),
+                  })}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted">{t("licenseTypeLabel")}</dt>

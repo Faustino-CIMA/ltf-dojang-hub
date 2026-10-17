@@ -47,6 +47,7 @@ import {
   revokeLtfStaffLicense,
   updateLtfStaff,
 } from "@/lib/ltf-admin-api";
+import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
 import { getMemberClubTransfers, MemberClubTransferHistory } from "@/lib/club-admin-api";
 
@@ -370,9 +371,11 @@ export default function LtfMemberDetailPage() {
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-muted">{t("clubLabel")}</span>
                       <span className="font-medium">
-                        {member.club
-                          ? (clubs.find((club) => club.id === member.club)?.name ?? t("unknownClub"))
-                          : t("ltfStaffClubLabel")}
+                        {displayClubName(
+                          member.club,
+                          member.club ? clubs.find((club) => club.id === member.club)?.name : "",
+                          { noClub: t("noClub"), unknownClub: t("unknownClub") },
+                        )}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1">

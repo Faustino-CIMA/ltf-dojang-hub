@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
+import { replaceNoClubToken } from "@/lib/club-label";
+
 import {
   AlignCenter,
   AlignCenterVertical,
@@ -661,6 +663,8 @@ function DesignerLookupField({
   onSelect,
   onClear,
 }: DesignerLookupFieldProps) {
+  const t = useTranslations("LtfAdmin");
+  const subtitleFor = (value: string) => replaceNoClubToken(value, t("noClub"));
   return (
     <div className="space-y-2">
       <label className="text-xs font-medium uppercase text-zinc-500">{label}</label>
@@ -689,7 +693,7 @@ function DesignerLookupField({
                 onClick={() => onSelect(item)}
               >
                 <p className="font-medium">{item.label}</p>
-                <p className="text-[11px] text-zinc-500">{item.subtitle || "-"}</p>
+                <p className="text-[11px] text-zinc-500">{subtitleFor(item.subtitle) || "-"}</p>
               </button>
             );
           })
@@ -698,7 +702,7 @@ function DesignerLookupField({
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] text-zinc-600">
           {selectedItem
-            ? `${selectedItem.label}${selectedItem.subtitle ? ` · ${selectedItem.subtitle}` : ""}`
+            ? `${selectedItem.label}${selectedItem.subtitle ? ` · ${subtitleFor(selectedItem.subtitle)}` : ""}`
             : selectedPlaceholder}
         </p>
         <Button

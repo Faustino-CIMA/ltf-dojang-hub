@@ -457,8 +457,8 @@ export type TransferMovementMonitor = {
     first_name: string;
     last_name: string;
     ltf_licenseid: string;
-    club_id: number;
-    club_name: string;
+    club_id: number | null;
+    club_name: string | null;
     completed_transfer_count: number;
     is_club_tourist: boolean;
   }>;
@@ -866,7 +866,7 @@ export type ClubAdminAssignmentMember = {
   first_name: string;
   last_name: string;
   email: string;
-  club_id: number;
+  club_id: number | null;
   club_name: string;
   has_valid_license: boolean;
   user_id: number | null;

@@ -6,6 +6,18 @@ from django.utils import timezone
 
 from .models import License, LicenseHistoryEvent
 
+NO_CLUB_LABELS = {
+    "en": "No club",
+    "fr": "Aucun club",
+    "de": "Kein Verein",
+    "lb": "Kee Veräin",
+}
+
+
+def no_club_label(locale: str | None) -> str:
+    code = str(locale or "en").replace("_", "-").split("-")[0].lower()
+    return NO_CLUB_LABELS.get(code, NO_CLUB_LABELS["en"])
+
 
 def create_license_history_event(
     license_record: License,
@@ -21,7 +33,7 @@ def create_license_history_event(
     event_at=None,
 ) -> LicenseHistoryEvent:
     club = license_record.club if license_record.club_id else None
-    club_name = club.name if club is not None else "LTF"
+    club_name = club.name if club is not None else ""
     return LicenseHistoryEvent.objects.create(
         member=license_record.member,
         license=license_record,

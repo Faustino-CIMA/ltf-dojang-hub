@@ -504,7 +504,7 @@ def _complete_transfer(transfer: MemberTransfer, *, actor: User) -> None:
         status__in=[License.Status.ACTIVE, License.Status.PENDING]
     ).select_related("club", "license_type")
     for license in licenses:
-        from_name = license.club.name if license.club_id else "LTF"
+        from_name = license.club.name if license.club_id else "No club"
         license.club = transfer.to_club
         license.save(update_fields=["club", "updated_at"])
         create_license_history_event(

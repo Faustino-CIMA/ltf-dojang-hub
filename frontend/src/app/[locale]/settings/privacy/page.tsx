@@ -62,7 +62,7 @@ export default function PrivacySettingsPage() {
   const handleExport = async () => {
     setErrorMessage(null);
     try {
-      const response = await apiRequest<ExportResponse>("/api/auth/data-export/");
+      const response = await apiRequest<ExportResponse>(`/api/auth/data-export/?locale=${locale}`);
       setExportData(response);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to export data");

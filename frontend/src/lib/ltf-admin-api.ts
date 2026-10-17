@@ -109,7 +109,7 @@ const MAX_PROFILE_PHOTO_REQUEST_BYTES = 8 * 1024 * 1024;
 export type License = {
   id: number;
   member: number;
-  club: number;
+  club: number | null;
   license_type: number;
   year: number;
   start_date: string;
@@ -124,7 +124,7 @@ export type LicenseHistoryEvent = {
   id: number;
   member: number;
   license: number;
-  club: number;
+  club: number | null;
   order: number | null;
   payment: number | null;
   actor: number | null;
@@ -499,7 +499,7 @@ export type AssignmentMember = {
   first_name: string;
   last_name: string;
   email: string;
-  club_id: number;
+  club_id: number | null;
   club_name: string;
   has_valid_license: boolean;
   user_id: number | null;

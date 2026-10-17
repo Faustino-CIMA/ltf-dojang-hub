@@ -41,6 +41,7 @@ import {
   revokeLtfStaffLicense,
   updateLtfStaff,
 } from "@/lib/ltf-admin-api";
+import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
@@ -276,7 +277,10 @@ export default function LtfAdminMembersPage() {
         header: t("clubLabel"),
         sortable: true,
         render: (row: Member) =>
-          row.club ? (clubById.get(row.club)?.name ?? t("unknownClub")) : t("ltfStaffClubLabel"),
+          displayClubName(row.club, row.club ? clubById.get(row.club)?.name : "", {
+            noClub: t("noClub"),
+            unknownClub: t("unknownClub"),
+          }),
       },
       {
         key: "ltf_licenseid",

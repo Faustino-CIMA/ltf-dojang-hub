@@ -8,7 +8,7 @@ const KEYS = [
   "staffFilterAll",
   "staffFilterClub",
   "staffFilterStaff",
-  "ltfStaffClubLabel",
+  "noClub",
   "ltfStaffBadge",
   "staffFunctionSecretary",
   "staffFunctionPhotographer",
@@ -70,5 +70,14 @@ describe("LTF staff copy", () => {
     for (const key of KEYS) {
       expect(admin[key]?.trim()).toBeTruthy();
     }
+    expect(admin.noClub).toBe(
+      _locale === "fr"
+        ? "Aucun club"
+        : _locale === "de"
+          ? "Kein Verein"
+          : _locale === "lb"
+            ? "Kee Veräin"
+            : "No club",
+    );
   });
 });

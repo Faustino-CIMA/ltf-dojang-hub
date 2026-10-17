@@ -77,7 +77,13 @@ class LtfStaffApiTests(TestCase):
         self.assertIsNone(licence.club_id)
         self.assertEqual(licence.status, License.Status.ACTIVE)
         self.assertEqual(Order.objects.count(), 0)
-        self.assertEqual(licence.history_events.get().club_name_snapshot, "LTF")
+        self.assertEqual(licence.history_events.get().club_name_snapshot, "")
+        from licenses.history import no_club_label
+
+        self.assertEqual(no_club_label("en"), "No club")
+        self.assertEqual(no_club_label("fr"), "Aucun club")
+        self.assertEqual(no_club_label("de"), "Kein Verein")
+        self.assertEqual(no_club_label("lb"), "Kee Veräin")
         context = _build_context(
             member=member,
             license_record=licence,
