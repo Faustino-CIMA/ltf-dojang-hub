@@ -57,6 +57,7 @@ import {
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { MemberClubRecordPanel } from "@/components/clubmgmt/member-club-record-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
+import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { downloadClubStatement } from "@/lib/club-finance-api";
 import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
@@ -532,6 +533,7 @@ export default function ClubMemberDetailPage() {
               />
             ) : null}
             {activeTab === "overview" ? (
+            <>
             <FormPanel>
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
@@ -862,6 +864,8 @@ export default function ClubMemberDetailPage() {
                 </div>
               )}
             </FormPanel>
+            <MemberNationalTeamBlock memberId={member.id} />
+            </>
             ) : null}
 
             {activeTab === "current-licenses" ? (

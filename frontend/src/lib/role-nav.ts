@@ -9,6 +9,7 @@ import {
   History,
   IdCard,
   Languages,
+  Medal,
   Layers,
   LayoutDashboard,
   Printer,
@@ -153,6 +154,14 @@ const LTF_ADMIN_NAV: RoleNavDef[] = [
     matchMode: "prefix",
   },
   {
+    id: "national-team",
+    href: (locale) => `/${locale}/dashboard/ltf/national-team`,
+    labelKey: "navNationalTeam",
+    namespace: "LtfAdmin",
+    icon: Medal,
+    matchMode: "prefix",
+  },
+  {
     id: "licenses",
     href: (locale) => `/${locale}/dashboard/ltf/licenses`,
     labelKey: "navLicenses",
@@ -241,6 +250,14 @@ const LTF_FINANCE_NAV: RoleNavDef[] = [
     labelKey: "navLicenseSettings",
     namespace: "LtfFinance",
     icon: CircleDollarSign,
+    matchMode: "prefix",
+  },
+  {
+    id: "national-team",
+    href: (locale) => `/${locale}/dashboard/ltf-finance/national-team`,
+    labelKey: "navNationalTeam",
+    namespace: "LtfFinance",
+    icon: Medal,
     matchMode: "prefix",
   },
 ];
