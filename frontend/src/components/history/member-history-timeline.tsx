@@ -325,7 +325,7 @@ function GradeInlineForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="grade-to-rank">{promoteToGradeLabel}</Label>
+          <Label htmlFor="grade-to-rank" required>{promoteToGradeLabel}</Label>
           <Select value={toGrade || undefined} onValueChange={onToGradeChange}>
             <SelectTrigger id="grade-to-rank" className="rounded-[var(--radius-form)]">
               <SelectValue placeholder={promoteToGradeLabel} />
@@ -357,7 +357,7 @@ function GradeInlineForm({
         </div>
         {issuedByOption === "other" ? (
           <div className="space-y-2">
-            <Label htmlFor="grade-issued-by-other">{issuedByOtherPlaceholder}</Label>
+            <Label htmlFor="grade-issued-by-other" required>{issuedByOtherPlaceholder}</Label>
             <Input
               id="grade-issued-by-other"
               className="rounded-[var(--radius-form)]"

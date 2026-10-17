@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarDays,
   Landmark,
+  Medal,
   IdCard,
   LayoutDashboard,
   Layers,
@@ -50,6 +51,7 @@ type LtfNavDef = {
     | "navClubAdmins"
     | "navMemberTransfers"
     | "navMembers"
+    | "navNationalTeam"
     | "navLicenses"
     | "navLicenseCards"
     | "navPrinting"
@@ -68,6 +70,7 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "club-admins", href: (l) => `/${l}/dashboard/ltf/club-admins`, labelKey: "navClubAdmins", matchMode: "prefix", icon: UserCog },
   { id: "member-transfers", href: (l) => `/${l}/dashboard/ltf/member-transfers`, labelKey: "navMemberTransfers", matchMode: "prefix", icon: ArrowLeftRight },
   { id: "members", href: (l) => `/${l}/dashboard/ltf/members`, labelKey: "navMembers", matchMode: "prefix", icon: Users },
+  { id: "national-team", href: (l) => `/${l}/dashboard/ltf/national-team`, labelKey: "navNationalTeam", matchMode: "prefix", icon: Medal },
   { id: "licenses", href: (l) => `/${l}/dashboard/ltf/licenses`, labelKey: "navLicenses", matchMode: "prefix", icon: IdCard },
   {
     id: "license-cards",

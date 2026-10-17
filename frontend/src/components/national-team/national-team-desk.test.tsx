@@ -1,0 +1,334 @@
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
+import { NationalTeamDesk } from "@/components/national-team/national-team-desk";
+import { getMembersList, type Member } from "@/lib/ltf-admin-api";
+import { saveNationalTeamStaff, type AthleteNationalTeam, type SquadSelectionRow } from "@/lib/national-team-api";
+
+jest.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
+jest.mock("@/lib/ltf-admin-api", () => {
+  const actual = jest.requireActual("@/lib/ltf-admin-api");
+  return { ...actual, getMembersList: jest.fn() };
+});
+
+jest.mock("@/lib/national-team-api", () => {
+  const actual = jest.requireActual("@/lib/national-team-api");
+  return { ...actual, saveNationalTeamStaff: jest.fn() };
+});
+
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+});
+
+const selection: SquadSelectionRow = {
+  id: 4,
+  member: 9,
+  person: { id: 9, first_name: "Lea", last_name: "WEBER", club_id: 2, club_name: "Centre Luxembourg" },
+  squad: 1,
+  squad_name: "National team",
+  squad_code: "national_team",
+  season: 3,
+  season_year: 2026,
+  club_id: 2,
+  club_name: "Centre Luxembourg",
+  age_class: "senior",
+  weight_category: "-67 kg",
+  is_captain: true,
+  started_on: "2026-01-01",
+  ended_on: null,
+  is_current: true,
+  ltf_level: { id: 3, code: "A3", name: "A3", sort_order: 3, is_active: true },
+  cosl: { pathway: "elite", rank: "P3", project: "olympic" },
+  support: "sportlycee",
+  coaches: [{ id: 8, first_name: "Alex", last_name: "COACH", function: "national_coach" }],
+};
+
+const preview = {
+  seasons: [{ id: 3, year: 2026, starts_on: "2026-01-01", ends_on: "2026-12-31" }],
+  squads: [
+    { id: 1, code: "national_team", name: "National team", discipline: "kyorugi", is_active: true, sort_order: 1 },
+    { id: 2, code: "young_talents", name: "Young talents", discipline: "kyorugi", is_active: true, sort_order: 2 },
+  ],
+  clubs: [{ id: 2, name: "Centre Luxembourg" }],
+  levels: [{ id: 3, code: "A3", name: "A3", sort_order: 3, is_active: true }],
+  selections: [selection],
+  staff: [],
+  settings: { forbid_overlapping_squads: false },
+  statuses: [
+    {
+      id: 11,
+      member: 9,
+      scheme: "cosl",
+      started_on: "2026-01-01",
+      ended_on: null,
+      source_note: "COSL letter",
+      cadre_level_id: null,
+      level: null,
+      cosl_pathway: "elite",
+      cosl_rank: "P3",
+      cosl_project: "olympic",
+      support_program: "",
+    },
+  ],
+  members: [],
+};
+
+describe("National team desk", () => {
+  it("shows the squad table with popover filters and delete last", () => {
+    render(<NationalTeamDesk canManage preview={preview} />);
+    expect(screen.getByText("WEBER Lea")).toBeInTheDocument();
+    expect(screen.getByText("Centre Luxembourg")).toBeInTheDocument();
+    expect(screen.getByText("National team")).toBeInTheDocument();
+    expect(screen.getByText("-67 kg")).toBeInTheDocument();
+    expect(screen.getByText("A3")).toBeInTheDocument();
+    expect(screen.getByText("nationalTeamCoslElite P3 · nationalTeamProjectOlympic")).toBeInTheDocument();
+    expect(screen.getByText("nationalTeamSupportSportlycee")).toBeInTheDocument();
+    for (const name of ["nationalTeamSeason", "nationalTeamSquad", "nationalTeamClub"]) {
+      expect(
+        screen.getAllByRole("button", { name }).some((button) => button.getAttribute("aria-haspopup") === "listbox")
+      ).toBe(true);
+    }
+    expect(document.querySelector("select")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamRowActions" }));
+    const menu = screen.getByRole("menu", { name: "nationalTeamRowActions" });
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items[items.length - 1]).toHaveAccessibleName("nationalTeamDelete");
+  });
+
+  it("opens the add-selection panel and the status history", () => {
+    render(<NationalTeamDesk canManage preview={preview} />);
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamAddSelection" }));
+    const dialog = screen.getByRole("dialog", { name: "nationalTeamAddSelection" });
+    expect(within(dialog).getByLabelText("nationalTeamWeight")).toBeInTheDocument();
+    expect(within(dialog).getByText("nationalTeamWeight").closest("label")?.querySelector("[data-required]")).toBeNull();
+    expect(within(dialog).getByText("nationalTeamAgeClass").closest("label")?.querySelector("[data-required]")).toBeNull();
+    expect(within(dialog).getByText("nationalTeamEnd").closest("label")?.querySelector("[data-required]")).toBeNull();
+    for (const name of ["nationalTeamMember", "nationalTeamSquad", "nationalTeamStart"]) {
+      expect(within(dialog).getByText(name).closest("label")?.querySelector("[data-required='true']")).not.toBeNull();
+    }
+    expect(within(dialog).getByText(/requiredLegend/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamAgeClass" }));
+    const options = screen.getAllByRole("option").map((option) => option.textContent);
+    expect(options).toEqual([
+      "nationalTeamAgeUnset",
+      "nationalTeamAgePupils (7–8, nationalTeamAgeRegional)",
+      "nationalTeamAgeMinimes (9–11, nationalTeamAgeRegional)",
+      "nationalTeamAgeCadet (12–14)",
+      "nationalTeamAgeJunior (15–17)",
+      "nationalTeamAgeSenior (17+)",
+      "nationalTeamAgeYouth",
+    ]);
+    const close = screen
+      .getAllByRole("button", { name: "nationalTeamClose" })
+      .find((button) => button.textContent === "nationalTeamClose");
+    fireEvent.click(close!);
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamRowActions" }));
+    const menu = screen.getByRole("menu", { name: "nationalTeamRowActions" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "nationalTeamStatus" }));
+    expect(screen.getByText("COSL letter")).toBeInTheDocument();
+    expect(screen.getByLabelText("nationalTeamSourceNote")).toBeInTheDocument();
+  });
+
+  it("suggests the age class from the athlete birth year", () => {
+    const athlete = {
+      id: 12,
+      first_name: "Nina",
+      last_name: "CADET",
+      date_of_birth: "2013-04-02",
+      club: 2,
+    } as Member;
+    render(<NationalTeamDesk canManage preview={{ ...preview, members: [athlete] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamAddSelection" }));
+    const dialog = screen.getByRole("dialog", { name: "nationalTeamAddSelection" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "CADET Nina" }));
+    expect(within(dialog).getByRole("button", { name: "nationalTeamAgeClass" })).toHaveTextContent(
+      "nationalTeamAgeCadet (12–14)"
+    );
+  });
+
+  it("lists every staff function and keeps every active person findable", async () => {
+    const coach = {
+      id: 20,
+      first_name: "Alex",
+      last_name: "COACH",
+      club: null,
+      ltf_staff: { id: 3, function: "coach", started_on: "2026-01-01", ended_on: null },
+    } as Member;
+    const photographer = {
+      id: 22,
+      first_name: "Pia",
+      last_name: "LENS",
+      club: null,
+      ltf_staff: { id: 4, function: "media", started_on: "2026-01-01", ended_on: null },
+    } as Member;
+    const medic = {
+      id: 23,
+      first_name: "Noa",
+      last_name: "MEDIC",
+      club: 2,
+      ltf_staff: { id: 5, function: "medic", started_on: "2026-01-01", ended_on: null },
+    } as Member;
+    const athlete = {
+      id: 21,
+      first_name: "Lea",
+      last_name: "WEBER",
+      club: 2,
+    } as Member;
+    const save = jest.mocked(saveNationalTeamStaff);
+    save.mockResolvedValue({} as Awaited<ReturnType<typeof saveNationalTeamStaff>>);
+    render(
+      <NationalTeamDesk canManage preview={{ ...preview, members: [athlete, photographer, coach, medic] }} />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "nationalTeamTabStaff" }));
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    const dialog = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
+    expect(within(dialog).queryByRole("button", { name: "nationalTeamLtfCoaches" })).toBeNull();
+    expect(within(dialog).getByText("nationalTeamStaffCoachFirst")).toBeInTheDocument();
+    expect(peopleIn(dialog)).toEqual(["COACH Alex", "WEBER Lea", "LENS Pia", "MEDIC Noa"]);
+    expect(within(dialog).getByRole("button", { name: /COACH Alex/ })).toHaveTextContent("staffFunctionCoach");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "nationalTeamStaffNationalCoach",
+      "nationalTeamStaffSportlyceeCoach",
+      "nationalTeamStaffTechnicalDirector",
+      "nationalTeamStaffPhysiotherapist",
+      "nationalTeamStaffPhotographer",
+      "nationalTeamStaffOther",
+    ]);
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffSportlyceeCoach" }));
+    expect(peopleIn(dialog)[0]).toBe("COACH Alex");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhotographer" }));
+    expect(within(dialog).getByText("nationalTeamStaffMediaFirst")).toBeInTheDocument();
+    expect(peopleIn(dialog)).toEqual(["LENS Pia", "WEBER Lea", "COACH Alex", "MEDIC Noa"]);
+    expect(within(dialog).getByRole("button", { name: /LENS Pia/ })).toHaveTextContent("staffFunctionMedia");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhysiotherapist" }));
+    expect(within(dialog).getByText("nationalTeamStaffMedicFirst")).toBeInTheDocument();
+    expect(within(dialog).queryByText("nationalTeamStaffCoachFirst")).toBeNull();
+    expect(within(dialog).queryByText("nationalTeamStaffMediaFirst")).toBeNull();
+    expect(peopleIn(dialog)).toEqual(["MEDIC Noa", "WEBER Lea", "LENS Pia", "COACH Alex"]);
+    expect(within(dialog).getByRole("button", { name: /MEDIC Noa/ })).toHaveTextContent("staffFunctionMedic");
+
+    fireEvent.change(within(dialog).getByLabelText(/nationalTeamMember/), {
+      target: { value: "weber" },
+    });
+    expect(within(dialog).getByRole("button", { name: /WEBER Lea/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /COACH Alex/ })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /LENS Pia/ })).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /WEBER Lea/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffOther" }));
+    fireEvent.change(within(dialog).getByLabelText(/nationalTeamStaffTitle/), {
+      target: { value: "Team manager" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/nationalTeamStart/), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamSave" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({
+          member: 21,
+          function: "other",
+          title: "Team manager",
+          started_on: "2026-03-01",
+        })
+      )
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "nationalTeamStaffAdd" })).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    const again = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
+    fireEvent.click(within(again).getByRole("button", { name: /LENS Pia/ }));
+    fireEvent.click(within(again).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhotographer" }));
+    fireEvent.change(within(again).getByLabelText(/nationalTeamStart/), {
+      target: { value: "2026-04-01" },
+    });
+    fireEvent.click(within(again).getByRole("button", { name: "nationalTeamSave" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({ member: 22, function: "photographer", started_on: "2026-04-01" })
+      )
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "nationalTeamStaffAdd" })).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    const physio = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
+    fireEvent.change(within(physio).getByLabelText(/nationalTeamMember/), { target: { value: "" } });
+    fireEvent.click(within(physio).getByRole("button", { name: /WEBER Lea/ }));
+    fireEvent.click(within(physio).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhysiotherapist" }));
+    fireEvent.change(within(physio).getByLabelText(/nationalTeamStart/), {
+      target: { value: "2026-05-01" },
+    });
+    fireEvent.click(within(physio).getByRole("button", { name: "nationalTeamSave" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({ member: 21, function: "physiotherapist", started_on: "2026-05-01" })
+      )
+    );
+  });
+
+  it("asks the member API for every active person, with no staff-function filter", async () => {
+    jest.mocked(getMembersList).mockResolvedValue([
+      { id: 21, first_name: "Lea", last_name: "WEBER", club: 2 } as Member,
+    ]);
+    render(<NationalTeamDesk canManage preview={{ ...preview, members: undefined }} />);
+    fireEvent.click(screen.getByRole("tab", { name: "nationalTeamTabStaff" }));
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    await waitFor(() => expect(getMembersList).toHaveBeenCalled());
+    for (const [params] of jest.mocked(getMembersList).mock.calls) {
+      expect(params).toEqual(expect.objectContaining({ roster: "all", isActive: true }));
+      expect(params?.staffFunction).toBeUndefined();
+    }
+    expect(await screen.findByRole("button", { name: /WEBER Lea/ })).toBeInTheDocument();
+  });
+});
+
+function peopleIn(dialog: HTMLElement) {
+  return within(dialog)
+    .getAllByRole("button")
+    .map((button) => button.textContent || "")
+    .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea") || text.includes("LENS Pia") || text.includes("MEDIC Noa"))
+    .map((text) => text.replace(/\s·.*/, ""));
+}
+
+describe("Club national team block", () => {
+  const athlete: AthleteNationalTeam = {
+    member: selection.person,
+    selections: [selection],
+    statuses: preview.statuses,
+    current: {
+      ltf_level: { code: "A3", name: "A3" },
+      cosl: { pathway: "elite", rank: "P3", project: "olympic" },
+      support: "sportlycee",
+    },
+  };
+
+  it("is read only and shows the coach name without private details", () => {
+    render(<MemberNationalTeamBlock memberId={9} preview={athlete} />);
+    expect(screen.getByText("nationalTeamBlockTitle")).toBeInTheDocument();
+    expect(screen.getByText(/COACH Alex/)).toBeInTheDocument();
+    expect(screen.getByText(/COSL letter/)).toBeInTheDocument();
+    expect(screen.queryByText(/alex.coach@/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "nationalTeamEdit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "nationalTeamDelete" })).toBeNull();
+  });
+});

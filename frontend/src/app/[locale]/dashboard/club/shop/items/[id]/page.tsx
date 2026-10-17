@@ -514,7 +514,7 @@ export default function ClubShopItemDetailPage() {
             <div className="space-y-6">
               <FormPanel className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <Label htmlFor="shop-name">{t("shopItemName")}</Label>
+                  <Label htmlFor="shop-name" required>{t("shopItemName")}</Label>
                   <Input id="shop-name" className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
                 </div>
                 <div>

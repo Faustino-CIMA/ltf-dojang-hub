@@ -34,7 +34,7 @@ function member(overrides: Partial<Member> = {}): Member {
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     is_ltf_staff: true,
-    ltf_staff: { id: 1, function: "photographer", started_on: "2026-01-01", ended_on: null },
+    ltf_staff: { id: 1, function: "media", started_on: "2026-01-01", ended_on: null },
     linked_user: null,
     ...overrides,
   };
@@ -55,6 +55,14 @@ describe("LTF staff panel", () => {
     );
     expect(screen.getByRole("dialog", { name: "staffAddTitle" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffFunctionLabel" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "staffFunctionLabel" }));
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "staffFunctionSecretary",
+      "staffFunctionCoach",
+      "staffFunctionMedic",
+      "staffFunctionMedia",
+      "staffFunctionOther",
+    ]);
     expect(screen.getByRole("button", { name: "staffClubLabel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffLoginLabel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffLicenseTypeLabel" })).toBeInTheDocument();

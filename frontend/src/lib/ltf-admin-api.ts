@@ -32,7 +32,7 @@ export type Club = {
   updated_at: string;
 };
 
-export type LtfStaffFunctionName = "secretary" | "photographer" | "other";
+export type LtfStaffFunctionName = "secretary" | "coach" | "medic" | "media" | "other" | "photographer";
 
 export type LtfStaffRecord = {
   id: number;
@@ -621,6 +621,7 @@ type MemberListQueryParams = {
   ids?: number[];
   issue?: MemberIssueFilter;
   roster?: MemberRoster;
+  staffFunction?: string;
   ordering?: string;
 };
 
@@ -648,6 +649,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.roster && params.roster !== "all") {
     search.set("roster", params.roster);
+  }
+  if (params?.staffFunction) {
+    search.set("staff_function", params.staffFunction);
   }
   if (params?.ordering) {
     search.set("ordering", params.ordering);

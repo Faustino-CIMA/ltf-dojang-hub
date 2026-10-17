@@ -9,10 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import type { Club, LicenseType, LtfStaffFunctionName, LtfStaffInput, Member } from "@/lib/ltf-admin-api";
+import { staffFunctionLabel } from "@/lib/ltf-staff-label";
 
 export type StaffPanelMode = "create" | "edit" | "issue" | "revoke" | "delete";
 
-const FUNCTIONS: LtfStaffFunctionName[] = ["secretary", "photographer", "other"];
+const FUNCTIONS: LtfStaffFunctionName[] = ["secretary", "coach", "medic", "media", "other"];
+
+function selectedFunction(member: { ltf_staff?: { function: LtfStaffFunctionName } | null } | null): LtfStaffFunctionName {
+  const value = member?.ltf_staff?.function;
+  if (value === "photographer") return "media";
+  if (value === "secretary" || value === "coach" || value === "medic" || value === "media" || value === "other") return value;
+  return "secretary";
+}
 
 export function LtfStaffPanel(props: {
   mode: StaffPanelMode | null;
@@ -51,7 +59,7 @@ function StaffPanelForm({
   const [lastName, setLastName] = useState(member?.last_name ?? "");
   const [email, setEmail] = useState(member?.email ?? "");
   const [sex, setSex] = useState<"M" | "F">(member?.sex ?? "F");
-  const [fn, setFn] = useState<LtfStaffFunctionName>(member?.ltf_staff?.function ?? "secretary");
+  const [fn, setFn] = useState<LtfStaffFunctionName>(selectedFunction(member));
   const [startedOn, setStartedOn] = useState(member?.ltf_staff?.started_on ?? "");
   const [endedOn, setEndedOn] = useState(member?.ltf_staff?.ended_on ?? "");
   const [clubId, setClubId] = useState(member?.club ? String(member.club) : "");
@@ -63,13 +71,7 @@ function StaffPanelForm({
 
   const functionOptions = FUNCTIONS.map((value) => ({
     value,
-    label: t(
-      value === "secretary"
-        ? "staffFunctionSecretary"
-        : value === "photographer"
-          ? "staffFunctionPhotographer"
-          : "staffFunctionOther"
-    ),
+    label: staffFunctionLabel(t, value),
   }));
   const clubOptions = [
     { value: "", label: t("staffNoClubOption") },
@@ -181,11 +183,11 @@ function StaffPanelForm({
         {showPerson ? (
           <>
             <div className="space-y-2">
-              <Label htmlFor="staff-last-name">{t("lastNameLabel")}</Label>
+              <Label htmlFor="staff-last-name" required>{t("lastNameLabel")}</Label>
               <Input id="staff-last-name" value={lastName} onChange={(event) => setLastName(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff-first-name">{t("firstNameLabel")}</Label>
+              <Label htmlFor="staff-first-name" required>{t("firstNameLabel")}</Label>
               <Input id="staff-first-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
             </div>
             <div className="space-y-2">
@@ -205,7 +207,7 @@ function StaffPanelForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>{t("staffFunctionLabel")}</Label>
+              <Label required>{t("staffFunctionLabel")}</Label>
               <PopoverSelect ariaLabel={t("staffFunctionLabel")} value={fn} onValueChange={(value) => setFn(value as LtfStaffFunctionName)} options={functionOptions} />
             </div>
             <div className="grid grid-cols-2 gap-3">

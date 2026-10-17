@@ -233,7 +233,7 @@ export default function ClubAdminMemberCreatePage() {
         <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2 md:col-span-2">
-              <Label>{t("clubLabel")}</Label>
+              <Label required>{t("clubLabel")}</Label>
               <Select
                 value={watch("club")}
                 onValueChange={(value) => {
@@ -256,13 +256,13 @@ export default function ClubAdminMemberCreatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="member-first-name">{t("firstNameLabel")}</Label>
+              <Label htmlFor="member-first-name" required>{t("firstNameLabel")}</Label>
               <Input id="member-first-name" placeholder="Jane" {...register("first_name")} />
               {errors.first_name ? <p className="text-sm text-destructive">{errors.first_name.message}</p> : null}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="member-last-name">{t("lastNameLabel")}</Label>
+              <Label htmlFor="member-last-name" required>{t("lastNameLabel")}</Label>
               <Input id="member-last-name" placeholder="Doe" {...register("last_name")} />
               {errors.last_name ? <p className="text-sm text-destructive">{errors.last_name.message}</p> : null}
             </div>

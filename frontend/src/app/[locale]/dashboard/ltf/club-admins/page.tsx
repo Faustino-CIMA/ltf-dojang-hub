@@ -17,6 +17,7 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
+import { Label, RequiredForm } from "@/components/ui/label";
 import { FloatingNotice, FormPanel, PageNotice } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -1023,9 +1024,10 @@ export default function ClubAdminsBoardPage() {
         isOpen={showEmailModal}
         onClose={resetConnect}
       >
+        <RequiredForm>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("emailInputLabel")}</label>
+            <Label required>{t("emailInputLabel")}</Label>
             <Input
               type="email"
               value={emailValue}
@@ -1045,6 +1047,7 @@ export default function ClubAdminsBoardPage() {
             </Button>
           </div>
         </div>
+        </RequiredForm>
       </Modal>
 
       <Modal

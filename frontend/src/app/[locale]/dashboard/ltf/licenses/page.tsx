@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
+import { Label, RequiredForm } from "@/components/ui/label";
 import {
   ListActionsRow,
   ListPagination,
@@ -587,8 +588,9 @@ export default function LtfAdminLicensesPage() {
         onClose={() => setIsFormOpen(false)}
       >
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+          <RequiredForm className="contents" legendClassName="md:col-span-2">
           <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-foreground">{t("clubLabel")}</label>
+            <Label required>{t("clubLabel")}</Label>
             <Select
               value={watch("club")}
               onValueChange={(value) => setValue("club", value, { shouldValidate: true })}
@@ -608,7 +610,7 @@ export default function LtfAdminLicensesPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("memberLabel")}</label>
+            <Label required>{t("memberLabel")}</Label>
             <Select
               value={watch("member")}
               onValueChange={(value) => setValue("member", value, { shouldValidate: true })}
@@ -628,7 +630,7 @@ export default function LtfAdminLicensesPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("licenseTypeLabel")}</label>
+            <Label required>{t("licenseTypeLabel")}</Label>
             <Select
               value={watch("license_type")}
               onValueChange={(value) => setValue("license_type", value, { shouldValidate: true })}
@@ -650,7 +652,7 @@ export default function LtfAdminLicensesPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("yearLabel")}</label>
+            <Label required>{t("yearLabel")}</Label>
             <Input type="number" min="2000" {...register("year")} />
             {errors.year ? <p className="text-sm text-destructive">{errors.year.message}</p> : null}
           </div>
@@ -676,7 +678,8 @@ export default function LtfAdminLicensesPage() {
             </Select>
           </div>
 
-          <div className="flex items-center gap-3">
+          </RequiredForm>
+          <div className="flex items-center gap-3 md:col-span-2">
             <Button type="submit" disabled={isSubmitting}>
               {editingLicense ? t("updateLicense") : t("createLicense")}
             </Button>

@@ -800,7 +800,7 @@ export default function ClubSubsidiesPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label>{t("subsidiesEventTitle")}</Label>
+                      <Label required>{t("subsidiesEventTitle")}</Label>
                       <Input className="mt-1" value={title} onChange={(event) => setTitle(event.target.value)} required />
                     </div>
                     <div className="md:col-span-2">

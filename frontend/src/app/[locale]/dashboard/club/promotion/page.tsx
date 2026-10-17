@@ -160,7 +160,7 @@ export default function PromotionPage() {
                 </Select>
               </div>
               <div>
-                <Label>{t("trainingRequiredHours")}</Label>
+                <Label required>{t("trainingRequiredHours")}</Label>
                 <Input className="mt-1" inputMode="decimal" value={hours} onChange={(event) => setHours(event.target.value)} required />
               </div>
               <div>
@@ -237,11 +237,11 @@ export default function PromotionPage() {
           {canManage ? (
             <form className="mt-4 grid gap-3 md:grid-cols-3" onSubmit={(event) => void addTest(event)}>
               <div>
-                <Label>{t("trainingClassName")}</Label>
+                <Label required>{t("trainingClassName")}</Label>
                 <Input className="mt-1" value={testName} onChange={(event) => setTestName(event.target.value)} required />
               </div>
               <div>
-                <Label>{t("trainingDate")}</Label>
+                <Label required>{t("trainingDate")}</Label>
                 <Input className="mt-1" type="date" value={heldOn} onChange={(event) => setHeldOn(event.target.value)} required />
               </div>
               <div className="flex items-end">

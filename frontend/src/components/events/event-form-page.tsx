@@ -232,7 +232,7 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
       <FormPanel>
         <form onSubmit={onSubmit} className="grid gap-4">
           <div>
-            <Label htmlFor="title">{t("calendarFieldTitle")}</Label>
+            <Label htmlFor="title" required>{t("calendarFieldTitle")}</Label>
             <Input id="title" className="mt-1" disabled={readOnly} {...form.register("title")} />
           </div>
           <div>
@@ -255,7 +255,7 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <Label htmlFor="starts_local">{t("calendarFieldStart")}</Label>
+              <Label htmlFor="starts_local" required>{t("calendarFieldStart")}</Label>
               <Input
                 id="starts_local"
                 type={allDay ? "date" : "datetime-local"}
@@ -265,7 +265,7 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
               />
             </div>
             <div>
-              <Label htmlFor="ends_local">{t("calendarFieldEnd")}</Label>
+              <Label htmlFor="ends_local" required>{t("calendarFieldEnd")}</Label>
               <Input
                 id="ends_local"
                 type={allDay ? "date" : "datetime-local"}

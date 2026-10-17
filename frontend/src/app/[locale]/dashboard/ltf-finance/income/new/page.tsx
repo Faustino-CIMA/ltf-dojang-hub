@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AppTextarea,
   FormPanel,
@@ -113,9 +114,9 @@ export default function LtfFinanceIncomeCreatePage() {
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="income-date">
+              <Label className="text-foreground" htmlFor="income-date" required>
                 {t("incomeDateLabel")}
-              </label>
+              </Label>
               <Input
                 id="income-date"
                 type="date"
@@ -152,9 +153,9 @@ export default function LtfFinanceIncomeCreatePage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="income-amount">
+              <Label className="text-foreground" htmlFor="income-amount" required>
                 {t("incomeAmountLabel")}
-              </label>
+              </Label>
               <Input
                 id="income-amount"
                 value={amount}
@@ -165,9 +166,9 @@ export default function LtfFinanceIncomeCreatePage() {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="income-description">
+              <Label className="text-foreground" htmlFor="income-description" required>
                 {t("incomeDescriptionLabel")}
-              </label>
+              </Label>
               <Input
                 id="income-description"
                 value={description}

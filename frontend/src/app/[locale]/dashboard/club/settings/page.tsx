@@ -29,6 +29,7 @@ import {
 } from "@/lib/club-admin-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
@@ -376,8 +377,9 @@ export default function ClubAdminSettingsPage() {
             <p className="mt-2 text-sm text-muted">{t("clubFormSubtitle")}</p>
 
             <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+              <RequiredForm className="contents" legendClassName="md:col-span-2">
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubNameLabel")}</label>
+                <Label required>{t("clubNameLabel")}</Label>
                 <Input placeholder="LTF Central Club" {...register("name")} />
                 {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
               </div>
@@ -459,6 +461,7 @@ export default function ClubAdminSettingsPage() {
                 <Input value={derivedBankName || "-"} readOnly disabled />
               </div>
 
+              </RequiredForm>
               <div className="flex items-center gap-3">
                 <Button type="submit" disabled={isSubmitting}>
                   {t("saveClub")}

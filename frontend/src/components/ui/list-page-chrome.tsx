@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
+import { RequiredForm } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -345,7 +346,11 @@ export function FormPanel({
   children: ReactNode;
   className?: string;
 }) {
-  return <section className={cn("app-panel p-6", className)}>{children}</section>;
+  return (
+    <section className={cn("app-panel p-6", className)}>
+      <RequiredForm>{children}</RequiredForm>
+    </section>
+  );
 }
 
 export function ExpandableTable({ children }: { children: ReactNode }) {

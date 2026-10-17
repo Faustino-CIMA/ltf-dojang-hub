@@ -96,6 +96,16 @@ from licenses.card_views import (
 from members.transfer_views import MemberTransferViewSet
 from events.views import EventViewSet
 from members.views import MemberViewSet, RewriteLtfLicensePrefixView
+from nationalteam.views import (
+    AthleteNationalTeamView,
+    AthleteStatusViewSet,
+    CadreLevelViewSet,
+    NationalTeamSettingsView,
+    SeasonViewSet,
+    SelectionViewSet,
+    SquadViewSet,
+    StaffViewSet,
+)
 
 router = DefaultRouter()
 router.register(r"clubs", ClubViewSet, basename="club")
@@ -142,6 +152,12 @@ router.register(
     basename="card-template-version",
 )
 router.register(r"print-jobs", PrintJobViewSet, basename="print-job")
+router.register(r"national-team/seasons", SeasonViewSet, basename="national-team-season")
+router.register(r"national-team/squads", SquadViewSet, basename="national-team-squad")
+router.register(r"national-team/levels", CadreLevelViewSet, basename="national-team-level")
+router.register(r"national-team/selections", SelectionViewSet, basename="national-team-selection")
+router.register(r"national-team/statuses", AthleteStatusViewSet, basename="national-team-status")
+router.register(r"national-team/staff", StaffViewSet, basename="national-team-staff")
 
 def health_check(request):
     return JsonResponse({"status": "ok"})
@@ -252,6 +268,12 @@ urlpatterns = [
         "api/card-designer/lookups/clubs/",
         CardDesignerClubsLookupView.as_view(),
         name="card-designer-lookups-clubs",
+    ),
+    path("api/national-team/settings/", NationalTeamSettingsView.as_view(), name="national-team-settings"),
+    path(
+        "api/national-team/athletes/<int:member_id>/",
+        AthleteNationalTeamView.as_view(),
+        name="national-team-athlete",
     ),
     path("api/", include(router.urls)),
     path("api/schema/", schema_view, name="schema"),

@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useContext, useMemo } from "react";
-import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Scale, ScrollText, Wallet } from "lucide-react";
+import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Medal, Scale, ScrollText, Wallet } from "lucide-react";
 
 import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
 import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
@@ -31,7 +31,8 @@ type LtfFinanceNavDef = {
     | "navBank"
     | "navReports"
     | "navAuditLog"
-    | "navLicenseSettings";
+    | "navLicenseSettings"
+    | "navNationalTeam";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 };
@@ -100,6 +101,13 @@ const LTF_FINANCE_NAV_DEFINITIONS: LtfFinanceNavDef[] = [
     labelKey: "navLicenseSettings",
     matchMode: "prefix",
     icon: CircleDollarSign,
+  },
+  {
+    id: "national-team",
+    href: (l) => `/${l}/dashboard/ltf-finance/national-team`,
+    labelKey: "navNationalTeam",
+    matchMode: "prefix",
+    icon: Medal,
   },
 ];
 

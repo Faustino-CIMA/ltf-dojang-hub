@@ -13,6 +13,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { AppVersionLink } from "@/components/app-version-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label, RequiredForm } from "@/components/ui/label";
 
 export default function LoginPage() {
   const t = useTranslations("Auth");
@@ -98,10 +99,11 @@ export default function LoginPage() {
           <p className="mt-2 text-sm leading-relaxed text-muted">{t("loginSubtitle")}</p>
 
           <form className="mt-8 space-y-5" onSubmit={onSubmit} noValidate>
+            <RequiredForm>
             <div className="space-y-2 text-left">
-              <label className="text-sm font-medium text-foreground" htmlFor="login-username">
+              <Label className="text-foreground" htmlFor="login-username" required>
                 {t("username")}
-              </label>
+              </Label>
               <Input
                 id="login-username"
                 name="username"
@@ -115,9 +117,9 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2 text-left">
-              <label className="text-sm font-medium text-foreground" htmlFor="login-password">
+              <Label className="text-foreground" htmlFor="login-password" required>
                 {t("password")}
-              </label>
+              </Label>
               <Input
                 id="login-password"
                 name="password"
@@ -129,6 +131,7 @@ export default function LoginPage() {
               />
               {fieldErrors.password ? <p className="text-sm text-destructive">{fieldErrors.password}</p> : null}
             </div>
+            </RequiredForm>
 
             <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
             {showVerifyLink ? (

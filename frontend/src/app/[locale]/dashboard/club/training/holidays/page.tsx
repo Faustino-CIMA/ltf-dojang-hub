@@ -136,15 +136,15 @@ export default function TrainingHolidaysPage() {
                     <h2 className="text-section text-foreground">{t("trainingAddHoliday")}</h2>
                     <form className="mt-4 grid gap-3" onSubmit={(event) => void onSubmit(event)}>
                       <div>
-                        <Label>{t("trainingHolidayName")}</Label>
+                        <Label required>{t("trainingHolidayName")}</Label>
                         <Input className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
                       </div>
                       <div>
-                        <Label>{t("subsidiesFrom")}</Label>
+                        <Label required>{t("subsidiesFrom")}</Label>
                         <Input className="mt-1" type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
                       </div>
                       <div>
-                        <Label>{t("subsidiesTo")}</Label>
+                        <Label required>{t("subsidiesTo")}</Label>
                         <Input className="mt-1" type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} required />
                       </div>
                       <Button type="submit" variant="outline">{t("trainingAddHoliday")}</Button>

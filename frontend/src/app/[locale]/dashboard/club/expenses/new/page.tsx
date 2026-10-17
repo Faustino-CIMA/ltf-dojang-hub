@@ -11,6 +11,7 @@ import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AppTextarea, FormPanel, ActionNotices } from "@/components/ui/list-page-chrome";
 import {
   Select,
@@ -113,9 +114,9 @@ export default function ClubExpenseCreatePage() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="expense-date">
+                <Label className="text-foreground" htmlFor="expense-date" required>
                   {t("expenseDateLabel")}
-                </label>
+                </Label>
                 <Input
                   id="expense-date"
                   type="date"
@@ -140,9 +141,9 @@ export default function ClubExpenseCreatePage() {
                 </Select>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="expense-description">
+                <Label className="text-foreground" htmlFor="expense-description" required>
                   {t("expenseDescriptionLabel")}
-                </label>
+                </Label>
                 <Input
                   id="expense-description"
                   value={description}
@@ -163,9 +164,9 @@ export default function ClubExpenseCreatePage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="expense-amount">
+                <Label className="text-foreground" htmlFor="expense-amount" required>
                   {t("expenseAmountLabel")}
-                </label>
+                </Label>
                 <Input
                   id="expense-amount"
                   value={amount}
