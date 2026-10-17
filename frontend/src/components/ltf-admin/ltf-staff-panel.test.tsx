@@ -82,6 +82,27 @@ describe("LTF staff panel", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("refuses a past year before issuing", () => {
+    const onSubmit = jest.fn();
+    render(
+      <LtfStaffPanel
+        mode="issue"
+        member={member()}
+        clubs={[]}
+        licenseTypes={[licenseType]}
+        busy={false}
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "staffLicenseTypeLabel" }));
+    fireEvent.click(screen.getByRole("option", { name: "Staff" }));
+    fireEvent.change(screen.getByLabelText("staffLicenseYearLabel"), { target: { value: "2020" } });
+    fireEvent.click(screen.getByRole("button", { name: "staffIssueAction" }));
+    expect(screen.getByText("staffPastYear")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("puts the destructive action on delete and keeps the person fields off", () => {
     render(
       <LtfStaffPanel

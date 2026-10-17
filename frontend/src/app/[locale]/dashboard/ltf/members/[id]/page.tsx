@@ -29,6 +29,7 @@ import {
 import { MemberClubMovementPanel } from "@/components/member/member-club-movement-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { apiRequest } from "@/lib/api";
+import { staffActionErrorMessage } from "@/lib/staff-action-error";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import {
   Club,
@@ -221,7 +222,7 @@ export default function LtfMemberDetailPage() {
       setPanelMode(null);
       await loadMember();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("staffSaved"));
+      setErrorMessage(staffActionErrorMessage(error, t, t("staffSaved")));
     } finally {
       setPanelBusy(false);
     }

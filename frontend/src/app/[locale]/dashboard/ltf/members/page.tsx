@@ -42,6 +42,7 @@ import {
   updateLtfStaff,
 } from "@/lib/ltf-admin-api";
 import { displayClubName } from "@/lib/club-label";
+import { staffActionErrorMessage } from "@/lib/staff-action-error";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
@@ -231,7 +232,7 @@ export default function LtfAdminMembersPage() {
       setPanelMember(null);
       await loadData();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("staffSaved"));
+      setErrorMessage(staffActionErrorMessage(error, t, t("staffSaved")));
     } finally {
       setPanelBusy(false);
     }

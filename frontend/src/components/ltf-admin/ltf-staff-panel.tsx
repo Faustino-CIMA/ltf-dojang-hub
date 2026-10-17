@@ -111,6 +111,18 @@ function StaffPanelForm({
       setFormError(t("staffNeedLicenseType"));
       return;
     }
+    if (showLicense && licenseTypeId) {
+      const yearNumber = Number(year);
+      const currentYear = new Date().getFullYear();
+      if (!Number.isInteger(yearNumber) || yearNumber < currentYear) {
+        setFormError(t("staffPastYear"));
+        return;
+      }
+      if (yearNumber > currentYear + 1) {
+        setFormError(t("staffYearNotAllowed"));
+        return;
+      }
+    }
     const input: LtfStaffInput = {
       member_id: member?.id,
       first_name: firstName.trim(),

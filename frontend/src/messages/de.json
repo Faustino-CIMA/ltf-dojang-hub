@@ -50,7 +50,7 @@
     "staffClubLabel": "Verein",
     "staffNoClubOption": "Kein Verein",
     "staffIssueTitle": "LTF-Lizenz ausstellen",
-    "staffIssueHint": "Die Lizenz stellt der Verband aus. Es entsteht keine Vereinsbestellung und keine Rechnung, und es wird kein Preis gesetzt.",
+    "staffIssueHint": "Die Lizenz stellt der Verband aus. Es entsteht keine Vereinsbestellung und keine Rechnung, und es wird kein Preis gesetzt. Das laufende Jahr ist sofort aktiv. Das nächste Jahr bleibt ausstehend, bis es beginnt. Ein vergangenes Jahr wird abgelehnt.",
     "staffIssueAction": "Lizenz ausstellen",
     "staffLicenseTypeLabel": "Lizenzart",
     "staffLicenseYearLabel": "Jahr",
@@ -75,6 +75,10 @@
     "staffNeedName": "Vorname und Nachname angeben.",
     "staffNeedFunction": "Funktion wählen.",
     "staffNeedLicenseType": "Lizenzart wählen.",
+    "staffPastYear": "Eine Lizenz kann nicht für ein bereits beendetes Jahr ausgestellt werden.",
+    "staffYearNotAllowed": "Wählen Sie das laufende Jahr oder das nächste Jahr. Das nächste Jahr bleibt ausstehend, bis es beginnt.",
+    "staffLicenceExists": "Diese Person hat für dieses Jahr bereits eine Lizenz.",
+    "staffActiveLicenceExists": "Diese Person hat bereits eine aktive Lizenz.",
     "ltfStaffCount": "LTF-Personal"
   },
   "ClubMgmt": {

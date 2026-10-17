@@ -50,7 +50,7 @@
     "staffClubLabel": "Club",
     "staffNoClubOption": "Aucun club",
     "staffIssueTitle": "Délivrer une licence LTF",
-    "staffIssueHint": "La licence est délivrée par la fédération. Aucune commande ni facture de club n'est créée, et aucun prix n'est fixé.",
+    "staffIssueHint": "La licence est délivrée par la fédération. Aucune commande ni facture de club n'est créée, et aucun prix n'est fixé. L'année en cours est active tout de suite. L'année suivante reste en attente jusqu'à son début. Une année passée est refusée.",
     "staffIssueAction": "Délivrer la licence",
     "staffLicenseTypeLabel": "Type de licence",
     "staffLicenseYearLabel": "Année",
@@ -75,6 +75,10 @@
     "staffNeedName": "Indiquez un prénom et un nom.",
     "staffNeedFunction": "Choisissez une fonction.",
     "staffNeedLicenseType": "Choisissez un type de licence.",
+    "staffPastYear": "Une licence ne peut pas être délivrée pour une année déjà terminée.",
+    "staffYearNotAllowed": "Choisissez l'année en cours ou l'année suivante. L'année suivante reste en attente jusqu'à son début.",
+    "staffLicenceExists": "Cette personne a déjà une licence pour cette année.",
+    "staffActiveLicenceExists": "Cette personne a déjà une licence active.",
     "ltfStaffCount": "Personnel LTF"
   },
   "ClubMgmt": {

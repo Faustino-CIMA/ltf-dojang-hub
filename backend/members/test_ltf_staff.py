@@ -9,8 +9,10 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from clubs.models import Club
-from licenses.card_rendering import _build_context
-from licenses.models import License, LicenseType, Order
+from licenses.card_rendering import _build_context, _compute_validity_badge
+from licenses.history import expire_outdated_licenses
+from licenses.models import License, LicenseHistoryEvent, LicenseType, Order
+from licenses.tasks import activate_eligible_paid_licenses, reconcile_expired_licenses
 
 from .models import LtfStaffFunction, Member
 
@@ -212,6 +214,141 @@ class LtfStaffApiTests(TestCase):
         self.assertTrue(
             all(row["club_id"] != staff.id for row in response.data["top_clubs"])
         )
+
+    def _staff_member(self, first_name, last_name):
+        member = Member.objects.create(
+            club=None,
+            first_name=first_name,
+            last_name=last_name,
+            is_active=True,
+        )
+        LtfStaffFunction.objects.create(
+            member=member,
+            function=LtfStaffFunction.Function.SECRETARY,
+        )
+        return member
+
+    def test_issue_refuses_a_past_year_and_keeps_next_year_pending(self):
+        self.client.force_authenticate(user=self.admin)
+        member = self._staff_member("Faustino", "Secretary")
+        today = timezone.localdate()
+        past = self.client.post(
+            f"/api/members/{member.id}/ltf-staff-license/",
+            {"license_type": self.license_type.id, "year": today.year - 1},
+            format="json",
+        )
+        self.assertEqual(past.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(past.data["detail"], "past_year")
+        self.assertFalse(member.licenses.exists())
+
+        future = self.client.post(
+            f"/api/members/{member.id}/ltf-staff-license/",
+            {"license_type": self.license_type.id, "year": today.year + 1},
+            format="json",
+        )
+        self.assertEqual(future.status_code, status.HTTP_201_CREATED, future.data)
+        self.assertEqual(future.data["status"], License.Status.PENDING)
+        pending = member.licenses.get()
+        self.assertIsNone(pending.club_id)
+        self.assertEqual(pending.start_date, date(today.year + 1, 1, 1))
+        self.assertEqual(pending.end_date, date(today.year + 1, 12, 31))
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(_compute_validity_badge(pending), License.Status.PENDING)
+
+        too_far = self.client.post(
+            f"/api/members/{member.id}/ltf-staff-license/",
+            {"license_type": self.license_type.id, "year": today.year + 2},
+            format="json",
+        )
+        self.assertEqual(too_far.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(too_far.data["detail"], "year_not_allowed")
+
+        current = self.client.post(
+            f"/api/members/{member.id}/ltf-staff-license/",
+            {"license_type": self.license_type.id, "year": today.year},
+            format="json",
+        )
+        self.assertEqual(current.status_code, status.HTTP_201_CREATED, current.data)
+        self.assertEqual(current.data["status"], License.Status.ACTIVE)
+        active = member.licenses.get(year=today.year)
+        self.assertNotEqual(_compute_validity_badge(active), "expired")
+        self.assertEqual(activate_eligible_paid_licenses(), 0)
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, License.Status.PENDING)
+
+    def test_expiry_and_activation_include_staff_licences_without_a_club(self):
+        member = self._staff_member("Mila", "Fox")
+        today = timezone.localdate()
+        past = License.objects.create(
+            member=member,
+            club=None,
+            license_type=self.license_type,
+            year=today.year - 1,
+            status=License.Status.ACTIVE,
+        )
+        self.assertEqual(past.end_date, date(today.year - 1, 12, 31))
+        current = License.objects.create(
+            member=member,
+            club=None,
+            license_type=self.license_type,
+            year=today.year,
+            status=License.Status.PENDING,
+            start_date=date(today.year, 1, 1),
+            end_date=date(today.year, 12, 31),
+        )
+
+        expired_count = reconcile_expired_licenses()
+        past.refresh_from_db()
+        current.refresh_from_db()
+        self.assertEqual(expired_count, 1)
+        self.assertEqual(past.status, License.Status.EXPIRED)
+        self.assertEqual(current.status, License.Status.PENDING)
+        expired_event = past.history_events.get(event_type=LicenseHistoryEvent.EventType.EXPIRED)
+        self.assertIsNone(expired_event.club_id)
+        self.assertEqual(expired_event.club_name_snapshot, "")
+
+        activated_count = activate_eligible_paid_licenses()
+        current.refresh_from_db()
+        self.assertEqual(activated_count, 1)
+        self.assertEqual(current.status, License.Status.ACTIVE)
+        self.assertEqual(Order.objects.count(), 0)
+
+        untouched = License.objects.create(
+            member=Member.objects.create(club=self.club, first_name="Lea", last_name="Weber"),
+            club=self.club,
+            license_type=self.license_type,
+            year=today.year,
+            status=License.Status.PENDING,
+        )
+        self.assertEqual(activate_eligible_paid_licenses(), 0)
+        untouched.refresh_from_db()
+        self.assertEqual(untouched.status, License.Status.PENDING)
+        self.assertEqual(expire_outdated_licenses(), 0)
+
+    def test_expired_staff_licence_counts_as_expired_and_not_valid(self):
+        member = self._staff_member("Remy", "Past")
+        today = timezone.localdate()
+        License.objects.create(
+            member=member,
+            club=None,
+            license_type=self.license_type,
+            year=today.year - 1,
+            status=License.Status.EXPIRED,
+            start_date=date(today.year - 1, 1, 1),
+            end_date=date(today.year - 1, 12, 31),
+        )
+        cache.clear()
+        self.client.force_authenticate(user=self.admin)
+        overview = self.client.get("/api/dashboard/overview/ltf-admin/")
+        self.assertEqual(overview.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(overview.data["cards"]["expired_licenses"], 1)
+        queue = {
+            row["key"]: row["count"] for row in overview.data["action_queue"]
+        }
+        self.assertGreaterEqual(queue["members_without_active_or_pending_license"], 1)
+        missing = self.client.get("/api/members/?issue=no_valid_license")
+        self.assertEqual(missing.status_code, status.HTTP_200_OK)
+        self.assertIn(member.id, {row["id"] for row in missing.data})
 
     def test_ended_function_is_not_current_staff(self):
         member = Member.objects.create(club=self.club, first_name="Hugo", last_name="Lopes")

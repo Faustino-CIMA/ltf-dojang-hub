@@ -56,6 +56,10 @@ const KEYS = [
   "staffNeedName",
   "staffNeedFunction",
   "staffNeedLicenseType",
+  "staffPastYear",
+  "staffYearNotAllowed",
+  "staffLicenceExists",
+  "staffActiveLicenceExists",
   "ltfStaffCount",
 ] as const;
 

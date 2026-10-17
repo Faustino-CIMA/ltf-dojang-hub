@@ -268,18 +268,39 @@ def issue_staff_license(member: Member, *, license_type: LicenseType, year, acto
         raise LtfStaffError("club_member_uses_club_licence")
     if current_staff_function(member) is None:
         raise LtfStaffError("staff_required")
-    if member.licenses.filter(status=License.Status.ACTIVE).exists():
-        raise LtfStaffError("active_licence_exists")
     try:
         year_value = int(year or timezone.localdate().year)
     except (TypeError, ValueError) as exc:
         raise LtfStaffError("invalid_year") from exc
+    today = timezone.localdate()
+    # Same years a club can order: this year, or next year. A past year is
+    # refused. Club payment leaves a past-year licence unactivated, and an
+    # LTF admin must not create a backdated active licence.
+    if year_value < today.year:
+        raise LtfStaffError("past_year")
+    if year_value > today.year + 1:
+        raise LtfStaffError("year_not_allowed")
+    if member.licenses.filter(
+        year=year_value,
+        status__in=[License.Status.ACTIVE, License.Status.PENDING],
+    ).exists():
+        raise LtfStaffError("licence_exists_for_year")
+    # This year is inside its start/end dates, so it is active at once, the
+    # same as a paid club licence. Next year starts in the future, so it stays
+    # pending until the activation task reaches 1 January.
+    status_value = (
+        License.Status.ACTIVE if year_value == today.year else License.Status.PENDING
+    )
+    if status_value == License.Status.ACTIVE and member.licenses.filter(
+        status=License.Status.ACTIVE
+    ).exists():
+        raise LtfStaffError("active_licence_exists")
     license_record = License.objects.create(
         member=member,
         club=None,
         license_type=license_type,
         year=year_value,
-        status=License.Status.ACTIVE,
+        status=status_value,
     )
     log_license_created(
         license_record,
