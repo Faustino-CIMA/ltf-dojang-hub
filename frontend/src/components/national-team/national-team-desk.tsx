@@ -101,6 +101,13 @@ function staffKey(value: string) {
   return "";
 }
 
+/** LTF staff function to list first for a national-team role. Null means no reordering. */
+function prioritizedStaffFunction(nationalTeamFunction: string): "coach" | "photographer" | null {
+  if (nationalTeamFunction === "national_coach" || nationalTeamFunction === "sportlycee_coach") return "coach";
+  if (nationalTeamFunction === "photographer") return "photographer";
+  return null;
+}
+
 function supportKey(value: string) {
   if (value === "sportlycee") return "nationalTeamSupportSportlycee";
   if (value === "ssea") return "nationalTeamSupportSsea";
@@ -857,7 +864,6 @@ function MemberSearch({
 }) {
   const t = useTranslations("LtfAdmin");
   const [query, setQuery] = useState("");
-  const [coachesOnly, setCoachesOnly] = useState(Boolean(prioritizeFunction));
   const [remote, setRemote] = useState<Member[]>([]);
   const filtered = useMemo(() => {
     if (!members) return null;
@@ -873,39 +879,32 @@ function MemberSearch({
         q: query,
         roster: roster === "club" ? "club" : "all",
         isActive: true,
-        staffFunction: coachesOnly ? prioritizeFunction : undefined,
       })
         .then(setRemote)
         .catch(() => setRemote([]));
     }, 200);
     return () => window.clearTimeout(handle);
-  }, [coachesOnly, members, prioritizeFunction, query, roster]);
+  }, [members, query, roster]);
   const found = useMemo(() => {
     const rows = filtered ?? remote;
-    const visible = coachesOnly && prioritizeFunction
-      ? rows.filter((member) => member.ltf_staff?.function === prioritizeFunction)
-      : rows;
-    if (!prioritizeFunction) return visible;
-    return [...visible].sort((left, right) => {
-      const leftCoach = left.ltf_staff?.function === prioritizeFunction ? 0 : 1;
-      const rightCoach = right.ltf_staff?.function === prioritizeFunction ? 0 : 1;
-      return leftCoach - rightCoach;
+    if (!prioritizeFunction) return rows;
+    return [...rows].sort((left, right) => {
+      const leftMatch = left.ltf_staff?.function === prioritizeFunction ? 0 : 1;
+      const rightMatch = right.ltf_staff?.function === prioritizeFunction ? 0 : 1;
+      return leftMatch - rightMatch;
     });
-  }, [coachesOnly, filtered, prioritizeFunction, remote]);
-  const chosen = found.find((member) => String(member.id) === value);
+  }, [filtered, prioritizeFunction, remote]);
+  const chosen = found.find((member) => String(member.id) === value) ?? null;
+  const priorityHint =
+    prioritizeFunction === "coach"
+      ? t("nationalTeamStaffCoachFirst")
+      : prioritizeFunction === "photographer"
+        ? t("nationalTeamStaffPhotographerFirst")
+        : "";
   return (
     <div className="space-y-2">
       <Label htmlFor="national-team-member" required={required}>{t("nationalTeamMember")}</Label>
-      {prioritizeFunction ? (
-        <Button
-          type="button"
-          variant={coachesOnly ? "default" : "outline"}
-          aria-pressed={coachesOnly}
-          onClick={() => setCoachesOnly((current) => !current)}
-        >
-          {t("nationalTeamLtfCoaches")}
-        </Button>
-      ) : null}
+      {priorityHint ? <p className="text-sm text-muted">{priorityHint}</p> : null}
       <Input id="national-team-member" value={query} placeholder={t("nationalTeamSearchMember")} onChange={(event) => setQuery(event.target.value)} />
       <div className="max-h-40 space-y-1 overflow-y-auto">
         {found.slice(0, 8).map((member) => (
@@ -1167,12 +1166,12 @@ function StaffForm({
         members={members}
         value={memberId}
         required
-        prioritizeFunction="coach"
+        prioritizeFunction={prioritizedStaffFunction(fn) ?? undefined}
         onChange={setMemberId}
       />
       <div className="space-y-2">
         <Label required>{t("nationalTeamStaffFunction")}</Label>
-        <PopoverSelect ariaLabel={t("nationalTeamStaffFunction")} value={fn} onValueChange={setFn} options={STAFF_FUNCTIONS.map((value) => ({ value, label: translateCode(t, staffKey(value), value) }))} />
+        <PopoverSelect className="w-full" ariaLabel={t("nationalTeamStaffFunction")} value={fn} onValueChange={setFn} options={STAFF_FUNCTIONS.map((value) => ({ value, label: translateCode(t, staffKey(value), value) }))} />
       </div>
       <div className="space-y-2">
         <Label>{t("nationalTeamSquad")}</Label>

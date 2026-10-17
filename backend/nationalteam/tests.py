@@ -220,6 +220,45 @@ class NationalTeamApiTests(TestCase):
         self.assertEqual(own.data["selections"][0]["squad_code"], "national_team")
         self.assertEqual(own.data["selections"][0]["coaches"][0]["function"], "national_coach")
 
+    def test_photographer_physiotherapist_and_other_can_be_saved_for_club_and_federation_people(self):
+        self.client.force_authenticate(user=self.admin)
+        started = self.season.starts_on.isoformat()
+        cases = [
+            (self.coach_member, "photographer", ""),
+            (self.coach_member, "physiotherapist", ""),
+            (self.coach_member, "other", "Team manager"),
+            (self.athlete, "photographer", ""),
+            (self.athlete, "physiotherapist", ""),
+            (self.athlete, "other", "Club liaison"),
+        ]
+        saved_ids = []
+        for member, function, title in cases:
+            created = self.client.post(
+                "/api/national-team/staff/",
+                {
+                    "member": member.id,
+                    "function": function,
+                    "title": title,
+                    "started_on": started,
+                },
+                format="json",
+            )
+            self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+            self.assertEqual(created.data["function"], function)
+            self.assertEqual(created.data["member"], member.id)
+            self.assertEqual(created.data["title"], title)
+            self.assertEqual(created.data["person"]["club_id"], member.club_id)
+            saved_ids.append(created.data["id"])
+        listing = self.client.get("/api/national-team/staff/")
+        self.assertEqual(listing.status_code, status.HTTP_200_OK)
+        stored = {
+            (row["member"], row["function"], row["title"])
+            for row in listing.data
+            if row["id"] in saved_ids
+        }
+        self.assertEqual(stored, {(member.id, function, title) for member, function, title in cases})
+        self.assertEqual(NationalTeamStaff.objects.filter(id__in=saved_ids).count(), len(cases))
+
     def test_weight_and_age_class_are_optional_but_athlete_squad_and_start_are_not(self):
         self.client.force_authenticate(user=self.admin)
         created = self.client.post(

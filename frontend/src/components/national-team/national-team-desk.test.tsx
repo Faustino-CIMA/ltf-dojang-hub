@@ -1,13 +1,23 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
 import { NationalTeamDesk } from "@/components/national-team/national-team-desk";
-import type { AthleteNationalTeam, SquadSelectionRow } from "@/lib/national-team-api";
-import type { Member } from "@/lib/ltf-admin-api";
+import { getMembersList, type Member } from "@/lib/ltf-admin-api";
+import { saveNationalTeamStaff, type AthleteNationalTeam, type SquadSelectionRow } from "@/lib/national-team-api";
 
 jest.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
+
+jest.mock("@/lib/ltf-admin-api", () => {
+  const actual = jest.requireActual("@/lib/ltf-admin-api");
+  return { ...actual, getMembersList: jest.fn() };
+});
+
+jest.mock("@/lib/national-team-api", () => {
+  const actual = jest.requireActual("@/lib/national-team-api");
+  return { ...actual, saveNationalTeamStaff: jest.fn() };
+});
 
 beforeAll(() => {
   global.ResizeObserver = class {
@@ -144,7 +154,7 @@ describe("National team desk", () => {
     );
   });
 
-  it("lists LTF coaches first in the staff picker and still finds any person", () => {
+  it("lists every staff function and keeps every active person findable", async () => {
     const coach = {
       id: 20,
       first_name: "Alex",
@@ -152,33 +162,144 @@ describe("National team desk", () => {
       club: null,
       ltf_staff: { id: 3, function: "coach", started_on: "2026-01-01", ended_on: null },
     } as Member;
+    const photographer = {
+      id: 22,
+      first_name: "Pia",
+      last_name: "LENS",
+      club: null,
+      ltf_staff: { id: 4, function: "photographer", started_on: "2026-01-01", ended_on: null },
+    } as Member;
     const athlete = {
       id: 21,
       first_name: "Lea",
       last_name: "WEBER",
       club: 2,
     } as Member;
-    render(<NationalTeamDesk canManage preview={{ ...preview, members: [athlete, coach] }} />);
+    const save = jest.mocked(saveNationalTeamStaff);
+    save.mockResolvedValue({} as Awaited<ReturnType<typeof saveNationalTeamStaff>>);
+    render(
+      <NationalTeamDesk canManage preview={{ ...preview, members: [athlete, photographer, coach] }} />
+    );
     fireEvent.click(screen.getByRole("tab", { name: "nationalTeamTabStaff" }));
     fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
     const dialog = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
-    const coachButton = within(dialog).getByRole("button", { name: /COACH Alex/ });
-    expect(coachButton).toHaveTextContent("staffFunctionCoach");
-    expect(within(dialog).queryByRole("button", { name: /WEBER Lea/ })).toBeNull();
-    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamLtfCoaches" }));
-    const people = within(dialog)
-      .getAllByRole("button")
-      .map((button) => button.textContent || "")
-      .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea"));
-    expect(people[0]).toContain("COACH Alex");
-    expect(people[1]).toContain("WEBER Lea");
+    expect(within(dialog).queryByRole("button", { name: "nationalTeamLtfCoaches" })).toBeNull();
+    expect(within(dialog).getByText("nationalTeamStaffCoachFirst")).toBeInTheDocument();
+    expect(peopleIn(dialog)).toEqual(["COACH Alex", "WEBER Lea", "LENS Pia"]);
+    expect(within(dialog).getByRole("button", { name: /COACH Alex/ })).toHaveTextContent("staffFunctionCoach");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "nationalTeamStaffNationalCoach",
+      "nationalTeamStaffSportlyceeCoach",
+      "nationalTeamStaffTechnicalDirector",
+      "nationalTeamStaffPhysiotherapist",
+      "nationalTeamStaffPhotographer",
+      "nationalTeamStaffOther",
+    ]);
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffSportlyceeCoach" }));
+    expect(peopleIn(dialog)[0]).toBe("COACH Alex");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhotographer" }));
+    expect(within(dialog).getByText("nationalTeamStaffPhotographerFirst")).toBeInTheDocument();
+    expect(peopleIn(dialog)).toEqual(["LENS Pia", "WEBER Lea", "COACH Alex"]);
+    expect(within(dialog).getByRole("button", { name: /LENS Pia/ })).toHaveTextContent("staffFunctionPhotographer");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhysiotherapist" }));
+    expect(within(dialog).queryByText("nationalTeamStaffCoachFirst")).toBeNull();
+    expect(within(dialog).queryByText("nationalTeamStaffPhotographerFirst")).toBeNull();
+    expect(peopleIn(dialog)).toEqual(["WEBER Lea", "LENS Pia", "COACH Alex"]);
+
     fireEvent.change(within(dialog).getByLabelText(/nationalTeamMember/), {
       target: { value: "weber" },
     });
     expect(within(dialog).getByRole("button", { name: /WEBER Lea/ })).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /COACH Alex/ })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /LENS Pia/ })).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /WEBER Lea/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffOther" }));
+    fireEvent.change(within(dialog).getByLabelText(/nationalTeamStaffTitle/), {
+      target: { value: "Team manager" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/nationalTeamStart/), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamSave" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({
+          member: 21,
+          function: "other",
+          title: "Team manager",
+          started_on: "2026-03-01",
+        })
+      )
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "nationalTeamStaffAdd" })).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    const again = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
+    fireEvent.click(within(again).getByRole("button", { name: /LENS Pia/ }));
+    fireEvent.click(within(again).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhotographer" }));
+    fireEvent.change(within(again).getByLabelText(/nationalTeamStart/), {
+      target: { value: "2026-04-01" },
+    });
+    fireEvent.click(within(again).getByRole("button", { name: "nationalTeamSave" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({ member: 22, function: "photographer", started_on: "2026-04-01" })
+      )
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "nationalTeamStaffAdd" })).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    const physio = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
+    fireEvent.change(within(physio).getByLabelText(/nationalTeamMember/), { target: { value: "" } });
+    fireEvent.click(within(physio).getByRole("button", { name: /WEBER Lea/ }));
+    fireEvent.click(within(physio).getByRole("button", { name: "nationalTeamStaffFunction" }));
+    fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhysiotherapist" }));
+    fireEvent.change(within(physio).getByLabelText(/nationalTeamStart/), {
+      target: { value: "2026-05-01" },
+    });
+    fireEvent.click(within(physio).getByRole("button", { name: "nationalTeamSave" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        null,
+        expect.objectContaining({ member: 21, function: "physiotherapist", started_on: "2026-05-01" })
+      )
+    );
+  });
+
+  it("asks the member API for every active person, with no staff-function filter", async () => {
+    jest.mocked(getMembersList).mockResolvedValue([
+      { id: 21, first_name: "Lea", last_name: "WEBER", club: 2 } as Member,
+    ]);
+    render(<NationalTeamDesk canManage preview={{ ...preview, members: undefined }} />);
+    fireEvent.click(screen.getByRole("tab", { name: "nationalTeamTabStaff" }));
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    await waitFor(() => expect(getMembersList).toHaveBeenCalled());
+    for (const [params] of jest.mocked(getMembersList).mock.calls) {
+      expect(params).toEqual(expect.objectContaining({ roster: "all", isActive: true }));
+      expect(params?.staffFunction).toBeUndefined();
+    }
+    expect(await screen.findByRole("button", { name: /WEBER Lea/ })).toBeInTheDocument();
   });
 });
+
+function peopleIn(dialog: HTMLElement) {
+  return within(dialog)
+    .getAllByRole("button")
+    .map((button) => button.textContent || "")
+    .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea") || text.includes("LENS Pia"))
+    .map((text) => text.replace(/\s·.*/, ""));
+}
 
 describe("Club national team block", () => {
   const athlete: AthleteNationalTeam = {

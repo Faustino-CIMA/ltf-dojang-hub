@@ -14,7 +14,8 @@ const KEYS = [
   "staffFunctionCoach",
   "staffFunctionPhotographer",
   "staffFunctionOther",
-  "nationalTeamLtfCoaches",
+  "nationalTeamStaffCoachFirst",
+  "nationalTeamStaffPhotographerFirst",
   "staffAddAction",
   "staffAddTitle",
   "staffAddHint",
@@ -78,6 +79,12 @@ describe("LTF staff copy", () => {
     }
     expect(admin.staffFunctionCoach).toBe(
       _locale === "fr" ? "Entraîneur LTF" : _locale === "en" ? "LTF Coach" : "LTF-Trainer",
+    );
+    expect(admin.nationalTeamStaffCoachFirst).toContain(
+      _locale === "fr" ? "entraîneurs LTF" : _locale === "en" ? "LTF coaches" : "LTF-Trainer",
+    );
+    expect(admin.nationalTeamStaffPhotographerFirst).toContain(
+      _locale === "fr" ? "photographes LTF" : _locale === "en" ? "LTF photographers" : "LTF-Fotografen",
     );
     expect(admin.noClub).toBe(
       _locale === "fr"
