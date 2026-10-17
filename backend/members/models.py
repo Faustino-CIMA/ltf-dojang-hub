@@ -174,7 +174,8 @@ class LtfStaffFunction(models.Model):
     class Function(models.TextChoices):
         SECRETARY = "secretary", _("Secretary")
         COACH = "coach", _("LTF Coach")
-        PHOTOGRAPHER = "photographer", _("Photographer")
+        MEDIC = "medic", _("LTF Medic")
+        MEDIA = "media", _("LTF Media")
         OTHER = "other", _("Other staff")
 
     member = models.ForeignKey(

@@ -74,7 +74,7 @@ class ActiveMemberCountTests(APITestCase):
         from members.models import LtfStaffFunction
 
         staff = Member.objects.create(club=None, first_name="Alex", last_name="Nagornyi", is_active=True)
-        LtfStaffFunction.objects.create(member=staff, function=LtfStaffFunction.Function.PHOTOGRAPHER)
+        LtfStaffFunction.objects.create(member=staff, function=LtfStaffFunction.Function.MEDIA)
         License.objects.create(
             member=staff,
             club=None,

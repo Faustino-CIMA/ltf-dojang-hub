@@ -32,7 +32,7 @@ export type Club = {
   updated_at: string;
 };
 
-export type LtfStaffFunctionName = "secretary" | "coach" | "photographer" | "other";
+export type LtfStaffFunctionName = "secretary" | "coach" | "medic" | "media" | "other" | "photographer";
 
 export type LtfStaffRecord = {
   id: number;

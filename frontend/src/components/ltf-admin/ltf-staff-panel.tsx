@@ -13,7 +13,14 @@ import { staffFunctionLabel } from "@/lib/ltf-staff-label";
 
 export type StaffPanelMode = "create" | "edit" | "issue" | "revoke" | "delete";
 
-const FUNCTIONS: LtfStaffFunctionName[] = ["secretary", "coach", "photographer", "other"];
+const FUNCTIONS: LtfStaffFunctionName[] = ["secretary", "coach", "medic", "media", "other"];
+
+function selectedFunction(member: { ltf_staff?: { function: LtfStaffFunctionName } | null } | null): LtfStaffFunctionName {
+  const value = member?.ltf_staff?.function;
+  if (value === "photographer") return "media";
+  if (value === "secretary" || value === "coach" || value === "medic" || value === "media" || value === "other") return value;
+  return "secretary";
+}
 
 export function LtfStaffPanel(props: {
   mode: StaffPanelMode | null;
@@ -52,7 +59,7 @@ function StaffPanelForm({
   const [lastName, setLastName] = useState(member?.last_name ?? "");
   const [email, setEmail] = useState(member?.email ?? "");
   const [sex, setSex] = useState<"M" | "F">(member?.sex ?? "F");
-  const [fn, setFn] = useState<LtfStaffFunctionName>(member?.ltf_staff?.function ?? "secretary");
+  const [fn, setFn] = useState<LtfStaffFunctionName>(selectedFunction(member));
   const [startedOn, setStartedOn] = useState(member?.ltf_staff?.started_on ?? "");
   const [endedOn, setEndedOn] = useState(member?.ltf_staff?.ended_on ?? "");
   const [clubId, setClubId] = useState(member?.club ? String(member.club) : "");

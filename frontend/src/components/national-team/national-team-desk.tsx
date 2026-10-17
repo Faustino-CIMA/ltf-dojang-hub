@@ -102,10 +102,16 @@ function staffKey(value: string) {
 }
 
 /** LTF staff function to list first for a national-team role. Null means no reordering. */
-function prioritizedStaffFunction(nationalTeamFunction: string): "coach" | "photographer" | null {
+function prioritizedStaffFunction(nationalTeamFunction: string): "coach" | "medic" | "media" | null {
   if (nationalTeamFunction === "national_coach" || nationalTeamFunction === "sportlycee_coach") return "coach";
-  if (nationalTeamFunction === "photographer") return "photographer";
+  if (nationalTeamFunction === "physiotherapist") return "medic";
+  if (nationalTeamFunction === "photographer") return "media";
   return null;
+}
+
+function memberStaffFunction(member: Member): string {
+  const value = member.ltf_staff?.function ?? "";
+  return value === "photographer" ? "media" : value;
 }
 
 function supportKey(value: string) {
@@ -889,8 +895,8 @@ function MemberSearch({
     const rows = filtered ?? remote;
     if (!prioritizeFunction) return rows;
     return [...rows].sort((left, right) => {
-      const leftMatch = left.ltf_staff?.function === prioritizeFunction ? 0 : 1;
-      const rightMatch = right.ltf_staff?.function === prioritizeFunction ? 0 : 1;
+      const leftMatch = memberStaffFunction(left) === prioritizeFunction ? 0 : 1;
+      const rightMatch = memberStaffFunction(right) === prioritizeFunction ? 0 : 1;
       return leftMatch - rightMatch;
     });
   }, [filtered, prioritizeFunction, remote]);
@@ -898,9 +904,11 @@ function MemberSearch({
   const priorityHint =
     prioritizeFunction === "coach"
       ? t("nationalTeamStaffCoachFirst")
-      : prioritizeFunction === "photographer"
-        ? t("nationalTeamStaffPhotographerFirst")
-        : "";
+      : prioritizeFunction === "medic"
+        ? t("nationalTeamStaffMedicFirst")
+        : prioritizeFunction === "media"
+          ? t("nationalTeamStaffMediaFirst")
+          : "";
   return (
     <div className="space-y-2">
       <Label htmlFor="national-team-member" required={required}>{t("nationalTeamMember")}</Label>
@@ -916,8 +924,8 @@ function MemberSearch({
           >
             {formatFullName(member)}
             {member.club ? "" : ` · ${t("nationalTeamNoClub")}`}
-            {prioritizeFunction && member.ltf_staff?.function === prioritizeFunction
-              ? ` · ${staffFunctionLabel(t, member.ltf_staff.function)}`
+            {prioritizeFunction && memberStaffFunction(member) === prioritizeFunction
+              ? ` · ${staffFunctionLabel(t, memberStaffFunction(member))}`
               : ""}
           </button>
         ))}

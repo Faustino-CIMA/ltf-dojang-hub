@@ -33,6 +33,7 @@ from clubs.models import Club
 
 from .ltf_staff import (
     LtfStaffError,
+    canonical_staff_function,
     current_staff_q,
     create_staff_member,
     delete_staff,
@@ -140,7 +141,9 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 )
             )
 
-        staff_function = (self.request.query_params.get("staff_function") or "").strip()
+        staff_function = canonical_staff_function(
+            (self.request.query_params.get("staff_function") or "").strip()
+        )
         if staff_function:
             if staff_function not in LtfStaffFunction.Function.values:
                 queryset = queryset.none()

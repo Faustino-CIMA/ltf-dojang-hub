@@ -12,10 +12,12 @@ const KEYS = [
   "ltfStaffBadge",
   "staffFunctionSecretary",
   "staffFunctionCoach",
-  "staffFunctionPhotographer",
+  "staffFunctionMedic",
+  "staffFunctionMedia",
   "staffFunctionOther",
   "nationalTeamStaffCoachFirst",
-  "nationalTeamStaffPhotographerFirst",
+  "nationalTeamStaffMedicFirst",
+  "nationalTeamStaffMediaFirst",
   "staffAddAction",
   "staffAddTitle",
   "staffAddHint",
@@ -83,8 +85,17 @@ describe("LTF staff copy", () => {
     expect(admin.nationalTeamStaffCoachFirst).toContain(
       _locale === "fr" ? "entraîneurs LTF" : _locale === "en" ? "LTF coaches" : "LTF-Trainer",
     );
-    expect(admin.nationalTeamStaffPhotographerFirst).toContain(
-      _locale === "fr" ? "photographes LTF" : _locale === "en" ? "LTF photographers" : "LTF-Fotografen",
+    expect(admin.staffFunctionMedic).toBe(
+      _locale === "fr" ? "Médical LTF" : _locale === "en" ? "LTF Medic" : "LTF-Medizin",
+    );
+    expect(admin.staffFunctionMedia).toBe(
+      _locale === "fr" ? "Média LTF" : _locale === "en" ? "LTF Media" : "LTF-Medien",
+    );
+    expect(admin.nationalTeamStaffMedicFirst).toContain(
+      _locale === "fr" ? "Médical LTF" : _locale === "en" ? "LTF medics" : "LTF-Medizin",
+    );
+    expect(admin.nationalTeamStaffMediaFirst).toContain(
+      _locale === "fr" ? "Média LTF" : _locale === "en" ? "LTF media" : "LTF-Medien",
     );
     expect(admin.noClub).toBe(
       _locale === "fr"

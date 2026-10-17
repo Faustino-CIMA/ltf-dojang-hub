@@ -23,9 +23,17 @@ from .services import generate_next_ltf_license_id
 STAFF_LICENSE_ROLES = {
     LtfStaffFunction.Function.SECRETARY: Member.LicenseRole.STAFF,
     LtfStaffFunction.Function.COACH: Member.LicenseRole.STAFF,
-    LtfStaffFunction.Function.PHOTOGRAPHER: Member.LicenseRole.MEDIA,
+    LtfStaffFunction.Function.MEDIC: Member.LicenseRole.STAFF,
+    LtfStaffFunction.Function.MEDIA: Member.LicenseRole.MEDIA,
     LtfStaffFunction.Function.OTHER: Member.LicenseRole.STAFF,
 }
+
+
+def canonical_staff_function(value: str) -> str:
+    """Keep people who were stored as photographer on the LTF Media role."""
+    if value == "photographer":
+        return LtfStaffFunction.Function.MEDIA
+    return value
 LOGIN_ROLES = {User.Roles.LTF_ADMIN, User.Roles.LTF_FINANCE}
 
 
@@ -75,6 +83,7 @@ def _apply_function(
     ended_on: date | None,
     actor,
 ) -> LtfStaffFunction:
+    function = canonical_staff_function(function)
     if function not in LtfStaffFunction.Function.values:
         raise LtfStaffError("invalid_function")
     _check_dates(started_on, ended_on)

@@ -167,7 +167,14 @@ describe("National team desk", () => {
       first_name: "Pia",
       last_name: "LENS",
       club: null,
-      ltf_staff: { id: 4, function: "photographer", started_on: "2026-01-01", ended_on: null },
+      ltf_staff: { id: 4, function: "media", started_on: "2026-01-01", ended_on: null },
+    } as Member;
+    const medic = {
+      id: 23,
+      first_name: "Noa",
+      last_name: "MEDIC",
+      club: 2,
+      ltf_staff: { id: 5, function: "medic", started_on: "2026-01-01", ended_on: null },
     } as Member;
     const athlete = {
       id: 21,
@@ -178,14 +185,14 @@ describe("National team desk", () => {
     const save = jest.mocked(saveNationalTeamStaff);
     save.mockResolvedValue({} as Awaited<ReturnType<typeof saveNationalTeamStaff>>);
     render(
-      <NationalTeamDesk canManage preview={{ ...preview, members: [athlete, photographer, coach] }} />
+      <NationalTeamDesk canManage preview={{ ...preview, members: [athlete, photographer, coach, medic] }} />
     );
     fireEvent.click(screen.getByRole("tab", { name: "nationalTeamTabStaff" }));
     fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
     const dialog = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
     expect(within(dialog).queryByRole("button", { name: "nationalTeamLtfCoaches" })).toBeNull();
     expect(within(dialog).getByText("nationalTeamStaffCoachFirst")).toBeInTheDocument();
-    expect(peopleIn(dialog)).toEqual(["COACH Alex", "WEBER Lea", "LENS Pia"]);
+    expect(peopleIn(dialog)).toEqual(["COACH Alex", "WEBER Lea", "LENS Pia", "MEDIC Noa"]);
     expect(within(dialog).getByRole("button", { name: /COACH Alex/ })).toHaveTextContent("staffFunctionCoach");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
@@ -202,15 +209,17 @@ describe("National team desk", () => {
 
     fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
     fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhotographer" }));
-    expect(within(dialog).getByText("nationalTeamStaffPhotographerFirst")).toBeInTheDocument();
-    expect(peopleIn(dialog)).toEqual(["LENS Pia", "WEBER Lea", "COACH Alex"]);
-    expect(within(dialog).getByRole("button", { name: /LENS Pia/ })).toHaveTextContent("staffFunctionPhotographer");
+    expect(within(dialog).getByText("nationalTeamStaffMediaFirst")).toBeInTheDocument();
+    expect(peopleIn(dialog)).toEqual(["LENS Pia", "WEBER Lea", "COACH Alex", "MEDIC Noa"]);
+    expect(within(dialog).getByRole("button", { name: /LENS Pia/ })).toHaveTextContent("staffFunctionMedia");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamStaffFunction" }));
     fireEvent.click(screen.getByRole("option", { name: "nationalTeamStaffPhysiotherapist" }));
+    expect(within(dialog).getByText("nationalTeamStaffMedicFirst")).toBeInTheDocument();
     expect(within(dialog).queryByText("nationalTeamStaffCoachFirst")).toBeNull();
-    expect(within(dialog).queryByText("nationalTeamStaffPhotographerFirst")).toBeNull();
-    expect(peopleIn(dialog)).toEqual(["WEBER Lea", "LENS Pia", "COACH Alex"]);
+    expect(within(dialog).queryByText("nationalTeamStaffMediaFirst")).toBeNull();
+    expect(peopleIn(dialog)).toEqual(["MEDIC Noa", "WEBER Lea", "LENS Pia", "COACH Alex"]);
+    expect(within(dialog).getByRole("button", { name: /MEDIC Noa/ })).toHaveTextContent("staffFunctionMedic");
 
     fireEvent.change(within(dialog).getByLabelText(/nationalTeamMember/), {
       target: { value: "weber" },
@@ -297,7 +306,7 @@ function peopleIn(dialog: HTMLElement) {
   return within(dialog)
     .getAllByRole("button")
     .map((button) => button.textContent || "")
-    .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea") || text.includes("LENS Pia"))
+    .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea") || text.includes("LENS Pia") || text.includes("MEDIC Noa"))
     .map((text) => text.replace(/\s·.*/, ""));
 }
 
