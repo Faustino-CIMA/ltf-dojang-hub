@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
 from rest_framework import permissions, status, viewsets
@@ -17,6 +17,8 @@ from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
 from clubmgmt.models import CommitteeMandate
 from clubmgmt.serializers import CommitteeTermHistorySerializer
+
+from clubmgmt.body_measurements import annotate_latest_measurements, measurement_club_ids
 
 from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer
 from .serializers import (
@@ -118,12 +120,18 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             ).filter(
                 is_active=True
             )
-        elif user.role in ["club_admin", "coach"]:
+        elif user.role == "club_admin":
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
             ).filter(
                 club__admins=user
             )
+        elif user.role == "coach":
+            queryset = Member.objects.select_related(
+                "club", "user", "photo_consent_attested_by"
+            ).filter(
+                Q(club__admins=user) | Q(club__trainers=user)
+            ).distinct()
         else:
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
@@ -224,21 +232,39 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             ),
         )
         ordering = self.request.query_params.get("ordering") if self.action == "list" else None
+        allowed = {
+            "name": ("last_name", "first_name", "id"),
+            "club": ("club__name", "last_name", "first_name", "id"),
+            "ltf_licenseid": ("ltf_licenseid", "last_name", "first_name", "id"),
+            "belt_rank": ("belt_rank", "last_name", "first_name", "id"),
+            "is_active": ("is_active", "last_name", "first_name", "id"),
+            "sex": ("sex", "last_name", "first_name", "id"),
+            "date_of_birth": ("date_of_birth", "last_name", "first_name", "id"),
+            "email": ("email", "last_name", "first_name", "id"),
+        }
+        visible_clubs = measurement_club_ids(user) if self.action == "list" else set()
+        if visible_clubs:
+            queryset = annotate_latest_measurements(queryset, visible_clubs)
+            raw_ordering = (ordering or "").strip()
+            descending = raw_ordering.startswith("-")
+            sort_key = raw_ordering[1:] if descending else raw_ordering
+            measurement_fields = {"latest_weight": "latest_weight_kg", "latest_height": "latest_height_cm"}
+            if sort_key in measurement_fields:
+                field = F(measurement_fields[sort_key])
+                directed = field.desc(nulls_last=True) if descending else field.asc(nulls_last=True)
+                return queryset.order_by(directed, "last_name", "first_name", "id")
         return apply_list_ordering(
             queryset,
             ordering,
-            allowed={
-                "name": ("last_name", "first_name", "id"),
-                "club": ("club__name", "last_name", "first_name", "id"),
-                "ltf_licenseid": ("ltf_licenseid", "last_name", "first_name", "id"),
-                "belt_rank": ("belt_rank", "last_name", "first_name", "id"),
-                "is_active": ("is_active", "last_name", "first_name", "id"),
-                "sex": ("sex", "last_name", "first_name", "id"),
-                "date_of_birth": ("date_of_birth", "last_name", "first_name", "id"),
-                "email": ("email", "last_name", "first_name", "id"),
-            },
+            allowed=allowed,
             default=("last_name", "first_name", "id"),
         )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = getattr(self.request, "user", None)
+        context["measurement_club_ids"] = measurement_club_ids(user)
+        return context
 
     def destroy(self, request, *args, **kwargs):
         try:
