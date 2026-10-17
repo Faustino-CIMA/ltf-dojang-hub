@@ -55,6 +55,11 @@ describe("LTF staff panel", () => {
     );
     expect(screen.getByRole("dialog", { name: "staffAddTitle" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffFunctionLabel" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "staffFunctionLabel" }));
+    expect(screen.getByRole("option", { name: "staffFunctionCoach" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "staffFunctionSecretary" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "staffFunctionPhotographer" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "staffFunctionOther" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffClubLabel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffLoginLabel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "staffLicenseTypeLabel" })).toBeInTheDocument();

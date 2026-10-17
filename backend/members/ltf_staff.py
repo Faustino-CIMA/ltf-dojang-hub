@@ -22,6 +22,7 @@ from .services import generate_next_ltf_license_id
 
 STAFF_LICENSE_ROLES = {
     LtfStaffFunction.Function.SECRETARY: Member.LicenseRole.STAFF,
+    LtfStaffFunction.Function.COACH: Member.LicenseRole.STAFF,
     LtfStaffFunction.Function.PHOTOGRAPHER: Member.LicenseRole.MEDIA,
     LtfStaffFunction.Function.OTHER: Member.LicenseRole.STAFF,
 }

@@ -18,6 +18,7 @@ import { MemberHistoryTimeline } from "@/components/history/member-history-timel
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -181,13 +182,7 @@ export default function LtfMemberDetailPage() {
     ? t("memberDetailTitle", { name: formatFullName(member) })
     : t("memberDetailTitleFallback");
   const canManageStaff = currentRole === "ltf_admin";
-  const staffFunctionLabel = (() => {
-    const name = member?.ltf_staff?.function;
-    if (name === "secretary") return t("staffFunctionSecretary");
-    if (name === "photographer") return t("staffFunctionPhotographer");
-    if (name === "other") return t("staffFunctionOther");
-    return "";
-  })();
+  const staffFunctionLabel = staffFunctionText(t, member?.ltf_staff?.function);
 
   const submitPanel = async (mode: StaffPanelMode, input: LtfStaffInput) => {
     if (!member) return;

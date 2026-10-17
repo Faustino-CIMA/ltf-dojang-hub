@@ -11,8 +11,10 @@ const KEYS = [
   "noClub",
   "ltfStaffBadge",
   "staffFunctionSecretary",
+  "staffFunctionCoach",
   "staffFunctionPhotographer",
   "staffFunctionOther",
+  "nationalTeamLtfCoaches",
   "staffAddAction",
   "staffAddTitle",
   "staffAddHint",
@@ -74,6 +76,9 @@ describe("LTF staff copy", () => {
     for (const key of KEYS) {
       expect(admin[key]?.trim()).toBeTruthy();
     }
+    expect(admin.staffFunctionCoach).toBe(
+      _locale === "fr" ? "Entraîneur LTF" : _locale === "en" ? "LTF Coach" : "LTF-Trainer",
+    );
     expect(admin.noClub).toBe(
       _locale === "fr"
         ? "Aucun club"

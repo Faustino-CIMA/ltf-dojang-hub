@@ -23,6 +23,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { apiRequest } from "@/lib/api";
 import {
@@ -56,11 +57,7 @@ function parseMemberIssue(value: string | null): MemberIssueFilter | null {
 type MemberStatusFilter = "all" | "active" | "inactive";
 
 function staffFunctionLabel(t: (key: string) => string, member: Member) {
-  const name = member.ltf_staff?.function;
-  if (name === "secretary") return t("staffFunctionSecretary");
-  if (name === "photographer") return t("staffFunctionPhotographer");
-  if (name === "other") return t("staffFunctionOther");
-  return t("ltfStaffBadge");
+  return staffFunctionText(t, member.ltf_staff?.function) || t("ltfStaffBadge");
 }
 
 export default function LtfAdminMembersPage() {

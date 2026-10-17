@@ -173,6 +173,7 @@ class LtfStaffFunction(models.Model):
 
     class Function(models.TextChoices):
         SECRETARY = "secretary", _("Secretary")
+        COACH = "coach", _("LTF Coach")
         PHOTOGRAPHER = "photographer", _("Photographer")
         OTHER = "other", _("Other staff")
 

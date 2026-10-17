@@ -43,6 +43,7 @@ import {
   type SquadSelectionRow,
 } from "@/lib/national-team-api";
 import { AGE_CLASS_ORDER, formatAgeClassLabel, suggestAgeClass } from "@/lib/age-class";
+import { staffFunctionLabel } from "@/lib/ltf-staff-label";
 import { formatFullName } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
 
@@ -844,16 +845,19 @@ function MemberSearch({
   members,
   value,
   required,
+  prioritizeFunction,
   onChange,
 }: {
   roster: "club" | "all";
   members?: Member[];
   value: string;
   required?: boolean;
+  prioritizeFunction?: string;
   onChange: (id: string, member: Member | null) => void;
 }) {
   const t = useTranslations("LtfAdmin");
   const [query, setQuery] = useState("");
+  const [coachesOnly, setCoachesOnly] = useState(Boolean(prioritizeFunction));
   const [remote, setRemote] = useState<Member[]>([]);
   const filtered = useMemo(() => {
     if (!members) return null;
@@ -865,17 +869,43 @@ function MemberSearch({
   useEffect(() => {
     if (members) return;
     const handle = window.setTimeout(() => {
-      void getMembersList({ q: query, roster: roster === "club" ? "club" : "all", isActive: true })
+      void getMembersList({
+        q: query,
+        roster: roster === "club" ? "club" : "all",
+        isActive: true,
+        staffFunction: coachesOnly ? prioritizeFunction : undefined,
+      })
         .then(setRemote)
         .catch(() => setRemote([]));
     }, 200);
     return () => window.clearTimeout(handle);
-  }, [members, query, roster]);
-  const found = filtered ?? remote;
+  }, [coachesOnly, members, prioritizeFunction, query, roster]);
+  const found = useMemo(() => {
+    const rows = filtered ?? remote;
+    const visible = coachesOnly && prioritizeFunction
+      ? rows.filter((member) => member.ltf_staff?.function === prioritizeFunction)
+      : rows;
+    if (!prioritizeFunction) return visible;
+    return [...visible].sort((left, right) => {
+      const leftCoach = left.ltf_staff?.function === prioritizeFunction ? 0 : 1;
+      const rightCoach = right.ltf_staff?.function === prioritizeFunction ? 0 : 1;
+      return leftCoach - rightCoach;
+    });
+  }, [coachesOnly, filtered, prioritizeFunction, remote]);
   const chosen = found.find((member) => String(member.id) === value);
   return (
     <div className="space-y-2">
       <Label htmlFor="national-team-member" required={required}>{t("nationalTeamMember")}</Label>
+      {prioritizeFunction ? (
+        <Button
+          type="button"
+          variant={coachesOnly ? "default" : "outline"}
+          aria-pressed={coachesOnly}
+          onClick={() => setCoachesOnly((current) => !current)}
+        >
+          {t("nationalTeamLtfCoaches")}
+        </Button>
+      ) : null}
       <Input id="national-team-member" value={query} placeholder={t("nationalTeamSearchMember")} onChange={(event) => setQuery(event.target.value)} />
       <div className="max-h-40 space-y-1 overflow-y-auto">
         {found.slice(0, 8).map((member) => (
@@ -887,6 +917,9 @@ function MemberSearch({
           >
             {formatFullName(member)}
             {member.club ? "" : ` · ${t("nationalTeamNoClub")}`}
+            {prioritizeFunction && member.ltf_staff?.function === prioritizeFunction
+              ? ` · ${staffFunctionLabel(t, member.ltf_staff.function)}`
+              : ""}
           </button>
         ))}
       </div>
@@ -1129,7 +1162,14 @@ function StaffForm({
         });
       }}
     >
-      <MemberSearch roster="all" members={members} value={memberId} required onChange={setMemberId} />
+      <MemberSearch
+        roster="all"
+        members={members}
+        value={memberId}
+        required
+        prioritizeFunction="coach"
+        onChange={setMemberId}
+      />
       <div className="space-y-2">
         <Label required>{t("nationalTeamStaffFunction")}</Label>
         <PopoverSelect ariaLabel={t("nationalTeamStaffFunction")} value={fn} onValueChange={setFn} options={STAFF_FUNCTIONS.map((value) => ({ value, label: translateCode(t, staffKey(value), value) }))} />

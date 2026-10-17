@@ -143,6 +143,41 @@ describe("National team desk", () => {
       "nationalTeamAgeCadet (12–14)"
     );
   });
+
+  it("lists LTF coaches first in the staff picker and still finds any person", () => {
+    const coach = {
+      id: 20,
+      first_name: "Alex",
+      last_name: "COACH",
+      club: null,
+      ltf_staff: { id: 3, function: "coach", started_on: "2026-01-01", ended_on: null },
+    } as Member;
+    const athlete = {
+      id: 21,
+      first_name: "Lea",
+      last_name: "WEBER",
+      club: 2,
+    } as Member;
+    render(<NationalTeamDesk canManage preview={{ ...preview, members: [athlete, coach] }} />);
+    fireEvent.click(screen.getByRole("tab", { name: "nationalTeamTabStaff" }));
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamStaffAdd" }));
+    const dialog = screen.getByRole("dialog", { name: "nationalTeamStaffAdd" });
+    const coachButton = within(dialog).getByRole("button", { name: /COACH Alex/ });
+    expect(coachButton).toHaveTextContent("staffFunctionCoach");
+    expect(within(dialog).queryByRole("button", { name: /WEBER Lea/ })).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamLtfCoaches" }));
+    const people = within(dialog)
+      .getAllByRole("button")
+      .map((button) => button.textContent || "")
+      .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea"));
+    expect(people[0]).toContain("COACH Alex");
+    expect(people[1]).toContain("WEBER Lea");
+    fireEvent.change(within(dialog).getByLabelText(/nationalTeamMember/), {
+      target: { value: "weber" },
+    });
+    expect(within(dialog).getByRole("button", { name: /WEBER Lea/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /COACH Alex/ })).toBeNull();
+  });
 });
 
 describe("Club national team block", () => {

@@ -94,6 +94,41 @@ class LtfStaffApiTests(TestCase):
         )
         self.assertEqual(context["club.name"], "LTF")
 
+    def test_ltf_coach_follows_the_same_licence_rules(self):
+        self.client.force_authenticate(user=self.admin)
+        created = self.client.post(
+            "/api/members/ltf-staff/",
+            {
+                "first_name": "Mira",
+                "last_name": "Keller",
+                "function": "coach",
+                "license_type": self.license_type.id,
+                "license_year": 2026,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertIsNone(created.data["club"])
+        self.assertEqual(created.data["ltf_staff"]["function"], "coach")
+        self.assertEqual(created.data["primary_license_role"], "Staff")
+        member = Member.objects.get(id=created.data["id"])
+        licence = member.licenses.get()
+        self.assertIsNone(licence.club_id)
+        self.assertEqual(licence.status, License.Status.ACTIVE)
+        self.assertEqual(Order.objects.count(), 0)
+        context = _build_context(member=member, license_record=licence, club=None, sample_data=None)
+        self.assertEqual(context["club.name"], "LTF")
+        self.assertEqual(context["primary_license_role"], "Staff")
+        listed = self.client.get("/api/members/?staff_function=coach")
+        self.assertEqual([row["id"] for row in listed.data], [member.id])
+        secretary = self.client.post(
+            "/api/members/ltf-staff/",
+            {"member_id": self.club_member.id, "function": "secretary"},
+            format="json",
+        )
+        self.assertEqual(secretary.status_code, status.HTTP_201_CREATED, secretary.data)
+        self.assertEqual(secretary.data["ltf_staff"]["function"], "secretary")
+
     def test_finance_cannot_create_or_issue_staff_licences(self):
         self.client.force_authenticate(user=self.finance)
         response = self.client.post(

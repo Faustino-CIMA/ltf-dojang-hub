@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import type { Club, LicenseType, LtfStaffFunctionName, LtfStaffInput, Member } from "@/lib/ltf-admin-api";
+import { staffFunctionLabel } from "@/lib/ltf-staff-label";
 
 export type StaffPanelMode = "create" | "edit" | "issue" | "revoke" | "delete";
 
-const FUNCTIONS: LtfStaffFunctionName[] = ["secretary", "photographer", "other"];
+const FUNCTIONS: LtfStaffFunctionName[] = ["secretary", "coach", "photographer", "other"];
 
 export function LtfStaffPanel(props: {
   mode: StaffPanelMode | null;
@@ -63,13 +64,7 @@ function StaffPanelForm({
 
   const functionOptions = FUNCTIONS.map((value) => ({
     value,
-    label: t(
-      value === "secretary"
-        ? "staffFunctionSecretary"
-        : value === "photographer"
-          ? "staffFunctionPhotographer"
-          : "staffFunctionOther"
-    ),
+    label: staffFunctionLabel(t, value),
   }));
   const clubOptions = [
     { value: "", label: t("staffNoClubOption") },
