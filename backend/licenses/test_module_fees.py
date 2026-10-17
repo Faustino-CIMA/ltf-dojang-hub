@@ -70,6 +70,24 @@ class ActiveMemberCountTests(APITestCase):
         self.assertEqual(active_member_count(self.club.id, self.year), 3)
         self.assertEqual(active_member_count(self.other.id, self.year), 0)
 
+    def test_staff_without_a_club_are_not_club_active_members(self):
+        from members.models import LtfStaffFunction
+
+        staff = Member.objects.create(club=None, first_name="Alex", last_name="Nagornyi", is_active=True)
+        LtfStaffFunction.objects.create(member=staff, function=LtfStaffFunction.Function.PHOTOGRAPHER)
+        License.objects.create(
+            member=staff,
+            club=None,
+            license_type=self.license_type,
+            year=self.year,
+            status=License.Status.ACTIVE,
+        )
+        club_staff = self._member(self.club, "Andrea", "Secretary")
+        LtfStaffFunction.objects.create(member=club_staff, function=LtfStaffFunction.Function.SECRETARY)
+        self._licence(club_staff, self.club)
+
+        self.assertEqual(active_member_count(self.club.id, self.year), 1)
+
     def test_flat_per_member_and_minimum(self):
         flat = quote_price(
             amount=Decimal("80.00"),

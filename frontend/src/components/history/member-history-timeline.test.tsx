@@ -74,7 +74,41 @@ describe("MemberHistoryTimeline", () => {
     expect(screen.getByText("2026")).toBeInTheDocument();
     expect(screen.getByText("Athlete")).toBeInTheDocument();
     expect(screen.getByText("7th Kup")).toBeInTheDocument();
-    expect(screen.getByText("Club")).toBeInTheDocument();
+    expect(screen.getAllByText("Club").length).toBeGreaterThan(0);
+  });
+
+  it("shows No club on a licence that has no club", () => {
+    render(
+      <MemberHistoryTimeline
+        {...baseProps}
+        visibleSection="licenses"
+        licenseHistory={[
+          {
+            id: 2,
+            member: 1,
+            license: 2,
+            club: null,
+            order: null,
+            payment: null,
+            actor: null,
+            event_type: "issued",
+            event_at: "2026-03-01T00:00:00Z",
+            reason: "LTF staff licence issued without an invoice.",
+            metadata: {},
+            license_year: 2026,
+            status_before: "",
+            status_after: "active",
+            club_name_snapshot: "",
+            license_type_name: "Federation",
+            created_at: "2026-03-01T00:00:00Z",
+          },
+        ]}
+        gradeHistory={[]}
+      />
+    );
+    expect(screen.getByText("noClub")).toBeInTheDocument();
+    expect(screen.queryByText("unknownClub")).toBeNull();
+    expect(screen.queryByText("LTF")).toBeNull();
   });
 
   it("can show only the licenses or grades section", () => {

@@ -152,9 +152,15 @@ class DataExportView(views.APIView):
             "start_date",
             "end_date",
         )
-        license_history = LicenseHistoryEvent.objects.filter(member=member).values(
+        from licenses.history import no_club_label
+
+        locale = request.query_params.get("locale") or request.headers.get("Accept-Language")
+        missing_club = no_club_label(locale)
+        license_history = []
+        for row in LicenseHistoryEvent.objects.filter(member=member).values(
             "id",
             "license_id",
+            "club_id",
             "event_type",
             "event_at",
             "reason",
@@ -164,7 +170,10 @@ class DataExportView(views.APIView):
             "club_name_snapshot",
             "order_id",
             "payment_id",
-        )
+        ):
+            if row["club_id"] is None:
+                row["club_name_snapshot"] = missing_club
+            license_history.append(row)
         grade_history = GradePromotionHistory.objects.filter(member=member).values(
             "id",
             "from_grade",

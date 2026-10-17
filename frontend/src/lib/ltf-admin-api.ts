@@ -32,10 +32,25 @@ export type Club = {
   updated_at: string;
 };
 
+export type LtfStaffFunctionName = "secretary" | "photographer" | "other";
+
+export type LtfStaffRecord = {
+  id: number;
+  function: LtfStaffFunctionName;
+  started_on: string | null;
+  ended_on: string | null;
+};
+
+export type LinkedLtfUser = {
+  id: number;
+  username: string;
+  role: string;
+};
+
 export type Member = {
   id: number;
   user: number | null;
-  club: number;
+  club: number | null;
   first_name: string;
   last_name: string;
   sex: "M" | "F";
@@ -57,6 +72,9 @@ export type Member = {
   current_licenses?: CurrentLicense[];
   completed_transfer_count?: number;
   is_club_tourist?: boolean;
+  is_ltf_staff?: boolean;
+  ltf_staff?: LtfStaffRecord | null;
+  linked_user?: LinkedLtfUser | null;
 };
 
 export type CurrentLicense = {
@@ -91,7 +109,7 @@ const MAX_PROFILE_PHOTO_REQUEST_BYTES = 8 * 1024 * 1024;
 export type License = {
   id: number;
   member: number;
-  club: number;
+  club: number | null;
   license_type: number;
   year: number;
   start_date: string;
@@ -106,7 +124,7 @@ export type LicenseHistoryEvent = {
   id: number;
   member: number;
   license: number;
-  club: number;
+  club: number | null;
   order: number | null;
   payment: number | null;
   actor: number | null;
@@ -164,6 +182,24 @@ export type ClubInput = {
   website?: string;
   is_active?: boolean;
   communication_language?: string;
+};
+
+export type LtfStaffInput = {
+  member_id?: number;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  sex?: "M" | "F";
+  date_of_birth?: string | null;
+  club?: number | null;
+  function: LtfStaffFunctionName;
+  started_on?: string | null;
+  ended_on?: string | null;
+  username?: string;
+  create_login_role?: "ltf_admin" | "ltf_finance" | "";
+  license_type?: number | null;
+  license_year?: number | null;
+  locale?: string;
 };
 
 export type MemberInput = {
@@ -281,6 +317,7 @@ export type LtfAdminOverviewResponse = {
   cards: {
     total_clubs: number;
     active_members: number;
+    ltf_staff: number;
     active_licenses: number;
     pending_licenses: number;
     expired_licenses: number;
@@ -462,7 +499,7 @@ export type AssignmentMember = {
   first_name: string;
   last_name: string;
   email: string;
-  club_id: number;
+  club_id: number | null;
   club_name: string;
   has_valid_license: boolean;
   user_id: number | null;
@@ -575,6 +612,7 @@ export function setClubMaxAdmins(clubId: number, maxAdmins: number) {
 }
 
 export type MemberIssueFilter = "no_valid_license" | "missing_ltf_licenseid";
+export type MemberRoster = "all" | "club" | "staff";
 
 type MemberListQueryParams = {
   q?: string;
@@ -582,6 +620,7 @@ type MemberListQueryParams = {
   isActive?: boolean;
   ids?: number[];
   issue?: MemberIssueFilter;
+  roster?: MemberRoster;
   ordering?: string;
 };
 
@@ -606,6 +645,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.issue) {
     search.set("issue", params.issue);
+  }
+  if (params?.roster && params.roster !== "all") {
+    search.set("roster", params.roster);
   }
   if (params?.ordering) {
     search.set("ordering", params.ordering);
@@ -665,6 +707,43 @@ export function updateMember(id: number, input: MemberInput) {
 export function deleteMember(id: number) {
   return apiRequest<void>(`/api/members/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export function createLtfStaff(input: LtfStaffInput) {
+  return apiRequest<Member>("/api/members/ltf-staff/", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateLtfStaff(id: number, input: LtfStaffInput) {
+  return apiRequest<Member>(`/api/members/${id}/ltf-staff/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteLtfStaff(id: number) {
+  return apiRequest<{ deleted_member: boolean }>(`/api/members/${id}/ltf-staff/`, {
+    method: "DELETE",
+  });
+}
+
+export function issueLtfStaffLicense(id: number, licenseType: number, year: number) {
+  return apiRequest<{ id: number; year: number; status: string }>(
+    `/api/members/${id}/ltf-staff-license/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ license_type: licenseType, year }),
+    }
+  );
+}
+
+export function revokeLtfStaffLicense(id: number) {
+  return apiRequest<{ id: number; status: string }>(`/api/members/${id}/revoke-ltf-staff-license/`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -110,7 +111,10 @@ export default function LtfLicenseBatchDeletePage() {
         return {
           id: license.id,
           memberLabel: member ? formatFullName(member) : t("unknownMember"),
-          clubLabel: club?.name ?? t("unknownClub"),
+          clubLabel: displayClubName(license.club, club?.name, {
+            noClub: t("noClub"),
+            unknownClub: t("unknownClub"),
+          }),
           yearLabel: String(license.year),
           statusLabel,
           statusTone,

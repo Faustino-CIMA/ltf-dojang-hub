@@ -439,7 +439,11 @@ def activate_eligible_paid_licenses() -> int:
             status=License.Status.PENDING,
             start_date__lte=today,
             end_date__gte=today,
-            order_items__order__status=Order.Status.PAID,
+        )
+        .filter(
+            # A club licence waits for a paid order. A staff licence has no
+            # order; issuing it is the authorisation, and club may be empty.
+            Q(order_items__order__status=Order.Status.PAID) | Q(club__isnull=True)
         )
         .select_related("member", "club")
         .distinct()

@@ -844,7 +844,9 @@ export default function ClubAdminsBoardPage() {
                                 {displayMemberName(member)}
                               </p>
                               <p className="mt-0.5 text-xs text-muted">
-                                {t("memberHomeClubLabel", { club: member.club_name })}
+                                {t("memberHomeClubLabel", {
+                                  club: member.club_id ? member.club_name : t("noClub"),
+                                })}
                               </p>
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                 {member.has_valid_license ? (

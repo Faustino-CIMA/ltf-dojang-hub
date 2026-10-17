@@ -31,7 +31,8 @@ from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
 
 from clubs.models import Club
-from members.models import Member, MemberTransfer
+from members.ltf_staff import current_staff_q
+from members.models import LtfStaffFunction, Member, MemberTransfer
 
 from .club_fee_billing import ClubFeeBillingError, billing_status, create_billing_run
 from .ledgers import apply_optional_ledger, federation_q
@@ -392,6 +393,17 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        member = serializer.validated_data.get("member")
+        club = serializer.validated_data.get("club")
+        if member is None or club is None or getattr(member, "club_id", None) != getattr(club, "id", None):
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Club licences stay on the club order. "
+                        "LTF staff licences are issued from the member."
+                    )
+                }
+            )
         license_record = serializer.save()
         log_license_created(
             license_record,
@@ -1036,13 +1048,26 @@ class LtfAdminOverviewView(APIView):
     permission_classes = [IsLtfAdmin]
 
     def get(self, request):
-        cache_key = "dashboard:overview:ltf_admin:v4"
+        cache_key = "dashboard:overview:ltf_admin:v5"
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return Response(cached_payload, status=status.HTTP_200_OK)
 
         today = timezone.localdate()
-        active_members_queryset = Member.objects.filter(is_active=True)
+        # Club totals ignore staff who have no club. Those people are counted on ltf_staff.
+        active_members_queryset = Member.objects.filter(is_active=True, club__isnull=False)
+        licence_gap_members = Member.objects.filter(is_active=True)
+        ltf_staff = (
+            Member.objects.filter(is_active=True)
+            .filter(
+                Exists(
+                    LtfStaffFunction.objects.filter(member_id=OuterRef("pk")).filter(
+                        current_staff_q()
+                    )
+                )
+            )
+            .count()
+        )
         licenses_queryset = License.objects.all()
 
         status_counts = {
@@ -1059,11 +1084,11 @@ class LtfAdminOverviewView(APIView):
             status__in=[License.Status.ACTIVE, License.Status.PENDING],
         )
         active_members_without_valid_license = (
-            active_members_queryset.annotate(has_valid_license=Exists(has_valid_license_subquery))
+            licence_gap_members.annotate(has_valid_license=Exists(has_valid_license_subquery))
             .filter(has_valid_license=False)
             .count()
         )
-        members_missing_ltf_licenseid = active_members_queryset.filter(
+        members_missing_ltf_licenseid = licence_gap_members.filter(
             Q(ltf_licenseid__isnull=True) | Q(ltf_licenseid="")
         ).count()
         clubs_without_admin = (
@@ -1117,6 +1142,7 @@ class LtfAdminOverviewView(APIView):
             "cards": {
                 "total_clubs": Club.objects.count(),
                 "active_members": active_members_queryset.count(),
+                "ltf_staff": ltf_staff,
                 "active_licenses": active_licenses,
                 "pending_licenses": pending_licenses,
                 "expired_licenses": expired_licenses,

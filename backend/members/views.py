@@ -2,6 +2,7 @@ import mimetypes
 from pathlib import Path
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
@@ -17,7 +18,7 @@ from config.pagination import OptionalPaginationListMixin
 from clubmgmt.models import CommitteeMandate
 from clubmgmt.serializers import CommitteeTermHistorySerializer
 
-from .models import GradePromotionHistory, Member, MemberTransfer
+from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer
 from .serializers import (
     GradePromotionCreateSerializer,
     GradePromotionHistorySerializer,
@@ -28,6 +29,17 @@ from .serializers import (
     MemberSerializer,
 )
 from accounts.permissions import IsLtfAdmin
+from clubs.models import Club
+
+from .ltf_staff import (
+    LtfStaffError,
+    current_staff_q,
+    create_staff_member,
+    delete_staff,
+    issue_staff_license,
+    revoke_staff_license,
+    update_staff_member,
+)
 from .services import (
     add_grade_promotion,
     clear_member_profile_picture,
@@ -43,7 +55,7 @@ from licenses.card_rendering import (
     resolve_printable_license,
     resolve_published_standard_card_version,
 )
-from licenses.models import License, LicenseHistoryEvent
+from licenses.models import License, LicenseHistoryEvent, LicenseType
 
 
 def _apply_member_issue_filter(queryset, issue):
@@ -69,8 +81,16 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     serializer_class = MemberSerializer
     permission_classes = [permissions.IsAuthenticated]
     _COACH_ALLOWED_UPDATE_FIELDS = {"belt_rank"}
+    _STAFF_ACTIONS = {
+        "create_ltf_staff",
+        "ltf_staff",
+        "issue_ltf_staff_license",
+        "revoke_ltf_staff_license",
+    }
 
     def get_permissions(self):
+        if self.action in self._STAFF_ACTIONS:
+            return [IsLtfAdmin()]
         user = self.request.user
         if self.action in ["create", "destroy"]:
             if user and user.is_authenticated and user.role in [
@@ -107,6 +127,18 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
             ).filter(user=user)
+
+        roster = (self.request.query_params.get("roster") or "").strip()
+        if roster == "club":
+            queryset = queryset.filter(club__isnull=False)
+        elif roster == "staff":
+            queryset = queryset.filter(
+                Exists(
+                    LtfStaffFunction.objects.filter(member_id=OuterRef("pk")).filter(
+                        current_staff_q()
+                    )
+                )
+            )
 
         club_id = self.request.query_params.get("club_id")
         if club_id:
@@ -165,7 +197,14 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 .select_related("license_type")
                 .order_by("-year", "id"),
                 to_attr="current_licenses_prefetched",
-            )
+            ),
+            Prefetch(
+                "ltf_staff_functions",
+                queryset=LtfStaffFunction.objects.filter(current_staff_q()).order_by(
+                    "-started_on", "-id"
+                ),
+                to_attr="current_ltf_staff_rows",
+            ),
         )
         ordering = self.request.query_params.get("ordering") if self.action == "list" else None
         return apply_list_ordering(
@@ -217,6 +256,117 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not self._coach_update_allowed(request):
             return self._coach_update_forbidden_response()
         return super().partial_update(request, *args, **kwargs)
+
+    def _staff_response(self, error: LtfStaffError):
+        return Response({"detail": error.detail}, status=error.status_code)
+
+    def _staff_payload(self, data) -> dict:
+        payload = {
+            "member_id": data.get("member_id"),
+            "first_name": data.get("first_name"),
+            "last_name": data.get("last_name"),
+            "email": data.get("email"),
+            "sex": data.get("sex"),
+            "date_of_birth": data.get("date_of_birth"),
+            "function": data.get("function"),
+            "started_on": data.get("started_on"),
+            "ended_on": data.get("ended_on"),
+            "user_id": data.get("user_id"),
+            "username": data.get("username"),
+            "create_login_role": data.get("create_login_role"),
+            "license_year": data.get("license_year"),
+        }
+        if "club" in data:
+            raw_club = data.get("club")
+            if raw_club in (None, "", "null"):
+                payload["club"] = None
+            else:
+                club = Club.objects.filter(id=raw_club).first()
+                if club is None:
+                    raise LtfStaffError("club_not_found")
+                payload["club"] = club
+        if data.get("license_type"):
+            license_type = LicenseType.objects.filter(id=data.get("license_type")).first()
+            if license_type is None:
+                raise LtfStaffError("license_type_not_found")
+            payload["license_type"] = license_type
+        sex = payload.get("sex")
+        if sex not in (None, "", Member.Sex.MALE, Member.Sex.FEMALE):
+            raise LtfStaffError("invalid_sex")
+        return payload
+
+    def _serialize_member(self, member: Member):
+        member = self.get_queryset().filter(pk=member.pk).first() or member
+        return MemberSerializer(member, context=self.get_serializer_context()).data
+
+    @action(detail=False, methods=["post"], url_path="ltf-staff")
+    def create_ltf_staff(self, request):
+        try:
+            payload = self._staff_payload(request.data)
+            with transaction.atomic():
+                member, _meta = create_staff_member(
+                    payload,
+                    actor=request.user,
+                    locale=request.data.get("locale"),
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response(self._serialize_member(member), status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch", "delete"], url_path="ltf-staff")
+    def ltf_staff(self, request, pk=None):
+        member = self.get_object()
+        try:
+            if request.method == "DELETE":
+                with transaction.atomic():
+                    result = delete_staff(member)
+                return Response(result)
+            payload = self._staff_payload(request.data)
+            with transaction.atomic():
+                member = update_staff_member(
+                    member,
+                    payload,
+                    actor=request.user,
+                    locale=request.data.get("locale"),
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response(self._serialize_member(member))
+
+    @action(detail=True, methods=["post"], url_path="ltf-staff-license")
+    def issue_ltf_staff_license(self, request, pk=None):
+        member = self.get_object()
+        try:
+            license_type = LicenseType.objects.filter(id=request.data.get("license_type")).first()
+            if license_type is None:
+                raise LtfStaffError("license_type_not_found")
+            with transaction.atomic():
+                license_record = issue_staff_license(
+                    member,
+                    license_type=license_type,
+                    year=request.data.get("year") or request.data.get("license_year"),
+                    actor=request.user,
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response(
+            {"id": license_record.id, "year": license_record.year, "status": license_record.status},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="revoke-ltf-staff-license")
+    def revoke_ltf_staff_license(self, request, pk=None):
+        member = self.get_object()
+        try:
+            with transaction.atomic():
+                license_record = revoke_staff_license(
+                    member,
+                    actor=request.user,
+                    reason=str(request.data.get("reason") or ""),
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response({"id": license_record.id, "status": license_record.status})
 
     def _is_grade_manager(self, user) -> bool:
         return user and user.is_authenticated and user.role in [

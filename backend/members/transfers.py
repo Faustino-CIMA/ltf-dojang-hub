@@ -280,7 +280,7 @@ def list_member_club_transfers(*, user: User, member_id: int) -> dict:
     if not member:
         raise TransferError({"detail": "Member not found."}, 404)
     if user.role == User.Roles.CLUB_ADMIN:
-        if not _user_admins_club(user, member.club):
+        if member.club_id is None or not _user_admins_club(user, member.club):
             raise TransferError({"detail": "Not allowed."}, 403)
     elif user.role not in {User.Roles.LTF_ADMIN, User.Roles.LTF_FINANCE}:
         raise TransferError({"detail": "Not allowed."}, 403)
@@ -300,7 +300,7 @@ def list_member_club_transfers(*, user: User, member_id: int) -> dict:
             "first_name": member.first_name,
             "last_name": member.last_name,
             "club_id": member.club_id,
-            "club_name": member.club.name,
+            "club_name": member.club.name if member.club_id else "",
         },
         "threshold": threshold,
         "completed_transfer_count": len(completed),
@@ -504,7 +504,7 @@ def _complete_transfer(transfer: MemberTransfer, *, actor: User) -> None:
         status__in=[License.Status.ACTIVE, License.Status.PENDING]
     ).select_related("club", "license_type")
     for license in licenses:
-        from_name = license.club.name
+        from_name = license.club.name if license.club_id else "No club"
         license.club = transfer.to_club
         license.save(update_fields=["club", "updated_at"])
         create_license_history_event(

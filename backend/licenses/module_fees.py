@@ -29,7 +29,10 @@ VALID_LICENSE_STATUSES = (License.Status.ACTIVE, License.Status.PENDING)
 
 
 def active_member_count(club_id: int, year: int) -> int:
-    """Members of this club with a valid licence for the year."""
+    """Members of this club with a valid licence for the year.
+
+    LTF staff with no club are not included: the count is scoped to club_id.
+    """
     return (
         Member.objects.filter(
             club_id=club_id,

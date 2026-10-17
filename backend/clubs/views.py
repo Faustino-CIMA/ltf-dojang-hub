@@ -266,11 +266,14 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         data = [
             {
                 "id": member.id,
-                "label": f"{member.first_name} {member.last_name} · {member.club.name}",
+                "label": (
+                    f"{member.first_name} {member.last_name}"
+                    + (f" · {member.club.name}" if member.club_id else "")
+                ),
                 "first_name": member.first_name,
                 "last_name": member.last_name,
                 "email": member.email or "",
-                "club_name": member.club.name,
+                "club_name": member.club.name if member.club_id else "",
             }
             for member in queryset
         ]

@@ -1341,7 +1341,10 @@ class CardDesignerMembersLookupView(APIView):
             {
                 "id": int(member.id),
                 "label": f"{member.first_name} {member.last_name}".strip(),
-                "subtitle": f"{member.club.name} · {member.ltf_licenseid or 'No LTF ID'}",
+                "subtitle": (
+                    f"{member.club.name if member.club_id else '{{no_club}}'}"
+                    f" · {member.ltf_licenseid or 'No LTF ID'}"
+                ),
             }
             for member in members
         ]
@@ -1384,7 +1387,10 @@ class CardDesignerLicensesLookupView(APIView):
                     f"{license_record.member.first_name} {license_record.member.last_name}"
                     f" · {license_record.license_type.name} {license_record.year}"
                 ),
-                "subtitle": f"{license_record.club.name} · {license_record.status}",
+                "subtitle": (
+                    f"{license_record.club.name if license_record.club_id else '{{no_club}}'}"
+                    f" · {license_record.status}"
+                ),
             }
             for license_record in licenses
         ]

@@ -54,6 +54,8 @@ def add_grade_promotion(
     source_grade = current_grade if from_grade is None else str(from_grade).strip()
     if source_grade == normalized_grade:
         raise ValidationError("to_grade must differ from current grade.")
+    if member.club_id is None:
+        raise ValidationError("A club is required to record a grade.")
 
     with transaction.atomic():
         history_record = GradePromotionHistory.objects.create(
