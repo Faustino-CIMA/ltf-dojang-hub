@@ -16,6 +16,7 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
@@ -259,7 +260,7 @@ export default function LtfAdminSettingsPage() {
 
           <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("federationNameLabel")}</label>
+              <Label required>{t("federationNameLabel")}</Label>
               <Input placeholder="Luxembourg Taekwondo Federation" {...register("name")} />
               {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
             </div>
@@ -299,9 +300,9 @@ export default function LtfAdminSettingsPage() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">
+              <Label required>
                 {t("clubTouristThresholdLabel")}
-              </label>
+              </Label>
               <Input
                 type="number"
                 min={1}

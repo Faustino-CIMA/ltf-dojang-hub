@@ -42,6 +42,7 @@ import {
   type NationalTeamStaffRow,
   type SquadSelectionRow,
 } from "@/lib/national-team-api";
+import { ageClassOptionLabel, suggestAgeClass } from "@/lib/age-class";
 import { formatFullName } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
 
@@ -91,6 +92,11 @@ function ageKey(value: string) {
   if (value === "junior") return "nationalTeamAgeJunior";
   if (value === "senior") return "nationalTeamAgeSenior";
   return "";
+}
+
+function formatAgeClass(t: (key: string) => string, code: string) {
+  if (!code) return "-";
+  return ageClassOptionLabel(translateCode(t, ageKey(code), code), code);
 }
 
 function staffKey(value: string) {
@@ -282,14 +288,14 @@ export function NationalTeamDesk({
         header: t("nationalTeamAgeClass"),
         sortable: true,
         sortValue: (row: SquadSelectionRow) => row.age_class,
-        render: (row: SquadSelectionRow) => translateCode(t, ageKey(row.age_class), row.age_class),
+        render: (row: SquadSelectionRow) => formatAgeClass(t, row.age_class),
       },
       {
         key: "weight",
         header: t("nationalTeamWeight"),
         sortable: true,
         sortValue: (row: SquadSelectionRow) => row.weight_category,
-        render: (row: SquadSelectionRow) => row.weight_category,
+        render: (row: SquadSelectionRow) => row.weight_category || "-",
       },
       {
         key: "level",
@@ -588,11 +594,11 @@ function SeasonDateFields(props: {
     <>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="season-start">{t("nationalTeamSeasonStart")}</Label>
+          <Label htmlFor="season-start" required>{t("nationalTeamSeasonStart")}</Label>
           <Input id="season-start" type="date" value={starts} disabled={!props.canManage} onChange={(event) => setStarts(event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="season-end">{t("nationalTeamSeasonEnd")}</Label>
+          <Label htmlFor="season-end" required>{t("nationalTeamSeasonEnd")}</Label>
           <Input id="season-end" type="date" value={ends} disabled={!props.canManage} onChange={(event) => setEnds(event.target.value)} />
         </div>
       </div>
@@ -765,12 +771,20 @@ function SelectionForm({
 }) {
   const t = useTranslations("LtfAdmin");
   const [memberId, setMemberId] = useState(selection ? String(selection.member) : "");
+  const [picked, setPicked] = useState<Member | null>(null);
   const [squad, setSquad] = useState(selection ? String(selection.squad) : String(squads[0]?.id ?? ""));
-  const [age, setAge] = useState(selection?.age_class || "senior");
+  const [ageTouched, setAgeTouched] = useState(Boolean(selection));
+  const [ageManual, setAgeManual] = useState(selection?.age_class || "");
   const [weight, setWeight] = useState(selection?.weight_category || "");
   const [captain, setCaptain] = useState(selection?.is_captain || false);
   const [started, setStarted] = useState(selection?.started_on || season.starts_on);
   const [ended, setEnded] = useState(selection?.ended_on || "");
+  const suggested = suggestAgeClass(picked?.date_of_birth, season.year);
+  const age = ageTouched ? ageManual : suggested;
+  const ageOptions = [
+    { value: "", label: t("nationalTeamAgeUnset") },
+    ...AGE_CLASSES.map((value) => ({ value, label: formatAgeClass(t, value) })),
+  ];
   return (
     <form
       className="space-y-4"
@@ -788,14 +802,25 @@ function SelectionForm({
         });
       }}
     >
-      <MemberSearch roster="club" members={members} value={memberId} onChange={setMemberId} />
+      <MemberSearch
+        roster="club"
+        members={members}
+        value={memberId}
+        required
+        onChange={(id, member) => {
+          setMemberId(id);
+          setPicked(member);
+          if (!selection) setAgeTouched(false);
+        }}
+      />
       <div className="space-y-2">
-        <Label>{t("nationalTeamSquad")}</Label>
-        <PopoverSelect ariaLabel={t("nationalTeamSquad")} value={squad} onValueChange={setSquad} options={squads.filter((item) => item.is_active).map((item) => ({ value: String(item.id), label: item.name }))} />
+        <Label required>{t("nationalTeamSquad")}</Label>
+        <PopoverSelect className="w-full" ariaLabel={t("nationalTeamSquad")} value={squad} onValueChange={setSquad} options={squads.filter((item) => item.is_active).map((item) => ({ value: String(item.id), label: item.name }))} />
       </div>
       <div className="space-y-2">
         <Label>{t("nationalTeamAgeClass")}</Label>
-        <PopoverSelect ariaLabel={t("nationalTeamAgeClass")} value={age} onValueChange={setAge} options={AGE_CLASSES.map((value) => ({ value, label: translateCode(t, ageKey(value), value) }))} />
+        <PopoverSelect className="w-full" ariaLabel={t("nationalTeamAgeClass")} value={age} onValueChange={(value) => { setAgeTouched(true); setAgeManual(value); }} options={ageOptions} />
+        <p className="text-sm text-muted">{t("nationalTeamAgeHint")}</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="selection-weight">{t("nationalTeamWeight")}</Label>
@@ -807,7 +832,7 @@ function SelectionForm({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="selection-start">{t("nationalTeamStart")}</Label>
+          <Label htmlFor="selection-start" required>{t("nationalTeamStart")}</Label>
           <Input id="selection-start" type="date" value={started} onChange={(event) => setStarted(event.target.value)} />
         </div>
         <div className="space-y-2">
@@ -816,7 +841,7 @@ function SelectionForm({
         </div>
       </div>
       <p className="text-sm text-muted">{t("nationalTeamEndHint")}</p>
-      <Button type="submit" disabled={busy || !memberId}>
+      <Button type="submit" disabled={busy || !memberId || !squad || !started}>
         {busy ? t("nationalTeamSaving") : t("nationalTeamSave")}
       </Button>
     </form>
@@ -827,12 +852,14 @@ function MemberSearch({
   roster,
   members,
   value,
+  required,
   onChange,
 }: {
   roster: "club" | "all";
   members?: Member[];
   value: string;
-  onChange: (id: string) => void;
+  required?: boolean;
+  onChange: (id: string, member: Member | null) => void;
 }) {
   const t = useTranslations("LtfAdmin");
   const [query, setQuery] = useState("");
@@ -857,7 +884,7 @@ function MemberSearch({
   const chosen = found.find((member) => String(member.id) === value);
   return (
     <div className="space-y-2">
-      <Label htmlFor="national-team-member">{t("nationalTeamMember")}</Label>
+      <Label htmlFor="national-team-member" required={required}>{t("nationalTeamMember")}</Label>
       <Input id="national-team-member" value={query} placeholder={t("nationalTeamSearchMember")} onChange={(event) => setQuery(event.target.value)} />
       <div className="max-h-40 space-y-1 overflow-y-auto">
         {found.slice(0, 8).map((member) => (
@@ -865,7 +892,7 @@ function MemberSearch({
             key={member.id}
             type="button"
             className="flex w-full rounded-[var(--radius-form)] px-3 py-2 text-left text-sm text-foreground hover:bg-accent"
-            onClick={() => onChange(String(member.id))}
+            onClick={() => onChange(String(member.id), member)}
           >
             {formatFullName(member)}
             {member.club ? "" : ` · ${t("nationalTeamNoClub")}`}
@@ -890,7 +917,7 @@ function EndDateForm({ initial, busy, onSave }: { initial: string; busy: boolean
     >
       <p className="text-sm text-muted">{t("nationalTeamEndHint")}</p>
       <div className="space-y-2">
-        <Label htmlFor="end-date">{t("nationalTeamEnd")}</Label>
+        <Label htmlFor="end-date" required>{t("nationalTeamEnd")}</Label>
         <Input id="end-date" type="date" value={ended} onChange={(event) => setEnded(event.target.value)} />
       </div>
       <Button type="submit" disabled={busy || !ended}>
@@ -963,7 +990,7 @@ function StatusHistory(props: {
         }}
       >
         <div className="space-y-2">
-          <Label>{t("nationalTeamScheme")}</Label>
+          <Label required>{t("nationalTeamScheme")}</Label>
           <PopoverSelect
             ariaLabel={t("nationalTeamScheme")}
             value={scheme}
@@ -977,22 +1004,34 @@ function StatusHistory(props: {
         </div>
         {scheme === "ltf_level" ? (
           <div className="space-y-2">
-            <Label>{t("nationalTeamLevel")}</Label>
+            <Label required>{t("nationalTeamLevel")}</Label>
             <PopoverSelect ariaLabel={t("nationalTeamLevel")} value={levelId} onValueChange={setLevelId} options={activeLevels.map((level) => ({ value: String(level.id), label: level.name }))} />
           </div>
         ) : null}
         {scheme === "cosl" ? (
           <div className="grid gap-3">
-            <PopoverSelect ariaLabel={t("nationalTeamCoslPathway")} value={pathway} onValueChange={setPathway} options={COSL_PATHWAYS.map((value) => ({ value, label: translateCode(t, pathwayKey(value), value) }))} />
-            <PopoverSelect ariaLabel={t("nationalTeamCoslRank")} value={rank} onValueChange={setRank} options={COSL_RANKS.map((value) => ({ value, label: value }))} />
-            <PopoverSelect ariaLabel={t("nationalTeamCoslProject")} value={project} onValueChange={setProject} options={COSL_PROJECTS.map((value) => ({ value, label: translateCode(t, projectKey(value), value) }))} />
+            <div className="space-y-2">
+              <Label required>{t("nationalTeamCoslPathway")}</Label>
+              <PopoverSelect ariaLabel={t("nationalTeamCoslPathway")} value={pathway} onValueChange={setPathway} options={COSL_PATHWAYS.map((value) => ({ value, label: translateCode(t, pathwayKey(value), value) }))} />
+            </div>
+            <div className="space-y-2">
+              <Label required>{t("nationalTeamCoslRank")}</Label>
+              <PopoverSelect ariaLabel={t("nationalTeamCoslRank")} value={rank} onValueChange={setRank} options={COSL_RANKS.map((value) => ({ value, label: value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label required>{t("nationalTeamCoslProject")}</Label>
+              <PopoverSelect ariaLabel={t("nationalTeamCoslProject")} value={project} onValueChange={setProject} options={COSL_PROJECTS.map((value) => ({ value, label: translateCode(t, projectKey(value), value) }))} />
+            </div>
           </div>
         ) : null}
         {scheme === "support" ? (
-          <PopoverSelect ariaLabel={t("nationalTeamSupport")} value={support} onValueChange={setSupport} options={SUPPORTS.map((value) => ({ value, label: translateCode(t, supportKey(value), value) }))} />
+          <div className="space-y-2">
+            <Label required>{t("nationalTeamSupport")}</Label>
+            <PopoverSelect ariaLabel={t("nationalTeamSupport")} value={support} onValueChange={setSupport} options={SUPPORTS.map((value) => ({ value, label: translateCode(t, supportKey(value), value) }))} />
+          </div>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="status-start">{t("nationalTeamStart")}</Label>
+          <Label htmlFor="status-start" required>{t("nationalTeamStart")}</Label>
           <Input id="status-start" type="date" value={started} onChange={(event) => setStarted(event.target.value)} />
         </div>
         <div className="space-y-2">
@@ -1099,9 +1138,9 @@ function StaffForm({
         });
       }}
     >
-      <MemberSearch roster="all" members={members} value={memberId} onChange={setMemberId} />
+      <MemberSearch roster="all" members={members} value={memberId} required onChange={setMemberId} />
       <div className="space-y-2">
-        <Label>{t("nationalTeamStaffFunction")}</Label>
+        <Label required>{t("nationalTeamStaffFunction")}</Label>
         <PopoverSelect ariaLabel={t("nationalTeamStaffFunction")} value={fn} onValueChange={setFn} options={STAFF_FUNCTIONS.map((value) => ({ value, label: translateCode(t, staffKey(value), value) }))} />
       </div>
       <div className="space-y-2">
@@ -1120,7 +1159,7 @@ function StaffForm({
         </div>
       ) : null}
       <div className="space-y-2">
-        <Label htmlFor="staff-start">{t("nationalTeamStart")}</Label>
+        <Label htmlFor="staff-start" required>{t("nationalTeamStart")}</Label>
         <Input id="staff-start" type="date" value={started} onChange={(event) => setStarted(event.target.value)} />
       </div>
       <Button type="submit" disabled={busy || !memberId || !started}>
@@ -1144,7 +1183,7 @@ function SquadPanel({ open, busy, onClose, onSave }: { open: boolean; busy: bool
         }}
       >
         <div className="space-y-2">
-          <Label htmlFor="squad-name">{t("nationalTeamSquadName")}</Label>
+          <Label htmlFor="squad-name" required>{t("nationalTeamSquadName")}</Label>
           <Input id="squad-name" value={name} onChange={(event) => setName(event.target.value)} />
         </div>
         <p className="text-sm text-muted">{t("nationalTeamDisciplineKyorugi")}</p>
@@ -1181,11 +1220,11 @@ function LevelPanel({
         }}
       >
         <div className="space-y-2">
-          <Label htmlFor="level-code">{t("nationalTeamLevelCode")}</Label>
+          <Label htmlFor="level-code" required>{t("nationalTeamLevelCode")}</Label>
           <Input id="level-code" value={code} onChange={(event) => setCode(event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="level-name">{t("nationalTeamLevelName")}</Label>
+          <Label htmlFor="level-name" required>{t("nationalTeamLevelName")}</Label>
           <Input id="level-name" value={name} onChange={(event) => setName(event.target.value)} />
         </div>
         <Button type="submit" disabled={busy || !code.trim() || !name.trim()}>
@@ -1222,15 +1261,15 @@ function SeasonPanel({
         }}
       >
         <div className="space-y-2">
-          <Label htmlFor="season-year">{t("nationalTeamSeason")}</Label>
+          <Label htmlFor="season-year" required>{t("nationalTeamSeason")}</Label>
           <Input id="season-year" inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="new-season-start">{t("nationalTeamSeasonStart")}</Label>
+          <Label htmlFor="new-season-start" required>{t("nationalTeamSeasonStart")}</Label>
           <Input id="new-season-start" type="date" value={starts} onChange={(event) => setStarts(event.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="new-season-end">{t("nationalTeamSeasonEnd")}</Label>
+          <Label htmlFor="new-season-end" required>{t("nationalTeamSeasonEnd")}</Label>
           <Input id="new-season-end" type="date" value={ends} onChange={(event) => setEnds(event.target.value)} />
         </div>
         <Button type="submit" disabled={busy}>

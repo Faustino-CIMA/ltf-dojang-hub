@@ -225,7 +225,7 @@ export default function TrainingTimetablePage() {
             <h2 className="text-section text-foreground">{editingClassId ? t("trainingEditClass") : t("trainingAddClass")}</h2>
             <form ref={formRef} className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void onSubmit(event)}>
               <div>
-                <Label>{t("trainingClassName")}</Label>
+                <Label required>{t("trainingClassName")}</Label>
                 <Input className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
               </div>
               <div>
@@ -256,20 +256,20 @@ export default function TrainingTimetablePage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label>{t("trainingStarts")}</Label>
+                  <Label required>{t("trainingStarts")}</Label>
                   <Input className="mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required />
                 </div>
                 <div>
-                  <Label>{t("trainingEnds")}</Label>
+                  <Label required>{t("trainingEnds")}</Label>
                   <Input className="mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
                 </div>
               </div>
               <div>
-                <Label>{t("subsidiesFrom")}</Label>
+                <Label required>{t("subsidiesFrom")}</Label>
                 <Input className="mt-1" type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} required />
               </div>
               <div>
-                <Label>{t("subsidiesTo")}</Label>
+                <Label required>{t("subsidiesTo")}</Label>
                 <Input className="mt-1" type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required />
               </div>
               <label className="flex items-center gap-2 text-sm">

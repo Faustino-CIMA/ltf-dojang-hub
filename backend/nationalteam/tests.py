@@ -220,6 +220,40 @@ class NationalTeamApiTests(TestCase):
         self.assertEqual(own.data["selections"][0]["squad_code"], "national_team")
         self.assertEqual(own.data["selections"][0]["coaches"][0]["function"], "national_coach")
 
+    def test_weight_and_age_class_are_optional_but_athlete_squad_and_start_are_not(self):
+        self.client.force_authenticate(user=self.admin)
+        created = self.client.post(
+            "/api/national-team/selections/",
+            self._selection(weight_category="", age_class=""),
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["weight_category"], "")
+        self.assertEqual(created.data["age_class"], "")
+        omitted = self.client.post(
+            "/api/national-team/selections/",
+            {
+                "member": self.other_athlete.id,
+                "squad": self.talents.id,
+                "season": self.season.id,
+                "started_on": self.season.starts_on.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(omitted.status_code, status.HTTP_201_CREATED, omitted.data)
+        missing_start = self.client.post(
+            "/api/national-team/selections/",
+            self._selection(started_on=None),
+            format="json",
+        )
+        self.assertEqual(missing_start.status_code, status.HTTP_400_BAD_REQUEST)
+        missing_squad = self.client.post(
+            "/api/national-team/selections/",
+            self._selection(squad=None),
+            format="json",
+        )
+        self.assertEqual(missing_squad.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_finance_is_read_only_and_a_person_without_a_club_cannot_be_selected(self):
         self.client.force_authenticate(user=self.finance)
         refused = self.client.post("/api/national-team/selections/", self._selection(), format="json")

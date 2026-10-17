@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
 import { NationalTeamDesk } from "@/components/national-team/national-team-desk";
 import type { AthleteNationalTeam, SquadSelectionRow } from "@/lib/national-team-api";
+import type { Member } from "@/lib/ltf-admin-api";
 
 jest.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -97,6 +98,19 @@ describe("National team desk", () => {
     fireEvent.click(screen.getByRole("button", { name: "nationalTeamAddSelection" }));
     const dialog = screen.getByRole("dialog", { name: "nationalTeamAddSelection" });
     expect(within(dialog).getByLabelText("nationalTeamWeight")).toBeInTheDocument();
+    expect(within(dialog).getByText("nationalTeamWeight").closest("label")?.querySelector("[data-required]")).toBeNull();
+    expect(within(dialog).getByText("nationalTeamAgeClass").closest("label")?.querySelector("[data-required]")).toBeNull();
+    expect(within(dialog).getByText("nationalTeamEnd").closest("label")?.querySelector("[data-required]")).toBeNull();
+    for (const name of ["nationalTeamMember", "nationalTeamSquad", "nationalTeamStart"]) {
+      expect(within(dialog).getByText(name).closest("label")?.querySelector("[data-required='true']")).not.toBeNull();
+    }
+    expect(within(dialog).getByText(/requiredLegend/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamAgeClass" }));
+    expect(screen.getByRole("option", { name: "nationalTeamAgeCadet (12–14)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "nationalTeamAgeJunior (15–17)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "nationalTeamAgeSenior (17+)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "nationalTeamAgeYouth" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /nationalTeamAgeYouth \(/ })).toBeNull();
     const close = screen
       .getAllByRole("button", { name: "nationalTeamClose" })
       .find((button) => button.textContent === "nationalTeamClose");
@@ -106,6 +120,23 @@ describe("National team desk", () => {
     fireEvent.click(within(menu).getByRole("menuitem", { name: "nationalTeamStatus" }));
     expect(screen.getByText("COSL letter")).toBeInTheDocument();
     expect(screen.getByLabelText("nationalTeamSourceNote")).toBeInTheDocument();
+  });
+
+  it("suggests the age class from the athlete birth year", () => {
+    const athlete = {
+      id: 12,
+      first_name: "Nina",
+      last_name: "CADET",
+      date_of_birth: "2012-04-02",
+      club: 2,
+    } as Member;
+    render(<NationalTeamDesk canManage preview={{ ...preview, members: [athlete] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "nationalTeamAddSelection" }));
+    const dialog = screen.getByRole("dialog", { name: "nationalTeamAddSelection" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "CADET Nina" }));
+    expect(within(dialog).getByRole("button", { name: "nationalTeamAgeClass" })).toHaveTextContent(
+      "nationalTeamAgeCadet (12–14)"
+    );
   });
 });
 

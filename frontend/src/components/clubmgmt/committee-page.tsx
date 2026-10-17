@@ -491,7 +491,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
           <EmptyState title={t("committeeEmptyTitle")} description={t("committeeEmptySubtitle")} />
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <div className="min-w-[16rem] flex-1 space-y-2">
-              <Label htmlFor="committee-name">{t("clubCommitteeTitle")}</Label>
+              <Label htmlFor="committee-name" required>{t("clubCommitteeTitle")}</Label>
               <Input id="committee-name" value={name} onChange={(event) => setName(event.target.value)} />
             </div>
             <Button
@@ -545,7 +545,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
 
             <div className="mt-5 grid gap-3 rounded-[var(--radius-card)] border border-border bg-secondary/50 p-4 md:grid-cols-4">
               <div className="space-y-2 md:col-span-2">
-                <Label>{t("committeeOffices")}</Label>
+                <Label required>{t("committeeOffices")}</Label>
                 <PopoverSelect
                   ariaLabel={t("committeeOffices")}
                   value={draft.role}
@@ -569,7 +569,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`mandate-start-${committee.id}`}>{t("committeeStart")}</Label>
+                <Label htmlFor={`mandate-start-${committee.id}`} required>{t("committeeStart")}</Label>
                 <Input
                   id={`mandate-start-${committee.id}`}
                   type="date"

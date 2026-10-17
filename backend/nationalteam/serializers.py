@@ -232,6 +232,10 @@ class SelectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SquadSelection
+        extra_kwargs = {
+            "age_class": {"required": False, "allow_blank": True},
+            "weight_category": {"required": False, "allow_blank": True},
+        }
         fields = [
             "id",
             "member",

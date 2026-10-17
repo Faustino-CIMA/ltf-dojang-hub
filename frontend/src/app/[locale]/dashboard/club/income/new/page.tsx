@@ -10,6 +10,7 @@ import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AppTextarea, FormPanel, ActionNotices } from "@/components/ui/list-page-chrome";
 import {
   Select,
@@ -97,7 +98,7 @@ export default function ClubIncomeCreatePage() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="income-date">{t("incomeDateLabel")}</label>
+                <Label htmlFor="income-date" required>{t("incomeDateLabel")}</Label>
                 <Input id="income-date" type="date" value={incomeDate} onChange={(e) => setIncomeDate(e.target.value)} required />
               </div>
               <div className="space-y-2">
@@ -116,7 +117,7 @@ export default function ClubIncomeCreatePage() {
                 <Input id="income-payer" value={payer} onChange={(e) => setPayer(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="income-amount">{t("incomeAmountLabel")}</label>
+                <Label htmlFor="income-amount" required>{t("incomeAmountLabel")}</Label>
                 <Input
                   id="income-amount"
                   value={amount}
@@ -128,7 +129,7 @@ export default function ClubIncomeCreatePage() {
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium" htmlFor="income-description">{t("incomeDescriptionLabel")}</label>
+                <Label htmlFor="income-description" required>{t("incomeDescriptionLabel")}</Label>
                 <Input id="income-description" value={description} onChange={(e) => setDescription(e.target.value)} required />
               </div>
               <div className="space-y-2">

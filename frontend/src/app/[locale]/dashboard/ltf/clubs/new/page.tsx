@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   FormPanel,
   ActionNotices
@@ -90,7 +91,7 @@ export default function LtfAdminCreateClubPage() {
         <FormPanel>
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("clubNameLabel")}</label>
+              <Label required>{t("clubNameLabel")}</Label>
               <Input placeholder="LTF Central Club" {...register("name")} />
               {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
             </div>

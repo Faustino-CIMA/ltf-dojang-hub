@@ -188,7 +188,7 @@ export function CommitteeTermPanel({
         {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
         {showRole ? (
           <div className="space-y-2">
-            <Label>{t("committeeColumnRole")}</Label>
+            <Label required>{t("committeeColumnRole")}</Label>
             <PopoverSelect
               ariaLabel={t("committeeColumnRole")}
               value={role}
@@ -205,7 +205,7 @@ export function CommitteeTermPanel({
         ) : null}
         {showMember ? (
           <div className="space-y-2">
-            <Label>{panel.mode === "replace" ? t("committeeNewMember") : t("committeeColumnPerson")}</Label>
+            <Label required>{panel.mode === "replace" ? t("committeeNewMember") : t("committeeColumnPerson")}</Label>
             <PopoverSelect
               ariaLabel={t("committeeColumnPerson")}
               value={memberId}
@@ -220,7 +220,7 @@ export function CommitteeTermPanel({
         ) : null}
         {showStart ? (
           <div className="space-y-2">
-            <Label htmlFor="committee-term-start">{t("committeeColumnStart")}</Label>
+            <Label htmlFor="committee-term-start" required>{t("committeeColumnStart")}</Label>
             <Input
               id="committee-term-start"
               type="date"

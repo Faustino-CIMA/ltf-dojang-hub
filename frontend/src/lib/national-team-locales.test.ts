@@ -39,5 +39,12 @@ describe("National team copy", () => {
       expect(club[key]?.trim()).toBeTruthy();
     }
     expect(finance.navNationalTeam?.trim()).toBeTruthy();
+    expect(admin.nationalTeamAgeUnset?.trim()).toBeTruthy();
+    expect(admin.nationalTeamAgeHint).toMatch(/12/);
+    expect(admin.nationalTeamAgeYouth.toLowerCase()).toMatch(/wt/);
+    expect(club.nationalTeamAgeYouth.toLowerCase()).toMatch(/wt/);
+    const common = messages.Common as Record<string, string>;
+    expect(common.requiredMark?.trim()).toBeTruthy();
+    expect(common.requiredLegend?.trim()).toBeTruthy();
   });
 });

@@ -102,8 +102,8 @@ class SquadSelection(models.Model):
     )
     squad = models.ForeignKey(Squad, on_delete=models.PROTECT, related_name="selections")
     season = models.ForeignKey(Season, on_delete=models.PROTECT, related_name="selections")
-    age_class = models.CharField(max_length=20, choices=AgeClass.choices)
-    weight_category = models.CharField(max_length=40)
+    age_class = models.CharField(max_length=20, choices=AgeClass.choices, blank=True, default="")
+    weight_category = models.CharField(max_length=40, blank=True, default="")
     is_captain = models.BooleanField(default=False)
     started_on = models.DateField()
     # Exclusive end, matching committee terms: selected while started_on <= day < ended_on.

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { RequiredForm } from "@/components/ui/label";
 
 export function SidePanel({
   open,
@@ -44,7 +45,9 @@ export function SidePanel({
             {closeLabel}
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <RequiredForm>{children}</RequiredForm>
+        </div>
         {footer ? <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-4">{footer}</div> : null}
       </aside>
     </div>

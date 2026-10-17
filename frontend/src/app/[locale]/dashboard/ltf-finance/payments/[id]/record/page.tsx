@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AppTextarea,
   FormPanel,
@@ -265,9 +266,9 @@ export default function LtfFinanceRecordPaymentPage() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="payment-date">
+                <Label className="text-foreground" htmlFor="payment-date" required>
                   {t("paymentDateLabel")}
-                </label>
+                </Label>
                 <Input
                   id="payment-date"
                   type="date"

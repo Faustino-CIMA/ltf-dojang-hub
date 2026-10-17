@@ -1,4 +1,8 @@
 {
+  "Common": {
+    "requiredMark": "Pflichtfeld",
+    "requiredLegend": "Pflichtfeld"
+  },
   "ClubAdmin": {
     "memberCommitteeTab": "Vorstand",
     "modulePricesTitle": "Module und Preise",
@@ -33,7 +37,7 @@
     "nationalTeamOpenEnded": "Offen",
     "nationalTeamCoaches": "Trainer",
     "nationalTeamStatusHistory": "Statusverlauf",
-    "nationalTeamAgeYouth": "Jugend",
+    "nationalTeamAgeYouth": "Jugend (keine WT-Altersklasse)",
     "nationalTeamAgeCadet": "Kadett",
     "nationalTeamAgeJunior": "Junior",
     "nationalTeamAgeSenior": "Senior",
@@ -164,10 +168,12 @@
     "nationalTeamProjectElite": "Elite",
     "nationalTeamSupportSportlycee": "Sportlycée",
     "nationalTeamSupportSsea": "SSEA",
-    "nationalTeamAgeYouth": "Jugend",
+    "nationalTeamAgeYouth": "Jugend (keine WT-Altersklasse)",
     "nationalTeamAgeCadet": "Kadett",
     "nationalTeamAgeJunior": "Junior",
     "nationalTeamAgeSenior": "Senior",
+    "nationalTeamAgeUnset": "Nicht gesetzt",
+    "nationalTeamAgeHint": "World Taekwondo zählt das Alter nach dem Saisonjahr. Kadett ist 12–14, Junior 15–17, Senior 17 oder älter. Mit 17 Jahren ist beides möglich.",
     "nationalTeamStaffAdd": "Rolle hinzufügen",
     "nationalTeamStaffHint": "Eine Rolle der Nationalmannschaft kann beim Verbandspersonal oder bei einem Vereinsmitglied liegen. Vereine sehen nur Name und Rolle.",
     "nationalTeamStaffFunction": "Funktion",

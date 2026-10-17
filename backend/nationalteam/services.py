@@ -52,8 +52,6 @@ def validate_selection(selection: SquadSelection) -> None:
     member = selection.member
     if member is None or member.club_id is None:
         raise ValidationError({"member": "club_member_required"})
-    if not str(selection.weight_category or "").strip():
-        raise ValidationError({"weight_category": "weight_required"})
     season = selection.season
     if season is None:
         raise ValidationError({"season": "season_required"})

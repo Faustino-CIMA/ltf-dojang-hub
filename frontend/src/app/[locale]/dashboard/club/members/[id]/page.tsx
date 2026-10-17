@@ -606,7 +606,7 @@ export default function ClubMemberDetailPage() {
               {isEditing && canManageMemberFull ? (
                 <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
                   <div className="space-y-2">
-                    <Label htmlFor="member-first-name">{t("firstNameLabel")}</Label>
+                    <Label htmlFor="member-first-name" required>{t("firstNameLabel")}</Label>
                     <Input
                       id="member-first-name"
                       placeholder="Jane"
@@ -619,7 +619,7 @@ export default function ClubMemberDetailPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="member-last-name">{t("lastNameLabel")}</Label>
+                    <Label htmlFor="member-last-name" required>{t("lastNameLabel")}</Label>
                     <Input
                       id="member-last-name"
                       placeholder="Doe"

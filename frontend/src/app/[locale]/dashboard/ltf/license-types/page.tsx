@@ -14,6 +14,7 @@ import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label, RequiredForm } from "@/components/ui/label";
 import {
   ListActionsRow,
   ListToolbarPanel,
@@ -238,11 +239,13 @@ export default function LtfAdminLicenseTypesPage() {
         onClose={() => setIsFormOpen(false)}
       >
         <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
+          <RequiredForm>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("licenseTypeNameLabel")}</label>
+            <Label required>{t("licenseTypeNameLabel")}</Label>
             <Input placeholder={t("licenseTypeNamePlaceholder")} {...register("name")} />
             {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
           </div>
+          </RequiredForm>
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={isSubmitting}>
               {editingType ? t("updateLicenseType") : t("createLicenseType")}

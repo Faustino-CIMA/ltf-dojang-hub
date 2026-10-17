@@ -181,11 +181,11 @@ function StaffPanelForm({
         {showPerson ? (
           <>
             <div className="space-y-2">
-              <Label htmlFor="staff-last-name">{t("lastNameLabel")}</Label>
+              <Label htmlFor="staff-last-name" required>{t("lastNameLabel")}</Label>
               <Input id="staff-last-name" value={lastName} onChange={(event) => setLastName(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff-first-name">{t("firstNameLabel")}</Label>
+              <Label htmlFor="staff-first-name" required>{t("firstNameLabel")}</Label>
               <Input id="staff-first-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
             </div>
             <div className="space-y-2">
@@ -205,7 +205,7 @@ function StaffPanelForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>{t("staffFunctionLabel")}</Label>
+              <Label required>{t("staffFunctionLabel")}</Label>
               <PopoverSelect ariaLabel={t("staffFunctionLabel")} value={fn} onValueChange={(value) => setFn(value as LtfStaffFunctionName)} options={functionOptions} />
             </div>
             <div className="grid grid-cols-2 gap-3">

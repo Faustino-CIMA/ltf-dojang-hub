@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { formatCosl } from "@/components/national-team/national-team-desk";
+import { ageClassOptionLabel } from "@/lib/age-class";
 import { FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getAthleteNationalTeam, type AthleteNationalTeam } from "@/lib/national-team-api";
@@ -16,11 +17,18 @@ function supportLabel(t: (key: string) => string, value: string | null) {
 }
 
 function ageLabel(t: (key: string) => string, value: string) {
-  if (value === "youth") return t("nationalTeamAgeYouth");
-  if (value === "cadet") return t("nationalTeamAgeCadet");
-  if (value === "junior") return t("nationalTeamAgeJunior");
-  if (value === "senior") return t("nationalTeamAgeSenior");
-  return value;
+  if (!value) return "-";
+  const name =
+    value === "youth"
+      ? t("nationalTeamAgeYouth")
+      : value === "cadet"
+        ? t("nationalTeamAgeCadet")
+        : value === "junior"
+          ? t("nationalTeamAgeJunior")
+          : value === "senior"
+            ? t("nationalTeamAgeSenior")
+            : value;
+  return ageClassOptionLabel(name, value);
 }
 
 function coachFunction(t: (key: string) => string, value: string) {
@@ -84,7 +92,7 @@ export function MemberNationalTeamBlock({
                 </div>
                 <div>
                   <dt className="text-xs text-muted">{t("nationalTeamWeight")}</dt>
-                  <dd className="font-medium text-foreground">{row.weight_category}</dd>
+                  <dd className="font-medium text-foreground">{row.weight_category || "-"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted">{t("nationalTeamLevel")}</dt>
