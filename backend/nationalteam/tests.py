@@ -253,6 +253,21 @@ class NationalTeamApiTests(TestCase):
             format="json",
         )
         self.assertEqual(missing_squad.status_code, status.HTTP_400_BAD_REQUEST)
+        pupils = self.client.post(
+            "/api/national-team/selections/",
+            self._selection(member=self.other_athlete.id, squad=self.national.id, age_class="pupils"),
+            format="json",
+        )
+        self.assertEqual(pupils.status_code, status.HTTP_201_CREATED, pupils.data)
+        self.assertEqual(pupils.data["age_class"], "pupils")
+        younger = Member.objects.create(club=self.club, first_name="Noa", last_name="Klein")
+        minimes = self.client.post(
+            "/api/national-team/selections/",
+            self._selection(member=younger.id, age_class="minimes"),
+            format="json",
+        )
+        self.assertEqual(minimes.status_code, status.HTTP_201_CREATED, minimes.data)
+        self.assertEqual(minimes.data["age_class"], "minimes")
 
     def test_finance_is_read_only_and_a_person_without_a_club_cannot_be_selected(self):
         self.client.force_authenticate(user=self.finance)

@@ -42,11 +42,11 @@ import {
   type NationalTeamStaffRow,
   type SquadSelectionRow,
 } from "@/lib/national-team-api";
-import { ageClassOptionLabel, suggestAgeClass } from "@/lib/age-class";
+import { AGE_CLASS_ORDER, formatAgeClassLabel, suggestAgeClass } from "@/lib/age-class";
 import { formatFullName } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
 
-const AGE_CLASSES = ["youth", "cadet", "junior", "senior"] as const;
+const AGE_CLASSES = AGE_CLASS_ORDER;
 const COSL_PATHWAYS = ["elite", "promotion"] as const;
 const COSL_RANKS = ["P1", "P2", "P3", "P4", "P5", "P6"] as const;
 const COSL_PROJECTS = ["olympic", "qualification", "elite"] as const;
@@ -86,17 +86,8 @@ export type NationalTeamPreview = {
   members?: Member[];
 };
 
-function ageKey(value: string) {
-  if (value === "youth") return "nationalTeamAgeYouth";
-  if (value === "cadet") return "nationalTeamAgeCadet";
-  if (value === "junior") return "nationalTeamAgeJunior";
-  if (value === "senior") return "nationalTeamAgeSenior";
-  return "";
-}
-
 function formatAgeClass(t: (key: string) => string, code: string) {
-  if (!code) return "-";
-  return ageClassOptionLabel(translateCode(t, ageKey(code), code), code);
+  return formatAgeClassLabel(t, code);
 }
 
 function staffKey(value: string) {

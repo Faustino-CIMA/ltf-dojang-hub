@@ -43,6 +43,13 @@ describe("National team copy", () => {
     expect(admin.nationalTeamAgeHint).toMatch(/12/);
     expect(admin.nationalTeamAgeYouth.toLowerCase()).toMatch(/wt/);
     expect(club.nationalTeamAgeYouth.toLowerCase()).toMatch(/wt/);
+    expect(admin.nationalTeamAgePupils?.trim()).toBeTruthy();
+    expect(admin.nationalTeamAgeMinimes?.trim()).toBeTruthy();
+    expect(club.nationalTeamAgePupils?.trim()).toBeTruthy();
+    expect(club.nationalTeamAgeMinimes?.trim()).toBeTruthy();
+    expect(admin.nationalTeamAgeRegional.toLowerCase()).toMatch(/wt/);
+    expect(club.nationalTeamAgeRegional.toLowerCase()).toMatch(/wt/);
+    expect(admin.nationalTeamAgeHint).toMatch(/7/);
     const common = messages.Common as Record<string, string>;
     expect(common.requiredMark?.trim()).toBeTruthy();
     expect(common.requiredLegend?.trim()).toBeTruthy();

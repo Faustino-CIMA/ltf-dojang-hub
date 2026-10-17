@@ -90,10 +90,12 @@ class CadreLevel(models.Model):
 
 class SquadSelection(models.Model):
     class AgeClass(models.TextChoices):
-        YOUTH = "youth", _("Youth")
+        PUPILS = "pupils", _("Pupils")
+        MINIMES = "minimes", _("Minimes")
         CADET = "cadet", _("Cadet")
         JUNIOR = "junior", _("Junior")
         SENIOR = "senior", _("Senior")
+        YOUTH = "youth", _("Youth")
 
     member = models.ForeignKey(
         "members.Member",

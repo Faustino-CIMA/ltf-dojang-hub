@@ -106,11 +106,16 @@ describe("National team desk", () => {
     }
     expect(within(dialog).getByText(/requiredLegend/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "nationalTeamAgeClass" }));
-    expect(screen.getByRole("option", { name: "nationalTeamAgeCadet (12–14)" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "nationalTeamAgeJunior (15–17)" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "nationalTeamAgeSenior (17+)" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "nationalTeamAgeYouth" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /nationalTeamAgeYouth \(/ })).toBeNull();
+    const options = screen.getAllByRole("option").map((option) => option.textContent);
+    expect(options).toEqual([
+      "nationalTeamAgeUnset",
+      "nationalTeamAgePupils (7–8, nationalTeamAgeRegional)",
+      "nationalTeamAgeMinimes (9–11, nationalTeamAgeRegional)",
+      "nationalTeamAgeCadet (12–14)",
+      "nationalTeamAgeJunior (15–17)",
+      "nationalTeamAgeSenior (17+)",
+      "nationalTeamAgeYouth",
+    ]);
     const close = screen
       .getAllByRole("button", { name: "nationalTeamClose" })
       .find((button) => button.textContent === "nationalTeamClose");
@@ -127,7 +132,7 @@ describe("National team desk", () => {
       id: 12,
       first_name: "Nina",
       last_name: "CADET",
-      date_of_birth: "2012-04-02",
+      date_of_birth: "2013-04-02",
       club: 2,
     } as Member;
     render(<NationalTeamDesk canManage preview={{ ...preview, members: [athlete] }} />);

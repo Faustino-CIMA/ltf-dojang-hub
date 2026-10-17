@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { formatCosl } from "@/components/national-team/national-team-desk";
-import { ageClassOptionLabel } from "@/lib/age-class";
+import { formatAgeClassLabel } from "@/lib/age-class";
 import { FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getAthleteNationalTeam, type AthleteNationalTeam } from "@/lib/national-team-api";
@@ -17,18 +17,7 @@ function supportLabel(t: (key: string) => string, value: string | null) {
 }
 
 function ageLabel(t: (key: string) => string, value: string) {
-  if (!value) return "-";
-  const name =
-    value === "youth"
-      ? t("nationalTeamAgeYouth")
-      : value === "cadet"
-        ? t("nationalTeamAgeCadet")
-        : value === "junior"
-          ? t("nationalTeamAgeJunior")
-          : value === "senior"
-            ? t("nationalTeamAgeSenior")
-            : value;
-  return ageClassOptionLabel(name, value);
+  return formatAgeClassLabel(t, value);
 }
 
 function coachFunction(t: (key: string) => string, value: string) {
