@@ -126,4 +126,43 @@ describe("Team roster", () => {
     expect(screen.getByText("teamPoomsaeSource")).toBeInTheDocument();
     expect(screen.getByText("4th Kup")).toBeInTheDocument();
   });
+
+  it("groups coaches and explains a blank weight category", async () => {
+    const pupils = {
+      ...lea,
+      id: 9,
+      first_name: "Noa",
+      last_name: "PETIT",
+      age_class: "pupils",
+      latest_weight_kg: "32.5",
+      weight_category: "",
+      weight_category_reason: "pupils",
+      weight_delta_kg: null,
+      role: "athlete" as const,
+    };
+    const coach = {
+      ...lea,
+      id: 10,
+      first_name: "Ann",
+      last_name: "COACH",
+      role: "coach" as const,
+      age_class: "",
+      weight_category: "",
+      weight_category_reason: "",
+      licence_warning: "missing",
+    };
+    jest.mocked(getClubTeam).mockResolvedValue({
+      ...kyorugi,
+      athlete_count: 2,
+      coach_count: 1,
+      members: [lea, pupils, coach],
+    });
+    render(<TeamRoster teamId={1} onBack={() => undefined} />);
+    expect(await screen.findByRole("heading", { name: "teamCoachesHeading" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "teamAthletesHeading" })).toBeInTheDocument();
+    expect(screen.getByText("teamRoleCoach")).toBeInTheDocument();
+    expect(screen.getByText("-63 kg")).toBeInTheDocument();
+    expect(screen.getByText('teamCategoryNoClass:{"ageClass":"nationalTeamAgePupils"}')).toBeInTheDocument();
+    expect(screen.getByText("teamLicenceMissing")).toBeInTheDocument();
+  });
 });

@@ -1584,7 +1584,21 @@
     "teamGroupsActions": "Row actions",
     "teamGroupsDeleteTitle": "Delete entry",
     "teamGroupsDeleteHint": "This removes {name}.",
-    "teamGroupsDeleteConfirm": "Delete entry"
+    "teamGroupsDeleteConfirm": "Delete entry",
+    "teamsMemberCount": "{athletes, plural, one {# athlete} other {# athletes}} · {coaches, plural, one {# coach} other {# coaches}}",
+    "teamRoleAthlete": "Athlete",
+    "teamRoleCoach": "Coach",
+    "teamRoleLabel": "Role",
+    "teamRoleChange": "Role for {name}",
+    "teamRoleHint": "Club coaches are listed first. A coach is not weighed or classified, and still needs a licence.",
+    "teamClubCoach": "Club coach",
+    "teamCoachesHeading": "Coaches",
+    "teamAthletesHeading": "Athletes",
+    "teamCategoryNoBirthDate": "No birth date",
+    "teamCategoryNoSex": "No sex",
+    "teamCategoryNoWeight": "No weight",
+    "teamCategoryNoClass": "No WT category for {ageClass}",
+    "teamCategoryYouth": "Youth"
   },
   "LtfFinance": {
     "navOverview": "Overview",

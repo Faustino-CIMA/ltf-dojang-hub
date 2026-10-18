@@ -186,7 +186,21 @@
     "teamGroupsActions": "Actions de ligne",
     "teamGroupsDeleteTitle": "Supprimer l'entrée",
     "teamGroupsDeleteHint": "Ceci retire {name}.",
-    "teamGroupsDeleteConfirm": "Supprimer l'entrée"
+    "teamGroupsDeleteConfirm": "Supprimer l'entrée",
+    "teamsMemberCount": "{athletes, plural, one {# athlète} other {# athlètes}} · {coaches, plural, one {# entraîneur} other {# entraîneurs}}",
+    "teamRoleAthlete": "Athlète",
+    "teamRoleCoach": "Entraîneur",
+    "teamRoleLabel": "Rôle",
+    "teamRoleChange": "Rôle pour {name}",
+    "teamRoleHint": "Les entraîneurs du club sont listés en premier. Un entraîneur n'est pas pesé ni classé, et a quand même besoin d'une licence.",
+    "teamClubCoach": "Entraîneur du club",
+    "teamCoachesHeading": "Entraîneurs",
+    "teamAthletesHeading": "Athlètes",
+    "teamCategoryNoBirthDate": "Pas de date de naissance",
+    "teamCategoryNoSex": "Pas de sexe",
+    "teamCategoryNoWeight": "Pas de poids",
+    "teamCategoryNoClass": "Pas de catégorie WT pour {ageClass}",
+    "teamCategoryYouth": "Jeune"
   },
   "LtfAdmin": {
     "memberCommitteeTab": "Comité",

@@ -10,7 +10,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { addTeamMember, getClubTeams, removeTeamMember, type ClubTeam } from "@/lib/club-teams-api";
 
-type MemberTeam = { id: number; name: string; discipline: string };
+type MemberTeam = { id: number; name: string; discipline: string; role?: "athlete" | "coach" };
 
 export function MemberTeamsCard({
   memberId,
@@ -60,7 +60,10 @@ export function MemberTeamsCard({
       ) : (
         <div className="mt-4 flex flex-wrap gap-2">
           {teams.map((team) => (
-            <StatusBadge key={team.id} label={`${team.name} · ${disciplineLabel(t, team.discipline)}`} />
+            <span key={team.id} className="inline-flex items-center gap-2">
+              <StatusBadge label={`${team.name} · ${disciplineLabel(t, team.discipline)}`} />
+              {team.role === "coach" ? <StatusBadge label={t("teamRoleCoach")} tone="info" /> : null}
+            </span>
           ))}
         </div>
       )}

@@ -6,6 +6,7 @@ import { getMembersList } from "@/lib/club-admin-api";
 import {
   addTeamMember,
   deleteClubTeam,
+  updateTeamMemberRole,
   getClubTeam,
   getClubTeams,
   removeTeamMember,
@@ -27,6 +28,7 @@ jest.mock("@/lib/club-teams-api", () => {
     saveClubTeam: jest.fn(),
     deleteClubTeam: jest.fn(),
     addTeamMember: jest.fn(),
+    updateTeamMemberRole: jest.fn(),
     removeTeamMember: jest.fn(),
   };
 });
@@ -114,7 +116,34 @@ describe("Club teams desk", () => {
     fireEvent.change(screen.getByLabelText("teamsSearchMembers"), { target: { value: "mira" } });
     expect(screen.queryByText("WEBER Lea")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "teamsAddMember" }));
-    await waitFor(() => expect(addTeamMember).toHaveBeenCalledWith(3, 6));
+    await waitFor(() => expect(addTeamMember).toHaveBeenCalledWith(3, 6, "athlete"));
+  });
+
+  it("adds a club coach with the coach role and can change a role later", async () => {
+    jest.mocked(getClubTeams).mockResolvedValue([cadets]);
+    jest.mocked(getClubTeam).mockResolvedValue({ ...cadets, suggested_coach_ids: [8] });
+    jest.mocked(getMembersList).mockResolvedValue([
+      { id: 4, first_name: "Lea", last_name: "WEBER" } as never,
+      { id: 9, first_name: "Zoe", last_name: "ADAM" } as never,
+      { id: 8, first_name: "Ann", last_name: "COACH" } as never,
+    ]);
+    jest.mocked(updateTeamMemberRole).mockResolvedValue(cadets);
+    render(<ClubTeamsDesk clubId={2} />);
+    await screen.findByText("Cadets");
+    fireEvent.click(screen.getByRole("button", { name: "teamsActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "teamsManageAction" }));
+    const panel = await screen.findByRole("dialog");
+    const coachMark = await within(panel).findByText("teamClubCoach");
+    const names = within(panel).getAllByRole("listitem").map((item) => item.textContent ?? "");
+    const addNames = names.filter((name) => name.includes("teamsAddMember"));
+    expect(addNames[0]).toContain("COACH Ann");
+    fireEvent.click(within(panel).getByRole("button", { name: "teamRoleLabel" }));
+    fireEvent.click(screen.getByRole("option", { name: "teamRoleCoach" }));
+    fireEvent.click(within(coachMark.closest("li") as HTMLElement).getByRole("button", { name: "teamsAddMember" }));
+    await waitFor(() => expect(addTeamMember).toHaveBeenCalledWith(3, 8, "coach"));
+    fireEvent.click(within(panel).getByRole("button", { name: 'teamRoleChange:{"name":"WEBER Lea"}' }));
+    fireEvent.click(screen.getByRole("option", { name: "teamRoleCoach" }));
+    await waitFor(() => expect(updateTeamMemberRole).toHaveBeenCalledWith(3, 4, "coach"));
   });
 });
 

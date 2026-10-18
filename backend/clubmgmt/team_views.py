@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -18,6 +18,7 @@ from .body_measurements import (
     BodyMeasurement,
     annotate_latest_measurements,
     apply_measurement_fields,
+    category_reason,
     kyorugi_margin,
     measurement_club_ids,
     poomsae_division,
@@ -122,21 +123,32 @@ def _iso(value):
 
 
 def _roster_members(team: ClubTeam) -> list[dict]:
-    """Athlete rows for one team. Measurements stay on the member.
+    """Rows for one team. Measurements stay on the member.
 
     Age class, Poomsae division, and the WT category use the competition
-    year's calendar age when a competition date is set.
+    year's calendar age when a competition date is set. Coaches are listed
+    with the team but those classes are not computed for them. A licence
+    warning still applies to a coach.
     """
     year = team.competition_on.year if team.competition_on else timezone.localdate().year
     margin = team.weight_margin_kg if team.weight_margin_kg is not None else Decimal("1.0")
+    role_rows = ClubTeamMembership.objects.filter(team=team, member_id=OuterRef("pk")).values("role")[:1]
     queryset = annotate_latest_measurements(
         Member.objects.filter(team_memberships__team=team),
         {team.club_id},
-    ).prefetch_related("licenses").order_by("last_name", "first_name", "id")
+    ).annotate(team_role=Subquery(role_rows)).prefetch_related("licenses").order_by("last_name", "first_name", "id")
     rows = []
     for member in queryset:
-        age_class = suggest_age_class(member.date_of_birth, year)
-        category, delta = kyorugi_margin(member.latest_weight_kg, age_class, member.sex)
+        role = member.team_role or ClubTeamMembership.Role.ATHLETE
+        athlete = role != ClubTeamMembership.Role.COACH
+        age_class = suggest_age_class(member.date_of_birth, year) if athlete else ""
+        if athlete:
+            category, delta = kyorugi_margin(member.latest_weight_kg, age_class, member.sex)
+            reason = "" if category else category_reason(member.date_of_birth, age_class, member.sex, member.latest_weight_kg)
+            division = poomsae_division(member.date_of_birth, year)
+            warning = weight_close_to_limit(delta, category, margin)
+        else:
+            category, delta, reason, division, warning = "", None, "", "", False
         weight = None if member.latest_weight_kg is None else f"{Decimal(member.latest_weight_kg):.1f}"
         rows.append(
             {
@@ -144,17 +156,19 @@ def _roster_members(team: ClubTeam) -> list[dict]:
                 "first_name": member.first_name,
                 "last_name": member.last_name,
                 "sex": member.sex,
+                "role": role,
                 "birth_year": member.date_of_birth.year if member.date_of_birth else None,
                 "belt_rank": member.belt_rank,
                 "age_class": age_class,
-                "poomsae_division": poomsae_division(member.date_of_birth, year),
+                "poomsae_division": division,
                 "latest_weight_kg": weight,
                 "latest_weight_on": _iso(member.latest_weight_on),
                 "latest_height_cm": member.latest_height_cm,
                 "latest_height_on": _iso(member.latest_height_on),
                 "weight_category": category,
+                "weight_category_reason": reason,
                 "weight_delta_kg": delta,
-                "weight_warning": weight_close_to_limit(delta, category, margin),
+                "weight_warning": warning,
                 "licence_status": _licence_status(member),
                 "licence_warning": _licence_covers(member, team.competition_on),
             }
@@ -180,17 +194,36 @@ def _group_payload(group: ClubTeamGroup) -> dict:
     }
 
 
+def _membership_counts(team: ClubTeam) -> tuple[int, int]:
+    athlete = getattr(team, "athlete_count", None)
+    coach = getattr(team, "coach_count", None)
+    if athlete is None or coach is None:
+        athlete = team.memberships.filter(role=ClubTeamMembership.Role.ATHLETE).count()
+        coach = team.memberships.filter(role=ClubTeamMembership.Role.COACH).count()
+    return int(athlete), int(coach)
+
+
+def _suggested_coach_ids(team: ClubTeam) -> list[int]:
+    """Club members whose user is a coach of this club, listed first when adding."""
+    trainer_ids = team.club.trainers.values_list("id", flat=True)
+    return list(
+        Member.objects.filter(club_id=team.club_id, is_active=True, user_id__in=trainer_ids)
+        .order_by("last_name", "first_name", "id")
+        .values_list("id", flat=True)
+    )
+
+
 def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
-    count = getattr(team, "member_count", None)
-    if count is None:
-        count = team.memberships.count()
+    athletes, coaches = _membership_counts(team)
     payload = {
         "id": team.id,
         "club": team.club_id,
         "name": team.name,
         "discipline": team.discipline,
         "note": team.note,
-        "member_count": count,
+        "member_count": athletes + coaches,
+        "athlete_count": athletes,
+        "coach_count": coaches,
         "competition_on": _iso(team.competition_on),
         "competition_name": team.competition_name,
         "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
@@ -198,7 +231,16 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
     if include_members:
         payload["members"] = _roster_members(team)
         payload["groups"] = [_group_payload(group) for group in team.groups.order_by("kind", "id")]
+        payload["suggested_coach_ids"] = _suggested_coach_ids(team)
     return payload
+
+
+def _with_counts(queryset):
+    return queryset.annotate(
+        member_count=Count("memberships"),
+        athlete_count=Count("memberships", filter=Q(memberships__role=ClubTeamMembership.Role.ATHLETE)),
+        coach_count=Count("memberships", filter=Q(memberships__role=ClubTeamMembership.Role.COACH)),
+    )
 
 
 class ClubTeamListView(APIView):
@@ -206,7 +248,7 @@ class ClubTeamListView(APIView):
 
     def get(self, request):
         clubs = _require_clubs(request.user)
-        queryset = ClubTeam.objects.filter(club_id__in=clubs).annotate(member_count=Count("memberships"))
+        queryset = _with_counts(ClubTeam.objects.filter(club_id__in=clubs))
         club_id = request.query_params.get("club")
         if club_id not in (None, ""):
             try:
@@ -234,7 +276,8 @@ class ClubTeamListView(APIView):
             raise PermissionDenied(detail="This module is not available.")
         fields = _clean_fields(request.data, creating=True)
         team = ClubTeam.objects.create(club_id=club_id, **fields)
-        team.member_count = 0
+        team.athlete_count = 0
+        team.coach_count = 0
         return Response(_team_payload(team, include_members=True), status=201)
 
 
@@ -243,7 +286,6 @@ class ClubTeamDetailView(APIView):
 
     def get(self, request, team_id):
         team = _team_for(request.user, team_id)
-        team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True))
 
     def patch(self, request, team_id):
@@ -251,7 +293,6 @@ class ClubTeamDetailView(APIView):
         for key, value in _clean_fields(request.data, creating=False).items():
             setattr(team, key, value)
         team.save()
-        team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True))
 
     def delete(self, request, team_id):
@@ -272,16 +313,43 @@ class ClubTeamMemberView(APIView):
         member = get_object_or_404(Member, pk=member_id)
         if member.club_id != team.club_id:
             raise ValidationError({"member": "member_other_club"})
-        ClubTeamMembership.objects.get_or_create(team=team, member=member)
-        team.member_count = team.memberships.count()
+        role = _parse_role(request.data.get("role"), default=ClubTeamMembership.Role.ATHLETE)
+        membership, _created = ClubTeamMembership.objects.get_or_create(
+            team=team,
+            member=member,
+            defaults={"role": role},
+        )
+        if membership.role != role:
+            _set_membership_role(membership, role)
+        return Response(_team_payload(team, include_members=True))
+
+    def patch(self, request, team_id, member_id):
+        team = _team_for(request.user, team_id)
+        membership = get_object_or_404(ClubTeamMembership, team=team, member_id=member_id)
+        _set_membership_role(membership, _parse_role(request.data.get("role")))
         return Response(_team_payload(team, include_members=True))
 
     def delete(self, request, team_id, member_id):
         team = _team_for(request.user, team_id)
         ClubTeamMembership.objects.filter(team=team, member_id=member_id).delete()
         ClubTeamGroupMember.objects.filter(group__team=team, member_id=member_id).delete()
-        team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True))
+
+
+def _parse_role(value, *, default: str | None = None) -> str:
+    if value in (None, "") and default is not None:
+        return default
+    role = str(value or "").strip()
+    if role not in ClubTeamMembership.Role.values:
+        raise ValidationError({"role": "role_required"})
+    return role
+
+
+def _set_membership_role(membership: ClubTeamMembership, role: str) -> None:
+    membership.role = role
+    membership.save(update_fields=["role"])
+    if role == ClubTeamMembership.Role.COACH:
+        ClubTeamGroupMember.objects.filter(group__team_id=membership.team_id, member_id=membership.member_id).delete()
 
 
 def _ordered_group_members(group: ClubTeamGroup, member_ids: list[int]) -> list[Member]:
@@ -302,7 +370,9 @@ def _ordered_group_members(group: ClubTeamGroup, member_ids: list[int]) -> list[
             raise ValidationError({"members": "member_not_on_team"}) from exc
         if member_id not in unique_ids:
             unique_ids.append(member_id)
-    on_team = set(team.memberships.values_list("member_id", flat=True))
+    on_team = set(
+        team.memberships.filter(role=ClubTeamMembership.Role.ATHLETE).values_list("member_id", flat=True)
+    )
     if any(member_id not in on_team for member_id in unique_ids):
         raise ValidationError({"members": "member_not_on_team"})
     members = list(Member.objects.filter(id__in=unique_ids))
@@ -340,7 +410,9 @@ class ClubTeamWeighInView(APIView):
         entries = request.data.get("entries")
         if not isinstance(entries, list):
             entries = []
-        on_team = set(team.memberships.values_list("member_id", flat=True))
+        athlete_ids = set(
+            team.memberships.filter(role=ClubTeamMembership.Role.ATHLETE).values_list("member_id", flat=True)
+        )
         created = 0
         with transaction.atomic():
             for entry in entries:
@@ -353,7 +425,9 @@ class ClubTeamWeighInView(APIView):
                     member_id = int(entry.get("member"))
                 except (TypeError, ValueError) as exc:
                     raise ValidationError({"member": "member_not_on_team"}) from exc
-                if member_id not in on_team:
+                if member_id not in athlete_ids:
+                    if team.memberships.filter(member_id=member_id, role=ClubTeamMembership.Role.COACH).exists():
+                        continue
                     raise ValidationError({"member": "member_not_on_team"})
                 measurement = BodyMeasurement(member_id=member_id)
                 apply_measurement_fields(
@@ -364,7 +438,6 @@ class ClubTeamWeighInView(APIView):
                 measurement.recorded_by = request.user
                 measurement.save()
                 created += 1
-        team.member_count = team.memberships.count()
         return Response({"created": created, "team": _team_payload(team, include_members=True)})
 
 
@@ -380,7 +453,6 @@ class ClubTeamGroupView(APIView):
         ordered = _ordered_group_members(group, request.data.get("members") or [])
         group.save()
         _write_group_members(group, ordered)
-        team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True), status=201)
 
     def patch(self, request, team_id, group_id):
@@ -397,14 +469,12 @@ class ClubTeamGroupView(APIView):
         ordered = _ordered_group_members(group, request.data.get("members", current))
         group.save()
         _write_group_members(group, ordered)
-        team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True))
 
     def delete(self, request, team_id, group_id):
         team = _team_for(request.user, team_id)
         group = get_object_or_404(ClubTeamGroup, pk=group_id, team=team)
         group.delete()
-        team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True))
 
 
@@ -413,7 +483,6 @@ class ClubTeamSheetView(APIView):
 
     def get(self, request, team_id, export_format):
         team = _team_for(request.user, team_id)
-        team.member_count = team.memberships.count()
         payload = _team_payload(team, include_members=True)
         lang = str(request.query_params.get("lang") or "en")
         filename = f"team-{team.id}"

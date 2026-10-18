@@ -22,7 +22,7 @@ export function TeamWeighInPanel({
   onSaved: (team: ClubTeam) => void;
 }) {
   const t = useTranslations("ClubAdmin");
-  const members = team.members ?? [];
+  const members = (team.members ?? []).filter((member) => member.role !== "coach");
   const [measuredOn, setMeasuredOn] = useState(todayIsoDate());
   const [weights, setWeights] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);

@@ -17,10 +17,12 @@ export type TeamMember = {
   latest_height_cm?: number | null;
   latest_height_on?: string | null;
   weight_category?: string;
+  weight_category_reason?: string;
   weight_delta_kg?: string | null;
   weight_warning?: boolean;
   licence_status?: string;
   licence_warning?: "" | "expires" | "missing" | string;
+  role?: "athlete" | "coach";
 };
 
 export type TeamGroup = {
@@ -37,6 +39,9 @@ export type ClubTeam = {
   discipline: TeamDiscipline;
   note: string;
   member_count: number;
+  athlete_count?: number;
+  coach_count?: number;
+  suggested_coach_ids?: number[];
   competition_on?: string | null;
   competition_name?: string;
   weight_margin_kg?: string;
@@ -133,10 +138,17 @@ export function deleteClubTeam(teamId: number) {
   return apiRequest<null>(`/api/club-management/teams/${teamId}/`, { method: "DELETE" });
 }
 
-export function addTeamMember(teamId: number, memberId: number) {
+export function addTeamMember(teamId: number, memberId: number, role: "athlete" | "coach" = "athlete") {
   return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/members/`, {
     method: "POST",
-    body: JSON.stringify({ member: memberId }),
+    body: JSON.stringify({ member: memberId, role }),
+  });
+}
+
+export function updateTeamMemberRole(teamId: number, memberId: number, role: "athlete" | "coach") {
+  return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/members/${memberId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
   });
 }
 

@@ -39,7 +39,7 @@ function GroupForm({
   const [selected, setSelected] = useState<number[]>(group?.members.map((member) => member.id) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const athletes = team.members ?? [];
+  const athletes = (team.members ?? []).filter((member) => member.role !== "coach");
 
   return (
     <SidePanel

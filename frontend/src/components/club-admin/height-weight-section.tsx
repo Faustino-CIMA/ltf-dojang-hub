@@ -240,7 +240,15 @@ function MeasurementForm({
   );
 }
 
-export function HeightWeightSection({ memberId, embedded = false }: { memberId: number; embedded?: boolean }) {
+export function HeightWeightSection({
+  memberId,
+  embedded = false,
+  onChanged,
+}: {
+  memberId: number;
+  embedded?: boolean;
+  onChanged?: () => void;
+}) {
   const t = useTranslations("ClubAdmin");
   const [rows, setRows] = useState<BodyMeasurement[]>([]);
   const [suggestion, setSuggestion] = useState<WeightSuggestion | null>(null);
@@ -385,7 +393,10 @@ export function HeightWeightSection({ memberId, embedded = false }: { memberId: 
                         setBusy(true);
                         void deleteBodyMeasurement(row.id)
                           .then(() => load())
-                          .finally(() => setBusy(false));
+                          .finally(() => {
+                            setBusy(false);
+                            onChanged?.();
+                          });
                       },
                     },
                   ]}
@@ -409,7 +420,10 @@ export function HeightWeightSection({ memberId, embedded = false }: { memberId: 
           onSaved={() => {
             setPanel(null);
             setBusy(true);
-            void load().finally(() => setBusy(false));
+            void load().finally(() => {
+              setBusy(false);
+              onChanged?.();
+            });
           }}
         />
       ) : null}

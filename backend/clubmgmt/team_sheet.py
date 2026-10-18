@@ -41,6 +41,15 @@ _LABELS = {
         "over": "Over limit",
         "expires": "Licence expires before the competition",
         "missing": "No licence for the competition",
+        "athletes": "Athletes",
+        "coaches": "Coaches",
+        "no_birth_date": "No birth date",
+        "no_sex": "No sex",
+        "no_weight": "No weight",
+        "no_wt": "No WT category for {age}",
+        "pupils_short": "Pupils",
+        "minimes_short": "Minimes",
+        "youth_short": "Youth",
         "pupils": "Pupils (7–8, not a WT category)",
         "minimes": "Minimes (9–11, not a WT category)",
         "cadet": "Cadet (12–14)",
@@ -88,6 +97,15 @@ _LABELS = {
         "over": "Au-dessus de la limite",
         "expires": "La licence expire avant la compétition",
         "missing": "Pas de licence pour la compétition",
+        "athletes": "Athlètes",
+        "coaches": "Entraîneurs",
+        "no_birth_date": "Pas de date de naissance",
+        "no_sex": "Pas de sexe",
+        "no_weight": "Pas de poids",
+        "no_wt": "Pas de catégorie WT pour {age}",
+        "pupils_short": "Pupilles",
+        "minimes_short": "Minimes",
+        "youth_short": "Jeune",
         "pupils": "Pupilles (7–8, pas une catégorie WT)",
         "minimes": "Minimes (9–11, pas une catégorie WT)",
         "cadet": "Cadet (12–14)",
@@ -135,6 +153,15 @@ _LABELS = {
         "over": "Über dem Limit",
         "expires": "Lizenz läuft vor dem Wettkampf ab",
         "missing": "Keine Lizenz für den Wettkampf",
+        "athletes": "Athleten",
+        "coaches": "Trainer",
+        "no_birth_date": "Kein Geburtsdatum",
+        "no_sex": "Kein Geschlecht",
+        "no_weight": "Kein Gewicht",
+        "no_wt": "Keine WT-Kategorie für {age}",
+        "pupils_short": "Pupillen",
+        "minimes_short": "Minis",
+        "youth_short": "Jugend",
         "pupils": "Schüler (7–8, keine WT-Klasse)",
         "minimes": "Minimen (9–11, keine WT-Klasse)",
         "cadet": "Kadett (12–14)",
@@ -182,6 +209,15 @@ _LABELS = {
         "over": "Iwwer der Limit",
         "expires": "D'Lizenz leeft virun der Competitioun of",
         "missing": "Keng Lizenz fir d'Competitioun",
+        "athletes": "Athleten",
+        "coaches": "Traineren",
+        "no_birth_date": "Kee Gebuertsdatum",
+        "no_sex": "Kee Geschlecht",
+        "no_weight": "Kee Gewiicht",
+        "no_wt": "Keng WT-Kategorie fir {age}",
+        "pupils_short": "Pupillen",
+        "minimes_short": "Minimen",
+        "youth_short": "Jugend",
         "pupils": "Pupillen (7–8, keng WT-Klass)",
         "minimes": "Minimen (9–11, keng WT-Klass)",
         "cadet": "Cadet (12–14)",
@@ -227,7 +263,72 @@ def _warnings(row: dict, text: dict[str, str]) -> str:
     return "; ".join(notes)
 
 
-def sheet_rows(payload: dict, lang: str) -> tuple[list[str], list[list[str]], list[tuple[str, str]]]:
+def _sex_label(row: dict, text: dict[str, str]) -> str:
+    if row.get("sex") == "F":
+        return text["female"]
+    if row.get("sex") == "M":
+        return text["male"]
+    return ""
+
+
+def _category_cell(row: dict, text: dict[str, str]) -> str:
+    category = row.get("weight_category") or ""
+    if category:
+        return category
+    reason = row.get("weight_category_reason") or ""
+    if reason in {"pupils", "minimes", "youth"}:
+        return text["no_wt"].format(age=text.get(f"{reason}_short", reason))
+    return text.get(reason, "")
+
+
+def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool) -> list[str]:
+    licence = text.get(row.get("licence_status") or "none", text["none"])
+    shared = [
+        _full_name(row),
+        _sex_label(row, text),
+        "" if row.get("birth_year") is None else str(row.get("birth_year")),
+    ]
+    if poomsae:
+        division_code = row.get("poomsae_division") or ""
+        division_key = f"poomsae_{division_code}" if division_code in {"cadet", "junior"} else division_code
+        return [
+            *shared,
+            text.get(division_key, ""),
+            row.get("belt_rank") or "",
+            "" if row.get("latest_height_cm") is None else str(row.get("latest_height_cm")),
+            row.get("latest_height_on") or "",
+            licence,
+            _warnings(row, text),
+        ]
+    return [
+        *shared,
+        text.get(row.get("age_class") or "", ""),
+        row.get("belt_rank") or "",
+        row.get("latest_weight_kg") or "",
+        row.get("latest_weight_on") or "",
+        _category_cell(row, text),
+        row.get("weight_delta_kg") or "",
+        "" if row.get("latest_height_cm") is None else str(row.get("latest_height_cm")),
+        row.get("latest_height_on") or "",
+        licence,
+        _warnings(row, text),
+    ]
+
+
+def _coach_row(row: dict, text: dict[str, str]) -> list[str]:
+    licence = text.get(row.get("licence_status") or "none", text["none"])
+    warning = row.get("licence_warning") or ""
+    note = text["expires"] if warning == "expires" else text["missing"] if warning == "missing" else ""
+    return [
+        _full_name(row),
+        _sex_label(row, text),
+        "" if row.get("birth_year") is None else str(row.get("birth_year")),
+        licence,
+        note,
+    ]
+
+
+def sheet_rows(payload: dict, lang: str):
     text = labels(lang)
     poomsae = payload.get("discipline") == "poomsae"
     meta = [
@@ -264,83 +365,71 @@ def sheet_rows(payload: dict, lang: str) -> tuple[list[str], list[list[str]], li
             text["licence"],
             text["warning"],
         ]
-    body = []
+    coach_headers = [text["name"], text["sex"], text["birth"], text["licence"], text["warning"]]
+    athletes = []
+    coaches = []
     for row in payload.get("members") or []:
-        sex = text["female"] if row.get("sex") == "F" else text["male"]
-        licence = text.get(row.get("licence_status") or "none", text["none"])
-        age = text.get(row.get("age_class") or "", "")
-        division_code = row.get("poomsae_division") or ""
-        division_key = f"poomsae_{division_code}" if division_code in {"cadet", "junior"} else division_code
-        division = text.get(division_key, "")
-        shared = [
-            _full_name(row),
-            sex,
-            "" if row.get("birth_year") is None else str(row.get("birth_year")),
-        ]
-        if poomsae:
-            body.append(
-                [
-                    *shared,
-                    division,
-                    row.get("belt_rank") or "",
-                    "" if row.get("latest_height_cm") is None else str(row.get("latest_height_cm")),
-                    row.get("latest_height_on") or "",
-                    licence,
-                    _warnings(row, text),
-                ]
-            )
+        if row.get("role") == "coach":
+            coaches.append(_coach_row(row, text))
         else:
-            body.append(
-                [
-                    *shared,
-                    age,
-                    row.get("belt_rank") or "",
-                    row.get("latest_weight_kg") or "",
-                    row.get("latest_weight_on") or "",
-                    row.get("weight_category") or "",
-                    row.get("weight_delta_kg") or "",
-                    "" if row.get("latest_height_cm") is None else str(row.get("latest_height_cm")),
-                    row.get("latest_height_on") or "",
-                    licence,
-                    _warnings(row, text),
-                ]
-            )
-    return headers, body, meta
+            athletes.append(_athlete_row(row, text, poomsae=poomsae))
+    return {
+        "meta": meta,
+        "athlete_title": text["athletes"],
+        "coach_title": text["coaches"],
+        "headers": headers,
+        "athletes": athletes,
+        "coach_headers": coach_headers,
+        "coaches": coaches,
+    }
 
 
 def sheet_csv(payload: dict, lang: str) -> bytes:
-    headers, body, meta = sheet_rows(payload, lang)
+    sheet = sheet_rows(payload, lang)
     buffer = StringIO()
     writer = csv.writer(buffer)
-    for label, value in meta:
+    for label, value in sheet["meta"]:
         writer.writerow([label, value])
     writer.writerow([])
-    writer.writerow(headers)
-    writer.writerows(body)
+    writer.writerow([sheet["athlete_title"]])
+    writer.writerow(sheet["headers"])
+    writer.writerows(sheet["athletes"])
+    writer.writerow([])
+    writer.writerow([sheet["coach_title"]])
+    writer.writerow(sheet["coach_headers"])
+    writer.writerows(sheet["coaches"])
     return buffer.getvalue().encode("utf-8-sig")
+
+
+def _table(headers: list[str], body: list[list[str]]) -> str:
+    head = "".join(f"<th>{escape(cell)}</th>" for cell in headers)
+    rows = []
+    for row in body:
+        rows.append("<tr>" + "".join(f"<td>{escape(cell)}</td>" for cell in row) + "</tr>")
+    return f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
 
 
 def sheet_pdf(payload: dict, lang: str) -> bytes | None:
     if HTML is None:
         return None
-    headers, body, meta = sheet_rows(payload, lang)
-    meta_html = "".join(f"<p><strong>{escape(label)}.</strong> {escape(value)}</p>" for label, value in meta)
-    head = "".join(f"<th>{escape(cell)}</th>" for cell in headers)
-    rows = []
-    for row in body:
-        rows.append("<tr>" + "".join(f"<td>{escape(cell)}</td>" for cell in row) + "</tr>")
+    sheet = sheet_rows(payload, lang)
+    meta_html = "".join(f"<p><strong>{escape(label)}.</strong> {escape(value)}</p>" for label, value in sheet["meta"])
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 @page {{ size: A4 landscape; margin: 12mm; }}
 body {{ font-family: sans-serif; font-size: 9px; color: #1a1a1a; }}
 h1 {{ font-size: 16px; margin: 0 0 8px; }}
+h2 {{ font-size: 12px; margin: 12px 0 0; }}
 p {{ margin: 0 0 2px; }}
-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+table {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
 th, td {{ border: 1px solid #cccccc; padding: 3px 5px; text-align: left; vertical-align: top; }}
 th {{ background: #f2f4f7; }}
 </style></head><body>
 <h1>{escape(payload.get("name") or "")}</h1>
 {meta_html}
-<table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table>
+<h2>{escape(sheet["athlete_title"])}</h2>
+{_table(sheet["headers"], sheet["athletes"])}
+<h2>{escape(sheet["coach_title"])}</h2>
+{_table(sheet["coach_headers"], sheet["coaches"])}
 </body></html>"""
     return HTML(string=html).write_pdf()

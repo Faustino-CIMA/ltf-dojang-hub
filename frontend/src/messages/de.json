@@ -186,7 +186,21 @@
     "teamGroupsActions": "Zeilenaktionen",
     "teamGroupsDeleteTitle": "Eintrag löschen",
     "teamGroupsDeleteHint": "Dies entfernt {name}.",
-    "teamGroupsDeleteConfirm": "Eintrag löschen"
+    "teamGroupsDeleteConfirm": "Eintrag löschen",
+    "teamsMemberCount": "{athletes, plural, one {# Athlet} other {# Athleten}} · {coaches, plural, one {# Trainer} other {# Trainer}}",
+    "teamRoleAthlete": "Athlet",
+    "teamRoleCoach": "Trainer",
+    "teamRoleLabel": "Rolle",
+    "teamRoleChange": "Rolle für {name}",
+    "teamRoleHint": "Vereinstrainer stehen oben. Ein Trainer wird nicht gewogen oder eingeteilt und braucht trotzdem eine Lizenz.",
+    "teamClubCoach": "Vereinstrainer",
+    "teamCoachesHeading": "Trainer",
+    "teamAthletesHeading": "Athleten",
+    "teamCategoryNoBirthDate": "Kein Geburtsdatum",
+    "teamCategoryNoSex": "Kein Geschlecht",
+    "teamCategoryNoWeight": "Kein Gewicht",
+    "teamCategoryNoClass": "Keine WT-Kategorie für {ageClass}",
+    "teamCategoryYouth": "Jugend"
   },
   "LtfAdmin": {
     "memberCommitteeTab": "Vorstand",

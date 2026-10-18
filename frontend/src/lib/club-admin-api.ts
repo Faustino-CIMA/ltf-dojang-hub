@@ -90,7 +90,7 @@ export type Member = {
   latest_weight_on?: string | null;
   latest_height_cm?: number | null;
   latest_height_on?: string | null;
-  teams?: { id: number; name: string; discipline: "kyorugi" | "poomsae" }[];
+  teams?: { id: number; name: string; discipline: "kyorugi" | "poomsae"; role?: "athlete" | "coach" }[];
 };
 
 export type CurrentLicense = {

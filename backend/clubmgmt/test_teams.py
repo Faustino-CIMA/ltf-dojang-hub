@@ -222,7 +222,10 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(lea["poomsae_division"], "junior")
         mira = by_id[self.mira.id]
         self.assertEqual(mira["age_class"], "pupils")
+        self.assertEqual(mira["latest_weight_kg"], "30.0")
         self.assertEqual(mira["weight_category"], "")
+        self.assertEqual(mira["weight_category_reason"], "pupils")
+        self.assertEqual(mira["role"], "athlete")
         self.assertIsNone(mira["weight_delta_kg"])
         self.assertEqual(mira["poomsae_division"], "")
         self.assertEqual(mira["licence_status"], "none")
@@ -393,6 +396,150 @@ class ClubTeamApiTests(TestCase):
             format="json",
         )
         self.assertEqual(blocked.status_code, 403, blocked.data)
+
+    def test_coaches_and_blank_weight_category(self):
+        self._unlock()
+        year = timezone.localdate().year
+        self.coach.first_name = "Ann"
+        self.coach.last_name = "Keller"
+        self.coach.save(update_fields=["first_name", "last_name"])
+        coach_member = Member.objects.create(
+            club=self.club,
+            user=self.coach,
+            first_name="Ann",
+            last_name="Keller",
+            sex=Member.Sex.FEMALE,
+            date_of_birth=date(1980, 4, 4),
+        )
+        minimes = Member.objects.create(
+            club=self.club,
+            first_name="Noa",
+            last_name="Petit",
+            sex=Member.Sex.MALE,
+            date_of_birth=date(year - 10, 5, 5),
+        )
+        no_birth = Member.objects.create(club=self.club, first_name="Kim", last_name="Blank", sex=Member.Sex.FEMALE)
+        no_sex = Member.objects.create(
+            club=self.club,
+            first_name="Sam",
+            last_name="Unset",
+            sex="",
+            date_of_birth=date(year - 16, 1, 1),
+        )
+        height_only = Member.objects.create(
+            club=self.club,
+            first_name="Eva",
+            last_name="Tall",
+            sex=Member.Sex.FEMALE,
+            date_of_birth=date(year - 16, 2, 2),
+        )
+        older = Member.objects.create(
+            club=self.club,
+            first_name="Marc",
+            last_name="Senior",
+            sex=Member.Sex.MALE,
+            date_of_birth=date(year - 45, 3, 3),
+        )
+        BodyMeasurement.objects.create(member=minimes, measured_on=date(year, 6, 1), weight_kg=Decimal("32.5"))
+        BodyMeasurement.objects.create(member=no_birth, measured_on=date(year, 6, 1), weight_kg=Decimal("55.0"))
+        BodyMeasurement.objects.create(member=no_sex, measured_on=date(year, 6, 1), weight_kg=Decimal("62.4"))
+        BodyMeasurement.objects.create(member=height_only, measured_on=date(year, 5, 1), weight_kg=Decimal("54.0"))
+        BodyMeasurement.objects.create(member=height_only, measured_on=date(year, 8, 1), height_cm=170)
+        BodyMeasurement.objects.create(member=older, measured_on=date(year, 6, 1), weight_kg=Decimal("54.1"))
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.assertIn(coach_member.id, created.data["suggested_coach_ids"])
+        for member in (minimes, no_birth, no_sex, height_only, older, coach_member):
+            self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": member.id}, format="json")
+        promoted = self.client.patch(
+            f"/api/club-management/teams/{team_id}/members/{coach_member.id}/",
+            {"role": "coach"},
+            format="json",
+        )
+        self.assertEqual(promoted.status_code, 200, promoted.data)
+        self.assertEqual(promoted.data["athlete_count"], 5)
+        self.assertEqual(promoted.data["coach_count"], 1)
+        self.assertEqual(promoted.data["member_count"], 6)
+        listed = self.client.get(f"/api/club-management/teams/?club={self.club.id}")
+        listed_row = next(row for row in listed.data if row["id"] == team_id)
+        self.assertEqual(listed_row["athlete_count"], 5)
+        self.assertEqual(listed_row["coach_count"], 1)
+        by_id = {row["id"]: row for row in promoted.data["members"]}
+        self.assertEqual(by_id[minimes.id]["weight_category"], "")
+        self.assertEqual(by_id[minimes.id]["weight_category_reason"], "minimes")
+        self.assertEqual(by_id[minimes.id]["latest_weight_kg"], "32.5")
+        self.assertFalse(by_id[minimes.id]["weight_warning"])
+        self.assertEqual(by_id[no_birth.id]["weight_category_reason"], "no_birth_date")
+        self.assertEqual(by_id[no_sex.id]["weight_category_reason"], "no_sex")
+        self.assertEqual(by_id[height_only.id]["weight_category"], "-55 kg")
+        self.assertEqual(by_id[height_only.id]["latest_weight_kg"], "54.0")
+        self.assertEqual(by_id[height_only.id]["weight_category_reason"], "")
+        self.assertEqual(by_id[older.id]["age_class"], "senior")
+        self.assertEqual(by_id[older.id]["weight_category"], "-58 kg")
+        coach_row = by_id[coach_member.id]
+        self.assertEqual(coach_row["role"], "coach")
+        self.assertEqual(coach_row["age_class"], "")
+        self.assertEqual(coach_row["weight_category"], "")
+        self.assertEqual(coach_row["weight_category_reason"], "")
+        self.assertFalse(coach_row["weight_warning"])
+        dated = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {"competition_on": f"{year}-09-12"},
+            format="json",
+        )
+        dated_rows = {row["id"]: row for row in dated.data["members"]}
+        self.assertEqual(dated_rows[coach_member.id]["licence_warning"], "missing")
+        self.assertEqual(dated_rows[older.id]["weight_category"], "-58 kg")
+        weighed = self.client.post(
+            f"/api/club-management/teams/{team_id}/weigh-in/",
+            {
+                "measured_on": f"{year}-09-01",
+                "entries": [
+                    {"member": coach_member.id, "weight_kg": "70.0"},
+                    {"member": minimes.id, "weight_kg": "33.0"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(weighed.status_code, 200, weighed.data)
+        self.assertEqual(weighed.data["created"], 1)
+        self.assertFalse(BodyMeasurement.objects.filter(member=coach_member).exists())
+        forms = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Poomsae A", "discipline": "poomsae"},
+            format="json",
+        )
+        forms_id = forms.data["id"]
+        self.client.post(
+            f"/api/club-management/teams/{forms_id}/members/",
+            {"member": coach_member.id, "role": "coach"},
+            format="json",
+        )
+        self.client.post(f"/api/club-management/teams/{forms_id}/members/", {"member": minimes.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{forms_id}/members/", {"member": no_birth.id}, format="json")
+        refused = self.client.post(
+            f"/api/club-management/teams/{forms_id}/groups/",
+            {"kind": "pair", "members": [coach_member.id, minimes.id]},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertIn("member_not_on_team", str(refused.data))
+        sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en")
+        text = sheet.content.decode("utf-8-sig")
+        self.assertIn("Athletes", text)
+        self.assertIn("Coaches", text)
+        self.assertIn("No WT category for Minimes", text)
+        self.assertIn("KELLER Ann", text)
+        self.assertNotIn("70.0", text)
+        member = self.client.get(f"/api/members/{coach_member.id}/")
+        roles = {row["name"]: row["role"] for row in member.data["teams"]}
+        self.assertEqual(roles["Cadets"], "coach")
+        self.assertEqual(roles["Poomsae A"], "coach")
 
 
 class WeightClassRuleTests(SimpleTestCase):

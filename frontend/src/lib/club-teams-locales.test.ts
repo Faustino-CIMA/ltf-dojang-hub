@@ -44,6 +44,20 @@ const KEYS = [
   "teamGroupsPair",
   "teamGroupsTeam",
   "teamGroupsDeleteConfirm",
+  "teamsMemberCount",
+  "teamRoleAthlete",
+  "teamRoleCoach",
+  "teamRoleLabel",
+  "teamRoleChange",
+  "teamRoleHint",
+  "teamClubCoach",
+  "teamCoachesHeading",
+  "teamAthletesHeading",
+  "teamCategoryNoBirthDate",
+  "teamCategoryNoSex",
+  "teamCategoryNoWeight",
+  "teamCategoryNoClass",
+  "teamCategoryYouth",
 ] as const;
 
 describe("Club team copy", () => {
@@ -60,5 +74,8 @@ describe("Club team copy", () => {
     expect(club.teamsDeleteHint).toContain("{name}");
     expect(club.teamWeightMarginHint).toContain("{margin}");
     expect(club.teamGroupsDeleteHint).toContain("{name}");
+    expect(club.teamsMemberCount).toContain("{athletes");
+    expect(club.teamCategoryNoClass).toContain("{ageClass}");
+    expect(club.teamRoleChange).toContain("{name}");
   });
 });

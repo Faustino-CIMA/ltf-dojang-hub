@@ -73,6 +73,30 @@ function licenceLabel(t: Translator, status: string | undefined) {
   return t("teamRosterLicenceNone");
 }
 
+const CATEGORY_AGE_KEYS: Record<string, string> = {
+  pupils: "nationalTeamAgePupils",
+  minimes: "nationalTeamAgeMinimes",
+  youth: "teamCategoryYouth",
+};
+
+function categoryCell(t: Translator, member: TeamMember) {
+  if (member.role === "coach") return <span className="text-muted">—</span>;
+  if (member.weight_category) return member.weight_category;
+  const reason = member.weight_category_reason;
+  const ageKey = reason ? CATEGORY_AGE_KEYS[reason] : undefined;
+  const text = ageKey
+    ? t("teamCategoryNoClass", { ageClass: t(ageKey) })
+    : reason === "no_birth_date"
+      ? t("teamCategoryNoBirthDate")
+      : reason === "no_sex"
+        ? t("teamCategoryNoSex")
+        : reason === "no_weight"
+          ? t("teamCategoryNoWeight")
+          : "";
+  if (!text) return <span className="text-muted">—</span>;
+  return <span className="text-muted">{text}</span>;
+}
+
 function signedKg(t: Translator, value: string | null | undefined) {
   if (!value) return "—";
   const signed = value.startsWith("-") || value.startsWith("+") || Number(value) === 0 ? value : `+${value}`;
@@ -154,7 +178,13 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
   }, [teamId]);
 
   const rows = team?.members ?? [];
+  const athletes = rows.filter((row) => row.role !== "coach");
+  const coaches = rows.filter((row) => row.role === "coach");
   const poomsae = team?.discipline === "poomsae";
+
+  function reloadTeam() {
+    void getClubTeam(teamId).then((row) => setTeam(row));
+  }
 
   const columns = useMemo<Array<EntityTableColumn<TeamMember>>>(() => {
     const name: EntityTableColumn<TeamMember> = {
@@ -164,7 +194,12 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       sortValue: (row) => fullNameSortKey(row),
       headerClassName: nowrap,
       cellClassName: nowrap,
-      render: (row) => formatFullName(row),
+      render: (row) => (
+        <span className="inline-flex items-center gap-2">
+          <span>{formatFullName(row)}</span>
+          {row.role === "coach" ? <StatusBadge label={t("teamRoleCoach")} tone="info" /> : null}
+        </span>
+      ),
     };
     const sex: EntityTableColumn<TeamMember> = {
       key: "sex",
@@ -173,9 +208,12 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       sortValue: (row) => row.sex ?? "",
       headerClassName: `w-12 text-center ${nowrap}`,
       cellClassName: `w-12 text-center ${nowrap}`,
-      render: (row) => (
-        <span aria-label={row.sex === "F" ? t("sexFemale") : t("sexMale")}>{row.sex === "F" ? "♀" : "♂"}</span>
-      ),
+      render: (row) =>
+        row.sex === "F" || row.sex === "M" ? (
+          <span aria-label={row.sex === "F" ? t("sexFemale") : t("sexMale")}>{row.sex === "F" ? "♀" : "♂"}</span>
+        ) : (
+          <span className="text-muted">—</span>
+        ),
     };
     const birth: EntityTableColumn<TeamMember> = {
       key: "birth_year",
@@ -269,7 +307,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
         sortValue: (row) => row.weight_category || null,
         headerClassName: nowrap,
         cellClassName: nowrap,
-        render: (row) => row.weight_category || "—",
+        render: (row) => categoryCell(t, row),
       },
       {
         key: "weight_delta_kg",
@@ -319,17 +357,44 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
           {poomsae ? <p className="text-xs text-muted">{t("teamPoomsaeSource")}</p> : (
             <p className="text-xs text-muted">{t("teamWeightMarginHint", { margin: team.weight_margin_kg ?? "1.0" })}</p>
           )}
-          <EntityTable
-            columns={columns}
-            rows={rows}
-            sort={sort}
-            onSortChange={setSort}
-            clientSort
-            onRowClick={(row) => setExpandedId((current) => (current === row.id ? null : row.id))}
-            renderDetail={(row) =>
-              expandedId === row.id ? <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded /> : null
-            }
-          />
+          {coaches.length > 0 ? (
+            <section className="space-y-2" aria-labelledby="team-coaches-heading">
+              <h3 id="team-coaches-heading" className="text-sm font-medium text-foreground">{t("teamCoachesHeading")}</h3>
+              <EntityTable
+                columns={columns}
+                rows={coaches}
+                sort={sort}
+                onSortChange={setSort}
+                clientSort
+                onRowClick={(row) => setExpandedId((current) => (current === row.id ? null : row.id))}
+                renderDetail={(row) =>
+                  expandedId === row.id ? (
+                    <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded onChanged={reloadTeam} />
+                  ) : null
+                }
+              />
+            </section>
+          ) : null}
+          <section className="space-y-2" aria-labelledby={coaches.length > 0 ? "team-athletes-heading" : undefined}>
+            {coaches.length > 0 ? (
+              <h3 id="team-athletes-heading" className="text-sm font-medium text-foreground">{t("teamAthletesHeading")}</h3>
+            ) : null}
+            {athletes.length === 0 ? <p className="text-sm text-muted">{t("teamsNoMembers")}</p> : (
+              <EntityTable
+                columns={columns}
+                rows={athletes}
+                sort={sort}
+                onSortChange={setSort}
+                clientSort
+                onRowClick={(row) => setExpandedId((current) => (current === row.id ? null : row.id))}
+                renderDetail={(row) =>
+                  expandedId === row.id ? (
+                    <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded onChanged={reloadTeam} />
+                  ) : null
+                }
+              />
+            )}
+          </section>
         </>
       ) : null}
       {!loading && team && poomsae ? <TeamGroups team={team} onChanged={setTeam} /> : null}

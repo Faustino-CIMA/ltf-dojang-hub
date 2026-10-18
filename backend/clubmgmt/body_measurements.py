@@ -145,13 +145,33 @@ def suggest_age_class(date_of_birth, season_year: int) -> str:
 
 
 def kyorugi_category(weight_kg: Decimal, age_class: str, sex: str) -> str:
-    ceilings = _KYORUGI_CEILINGS.get((age_class, sex))
+    ceilings = _KYORUGI_CEILINGS.get((age_class, str(sex or "").strip().upper()))
     if ceilings is None or weight_kg is None:
         return ""
     for ceiling in ceilings:
         if weight_kg <= Decimal(ceiling):
             return f"-{ceiling} kg"
     return f"+{ceilings[-1]} kg"
+
+
+def category_reason(date_of_birth, age_class: str, sex: str, weight_kg) -> str:
+    """Why a world Kyorugi category is blank. Empty when one can be computed.
+
+    Pupils, Minimes, and Youth have no world category. A senior of any age
+    still does. A later height-only entry does not erase an earlier weight;
+    that case is "no weight" only when no weight exists at all.
+    """
+    if date_of_birth is None:
+        return "no_birth_date"
+    if str(sex or "").strip().upper() not in {"M", "F"}:
+        return "no_sex"
+    if age_class in {"youth", "pupils", "minimes"}:
+        return age_class
+    if age_class not in {"cadet", "junior", "senior"}:
+        return "no_birth_date"
+    if weight_kg is None:
+        return "no_weight"
+    return ""
 
 
 def weight_close_to_limit(delta: str | None, category: str, margin: Decimal) -> bool:

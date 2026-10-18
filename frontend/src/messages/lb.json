@@ -1584,7 +1584,21 @@
     "teamGroupsActions": "Zeilenaktiounen",
     "teamGroupsDeleteTitle": "Entrée läschen",
     "teamGroupsDeleteHint": "Dëst hëlt {name} ewech.",
-    "teamGroupsDeleteConfirm": "Entrée läschen"
+    "teamGroupsDeleteConfirm": "Entrée läschen",
+    "teamsMemberCount": "{athletes, plural, one {# Athlet} other {# Athleten}} · {coaches, plural, one {# Trainer} other {# Traineren}}",
+    "teamRoleAthlete": "Athlet",
+    "teamRoleCoach": "Trainer",
+    "teamRoleLabel": "Roll",
+    "teamRoleChange": "Roll fir {name}",
+    "teamRoleHint": "Veräinstrainer stinn uewen. En Trainer gëtt net gewien oder agedeelt a brauch trotzdem eng Lizenz.",
+    "teamClubCoach": "Veräinstrainer",
+    "teamCoachesHeading": "Traineren",
+    "teamAthletesHeading": "Athleten",
+    "teamCategoryNoBirthDate": "Kee Gebuertsdatum",
+    "teamCategoryNoSex": "Kee Geschlecht",
+    "teamCategoryNoWeight": "Kee Gewiicht",
+    "teamCategoryNoClass": "Keng WT-Kategorie fir {ageClass}",
+    "teamCategoryYouth": "Jugend"
   },
   "LtfFinance": {
     "navOverview": "Iwwersiicht",

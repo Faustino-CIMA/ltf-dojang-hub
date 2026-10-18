@@ -306,7 +306,7 @@ class MemberSerializer(serializers.ModelSerializer):
                 return []
             rows = obj.team_memberships.select_related("team").order_by("team__name", "team_id")
         return [
-            {"id": row.team_id, "name": row.team.name, "discipline": row.team.discipline}
+            {"id": row.team_id, "name": row.team.name, "discipline": row.team.discipline, "role": row.role}
             for row in rows
         ]
 

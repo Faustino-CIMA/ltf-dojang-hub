@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { getMembersList, type Member } from "@/lib/club-admin-api";
 import {
   addTeamMember,
@@ -21,6 +22,7 @@ import {
   getClubTeams,
   removeTeamMember,
   saveClubTeam,
+  updateTeamMemberRole,
   type ClubTeam,
   type TeamDiscipline,
 } from "@/lib/club-teams-api";
@@ -174,6 +176,7 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
   const [detail, setDetail] = useState<ClubTeam | null>(null);
   const [roster, setRoster] = useState<Member[]>([]);
   const [query, setQuery] = useState("");
+  const [role, setRole] = useState<"athlete" | "coach">("athlete");
   useEffect(() => {
     let cancelled = false;
     void getClubTeam(team.id).then((payload) => {
@@ -191,8 +194,20 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
   const needle = query.trim().toLowerCase();
   const matches = (person: { first_name: string; last_name: string }) =>
     formatFullName(person).toLowerCase().includes(needle);
-  const available = roster.filter((member) => !memberIds.has(member.id) && matches(member));
+  const suggested = new Set(detail?.suggested_coach_ids ?? []);
+  const available = roster
+    .filter((member) => !memberIds.has(member.id) && matches(member))
+    .sort((left, right) => {
+      const leftCoach = suggested.has(left.id) ? 0 : 1;
+      const rightCoach = suggested.has(right.id) ? 0 : 1;
+      if (leftCoach !== rightCoach) return leftCoach - rightCoach;
+      return formatFullName(left).localeCompare(formatFullName(right));
+    });
   const current = members.filter((member) => matches(member));
+  const roleOptions = [
+    { value: "athlete", label: t("teamRoleAthlete") },
+    { value: "coach", label: t("teamRoleCoach") },
+  ];
 
   function refresh(next: ClubTeam) {
     setDetail(next);
@@ -206,13 +221,25 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
         <div>
           <p className="text-sm font-medium text-foreground">{t("teamsOnTeam")}</p>
           {current.length === 0 ? <p className="mt-2 text-sm text-muted">{needle ? t("teamsNoMatches") : t("teamsNoMembers")}</p> : (
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-2 space-y-3">
               {current.map((member) => (
-                <li key={member.id} className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-foreground">{formatFullName(member)}</span>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void removeTeamMember(team.id, member.id).then(refresh)}>
-                    {t("teamsRemoveMember")}
-                  </Button>
+                <li key={member.id} className="space-y-2">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2 text-sm text-foreground">
+                      <span>{formatFullName(member)}</span>
+                      {member.role === "coach" ? <StatusBadge label={t("teamRoleCoach")} tone="info" /> : null}
+                    </span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void removeTeamMember(team.id, member.id).then(refresh)}>
+                      {t("teamsRemoveMember")}
+                    </Button>
+                  </span>
+                  <PopoverSelect
+                    className="w-full"
+                    ariaLabel={t("teamRoleChange", { name: formatFullName(member) })}
+                    value={member.role === "coach" ? "coach" : "athlete"}
+                    onValueChange={(value) => void updateTeamMemberRole(team.id, member.id, value as "athlete" | "coach").then(refresh)}
+                    options={roleOptions}
+                  />
                 </li>
               ))}
             </ul>
@@ -220,12 +247,26 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
         </div>
         <div>
           <p className="text-sm font-medium text-foreground">{t("teamsAddMember")}</p>
+          <div className="mt-2 space-y-2">
+            <Label>{t("teamRoleLabel")}</Label>
+            <PopoverSelect
+              className="w-full"
+              ariaLabel={t("teamRoleLabel")}
+              value={role}
+              onValueChange={(value) => setRole(value as "athlete" | "coach")}
+              options={roleOptions}
+            />
+            <p className="text-sm text-muted">{t("teamRoleHint")}</p>
+          </div>
           {available.length === 0 ? <p className="mt-2 text-sm text-muted">{t("teamsNoMatches")}</p> : (
             <ul className="mt-2 space-y-2">
               {available.map((member) => (
                 <li key={member.id} className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-foreground">{formatFullName(member)}</span>
-                  <Button type="button" size="sm" onClick={() => void addTeamMember(team.id, member.id).then(refresh)}>
+                  <span className="text-sm text-foreground">
+                    {formatFullName(member)}
+                    {suggested.has(member.id) ? <span className="ml-2 text-muted">{t("teamClubCoach")}</span> : null}
+                  </span>
+                  <Button type="button" size="sm" onClick={() => void addTeamMember(team.id, member.id, role).then(refresh)}>
                     {t("teamsAddMember")}
                   </Button>
                 </li>
@@ -286,6 +327,11 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
         header: t("teamsMembersColumn"),
         sortable: true,
         sortValue: (row) => row.member_count,
+        render: (row) =>
+          t("teamsMemberCount", {
+            athletes: row.athlete_count ?? row.member_count,
+            coaches: row.coach_count ?? 0,
+          }),
       },
       { key: "note", header: t("teamsNoteColumn"), sortable: true, sortValue: (row) => row.note, render: (row) => row.note || "—" },
       {

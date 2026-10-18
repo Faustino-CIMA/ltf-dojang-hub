@@ -33,12 +33,17 @@ class ClubTeam(models.Model):
 
 
 class ClubTeamMembership(models.Model):
+    class Role(models.TextChoices):
+        ATHLETE = "athlete", "Athlete"
+        COACH = "coach", "Coach"
+
     team = models.ForeignKey(ClubTeam, on_delete=models.CASCADE, related_name="memberships")
     member = models.ForeignKey(
         "members.Member",
         on_delete=models.CASCADE,
         related_name="team_memberships",
     )
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.ATHLETE)
 
     class Meta:
         ordering = ["member__last_name", "member__first_name", "id"]
