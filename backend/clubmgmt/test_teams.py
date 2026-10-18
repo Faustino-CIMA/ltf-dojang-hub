@@ -234,6 +234,166 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(shared["latest_weight_on"], lea["latest_weight_on"])
         self.assertEqual(shared["poomsae_division"], "junior")
 
+    def test_weigh_in_competition_warnings_export_and_poomsae_groups(self):
+        self._unlock()
+        year = timezone.localdate().year
+        self.lea.date_of_birth = date(year - 16, 6, 1)
+        self.lea.belt_rank = "4th Kup"
+        self.lea.save()
+        self.mira.date_of_birth = date(year - 12, 3, 1)
+        self.mira.sex = Member.Sex.MALE
+        self.mira.save()
+        noa = Member.objects.create(
+            club=self.club,
+            first_name="Noa",
+            last_name="Hoffmann",
+            sex=Member.Sex.FEMALE,
+            date_of_birth=date(year - 16, 1, 2),
+        )
+        license_type = LicenseType.objects.create(name="Athlete", code="ath-extra")
+        License.objects.create(
+            member=self.lea,
+            club=self.club,
+            license_type=license_type,
+            year=year,
+            start_date=date(year, 1, 1),
+            end_date=date(year, 6, 30),
+            status=License.Status.ACTIVE,
+        )
+        BodyMeasurement.objects.create(member=self.lea, measured_on=date(year, 8, 20), weight_kg=Decimal("62.4"), height_cm=170)
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.assertEqual(created.data["weight_margin_kg"], "1.0")
+        for member in (self.lea, self.mira):
+            self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": member.id}, format="json")
+        weighed = self.client.post(
+            f"/api/club-management/teams/{team_id}/weigh-in/",
+            {
+                "measured_on": f"{year}-09-01",
+                "entries": [
+                    {"member": self.mira.id, "weight_kg": "30.0"},
+                    {"member": self.lea.id, "weight_kg": ""},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(weighed.status_code, 200, weighed.data)
+        self.assertEqual(weighed.data["created"], 1)
+        mira = next(row for row in weighed.data["team"]["members"] if row["id"] == self.mira.id)
+        self.assertEqual(mira["latest_weight_kg"], "30.0")
+        self.assertEqual(mira["latest_weight_on"], f"{year}-09-01")
+        competition = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {
+                "competition_on": f"{year}-09-12",
+                "competition_name": "Open",
+                "weight_margin_kg": "1.0",
+            },
+            format="json",
+        )
+        self.assertEqual(competition.status_code, 200, competition.data)
+        detail = self.client.get(f"/api/club-management/teams/{team_id}/")
+        by_id = {row["id"]: row for row in detail.data["members"]}
+        lea = by_id[self.lea.id]
+        mira_row = by_id[self.mira.id]
+        self.assertEqual(detail.data["competition_name"], "Open")
+        self.assertEqual(lea["age_class"], "junior")
+        self.assertEqual(lea["weight_category"], "-63 kg")
+        self.assertEqual(lea["weight_delta_kg"], "-0.6")
+        self.assertTrue(lea["weight_warning"])
+        self.assertEqual(lea["licence_warning"], "expires")
+        self.assertEqual(mira_row["licence_warning"], "missing")
+        self.assertFalse(mira_row["weight_warning"])
+        later = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {"competition_on": f"{year + 1}-03-01"},
+            format="json",
+        )
+        aged = next(row for row in later.data["members"] if row["id"] == self.lea.id)
+        self.assertEqual(aged["age_class"], "senior")
+        sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en")
+        self.assertEqual(sheet.status_code, 200, sheet.content)
+        text = sheet.content.decode("utf-8-sig")
+        self.assertIn("Cadets", text)
+        self.assertIn("Kyorugi", text)
+        self.assertIn("62.4", text)
+        self.assertIn("Licence expires before the competition", text)
+        pdf = self.client.get(f"/api/club-management/teams/{team_id}/sheet.pdf?lang=fr")
+        self.assertEqual(pdf.status_code, 200, pdf.content[:20])
+        self.assertTrue(pdf.content.startswith(b"%PDF"))
+        refused = self.client.post(
+            f"/api/club-management/teams/{team_id}/groups/",
+            {"kind": "pair", "members": [self.lea.id, self.mira.id]},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertIn("group_discipline", str(refused.data))
+
+        poomsae = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Poomsae A", "discipline": "poomsae"},
+            format="json",
+        )
+        poomsae_id = poomsae.data["id"]
+        for member in (self.lea, self.mira, noa):
+            self.client.post(f"/api/club-management/teams/{poomsae_id}/members/", {"member": member.id}, format="json")
+        same_sex = self.client.post(
+            f"/api/club-management/teams/{poomsae_id}/groups/",
+            {"kind": "pair", "members": [self.lea.id, noa.id]},
+            format="json",
+        )
+        self.assertEqual(same_sex.status_code, 400, same_sex.data)
+        self.assertIn("pair_mixed", str(same_sex.data))
+        pair = self.client.post(
+            f"/api/club-management/teams/{poomsae_id}/groups/",
+            {"kind": "pair", "name": "A", "members": [self.lea.id, self.mira.id]},
+            format="json",
+        )
+        self.assertEqual(pair.status_code, 201, pair.data)
+        self.assertEqual(pair.data["groups"][0]["kind"], "pair")
+        self.assertEqual({row["id"] for row in pair.data["groups"][0]["members"]}, {self.lea.id, self.mira.id})
+        too_small = self.client.post(
+            f"/api/club-management/teams/{poomsae_id}/groups/",
+            {"kind": "team", "members": [self.lea.id, noa.id]},
+            format="json",
+        )
+        self.assertEqual(too_small.status_code, 400, too_small.data)
+        self.assertIn("team_size", str(too_small.data))
+        third = Member.objects.create(
+            club=self.club,
+            first_name="Eva",
+            last_name="Martin",
+            sex=Member.Sex.FEMALE,
+            date_of_birth=date(year - 15, 4, 4),
+        )
+        self.client.post(f"/api/club-management/teams/{poomsae_id}/members/", {"member": third.id}, format="json")
+        mixed_trio = self.client.post(
+            f"/api/club-management/teams/{poomsae_id}/groups/",
+            {"kind": "team", "members": [self.lea.id, noa.id, self.mira.id]},
+            format="json",
+        )
+        self.assertEqual(mixed_trio.status_code, 400, mixed_trio.data)
+        self.assertIn("team_same_sex", str(mixed_trio.data))
+        trio = self.client.post(
+            f"/api/club-management/teams/{poomsae_id}/groups/",
+            {"kind": "team", "name": "Forms", "members": [self.lea.id, noa.id, third.id]},
+            format="json",
+        )
+        self.assertEqual(trio.status_code, 201, trio.data)
+        self.assertEqual({row["kind"] for row in trio.data["groups"]}, {"pair", "team"})
+        self._auth(self.ltf_admin)
+        blocked = self.client.post(
+            f"/api/club-management/teams/{team_id}/weigh-in/",
+            {"measured_on": f"{year}-09-01", "entries": [{"member": self.lea.id, "weight_kg": "60.0"}]},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 403, blocked.data)
+
 
 class WeightClassRuleTests(SimpleTestCase):
     def test_margin_and_poomsae_divisions(self):

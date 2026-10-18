@@ -5,6 +5,7 @@ import { getBodyMeasurements, type MeasurementList } from "@/lib/body-measuremen
 import { getClubTeam, type ClubTeam } from "@/lib/club-teams-api";
 
 jest.mock("next-intl", () => ({
+  useLocale: () => "en",
   useTranslations: () => (key: string, values?: Record<string, string | number>) =>
     values ? `${key}:${JSON.stringify(values)}` : key,
 }));

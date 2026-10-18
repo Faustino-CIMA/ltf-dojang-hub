@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { disciplineLabel } from "@/components/club-admin/club-teams-desk";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { HeightWeightSection } from "@/components/club-admin/height-weight-section";
+import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
+import { TeamGroups } from "@/components/club-admin/team-groups";
+import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
-import { getClubTeam, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
+import { downloadTeamSheet, getClubTeam, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName, fullNameSortKey } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
@@ -85,12 +88,41 @@ function measuredCell(value: string, date: string | null | undefined) {
   );
 }
 
-function licenceCell(t: Translator, status: string | undefined) {
-  if (!status || status === "none") {
-    return <span className="text-muted">{t("teamRosterLicenceNone")}</span>;
-  }
-  const tone = status === "active" ? "success" : status === "pending" ? "warning" : "neutral";
-  return <StatusBadge label={licenceLabel(t, status)} tone={tone} />;
+function licenceCell(t: Translator, member: TeamMember) {
+  const status = member.licence_status;
+  const warning = member.licence_warning;
+  const marker =
+    warning === "expires" ? (
+      <span className="badge-warning inline-flex items-center rounded-[var(--radius-chip)] border px-2 py-0.5 text-xs font-medium">{t("teamLicenceExpires")}</span>
+    ) : warning === "missing" ? (
+      <span className="badge-warning inline-flex items-center rounded-[var(--radius-chip)] border px-2 py-0.5 text-xs font-medium">{t("teamLicenceMissing")}</span>
+    ) : null;
+  const statusNode =
+    !status || status === "none" ? (
+      <span className="text-muted">{t("teamRosterLicenceNone")}</span>
+    ) : (
+      <StatusBadge label={licenceLabel(t, status)} tone={status === "active" ? "success" : status === "pending" ? "warning" : "neutral"} />
+    );
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      {statusNode}
+      {marker}
+    </span>
+  );
+}
+
+function weightCell(t: Translator, member: TeamMember) {
+  const value = signedKg(t, member.weight_delta_kg);
+  if (!member.weight_warning) return value;
+  const over = member.weight_delta_kg != null && Number(member.weight_delta_kg) > 0;
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <span>{value}</span>
+      <span className="badge-warning inline-flex items-center rounded-[var(--radius-chip)] border px-2 py-0.5 text-xs font-medium">
+        {over ? t("teamWeightOver") : t("teamWeightNear")}
+      </span>
+    </span>
+  );
 }
 
 export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => void }) {
@@ -98,7 +130,10 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
   const [team, setTeam] = useState<ClubTeam | null>(null);
   const [loadedId, setLoadedId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [panel, setPanel] = useState<"weigh" | "competition" | null>(null);
   const [sort, setSort] = useState<TableSort>({ key: "name", direction: "asc" });
+  const locale = useLocale();
   const loading = loadedId !== teamId;
 
   useEffect(() => {
@@ -180,7 +215,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       sortValue: (row) => LICENCE_RANK[row.licence_status ?? "none"] ?? 0,
       headerClassName: nowrap,
       cellClassName: nowrap,
-      render: (row) => licenceCell(t, row.licence_status),
+      render: (row) => licenceCell(t, row),
     };
     if (poomsae) {
       return [
@@ -243,7 +278,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
         sortValue: (row) => (row.weight_delta_kg ? Number(row.weight_delta_kg) : null),
         headerClassName: nowrap,
         cellClassName: `tabular-nums ${nowrap}`,
-        render: (row) => signedKg(t, row.weight_delta_kg),
+        render: (row) => weightCell(t, row),
       },
       height,
       licence,
@@ -256,10 +291,23 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
         <div className="min-w-0">
           <h2 className="text-section text-foreground">{team?.name ?? t("teamsTitle")}</h2>
           {team ? <p className="mt-1 text-sm text-muted">{disciplineLabel(t, team.discipline)}</p> : null}
+          {team?.competition_on ? (
+            <p className="mt-1 text-sm text-foreground">
+              {[team.competition_name, formatDisplayDate(team.competition_on)].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
         </div>
-        <Button type="button" variant="outline" onClick={onBack}>
-          {t("teamRosterBack")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {team ? (
+            <>
+              <Button type="button" variant="outline" onClick={() => setPanel("weigh")}>{t("teamWeighIn")}</Button>
+              <Button type="button" variant="outline" onClick={() => setPanel("competition")}>{t("teamCompetition")}</Button>
+              <Button type="button" variant="outline" onClick={() => void downloadTeamSheet(team.id, "csv", locale)}>{t("teamExportCsv")}</Button>
+              <Button type="button" variant="outline" onClick={() => void downloadTeamSheet(team.id, "pdf", locale)}>{t("teamExportPdf")}</Button>
+            </>
+          ) : null}
+          <Button type="button" variant="outline" onClick={onBack}>{t("teamRosterBack")}</Button>
+        </div>
       </div>
       {loading ? <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading /> : null}
       {!loading && !team ? <EmptyState title={t("teamsEmptyTitle")} description={t("teamsEmptySubtitle")} /> : null}
@@ -268,7 +316,9 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       ) : null}
       {!loading && team && rows.length > 0 ? (
         <>
-          {poomsae ? <p className="text-xs text-muted">{t("teamPoomsaeSource")}</p> : null}
+          {poomsae ? <p className="text-xs text-muted">{t("teamPoomsaeSource")}</p> : (
+            <p className="text-xs text-muted">{t("teamWeightMarginHint", { margin: team.weight_margin_kg ?? "1.0" })}</p>
+          )}
           <EntityTable
             columns={columns}
             rows={rows}
@@ -277,10 +327,25 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
             clientSort
             onRowClick={(row) => setExpandedId((current) => (current === row.id ? null : row.id))}
             renderDetail={(row) =>
-              expandedId === row.id ? <HeightWeightSection memberId={row.id} embedded /> : null
+              expandedId === row.id ? <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded /> : null
             }
           />
         </>
+      ) : null}
+      {!loading && team && poomsae ? <TeamGroups team={team} onChanged={setTeam} /> : null}
+      {panel === "weigh" && team ? (
+        <TeamWeighInPanel
+          team={team}
+          onClose={() => setPanel(null)}
+          onSaved={(next) => {
+            setTeam(next);
+            setReloadToken((value) => value + 1);
+            setPanel(null);
+          }}
+        />
+      ) : null}
+      {panel === "competition" && team ? (
+        <TeamCompetitionPanel team={team} onClose={() => setPanel(null)} onSaved={(next) => { setTeam(next); setPanel(null); }} />
       ) : null}
     </div>
   );

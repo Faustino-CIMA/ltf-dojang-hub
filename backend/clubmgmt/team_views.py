@@ -1,6 +1,9 @@
-from decimal import Decimal
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
 from django.db.models import Count
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -12,13 +15,17 @@ from licenses.models import License
 from members.models import Member
 
 from .body_measurements import (
+    BodyMeasurement,
     annotate_latest_measurements,
+    apply_measurement_fields,
     kyorugi_margin,
     measurement_club_ids,
     poomsae_division,
     suggest_age_class,
+    weight_close_to_limit,
 )
-from .teams import ClubTeam, ClubTeamMembership
+from .team_sheet import sheet_csv, sheet_pdf
+from .teams import ClubTeam, ClubTeamGroup, ClubTeamGroupMember, ClubTeamMembership
 
 
 def _managed_clubs(user) -> set[int]:
@@ -53,7 +60,50 @@ def _clean_fields(data, *, creating: bool) -> dict:
         cleaned["discipline"] = discipline
     if creating or "note" in data:
         cleaned["note"] = str(data.get("note") or "").strip()[:240]
+    if "competition_on" in data:
+        cleaned["competition_on"] = _parse_competition_date(data.get("competition_on"))
+    if "competition_name" in data:
+        cleaned["competition_name"] = str(data.get("competition_name") or "").strip()[:120]
+    if "weight_margin_kg" in data:
+        cleaned["weight_margin_kg"] = _parse_margin(data.get("weight_margin_kg"))
     return cleaned
+
+
+def _parse_margin(value):
+    if value in (None, ""):
+        return Decimal("1.0")
+    try:
+        margin = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValidationError({"weight_margin_kg": "margin_out_of_range"}) from exc
+    if margin.as_tuple().exponent < -1 or margin < 0 or margin > Decimal("20"):
+        raise ValidationError({"weight_margin_kg": "margin_out_of_range"})
+    return margin.quantize(Decimal("0.1"))
+
+
+def _parse_competition_date(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError as exc:
+        raise ValidationError({"competition_on": "date_required"}) from exc
+
+
+def _licence_covers(member: Member, competition_on: date | None) -> str:
+    """Warning when no licence is still valid on the competition date."""
+    if competition_on is None:
+        return ""
+    expired_before = False
+    for lic in member.licenses.all():
+        if lic.status == License.Status.REVOKED or lic.end_date is None:
+            continue
+        if lic.end_date >= competition_on:
+            return ""
+        expired_before = True
+    return "expires" if expired_before else "missing"
 
 
 def _licence_status(member: Member) -> str:
@@ -72,8 +122,13 @@ def _iso(value):
 
 
 def _roster_members(team: ClubTeam) -> list[dict]:
-    """Athlete rows for one team. Measurements stay on the member."""
-    year = timezone.localdate().year
+    """Athlete rows for one team. Measurements stay on the member.
+
+    Age class, Poomsae division, and the WT category use the competition
+    year's calendar age when a competition date is set.
+    """
+    year = team.competition_on.year if team.competition_on else timezone.localdate().year
+    margin = team.weight_margin_kg if team.weight_margin_kg is not None else Decimal("1.0")
     queryset = annotate_latest_measurements(
         Member.objects.filter(team_memberships__team=team),
         {team.club_id},
@@ -99,10 +154,30 @@ def _roster_members(team: ClubTeam) -> list[dict]:
                 "latest_height_on": _iso(member.latest_height_on),
                 "weight_category": category,
                 "weight_delta_kg": delta,
+                "weight_warning": weight_close_to_limit(delta, category, margin),
                 "licence_status": _licence_status(member),
+                "licence_warning": _licence_covers(member, team.competition_on),
             }
         )
     return rows
+
+
+def _group_payload(group: ClubTeamGroup) -> dict:
+    slots = group.slots.select_related("member").order_by("position", "id")
+    return {
+        "id": group.id,
+        "kind": group.kind,
+        "name": group.name,
+        "members": [
+            {
+                "id": slot.member_id,
+                "first_name": slot.member.first_name,
+                "last_name": slot.member.last_name,
+                "sex": slot.member.sex,
+            }
+            for slot in slots
+        ],
+    }
 
 
 def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
@@ -116,9 +191,13 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "discipline": team.discipline,
         "note": team.note,
         "member_count": count,
+        "competition_on": _iso(team.competition_on),
+        "competition_name": team.competition_name,
+        "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
     }
     if include_members:
         payload["members"] = _roster_members(team)
+        payload["groups"] = [_group_payload(group) for group in team.groups.order_by("kind", "id")]
     return payload
 
 
@@ -200,5 +279,153 @@ class ClubTeamMemberView(APIView):
     def delete(self, request, team_id, member_id):
         team = _team_for(request.user, team_id)
         ClubTeamMembership.objects.filter(team=team, member_id=member_id).delete()
+        ClubTeamGroupMember.objects.filter(group__team=team, member_id=member_id).delete()
         team.member_count = team.memberships.count()
         return Response(_team_payload(team, include_members=True))
+
+
+def _ordered_group_members(group: ClubTeamGroup, member_ids: list[int]) -> list[Member]:
+    # Recognized Poomsae, Articles 5 and 6 of the WT Poomsae Competition Rules
+    # & Interpretation in force 30 September 2024. Pair is one event of two
+    # athletes and is not split into men's and women's pair, so the entry is
+    # one male and one female. Men's team and women's team are three athletes
+    # of the same sex.
+    # https://aliansitaekwondo.com/wp-content/uploads/2025/03/WT-Poomsae-Competition-Rules-and-Interpretation-In-force-as-of-September-30-2024.pdf
+    team = group.team
+    if team.discipline != ClubTeam.Discipline.POOMSAE:
+        raise ValidationError({"kind": "group_discipline"})
+    unique_ids = []
+    for raw in member_ids:
+        try:
+            member_id = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"members": "member_not_on_team"}) from exc
+        if member_id not in unique_ids:
+            unique_ids.append(member_id)
+    on_team = set(team.memberships.values_list("member_id", flat=True))
+    if any(member_id not in on_team for member_id in unique_ids):
+        raise ValidationError({"members": "member_not_on_team"})
+    members = list(Member.objects.filter(id__in=unique_ids))
+    by_id = {member.id: member for member in members}
+    ordered = [by_id[member_id] for member_id in unique_ids if member_id in by_id]
+    sexes = [member.sex for member in ordered]
+    if group.kind == ClubTeamGroup.Kind.PAIR:
+        if len(ordered) != 2:
+            raise ValidationError({"members": "pair_size"})
+        if sorted(sexes) != ["F", "M"]:
+            raise ValidationError({"members": "pair_mixed"})
+    elif group.kind == ClubTeamGroup.Kind.TEAM:
+        if len(ordered) != 3:
+            raise ValidationError({"members": "team_size"})
+        if len(set(sexes)) != 1:
+            raise ValidationError({"members": "team_same_sex"})
+    else:
+        raise ValidationError({"kind": "kind_required"})
+    return ordered
+
+
+def _write_group_members(group: ClubTeamGroup, ordered: list[Member]) -> None:
+    ClubTeamGroupMember.objects.filter(group=group).delete()
+    ClubTeamGroupMember.objects.bulk_create(
+        [ClubTeamGroupMember(group=group, member=member, position=index) for index, member in enumerate(ordered)]
+    )
+
+
+class ClubTeamWeighInView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, team_id):
+        team = _team_for(request.user, team_id)
+        measured_on = request.data.get("measured_on")
+        entries = request.data.get("entries")
+        if not isinstance(entries, list):
+            entries = []
+        on_team = set(team.memberships.values_list("member_id", flat=True))
+        created = 0
+        with transaction.atomic():
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                raw_weight = entry.get("weight_kg")
+                if raw_weight in (None, ""):
+                    continue
+                try:
+                    member_id = int(entry.get("member"))
+                except (TypeError, ValueError) as exc:
+                    raise ValidationError({"member": "member_not_on_team"}) from exc
+                if member_id not in on_team:
+                    raise ValidationError({"member": "member_not_on_team"})
+                measurement = BodyMeasurement(member_id=member_id)
+                apply_measurement_fields(
+                    measurement,
+                    {"measured_on": measured_on, "weight_kg": raw_weight, "height_cm": None, "note": ""},
+                    creating=True,
+                )
+                measurement.recorded_by = request.user
+                measurement.save()
+                created += 1
+        team.member_count = team.memberships.count()
+        return Response({"created": created, "team": _team_payload(team, include_members=True)})
+
+
+class ClubTeamGroupView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, team_id):
+        team = _team_for(request.user, team_id)
+        kind = str(request.data.get("kind") or "").strip()
+        if kind not in ClubTeamGroup.Kind.values:
+            raise ValidationError({"kind": "kind_required"})
+        group = ClubTeamGroup(team=team, kind=kind, name=str(request.data.get("name") or "").strip()[:120])
+        ordered = _ordered_group_members(group, request.data.get("members") or [])
+        group.save()
+        _write_group_members(group, ordered)
+        team.member_count = team.memberships.count()
+        return Response(_team_payload(team, include_members=True), status=201)
+
+    def patch(self, request, team_id, group_id):
+        team = _team_for(request.user, team_id)
+        group = get_object_or_404(ClubTeamGroup, pk=group_id, team=team)
+        if "kind" in request.data:
+            kind = str(request.data.get("kind") or "").strip()
+            if kind not in ClubTeamGroup.Kind.values:
+                raise ValidationError({"kind": "kind_required"})
+            group.kind = kind
+        if "name" in request.data:
+            group.name = str(request.data.get("name") or "").strip()[:120]
+        current = list(group.slots.order_by("position", "id").values_list("member_id", flat=True))
+        ordered = _ordered_group_members(group, request.data.get("members", current))
+        group.save()
+        _write_group_members(group, ordered)
+        team.member_count = team.memberships.count()
+        return Response(_team_payload(team, include_members=True))
+
+    def delete(self, request, team_id, group_id):
+        team = _team_for(request.user, team_id)
+        group = get_object_or_404(ClubTeamGroup, pk=group_id, team=team)
+        group.delete()
+        team.member_count = team.memberships.count()
+        return Response(_team_payload(team, include_members=True))
+
+
+class ClubTeamSheetView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, team_id, export_format):
+        team = _team_for(request.user, team_id)
+        team.member_count = team.memberships.count()
+        payload = _team_payload(team, include_members=True)
+        lang = str(request.query_params.get("lang") or "en")
+        filename = f"team-{team.id}"
+        if export_format == "csv":
+            response = HttpResponse(sheet_csv(payload, lang), content_type="text/csv; charset=utf-8")
+            response["Content-Disposition"] = f'attachment; filename="{filename}.csv"'
+            return response
+        if export_format == "pdf":
+            pdf = sheet_pdf(payload, lang)
+            if pdf is None:
+                return Response({"detail": "PDF generation is not available."}, status=503)
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="{filename}.pdf"'
+            return response
+        raise ValidationError({"format": "format_required"})

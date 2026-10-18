@@ -154,6 +154,16 @@ def kyorugi_category(weight_kg: Decimal, age_class: str, sex: str) -> str:
     return f"+{ceilings[-1]} kg"
 
 
+def weight_close_to_limit(delta: str | None, category: str, margin: Decimal) -> bool:
+    """True when a closed class is over its ceiling, or within the margin under it.
+
+    The open class has no upper limit, so it is never marked.
+    """
+    if not category.startswith("-") or delta in (None, ""):
+        return False
+    return Decimal(delta) >= -Decimal(margin)
+
+
 def kyorugi_margin(weight_kg: Decimal | None, age_class: str, sex: str) -> tuple[str, str | None]:
     """Category plus kilograms over or under that category's limit.
 

@@ -31,6 +31,19 @@ const KEYS = [
   "teamPoomsaeUnder30",
   "teamPoomsaeOver65",
   "teamPoomsaeSource",
+  "teamWeighIn",
+  "teamWeighInHint",
+  "teamCompetitionDate",
+  "teamWeightMarginHint",
+  "teamWeightNear",
+  "teamLicenceExpires",
+  "teamExportPdf",
+  "teamGroupsTitle",
+  "teamGroupsHint",
+  "teamGroupsSource",
+  "teamGroupsPair",
+  "teamGroupsTeam",
+  "teamGroupsDeleteConfirm",
 ] as const;
 
 describe("Club team copy", () => {
@@ -45,5 +58,7 @@ describe("Club team copy", () => {
       expect(club[key]?.trim()).toBeTruthy();
     }
     expect(club.teamsDeleteHint).toContain("{name}");
+    expect(club.teamWeightMarginHint).toContain("{margin}");
+    expect(club.teamGroupsDeleteHint).toContain("{name}");
   });
 });
