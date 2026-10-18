@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, F, Min, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
 from rest_framework import permissions, status, viewsets
@@ -19,6 +19,7 @@ from clubmgmt.models import CommitteeMandate
 from clubmgmt.serializers import CommitteeTermHistorySerializer
 
 from clubmgmt.body_measurements import annotate_latest_measurements, measurement_club_ids
+from clubmgmt.teams import ClubTeamMembership
 
 from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer
 from .serializers import (
@@ -242,15 +243,49 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             "date_of_birth": ("date_of_birth", "last_name", "first_name", "id"),
             "email": ("email", "last_name", "first_name", "id"),
         }
-        visible_clubs = measurement_club_ids(user) if self.action == "list" else set()
+        visible_clubs = measurement_club_ids(user)
         if visible_clubs:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "team_memberships",
+                    queryset=ClubTeamMembership.objects.filter(team__club_id__in=visible_clubs)
+                    .select_related("team")
+                    .order_by("team__name", "team_id"),
+                    to_attr="club_team_rows",
+                )
+            )
+        if self.action == "list" and visible_clubs:
+            raw_teams = (self.request.query_params.get("teams") or "").strip()
+            if raw_teams:
+                team_ids = []
+                for value in raw_teams.split(","):
+                    try:
+                        team_ids.append(int(value))
+                    except ValueError:
+                        continue
+                if team_ids:
+                    queryset = queryset.filter(
+                        team_memberships__team_id__in=team_ids,
+                        team_memberships__team__club_id__in=visible_clubs,
+                    ).distinct()
+                else:
+                    queryset = queryset.none()
             queryset = annotate_latest_measurements(queryset, visible_clubs)
             raw_ordering = (ordering or "").strip()
             descending = raw_ordering.startswith("-")
             sort_key = raw_ordering[1:] if descending else raw_ordering
             measurement_fields = {"latest_weight": "latest_weight_kg", "latest_height": "latest_height_cm"}
-            if sort_key in measurement_fields:
-                field = F(measurement_fields[sort_key])
+            if sort_key in measurement_fields or sort_key == "teams":
+                if sort_key == "teams":
+                    queryset = queryset.annotate(
+                        team_sort=Min(
+                            "team_memberships__team__name",
+                            filter=Q(team_memberships__team__club_id__in=visible_clubs),
+                        )
+                    )
+                    field = F("team_sort")
+                else:
+                    field = F(measurement_fields[sort_key])
                 directed = field.desc(nulls_last=True) if descending else field.asc(nulls_last=True)
                 return queryset.order_by(directed, "last_name", "first_name", "id")
         return apply_list_ordering(

@@ -55,6 +55,7 @@ class MemberSerializer(serializers.ModelSerializer):
     latest_weight_on = serializers.SerializerMethodField()
     latest_height_cm = serializers.SerializerMethodField()
     latest_height_on = serializers.SerializerMethodField()
+    teams = serializers.SerializerMethodField()
     ltf_license_prefix = serializers.ChoiceField(
         choices=[("LUX", "LUX"), ("LTF", "LTF")],
         write_only=True,
@@ -91,6 +92,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "latest_weight_on",
             "latest_height_cm",
             "latest_height_on",
+            "teams",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -113,6 +115,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "latest_weight_on",
             "latest_height_cm",
             "latest_height_on",
+            "teams",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -296,10 +299,21 @@ class MemberSerializer(serializers.ModelSerializer):
         value = getattr(obj, "latest_height_on", None)
         return value.isoformat() if value else None
 
+    def get_teams(self, obj: Member):
+        rows = getattr(obj, "club_team_rows", None)
+        if rows is None:
+            if not self._measurements_visible(obj):
+                return []
+            rows = obj.team_memberships.select_related("team").order_by("team__name", "team_id")
+        return [
+            {"id": row.team_id, "name": row.team.name, "discipline": row.team.discipline}
+            for row in rows
+        ]
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if not self._measurements_visible(instance):
-            for key in ("latest_weight_kg", "latest_weight_on", "latest_height_cm", "latest_height_on"):
+            for key in ("latest_weight_kg", "latest_weight_on", "latest_height_cm", "latest_height_on", "teams"):
                 data.pop(key, None)
         return data
 
