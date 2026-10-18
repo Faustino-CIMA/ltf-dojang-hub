@@ -13,7 +13,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { getMembersList, type Member } from "@/lib/club-admin-api";
 import {
   addTeamMember,
@@ -40,25 +39,6 @@ export function disciplineLabel(t: Translator, discipline: string) {
   if (discipline === "poomsae") return t("teamsDisciplinePoomsae");
   if (discipline === "kyorugi") return t("teamsDisciplineKyorugi");
   return discipline;
-}
-
-export function teamColumn(t: Translator): EntityTableColumn<Member> {
-  return {
-    key: "teams",
-    header: t("teamsColumn"),
-    sortable: true,
-    render: (member) => {
-      const teams = member.teams ?? [];
-      if (teams.length === 0) return <span className="text-muted">—</span>;
-      return (
-        <span className="flex flex-wrap gap-1">
-          {teams.map((team) => (
-            <StatusBadge key={team.id} label={`${team.name} · ${disciplineLabel(t, team.discipline)}`} />
-          ))}
-        </span>
-      );
-    },
-  };
 }
 
 export function TeamFilter({
@@ -258,7 +238,7 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
   );
 }
 
-export function ClubTeamsDesk({ clubId }: { clubId: number }) {
+export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTeam?: (team: ClubTeam) => void }) {
   const t = useTranslations("ClubAdmin");
   const [teams, setTeams] = useState<ClubTeam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -336,7 +316,7 @@ export function ClubTeamsDesk({ clubId }: { clubId: number }) {
       {loading ? <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading /> : teams.length === 0 ? (
         <EmptyState title={t("teamsEmptyTitle")} description={t("teamsEmptySubtitle")} />
       ) : (
-        <EntityTable columns={columns} rows={teams} sort={sort} onSortChange={setSort} clientSort />
+        <EntityTable columns={columns} rows={teams} sort={sort} onSortChange={setSort} clientSort onRowClick={onOpenTeam} />
       )}
       {panel === "create" || panel === "edit" ? (
         <TeamForm

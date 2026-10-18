@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-import { EntityTable } from "@/components/club-admin/entity-table";
-import { ClubTeamsDesk, TeamFilter, teamColumn } from "@/components/club-admin/club-teams-desk";
+import { ClubTeamsDesk, TeamFilter } from "@/components/club-admin/club-teams-desk";
 import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
 import { getMembersList } from "@/lib/club-admin-api";
 import {
@@ -120,23 +119,23 @@ describe("Club teams desk", () => {
 });
 
 describe("Teams on the members list and member page", () => {
-  it("filters with a multi-select popover and shows team tags", () => {
+  it("filters with a multi-select popover", () => {
     const onChange = jest.fn();
     render(
-      <>
-        <TeamFilter teams={[{ id: 3, name: "Cadets", discipline: "kyorugi" }, { id: 4, name: "Poomsae A", discipline: "poomsae" }]} selected={[]} onChange={onChange} />
-        <EntityTable
-          rows={[{ id: 4, teams: [{ id: 3, name: "Cadets", discipline: "kyorugi" as const }] } as never]}
-          columns={[teamColumn((key) => key)]}
-          sort={null}
-          onSortChange={() => undefined}
-        />
-      </>
+      <TeamFilter teams={[{ id: 3, name: "Cadets", discipline: "kyorugi" }, { id: 4, name: "Poomsae A", discipline: "poomsae" }]} selected={[]} onChange={onChange} />
     );
     fireEvent.click(screen.getByRole("button", { name: "teamsFilter" }));
     fireEvent.click(screen.getByRole("option", { name: "Cadets" }));
     expect(onChange).toHaveBeenCalledWith([3]);
-    expect(screen.getByText("Cadets · teamsDisciplineKyorugi")).toBeInTheDocument();
+    expect(screen.queryByText("Cadets · teamsDisciplineKyorugi")).not.toBeInTheDocument();
+  });
+
+  it("opens a team when its row is clicked", async () => {
+    jest.mocked(getClubTeams).mockResolvedValue([cadets]);
+    const onOpenTeam = jest.fn();
+    render(<ClubTeamsDesk clubId={2} onOpenTeam={onOpenTeam} />);
+    fireEvent.click(await screen.findByText("Cadets"));
+    expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 3, discipline: "kyorugi" }));
   });
 
   it("lists the member's teams and removes one from the side panel", async () => {

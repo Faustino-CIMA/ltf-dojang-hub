@@ -16,6 +16,21 @@ const KEYS = [
   "teamsCardTitle",
   "teamsCardEmpty",
   "teamsRequired",
+  "teamRosterBack",
+  "teamRosterBirthYear",
+  "teamRosterAgeClass",
+  "teamRosterGrade",
+  "teamRosterGradePoomsae",
+  "teamRosterCategory",
+  "teamRosterDelta",
+  "teamRosterLicence",
+  "teamRosterLicenceNone",
+  "teamRosterPoomsaeDivision",
+  "teamPoomsaeCadet",
+  "teamPoomsaeJunior",
+  "teamPoomsaeUnder30",
+  "teamPoomsaeOver65",
+  "teamPoomsaeSource",
 ] as const;
 
 describe("Club team copy", () => {

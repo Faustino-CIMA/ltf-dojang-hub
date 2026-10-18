@@ -9,8 +9,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
-import { latestMeasurementColumns } from "@/components/club-admin/height-weight-section";
-import { TeamFilter, teamColumn } from "@/components/club-admin/club-teams-desk";
+import { TeamFilter } from "@/components/club-admin/club-teams-desk";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -278,8 +277,7 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
-  const showMeasurements = clubMgmtOn && (currentRole === "club_admin" || currentRole === "coach");
-  const showTeams = showMeasurements;
+  const showTeams = clubMgmtOn && (currentRole === "club_admin" || currentRole === "coach");
 
   useEffect(() => {
     if (!showTeams || selectedClubId == null) {
@@ -1012,8 +1010,6 @@ export default function ClubAdminMembersPage() {
                 sortable: true,
                 render: (member) => formatDisplayDate(member.date_of_birth),
               },
-              ...(showMeasurements ? latestMeasurementColumns(t) : []),
-              ...(showTeams ? [teamColumn(t)] : []),
               {
                 key: "is_active",
                 header: t("isActiveLabel"),

@@ -154,6 +154,52 @@ def kyorugi_category(weight_kg: Decimal, age_class: str, sex: str) -> str:
     return f"+{ceilings[-1]} kg"
 
 
+def kyorugi_margin(weight_kg: Decimal | None, age_class: str, sex: str) -> tuple[str, str | None]:
+    """Category plus kilograms over or under that category's limit.
+
+    A closed class uses its ceiling. The open class uses the last ceiling.
+    On the limit the margin is 0.0. Pupils, Minimes, and Youth have no class.
+    """
+    if weight_kg is None:
+        return "", None
+    weight = Decimal(weight_kg)
+    category = kyorugi_category(weight, age_class, sex)
+    if not category:
+        return "", None
+    limit = Decimal(category[1:].split()[0])
+    delta = (weight - limit).quantize(Decimal("0.1"))
+    return category, f"{delta:.1f}"
+
+
+# Individual recognized Poomsae divisions, Article 4.1.5 and Article 6.1 of the
+# World Taekwondo Poomsae Competition Rules & Interpretation in force
+# 30 September 2024. Age is the year of the championships, not the date.
+# Pair and team divisions use wider bands and are not used here. Under 12 has
+# no individual division.
+# https://aliansitaekwondo.com/wp-content/uploads/2025/03/WT-Poomsae-Competition-Rules-and-Interpretation-In-force-as-of-September-30-2024.pdf
+def poomsae_division(date_of_birth, season_year: int) -> str:
+    if date_of_birth is None or not season_year or date_of_birth.year < 1900:
+        return ""
+    age = season_year - date_of_birth.year
+    if age < 12:
+        return ""
+    if age <= 14:
+        return "cadet"
+    if age <= 17:
+        return "junior"
+    if age <= 30:
+        return "under_30"
+    if age <= 40:
+        return "under_40"
+    if age <= 50:
+        return "under_50"
+    if age <= 60:
+        return "under_60"
+    if age <= 65:
+        return "under_65"
+    return "over_65"
+
+
 def weight_suggestion(member) -> dict | None:
     latest = (
         BodyMeasurement.objects.filter(member=member, weight_kg__isnull=False)

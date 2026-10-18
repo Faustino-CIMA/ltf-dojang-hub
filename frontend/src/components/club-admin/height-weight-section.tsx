@@ -240,7 +240,7 @@ function MeasurementForm({
   );
 }
 
-export function HeightWeightSection({ memberId }: { memberId: number }) {
+export function HeightWeightSection({ memberId, embedded = false }: { memberId: number; embedded?: boolean }) {
   const t = useTranslations("ClubAdmin");
   const [rows, setRows] = useState<BodyMeasurement[]>([]);
   const [suggestion, setSuggestion] = useState<WeightSuggestion | null>(null);
@@ -303,7 +303,7 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
   );
 
   return (
-    <section className="app-panel p-6" aria-labelledby="height-weight-title">
+    <section className={embedded ? "min-w-0" : "app-panel p-6"} aria-labelledby="height-weight-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="height-weight-title" className="text-section text-foreground">{t("heightWeightTitle")}</h2>
         <Button

@@ -1,17 +1,19 @@
 from datetime import date
 from decimal import Decimal
 
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from clubs.models import Club
+from licenses.models import License, LicenseType
 from members.models import Member
 from modules.codes import build_payload, sign_payload
 from modules.entitlements import install_id_str, redeem_product_code, set_club_assignment
 from modules.registry import CLUB_MANAGEMENT_MODULE_ID
 
-from .body_measurements import BodyMeasurement
+from .body_measurements import BodyMeasurement, kyorugi_margin, poomsae_division
 
 
 @override_settings(DEBUG=True, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
@@ -153,3 +155,107 @@ class ClubTeamApiTests(TestCase):
         both_rows = both.data["results"] if isinstance(both.data, dict) else both.data
         names = [row["last_name"] for row in both_rows]
         self.assertLess(names.index("WEBER"), names.index("KELLER"))
+
+    def test_roster_uses_the_discipline_and_keeps_measurements_on_the_member(self):
+        self._unlock()
+        year = timezone.localdate().year
+        self.lea.date_of_birth = date(year - 16, 6, 1)
+        self.lea.belt_rank = "4th Kup"
+        self.lea.save()
+        self.mira.date_of_birth = date(year - 8, 3, 1)
+        self.mira.sex = Member.Sex.MALE
+        self.mira.belt_rank = "8th Kup"
+        self.mira.save()
+        license_type = LicenseType.objects.create(name="Athlete", code="ath-roster")
+        License.objects.create(
+            member=self.lea,
+            club=self.club,
+            license_type=license_type,
+            year=year,
+            start_date=date(year, 1, 1),
+            end_date=date(year, 12, 31),
+            status=License.Status.ACTIVE,
+        )
+        License.objects.create(
+            member=self.lea,
+            club=self.club,
+            license_type=license_type,
+            year=year - 1,
+            start_date=date(year - 1, 1, 1),
+            end_date=date(year - 1, 12, 31),
+            status=License.Status.EXPIRED,
+        )
+        BodyMeasurement.objects.create(
+            member=self.lea,
+            measured_on=date(year, 8, 20),
+            weight_kg=Decimal("62.4"),
+            height_cm=170,
+        )
+        BodyMeasurement.objects.create(member=self.mira, measured_on=date(year, 6, 1), weight_kg=Decimal("30.0"))
+        self._auth(self.club_admin)
+        kyorugi = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        poomsae = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Poomsae A", "discipline": "poomsae"},
+            format="json",
+        )
+        self.client.post(f"/api/club-management/teams/{kyorugi.data['id']}/members/", {"member": self.lea.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{kyorugi.data['id']}/members/", {"member": self.mira.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{poomsae.data['id']}/members/", {"member": self.lea.id}, format="json")
+
+        detail = self.client.get(f"/api/club-management/teams/{kyorugi.data['id']}/")
+        self.assertEqual(detail.status_code, 200, detail.data)
+        by_id = {row["id"]: row for row in detail.data["members"]}
+        lea = by_id[self.lea.id]
+        self.assertEqual(lea["birth_year"], year - 16)
+        self.assertEqual(lea["age_class"], "junior")
+        self.assertEqual(lea["belt_rank"], "4th Kup")
+        self.assertEqual(lea["latest_weight_kg"], "62.4")
+        self.assertEqual(lea["weight_category"], "-63 kg")
+        self.assertEqual(lea["weight_delta_kg"], "-0.6")
+        self.assertEqual(lea["latest_height_cm"], 170)
+        self.assertEqual(lea["licence_status"], "active")
+        self.assertEqual(lea["poomsae_division"], "junior")
+        mira = by_id[self.mira.id]
+        self.assertEqual(mira["age_class"], "pupils")
+        self.assertEqual(mira["weight_category"], "")
+        self.assertIsNone(mira["weight_delta_kg"])
+        self.assertEqual(mira["poomsae_division"], "")
+        self.assertEqual(mira["licence_status"], "none")
+
+        forms = self.client.get(f"/api/club-management/teams/{poomsae.data['id']}/")
+        shared = forms.data["members"][0]
+        self.assertEqual(shared["id"], self.lea.id)
+        self.assertEqual(shared["latest_weight_kg"], lea["latest_weight_kg"])
+        self.assertEqual(shared["latest_weight_on"], lea["latest_weight_on"])
+        self.assertEqual(shared["poomsae_division"], "junior")
+
+
+class WeightClassRuleTests(SimpleTestCase):
+    def test_margin_and_poomsae_divisions(self):
+        self.assertEqual(kyorugi_margin(Decimal("54.0"), "senior", "M"), ("-54 kg", "0.0"))
+        self.assertEqual(kyorugi_margin(Decimal("52.4"), "senior", "M"), ("-54 kg", "-1.6"))
+        self.assertEqual(kyorugi_margin(Decimal("87.1"), "senior", "M"), ("+87 kg", "0.1"))
+        self.assertEqual(kyorugi_margin(Decimal("40.2"), "cadet", "M"), ("-41 kg", "-0.8"))
+        self.assertEqual(kyorugi_margin(Decimal("30.0"), "pupils", "M"), ("", None))
+        year = 2026
+        self.assertEqual(poomsae_division(date(2015, 6, 1), year), "")
+        self.assertEqual(poomsae_division(date(2014, 12, 31), year), "cadet")
+        self.assertEqual(poomsae_division(date(2012, 1, 1), year), "cadet")
+        self.assertEqual(poomsae_division(date(2011, 1, 1), year), "junior")
+        self.assertEqual(poomsae_division(date(2009, 1, 1), year), "junior")
+        self.assertEqual(poomsae_division(date(2008, 1, 1), year), "under_30")
+        self.assertEqual(poomsae_division(date(1996, 1, 1), year), "under_30")
+        self.assertEqual(poomsae_division(date(1995, 1, 1), year), "under_40")
+        self.assertEqual(poomsae_division(date(1986, 1, 1), year), "under_40")
+        self.assertEqual(poomsae_division(date(1985, 1, 1), year), "under_50")
+        self.assertEqual(poomsae_division(date(1976, 1, 1), year), "under_50")
+        self.assertEqual(poomsae_division(date(1975, 1, 1), year), "under_60")
+        self.assertEqual(poomsae_division(date(1966, 1, 1), year), "under_60")
+        self.assertEqual(poomsae_division(date(1965, 1, 1), year), "under_65")
+        self.assertEqual(poomsae_division(date(1961, 1, 1), year), "under_65")
+        self.assertEqual(poomsae_division(date(1960, 1, 1), year), "over_65")

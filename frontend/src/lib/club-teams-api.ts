@@ -6,6 +6,18 @@ export type TeamMember = {
   id: number;
   first_name: string;
   last_name: string;
+  sex?: string;
+  birth_year?: number | null;
+  belt_rank?: string;
+  age_class?: string;
+  poomsae_division?: string;
+  latest_weight_kg?: string | null;
+  latest_weight_on?: string | null;
+  latest_height_cm?: number | null;
+  latest_height_on?: string | null;
+  weight_category?: string;
+  weight_delta_kg?: string | null;
+  licence_status?: string;
 };
 
 export type ClubTeam = {

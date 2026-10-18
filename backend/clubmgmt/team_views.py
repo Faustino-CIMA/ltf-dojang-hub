@@ -1,13 +1,23 @@
+from decimal import Decimal
+
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from licenses.models import License
 from members.models import Member
 
-from .body_measurements import measurement_club_ids
+from .body_measurements import (
+    annotate_latest_measurements,
+    kyorugi_margin,
+    measurement_club_ids,
+    poomsae_division,
+    suggest_age_class,
+)
 from .teams import ClubTeam, ClubTeamMembership
 
 
@@ -46,8 +56,53 @@ def _clean_fields(data, *, creating: bool) -> dict:
     return cleaned
 
 
-def _member_payload(member: Member) -> dict:
-    return {"id": member.id, "first_name": member.first_name, "last_name": member.last_name}
+def _licence_status(member: Member) -> str:
+    statuses = {row.status for row in member.licenses.all()}
+    if License.Status.ACTIVE in statuses:
+        return License.Status.ACTIVE
+    if License.Status.PENDING in statuses:
+        return License.Status.PENDING
+    if License.Status.EXPIRED in statuses:
+        return License.Status.EXPIRED
+    return "none"
+
+
+def _iso(value):
+    return value.isoformat() if value else None
+
+
+def _roster_members(team: ClubTeam) -> list[dict]:
+    """Athlete rows for one team. Measurements stay on the member."""
+    year = timezone.localdate().year
+    queryset = annotate_latest_measurements(
+        Member.objects.filter(team_memberships__team=team),
+        {team.club_id},
+    ).prefetch_related("licenses").order_by("last_name", "first_name", "id")
+    rows = []
+    for member in queryset:
+        age_class = suggest_age_class(member.date_of_birth, year)
+        category, delta = kyorugi_margin(member.latest_weight_kg, age_class, member.sex)
+        weight = None if member.latest_weight_kg is None else f"{Decimal(member.latest_weight_kg):.1f}"
+        rows.append(
+            {
+                "id": member.id,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+                "sex": member.sex,
+                "birth_year": member.date_of_birth.year if member.date_of_birth else None,
+                "belt_rank": member.belt_rank,
+                "age_class": age_class,
+                "poomsae_division": poomsae_division(member.date_of_birth, year),
+                "latest_weight_kg": weight,
+                "latest_weight_on": _iso(member.latest_weight_on),
+                "latest_height_cm": member.latest_height_cm,
+                "latest_height_on": _iso(member.latest_height_on),
+                "weight_category": category,
+                "weight_delta_kg": delta,
+                "licence_status": _licence_status(member),
+            }
+        )
+    return rows
 
 
 def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
@@ -63,8 +118,7 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "member_count": count,
     }
     if include_members:
-        rows = team.memberships.select_related("member").order_by("member__last_name", "member__first_name", "id")
-        payload["members"] = [_member_payload(row.member) for row in rows]
+        payload["members"] = _roster_members(team)
     return payload
 
 

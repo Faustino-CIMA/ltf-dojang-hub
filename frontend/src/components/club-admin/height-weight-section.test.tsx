@@ -148,6 +148,9 @@ describe("Height and weight section", () => {
     expect(section?.className).toContain("app-panel");
     expect(section?.className).toContain("p-6");
     expect(section?.querySelector("table")?.parentElement?.className ?? "").not.toContain("app-panel");
+    render(<HeightWeightSection memberId={9} embedded />);
+    const embeddedSection = screen.getAllByRole("region", { name: "heightWeightTitle" }).at(-1);
+    expect(embeddedSection?.className ?? "").not.toContain("app-panel");
   });
 
   it("edits from the row menu and deletes as the last action", async () => {
