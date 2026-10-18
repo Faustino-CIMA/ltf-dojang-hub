@@ -79,11 +79,22 @@ const CATEGORY_AGE_KEYS: Record<string, string> = {
   youth: "teamCategoryYouth",
 };
 
-function categoryCell(t: Translator, member: TeamMember) {
+const SET_KEYS: Record<string, string> = {
+  wt: "teamCategorySetWt",
+  be: "teamCategorySetBe",
+  nl: "teamCategorySetNl",
+  de: "teamCategorySetDe",
+  fr: "teamCategorySetFr",
+  at: "teamCategorySetAt",
+  custom: "teamCategorySetCustom",
+};
+
+function categoryCell(t: Translator, member: TeamMember, setCode: string) {
   if (member.role === "coach") return <span className="text-muted">—</span>;
   if (member.weight_category) return member.weight_category;
   const reason = member.weight_category_reason;
   const ageKey = reason ? CATEGORY_AGE_KEYS[reason] : undefined;
+  const setKey = SET_KEYS[setCode] ?? "teamCategorySetWt";
   const text = ageKey
     ? t("teamCategoryNoClass", { ageClass: t(ageKey) })
     : reason === "no_birth_date"
@@ -92,7 +103,9 @@ function categoryCell(t: Translator, member: TeamMember) {
         ? t("teamCategoryNoSex")
         : reason === "no_weight"
           ? t("teamCategoryNoWeight")
-          : "";
+          : reason === "no_set_age"
+            ? t("teamCategoryNoSetAge", { age: member.category_age ?? "", set: t(setKey) })
+            : "";
   if (!text) return <span className="text-muted">—</span>;
   return <span className="text-muted">{text}</span>;
 }
@@ -181,6 +194,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
   const athletes = rows.filter((row) => row.role !== "coach");
   const coaches = rows.filter((row) => row.role === "coach");
   const poomsae = team?.discipline === "poomsae";
+  const setCode = team?.category_set || "wt";
 
   function reloadTeam() {
     void getClubTeam(teamId).then((row) => setTeam(row));
@@ -307,7 +321,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
         sortValue: (row) => row.weight_category || null,
         headerClassName: nowrap,
         cellClassName: nowrap,
-        render: (row) => categoryCell(t, row),
+        render: (row) => categoryCell(t, row, setCode),
       },
       {
         key: "weight_delta_kg",
@@ -321,7 +335,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       height,
       licence,
     ];
-  }, [poomsae, t]);
+  }, [poomsae, setCode, t]);
 
   return (
     <div className="space-y-4">
@@ -333,6 +347,9 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
             <p className="mt-1 text-sm text-foreground">
               {[team.competition_name, formatDisplayDate(team.competition_on)].filter(Boolean).join(" · ")}
             </p>
+          ) : null}
+          {team && !poomsae ? (
+            <p className="mt-1 text-sm text-muted">{t(SET_KEYS[setCode] ?? "teamCategorySetWt")}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">

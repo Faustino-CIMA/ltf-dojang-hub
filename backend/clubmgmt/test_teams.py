@@ -14,6 +14,7 @@ from modules.entitlements import install_id_str, redeem_product_code, set_club_a
 from modules.registry import CLUB_MANAGEMENT_MODULE_ID
 
 from .body_measurements import BodyMeasurement, kyorugi_margin, poomsae_division
+from .teams import WeightCategoryBand
 
 
 @override_settings(DEBUG=True, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
@@ -541,6 +542,175 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(roles["Cadets"], "coach")
         self.assertEqual(roles["Poomsae A"], "coach")
 
+
+    def test_category_sets_resolve_per_preset(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Youth", "discipline": "kyorugi"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["category_set"], "wt")
+        team_id = created.data["id"]
+        catalog = {row["code"]: row for row in created.data["category_sets"]}
+        self.assertIn("Keumgang", catalog["be"]["source_note"])
+        self.assertTrue(catalog["nl"]["source_note"].startswith("Netherlands"))
+        self.assertEqual(catalog["nl"]["age_basis"], "competition_day")
+        self.assertEqual(catalog["be"]["age_basis"], "birth_year")
+
+        def person(first, sex, born, weight):
+            member = Member.objects.create(
+                club=self.club,
+                first_name=first,
+                last_name="Roster",
+                sex=sex,
+                date_of_birth=born,
+            )
+            self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": member.id}, format="json")
+            if weight is not None:
+                BodyMeasurement.objects.create(
+                    member=member,
+                    measured_on=date(2026, 8, 1),
+                    weight_kg=Decimal(weight),
+                    recorded_by=self.club_admin,
+                )
+            return member
+
+        on_limit = person("Noa", Member.Sex.MALE, date(2016, 4, 12), "30.0")
+        under = person("Luc", Member.Sex.MALE, date(2016, 4, 12), "28.0")
+        close = person("Eva", Member.Sex.FEMALE, date(2016, 4, 12), "29.2")
+        age_six = person("Tim", Member.Sex.MALE, date(2020, 1, 1), "20.0")
+        nl_edge = person("Bas", Member.Sex.MALE, date(2017, 9, 20), "50.0")
+        girl = person("Lina", Member.Sex.FEMALE, date(2017, 3, 1), "20.0")
+        boy = person("Paul", Member.Sex.MALE, date(2017, 1, 15), "20.0")
+        age_eleven = person("Otto", Member.Sex.MALE, date(2015, 2, 1), "24.0")
+        cadet = person("Max", Member.Sex.MALE, date(2014, 6, 1), "40.2")
+        junior = person("Lea", Member.Sex.FEMALE, date(2010, 6, 1), "62.4")
+        senior = person("Marc", Member.Sex.MALE, date(1981, 3, 1), "54.1")
+        age_eight = person("Kim", Member.Sex.MALE, date(2018, 5, 1), "21.0")
+        age_seven = person("Uwe", Member.Sex.MALE, date(2019, 1, 1), "22.0")
+        coach = Member.objects.create(
+            club=self.club, first_name="Ann", last_name="Coach", sex=Member.Sex.FEMALE, date_of_birth=date(1990, 1, 1)
+        )
+        self.client.post(
+            f"/api/club-management/teams/{team_id}/members/",
+            {"member": coach.id, "role": "coach"},
+            format="json",
+        )
+
+        def apply(code, **extra):
+            response = self.client.patch(
+                f"/api/club-management/teams/{team_id}/",
+                {"category_set": code, "competition_on": "2026-09-12", "competition_name": "Open", **extra},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            return {row["id"]: row for row in response.data["members"]}, response
+
+        world, _payload = apply("wt")
+        self.assertEqual(world[on_limit.id]["weight_category"], "")
+        self.assertEqual(world[on_limit.id]["weight_category_reason"], "minimes")
+        self.assertEqual(world[age_eleven.id]["age_class"], "cadet")
+        self.assertEqual(world[age_eleven.id]["weight_category"], "-33 kg")
+
+        belgium, _payload = apply("be")
+        self.assertEqual(belgium[on_limit.id]["weight_category"], "-30 kg")
+        self.assertEqual(belgium[on_limit.id]["weight_delta_kg"], "0.0")
+        self.assertTrue(belgium[on_limit.id]["weight_warning"])
+        self.assertEqual(belgium[under.id]["weight_category"], "-30 kg")
+        self.assertEqual(belgium[under.id]["weight_delta_kg"], "-2.0")
+        self.assertFalse(belgium[under.id]["weight_warning"])
+        self.assertEqual(belgium[close.id]["weight_delta_kg"], "-0.8")
+        self.assertTrue(belgium[close.id]["weight_warning"])
+        self.assertEqual(belgium[age_six.id]["weight_category"], "")
+        self.assertEqual(belgium[age_six.id]["weight_category_reason"], "no_set_age")
+        self.assertEqual(belgium[age_six.id]["category_age"], 6)
+        self.assertEqual(belgium[age_eleven.id]["age_class"], "cadet")
+        self.assertEqual(belgium[age_eleven.id]["weight_category"], "-24 kg")
+        self.assertEqual(belgium[nl_edge.id]["weight_category"], "-52 kg")
+        self.assertEqual(belgium[cadet.id]["weight_category"], "-41 kg")
+        self.assertEqual(belgium[cadet.id]["weight_delta_kg"], "-0.8")
+        self.assertEqual(belgium[junior.id]["weight_category"], "-63 kg")
+        self.assertEqual(belgium[senior.id]["weight_category"], "-58 kg")
+        self.assertEqual(belgium[coach.id]["weight_category"], "")
+        self.assertEqual(belgium[coach.id]["weight_category_reason"], "")
+        sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en")
+        text = sheet.content.decode("utf-8-sig")
+        self.assertIn("Category set,Belgium", text)
+        self.assertIn("-30 kg", text)
+        self.assertIn("No category for age 6 in Belgium set", text)
+
+        netherlands, _payload = apply("nl")
+        self.assertEqual(netherlands[nl_edge.id]["weight_category"], "+44 kg")
+        self.assertEqual(netherlands[nl_edge.id]["category_age"], 8)
+        self.assertFalse(netherlands[nl_edge.id]["weight_warning"])
+        self.assertEqual(netherlands[age_six.id]["weight_category"], "-21 kg")
+
+        germany, _payload = apply("de")
+        self.assertEqual(germany[age_seven.id]["weight_category"], "-22 kg")
+        self.assertEqual(germany[on_limit.id]["weight_category"], "-32 kg")
+
+        france, _payload = apply("fr")
+        self.assertEqual(france[girl.id]["weight_category"], "-20 kg")
+        self.assertEqual(france[boy.id]["weight_category"], "-21 kg")
+        self.assertEqual(france[age_seven.id]["weight_category_reason"], "no_set_age")
+        self.assertEqual(france[age_seven.id]["category_age"], 7)
+        self.assertEqual(france[on_limit.id]["weight_category"], "-30 kg")
+
+        austria, _payload = apply("at")
+        self.assertEqual(austria[age_seven.id]["weight_category"], "-24 kg")
+        self.assertEqual(austria[boy.id]["weight_category"], "-27 kg")
+
+        band = WeightCategoryBand.objects.get(category_set__code="be", code="minimes")
+        band.ceilings = [24, 27, 29, 33, 36, 40, 44, 48, 52]
+        band.save(update_fields=["ceilings"])
+        edited, _payload = apply("be")
+        self.assertEqual(edited[on_limit.id]["weight_category"], "-33 kg")
+
+        custom, payload = apply(
+            "custom",
+            custom_bands=[{"label": "U9", "age_min": 7, "age_max": 8, "sex": "X", "ceilings": "20,25"}],
+        )
+        self.assertEqual(custom[age_eight.id]["weight_category"], "-25 kg")
+        self.assertEqual(payload.data["custom_bands"][0]["ceilings"], [20, 25])
+        kept_rows, kept = apply("be")
+        self.assertEqual(len(kept.data["custom_bands"]), 1)
+        self.assertEqual(kept.data["category_set"], "be")
+        self.assertEqual(kept_rows[age_eight.id]["weight_category"], "-22 kg")
+
+        fresh = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Other", "discipline": "kyorugi"},
+            format="json",
+        )
+        empty = self.client.patch(
+            f"/api/club-management/teams/{fresh.data['id']}/",
+            {"category_set": "custom"},
+            format="json",
+        )
+        self.assertEqual(empty.status_code, 400, empty.data)
+        self.assertIn("custom_bands_required", str(empty.data))
+        for body, code in (
+            ({"category_set": "spain"}, "category_set_required"),
+            ({"category_set": "custom", "custom_bands": []}, "custom_bands_required"),
+            ({"category_set": "custom", "custom_bands": [{"age_min": 12, "age_max": 8, "sex": "X", "ceilings": "20"}]}, "age_required"),
+            ({"category_set": "custom", "custom_bands": [{"age_min": 7, "age_max": 8, "sex": "Q", "ceilings": "20"}]}, "sex_required"),
+            ({"category_set": "custom", "custom_bands": [{"age_min": 7, "age_max": 8, "sex": "X", "ceilings": "30,20"}]}, "limits_required"),
+        ):
+            refused = self.client.patch(f"/api/club-management/teams/{team_id}/", body, format="json")
+            self.assertEqual(refused.status_code, 400, refused.data)
+            self.assertIn(code, str(refused.data))
+
+        weighed = self.client.post(
+            f"/api/club-management/teams/{team_id}/weigh-in/",
+            {"measured_on": "2026-09-02", "entries": [{"member": on_limit.id, "weight_kg": "32.5"}]},
+            format="json",
+        )
+        self.assertEqual(weighed.status_code, 200, weighed.data)
+        weighed_row = next(row for row in weighed.data["team"]["members"] if row["id"] == on_limit.id)
+        self.assertEqual(weighed_row["weight_category"], "-33 kg")
 
 class WeightClassRuleTests(SimpleTestCase):
     def test_margin_and_poomsae_divisions(self):

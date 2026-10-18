@@ -47,6 +47,15 @@ _LABELS = {
         "no_sex": "No sex",
         "no_weight": "No weight",
         "no_wt": "No WT category for {age}",
+        "category_set": "Category set",
+        "set_wt": "World Taekwondo",
+        "set_be": "Belgium",
+        "set_nl": "Netherlands",
+        "set_de": "Germany",
+        "set_fr": "France",
+        "set_at": "Austria",
+        "set_custom": "Custom",
+        "no_set_age": "No category for age {age} in {set} set",
         "pupils_short": "Pupils",
         "minimes_short": "Minimes",
         "youth_short": "Youth",
@@ -103,6 +112,15 @@ _LABELS = {
         "no_sex": "Pas de sexe",
         "no_weight": "Pas de poids",
         "no_wt": "Pas de catégorie WT pour {age}",
+        "category_set": "Jeu de catégories",
+        "set_wt": "World Taekwondo",
+        "set_be": "Belgique",
+        "set_nl": "Pays-Bas",
+        "set_de": "Allemagne",
+        "set_fr": "France",
+        "set_at": "Autriche",
+        "set_custom": "Personnalisé",
+        "no_set_age": "Pas de catégorie pour l'âge {age} dans le jeu {set}",
         "pupils_short": "Pupilles",
         "minimes_short": "Minimes",
         "youth_short": "Jeune",
@@ -159,6 +177,15 @@ _LABELS = {
         "no_sex": "Kein Geschlecht",
         "no_weight": "Kein Gewicht",
         "no_wt": "Keine WT-Kategorie für {age}",
+        "category_set": "Kategoriensatz",
+        "set_wt": "World Taekwondo",
+        "set_be": "Belgien",
+        "set_nl": "Niederlande",
+        "set_de": "Deutschland",
+        "set_fr": "Frankreich",
+        "set_at": "Österreich",
+        "set_custom": "Benutzerdefiniert",
+        "no_set_age": "Keine Kategorie für Alter {age} im Satz {set}",
         "pupils_short": "Pupillen",
         "minimes_short": "Minis",
         "youth_short": "Jugend",
@@ -215,6 +242,15 @@ _LABELS = {
         "no_sex": "Kee Geschlecht",
         "no_weight": "Kee Gewiicht",
         "no_wt": "Keng WT-Kategorie fir {age}",
+        "category_set": "Kategorie-Set",
+        "set_wt": "World Taekwondo",
+        "set_be": "Belsch",
+        "set_nl": "Holland",
+        "set_de": "Däitschland",
+        "set_fr": "Frankräich",
+        "set_at": "Éisträich",
+        "set_custom": "Personaliséiert",
+        "no_set_age": "Keng Kategorie fir den Alter {age} am Set {set}",
         "pupils_short": "Pupillen",
         "minimes_short": "Minimen",
         "youth_short": "Jugend",
@@ -271,17 +307,20 @@ def _sex_label(row: dict, text: dict[str, str]) -> str:
     return ""
 
 
-def _category_cell(row: dict, text: dict[str, str]) -> str:
+def _category_cell(row: dict, text: dict[str, str], set_label: str) -> str:
     category = row.get("weight_category") or ""
     if category:
         return category
     reason = row.get("weight_category_reason") or ""
     if reason in {"pupils", "minimes", "youth"}:
         return text["no_wt"].format(age=text.get(f"{reason}_short", reason))
+    if reason == "no_set_age":
+        age = row.get("category_age")
+        return text["no_set_age"].format(age="" if age is None else age, set=set_label)
     return text.get(reason, "")
 
 
-def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool) -> list[str]:
+def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: str) -> list[str]:
     licence = text.get(row.get("licence_status") or "none", text["none"])
     shared = [
         _full_name(row),
@@ -306,7 +345,7 @@ def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool) -> list[str]
         row.get("belt_rank") or "",
         row.get("latest_weight_kg") or "",
         row.get("latest_weight_on") or "",
-        _category_cell(row, text),
+        _category_cell(row, text, set_label),
         row.get("weight_delta_kg") or "",
         "" if row.get("latest_height_cm") is None else str(row.get("latest_height_cm")),
         row.get("latest_height_on") or "",
@@ -331,12 +370,16 @@ def _coach_row(row: dict, text: dict[str, str]) -> list[str]:
 def sheet_rows(payload: dict, lang: str):
     text = labels(lang)
     poomsae = payload.get("discipline") == "poomsae"
+    set_code = payload.get("category_set") or "wt"
+    set_label = text.get(f"set_{set_code}", set_code)
     meta = [
         (text["team"], payload.get("name") or ""),
         (text["discipline"], text["poomsae"] if poomsae else text["kyorugi"]),
         (text["competition"], payload.get("competition_name") or ""),
         (text["date"], payload.get("competition_on") or ""),
     ]
+    if not poomsae:
+        meta.append((text["category_set"], set_label))
     if poomsae:
         headers = [
             text["name"],
@@ -372,7 +415,7 @@ def sheet_rows(payload: dict, lang: str):
         if row.get("role") == "coach":
             coaches.append(_coach_row(row, text))
         else:
-            athletes.append(_athlete_row(row, text, poomsae=poomsae))
+            athletes.append(_athlete_row(row, text, poomsae=poomsae, set_label=set_label))
     return {
         "meta": meta,
         "athlete_title": text["athletes"],

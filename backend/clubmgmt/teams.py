@@ -22,6 +22,7 @@ class ClubTeam(models.Model):
     competition_on = models.DateField(null=True, blank=True)
     competition_name = models.CharField(max_length=120, blank=True)
     weight_margin_kg = models.DecimalField(max_digits=4, decimal_places=1, default=Decimal("1.0"))
+    category_set_code = models.CharField(max_length=20, default="wt")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -50,6 +51,57 @@ class ClubTeamMembership(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["team", "member"], name="club_team_member_uniq"),
         ]
+
+
+class WeightCategorySet(models.Model):
+    """A national or world Kyorugi weight-category preset.
+
+    Youth bands live on the bands. Cadet, Junior, and Senior always use the
+    World Taekwondo ceilings, so the world preset has no bands of its own.
+    """
+
+    class AgeBasis(models.TextChoices):
+        BIRTH_YEAR = "birth_year", "Birth year"
+        COMPETITION_DAY = "competition_day", "Competition day"
+
+    code = models.CharField(max_length=20, unique=True)
+    source_note = models.CharField(max_length=280)
+    age_basis = models.CharField(max_length=20, choices=AgeBasis.choices, default=AgeBasis.BIRTH_YEAR)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self) -> str:
+        return self.code
+
+
+class WeightCategoryBand(models.Model):
+    category_set = models.ForeignKey(WeightCategorySet, on_delete=models.CASCADE, related_name="bands")
+    code = models.CharField(max_length=40)
+    age_min = models.PositiveSmallIntegerField()
+    age_max = models.PositiveSmallIntegerField()
+    sex = models.CharField(max_length=1)
+    ceilings = models.JSONField()
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+
+class ClubTeamCategoryBand(models.Model):
+    """Youth limits typed in for one team's Custom category set."""
+
+    team = models.ForeignKey(ClubTeam, on_delete=models.CASCADE, related_name="custom_bands")
+    label = models.CharField(max_length=80, blank=True)
+    age_min = models.PositiveSmallIntegerField()
+    age_max = models.PositiveSmallIntegerField()
+    sex = models.CharField(max_length=1)
+    ceilings = models.JSONField()
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
 
 
 class ClubTeamGroup(models.Model):

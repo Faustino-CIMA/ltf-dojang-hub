@@ -86,5 +86,6 @@ export function TeamWeighInPanel({
 function previousWeight(t: (key: string, values?: Record<string, string | number>) => string, member: TeamMember) {
   if (!member.latest_weight_kg) return t("teamWeighInNone");
   const value = t("heightWeightKg", { value: member.latest_weight_kg });
-  return member.latest_weight_on ? `${value} · ${formatDisplayDate(member.latest_weight_on)}` : value;
+  const dated = member.latest_weight_on ? `${value} · ${formatDisplayDate(member.latest_weight_on)}` : value;
+  return member.weight_category ? `${dated} · ${member.weight_category}` : dated;
 }

@@ -152,4 +152,61 @@ describe("Team extras", () => {
       "teamsDeleteAction",
     ]);
   });
+
+  it("chooses a category set and marks custom limits", async () => {
+    const withSet: ClubTeam = {
+      ...team,
+      category_set: "be",
+      members: [
+        ...(team.members ?? []),
+        {
+          id: 10,
+          first_name: "Noa",
+          last_name: "PETIT",
+          sex: "M",
+          birth_year: 2020,
+          age_class: "youth",
+          weight_category: "",
+          weight_category_reason: "no_set_age",
+          category_age: 6,
+          latest_weight_kg: "20.0",
+        },
+      ],
+    };
+    jest.mocked(getClubTeam).mockResolvedValue(withSet);
+    render(<TeamRoster teamId={1} onBack={() => undefined} />);
+    expect(await screen.findByText("teamCategorySetBe")).toBeInTheDocument();
+    expect(screen.getByText('teamCategoryNoSetAge:{"age":6,"set":"teamCategorySetBe"}')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "teamCompetition" }));
+    const panel = screen.getByRole("dialog");
+    fireEvent.click(within(panel).getByRole("button", { name: "teamCategorySet" }));
+    expect(screen.getByRole("option", { name: "teamCategorySetNl" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "teamCategorySetCustom" }));
+    expect(within(panel).getByText("teamCustomAgeFrom").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
+    expect(within(panel).getByText("teamCustomAgeTo").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
+    expect(within(panel).getByText("teamCustomLimits").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
+    expect(within(panel).getByText("teamCustomBandLabel").closest("label")?.querySelector("[data-required='true']")).toBeFalsy();
+    fireEvent.change(within(panel).getByLabelText(/teamCustomAgeFrom/), { target: { value: "9" } });
+    fireEvent.change(within(panel).getByLabelText(/teamCustomAgeTo/), { target: { value: "11" } });
+    fireEvent.change(within(panel).getByLabelText(/teamCustomLimits/), { target: { value: "24,30" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "teamsSave" }));
+    await waitFor(() =>
+      expect(saveTeamCompetition).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          category_set: "custom",
+          custom_bands: [expect.objectContaining({ age_min: 9, age_max: 11, sex: "X", ceilings: [24, 30] })],
+        }),
+      ),
+    );
+  });
+
+  it("hides the category set on a Poomsae team", async () => {
+    jest.mocked(getClubTeam).mockResolvedValue({ ...team, id: 2, discipline: "poomsae", name: "Poomsae A" });
+    render(<TeamRoster teamId={2} onBack={() => undefined} />);
+    expect(await screen.findByText("Poomsae A")).toBeInTheDocument();
+    expect(screen.queryByText("teamCategorySetWt")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "teamCompetition" }));
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "teamCategorySet" })).not.toBeInTheDocument();
+  });
 });

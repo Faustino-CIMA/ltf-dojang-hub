@@ -18,6 +18,7 @@ export type TeamMember = {
   latest_height_on?: string | null;
   weight_category?: string;
   weight_category_reason?: string;
+  category_age?: number | null;
   weight_delta_kg?: string | null;
   weight_warning?: boolean;
   licence_status?: string;
@@ -30,6 +31,23 @@ export type TeamGroup = {
   kind: "pair" | "team";
   name: string;
   members: Array<{ id: number; first_name: string; last_name: string; sex?: string }>;
+};
+
+export type CategorySetCode = "wt" | "be" | "nl" | "de" | "fr" | "at" | "custom";
+
+export type CustomBand = {
+  id?: number;
+  label: string;
+  age_min: number;
+  age_max: number;
+  sex: "M" | "F" | "X";
+  ceilings: number[];
+};
+
+export type CategorySetOption = {
+  code: string;
+  source_note: string;
+  age_basis: string;
 };
 
 export type ClubTeam = {
@@ -45,6 +63,9 @@ export type ClubTeam = {
   competition_on?: string | null;
   competition_name?: string;
   weight_margin_kg?: string;
+  category_set?: CategorySetCode;
+  custom_bands?: CustomBand[];
+  category_sets?: CategorySetOption[];
   members?: TeamMember[];
   groups?: TeamGroup[];
 };
@@ -85,7 +106,13 @@ export function saveClubTeam(id: number | null, input: ClubTeamInput) {
 
 export function saveTeamCompetition(
   teamId: number,
-  input: { competition_on: string | null; competition_name: string; weight_margin_kg: string },
+  input: {
+    competition_on: string | null;
+    competition_name: string;
+    weight_margin_kg: string;
+    category_set?: string;
+    custom_bands?: CustomBand[];
+  },
 ) {
   return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/`, {
     method: "PATCH",

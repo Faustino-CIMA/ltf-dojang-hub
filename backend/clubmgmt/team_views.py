@@ -18,15 +18,21 @@ from .body_measurements import (
     BodyMeasurement,
     annotate_latest_measurements,
     apply_measurement_fields,
-    category_reason,
-    kyorugi_margin,
     measurement_club_ids,
     poomsae_division,
     suggest_age_class,
     weight_close_to_limit,
 )
+from .category_sets import SET_CODES, bands_for, parse_custom_bands, resolve_category
 from .team_sheet import sheet_csv, sheet_pdf
-from .teams import ClubTeam, ClubTeamGroup, ClubTeamGroupMember, ClubTeamMembership
+from .teams import (
+    ClubTeam,
+    ClubTeamCategoryBand,
+    ClubTeamGroup,
+    ClubTeamGroupMember,
+    ClubTeamMembership,
+    WeightCategorySet,
+)
 
 
 def _managed_clubs(user) -> set[int]:
@@ -67,6 +73,11 @@ def _clean_fields(data, *, creating: bool) -> dict:
         cleaned["competition_name"] = str(data.get("competition_name") or "").strip()[:120]
     if "weight_margin_kg" in data:
         cleaned["weight_margin_kg"] = _parse_margin(data.get("weight_margin_kg"))
+    if "category_set" in data:
+        code = str(data.get("category_set") or "").strip()
+        if code not in SET_CODES:
+            raise ValidationError({"category_set": "category_set_required"})
+        cleaned["category_set_code"] = code
     return cleaned
 
 
@@ -132,6 +143,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
     """
     year = team.competition_on.year if team.competition_on else timezone.localdate().year
     margin = team.weight_margin_kg if team.weight_margin_kg is not None else Decimal("1.0")
+    set_code, age_basis, bands = bands_for(team)
     role_rows = ClubTeamMembership.objects.filter(team=team, member_id=OuterRef("pk")).values("role")[:1]
     queryset = annotate_latest_measurements(
         Member.objects.filter(team_memberships__team=team),
@@ -143,12 +155,19 @@ def _roster_members(team: ClubTeam) -> list[dict]:
         athlete = role != ClubTeamMembership.Role.COACH
         age_class = suggest_age_class(member.date_of_birth, year) if athlete else ""
         if athlete:
-            category, delta = kyorugi_margin(member.latest_weight_kg, age_class, member.sex)
-            reason = "" if category else category_reason(member.date_of_birth, age_class, member.sex, member.latest_weight_kg)
+            category, delta, reason, age = resolve_category(
+                date_of_birth=member.date_of_birth,
+                sex=member.sex,
+                weight_kg=member.latest_weight_kg,
+                competition_on=team.competition_on,
+                category_set_code=set_code,
+                age_basis=age_basis,
+                bands=bands,
+            )
             division = poomsae_division(member.date_of_birth, year)
             warning = weight_close_to_limit(delta, category, margin)
         else:
-            category, delta, reason, division, warning = "", None, "", "", False
+            category, delta, reason, age, division, warning = "", None, "", None, "", False
         weight = None if member.latest_weight_kg is None else f"{Decimal(member.latest_weight_kg):.1f}"
         rows.append(
             {
@@ -167,6 +186,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
                 "latest_height_on": _iso(member.latest_height_on),
                 "weight_category": category,
                 "weight_category_reason": reason,
+                "category_age": age,
                 "weight_delta_kg": delta,
                 "weight_warning": warning,
                 "licence_status": _licence_status(member),
@@ -227,11 +247,28 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "competition_on": _iso(team.competition_on),
         "competition_name": team.competition_name,
         "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
+        "category_set": team.category_set_code or "wt",
     }
     if include_members:
         payload["members"] = _roster_members(team)
         payload["groups"] = [_group_payload(group) for group in team.groups.order_by("kind", "id")]
         payload["suggested_coach_ids"] = _suggested_coach_ids(team)
+        payload["custom_bands"] = [
+            {
+                "id": row.id,
+                "label": row.label,
+                "age_min": row.age_min,
+                "age_max": row.age_max,
+                "sex": row.sex,
+                "ceilings": list(row.ceilings or []),
+            }
+            for row in team.custom_bands.all()
+        ]
+        payload["category_sets"] = [
+            {"code": row.code, "source_note": row.source_note, "age_basis": row.age_basis}
+            for row in WeightCategorySet.objects.all()
+        ]
+        payload["category_sets"].append({"code": "custom", "source_note": "", "age_basis": "birth_year"})
     return payload
 
 
@@ -290,9 +327,19 @@ class ClubTeamDetailView(APIView):
 
     def patch(self, request, team_id):
         team = _team_for(request.user, team_id)
-        for key, value in _clean_fields(request.data, creating=False).items():
+        fields = _clean_fields(request.data, creating=False)
+        custom = parse_custom_bands(request.data.get("custom_bands")) if "custom_bands" in request.data else None
+        for key, value in fields.items():
             setattr(team, key, value)
-        team.save()
+        if (team.category_set_code or "wt") == "custom" and custom is None and not team.custom_bands.exists():
+            raise ValidationError({"custom_bands": "custom_bands_required"})
+        with transaction.atomic():
+            team.save()
+            if custom is not None:
+                team.custom_bands.all().delete()
+                ClubTeamCategoryBand.objects.bulk_create(
+                    [ClubTeamCategoryBand(team=team, position=index, **row) for index, row in enumerate(custom)]
+                )
         return Response(_team_payload(team, include_members=True))
 
     def delete(self, request, team_id):

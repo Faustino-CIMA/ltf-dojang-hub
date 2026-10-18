@@ -58,6 +58,23 @@ const KEYS = [
   "teamCategoryNoWeight",
   "teamCategoryNoClass",
   "teamCategoryYouth",
+  "teamCategorySet",
+  "teamCategorySetWt",
+  "teamCategorySetBe",
+  "teamCategorySetNl",
+  "teamCategorySetDe",
+  "teamCategorySetFr",
+  "teamCategorySetAt",
+  "teamCategorySetCustom",
+  "teamCategoryNoSetAge",
+  "teamCategorySourceBe",
+  "teamCategorySourceNl",
+  "teamCustomAgeFrom",
+  "teamCustomAgeTo",
+  "teamCustomSex",
+  "teamCustomLimits",
+  "teamCustomAddBand",
+  "teamCustomError",
 ] as const;
 
 describe("Club team copy", () => {
@@ -76,6 +93,8 @@ describe("Club team copy", () => {
     expect(club.teamGroupsDeleteHint).toContain("{name}");
     expect(club.teamsMemberCount).toContain("{athletes");
     expect(club.teamCategoryNoClass).toContain("{ageClass}");
+    expect(club.teamCategoryNoSetAge).toContain("{age}");
+    expect(club.teamCategoryNoSetAge).toContain("{set}");
     expect(club.teamRoleChange).toContain("{name}");
   });
 });
