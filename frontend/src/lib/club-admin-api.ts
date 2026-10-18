@@ -90,6 +90,7 @@ export type Member = {
   latest_weight_on?: string | null;
   latest_height_cm?: number | null;
   latest_height_on?: string | null;
+  teams?: { id: number; name: string; discipline: "kyorugi" | "poomsae" }[];
 };
 
 export type CurrentLicense = {
@@ -355,6 +356,7 @@ type MemberListQueryParams = {
   ids?: number[];
   issue?: MemberIssueFilter;
   ordering?: string;
+  teamIds?: number[];
 };
 
 type MemberPageParams = MemberListQueryParams & {
@@ -381,6 +383,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.ordering) {
     search.set("ordering", params.ordering);
+  }
+  if (params?.teamIds && params.teamIds.length > 0) {
+    search.set("teams", params.teamIds.join(","));
   }
   return search;
 }

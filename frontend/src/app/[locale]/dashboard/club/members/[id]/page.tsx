@@ -58,6 +58,7 @@ import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { MemberClubRecordPanel } from "@/components/clubmgmt/member-club-record-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { HeightWeightSection } from "@/components/club-admin/height-weight-section";
+import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
 import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { downloadClubStatement } from "@/lib/club-finance-api";
@@ -867,6 +868,14 @@ export default function ClubMemberDetailPage() {
             </FormPanel>
             <MemberNationalTeamBlock memberId={member.id} />
             {clubMgmtOn && canEditMember ? <HeightWeightSection memberId={member.id} /> : null}
+            {clubMgmtOn && canEditMember ? (
+              <MemberTeamsCard
+                memberId={member.id}
+                clubId={member.club}
+                teams={member.teams ?? []}
+                onChanged={() => void loadMember()}
+              />
+            ) : null}
             </>
             ) : null}
 
