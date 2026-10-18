@@ -144,6 +144,10 @@ describe("Height and weight section", () => {
     expect(charts[1]).toHaveAttribute("aria-label", "heightWeightHeightChart");
     expect(charts[0].querySelector("polyline")).toBeTruthy();
     expect(charts[1].querySelector("polyline")).toBeTruthy();
+    const section = document.getElementById("height-weight-title")?.closest("section");
+    expect(section?.className).toContain("app-panel");
+    expect(section?.className).toContain("p-6");
+    expect(section?.querySelector("table")?.parentElement?.className ?? "").not.toContain("app-panel");
   });
 
   it("edits from the row menu and deletes as the last action", async () => {

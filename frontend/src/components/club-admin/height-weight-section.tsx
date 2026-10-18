@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,13 +91,13 @@ function TrendChart({
     return { x, y };
   });
   return (
-    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-4">
+    <div className="min-w-0 rounded-[var(--radius-form)] border border-border p-4">
       <p className="text-sm font-medium text-foreground">{label}</p>
       {points.length === 0 ? (
         <p className="mt-3 text-sm text-muted">{empty}</p>
       ) : (
         <>
-          <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 h-28 w-full text-primary" role="img" aria-label={label}>
+          <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 block h-28 w-full max-w-full text-primary" role="img" aria-label={label}>
             <polyline
               fill="none"
               stroke="currentColor"
@@ -109,7 +108,7 @@ function TrendChart({
               <circle key={`${point.x}-${point.y}`} cx={point.x} cy={point.y} r="3" fill="currentColor" />
             ))}
           </svg>
-          <p className="text-xs text-muted">
+          <p className="mt-2 text-xs text-muted">
             {min}–{max} {unit}
           </p>
         </>
@@ -304,34 +303,43 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
   );
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-section text-foreground">{t("heightWeightTitle")}</h2>
-          <p className="text-sm text-muted">{t("heightWeightHint")}</p>
-        </div>
-        <Button type="button" onClick={() => { setEditing(null); setPanel("add"); }}>
+    <section className="app-panel p-6" aria-labelledby="height-weight-title">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="height-weight-title" className="text-section text-foreground">{t("heightWeightTitle")}</h2>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-[var(--control-height)] min-h-[var(--control-height)] shrink-0"
+          onClick={() => { setEditing(null); setPanel("add"); }}
+        >
           {t("heightWeightAdd")}
         </Button>
       </div>
+      <p className="mt-1 text-sm text-muted">{t("heightWeightHint")}</p>
       {suggestion ? (
-        <p className="text-sm text-foreground">
+        <p className="mt-4 text-sm text-foreground">
           {t("heightWeightSuggestion", {
             category: suggestion.category,
             ageClass: formatAgeClassLabel(t, suggestion.age_class),
           })}
         </p>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
         <TrendChart label={t("heightWeightWeightChart")} empty={t("heightWeightChartEmpty")} unit="kg" points={weightPoints} />
         <TrendChart label={t("heightWeightHeightChart")} empty={t("heightWeightChartEmpty")} unit="cm" points={heightPoints} />
       </div>
       {loading ? (
-        <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
+        <p className="mt-4 text-sm text-muted">{t("loadingTitle")}</p>
       ) : rows.length === 0 ? (
-        <EmptyState title={t("heightWeightEmptyTitle")} description={t("heightWeightEmptySubtitle")} />
+        <div className="mt-4">
+          <p className="text-sm font-medium text-foreground">{t("heightWeightEmptyTitle")}</p>
+          <p className="mt-1 text-sm text-muted">{t("heightWeightEmptySubtitle")}</p>
+        </div>
       ) : (
+        <div className="mt-4">
         <EntityTable
+          embedded
           columns={[
             {
               key: "measured_on",
@@ -362,6 +370,8 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
             {
               key: "actions",
               header: t("heightWeightActions"),
+              headerClassName: "text-right",
+              cellClassName: "text-right",
               render: (row) => (
                 <RowActionMenu
                   label={t("heightWeightActions")}
@@ -388,6 +398,7 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
           onSortChange={setSort}
           clientSort
         />
+        </div>
       )}
       {panel ? (
         <MeasurementForm
