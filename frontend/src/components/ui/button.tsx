@@ -24,14 +24,14 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-[var(--control-height)] min-h-[var(--control-height)] px-[var(--control-padding-x)] py-2 has-[>svg]:px-3",
+        default: "h-[var(--control-height)] min-h-[var(--control-height)] px-[var(--control-padding-x)] has-[>svg]:px-3",
         xs: "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-[var(--control-height)] min-h-[var(--control-height)] gap-1.5 px-2.5 has-[>svg]:px-2",
-        lg: "h-10 min-h-10 px-4 has-[>svg]:px-3",
+        sm: "h-[var(--control-height-sm)] min-h-[var(--control-height-sm)] gap-1 px-2 has-[>svg]:px-1.5",
+        lg: "h-[var(--control-height)] min-h-[var(--control-height)] px-[var(--control-padding-x)] has-[>svg]:px-3",
         icon: "size-[var(--control-height)]",
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        "icon-lg": "size-[var(--control-height)]",
       },
     },
     defaultVariants: {

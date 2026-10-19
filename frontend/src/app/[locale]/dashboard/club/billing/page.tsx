@@ -285,7 +285,7 @@ export default function ClubBillingPage() {
 
   return (
     <ClubAdminLayout title={t("billingTitle")} subtitle={t("billingSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices
           error={errorMessage}

@@ -374,7 +374,7 @@ export default function ClubAdminOverviewPage() {
       ) : clubs.length === 0 ? (
         <EmptyState title={t("overviewEmptyTitle")} description={t("overviewEmptySubtitle")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <section className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-meta">
               {lastRefreshAt

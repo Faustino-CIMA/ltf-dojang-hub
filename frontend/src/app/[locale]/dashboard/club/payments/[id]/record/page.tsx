@@ -207,7 +207,7 @@ export default function ClubRecordPaymentPage() {
   if (!invoice) {
     return (
       <ClubAdminLayout title={t("recordPaymentTitle")} subtitle={t("recordPaymentPageSubtitle")}>
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ClubFinanceTabs />
           <Button asChild variant="outline" className="w-fit">
             <Link href={paymentsHref}>{t("backToPayments")}</Link>
@@ -220,7 +220,7 @@ export default function ClubRecordPaymentPage() {
 
   return (
     <ClubAdminLayout title={t("recordPaymentTitle")} subtitle={t("recordPaymentPageSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <Button asChild variant="outline" className="w-fit">
           <Link href={paymentsHref}>{t("backToPayments")}</Link>

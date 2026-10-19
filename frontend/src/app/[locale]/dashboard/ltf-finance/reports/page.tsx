@@ -197,7 +197,7 @@ export default function LtfFinanceReportsPage() {
               <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-medium text-foreground">{t("openingCashNotesLabel")}</label>
                 <AppTextarea
-                  className="min-h-[2.75rem]"
+                  className="min-h-[var(--control-height)]"
                   value={openingNotes}
                   onChange={(event) => setOpeningNotes(event.target.value)}
                 />
@@ -210,7 +210,7 @@ export default function LtfFinanceReportsPage() {
             </form>
           </FormPanel>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <FormPanel>
               <h2 className="text-section text-foreground">{t("incomeStatementTitle")}</h2>
               <dl className="mt-4 space-y-3 text-sm">
@@ -318,7 +318,7 @@ export default function LtfFinanceReportsPage() {
             </dl>
           </FormPanel>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <section className="space-y-3">
               <h2 className="text-section text-foreground">{t("incomeByClubTitle")}</h2>
               {report.income_statement.income_by_club.length === 0 ? (

@@ -53,7 +53,7 @@ export default function MemberProfilePhotoPage() {
 
   return (
     <MemberLayout title={t("photoModalTitle")} subtitle={t("photoModalDescription")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {isLoading ? (

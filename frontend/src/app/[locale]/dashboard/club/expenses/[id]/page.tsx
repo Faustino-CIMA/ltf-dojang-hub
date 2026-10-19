@@ -203,7 +203,7 @@ export default function ClubExpenseDetailPage() {
 
   return (
     <ClubAdminLayout title={t("expenseDetailTitle")} subtitle={t("expenseDetailSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" className="w-fit">

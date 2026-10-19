@@ -41,7 +41,7 @@ export function MemberTeamsCard({
   const visible = catalog.filter((team) => team.name.toLowerCase().includes(needle));
   const current = new Set(teams.map((team) => team.id));
   return (
-    <section className="app-panel p-6" aria-labelledby="member-teams-title">
+    <section className="app-panel p-3" aria-labelledby="member-teams-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="member-teams-title" className="text-section text-foreground">{t("teamsCardTitle")}</h2>
         <Button

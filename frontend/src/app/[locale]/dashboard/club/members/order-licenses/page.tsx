@@ -628,8 +628,8 @@ export default function ClubMembersOrderLicensesPage() {
     return (
       <ClubAdminLayout title={t("orderLicenseModalTitle")} subtitle={t("orderLicensePageSubtitle")}>
         <FormPanel className="mx-auto max-w-xl text-center">
-          <span className="mx-auto mb-4 inline-flex size-12 items-center justify-center rounded-full bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]">
-            <CheckCircle2 className="size-6" aria-hidden />
+          <span className="mx-auto mb-3 inline-flex size-8 items-center justify-center rounded-[var(--radius-chip)] bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]">
+            <CheckCircle2 className="size-4" aria-hidden />
           </span>
           <h2 className="text-section text-foreground">{t("orderLicenseSuccessTitle")}</h2>
           <p className="mt-2 text-sm text-muted">{t("orderLicenseSuccessSubtitle")}</p>
@@ -670,7 +670,7 @@ export default function ClubMembersOrderLicensesPage() {
     <ClubAdminLayout title={t("orderLicenseModalTitle")} subtitle={t("orderLicensePageSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <FormPanel>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
@@ -940,7 +940,7 @@ export default function ClubMembersOrderLicensesPage() {
           )}
         </FormPanel>
 
-        <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-[var(--surface)]/95 p-4 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             {selectedEligibleType ? (
               <p className="text-sm font-medium text-foreground">

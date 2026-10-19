@@ -1,6 +1,22 @@
 # UI sizing audit
 
-Audit only. No component, CSS, or theme code was changed. Branch `cursor/theme-restyle-b3ce`.
+## Applied
+
+The scale below is now in the app. Accent color, light/dark behavior, and the existing radius, type, and page-padding tokens are unchanged. Dialog and short-form `max-w-*` widths were left in place.
+
+- `--control-height-sm: 28px` in `frontend/src/themes/ltf_theme.css`. Button `sm` uses it. Button `lg` and `icon-lg` match the 32px default. `py-2` was removed from the default button so the fixed height holds. License settings no longer passes `size="lg"`.
+- The coarse-pointer block that raised controls to 40px and rows to 44px was removed. Mouse and touch share the dense tokens.
+- Badges are 20px (`h-5`), `px-1.5`, `text-xs` (the `--text-meta` alias; the `.text-meta` class also forces muted color, so badges do not use it), and `--radius-chip`. Tab counts, the sidebar count, and the designer slot chip are chips, not pills. Calendar days, chart tracks, and blur orbs stay circles.
+- `dataThClass` / `dataTdClass` and copied `th`/`td` padding are `px-[var(--control-padding-x)] py-1` (10px × 4px). History and current-license tables use `app-data-table`.
+- `FormPanel` and the copied card/panel `p-6` / `p-5` / auth `p-8` / `p-10` padding are `p-3`. Section stacks `space-y-6` are `space-y-3`. Desk `gap-6` is `gap-3`. Side-panel and section bars use `px-3 py-2`. Page padding stays `--page-padding-x` 1rem and `--page-padding-y` 0.75rem.
+- Underline tabs are `--control-height` with 16px icons.
+- The switch track is 20×36px inside a 32px row.
+- Menu rows, the select `sm` trigger, the student picker, the history checkbox hit area, and `.designer-tool` use the control-height tokens. `.designer-tool` type is `--text-meta`.
+- Login uses `text-display`, a `p-3` card, and a content-sized submit. The order-licenses action row is in normal flow, not a sticky bottom bar.
+
+The tables under this section are the original findings. They are not a remaining-work list.
+
+Audit of the pre-change tree. Branch `cursor/theme-restyle-b3ce`.
 
 Scope: `frontend/src` components, pages, shadcn primitives (`components/ui`), `frontend/src/app/globals.css`, and `frontend/src/themes/ltf_theme.css`. There is no `tailwind.config` file. Tailwind 4 reads the `@theme` block in `globals.css`.
 

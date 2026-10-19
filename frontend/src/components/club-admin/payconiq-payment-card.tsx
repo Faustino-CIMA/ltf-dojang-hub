@@ -76,7 +76,7 @@ export function PayconiqPaymentCard({
   const createDisabled = isBusy || !canCreate || Boolean(payment && !statusMeta.isTerminal);
 
   return (
-    <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-card p-6">
+    <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-card p-3">
       <div className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-foreground">{t("payconiqTitle")}</h2>
         <p className="text-sm text-muted">{t("payconiqHint")}</p>

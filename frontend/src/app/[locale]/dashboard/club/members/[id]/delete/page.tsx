@@ -166,7 +166,7 @@ export default function ClubMemberDeletePage() {
         </div>
       ) : (
         <div className="space-y-5">
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-5">
+          <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
             <h2 className="text-sm font-semibold text-foreground">{t("singleDeleteMemberPreviewTitle")}</h2>
             <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
               <div>

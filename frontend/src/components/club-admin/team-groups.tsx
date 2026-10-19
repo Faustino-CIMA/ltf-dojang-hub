@@ -96,7 +96,7 @@ function GroupForm({
                   type="button"
                   aria-pressed={active}
                   className={cn(
-                    "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-foreground hover:bg-[var(--accent-soft)] hover:text-foreground",
+                    "flex min-h-[var(--control-height)] w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-foreground hover:bg-[var(--accent-soft)] hover:text-foreground",
                     active && "bg-accent text-accent-foreground",
                   )}
                   onClick={() =>
@@ -161,7 +161,7 @@ export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (te
   ];
 
   return (
-    <section className="app-panel p-6" aria-labelledby="team-groups-title">
+    <section className="app-panel p-3" aria-labelledby="team-groups-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="team-groups-title" className="text-section text-foreground">{t("teamGroupsTitle")}</h2>
         <Button type="button" variant="outline" onClick={() => { setEditing(null); setPanel("edit"); }}>

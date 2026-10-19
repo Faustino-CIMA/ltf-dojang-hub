@@ -86,7 +86,7 @@ export function CurrentLicensesPanel({
   const previewLicense =
     licenses.find((license) => license.status === "active") ?? licenses[0] ?? null;
   return (
-    <section className="app-panel p-6">
+    <section className="app-panel p-3">
       <h2 className="text-section text-foreground">{title}</h2>
       <p className="mt-1 text-sm text-muted">{subtitle}</p>
       {memberId && previewLicense ? (
@@ -105,20 +105,20 @@ export function CurrentLicensesPanel({
         <p className="mt-4 text-sm text-muted">{emptyLabel}</p>
       ) : (
         <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="app-data-table min-w-full text-left text-sm">
             <thead className="border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-4 py-3 font-medium">{yearLabel}</th>
-                <th className="px-4 py-3 font-medium">{typeLabel}</th>
-                <th className="px-4 py-3 font-medium">{statusLabel}</th>
+                <th className="px-[var(--control-padding-x)] py-1 font-medium">{yearLabel}</th>
+                <th className="px-[var(--control-padding-x)] py-1 font-medium">{typeLabel}</th>
+                <th className="px-[var(--control-padding-x)] py-1 font-medium">{statusLabel}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/80">
               {licenses.map((license) => (
                 <tr key={license.id} className="h-[var(--table-row-height)] text-foreground">
-                  <td className="px-4 py-3">{license.year}</td>
-                  <td className="px-4 py-3">{license.license_type_name}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-[var(--control-padding-x)] py-1">{license.year}</td>
+                  <td className="px-[var(--control-padding-x)] py-1">{license.license_type_name}</td>
+                  <td className="px-[var(--control-padding-x)] py-1">
                     <StatusBadge
                       label={statusLabelFor(license.status, {
                         pendingLabel,

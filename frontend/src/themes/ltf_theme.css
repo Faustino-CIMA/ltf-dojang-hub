@@ -92,6 +92,7 @@
   --page-padding-y: 0.75rem;
 
   --control-height: 32px;
+  --control-height-sm: 28px;
   --table-row-height: 36px;
   --control-padding-x: 10px;
 }
@@ -155,14 +156,3 @@
   --shadow-float: 0 10px 28px oklch(0% 0 0 / 0.4);
 }
 
-@media (pointer: coarse) {
-  :root,
-  .light,
-  [data-theme="light"],
-  .dark,
-  [data-theme="dark"] {
-    --control-height: 40px;
-    --table-row-height: 44px;
-    --control-padding-x: 14px;
-  }
-}

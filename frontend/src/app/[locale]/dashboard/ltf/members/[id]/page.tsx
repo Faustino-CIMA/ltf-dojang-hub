@@ -242,7 +242,7 @@ export default function LtfMemberDetailPage() {
 
   return (
     <LtfAdminLayout title={title} subtitle={t("memberDetailSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <Button variant="outline" asChild>
           <Link href={`/${locale}/dashboard/ltf/members`}>{t("backToMembers")}</Link>
         </Button>
@@ -261,7 +261,7 @@ export default function LtfMemberDetailPage() {
         ) : !member ? (
           <EmptyState title={t("noResultsTitle")} description={t("memberNotFound")} />
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {member.is_club_tourist ? (
               <PageNotice tone="warning">{t("clubTouristMemberHint")}</PageNotice>
             ) : null}

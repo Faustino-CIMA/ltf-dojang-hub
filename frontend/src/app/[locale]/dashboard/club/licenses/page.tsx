@@ -275,7 +275,7 @@ export default function ClubAdminLicensesPage() {
     <ClubAdminLayout title={t("licensesTitle")} subtitle={t("licensesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">

@@ -576,7 +576,7 @@ export default function LtfFinanceLicenseSettingsPage() {
       />
 
       {activeTab === "license-types" ? (
-      <div className="space-y-6">
+      <div className="space-y-3">
       <div className="flex flex-col gap-4">
         <ListToolbarPanel
           search={
@@ -684,7 +684,7 @@ export default function LtfFinanceLicenseSettingsPage() {
               const isSavingPrice = Boolean(savingPriceByType[licenseType.id]);
               return (
                 <article key={licenseType.id} className="overflow-hidden rounded-[var(--radius-card)] border border-border">
-                  <div className="space-y-1 border-b border-border bg-secondary px-4 py-3">
+                  <div className="space-y-1 border-b border-border bg-secondary px-3 py-2">
                     <h3 className="text-sm font-semibold text-foreground">{licenseType.name}</h3>
                     <p className="text-xs text-muted">
                       {currentPrice
@@ -758,7 +758,7 @@ export default function LtfFinanceLicenseSettingsPage() {
       ) : null}
 
       {activeTab === "club-fees" ? (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubFeesTitle")}</h2>
             <p className="mt-1 text-sm text-muted">{t("clubFeesSubtitle")}</p>
@@ -836,7 +836,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                     key={feeType.id}
                     className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-secondary px-4 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-secondary px-3 py-2">
                       <div className="space-y-1">
                         <h3 className="text-sm font-semibold text-foreground">{feeType.name}</h3>
                         <p className="text-xs text-muted">
@@ -986,9 +986,9 @@ export default function LtfFinanceLicenseSettingsPage() {
       ) : null}
 
       {activeTab === "billing" ? (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="app-panel p-5">
+            <div className="app-panel p-3">
               <div className="flex items-center gap-2 text-muted">
                 <CalendarDays className="h-4 w-4" />
                 <p className="text-xs font-medium uppercase tracking-wide">{t("clubFeeBillingYearLabel")}</p>
@@ -996,7 +996,7 @@ export default function LtfFinanceLicenseSettingsPage() {
               <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{billingYear || "—"}</p>
               <p className="mt-1 text-xs text-muted">{t("clubFeeBillingYearHint")}</p>
             </div>
-            <div className="app-panel p-5">
+            <div className="app-panel p-3">
               <div className="flex items-center gap-2 text-muted">
                 <Building2 className="h-4 w-4" />
                 <p className="text-xs font-medium uppercase tracking-wide">{t("clubFeeBillingSummaryClubs")}</p>
@@ -1006,7 +1006,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                 {billAllActiveClubs ? t("clubFeeBillingAllActiveClubs") : t("clubFeeBillingPickClubs")}
               </p>
             </div>
-            <div className="app-panel p-5">
+            <div className="app-panel p-3">
               <div className="flex items-center gap-2 text-muted">
                 <Receipt className="h-4 w-4" />
                 <p className="text-xs font-medium uppercase tracking-wide">{t("clubFeeBillingSummaryBilled")}</p>
@@ -1026,7 +1026,6 @@ export default function LtfFinanceLicenseSettingsPage() {
               </div>
               <Button
                 variant="primary"
-                size="lg"
                 onClick={() => void submitBilling()}
                 disabled={isBilling}
               >
@@ -1105,7 +1104,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-foreground">{feeDisplayName(fee)}</p>
                           {selected ? (
-                            <span className="inline-flex items-center gap-1 rounded-[var(--radius-chip)] bg-primary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
+                            <span className="inline-flex h-5 items-center gap-1 rounded-[var(--radius-chip)] bg-primary px-1.5 text-xs font-medium uppercase tracking-wide text-primary-foreground">
                               <Check className="h-3 w-3" />
                               {t("clubFeeBillingFeeSelected")}
                             </span>
@@ -1168,7 +1167,7 @@ export default function LtfFinanceLicenseSettingsPage() {
 
             <div
               className={cn(
-                "mt-6 rounded-[var(--radius-card)] border px-4 py-3",
+                "mt-6 rounded-[var(--radius-card)] border px-3 py-2",
                 billingRebill
                   ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]"
                   : "border-border bg-secondary/40"
@@ -1275,7 +1274,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                 {schedules.map((schedule) => (
                   <div
                     key={schedule.id}
-                    className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 px-4 py-3"
+                    className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 px-3 py-2"
                   >
                     <div>
                       <p className="text-sm font-semibold text-foreground">{schedule.fee_type_name}</p>

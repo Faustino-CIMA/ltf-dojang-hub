@@ -1355,7 +1355,7 @@ export function ImportWizardPage({
     <div className="space-y-4">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">
+      <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
         <div className="flex flex-wrap items-center gap-2">
           {stepOrder.map((stepItem, index) => {
             const isCurrent = stepItem === step;
@@ -1391,7 +1391,7 @@ export function ImportWizardPage({
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">
+        <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           {step === "source" ? (
             <div className="space-y-5">
               <div className="space-y-1">
@@ -2218,7 +2218,7 @@ export function ImportWizardPage({
           ) : null}
         </section>
 
-        <aside className="rounded-[var(--radius-card)] bg-card p-5 border border-border">
+        <aside className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           <h3 className="text-sm font-semibold text-foreground">{t("summaryTitle")}</h3>
           <div className="mt-3 space-y-2 text-sm text-foreground">
             <p>

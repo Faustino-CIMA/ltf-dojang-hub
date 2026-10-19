@@ -85,7 +85,7 @@ export default function MemberDashboardPage() {
 
   return (
     <MemberLayout title={t("title")} subtitle={t("subtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {isLoading ? (

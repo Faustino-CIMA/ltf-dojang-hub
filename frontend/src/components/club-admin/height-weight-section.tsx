@@ -311,7 +311,7 @@ export function HeightWeightSection({
   );
 
   return (
-    <section className={embedded ? "min-w-0" : "app-panel p-6"} aria-labelledby="height-weight-title">
+    <section className={embedded ? "min-w-0" : "app-panel p-3"} aria-labelledby="height-weight-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="height-weight-title" className="text-section text-foreground">{t("heightWeightTitle")}</h2>
         <Button

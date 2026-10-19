@@ -103,7 +103,7 @@ export function StudentMultiPicker({
       />
       <div className="mt-2 overflow-hidden rounded-[var(--radius-form)] border border-border">
         <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary/60 px-3 py-2">
-          <label className="flex min-h-11 items-center gap-3 text-sm">
+          <label className="flex min-h-[var(--control-height)] items-center gap-3 text-sm">
             <input type="checkbox" checked={allVisibleChecked} onChange={toggleShown} disabled={visible.length === 0} />
             {t("trainingSelectShownStudents")}
           </label>
@@ -117,7 +117,7 @@ export function StudentMultiPicker({
           ) : (
             visible.map((option) => (
               <li key={option.id} className="border-b border-border last:border-0">
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--accent-soft)] hover:text-foreground">
+                <label className="flex min-h-[var(--control-height)] cursor-pointer items-center gap-3 px-3 text-sm hover:bg-[var(--accent-soft)] hover:text-foreground">
                   <input type="checkbox" checked={checked.includes(option.id)} onChange={() => toggle(option.id)} />
                   <span>
                     {option.label}

@@ -348,7 +348,7 @@ export function NationalTeamDesk({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <UnderlineTabs
         ariaLabel={t("nationalTeamTabs")}
@@ -629,7 +629,7 @@ function LevelsSection(props: {
 }) {
   const t = useTranslations("LtfAdmin");
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="app-panel space-y-3 p-4">
         <div className="flex items-start gap-3">
           <Checkbox

@@ -38,7 +38,7 @@ const toneClasses: Record<SummaryCardTone, { tile: string; icon: string }> = {
 export function SummaryCard({ title, value, helper, icon: Icon, tone = "neutral" }: SummaryCardProps) {
   const palette = toneClasses[tone];
   return (
-    <div className={cn("app-panel p-5", palette.tile)}>
+    <div className={cn("app-panel p-3", palette.tile)}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-muted">{title}</p>
         {Icon ? (

@@ -93,7 +93,7 @@ export default function ClubExpensesPage() {
 
   return (
     <ClubAdminLayout title={t("expensesTitle")} subtitle={t("clubExpensesSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         <div className="flex flex-col gap-4">

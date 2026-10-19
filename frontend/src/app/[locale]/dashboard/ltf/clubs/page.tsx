@@ -169,9 +169,9 @@ export default function LtfAdminClubsPage() {
     <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         {issue === "no_admin" ? (
-          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
             <p className="min-w-0 flex-1">{t("clubsWithoutAdminFilterMessage")}</p>
             <button
               type="button"

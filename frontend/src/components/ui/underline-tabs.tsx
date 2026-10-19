@@ -83,18 +83,18 @@ export function UnderlineTabs<T extends string>({
               }}
               onClick={() => onChange(option.value)}
               className={cn(
-                "box-border inline-flex h-12 shrink-0 cursor-pointer items-center gap-2 rounded-[var(--radius-form)] border px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-secondary",
+                "box-border inline-flex h-[var(--control-height)] shrink-0 cursor-pointer items-center gap-1.5 rounded-[var(--radius-form)] border px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-secondary",
                 selected
                   ? "border-border bg-surface text-foreground"
                   : "border-transparent bg-transparent text-muted hover:bg-surface/70 hover:text-foreground"
               )}
             >
-              {Icon ? <Icon className="size-5 shrink-0" aria-hidden /> : null}
+              {Icon ? <Icon className="size-4 shrink-0" aria-hidden /> : null}
               <span>{option.label}</span>
               {typeof option.count === "number" ? (
                 <span
                   className={cn(
-                    "inline-flex min-w-6 justify-center rounded-full px-2 py-0.5 text-xs font-medium tabular-nums text-foreground",
+                    "inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-chip)] px-1.5 text-xs font-medium tabular-nums text-foreground",
                     selected ? "bg-secondary" : "bg-surface"
                   )}
                 >

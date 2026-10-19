@@ -211,7 +211,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
   }, [clubId, billingYear]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <FormPanel>
         <h2 className="text-section text-foreground">{t("membershipFee")}</h2>
         <p className="mt-1 text-sm text-muted">{t("membershipFeeSubtitle")}</p>
@@ -279,7 +279,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
                 key={fee.id}
                 className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface"
               >
-                <div className="border-b border-border bg-secondary px-4 py-3">
+                <div className="border-b border-border bg-secondary px-3 py-2">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">{fee.name}</h3>

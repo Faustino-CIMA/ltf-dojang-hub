@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="app-panel w-full max-w-xl p-10">
+      <div className="app-panel w-full max-w-xl p-3">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
@@ -68,7 +68,7 @@ export default function DashboardPage() {
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {user ? (
-          <div className="mt-6 rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-6">
+          <div className="mt-6 rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-3">
             <p className="text-sm text-muted">Signed in as</p>
             <p className="mt-1 text-lg font-semibold text-foreground">{user.username}</p>
             <p className="mt-2 text-sm text-muted">Role: {user.role}</p>

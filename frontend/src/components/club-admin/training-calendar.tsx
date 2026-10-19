@@ -199,13 +199,13 @@ export function TrainingMonthView() {
                     {daySessions.slice(0, 3).map((session) => (
                       <span
                         key={session.id}
-                        className={`mt-0.5 block truncate rounded px-1 text-[11px] ${session.status === "cancelled" ? "text-muted line-through" : "bg-secondary"}`}
+                        className={`mt-0.5 block truncate rounded px-1 text-xs ${session.status === "cancelled" ? "text-muted line-through" : "bg-secondary"}`}
                       >
                         {session.start_time.slice(0, 5)} {session.name}
                       </span>
                     ))}
                     {daySessions.length > 3 ? (
-                      <span className="mt-0.5 block px-1 text-[11px] text-muted">+{daySessions.length - 3}</span>
+                      <span className="mt-0.5 block px-1 text-xs text-muted">+{daySessions.length - 3}</span>
                     ) : null}
                   </button>
                 );
@@ -310,7 +310,7 @@ export function TrainingYearView() {
                   >
                     {title}
                   </button>
-                  <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[10px] uppercase text-muted">
+                  <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-xs uppercase text-muted">
                     {weekdayLabels.map((name, index) => (
                       <div key={`${month}-${index}`}>{name}</div>
                     ))}
@@ -325,7 +325,7 @@ export function TrainingYearView() {
                           type="button"
                           aria-label={`${day.iso}${count > 0 ? `, ${count}` : ""}`}
                           onClick={() => router.push(`/${locale}/dashboard/club/training/month?year=${year}&month=${month + 1}&day=${day.iso}`)}
-                          className={`flex aspect-square items-center justify-center rounded text-[11px] ${
+                          className={`flex aspect-square items-center justify-center rounded text-xs ${
                             day.inMonth ? "text-foreground" : "text-muted"
                           } ${count > 0 ? "bg-primary/15 font-semibold" : "hover:bg-secondary"} ${isToday ? "ring-1 ring-primary" : ""}`}
                         >

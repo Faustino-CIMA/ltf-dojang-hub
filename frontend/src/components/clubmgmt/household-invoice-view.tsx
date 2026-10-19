@@ -103,7 +103,7 @@ export function HouseholdInvoiceView({ householdId }: { householdId: string }) {
 
   return (
     <ClubAdminLayout title={preview?.name || t("familyInvoicePreview")} subtitle={t("familyInvoiceHint")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <Button variant="outline" asChild>
           <Link href={backHref}>{backLabel}</Link>
         </Button>

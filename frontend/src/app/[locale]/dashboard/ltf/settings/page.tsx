@@ -249,7 +249,7 @@ export default function LtfAdminSettingsPage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <FormPanel>
           <h2 className="text-section text-foreground">
             {t("federationSettingsFormTitle")}

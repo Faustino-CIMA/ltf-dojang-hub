@@ -342,7 +342,7 @@ export default function ClubSubsidiesPage() {
 
   return (
     <ClubAdminLayout title={t("subsidiesTitle")} subtitle={t("subsidiesSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices
           error={errorMessage}
@@ -604,13 +604,13 @@ export default function ClubSubsidiesPage() {
                     <tbody>
                       {dossier.coaches.map((coach) => (
                         <tr key={coach.user_id} className="border-b border-border last:border-0">
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-[var(--control-padding-x)] py-1 align-middle">
                             <span className="text-sm font-medium">{coach.name}</span>
                             {coach.diploma_name ? (
                               <p className="mt-0.5 max-w-48 truncate text-xs text-muted" title={coach.diploma_name}>{coach.diploma_name}</p>
                             ) : null}
                           </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-[var(--control-padding-x)] py-1 align-middle">
                             <Select
                               value={coach.eqf_level || "none"}
                               onValueChange={(value) =>
@@ -629,7 +629,7 @@ export default function ClubSubsidiesPage() {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-[var(--control-padding-x)] py-1 align-middle">
                             <Checkbox
                               checked={coach.coaches_under_16}
                               aria-label={t("subsidiesUnder16")}
@@ -642,7 +642,7 @@ export default function ClubSubsidiesPage() {
                               }
                             />
                           </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-[var(--control-padding-x)] py-1 align-middle">
                             <Select
                               value={coach.diploma_status}
                               onValueChange={(value) =>
@@ -661,7 +661,7 @@ export default function ClubSubsidiesPage() {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-[var(--control-padding-x)] py-1 align-middle">
                             <SubsidyFileActions
                               uploadLabel={t("subsidiesUpload")}
                               replaceLabel={t("subsidiesReplaceFile")}
@@ -731,12 +731,12 @@ export default function ClubSubsidiesPage() {
                   <tbody>
                     {dossier.headcount_rows.map((row) => (
                       <tr key={row.label} className="border-b border-border last:border-0">
-                        <td className={`px-4 py-3 text-sm ${row.kind === "section" || row.kind === "total" ? "font-medium" : ""}`}>
+                        <td className={`px-[var(--control-padding-x)] py-1 text-sm ${row.kind === "section" || row.kind === "total" ? "font-medium" : ""}`}>
                           {t(row.label as "subsidiesAgeUnder16")}
                         </td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.kind === "section" ? "" : row.male ?? ""}</td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.kind === "section" ? "" : row.female ?? ""}</td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums">{row.kind === "section" ? "" : row.total ?? ""}</td>
+                        <td className="px-[var(--control-padding-x)] py-1 text-right text-sm tabular-nums">{row.kind === "section" ? "" : row.male ?? ""}</td>
+                        <td className="px-[var(--control-padding-x)] py-1 text-right text-sm tabular-nums">{row.kind === "section" ? "" : row.female ?? ""}</td>
+                        <td className="px-[var(--control-padding-x)] py-1 text-right text-sm tabular-nums">{row.kind === "section" ? "" : row.total ?? ""}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -757,9 +757,9 @@ export default function ClubSubsidiesPage() {
                     <tbody>
                       {dossier.youth.map((row) => (
                         <tr key={row.id} className="border-b border-border last:border-0">
-                          <td className="px-4 py-3 text-sm">{formatFullName(row)}</td>
-                          <td className="px-4 py-3 text-sm text-muted">{row.date_of_birth}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-[var(--control-padding-x)] py-1 text-sm">{formatFullName(row)}</td>
+                          <td className="px-[var(--control-padding-x)] py-1 text-sm text-muted">{row.date_of_birth}</td>
+                          <td className="px-[var(--control-padding-x)] py-1">
                             <Input
                               className="max-w-44"
                               defaultValue={row.national_id}
@@ -784,7 +784,7 @@ export default function ClubSubsidiesPage() {
             <FormPanel>
               <h2 className="text-section text-foreground">{t("subsidiesExtraordinary")}</h2>
               {editingId ? <p className="mt-1 text-xs text-muted">{t("subsidiesEditing")}</p> : null}
-              <form className="mt-4 space-y-6" onSubmit={(event) => void onCreateCase(event)}>
+              <form className="mt-4 space-y-3" onSubmit={(event) => void onCreateCase(event)}>
                 <section>
                   <h3 className="text-sm font-medium text-foreground">{t("subsidiesEventGroup")}</h3>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -917,8 +917,8 @@ export default function ClubSubsidiesPage() {
                       <tbody>
                         {dossier.cases.map((row) => (
                           <tr key={row.id} className="border-b border-border last:border-0">
-                            <td className="px-4 py-3 text-sm font-medium">{row.title}</td>
-                            <td className="px-4 py-3">
+                            <td className="px-[var(--control-padding-x)] py-1 text-sm font-medium">{row.title}</td>
+                            <td className="px-[var(--control-padding-x)] py-1">
                               <Select
                                 value={row.status}
                                 onValueChange={(value) =>
@@ -936,8 +936,8 @@ export default function ClubSubsidiesPage() {
                                 </SelectContent>
                               </Select>
                             </td>
-                            <td className="px-4 py-3 text-sm text-muted">{row.account_due}</td>
-                            <td className="px-4 py-3">
+                            <td className="px-[var(--control-padding-x)] py-1 text-sm text-muted">{row.account_due}</td>
+                            <td className="px-[var(--control-padding-x)] py-1">
                               <div className="flex flex-wrap justify-end gap-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => onEditCase(row)}>
                                   {t("subsidiesEditCase")}

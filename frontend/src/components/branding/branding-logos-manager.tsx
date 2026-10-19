@@ -335,7 +335,7 @@ export function BrandingLogosManager({
   };
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6">
+    <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}
@@ -475,7 +475,7 @@ export function BrandingLogosManager({
             <EmptyState title={t("logoEmptyTitle")} description={t("logoEmptyState")} />
           </div>
         ) : (
-          <div className="mt-4 space-y-6">
+          <div className="mt-4 space-y-3">
             {logosByUsage.map(({ usage, items }) => (
               <div key={usage}>
                 <div className="mb-3 flex flex-wrap items-baseline gap-2">

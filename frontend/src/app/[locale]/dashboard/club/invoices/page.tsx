@@ -348,7 +348,7 @@ export default function ClubAdminInvoicesPage() {
 
   return (
     <ClubAdminLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices
           error={errorMessage || actionError}
@@ -358,7 +358,7 @@ export default function ClubAdminInvoicesPage() {
           }}
         />
         {overdueIssue ? (
-          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
             <p className="min-w-0 flex-1">{t("issuedInvoicesOverdueFilterMessage")}</p>
             <button
               type="button"

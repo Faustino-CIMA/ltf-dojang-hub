@@ -100,7 +100,7 @@ export default function ClubIncomePage() {
 
   return (
     <ClubAdminLayout title={t("incomeTitle")} subtitle={t("incomeSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         <div className="flex flex-col gap-4">

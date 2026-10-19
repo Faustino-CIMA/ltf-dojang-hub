@@ -411,7 +411,7 @@ export default function ClubShopItemDetailPage() {
 
   return (
     <ClubAdminLayout title={title} subtitle={item ? item.sku : t("shopAddItemHint")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubShopTabs />
         {!isNew && shelf.length > 1 && shelfIndex >= 0 && previousItem && nextItem ? (
           <div className="space-y-2">
@@ -489,8 +489,8 @@ export default function ClubShopItemDetailPage() {
         {isLoading ? (
           <EmptyState title={t("shopLoadingTitle")} description={t("shopLoadingStock")} loading />
         ) : (
-          <form className="space-y-6 pb-24 lg:pb-0" onSubmit={(event) => void onSave(event)}>
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_1fr]">
+          <form className="space-y-3 pb-24 lg:pb-0" onSubmit={(event) => void onSave(event)}>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,18rem)_1fr]">
             <FormPanel>
               <Label>{t("shopPhoto")}</Label>
               <label className="mt-2 flex aspect-[4/3] cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius-card)] border border-dashed border-border bg-secondary">
@@ -511,7 +511,7 @@ export default function ClubShopItemDetailPage() {
               </label>
               <p className="mt-2 text-xs text-muted">{t("shopPhotoHelp")}</p>
             </FormPanel>
-            <div className="space-y-6">
+            <div className="space-y-3">
               <FormPanel className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <Label htmlFor="shop-name" required>{t("shopItemName")}</Label>

@@ -608,7 +608,7 @@ export function ProfilePhotoManager({
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`rounded-[var(--radius-card)] border-2 border-dashed p-5 text-sm transition ${
+        className={`rounded-[var(--radius-card)] border-2 border-dashed p-3 text-sm transition ${
           isDragging
             ? "border-foreground bg-secondary text-foreground"
             : "border-border text-muted"
@@ -713,7 +713,7 @@ export function ProfilePhotoManager({
               type="color"
               value={backgroundColor}
               onChange={(event) => setBackgroundColor(event.target.value)}
-              className="h-10 w-16 px-1"
+              className="h-[var(--control-height)] w-14 px-1"
             />
             <Button
               type="button"
@@ -770,10 +770,10 @@ export function ProfilePhotoManager({
   return (
     <>
       {isPageEditor ? (
-        <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">{editorContent}</section>
+        <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">{editorContent}</section>
       ) : (
         <>
-          <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">
+          <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="aspect-[8/10] w-28 overflow-hidden rounded-[var(--radius-card)] border border-border bg-secondary">

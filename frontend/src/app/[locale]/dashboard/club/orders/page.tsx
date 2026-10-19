@@ -231,7 +231,7 @@ export default function ClubAdminOrdersPage() {
 
   return (
     <ClubAdminLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 

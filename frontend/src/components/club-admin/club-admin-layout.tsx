@@ -308,7 +308,7 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
         <IncomingTransferNotice />
         {role === "club_admin" ? <EventReminderToasts /> : null}
         {isPrinting || isTraining ? (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {isPrinting ? <ClubPrintingTabs /> : null}
             {isTraining ? <ClubTrainingTabs /> : null}
             {children}

@@ -90,7 +90,7 @@ export default function OpsQueriesPage() {
       {isLoading ? (
         <LoadingCardGrid title={t("queriesTitle")} description={t("queriesSubtitle")} />
       ) : (
-      <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
+      <div className="grid gap-3 lg:grid-cols-[20rem_1fr]">
         <div className="app-panel p-3">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t("queryCatalog")}</p>
           <ul className="flex flex-col gap-1">

@@ -476,7 +476,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
     drafts[committeeId] ?? { role: firstOpenRole(mandates), started_on: todayIso(), title: "" };
 
   const body = (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}

@@ -693,14 +693,14 @@ function DesignerLookupField({
                 onClick={() => onSelect(item)}
               >
                 <p className="font-medium">{item.label}</p>
-                <p className="text-[11px] text-muted">{subtitleFor(item.subtitle) || "-"}</p>
+                <p className="text-xs text-muted">{subtitleFor(item.subtitle) || "-"}</p>
               </button>
             );
           })
         )}
       </div>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] text-muted">
+        <p className="text-xs text-muted">
           {selectedItem
             ? `${selectedItem.label}${selectedItem.subtitle ? ` · ${subtitleFor(selectedItem.subtitle)}` : ""}`
             : selectedPlaceholder}
@@ -4665,7 +4665,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-muted">{t("licenseCardPreviewPaperProfileHint")}</p>
+            <p className="text-xs text-muted">{t("licenseCardPreviewPaperProfileHint")}</p>
           </div>
         </div>
 
@@ -4860,7 +4860,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                   <h3 className="text-sm font-semibold text-foreground">
                     {t("licenseCardPreviewSheetGeometryTitle")}
                   </h3>
-                  <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-foreground">
+                  <span className="inline-flex h-5 items-center rounded-[var(--radius-chip)] border border-border bg-surface px-1.5 text-xs text-foreground">
                     {t("licenseCardPreviewSheetGeometrySourceLabel", {
                       source: sheetGeometrySourceLabel || "-",
                     })}
@@ -4875,8 +4875,8 @@ export default function LtfAdminLicenseCardDesignerPage() {
                   })}
                 </p>
                 <div className="space-y-1 rounded-md border border-border bg-surface px-2 py-2">
-                  <p className="font-mono text-[11px] text-foreground">{sheetGeometryFormulaX}</p>
-                  <p className="font-mono text-[11px] text-foreground">{sheetGeometryFormulaY}</p>
+                  <p className="font-mono text-xs text-foreground">{sheetGeometryFormulaX}</p>
+                  <p className="font-mono text-xs text-foreground">{sheetGeometryFormulaY}</p>
                 </div>
                 <p
                   className={`text-xs ${
@@ -4951,7 +4951,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                   </div>
                 </div>
                 {sheetGeometryParityPreview.length > 0 ? (
-                  <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-2 text-[11px] text-amber-700">
+                  <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-2 text-xs text-amber-700">
                     {sheetGeometryParityPreview.map((issue, issueIndex) => (
                       <p key={`sheet-geometry-issue-${issueIndex}`}>
                         {t("licenseCardPreviewSheetGeometryParityIssueLabel", {
@@ -4981,7 +4981,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                 ) : (
                   Object.entries(previewData.context).map(([key, value]) => (
                     <div key={key} className="rounded-md border border-border bg-surface px-2 py-1">
-                      <p className="font-mono text-[11px] text-foreground">{key}</p>
+                      <p className="font-mono text-xs text-foreground">{key}</p>
                       <p className="text-xs text-foreground">{value || "-"}</p>
                     </div>
                   ))
@@ -5001,7 +5001,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                     <p className="font-medium text-foreground">
                       #{element.render_order + 1} - {element.id || "-"} ({element.type})
                     </p>
-                    <p className="font-mono text-[11px] text-muted">
+                    <p className="font-mono text-xs text-muted">
                       x:{element.x_mm} y:{element.y_mm} w:{element.width_mm} h:{element.height_mm}
                     </p>
                     <p className="mt-1 text-foreground">
@@ -5037,7 +5037,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                       <p>
                         r{slot.row} c{slot.column}
                       </p>
-                      <p className="font-mono text-[11px]">
+                      <p className="font-mono text-xs">
                         x:{slot.x_mm} y:{slot.y_mm} w:{slot.width_mm} h:{slot.height_mm}
                       </p>
                     </div>
@@ -5193,7 +5193,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                     }}
                   >
                     <p className="text-xs font-medium text-foreground">{field.label}</p>
-                    <p className="text-[11px] text-muted">{field.key}</p>
+                    <p className="text-xs text-muted">{field.key}</p>
                   </button>
                 ))}
               </div>
@@ -5322,7 +5322,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                           height: liveMeasurementBounds.height * canvasScale,
                         }}
                       />
-                      <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-[var(--scrim)] px-2 py-1 text-[10px] text-[var(--scrim-foreground)]">
+                      <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-[var(--scrim)] px-2 py-1 text-xs text-[var(--scrim-foreground)]">
                         {t("licenseCardEditorMeasurementReadout", {
                           x: liveMeasurementBounds.left.toFixed(2),
                           y: liveMeasurementBounds.top.toFixed(2),
@@ -5352,7 +5352,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                     return (
                       <div
                         key={element.id}
-                        className={`absolute flex select-none items-center justify-center rounded border px-1 text-center text-[10px] ${
+                        className={`absolute flex select-none items-center justify-center rounded border px-1 text-center text-xs ${
                           isSelected
                             ? "border-primary bg-[var(--accent-soft)] text-primary"
                             : "border-border bg-surface/85 text-foreground"
@@ -5502,7 +5502,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                         <p className="truncate font-medium">
                           {index + 1}. {toolLabelByType[element.type]}
                         </p>
-                        <p className="truncate text-[10px] text-muted">{element.id}</p>
+                        <p className="truncate text-xs text-muted">{element.id}</p>
                       </button>
                       {groupId ? (
                         <span className="rounded bg-[var(--scrim)] px-1 text-[9px] text-[var(--scrim-foreground)]">G</span>
@@ -5510,7 +5510,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-6 px-2 text-[10px]"
+                        className="h-6 px-2 text-xs"
                         disabled={!isEditableDraft}
                         onClick={() => moveSingleLayer(element.id, "forward")}
                       >
@@ -5519,7 +5519,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-6 px-2 text-[10px]"
+                        className="h-6 px-2 text-xs"
                         disabled={!isEditableDraft}
                         onClick={() => moveSingleLayer(element.id, "backward")}
                       >
@@ -5892,7 +5892,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                         </SelectContent>
                       </Select>
                       {fontAssets.length === 0 ? (
-                        <p className="text-[11px] text-amber-700">{t("licenseCardInspectorNoEmbeddedFontsHint")}</p>
+                        <p className="text-xs text-amber-700">{t("licenseCardInspectorNoEmbeddedFontsHint")}</p>
                       ) : null}
                     </div>
                     <div className="space-y-1">
@@ -7014,13 +7014,13 @@ export default function LtfAdminLicenseCardDesignerPage() {
                         >
                           <div className="min-w-0">
                             <p className="truncate text-xs font-medium text-foreground">{asset.name}</p>
-                            <p className="truncate text-[10px] text-muted">{asset.file}</p>
+                            <p className="truncate text-xs text-muted">{asset.file}</p>
                           </div>
                           {selectedElement?.type === "text" ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-6 px-2 text-[10px]"
+                              className="h-6 px-2 text-xs"
                               disabled={!isEditableDraft}
                               onClick={() => {
                                 applyFontAsset(asset.id);
@@ -7099,13 +7099,13 @@ export default function LtfAdminLicenseCardDesignerPage() {
                                 tone={asset.is_active ? "success" : "warning"}
                               />
                             </div>
-                            <p className="truncate text-[10px] text-muted">{asset.image}</p>
+                            <p className="truncate text-xs text-muted">{asset.image}</p>
                           </div>
                           {selectedElement?.type === "image" ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-6 px-2 text-[10px]"
+                              className="h-6 px-2 text-xs"
                               disabled={!isEditableDraft || !asset.is_active}
                               onClick={() => {
                                 applySelectedImageAsset(asset.id);

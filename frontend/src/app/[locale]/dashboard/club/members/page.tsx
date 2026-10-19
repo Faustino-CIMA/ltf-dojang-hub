@@ -713,7 +713,7 @@ export default function ClubAdminMembersPage() {
               : t("bulkChangeStatusMixedDescription", { count: selectedStatusBreakdown.total })
         }
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             variant="outline"
             disabled={bulkStatusBusy}
@@ -742,7 +742,7 @@ export default function ClubAdminMembersPage() {
         </div>
       </Modal>
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
@@ -802,7 +802,7 @@ export default function ClubAdminMembersPage() {
           </div>
 
           {issue ? (
-            <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+            <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
               <p className="min-w-0 flex-1">
                 {issue === "missing_ltf_licenseid"
                   ? t("membersMissingLtfLicenseIdFilterMessage")

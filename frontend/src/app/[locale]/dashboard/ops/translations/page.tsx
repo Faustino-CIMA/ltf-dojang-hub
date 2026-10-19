@@ -236,7 +236,7 @@ export default function OpsTranslationsPage() {
         </aside>
 
         <div className="min-w-0">
-          <div className="app-panel p-5">
+          <div className="app-panel p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold text-foreground">{currentPage?.title ?? namespace}</h2>
@@ -298,7 +298,7 @@ export default function OpsTranslationsPage() {
             <p className="mt-4 text-sm text-muted">{t("translationsEmptyPage")}</p>
           ) : readingView ? (
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <article className="app-panel p-5">
+              <article className="app-panel p-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t("englishLabel")}</h3>
                 {groups.map((group) => (
                   <section key={`en-${group.id}`} className="mt-5">
@@ -311,7 +311,7 @@ export default function OpsTranslationsPage() {
                   </section>
                 ))}
               </article>
-              <article className="app-panel p-5">
+              <article className="app-panel p-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t("luxembourgishLabel")}</h3>
                 {groups.map((group) => (
                   <section key={`lb-${group.id}`} className="mt-5">
@@ -332,7 +332,7 @@ export default function OpsTranslationsPage() {
             </div>
           ) : (
             <div className="mt-4 overflow-hidden rounded-[var(--radius-card)] border border-border bg-[var(--surface)]">
-              <div className="sticky top-0 z-10 hidden grid-cols-[minmax(9rem,14rem)_1fr_1fr] border-b border-border bg-[var(--surface)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
+              <div className="sticky top-0 z-10 hidden grid-cols-[minmax(9rem,14rem)_1fr_1fr] border-b border-border bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
                 <span>{t("translationsOnScreen")}</span>
                 <span>{t("englishLabel")}</span>
                 <span>{t("luxembourgishLabel")}</span>
@@ -350,7 +350,7 @@ export default function OpsTranslationsPage() {
                         <li
                           key={row.key}
                           className={cn(
-                            "grid gap-3 border-t border-border/70 px-4 py-3 md:grid-cols-[minmax(9rem,14rem)_1fr_1fr]",
+                            "grid gap-3 border-t border-border/70 px-3 py-2 md:grid-cols-[minmax(9rem,14rem)_1fr_1fr]",
                             row.missing_lb && !draft.lb.trim() ? "bg-[var(--badge-danger-bg)]" : "",
                           )}
                         >

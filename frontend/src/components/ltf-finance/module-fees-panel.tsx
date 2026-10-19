@@ -147,7 +147,7 @@ export function ModuleFeesPanel({
   const history = editing ? pricesFor(editing.id) : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-section text-foreground">{t("moduleFeesTitle")}</h2>

@@ -140,7 +140,7 @@ function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutPro
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>
       <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems}>
-        <div className="space-y-6">{children}</div>
+        <div className="space-y-3">{children}</div>
       </AppShell>
     </DashboardShellContext.Provider>
   );

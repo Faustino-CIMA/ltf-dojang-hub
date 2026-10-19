@@ -180,7 +180,7 @@ function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) 
         variant={isDesignerWorkspace ? "workspace" : "default"}
       >
         {isPrinting ? (
-          <div className="space-y-6">
+          <div className="space-y-3">
             <LtfPrintingTabs />
             {children}
           </div>

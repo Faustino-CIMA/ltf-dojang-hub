@@ -619,7 +619,7 @@ export default function ClubAdminsBoardPage() {
 
   return (
     <LtfAdminLayout title={t("clubAdminsBoardTitle")} subtitle={t("clubAdminsBoardSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : (

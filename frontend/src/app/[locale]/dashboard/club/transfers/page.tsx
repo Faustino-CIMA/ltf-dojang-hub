@@ -391,7 +391,7 @@ export default function ClubTransfersPage() {
 
   return (
     <ClubAdminLayout title={t("transfersTitle")} subtitle={t("transfersSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {clubsLoading || isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : !selectedClub ? (

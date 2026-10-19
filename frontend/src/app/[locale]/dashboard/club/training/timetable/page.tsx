@@ -211,7 +211,7 @@ export default function TrainingTimetablePage() {
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices
             error={errorMessage}
             success={successMessage}

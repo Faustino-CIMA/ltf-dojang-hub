@@ -196,7 +196,7 @@ export function PageNotice({
           ? "banner-warning"
           : "banner-info";
   return (
-    <p className={cn("rounded-[var(--radius-form)] border px-4 py-3 text-sm", toneClass)}>{children}</p>
+    <p className={cn("rounded-[var(--radius-form)] border px-3 py-2 text-sm", toneClass)}>{children}</p>
   );
 }
 
@@ -269,7 +269,7 @@ export function FloatingNotice({
     >
       <div
         className={cn(
-          "flex items-start gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm shadow-[var(--shadow-float)]",
+          "flex items-start gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm shadow-[var(--shadow-float)]",
           toneClass
         )}
       >
@@ -340,7 +340,7 @@ export function FormPanel({
   className?: string;
 }) {
   return (
-    <section className={cn("app-panel p-6", className)}>
+    <section className={cn("app-panel p-3", className)}>
       <RequiredForm>{children}</RequiredForm>
     </section>
   );
@@ -361,8 +361,8 @@ export function NestedTable({ children, className }: { children: ReactNode; clas
 export const dataTableClass = "min-w-full text-left text-sm";
 export const dataTheadClass =
   "border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted";
-export const dataThClass = "px-4 py-3 font-medium";
-export const dataTdClass = "px-4 py-3";
+export const dataThClass = "px-[var(--control-padding-x)] py-1 font-medium";
+export const dataTdClass = "px-[var(--control-padding-x)] py-1";
 export const dataRowClass =
   "h-[var(--table-row-height)] text-foreground transition-colors hover:bg-[var(--accent-soft)]";
 export const dataRowClickableClass = `${dataRowClass} cursor-pointer`;

@@ -781,7 +781,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}

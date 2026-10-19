@@ -224,7 +224,7 @@ export default function ClubShopSellPage() {
 
   return (
     <ClubAdminLayout title={t("shopSellTitle")} subtitle={t("shopSellSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubShopTabs />
         <ActionNotices
           error={errorMessage}
@@ -250,7 +250,7 @@ export default function ClubShopSellPage() {
             }
           />
         ) : (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="space-y-4">
               {(overview?.low_stock.length ?? 0) > 0 ? (
                 <p className="text-sm text-muted">

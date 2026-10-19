@@ -136,7 +136,7 @@ export default function ClubFamiliesPage() {
 
   return (
     <ClubAdminLayout title={t("familiesTitle")} subtitle={t("familiesBillingHint")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}

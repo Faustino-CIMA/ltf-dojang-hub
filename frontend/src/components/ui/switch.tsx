@@ -12,11 +12,11 @@ type SwitchProps = {
 };
 
 /**
- * Accessible toggle using theme tokens; track sized for ~44px touch height.
+ * Accessible toggle. Track sits inside the dense control height.
  */
 export function Switch({ id, checked, onCheckedChange, disabled, label, className }: SwitchProps) {
   return (
-    <div className={cn("flex min-h-11 items-center gap-3", className)}>
+    <div className={cn("flex min-h-[var(--control-height)] items-center gap-2", className)}>
       <button
         id={id}
         type="button"
@@ -26,7 +26,7 @@ export function Switch({ id, checked, onCheckedChange, disabled, label, classNam
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-          "relative inline-flex h-11 min-h-11 w-[3.5rem] shrink-0 cursor-pointer items-center rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--surface-secondary)] px-1 transition-colors",
+          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--surface-secondary)] px-0.5 transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           checked && "border-primary bg-primary",
           disabled && "pointer-events-none opacity-50"
@@ -35,8 +35,8 @@ export function Switch({ id, checked, onCheckedChange, disabled, label, classNam
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none block h-8 w-8 rounded-[var(--radius-form)] bg-[var(--surface)] ring-1 ring-[var(--border)] transition-transform",
-            checked ? "translate-x-4" : "translate-x-0"
+            "pointer-events-none block size-4 rounded-[var(--radius-form)] bg-[var(--surface)] ring-1 ring-[var(--border)] transition-transform",
+            checked ? "translate-x-3.5" : "translate-x-0"
           )}
         />
       </button>

@@ -76,7 +76,7 @@ export function TeamFilter({
                 role="option"
                 aria-selected={active}
                 className={cn(
-                  "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground",
+                  "flex min-h-[var(--control-height)] w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground",
                   active && "bg-accent text-accent-foreground"
                 )}
                 onClick={() => onChange(active ? selected.filter((id) => id !== team.id) : [...selected, team.id])}

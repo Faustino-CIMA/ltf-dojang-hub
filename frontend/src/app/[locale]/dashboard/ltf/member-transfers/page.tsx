@@ -57,7 +57,7 @@ export default function LtfMemberTransfersPage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubTouristMonitorTitle")}</h2>
             <p className="mt-1 text-sm text-muted">

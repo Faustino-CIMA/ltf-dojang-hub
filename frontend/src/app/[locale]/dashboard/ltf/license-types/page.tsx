@@ -165,7 +165,7 @@ export default function LtfAdminLicenseTypesPage() {
     <LtfAdminLayout title={t("licenseTypesTitle")} subtitle={t("licenseTypesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="flex flex-col gap-4">
           <ListToolbarPanel
             search={

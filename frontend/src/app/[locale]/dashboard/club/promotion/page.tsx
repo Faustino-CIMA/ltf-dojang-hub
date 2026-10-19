@@ -134,7 +134,7 @@ export default function PromotionPage() {
 
   return (
     <ClubAdminLayout title={t("navPromotion")} subtitle={t("trainingPromotionHint")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices
           error={errorMessage}
           success={successMessage}

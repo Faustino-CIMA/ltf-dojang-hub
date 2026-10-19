@@ -368,7 +368,7 @@ export default function ClubAdminsPage() {
 
   return (
     <ClubAdminLayout title={t("adminsTitle")} subtitle={t("adminsSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : clubs.length === 0 ? (
@@ -547,7 +547,7 @@ export default function ClubAdminsPage() {
                   currentAdmins.map((admin) => (
                     <div
                       key={admin.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border px-4 py-3"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border px-3 py-2"
                     >
                       <div>
                         <p className="font-medium text-foreground">{displayAdminName(admin)}</p>

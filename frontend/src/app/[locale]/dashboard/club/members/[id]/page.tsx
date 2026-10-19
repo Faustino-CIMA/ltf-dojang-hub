@@ -470,7 +470,7 @@ export default function ClubMemberDetailPage() {
         ) : !member ? (
           <EmptyState title={t("noResultsTitle")} description={t("memberNotFound")} />
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {member.is_club_tourist ? (
               <PageNotice tone="warning">{t("clubTouristMemberHint")}</PageNotice>
             ) : null}
