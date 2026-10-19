@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Award,
   Timer,
+  Trophy,
   UsersRound,
   FileText,
   IdCard,
@@ -72,7 +73,8 @@ type ClubNavDef = Readonly<{
     | "navFamilies"
     | "navShop"
     | "navTraining"
-    | "navPromotion";
+    | "navPromotion"
+    | "navTeams";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 }>;
@@ -154,6 +156,13 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     labelKey: "navTraining",
     matchMode: "prefix",
     icon: Timer,
+  } satisfies ClubNavDef),
+  Object.freeze({
+    id: "teams",
+    routePath: "dashboard/club/teams",
+    labelKey: "navTeams",
+    matchMode: "prefix",
+    icon: Trophy,
   } satisfies ClubNavDef),
   Object.freeze({
     id: "promotion",
@@ -246,7 +255,7 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
         if (def.id === "preview") return role === "club_admin" && previewAssigned;
         if (def.id === "calendar") return calendarAssigned;
         if (def.id === "families" || def.id === "shop") return role === "club_admin" && clubMgmtAssigned;
-        if (def.id === "training" || def.id === "promotion") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
+        if (def.id === "training" || def.id === "promotion" || def.id === "teams") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
         if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
         if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
         return true;

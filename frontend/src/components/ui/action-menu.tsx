@@ -11,6 +11,9 @@ export type MenuAction = {
   icon?: ReactNode;
   destructive?: boolean;
   disabled?: boolean;
+  href?: string;
+  /** Shown in the menu before onSelect runs. The menu stays open until confirmed. */
+  confirmLabel?: string;
   onSelect: () => void;
 };
 

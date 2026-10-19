@@ -43,6 +43,15 @@ from .promotion_views import (
     PromotionRuleView,
 )
 from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
+from .team_views import (
+    ClubTeamDetailView,
+    ClubTeamGroupView,
+    ClubTeamListView,
+    ClubTeamMemberBulkView,
+    ClubTeamMemberView,
+    ClubTeamSheetView,
+    ClubTeamWeighInView,
+)
 from .training_views import (
     TrainingAttendanceView,
     TrainingGenerateView,
@@ -118,6 +127,19 @@ urlpatterns = [
     path("subsidies/cases/", ExtraordinarySubsidyView.as_view(), name="clubmgmt-subsidy-cases"),
     path("subsidies/cases/<int:case_id>/", ExtraordinarySubsidyDetailView.as_view(), name="clubmgmt-subsidy-case"),
     path("subsidies/cases/<int:case_id>/form.pdf", ExtraordinarySubsidyPdfView.as_view(), name="clubmgmt-subsidy-pdf"),
+    path("teams/", ClubTeamListView.as_view(), name="clubmgmt-teams"),
+    path("teams/<int:team_id>/", ClubTeamDetailView.as_view(), name="clubmgmt-team"),
+    path("teams/<int:team_id>/members/", ClubTeamMemberView.as_view(), name="clubmgmt-team-members"),
+    path("teams/<int:team_id>/members/bulk/", ClubTeamMemberBulkView.as_view(), name="clubmgmt-team-members-bulk"),
+    path("teams/<int:team_id>/weigh-in/", ClubTeamWeighInView.as_view(), name="clubmgmt-team-weigh-in"),
+    path("teams/<int:team_id>/groups/", ClubTeamGroupView.as_view(), name="clubmgmt-team-groups"),
+    path("teams/<int:team_id>/groups/<int:group_id>/", ClubTeamGroupView.as_view(), name="clubmgmt-team-group"),
+    path("teams/<int:team_id>/sheet.<str:export_format>", ClubTeamSheetView.as_view(), name="clubmgmt-team-sheet"),
+    path(
+        "teams/<int:team_id>/members/<int:member_id>/",
+        ClubTeamMemberView.as_view(),
+        name="clubmgmt-team-member",
+    ),
     path("measurements/", BodyMeasurementListView.as_view(), name="clubmgmt-measurements"),
     path("measurements/<int:measurement_id>/", BodyMeasurementDetailView.as_view(), name="clubmgmt-measurement"),
     path("training/series/", TrainingSeriesView.as_view(), name="clubmgmt-training-series"),

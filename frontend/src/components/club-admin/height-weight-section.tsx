@@ -117,7 +117,7 @@ function TrendChart({
   );
 }
 
-function MeasurementForm({
+export function MeasurementEntryPanel({
   memberId,
   row,
   busy,
@@ -240,7 +240,15 @@ function MeasurementForm({
   );
 }
 
-export function HeightWeightSection({ memberId }: { memberId: number }) {
+export function HeightWeightSection({
+  memberId,
+  embedded = false,
+  onChanged,
+}: {
+  memberId: number;
+  embedded?: boolean;
+  onChanged?: () => void;
+}) {
   const t = useTranslations("ClubAdmin");
   const [rows, setRows] = useState<BodyMeasurement[]>([]);
   const [suggestion, setSuggestion] = useState<WeightSuggestion | null>(null);
@@ -303,7 +311,7 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
   );
 
   return (
-    <section className="app-panel p-6" aria-labelledby="height-weight-title">
+    <section className={embedded ? "min-w-0" : "app-panel p-6"} aria-labelledby="height-weight-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="height-weight-title" className="text-section text-foreground">{t("heightWeightTitle")}</h2>
         <Button
@@ -385,7 +393,10 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
                         setBusy(true);
                         void deleteBodyMeasurement(row.id)
                           .then(() => load())
-                          .finally(() => setBusy(false));
+                          .finally(() => {
+                            setBusy(false);
+                            onChanged?.();
+                          });
                       },
                     },
                   ]}
@@ -401,7 +412,7 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
         </div>
       )}
       {panel ? (
-        <MeasurementForm
+        <MeasurementEntryPanel
           memberId={memberId}
           row={panel === "edit" ? editing : null}
           busy={busy}
@@ -409,7 +420,10 @@ export function HeightWeightSection({ memberId }: { memberId: number }) {
           onSaved={() => {
             setPanel(null);
             setBusy(true);
-            void load().finally(() => setBusy(false));
+            void load().finally(() => {
+              setBusy(false);
+              onChanged?.();
+            });
           }}
         />
       ) : null}

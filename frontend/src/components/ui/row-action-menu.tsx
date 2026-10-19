@@ -39,10 +39,18 @@ export function RowActionMenu({
   actions: MenuAction[];
 }) {
   const [open, setOpen] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pending = actions.find((action) => action.key === pendingKey) ?? null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setPendingKey(null);
+      }}
+    >
       <PopoverTrigger
         className="inline-flex size-[var(--control-height)] items-center justify-center rounded-[var(--radius-form)] text-muted outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={label}
@@ -78,26 +86,65 @@ export function RowActionMenu({
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        {actions.map((action) => (
-          <button
-            key={action.key}
-            type="button"
-            role="menuitem"
-            disabled={action.disabled}
-            className={cn(itemClassName, action.destructive && destructiveItemClassName)}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (action.disabled) {
-                return;
-              }
-              setOpen(false);
-              action.onSelect();
-            }}
-          >
-            {action.icon}
-            {action.label}
-          </button>
-        ))}
+        {pending ? (
+          <div className="space-y-2 px-1 py-1">
+            <p className="px-2 text-sm text-popover-foreground">{pending.confirmLabel}</p>
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(itemClassName, destructiveItemClassName)}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(false);
+                setPendingKey(null);
+                pending.onSelect();
+              }}
+            >
+              {pending.label}
+            </button>
+          </div>
+        ) : (
+          actions.map((action) =>
+            action.href ? (
+              <a
+                key={action.key}
+                href={action.href}
+                role="menuitem"
+                className={cn(itemClassName, action.destructive && destructiveItemClassName)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpen(false);
+                }}
+              >
+                {action.icon}
+                {action.label}
+              </a>
+            ) : (
+              <button
+                key={action.key}
+                type="button"
+                role="menuitem"
+                disabled={action.disabled}
+                className={cn(itemClassName, action.destructive && destructiveItemClassName)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (action.disabled) {
+                    return;
+                  }
+                  if (action.confirmLabel) {
+                    setPendingKey(action.key);
+                    return;
+                  }
+                  setOpen(false);
+                  action.onSelect();
+                }}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            ),
+          )
+        )}
       </PopoverContent>
     </Popover>
   );

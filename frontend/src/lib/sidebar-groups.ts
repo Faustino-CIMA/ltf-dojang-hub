@@ -12,7 +12,7 @@ export type SidebarGroup = {
   labelKey: CommonNavGroupKey;
 };
 
-const CLUB_MANAGEMENT_ITEM_IDS = new Set(["finance", "families", "shop", "training", "promotion"]);
+const CLUB_MANAGEMENT_ITEM_IDS = new Set(["finance", "families", "shop", "training", "promotion", "teams"]);
 
 export function ltfSidebarGroup(itemId: string): SidebarGroup {
   if (itemId === "calendar") {

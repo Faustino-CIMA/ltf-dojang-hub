@@ -9,7 +9,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
-import { latestMeasurementColumns } from "@/components/club-admin/height-weight-section";
+import { TeamFilter } from "@/components/club-admin/club-teams-desk";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import {
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { getClubTeams, type ClubTeam } from "@/lib/club-teams-api";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 type AuthMeResponse = { role: string };
@@ -129,6 +130,8 @@ export default function ClubAdminMembersPage() {
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [clubTeams, setClubTeams] = useState<ClubTeam[]>([]);
+  const [teamFilter, setTeamFilter] = useState<number[]>([]);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [actionsHintOpen, setActionsHintOpen] = useState(false);
@@ -185,6 +188,7 @@ export default function ClubAdminMembersPage() {
             isActive: isActiveFilter,
             issue: issue ?? undefined,
             ordering,
+            teamIds: teamFilter,
           }),
           getMembersPage({
             page: 1,
@@ -233,6 +237,7 @@ export default function ClubAdminMembersPage() {
     isActiveFilter,
     issue,
     ordering,
+    teamFilter,
   ]);
 
   useEffect(() => {
@@ -272,7 +277,26 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
-  const showMeasurements = clubMgmtOn && (currentRole === "club_admin" || currentRole === "coach");
+  const showTeams = clubMgmtOn && (currentRole === "club_admin" || currentRole === "coach");
+
+  useEffect(() => {
+    if (!showTeams || selectedClubId == null) {
+      return;
+    }
+    let cancelled = false;
+    getClubTeams(selectedClubId)
+      .then((rows) => {
+        if (cancelled) return;
+        setClubTeams(rows);
+        setTeamFilter((current) => current.filter((id) => rows.some((team) => team.id === id)));
+      })
+      .catch(() => {
+        if (!cancelled) setClubTeams([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId, showTeams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -310,7 +334,7 @@ export default function ClubAdminMembersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue, tableSort]);
+  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue, tableSort, teamFilter]);
 
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/club/members`);
@@ -731,6 +755,9 @@ export default function ClubAdminMembersPage() {
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
               </div>
+              {showTeams ? (
+                <TeamFilter teams={clubTeams} selected={teamFilter} onChange={setTeamFilter} />
+              ) : null}
               <div>
                 <Select value={pageSize} onValueChange={setPageSize}>
                   <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
@@ -983,7 +1010,6 @@ export default function ClubAdminMembersPage() {
                 sortable: true,
                 render: (member) => formatDisplayDate(member.date_of_birth),
               },
-              ...(showMeasurements ? latestMeasurementColumns(t) : []),
               {
                 key: "is_active",
                 header: t("isActiveLabel"),

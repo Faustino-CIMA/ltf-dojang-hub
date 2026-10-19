@@ -869,4 +869,5 @@ class ExtraordinarySubsidy(models.Model):
 
 
 from . import body_measurements as _body_measurements  # noqa: E402,F401
+from . import teams as _teams  # noqa: E402,F401
 from . import training_models as _training_models  # noqa: E402,F401

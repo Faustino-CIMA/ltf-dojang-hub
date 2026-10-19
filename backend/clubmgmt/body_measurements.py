@@ -145,13 +145,89 @@ def suggest_age_class(date_of_birth, season_year: int) -> str:
 
 
 def kyorugi_category(weight_kg: Decimal, age_class: str, sex: str) -> str:
-    ceilings = _KYORUGI_CEILINGS.get((age_class, sex))
+    ceilings = _KYORUGI_CEILINGS.get((age_class, str(sex or "").strip().upper()))
     if ceilings is None or weight_kg is None:
         return ""
     for ceiling in ceilings:
         if weight_kg <= Decimal(ceiling):
             return f"-{ceiling} kg"
     return f"+{ceilings[-1]} kg"
+
+
+def category_reason(date_of_birth, age_class: str, sex: str, weight_kg) -> str:
+    """Why a world Kyorugi category is blank. Empty when one can be computed.
+
+    Pupils, Minimes, and Youth have no world category. A senior of any age
+    still does. A later height-only entry does not erase an earlier weight;
+    that case is "no weight" only when no weight exists at all.
+    """
+    if date_of_birth is None:
+        return "no_birth_date"
+    if str(sex or "").strip().upper() not in {"M", "F"}:
+        return "no_sex"
+    if age_class in {"youth", "pupils", "minimes"}:
+        return age_class
+    if age_class not in {"cadet", "junior", "senior"}:
+        return "no_birth_date"
+    if weight_kg is None:
+        return "no_weight"
+    return ""
+
+
+def weight_close_to_limit(delta: str | None, category: str, margin: Decimal) -> bool:
+    """True when a closed class is over its ceiling, or within the margin under it.
+
+    The open class has no upper limit, so it is never marked.
+    """
+    if not category.startswith("-") or delta in (None, ""):
+        return False
+    return Decimal(delta) >= -Decimal(margin)
+
+
+def kyorugi_margin(weight_kg: Decimal | None, age_class: str, sex: str) -> tuple[str, str | None]:
+    """Category plus kilograms over or under that category's limit.
+
+    A closed class uses its ceiling. The open class uses the last ceiling.
+    On the limit the margin is 0.0. Pupils, Minimes, and Youth have no class.
+    """
+    if weight_kg is None:
+        return "", None
+    weight = Decimal(weight_kg)
+    category = kyorugi_category(weight, age_class, sex)
+    if not category:
+        return "", None
+    limit = Decimal(category[1:].split()[0])
+    delta = (weight - limit).quantize(Decimal("0.1"))
+    return category, f"{delta:.1f}"
+
+
+# Individual recognized Poomsae divisions, Article 4.1.5 and Article 6.1 of the
+# World Taekwondo Poomsae Competition Rules & Interpretation in force
+# 30 September 2024. Age is the year of the championships, not the date.
+# Pair and team divisions use wider bands and are not used here. Under 12 has
+# no individual division.
+# https://aliansitaekwondo.com/wp-content/uploads/2025/03/WT-Poomsae-Competition-Rules-and-Interpretation-In-force-as-of-September-30-2024.pdf
+def poomsae_division(date_of_birth, season_year: int) -> str:
+    if date_of_birth is None or not season_year or date_of_birth.year < 1900:
+        return ""
+    age = season_year - date_of_birth.year
+    if age < 12:
+        return ""
+    if age <= 14:
+        return "cadet"
+    if age <= 17:
+        return "junior"
+    if age <= 30:
+        return "under_30"
+    if age <= 40:
+        return "under_40"
+    if age <= 50:
+        return "under_50"
+    if age <= 60:
+        return "under_60"
+    if age <= 65:
+        return "under_65"
+    return "over_65"
 
 
 def weight_suggestion(member) -> dict | None:
