@@ -1029,7 +1029,7 @@ export default function ClubAdminMembersPage() {
                       type="button"
                       disabled={isUpdating}
                       aria-label={t("actionChangeStatus")}
-                      className={`inline-flex min-h-[var(--control-height)] min-w-[5.5rem] items-center justify-center rounded-[var(--radius-chip)] border px-2.5 text-xs font-semibold hover:opacity-80 ${
+                      className={`inline-flex h-5 items-center justify-center rounded-[var(--radius-chip)] border border-[var(--border)] px-1.5 text-xs font-medium hover:opacity-80 ${
                         member.is_active ? "badge-success" : "bg-secondary text-[var(--default-foreground)]"
                       } ${isUpdating ? "cursor-wait opacity-70" : ""}`}
                       onClick={(e) => {
