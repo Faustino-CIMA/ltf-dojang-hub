@@ -9,6 +9,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { latestMeasurementColumns } from "@/components/club-admin/height-weight-section";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ import {
 } from "@/lib/club-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
+import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 type AuthMeResponse = { role: string };
@@ -126,6 +128,7 @@ export default function ClubAdminMembersPage() {
   const [statusFilterHydrated, setStatusFilterHydrated] = useState(false);
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [clubMgmtOn, setClubMgmtOn] = useState(false);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [actionsHintOpen, setActionsHintOpen] = useState(false);
@@ -269,6 +272,21 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
+  const showMeasurements = clubMgmtOn && (currentRole === "club_admin" || currentRole === "coach");
+
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+      })
+      .catch(() => {
+        if (!cancelled) setClubMgmtOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
 
   const selectedIdsStorageKey = useMemo(
     () => `club_members_selected_ids:${selectedClubId ?? "all"}`,
@@ -965,6 +983,7 @@ export default function ClubAdminMembersPage() {
                 sortable: true,
                 render: (member) => formatDisplayDate(member.date_of_birth),
               },
+              ...(showMeasurements ? latestMeasurementColumns(t) : []),
               {
                 key: "is_active",
                 header: t("isActiveLabel"),

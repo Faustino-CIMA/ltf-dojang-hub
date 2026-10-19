@@ -86,6 +86,10 @@ export type Member = {
   current_licenses?: CurrentLicense[];
   completed_transfer_count?: number;
   is_club_tourist?: boolean;
+  latest_weight_kg?: string | null;
+  latest_weight_on?: string | null;
+  latest_height_cm?: number | null;
+  latest_height_on?: string | null;
 };
 
 export type CurrentLicense = {

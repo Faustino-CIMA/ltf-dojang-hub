@@ -42,6 +42,7 @@ from .promotion_views import (
     PromotionRuleDetailView,
     PromotionRuleView,
 )
+from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
 from .training_views import (
     TrainingAttendanceView,
     TrainingGenerateView,
@@ -117,6 +118,8 @@ urlpatterns = [
     path("subsidies/cases/", ExtraordinarySubsidyView.as_view(), name="clubmgmt-subsidy-cases"),
     path("subsidies/cases/<int:case_id>/", ExtraordinarySubsidyDetailView.as_view(), name="clubmgmt-subsidy-case"),
     path("subsidies/cases/<int:case_id>/form.pdf", ExtraordinarySubsidyPdfView.as_view(), name="clubmgmt-subsidy-pdf"),
+    path("measurements/", BodyMeasurementListView.as_view(), name="clubmgmt-measurements"),
+    path("measurements/<int:measurement_id>/", BodyMeasurementDetailView.as_view(), name="clubmgmt-measurement"),
     path("training/series/", TrainingSeriesView.as_view(), name="clubmgmt-training-series"),
     path("training/series/<int:series_id>/", TrainingSeriesDetailView.as_view(), name="clubmgmt-training-series-detail"),
     path("training/series/<int:series_id>/generate/", TrainingGenerateView.as_view(), name="clubmgmt-training-generate"),

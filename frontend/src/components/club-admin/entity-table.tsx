@@ -11,6 +11,8 @@ export type EntityTableColumn<T> = {
   render?: (row: T) => ReactNode;
   sortable?: boolean;
   sortValue?: (row: T) => unknown;
+  headerClassName?: string;
+  cellClassName?: string;
 };
 
 type EntityTableProps<T> = {
@@ -23,6 +25,8 @@ type EntityTableProps<T> = {
   onSortChange?: (sort: TableSort) => void;
   /** Sort the rows passed in. Use this when the table already has every row. */
   clientSort?: boolean;
+  /** Skip the outer card. Use this when the table already sits inside a panel. */
+  embedded?: boolean;
 };
 
 export function EntityTable<T extends { id: number | string }>({
@@ -33,6 +37,7 @@ export function EntityTable<T extends { id: number | string }>({
   sort = null,
   onSortChange,
   clientSort = false,
+  embedded = false,
 }: EntityTableProps<T>) {
   const isClickable = Boolean(onRowClick);
   const displayedRows = useMemo(() => {
@@ -48,7 +53,7 @@ export function EntityTable<T extends { id: number | string }>({
   }, [clientSort, columns, rows, sort]);
 
   return (
-    <div className="app-panel overflow-x-auto">
+    <div className={embedded ? "overflow-x-auto" : "app-panel overflow-x-auto"}>
       <table className="min-w-full text-left text-sm">
         <thead className="border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted">
           <tr>
@@ -62,7 +67,7 @@ export function EntityTable<T extends { id: number | string }>({
                   : "none"
                 : undefined;
               return (
-                <th key={column.key} className="px-4 py-3 font-medium" aria-sort={ariaSort} scope="col">
+                <th key={column.key} className={`px-4 py-3 font-medium ${column.headerClassName ?? ""}`} aria-sort={ariaSort} scope="col">
                   {column.sortable && onSortChange ? (
                     <SortableColumnHeader
                       label={column.header}
@@ -114,7 +119,7 @@ export function EntityTable<T extends { id: number | string }>({
                   role={isClickable ? "button" : undefined}
                 >
                   {columns.map((column) => (
-                    <td key={column.key} className="px-4 py-3">
+                    <td key={column.key} className={`px-4 py-3 ${column.cellClassName ?? ""}`}>
                       {column.render ? column.render(row) : (row as Record<string, ReactNode>)[column.key]}
                     </td>
                   ))}

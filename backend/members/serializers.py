@@ -51,6 +51,10 @@ class MemberSerializer(serializers.ModelSerializer):
     is_ltf_staff = serializers.SerializerMethodField()
     ltf_staff = serializers.SerializerMethodField()
     linked_user = serializers.SerializerMethodField()
+    latest_weight_kg = serializers.SerializerMethodField()
+    latest_weight_on = serializers.SerializerMethodField()
+    latest_height_cm = serializers.SerializerMethodField()
+    latest_height_on = serializers.SerializerMethodField()
     ltf_license_prefix = serializers.ChoiceField(
         choices=[("LUX", "LUX"), ("LTF", "LTF")],
         write_only=True,
@@ -83,6 +87,10 @@ class MemberSerializer(serializers.ModelSerializer):
             "is_ltf_staff",
             "ltf_staff",
             "linked_user",
+            "latest_weight_kg",
+            "latest_weight_on",
+            "latest_height_cm",
+            "latest_height_on",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -101,6 +109,10 @@ class MemberSerializer(serializers.ModelSerializer):
             "is_ltf_staff",
             "ltf_staff",
             "linked_user",
+            "latest_weight_kg",
+            "latest_weight_on",
+            "latest_height_cm",
+            "latest_height_on",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -261,6 +273,35 @@ class MemberSerializer(serializers.ModelSerializer):
             "username": obj.user.username,
             "role": obj.user.role,
         }
+
+    def _measurements_visible(self, obj: Member) -> bool:
+        clubs = self.context.get("measurement_club_ids") or set()
+        return bool(obj.club_id and obj.club_id in clubs)
+
+    def get_latest_weight_kg(self, obj: Member):
+        value = getattr(obj, "latest_weight_kg", None)
+        if value is None:
+            return None
+        return f"{value:.1f}"
+
+    def get_latest_weight_on(self, obj: Member):
+        value = getattr(obj, "latest_weight_on", None)
+        return value.isoformat() if value else None
+
+    def get_latest_height_cm(self, obj: Member):
+        value = getattr(obj, "latest_height_cm", None)
+        return None if value is None else int(value)
+
+    def get_latest_height_on(self, obj: Member):
+        value = getattr(obj, "latest_height_on", None)
+        return value.isoformat() if value else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._measurements_visible(instance):
+            for key in ("latest_weight_kg", "latest_weight_on", "latest_height_cm", "latest_height_on"):
+                data.pop(key, None)
+        return data
 
     def get_current_licenses(self, obj: Member):
         prefetched = getattr(obj, "current_licenses_prefetched", None)
