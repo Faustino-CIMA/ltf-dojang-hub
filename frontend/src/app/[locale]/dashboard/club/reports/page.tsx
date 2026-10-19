@@ -98,7 +98,7 @@ export default function ClubFinanceReportsPage() {
       <div className="space-y-6">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
-        <div className="flex flex-wrap items-end justify-between gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+        <div className="flex flex-wrap items-end justify-between gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">{t("reportYearLabel")}</label>
             <Select value={year} onValueChange={setYear}>

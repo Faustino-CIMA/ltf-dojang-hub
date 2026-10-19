@@ -35,7 +35,7 @@ export function Switch({ id, checked, onCheckedChange, disabled, label, classNam
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none block h-8 w-8 rounded-[var(--radius-form)] bg-[var(--surface)] shadow-sm ring-1 ring-[var(--border)] transition-transform",
+            "pointer-events-none block h-8 w-8 rounded-[var(--radius-form)] bg-[var(--surface)] ring-1 ring-[var(--border)] transition-transform",
             checked ? "translate-x-4" : "translate-x-0"
           )}
         />

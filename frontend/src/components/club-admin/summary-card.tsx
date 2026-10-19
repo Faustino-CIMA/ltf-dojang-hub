@@ -14,20 +14,20 @@ type SummaryCardProps = {
 
 const toneClasses: Record<SummaryCardTone, { tile: string; icon: string }> = {
   accent: {
-    tile: "bg-[color-mix(in_oklab,var(--accent)_10%,white)]",
-    icon: "bg-[color-mix(in_oklab,var(--accent)_16%,white)] text-[color-mix(in_oklab,var(--accent)_70%,black)]",
+    tile: "bg-[var(--accent-soft)]",
+    icon: "bg-primary text-primary-foreground",
   },
   success: {
-    tile: "bg-[color-mix(in_oklab,var(--success)_12%,white)]",
-    icon: "bg-[color-mix(in_oklab,var(--success)_18%,white)] text-[color-mix(in_oklab,var(--success)_62%,black)]",
+    tile: "bg-[var(--badge-success-bg)]",
+    icon: "bg-[var(--badge-success-border)] text-[var(--badge-success-fg)]",
   },
   warning: {
-    tile: "bg-[color-mix(in_oklab,var(--warning)_16%,white)]",
-    icon: "bg-[color-mix(in_oklab,var(--warning)_22%,white)] text-[color-mix(in_oklab,var(--warning)_55%,black)]",
+    tile: "bg-[var(--badge-warning-bg)]",
+    icon: "bg-[var(--badge-warning-border)] text-[var(--badge-warning-fg)]",
   },
   danger: {
-    tile: "bg-[color-mix(in_oklab,var(--danger)_10%,white)]",
-    icon: "bg-[color-mix(in_oklab,var(--danger)_16%,white)] text-[color-mix(in_oklab,var(--danger)_65%,black)]",
+    tile: "bg-[var(--badge-danger-bg)]",
+    icon: "bg-[var(--badge-danger-border)] text-[var(--badge-danger-fg)]",
   },
   neutral: {
     tile: "bg-surface",

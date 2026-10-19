@@ -230,7 +230,7 @@ export default function ClubAdminMemberCreatePage() {
 
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-        <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
+        <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2 md:col-span-2">
               <Label required>{t("clubLabel")}</Label>

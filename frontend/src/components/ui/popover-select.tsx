@@ -14,10 +14,10 @@ export type PopoverSelectOption = {
 };
 
 const triggerClassName =
-  "inline-flex min-h-[var(--control-height)] min-w-[11rem] items-center justify-between gap-2 rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-[var(--control-height)] min-w-[11rem] items-center justify-between gap-2 rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 const optionClassName =
-  "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
+  "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground focus-visible:bg-[var(--accent-soft)] focus-visible:text-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
 
 function focusOption(list: HTMLElement | null, current: Element | null, step: 1 | -1 | "first" | "last") {
   const options = Array.from(list?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);

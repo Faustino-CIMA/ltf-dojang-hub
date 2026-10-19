@@ -420,7 +420,7 @@ export default function ClubShopItemDetailPage() {
                 type="button"
                 variant="secondary"
                 size="icon-sm"
-                className="absolute top-1/2 left-1 z-10 -translate-y-1/2 shadow-sm"
+                className="absolute top-1/2 left-1 z-10 -translate-y-1/2 border border-border"
                 aria-label={previousItem.name}
                 onClick={() => openItem(previousItem)}
               >
@@ -464,7 +464,7 @@ export default function ClubShopItemDetailPage() {
                 type="button"
                 variant="secondary"
                 size="icon-sm"
-                className="absolute top-1/2 right-1 z-10 -translate-y-1/2 shadow-sm"
+                className="absolute top-1/2 right-1 z-10 -translate-y-1/2 border border-border"
                 aria-label={nextItem.name}
                 onClick={() => openItem(nextItem)}
               >

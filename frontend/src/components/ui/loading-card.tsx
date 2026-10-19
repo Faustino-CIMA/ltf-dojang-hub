@@ -10,7 +10,6 @@ type LoadingCardProps = {
   icon?: LucideIcon;
   badge?: ReactNode;
   header?: ReactNode;
-  delayMs?: number;
   className?: string;
 };
 
@@ -20,11 +19,10 @@ export function LoadingCard({
   icon: Icon,
   badge,
   header,
-  delayMs = 0,
   className,
 }: LoadingCardProps) {
   return (
-    <div className={cn("app-panel relative p-4", className)} style={{ animationDelay: `${delayMs}ms` }}>
+    <div className={cn("app-panel relative p-3", className)}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-[color-mix(in_oklab,var(--accent)_18%,transparent)]">
         <span className="app-loading-shimmer absolute inset-y-0 w-1/3 bg-[var(--accent)]" />
       </div>
@@ -35,7 +33,7 @@ export function LoadingCard({
             {title ? (
               <p className="truncate text-sm font-semibold text-foreground">{title}</p>
             ) : (
-              <span className="h-4 w-28 animate-pulse rounded-full bg-[color-mix(in_oklab,var(--accent)_16%,white)]" />
+              <span className="h-4 w-28 animate-pulse rounded-[var(--radius-chip)] bg-[var(--accent-soft)]" />
             )}
           </div>
           {badge}
@@ -46,7 +44,7 @@ export function LoadingCard({
         {description ? (
           <span>{description}</span>
         ) : (
-          <span className="h-3 w-40 animate-pulse rounded-full bg-secondary" />
+          <span className="h-3 w-40 animate-pulse rounded-[var(--radius-chip)] bg-secondary" />
         )}
       </div>
     </div>
@@ -74,7 +72,6 @@ export function LoadingCardGrid({ title, description, count = 3, className }: Lo
           key={index}
           title={index === 0 ? title : undefined}
           description={index === 0 ? description : undefined}
-          delayMs={index * 70}
         />
       ))}
     </div>

@@ -335,7 +335,7 @@ export function BrandingLogosManager({
   };
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6">
       <ActionNotices
         error={errorMessage}
         success={successMessage}

@@ -264,13 +264,13 @@ export default function ClubMembersBatchDeletePage() {
       ) : (
         <div className="space-y-5">
           <section className="grid gap-4 md:grid-cols-2">
-            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4 shadow-sm">
+            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-xs uppercase tracking-wide text-muted">
                 {t("batchDeleteMembersSelectedCountLabel")}
               </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">{selectedMembers.length}</p>
             </article>
-            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4 shadow-sm">
+            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-xs uppercase tracking-wide text-muted">
                 {t("batchDeleteMembersCascadeLicensesLabel")}
               </p>
@@ -292,7 +292,7 @@ export default function ClubMembersBatchDeletePage() {
           ) : null}
 
           {result ? (
-            <section className="space-y-3 rounded-[var(--radius-card)] border border-border bg-card p-4 shadow-sm">
+            <section className="space-y-3 rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-sm font-medium text-foreground">
                 {t("batchDeleteMembersResultLabel", {
                   deleted: result.deleted,

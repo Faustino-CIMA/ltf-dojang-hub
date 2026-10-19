@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { logout } from "@/lib/auth-api";
 import { clearToken, getToken } from "@/lib/auth";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
@@ -38,7 +39,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   if (isAuthPage) {
     return (
       <>
-        <div className="fixed right-4 top-4 z-50">
+        <div className="fixed right-4 top-4 z-50 flex items-center gap-2">
+          <ThemeToggle />
           <LanguageSwitcher compact />
         </div>
         {children}
@@ -49,14 +51,15 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border/80 bg-surface/90 backdrop-blur-md">
-        <div className="mx-auto flex min-h-[var(--topbar-height)] w-full max-w-[1440px] items-center justify-between gap-4 px-4 lg:px-8">
-          <Link href={`/${locale}`} className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[oklch(22%_0.06_232)]">
+        <div className="flex min-h-[var(--topbar-height)] w-full items-center justify-between gap-3 px-[var(--page-padding-x)]">
+          <Link href={`/${locale}`} className="flex min-w-0 items-center gap-2">
+            <div className="flex size-8 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--logo-tile)]">
               <Image src="/ltf-logo.svg" alt="LTF" width={80} height={24} className="h-5 w-auto" />
             </div>
             <span className="truncate text-sm font-semibold tracking-tight">{t("appTitle")}</span>
           </Link>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <LanguageSwitcher compact />
             {hasToken ? (
               <Button

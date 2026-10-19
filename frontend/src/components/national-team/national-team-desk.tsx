@@ -919,7 +919,7 @@ function MemberSearch({
           <button
             key={member.id}
             type="button"
-            className="flex w-full rounded-[var(--radius-form)] px-3 py-2 text-left text-sm text-foreground hover:bg-accent"
+            className="flex w-full rounded-[var(--radius-form)] px-3 py-2 text-left text-sm text-foreground hover:bg-[var(--accent-soft)] hover:text-foreground"
             onClick={() => onChange(String(member.id), member)}
           >
             {formatFullName(member)}

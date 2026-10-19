@@ -628,7 +628,7 @@ export default function ClubMembersOrderLicensesPage() {
     return (
       <ClubAdminLayout title={t("orderLicenseModalTitle")} subtitle={t("orderLicensePageSubtitle")}>
         <FormPanel className="mx-auto max-w-xl text-center">
-          <span className="mx-auto mb-4 inline-flex size-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--success)_16%,white)] text-[color-mix(in_oklab,var(--success)_62%,black)]">
+          <span className="mx-auto mb-4 inline-flex size-12 items-center justify-center rounded-full bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]">
             <CheckCircle2 className="size-6" aria-hidden />
           </span>
           <h2 className="text-section text-foreground">{t("orderLicenseSuccessTitle")}</h2>
@@ -734,7 +734,7 @@ export default function ClubMembersOrderLicensesPage() {
                     className={cn(
                       "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
                       selected
-                        ? "border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_8%,white)] shadow-sm"
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                         : "border-border bg-surface hover:bg-secondary"
                     )}
                   >
@@ -765,7 +765,7 @@ export default function ClubMembersOrderLicensesPage() {
                     className={cn(
                       "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
                       selected
-                        ? "border-[var(--warning)] bg-[color-mix(in_oklab,var(--warning)_12%,white)] shadow-sm"
+                        ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]"
                         : "border-border bg-surface hover:bg-secondary"
                     )}
                   >
@@ -940,7 +940,7 @@ export default function ClubMembersOrderLicensesPage() {
           )}
         </FormPanel>
 
-        <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-[var(--surface)]/95 p-4 shadow-sm backdrop-blur">
+        <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-[var(--surface)]/95 p-4 backdrop-blur">
           <div className="min-w-0">
             {selectedEligibleType ? (
               <p className="text-sm font-medium text-foreground">

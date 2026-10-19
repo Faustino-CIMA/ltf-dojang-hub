@@ -351,7 +351,7 @@ export default function OpsTranslationsPage() {
                           key={row.key}
                           className={cn(
                             "grid gap-3 border-t border-border/70 px-4 py-3 md:grid-cols-[minmax(9rem,14rem)_1fr_1fr]",
-                            row.missing_lb && !draft.lb.trim() ? "bg-[color-mix(in_oklab,var(--danger)_6%,white)]" : "",
+                            row.missing_lb && !draft.lb.trim() ? "bg-[var(--badge-danger-bg)]" : "",
                           )}
                         >
                           <div className="min-w-0">

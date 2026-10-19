@@ -59,7 +59,7 @@ export function UnderlineTabs<T extends string>({
   };
 
   return (
-    <div className="rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--border)_80%,transparent)] bg-secondary p-1.5 shadow-sm">
+    <div className="rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--border)_80%,transparent)] bg-secondary p-1.5">
       <div
         role="tablist"
         aria-label={ariaLabel}
@@ -85,7 +85,7 @@ export function UnderlineTabs<T extends string>({
               className={cn(
                 "box-border inline-flex h-12 shrink-0 cursor-pointer items-center gap-2 rounded-[var(--radius-form)] border px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-secondary",
                 selected
-                  ? "border-border bg-surface text-foreground shadow-sm"
+                  ? "border-border bg-surface text-foreground"
                   : "border-transparent bg-transparent text-muted hover:bg-surface/70 hover:text-foreground"
               )}
             >

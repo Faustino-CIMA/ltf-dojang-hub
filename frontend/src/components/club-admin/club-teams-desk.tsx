@@ -38,7 +38,7 @@ type Translator = (key: string, values?: Record<string, string | number>) => str
 type TeamTag = { id: number; name: string; discipline: TeamDiscipline };
 
 const triggerClassName =
-  "inline-flex min-h-[var(--control-height)] min-w-[11rem] items-center justify-between gap-2 rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "inline-flex min-h-[var(--control-height)] min-w-[11rem] items-center justify-between gap-2 rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 export function disciplineLabel(t: Translator, discipline: string) {
   if (discipline === "poomsae") return t("teamsDisciplinePoomsae");
@@ -76,7 +76,7 @@ export function TeamFilter({
                 role="option"
                 aria-selected={active}
                 className={cn(
-                  "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-accent",
+                  "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground",
                   active && "bg-accent text-accent-foreground"
                 )}
                 onClick={() => onChange(active ? selected.filter((id) => id !== team.id) : [...selected, team.id])}

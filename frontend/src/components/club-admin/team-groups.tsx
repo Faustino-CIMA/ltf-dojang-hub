@@ -96,7 +96,7 @@ function GroupForm({
                   type="button"
                   aria-pressed={active}
                   className={cn(
-                    "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-foreground hover:bg-accent",
+                    "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-foreground hover:bg-[var(--accent-soft)] hover:text-foreground",
                     active && "bg-accent text-accent-foreground",
                   )}
                   onClick={() =>

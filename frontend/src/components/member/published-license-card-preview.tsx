@@ -69,7 +69,7 @@ function CardPreviewFrame({
   return (
     <div ref={containerRef} className="w-full max-w-[420px]">
       <div
-        className="overflow-hidden border border-black/10 bg-white shadow-[0_10px_36px_rgba(15,23,42,0.16)]"
+        className="overflow-hidden border border-border bg-surface"
         style={{
           width: iframeWidth,
           height: iframeHeight,
@@ -83,7 +83,6 @@ function CardPreviewFrame({
           tabIndex={-1}
           width={iframeWidth}
           height={iframeHeight}
-          style={{ width: iframeWidth, height: iframeHeight }}
           srcDoc={srcDoc}
         />
       </div>

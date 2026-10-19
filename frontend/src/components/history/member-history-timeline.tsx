@@ -188,7 +188,7 @@ function HistoryEntityTable<T extends { id: number | string }>({
   cellClassName: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card shadow-sm">
+    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card">
       <table className="min-w-full text-left text-sm">
         <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
           <tr>

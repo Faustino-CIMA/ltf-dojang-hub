@@ -1,7 +1,11 @@
 {
   "Common": {
     "requiredMark": "Pflichtfeld",
-    "requiredLegend": "Pflichtfeld"
+    "requiredLegend": "Pflichtfeld",
+    "themeLabel": "Darstellung",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "themeSystem": "System"
   },
   "ClubAdmin": {
     "memberCommitteeTab": "Vorstand",

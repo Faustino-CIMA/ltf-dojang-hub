@@ -136,7 +136,7 @@ export default function ClubOrderDetailPage() {
         </Button>
       </div>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6">
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("orderNumberLabel")}</span>

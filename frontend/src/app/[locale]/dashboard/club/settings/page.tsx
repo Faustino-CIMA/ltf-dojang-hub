@@ -372,7 +372,7 @@ export default function ClubAdminSettingsPage() {
 
           {activeTab === "profile" || ((activeTab === "committee" || activeTab === "publication") && !clubMgmtOn) ? (
           <>
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+          <section className="rounded-[var(--radius-card)] border border-border bg-card p-6">
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>
             <p className="mt-2 text-sm text-muted">{t("clubFormSubtitle")}</p>
 

@@ -640,7 +640,7 @@ export function ProfilePhotoManager({
         </div>
         {isCameraOpen ? (
           <div className="mt-4 space-y-3">
-            <div className="relative overflow-hidden rounded-[var(--radius-card)] bg-[#0a0a0a]">
+            <div className="relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
               <video
                 ref={videoRef}
                 autoPlay
@@ -679,7 +679,7 @@ export function ProfilePhotoManager({
       {workingImageUrl ? (
         <>
           {/* Dark canvas is intentional for image cropping contrast */}
-          <div className="relative h-72 overflow-hidden rounded-[var(--radius-card)] bg-[#0a0a0a]">
+          <div className="relative h-72 overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
             <Cropper
               image={workingImageUrl}
               crop={crop}
@@ -770,10 +770,10 @@ export function ProfilePhotoManager({
   return (
     <>
       {isPageEditor ? (
-        <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">{editorContent}</section>
+        <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">{editorContent}</section>
       ) : (
         <>
-          <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
+          <section className="rounded-[var(--radius-card)] bg-card p-6 border border-border">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="aspect-[8/10] w-28 overflow-hidden rounded-[var(--radius-card)] border border-border bg-secondary">

@@ -396,7 +396,7 @@ export default function ClubShopSellPage() {
                           <li key={member.id} className="border-b border-border last:border-0">
                             <button
                               type="button"
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--accent-soft)] hover:text-foreground"
                               onClick={() => {
                                 setMemberId(String(member.id));
                                 setMemberQuery("");

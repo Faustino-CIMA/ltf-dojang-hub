@@ -166,12 +166,11 @@ export default function OpsOverviewPage() {
           aria-live={isLoading ? "polite" : undefined}
         >
           {isLoading
-            ? HEALTH_CHECKS.map((row, index) => {
+            ? HEALTH_CHECKS.map((row) => {
                 const Icon = row.icon;
                 return (
                   <LoadingCard
                     key={row.key}
-                    delayMs={index * 70}
                     header={
                       <HealthCheckTitle
                         name={row.key}

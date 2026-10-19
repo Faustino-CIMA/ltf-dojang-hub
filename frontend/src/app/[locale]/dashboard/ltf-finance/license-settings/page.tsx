@@ -1098,7 +1098,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                         className={cn(
                           "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
                           selected
-                            ? "border-primary bg-[color-mix(in_oklab,var(--primary)_10%,white)] shadow-sm"
+                            ? "border-primary bg-[var(--accent-soft)]"
                             : "border-border bg-surface hover:border-primary/40"
                         )}
                       >
@@ -1170,7 +1170,7 @@ export default function LtfFinanceLicenseSettingsPage() {
               className={cn(
                 "mt-6 rounded-[var(--radius-card)] border px-4 py-3",
                 billingRebill
-                  ? "border-[var(--warning,oklch(0.75_0.15_75))] bg-[color-mix(in_oklab,var(--warning,oklch(0.85_0.12_85))_18%,white)]"
+                  ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]"
                   : "border-border bg-secondary/40"
               )}
             >

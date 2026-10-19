@@ -229,7 +229,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
   };
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6">
       <h2 className="text-lg font-semibold text-foreground">{t("trainersTitle")}</h2>
       <p className="mt-2 text-sm text-muted">{t("trainersSubtitle")}</p>
       {isLoading ? (

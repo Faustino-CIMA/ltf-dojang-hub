@@ -82,7 +82,7 @@ export default function TrainingHolidaysPage() {
       ) : (
         <div className="space-y-6">
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
             <Label>{t("subsidiesYear")}</Label>
             <Input className="mt-1" value={year} onChange={(event) => setYear(event.target.value)} />
           </div>
