@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
-import { saveTeamCompetition, type ClubTeam, type CustomBand } from "@/lib/club-teams-api";
+import { removeTeamCompetition, saveTeamCompetition, type ClubTeam, type CustomBand } from "@/lib/club-teams-api";
 
 const SET_CODES = ["wt", "be", "nl", "de", "fr", "at", "custom"] as const;
 
@@ -96,7 +96,14 @@ export function TeamCompetitionPanel({
   const [bands, setBands] = useState<BandDraft[]>(() => draftsFrom(team));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const sourceKey = SOURCE_KEYS[setCode];
+  const hasCompetition = Boolean(
+    team.competition_on ||
+      team.competition_name ||
+      (kyorugi && (team.category_set ?? "wt") !== "wt") ||
+      (team.custom_bands?.length ?? 0) > 0,
+  );
 
   function updateBand(index: number, patch: Partial<BandDraft>) {
     setBands((current) => current.map((row, item) => (item === index ? { ...row, ...patch } : row)));
@@ -233,6 +240,37 @@ export function TeamCompetitionPanel({
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" disabled={busy}>{busy ? t("teamsSaving") : t("teamsSave")}</Button>
+        {hasCompetition ? (
+          confirmRemove ? (
+            <div className="space-y-2">
+              <p className="text-sm text-foreground">{t("teamCompetitionRemovePrompt")}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    setError(null);
+                    void removeTeamCompetition(team.id)
+                      .then(onSaved)
+                      .catch(() => setError(t("teamMarginError")))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  {t("teamCompetitionRemove")}
+                </Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmRemove(false)}>
+                  {t("teamsClose")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button type="button" variant="destructive" disabled={busy} onClick={() => setConfirmRemove(true)}>
+              {t("teamCompetitionRemove")}
+            </Button>
+          )
+        ) : null}
       </form>
     </SidePanel>
   );

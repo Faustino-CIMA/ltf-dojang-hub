@@ -824,6 +824,134 @@ class ClubTeamApiTests(TestCase):
         deleted = self.client.delete(f"/api/club-management/teams/{forms_id}/")
         self.assertEqual(deleted.status_code, 204)
 
+    def test_remove_competition_clears_date_set_and_bands(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        year = timezone.localdate().year
+        self.lea.date_of_birth = date(year - 16, 6, 1)
+        self.lea.save()
+        license_type = LicenseType.objects.create(name="Athlete", code="ath-remove")
+        License.objects.create(
+            member=self.lea,
+            club=self.club,
+            license_type=license_type,
+            year=year,
+            start_date=date(year, 1, 1),
+            end_date=date(year, 6, 30),
+            status=License.Status.ACTIVE,
+        )
+        BodyMeasurement.objects.create(
+            member=self.lea,
+            measured_on=date(year, 8, 20),
+            weight_kg=Decimal("62.4"),
+            height_cm=170,
+        )
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.lea.id}, format="json")
+        saved = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {
+                "competition_on": f"{year}-09-12",
+                "competition_name": "Open",
+                "weight_margin_kg": "2.0",
+                "category_set": "custom",
+                "custom_bands": [{"label": "U9", "age_min": 7, "age_max": 8, "sex": "X", "ceilings": "20,25"}],
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertEqual(len(saved.data["custom_bands"]), 1)
+        switched = self.client.patch(f"/api/club-management/teams/{team_id}/", {"category_set": "be"}, format="json")
+        self.assertEqual(switched.status_code, 200, switched.data)
+        self.assertEqual(switched.data["category_set"], "be")
+        self.assertEqual(len(switched.data["custom_bands"]), 1)
+        before = next(row for row in switched.data["members"] if row["id"] == self.lea.id)
+        self.assertEqual(before["licence_warning"], "expires")
+        self.assertEqual(before["latest_weight_kg"], "62.4")
+
+        male = Member.objects.create(
+            club=self.club,
+            first_name="Noa",
+            last_name="Petit",
+            sex=Member.Sex.MALE,
+            date_of_birth=date(year - 16, 2, 2),
+        )
+        forms = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Forms", "discipline": "poomsae"},
+            format="json",
+        )
+        forms_id = forms.data["id"]
+        self.client.post(f"/api/club-management/teams/{forms_id}/members/", {"member": self.lea.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{forms_id}/members/", {"member": male.id}, format="json")
+        pair = self.client.post(
+            f"/api/club-management/teams/{forms_id}/groups/",
+            {"kind": "pair", "name": "A", "members": [self.lea.id, male.id]},
+            format="json",
+        )
+        self.assertEqual(pair.status_code, 201, pair.data)
+        dated = self.client.patch(
+            f"/api/club-management/teams/{forms_id}/",
+            {"competition_on": f"{year}-09-12", "competition_name": "Forms Open"},
+            format="json",
+        )
+        self.assertEqual(dated.status_code, 200, dated.data)
+
+        self._auth(self.ltf_admin)
+        blocked = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {"remove_competition": True},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 403, blocked.data)
+
+        self._auth(self.coach)
+        removed = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {"remove_competition": True},
+            format="json",
+        )
+        self.assertEqual(removed.status_code, 200, removed.data)
+        self.assertIsNone(removed.data["competition_on"])
+        self.assertEqual(removed.data["competition_name"], "")
+        self.assertEqual(removed.data["category_set"], "wt")
+        self.assertEqual(removed.data["custom_bands"], [])
+        self.assertEqual(removed.data["weight_margin_kg"], "2.0")
+        after = next(row for row in removed.data["members"] if row["id"] == self.lea.id)
+        self.assertEqual(after["licence_warning"], "")
+        self.assertEqual(after["latest_weight_kg"], "62.4")
+        self.assertEqual(after["weight_category"], "-63 kg")
+        self.assertEqual([row["id"] for row in removed.data["members"]], [self.lea.id])
+        self.assertEqual(BodyMeasurement.objects.filter(member=self.lea).count(), 1)
+
+        cleared_forms = self.client.patch(
+            f"/api/club-management/teams/{forms_id}/",
+            {"remove_competition": True},
+            format="json",
+        )
+        self.assertEqual(cleared_forms.status_code, 200, cleared_forms.data)
+        self.assertIsNone(cleared_forms.data["competition_on"])
+        self.assertEqual(cleared_forms.data["competition_name"], "")
+        self.assertEqual(len(cleared_forms.data["groups"]), 1)
+        self.assertEqual(
+            {row["id"] for row in cleared_forms.data["groups"][0]["members"]},
+            {self.lea.id, male.id},
+        )
+
+        self.client.patch(f"/api/club-management/teams/{team_id}/", {"archived": True}, format="json")
+        refused = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {"remove_competition": True},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertIn("team_archived", str(refused.data))
+
 
 class WeightClassRuleTests(SimpleTestCase):
     def test_margin_and_poomsae_divisions(self):

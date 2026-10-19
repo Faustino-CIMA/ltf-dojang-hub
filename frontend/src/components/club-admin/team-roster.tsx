@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
-import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
+import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamCompetition, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName, fullNameSortKey } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
@@ -446,9 +446,30 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
           <h2 className="text-section text-foreground">{team?.name ?? t("teamsTitle")}</h2>
           {team ? <p className="mt-1 text-sm text-muted">{disciplineLabel(t, team.discipline)}</p> : null}
           {team?.competition_on ? (
-            <p className="mt-1 text-sm text-foreground">
-              {[team.competition_name, formatDisplayDate(team.competition_on)].filter(Boolean).join(" · ")}
-            </p>
+            <div className="mt-1 flex items-center gap-1">
+              <p className="text-sm text-foreground">
+                {[team.competition_name, formatDisplayDate(team.competition_on)].filter(Boolean).join(" · ")}
+              </p>
+              {archived ? null : (
+                <RowActionMenu
+                  label={t("teamCompetitionActions")}
+                  actions={[
+                    {
+                      key: "remove",
+                      label: t("teamCompetitionRemove"),
+                      confirmLabel: t("teamCompetitionRemovePrompt"),
+                      destructive: true,
+                      onSelect: () => {
+                        void removeTeamCompetition(teamId).then((next) => {
+                          setTeam(next);
+                          setPanel(null);
+                        });
+                      },
+                    },
+                  ]}
+                />
+              )}
+            </div>
           ) : null}
           {team && !poomsae ? (
             <p className="mt-1 text-sm text-muted">{t(SET_KEYS[setCode] ?? "teamCategorySetWt")}</p>
@@ -462,7 +483,9 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
               {archived ? null : (
                 <>
                   <Button type="button" variant="outline" onClick={() => setPanel("weigh")}>{t("teamWeighIn")}</Button>
-                  <Button type="button" variant="outline" onClick={() => setPanel("competition")}>{t("teamCompetition")}</Button>
+                  <Button type="button" variant="outline" onClick={() => setPanel("competition")}>
+                    {team.competition_on ? t("teamCompetition") : t("teamCompetitionAdd")}
+                  </Button>
                 </>
               )}
               <Button type="button" variant="outline" onClick={() => void downloadTeamSheet(team.id, "csv", locale)}>{t("teamExportCsv")}</Button>

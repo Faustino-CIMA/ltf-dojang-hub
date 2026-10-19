@@ -106,6 +106,13 @@ export function saveClubTeam(id: number | null, input: ClubTeamInput) {
   });
 }
 
+export function removeTeamCompetition(teamId: number) {
+  return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ remove_competition: true }),
+  });
+}
+
 export function saveTeamCompetition(
   teamId: number,
   input: {

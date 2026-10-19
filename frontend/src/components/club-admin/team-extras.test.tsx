@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
+import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
 import { TeamGroups } from "@/components/club-admin/team-groups";
 import { TeamRoster } from "@/components/club-admin/team-roster";
 import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
@@ -8,6 +9,7 @@ import {
   deleteTeamGroup,
   downloadTeamSheet,
   getClubTeam,
+  removeTeamCompetition,
   saveTeamCompetition,
   saveTeamGroup,
   saveTeamWeighIn,
@@ -27,6 +29,7 @@ jest.mock("@/lib/club-teams-api", () => {
     getClubTeam: jest.fn(),
     saveTeamWeighIn: jest.fn(),
     saveTeamCompetition: jest.fn(),
+    removeTeamCompetition: jest.fn(),
     saveTeamGroup: jest.fn(),
     deleteTeamGroup: jest.fn(),
     downloadTeamSheet: jest.fn(),
@@ -199,6 +202,41 @@ describe("Team extras", () => {
         }),
       ),
     );
+  });
+
+  it("confirms removing a competition without opening another dialog", async () => {
+    const cleared: ClubTeam = {
+      ...team,
+      competition_on: null,
+      competition_name: "",
+      category_set: "wt",
+      custom_bands: [],
+      members: [{ ...lea, licence_warning: "" }],
+    };
+    const onSaved = jest.fn();
+    jest.mocked(removeTeamCompetition).mockResolvedValue(cleared);
+    render(<TeamCompetitionPanel team={{ ...team, category_set: "be", custom_bands: [{ id: 3, label: "U9", age_min: 7, age_max: 8, sex: "X", ceilings: [20, 25] }] }} onClose={() => undefined} onSaved={onSaved} />);
+    const panel = screen.getByRole("dialog");
+    const labels = within(panel).getAllByRole("button").map((button) => button.textContent);
+    expect(labels.indexOf("teamCompetitionRemove")).toBeGreaterThan(labels.indexOf("teamsSave"));
+    fireEvent.click(within(panel).getByRole("button", { name: "teamCompetitionRemove" }));
+    expect(within(panel).getByText("teamCompetitionRemovePrompt")).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.click(within(panel).getByRole("button", { name: "teamCompetitionRemove" }));
+    await waitFor(() => expect(removeTeamCompetition).toHaveBeenCalledWith(1));
+    expect(onSaved).toHaveBeenCalledWith(cleared);
+
+    jest.mocked(getClubTeam).mockResolvedValue(team);
+    render(<TeamRoster teamId={1} onBack={() => undefined} />);
+    fireEvent.click(await screen.findByRole("button", { name: "teamCompetitionActions" }));
+    const menu = screen.getByRole("menu", { name: "teamCompetitionActions" });
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["teamCompetitionRemove"]);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "teamCompetitionRemove" }));
+    expect(within(menu).getByText("teamCompetitionRemovePrompt")).toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "teamCompetitionRemove" }));
+    await waitFor(() => expect(removeTeamCompetition).toHaveBeenCalledWith(1));
+    expect(await screen.findByRole("button", { name: "teamCompetitionAdd" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "teamCompetitionActions" })).not.toBeInTheDocument();
   });
 
   it("hides the category set on a Poomsae team", async () => {

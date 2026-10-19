@@ -354,6 +354,14 @@ class ClubTeamDetailView(APIView):
             team.archived_at = None
             team.save(update_fields=["archived_at", "updated_at"])
             return Response(_team_payload(team, include_members=True))
+        if request.data.get("remove_competition") is True:
+            team.competition_on = None
+            team.competition_name = ""
+            team.category_set_code = "wt"
+            with transaction.atomic():
+                team.custom_bands.all().delete()
+                team.save(update_fields=["competition_on", "competition_name", "category_set_code", "updated_at"])
+            return Response(_team_payload(team, include_members=True))
         fields = _clean_fields(request.data, creating=False)
         custom = parse_custom_bands(request.data.get("custom_bands")) if "custom_bands" in request.data else None
         for key, value in fields.items():
