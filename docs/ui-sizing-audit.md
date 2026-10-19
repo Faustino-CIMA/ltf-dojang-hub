@@ -16,6 +16,8 @@ The scale below is now in the app. Accent color, light/dark behavior, and the ex
 
 The tables under this section are the original findings. They are not a remaining-work list.
 
+Spacing between those sizes is reviewed in `docs/ui-spacing-consistency.md`. Page stacks are 12px. Button groups, card grids, and toolbars still mix 8px, 12px, and 16px.
+
 Audit of the pre-change tree. Branch `cursor/theme-restyle-b3ce`.
 
 Scope: `frontend/src` components, pages, shadcn primitives (`components/ui`), `frontend/src/app/globals.css`, and `frontend/src/themes/ltf_theme.css`. There is no `tailwind.config` file. Tailwind 4 reads the `@theme` block in `globals.css`.
