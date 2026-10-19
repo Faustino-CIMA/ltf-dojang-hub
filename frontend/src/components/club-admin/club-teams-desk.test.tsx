@@ -11,6 +11,7 @@ import {
   getClubTeams,
   removeTeamMember,
   saveClubTeam,
+  setTeamArchived,
   type ClubTeam,
 } from "@/lib/club-teams-api";
 
@@ -30,6 +31,7 @@ jest.mock("@/lib/club-teams-api", () => {
     addTeamMember: jest.fn(),
     updateTeamMemberRole: jest.fn(),
     removeTeamMember: jest.fn(),
+    setTeamArchived: jest.fn(),
   };
 });
 
@@ -119,13 +121,13 @@ describe("Club teams desk", () => {
     await waitFor(() => expect(addTeamMember).toHaveBeenCalledWith(3, 6, "athlete"));
   });
 
-  it("adds a club coach with the coach role and can change a role later", async () => {
+  it("adds a club coach as an athlete and changes a current member's role", async () => {
     jest.mocked(getClubTeams).mockResolvedValue([cadets]);
     jest.mocked(getClubTeam).mockResolvedValue({ ...cadets, suggested_coach_ids: [8] });
     jest.mocked(getMembersList).mockResolvedValue([
-      { id: 4, first_name: "Lea", last_name: "WEBER" } as never,
-      { id: 9, first_name: "Zoe", last_name: "ADAM" } as never,
-      { id: 8, first_name: "Ann", last_name: "COACH" } as never,
+      { id: 4, first_name: "Lea", last_name: "WEBER", sex: "F" } as never,
+      { id: 9, first_name: "Zoe", last_name: "ADAM", sex: "F" } as never,
+      { id: 8, first_name: "Ann", last_name: "COACH", sex: "M" } as never,
     ]);
     jest.mocked(updateTeamMemberRole).mockResolvedValue(cadets);
     render(<ClubTeamsDesk clubId={2} />);
@@ -133,17 +135,42 @@ describe("Club teams desk", () => {
     fireEvent.click(screen.getByRole("button", { name: "teamsActions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "teamsManageAction" }));
     const panel = await screen.findByRole("dialog");
+    expect(within(panel).getByText("teamsOnTeam")).toBeInTheDocument();
+    expect(within(panel).getByText("teamsClubMembers")).toBeInTheDocument();
     const coachMark = await within(panel).findByText("teamClubCoach");
     const names = within(panel).getAllByRole("listitem").map((item) => item.textContent ?? "");
     const addNames = names.filter((name) => name.includes("teamsAddMember"));
     expect(addNames[0]).toContain("COACH Ann");
-    fireEvent.click(within(panel).getByRole("button", { name: "teamRoleLabel" }));
-    fireEvent.click(screen.getByRole("option", { name: "teamRoleCoach" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "teamFilterSex" }));
+    fireEvent.click(screen.getByRole("option", { name: "sexMale" }));
+    expect(within(panel).queryByText("WEBER Lea")).not.toBeInTheDocument();
+    expect(within(panel).getByText("COACH Ann")).toBeInTheDocument();
     fireEvent.click(within(coachMark.closest("li") as HTMLElement).getByRole("button", { name: "teamsAddMember" }));
-    await waitFor(() => expect(addTeamMember).toHaveBeenCalledWith(3, 8, "coach"));
-    fireEvent.click(within(panel).getByRole("button", { name: 'teamRoleChange:{"name":"WEBER Lea"}' }));
-    fireEvent.click(screen.getByRole("option", { name: "teamRoleCoach" }));
+    await waitFor(() => expect(addTeamMember).toHaveBeenCalledWith(3, 8, "athlete"));
+    fireEvent.click(within(panel).getByRole("button", { name: "teamFilterSex" }));
+    fireEvent.click(screen.getByRole("option", { name: "teamFilterAny" }));
+    const role = within(panel).getByRole("group", { name: 'teamRoleChange:{"name":"WEBER Lea"}' });
+    expect(within(role).getByRole("button", { name: "teamRoleAthlete" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(role).getByRole("button", { name: "teamRoleCoach" }));
     await waitFor(() => expect(updateTeamMemberRole).toHaveBeenCalledWith(3, 4, "coach"));
+    expect(within(panel).getByRole("status")).toHaveTextContent("teamRoleUpdated");
+  });
+
+  it("warns when the discipline changes and archives from the edit panel", async () => {
+    jest.mocked(getClubTeams).mockResolvedValue([cadets]);
+    jest.mocked(setTeamArchived).mockResolvedValue({ ...cadets, archived: true });
+    render(<ClubTeamsDesk clubId={2} />);
+    await screen.findByText("Cadets");
+    fireEvent.click(screen.getByRole("button", { name: "teamShowArchived" }));
+    await waitFor(() => expect(getClubTeams).toHaveBeenCalledWith(2, { includeArchived: true }));
+    fireEvent.click(screen.getByRole("button", { name: "teamsActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "teamsEditAction" }));
+    const panel = screen.getByRole("dialog");
+    fireEvent.click(within(panel).getByRole("button", { name: "teamsDiscipline" }));
+    fireEvent.click(screen.getByRole("option", { name: "teamsDisciplinePoomsae" }));
+    expect(within(panel).getByText("teamDisciplineWarning")).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole("button", { name: "teamArchive" }));
+    await waitFor(() => expect(setTeamArchived).toHaveBeenCalledWith(3, true));
   });
 });
 

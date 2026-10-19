@@ -712,6 +712,119 @@ class ClubTeamApiTests(TestCase):
         weighed_row = next(row for row in weighed.data["team"]["members"] if row["id"] == on_limit.id)
         self.assertEqual(weighed_row["weight_category"], "-33 kg")
 
+    def test_archive_and_bulk_member_actions(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.lea.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.mira.id}, format="json")
+        male = Member.objects.create(club=self.club, first_name="Noa", last_name="Petit", sex=Member.Sex.MALE)
+        forms = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Forms", "discipline": "poomsae"},
+            format="json",
+        )
+        forms_id = forms.data["id"]
+        self.client.post(f"/api/club-management/teams/{forms_id}/members/", {"member": self.lea.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{forms_id}/members/", {"member": male.id}, format="json")
+        pair = self.client.post(
+            f"/api/club-management/teams/{forms_id}/groups/",
+            {"kind": "pair", "members": [self.lea.id, male.id]},
+            format="json",
+        )
+        self.assertEqual(pair.status_code, 201, pair.data)
+
+        coached = self.client.post(
+            f"/api/club-management/teams/{forms_id}/members/bulk/",
+            {"action": "coach", "members": [male.id, male.id]},
+            format="json",
+        )
+        self.assertEqual(coached.status_code, 200, coached.data)
+        roles = {row["id"]: row["role"] for row in coached.data["members"]}
+        self.assertEqual(roles[male.id], "coach")
+        self.assertEqual(roles[self.lea.id], "athlete")
+        grouped = [member["id"] for group in coached.data["groups"] for member in group["members"]]
+        self.assertNotIn(male.id, grouped)
+
+        archived = self.client.patch(f"/api/club-management/teams/{team_id}/", {"archived": True}, format="json")
+        self.assertEqual(archived.status_code, 200, archived.data)
+        self.assertTrue(archived.data["archived"])
+        visible = self.client.get(f"/api/club-management/teams/?club={self.club.id}")
+        self.assertNotIn(team_id, [row["id"] for row in visible.data])
+        both = self.client.get(f"/api/club-management/teams/?club={self.club.id}&archived=all")
+        self.assertIn(team_id, [row["id"] for row in both.data])
+        only = self.client.get(f"/api/club-management/teams/?club={self.club.id}&archived=only")
+        self.assertEqual([row["id"] for row in only.data], [team_id])
+
+        renamed = self.client.patch(f"/api/club-management/teams/{team_id}/", {"name": "Later"}, format="json")
+        self.assertEqual(renamed.status_code, 400, renamed.data)
+        self.assertIn("team_archived", str(renamed.data))
+        added = self.client.post(
+            f"/api/club-management/teams/{team_id}/members/",
+            {"member": male.id},
+            format="json",
+        )
+        self.assertEqual(added.status_code, 400, added.data)
+        weighed = self.client.post(
+            f"/api/club-management/teams/{team_id}/weigh-in/",
+            {"measured_on": "2026-09-01", "entries": [{"member": self.lea.id, "weight_kg": "50.0"}]},
+            format="json",
+        )
+        self.assertEqual(weighed.status_code, 400, weighed.data)
+        mixed = self.client.patch(
+            f"/api/club-management/teams/{team_id}/",
+            {"archived": False, "name": "Cadets"},
+            format="json",
+        )
+        self.assertEqual(mixed.status_code, 400, mixed.data)
+        restored = self.client.patch(f"/api/club-management/teams/{team_id}/", {"archived": False}, format="json")
+        self.assertEqual(restored.status_code, 200, restored.data)
+        self.assertFalse(restored.data["archived"])
+
+        switched = self.client.patch(f"/api/club-management/teams/{forms_id}/", {"discipline": "kyorugi"}, format="json")
+        self.assertEqual(switched.status_code, 200, switched.data)
+        self.assertEqual(switched.data["discipline"], "kyorugi")
+        self.assertTrue(switched.data["groups"])
+
+        removed = self.client.post(
+            f"/api/club-management/teams/{team_id}/members/bulk/",
+            {"action": "remove", "members": [self.mira.id]},
+            format="json",
+        )
+        self.assertEqual(removed.status_code, 200, removed.data)
+        self.assertNotIn(self.mira.id, [row["id"] for row in removed.data["members"]])
+        missing = self.client.post(
+            f"/api/club-management/teams/{team_id}/members/bulk/",
+            {"action": "athlete", "members": [self.outsider.id]},
+            format="json",
+        )
+        self.assertEqual(missing.status_code, 400, missing.data)
+        self.assertIn("member_not_on_team", str(missing.data))
+        bad = self.client.post(
+            f"/api/club-management/teams/{team_id}/members/bulk/",
+            {"action": "promote", "members": [self.lea.id]},
+            format="json",
+        )
+        self.assertEqual(bad.status_code, 400, bad.data)
+        self.assertIn("action_required", str(bad.data))
+
+        self.client.patch(f"/api/club-management/teams/{forms_id}/", {"archived": True}, format="json")
+        blocked_group = self.client.delete(
+            f"/api/club-management/teams/{forms_id}/groups/{pair.data['groups'][0]['id']}/"
+        )
+        self.assertEqual(blocked_group.status_code, 400, blocked_group.data)
+        detail = self.client.get(f"/api/club-management/teams/{team_id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertFalse(detail.data["archived"])
+        deleted = self.client.delete(f"/api/club-management/teams/{forms_id}/")
+        self.assertEqual(deleted.status_code, 204)
+
+
 class WeightClassRuleTests(SimpleTestCase):
     def test_margin_and_poomsae_divisions(self):
         self.assertEqual(kyorugi_margin(Decimal("54.0"), "senior", "M"), ("-54 kg", "0.0"))

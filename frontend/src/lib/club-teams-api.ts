@@ -64,6 +64,7 @@ export type ClubTeam = {
   competition_name?: string;
   weight_margin_kg?: string;
   category_set?: CategorySetCode;
+  archived?: boolean;
   custom_bands?: CustomBand[];
   category_sets?: CategorySetOption[];
   members?: TeamMember[];
@@ -80,8 +81,9 @@ export type ClubTeamInput = {
   weight_margin_kg?: string;
 };
 
-export function getClubTeams(clubId: number) {
-  return apiRequest<ClubTeam[]>(`/api/club-management/teams/?club=${clubId}`);
+export function getClubTeams(clubId: number, options?: { includeArchived?: boolean }) {
+  const archived = options?.includeArchived ? "&archived=all" : "";
+  return apiRequest<ClubTeam[]>(`/api/club-management/teams/?club=${clubId}${archived}`);
 }
 
 export function getClubTeam(teamId: number) {
@@ -176,6 +178,20 @@ export function updateTeamMemberRole(teamId: number, memberId: number, role: "at
   return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/members/${memberId}/`, {
     method: "PATCH",
     body: JSON.stringify({ role }),
+  });
+}
+
+export function setTeamArchived(teamId: number, archived: boolean) {
+  return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ archived }),
+  });
+}
+
+export function bulkTeamMembers(teamId: number, action: "remove" | "coach" | "athlete", members: number[]) {
+  return apiRequest<ClubTeam>(`/api/club-management/teams/${teamId}/members/bulk/`, {
+    method: "POST",
+    body: JSON.stringify({ action, members }),
   });
 }
 

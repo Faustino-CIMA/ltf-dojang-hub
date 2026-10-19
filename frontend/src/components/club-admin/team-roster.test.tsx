@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { TeamRoster } from "@/components/club-admin/team-roster";
 import { getBodyMeasurements, type MeasurementList } from "@/lib/body-measurements-api";
-import { getClubTeam, type ClubTeam } from "@/lib/club-teams-api";
+import { bulkTeamMembers, getClubTeam, removeTeamMember, type ClubTeam } from "@/lib/club-teams-api";
 
 jest.mock("next-intl", () => ({
   useLocale: () => "en",
@@ -12,7 +12,12 @@ jest.mock("next-intl", () => ({
 
 jest.mock("@/lib/club-teams-api", () => {
   const actual = jest.requireActual("@/lib/club-teams-api");
-  return { ...actual, getClubTeam: jest.fn() };
+  return {
+    ...actual,
+    getClubTeam: jest.fn(),
+    removeTeamMember: jest.fn(),
+    bulkTeamMembers: jest.fn(),
+  };
 });
 
 jest.mock("@/lib/body-measurements-api", () => {
@@ -164,5 +169,35 @@ describe("Team roster", () => {
     expect(screen.getByText("-63 kg")).toBeInTheDocument();
     expect(screen.getByText('teamCategoryNoClass:{"ageClass":"nationalTeamAgePupils"}')).toBeInTheDocument();
     expect(screen.getByText("teamLicenceMissing")).toBeInTheDocument();
+  });
+
+  it("changes a member from the row menu and from the bulk bar", async () => {
+    jest.mocked(getClubTeam).mockResolvedValue(kyorugi);
+    jest.mocked(removeTeamMember).mockResolvedValue(kyorugi);
+    jest.mocked(bulkTeamMembers).mockResolvedValue({ ...kyorugi, members: [{ ...lea, role: "coach" }] });
+    render(<TeamRoster teamId={1} onBack={() => undefined} />);
+    const menuButton = await screen.findByRole("button", { name: 'teamRowActions:{"name":"WEBER Lea"}' });
+    fireEvent.click(menuButton);
+    const menu = screen.getByRole("menu", { name: 'teamRowActions:{"name":"WEBER Lea"}' });
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "teamMakeCoach",
+      "teamAddWeight",
+      "teamOpenMember",
+      "teamRemoveFromTeam",
+    ]);
+    expect(items[2]).toHaveAttribute("href", "/en/dashboard/club/members/4");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "teamRemoveFromTeam" }));
+    expect(screen.getByText('teamRemovePrompt:{"name":"WEBER Lea"}')).toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "teamRemoveFromTeam" }));
+    await waitFor(() => expect(removeTeamMember).toHaveBeenCalledWith(1, 4));
+    expect(await screen.findByRole("status")).toHaveTextContent("teamMemberRemoved");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: 'teamSelectMember:{"name":"WEBER Lea"}' }));
+    const bar = screen.getByRole("region", { name: "teamBulkBar" });
+    expect(within(bar).getByText('teamBulkCount:{"count":1}')).toBeInTheDocument();
+    fireEvent.click(within(bar).getByRole("button", { name: "teamMakeCoach" }));
+    await waitFor(() => expect(bulkTeamMembers).toHaveBeenCalledWith(1, "coach", [4]));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("teamRoleUpdated"));
   });
 });

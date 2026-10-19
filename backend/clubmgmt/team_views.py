@@ -53,6 +53,11 @@ def _team_for(user, team_id: int) -> ClubTeam:
     return team
 
 
+def _require_writable(team: ClubTeam) -> None:
+    if team.archived_at is not None:
+        raise ValidationError({"archived": "team_archived"})
+
+
 def _clean_fields(data, *, creating: bool) -> dict:
     cleaned = {}
     if creating or "name" in data:
@@ -78,6 +83,14 @@ def _clean_fields(data, *, creating: bool) -> dict:
         if code not in SET_CODES:
             raise ValidationError({"category_set": "category_set_required"})
         cleaned["category_set_code"] = code
+    if "archived" in data:
+        flag = data.get("archived")
+        if flag is True:
+            cleaned["archived_at"] = timezone.now()
+        elif flag is False:
+            cleaned["archived_at"] = None
+        else:
+            raise ValidationError({"archived": "archived_required"})
     return cleaned
 
 
@@ -248,6 +261,7 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "competition_name": team.competition_name,
         "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
         "category_set": team.category_set_code or "wt",
+        "archived": team.archived_at is not None,
     }
     if include_members:
         payload["members"] = _roster_members(team)
@@ -301,6 +315,13 @@ class ClubTeamListView(APIView):
             if member.club_id not in clubs:
                 raise PermissionDenied(detail="This module is not available.")
             queryset = queryset.filter(memberships__member_id=member.id)
+        archived = request.query_params.get("archived")
+        if archived == "all":
+            pass
+        elif archived in ("1", "true", "only"):
+            queryset = queryset.filter(archived_at__isnull=False)
+        else:
+            queryset = queryset.filter(archived_at__isnull=True)
         return Response([_team_payload(team, include_members=False) for team in queryset.order_by("name", "id")])
 
     def post(self, request):
@@ -327,6 +348,12 @@ class ClubTeamDetailView(APIView):
 
     def patch(self, request, team_id):
         team = _team_for(request.user, team_id)
+        if team.archived_at is not None:
+            if request.data.get("archived") is not False or set(request.data.keys()) != {"archived"}:
+                raise ValidationError({"archived": "team_archived"})
+            team.archived_at = None
+            team.save(update_fields=["archived_at", "updated_at"])
+            return Response(_team_payload(team, include_members=True))
         fields = _clean_fields(request.data, creating=False)
         custom = parse_custom_bands(request.data.get("custom_bands")) if "custom_bands" in request.data else None
         for key, value in fields.items():
@@ -353,6 +380,7 @@ class ClubTeamMemberView(APIView):
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         try:
             member_id = int(request.data.get("member"))
         except (TypeError, ValueError) as exc:
@@ -372,14 +400,47 @@ class ClubTeamMemberView(APIView):
 
     def patch(self, request, team_id, member_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         membership = get_object_or_404(ClubTeamMembership, team=team, member_id=member_id)
         _set_membership_role(membership, _parse_role(request.data.get("role")))
         return Response(_team_payload(team, include_members=True))
 
     def delete(self, request, team_id, member_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         ClubTeamMembership.objects.filter(team=team, member_id=member_id).delete()
         ClubTeamGroupMember.objects.filter(group__team=team, member_id=member_id).delete()
+        return Response(_team_payload(team, include_members=True))
+
+
+class ClubTeamMemberBulkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, team_id):
+        team = _team_for(request.user, team_id)
+        _require_writable(team)
+        action = str(request.data.get("action") or "").strip()
+        raw_ids = request.data.get("members")
+        if not isinstance(raw_ids, list) or not raw_ids:
+            raise ValidationError({"members": "member_required"})
+        ids: list[int] = []
+        for item in raw_ids:
+            try:
+                ids.append(int(item))
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"members": "member_required"}) from exc
+        ids = list(dict.fromkeys(ids))
+        memberships = list(ClubTeamMembership.objects.filter(team=team, member_id__in=ids))
+        if len(memberships) != len(ids):
+            raise ValidationError({"members": "member_not_on_team"})
+        if action == "remove":
+            ClubTeamMembership.objects.filter(team=team, member_id__in=ids).delete()
+            ClubTeamGroupMember.objects.filter(group__team=team, member_id__in=ids).delete()
+        elif action in {ClubTeamMembership.Role.ATHLETE, ClubTeamMembership.Role.COACH}:
+            for membership in memberships:
+                _set_membership_role(membership, action)
+        else:
+            raise ValidationError({"action": "action_required"})
         return Response(_team_payload(team, include_members=True))
 
 
@@ -453,6 +514,7 @@ class ClubTeamWeighInView(APIView):
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         measured_on = request.data.get("measured_on")
         entries = request.data.get("entries")
         if not isinstance(entries, list):
@@ -493,6 +555,7 @@ class ClubTeamGroupView(APIView):
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         kind = str(request.data.get("kind") or "").strip()
         if kind not in ClubTeamGroup.Kind.values:
             raise ValidationError({"kind": "kind_required"})
@@ -504,6 +567,7 @@ class ClubTeamGroupView(APIView):
 
     def patch(self, request, team_id, group_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         group = get_object_or_404(ClubTeamGroup, pk=group_id, team=team)
         if "kind" in request.data:
             kind = str(request.data.get("kind") or "").strip()
@@ -520,6 +584,7 @@ class ClubTeamGroupView(APIView):
 
     def delete(self, request, team_id, group_id):
         team = _team_for(request.user, team_id)
+        _require_writable(team)
         group = get_object_or_404(ClubTeamGroup, pk=group_id, team=team)
         group.delete()
         return Response(_team_payload(team, include_members=True))

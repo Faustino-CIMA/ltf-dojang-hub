@@ -117,7 +117,7 @@ function TrendChart({
   );
 }
 
-function MeasurementForm({
+export function MeasurementEntryPanel({
   memberId,
   row,
   busy,
@@ -412,7 +412,7 @@ export function HeightWeightSection({
         </div>
       )}
       {panel ? (
-        <MeasurementForm
+        <MeasurementEntryPanel
           memberId={memberId}
           row={panel === "edit" ? editing : null}
           busy={busy}

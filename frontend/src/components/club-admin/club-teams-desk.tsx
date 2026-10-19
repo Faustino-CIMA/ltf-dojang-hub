@@ -22,10 +22,13 @@ import {
   getClubTeams,
   removeTeamMember,
   saveClubTeam,
+  setTeamArchived,
   updateTeamMemberRole,
   type ClubTeam,
   type TeamDiscipline,
+  type TeamMember,
 } from "@/lib/club-teams-api";
+import { formatAgeClassLabel, suggestAgeClass } from "@/lib/age-class";
 import { formatFullName } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
 import { cn } from "@/lib/utils";
@@ -88,7 +91,7 @@ export function TeamFilter({
   );
 }
 
-function TeamForm({
+export function TeamForm({
   clubId,
   team,
   onClose,
@@ -97,7 +100,7 @@ function TeamForm({
   clubId: number;
   team: ClubTeam | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (team: ClubTeam) => void;
 }) {
   const t = useTranslations("ClubAdmin");
   const [name, setName] = useState(team?.name ?? "");
@@ -105,12 +108,15 @@ function TeamForm({
   const [note, setNote] = useState(team?.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const archived = Boolean(team?.archived);
+  const disciplineChanged = Boolean(team && discipline !== team.discipline);
   return (
     <SidePanel open title={team ? t("teamsEdit") : t("teamsAdd")} closeLabel={t("teamsClose")} onClose={onClose}>
       <form
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
+          if (archived) return;
           if (!name.trim()) {
             setError(t("teamsRequired"));
             return;
@@ -118,14 +124,15 @@ function TeamForm({
           setBusy(true);
           setError(null);
           void saveClubTeam(team?.id ?? null, { club: clubId, name: name.trim(), discipline, note })
-            .then(() => onSaved())
+            .then((saved) => onSaved(saved))
             .catch(() => setError(t("teamsRequired")))
             .finally(() => setBusy(false));
         }}
       >
+        {archived ? <p className="text-sm text-muted">{t("teamArchivedHint")}</p> : null}
         <div className="space-y-2">
           <Label htmlFor="team-name" required>{t("teamsName")}</Label>
-          <Input id="team-name" value={name} onChange={(event) => setName(event.target.value)} />
+          <Input id="team-name" value={name} disabled={archived} onChange={(event) => setName(event.target.value)} />
         </div>
         <div className="space-y-2">
           <Label required>{t("teamsDiscipline")}</Label>
@@ -133,19 +140,38 @@ function TeamForm({
             className="w-full"
             ariaLabel={t("teamsDiscipline")}
             value={discipline}
+            disabled={archived}
             onValueChange={(value) => setDiscipline(value as TeamDiscipline)}
             options={[
               { value: "kyorugi", label: t("teamsDisciplineKyorugi") },
               { value: "poomsae", label: t("teamsDisciplinePoomsae") },
             ]}
           />
+          {disciplineChanged ? <p className="text-sm text-destructive">{t("teamDisciplineWarning")}</p> : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="team-note">{t("teamsNote")}</Label>
-          <Input id="team-note" value={note} onChange={(event) => setNote(event.target.value)} />
+          <Input id="team-note" value={note} disabled={archived} onChange={(event) => setNote(event.target.value)} />
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" disabled={busy}>{busy ? t("teamsSaving") : t("teamsSave")}</Button>
+        {archived ? null : <Button type="submit" disabled={busy}>{busy ? t("teamsSaving") : t("teamsSave")}</Button>}
+        {team ? (
+          <Button
+            type="button"
+            variant={archived ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError(null);
+              void setTeamArchived(team.id, !archived)
+                .then((saved) => onSaved(saved))
+                .catch(() => setError(t("teamsRequired")))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {archived ? t("teamUnarchive") : t("teamArchive")}
+          </Button>
+        ) : null}
       </form>
     </SidePanel>
   );
@@ -171,12 +197,58 @@ function DeleteTeamPanel({ team, onClose, onDeleted }: { team: ClubTeam; onClose
   );
 }
 
+const AGE_FILTERS = ["youth", "pupils", "minimes", "cadet", "junior", "senior"] as const;
+
+function personAgeClass(person: { age_class?: string; birth_year?: number | null; date_of_birth?: string | null }, year: number) {
+  if (person.age_class) return person.age_class;
+  if (person.date_of_birth) return suggestAgeClass(person.date_of_birth, year);
+  if (person.birth_year) return suggestAgeClass(`${person.birth_year}-01-01`, year);
+  return "";
+}
+
+function RoleToggle({
+  name,
+  role,
+  disabled,
+  onChange,
+}: {
+  name: string;
+  role: "athlete" | "coach";
+  disabled?: boolean;
+  onChange: (role: "athlete" | "coach") => void;
+}) {
+  const t = useTranslations("ClubAdmin");
+  return (
+    <div role="group" aria-label={t("teamRoleChange", { name })} className="inline-flex rounded-[var(--radius-form)] border border-border p-0.5">
+      {(["athlete", "coach"] as const).map((value) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={role === value}
+          disabled={disabled}
+          className={cn(
+            "min-h-8 rounded-[var(--radius-form)] px-3 text-sm text-foreground",
+            role === value && "bg-accent text-accent-foreground",
+          )}
+          onClick={() => onChange(value)}
+        >
+          {value === "coach" ? t("teamRoleCoach") : t("teamRoleAthlete")}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTeam; clubId: number; onClose: () => void; onChanged: () => void }) {
   const t = useTranslations("ClubAdmin");
   const [detail, setDetail] = useState<ClubTeam | null>(null);
   const [roster, setRoster] = useState<Member[]>([]);
   const [query, setQuery] = useState("");
-  const [role, setRole] = useState<"athlete" | "coach">("athlete");
+  const [sexFilter, setSexFilter] = useState("");
+  const [ageFilter, setAgeFilter] = useState("");
+  const [beltFilter, setBeltFilter] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     void getClubTeam(team.id).then((payload) => {
@@ -191,10 +263,24 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
   }, [clubId, team.id]);
   const members = detail?.members ?? [];
   const memberIds = new Set(members.map((member) => member.id));
+  const year = Number((detail?.competition_on ?? "").slice(0, 4)) || new Date().getFullYear();
+  const archived = Boolean(detail?.archived);
   const needle = query.trim().toLowerCase();
-  const matches = (person: { first_name: string; last_name: string }) =>
-    formatFullName(person).toLowerCase().includes(needle);
   const suggested = new Set(detail?.suggested_coach_ids ?? []);
+
+  function ageOf(person: TeamMember | Member) {
+    return personAgeClass(person, year);
+  }
+
+  function matches(person: { first_name: string; last_name: string; sex?: string; belt_rank?: string; age_class?: string; birth_year?: number | null; date_of_birth?: string | null }) {
+    if (needle && !formatFullName(person).toLowerCase().includes(needle)) return false;
+    if (sexFilter && person.sex !== sexFilter) return false;
+    if (ageFilter && ageOf(person) !== ageFilter) return false;
+    if (beltFilter && (person.belt_rank || "") !== beltFilter) return false;
+    return true;
+  }
+
+  const belts = [...new Set([...members, ...roster].map((person) => person.belt_rank).filter((rank): rank is string => Boolean(rank)))].sort();
   const available = roster
     .filter((member) => !memberIds.has(member.id) && matches(member))
     .sort((left, right) => {
@@ -204,41 +290,95 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
       return formatFullName(left).localeCompare(formatFullName(right));
     });
   const current = members.filter((member) => matches(member));
-  const roleOptions = [
-    { value: "athlete", label: t("teamRoleAthlete") },
-    { value: "coach", label: t("teamRoleCoach") },
-  ];
 
-  function refresh(next: ClubTeam) {
+  function refresh(next: ClubTeam, message: string) {
     setDetail(next);
+    setNotice(message);
     onChanged();
   }
 
   return (
     <SidePanel open title={t("teamsManageTitle")} description={t("teamsManageHint", { name: team.name })} closeLabel={t("teamsClose")} onClose={onClose}>
       <div className="space-y-4">
+        {archived ? <p className="text-sm text-muted">{t("teamArchivedHint")}</p> : null}
         <Input aria-label={t("teamsSearchMembers")} placeholder={t("teamsSearchMembers")} value={query} onChange={(event) => setQuery(event.target.value)} />
+        <div className="grid gap-3">
+          <div className="space-y-2">
+            <Label>{t("teamFilterSex")}</Label>
+            <PopoverSelect
+              className="w-full"
+              ariaLabel={t("teamFilterSex")}
+              value={sexFilter}
+              onValueChange={setSexFilter}
+              options={[
+                { value: "", label: t("teamFilterAny") },
+                { value: "F", label: t("sexFemale") },
+                { value: "M", label: t("sexMale") },
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("teamFilterAge")}</Label>
+            <PopoverSelect
+              className="w-full"
+              ariaLabel={t("teamFilterAge")}
+              value={ageFilter}
+              onValueChange={setAgeFilter}
+              options={[
+                { value: "", label: t("teamFilterAny") },
+                ...AGE_FILTERS.map((code) => ({ value: code, label: formatAgeClassLabel(t, code) })),
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("teamFilterBelt")}</Label>
+            <PopoverSelect
+              className="w-full"
+              ariaLabel={t("teamFilterBelt")}
+              value={beltFilter}
+              onValueChange={setBeltFilter}
+              options={[{ value: "", label: t("teamFilterAny") }, ...belts.map((rank) => ({ value: rank, label: rank }))]}
+            />
+          </div>
+        </div>
+        {notice ? <p role="status" className="text-sm text-muted">{notice}</p> : null}
         <div>
           <p className="text-sm font-medium text-foreground">{t("teamsOnTeam")}</p>
-          {current.length === 0 ? <p className="mt-2 text-sm text-muted">{needle ? t("teamsNoMatches") : t("teamsNoMembers")}</p> : (
+          {current.length === 0 ? <p className="mt-2 text-sm text-muted">{needle || sexFilter || ageFilter || beltFilter ? t("teamsNoMatches") : t("teamsNoMembers")}</p> : (
             <ul className="mt-2 space-y-3">
               {current.map((member) => (
-                <li key={member.id} className="space-y-2">
+                <li key={member.id} className="space-y-2 border-b border-border pb-3">
                   <span className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-2 text-sm text-foreground">
                       <span>{formatFullName(member)}</span>
                       {member.role === "coach" ? <StatusBadge label={t("teamRoleCoach")} tone="info" /> : null}
                     </span>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void removeTeamMember(team.id, member.id).then(refresh)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={archived || busyId === member.id}
+                      onClick={() => {
+                        setBusyId(member.id);
+                        void removeTeamMember(team.id, member.id)
+                          .then((next) => refresh(next, t("teamMemberRemoved")))
+                          .finally(() => setBusyId(null));
+                      }}
+                    >
                       {t("teamsRemoveMember")}
                     </Button>
                   </span>
-                  <PopoverSelect
-                    className="w-full"
-                    ariaLabel={t("teamRoleChange", { name: formatFullName(member) })}
-                    value={member.role === "coach" ? "coach" : "athlete"}
-                    onValueChange={(value) => void updateTeamMemberRole(team.id, member.id, value as "athlete" | "coach").then(refresh)}
-                    options={roleOptions}
+                  <RoleToggle
+                    name={formatFullName(member)}
+                    role={member.role === "coach" ? "coach" : "athlete"}
+                    disabled={archived || busyId === member.id}
+                    onChange={(value) => {
+                      if (value === (member.role === "coach" ? "coach" : "athlete")) return;
+                      setBusyId(member.id);
+                      void updateTeamMemberRole(team.id, member.id, value)
+                        .then((next) => refresh(next, t("teamRoleUpdated")))
+                        .finally(() => setBusyId(null));
+                    }}
                   />
                 </li>
               ))}
@@ -246,18 +386,8 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
           )}
         </div>
         <div>
-          <p className="text-sm font-medium text-foreground">{t("teamsAddMember")}</p>
-          <div className="mt-2 space-y-2">
-            <Label>{t("teamRoleLabel")}</Label>
-            <PopoverSelect
-              className="w-full"
-              ariaLabel={t("teamRoleLabel")}
-              value={role}
-              onValueChange={(value) => setRole(value as "athlete" | "coach")}
-              options={roleOptions}
-            />
-            <p className="text-sm text-muted">{t("teamRoleHint")}</p>
-          </div>
+          <p className="text-sm font-medium text-foreground">{t("teamsClubMembers")}</p>
+          <p className="mt-1 text-sm text-muted">{t("teamRoleHint")}</p>
           {available.length === 0 ? <p className="mt-2 text-sm text-muted">{t("teamsNoMatches")}</p> : (
             <ul className="mt-2 space-y-2">
               {available.map((member) => (
@@ -266,7 +396,17 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
                     {formatFullName(member)}
                     {suggested.has(member.id) ? <span className="ml-2 text-muted">{t("teamClubCoach")}</span> : null}
                   </span>
-                  <Button type="button" size="sm" onClick={() => void addTeamMember(team.id, member.id, role).then(refresh)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={archived || busyId === member.id}
+                    onClick={() => {
+                      setBusyId(member.id);
+                      void addTeamMember(team.id, member.id, "athlete")
+                        .then((next) => refresh(next, t("teamMemberAdded")))
+                        .finally(() => setBusyId(null));
+                    }}
+                  >
                     {t("teamsAddMember")}
                   </Button>
                 </li>
@@ -286,10 +426,11 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
   const [sort, setSort] = useState<TableSort>({ key: "name", direction: "asc" });
   const [editing, setEditing] = useState<ClubTeam | null>(null);
   const [panel, setPanel] = useState<"create" | "edit" | "delete" | "members" | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
-  function load() {
+  function load(includeArchived = showArchived) {
     setLoading(true);
-    return getClubTeams(clubId)
+    return getClubTeams(clubId, includeArchived ? { includeArchived: true } : undefined)
       .then(setTeams)
       .catch(() => setTeams([]))
       .finally(() => setLoading(false));
@@ -297,7 +438,7 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
 
   useEffect(() => {
     let cancelled = false;
-    void getClubTeams(clubId)
+    void getClubTeams(clubId, showArchived ? { includeArchived: true } : undefined)
       .then((rows) => {
         if (!cancelled) setTeams(rows);
       })
@@ -310,11 +451,22 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
     return () => {
       cancelled = true;
     };
-  }, [clubId]);
+  }, [clubId, showArchived]);
 
   const columns = useMemo<Array<EntityTableColumn<ClubTeam>>>(
     () => [
-      { key: "name", header: t("teamsNameColumn"), sortable: true, sortValue: (row) => row.name },
+      {
+        key: "name",
+        header: t("teamsNameColumn"),
+        sortable: true,
+        sortValue: (row) => row.name,
+        render: (row) => (
+          <span className="inline-flex items-center gap-2">
+            <span>{row.name}</span>
+            {row.archived ? <StatusBadge label={t("teamArchived")} /> : null}
+          </span>
+        ),
+      },
       {
         key: "discipline",
         header: t("teamsDisciplineColumn"),
@@ -356,7 +508,10 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant={showArchived ? "default" : "outline"} aria-pressed={showArchived} onClick={() => setShowArchived((current) => !current)}>
+          {t("teamShowArchived")}
+        </Button>
         <Button type="button" onClick={() => { setEditing(null); setPanel("create"); }}>{t("teamsAdd")}</Button>
       </div>
       {loading ? <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading /> : teams.length === 0 ? (

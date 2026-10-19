@@ -75,6 +75,23 @@ const KEYS = [
   "teamCustomLimits",
   "teamCustomAddBand",
   "teamCustomError",
+  "teamsClubMembers",
+  "teamFilterAge",
+  "teamFilterAny",
+  "teamMakeCoach",
+  "teamMakeAthlete",
+  "teamAddWeight",
+  "teamOpenMember",
+  "teamRemoveFromTeam",
+  "teamRemovePrompt",
+  "teamRowActions",
+  "teamSelectMember",
+  "teamBulkBar",
+  "teamBulkCount",
+  "teamArchive",
+  "teamUnarchive",
+  "teamShowArchived",
+  "teamDisciplineWarning",
 ] as const;
 
 describe("Club team copy", () => {
@@ -96,5 +113,10 @@ describe("Club team copy", () => {
     expect(club.teamCategoryNoSetAge).toContain("{age}");
     expect(club.teamCategoryNoSetAge).toContain("{set}");
     expect(club.teamRoleChange).toContain("{name}");
+    expect(club.teamRemovePrompt).toContain("{name}");
+    expect(club.teamRowActions).toContain("{name}");
+    expect(club.teamSelectMember).toContain("{name}");
+    expect(club.teamBulkCount).toContain("{count}");
+    expect(club.teamBulkRemoveConfirm).toContain("{count}");
   });
 });

@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { disciplineLabel } from "@/components/club-admin/club-teams-desk";
+import { TeamForm, disciplineLabel } from "@/components/club-admin/club-teams-desk";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
-import { HeightWeightSection } from "@/components/club-admin/height-weight-section";
+import { HeightWeightSection, MeasurementEntryPanel } from "@/components/club-admin/height-weight-section";
 import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
 import { TeamGroups } from "@/components/club-admin/team-groups";
 import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
 import { Button } from "@/components/ui/button";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
-import { downloadTeamSheet, getClubTeam, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
+import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName, fullNameSortKey } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
@@ -168,7 +169,11 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
   const [loadedId, setLoadedId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [panel, setPanel] = useState<"weigh" | "competition" | null>(null);
+  const [panel, setPanel] = useState<"weigh" | "competition" | "edit" | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [weightMember, setWeightMember] = useState<TeamMember | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [sort, setSort] = useState<TableSort>({ key: "name", direction: "asc" });
   const locale = useLocale();
   const loading = loadedId !== teamId;
@@ -190,17 +195,109 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
     };
   }, [teamId]);
 
-  const rows = team?.members ?? [];
+  const rows = useMemo(() => team?.members ?? [], [team]);
   const athletes = rows.filter((row) => row.role !== "coach");
   const coaches = rows.filter((row) => row.role === "coach");
   const poomsae = team?.discipline === "poomsae";
+  const archived = Boolean(team?.archived);
   const setCode = team?.category_set || "wt";
+  const selectedIds = useMemo(
+    () => selected.filter((id) => rows.some((row) => row.id === id)),
+    [rows, selected],
+  );
 
   function reloadTeam() {
     void getClubTeam(teamId).then((row) => setTeam(row));
   }
 
+  const applyTeam = useCallback((next: ClubTeam, message: string) => {
+    setTeam(next);
+    setNotice(message);
+    setBulkConfirm(false);
+  }, []);
+
   const columns = useMemo<Array<EntityTableColumn<TeamMember>>>(() => {
+    const select: EntityTableColumn<TeamMember> = {
+      key: "select",
+      header: (
+        <input
+          type="checkbox"
+          aria-label={t("teamSelectAll")}
+          checked={rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))}
+          onChange={() => {
+            setBulkConfirm(false);
+            const all = rows.every((row) => selectedIds.includes(row.id));
+            setSelected(all ? [] : rows.map((row) => row.id));
+          }}
+        />
+      ),
+      headerClassName: "w-12",
+      cellClassName: "w-12",
+      render: (row) => (
+        <input
+          type="checkbox"
+          aria-label={t("teamSelectMember", { name: formatFullName(row) })}
+          checked={selectedIds.includes(row.id)}
+          onChange={() => {
+            setBulkConfirm(false);
+            setSelected((current) => (current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id]));
+          }}
+        />
+      ),
+    };
+    const actions: EntityTableColumn<TeamMember> = {
+      key: "actions",
+      header: t("teamsActions"),
+      headerClassName: `text-right ${nowrap}`,
+      cellClassName: `text-right ${nowrap}`,
+      render: (row) => {
+        const coach = row.role === "coach";
+        return (
+          <RowActionMenu
+            label={t("teamRowActions", { name: formatFullName(row) })}
+            actions={[
+              ...(archived
+                ? []
+                : [
+                    {
+                      key: "role",
+                      label: coach ? t("teamMakeAthlete") : t("teamMakeCoach"),
+                      onSelect: () => {
+                        void updateTeamMemberRole(teamId, row.id, coach ? "athlete" : "coach").then((next) =>
+                          applyTeam(next, t("teamRoleUpdated")),
+                        );
+                      },
+                    },
+                    {
+                      key: "weight",
+                      label: t("teamAddWeight"),
+                      onSelect: () => setWeightMember(row),
+                    },
+                  ]),
+              {
+                key: "open",
+                label: t("teamOpenMember"),
+                href: `/${locale}/dashboard/club/members/${row.id}`,
+                onSelect: () => undefined,
+              },
+              ...(archived
+                ? []
+                : [
+                    {
+                      key: "remove",
+                      label: t("teamRemoveFromTeam"),
+                      confirmLabel: t("teamRemovePrompt", { name: formatFullName(row) }),
+                      destructive: true,
+                      onSelect: () => {
+                        void removeTeamMember(teamId, row.id).then((next) => applyTeam(next, t("teamMemberRemoved")));
+                      },
+                    },
+                  ]),
+            ]}
+          />
+        );
+      },
+    };
     const name: EntityTableColumn<TeamMember> = {
       key: "name",
       header: t("teamsNameColumn"),
@@ -269,8 +366,10 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       cellClassName: nowrap,
       render: (row) => licenceCell(t, row),
     };
+    const leading = archived ? [] : [select];
     if (poomsae) {
       return [
+        ...leading,
         name,
         sex,
         birth,
@@ -286,9 +385,11 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
         grade,
         height,
         licence,
+        actions,
       ];
     }
     return [
+      ...leading,
       name,
       sex,
       birth,
@@ -334,8 +435,9 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       },
       height,
       licence,
+      actions,
     ];
-  }, [poomsae, setCode, t]);
+  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, teamId]);
 
   return (
     <div className="space-y-4">
@@ -351,12 +453,18 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
           {team && !poomsae ? (
             <p className="mt-1 text-sm text-muted">{t(SET_KEYS[setCode] ?? "teamCategorySetWt")}</p>
           ) : null}
+          {archived ? <p className="mt-1 text-sm text-muted">{t("teamArchivedHint")}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {team ? (
             <>
-              <Button type="button" variant="outline" onClick={() => setPanel("weigh")}>{t("teamWeighIn")}</Button>
-              <Button type="button" variant="outline" onClick={() => setPanel("competition")}>{t("teamCompetition")}</Button>
+              <Button type="button" variant="outline" onClick={() => setPanel("edit")}>{t("teamsEdit")}</Button>
+              {archived ? null : (
+                <>
+                  <Button type="button" variant="outline" onClick={() => setPanel("weigh")}>{t("teamWeighIn")}</Button>
+                  <Button type="button" variant="outline" onClick={() => setPanel("competition")}>{t("teamCompetition")}</Button>
+                </>
+              )}
               <Button type="button" variant="outline" onClick={() => void downloadTeamSheet(team.id, "csv", locale)}>{t("teamExportCsv")}</Button>
               <Button type="button" variant="outline" onClick={() => void downloadTeamSheet(team.id, "pdf", locale)}>{t("teamExportPdf")}</Button>
             </>
@@ -371,6 +479,37 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       ) : null}
       {!loading && team && rows.length > 0 ? (
         <>
+          {notice ? <p role="status" className="text-sm text-muted">{notice}</p> : null}
+          {!archived && selectedIds.length > 0 ? (
+            <div role="region" aria-label={t("teamBulkBar")} className="flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-border bg-secondary px-3 py-2">
+              <span className="text-sm text-foreground">{t("teamBulkCount", { count: selectedIds.length })}</span>
+              {bulkConfirm ? (
+                <>
+                  <span className="text-sm text-foreground">{t("teamBulkRemoveConfirm", { count: selectedIds.length })}</span>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      void bulkTeamMembers(teamId, "remove", selectedIds).then((next) => {
+                        setSelected([]);
+                        applyTeam(next, t("teamMemberRemoved"));
+                      });
+                    }}
+                  >
+                    {t("teamRemoveConfirm")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setBulkConfirm(false)}>{t("teamsClose")}</Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void bulkTeamMembers(teamId, "coach", selectedIds).then((next) => applyTeam(next, t("teamRoleUpdated")))}>{t("teamMakeCoach")}</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void bulkTeamMembers(teamId, "athlete", selectedIds).then((next) => applyTeam(next, t("teamRoleUpdated")))}>{t("teamMakeAthlete")}</Button>
+                  <Button type="button" variant="destructive" size="sm" onClick={() => setBulkConfirm(true)}>{t("teamRemoveFromTeam")}</Button>
+                </>
+              )}
+            </div>
+          ) : null}
           {poomsae ? <p className="text-xs text-muted">{t("teamPoomsaeSource")}</p> : (
             <p className="text-xs text-muted">{t("teamWeightMarginHint", { margin: team.weight_margin_kg ?? "1.0" })}</p>
           )}
@@ -428,6 +567,29 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       ) : null}
       {panel === "competition" && team ? (
         <TeamCompetitionPanel team={team} onClose={() => setPanel(null)} onSaved={(next) => { setTeam(next); setPanel(null); }} />
+      ) : null}
+      {panel === "edit" && team ? (
+        <TeamForm
+          clubId={team.club}
+          team={team}
+          onClose={() => setPanel(null)}
+          onSaved={(next) => {
+            setTeam(next);
+            setPanel(null);
+          }}
+        />
+      ) : null}
+      {weightMember ? (
+        <MeasurementEntryPanel
+          memberId={weightMember.id}
+          row={null}
+          busy={false}
+          onClose={() => setWeightMember(null)}
+          onSaved={() => {
+            setWeightMember(null);
+            reloadTeam();
+          }}
+        />
       ) : null}
     </div>
   );
