@@ -492,7 +492,7 @@ export default function LtfAdminLicensesPage() {
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <div className="space-y-3">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
               <Input

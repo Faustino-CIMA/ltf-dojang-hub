@@ -590,7 +590,7 @@ export default function ClubSubsidiesPage() {
               {dossier.coaches.length === 0 ? (
                 <p className="mt-3 text-sm text-muted">{t("subsidiesNoCoaches")}</p>
               ) : (
-                <NestedTable className="mt-4">
+                <NestedTable className="mt-3">
                   <table className={`${dataTableClass} min-w-[56rem]`}>
                     <thead className={dataTheadClass}>
                       <tr>
@@ -745,7 +745,7 @@ export default function ClubSubsidiesPage() {
               {dossier.youth.length === 0 ? (
                 <p className="mt-3 text-sm text-muted">{t("subsidiesNoYouth")}</p>
               ) : (
-                <NestedTable className="mt-4">
+                <NestedTable className="mt-3">
                   <table className={dataTableClass}>
                     <thead className={dataTheadClass}>
                       <tr>

@@ -88,7 +88,23 @@ Unsafe as a blind replace:
 
 - Every `gap-4`, `p-4`, or `mt-4`. `p-4` also pads the license-card designer, banners, and dropzones. `mt-4` is used for more than one role. `gap-4` on a stat grid is the right idea (make it `gap-3`) but it should be a reviewed pass, not a side effect of the toolbar fix.
 
-Recommendation: do not apply fixes in this change. The page stack is already even. The visible leftovers are the 16px toolbars and the 20px forms. Those two groups are safe to apply next; the rest of the 16px grid and card-body offsets should be a separate pass that does not touch `gap-2` or `space-y-2`.
+The audit itself did not change components. The follow-up on the same branch applied the safe pass and the sibling-card gaps. See Applied.
+
+## Applied
+
+Member detail (`/en/dashboard/club/members/4`; seed has no member 1) stacked Overview, National team, and Teams with a computed gap of 0px. The page wrapper was already `space-y-3` around the tabs, but the overview tab returns a React fragment inside a tabpanel that had no gap utility. `space-y` only styles element children, so the three cards were hoisted into an unclassed `tabpanel` and touched. The tabpanel is now `space-y-3`. Measured gap after the change is 12px between each pair (previous card `margin-block-end`). The outer page stack is `space-y-3` as well. The LTF member tabpanel got the same class so a later second card cannot collapse the same way.
+
+Also applied, still leaving `space-y-2` label/field rhythm and `gap-2` button groups:
+
+- Copied list toolbars on club members, invoices, orders, licenses, reports, LTF finance reports, training, timetable, and promotion detail: `p-4` / `gap-4` became `p-3` / `gap-3`, matching `ListToolbarPanel`. The filter rule `pt-4` inside those bars and in `ListToolbarPanel` is `pt-3`. The list column around the toolbar is `gap-3`. `ListActionsRow` and the members action bar are `gap-3`; pagination stays `gap-2`.
+- Form and wizard stacks at `space-y-5` (income, expense, licence settings, record-payment, delete, import wizard, membership fees) are `space-y-3`.
+- Dashboard section stacks that were still `space-y-4` (national team tab bodies, teams, finance, settings, member home, and the same shared panels) are `space-y-3`. The license-card designer, marketing landing, and reset-password form were left as they were.
+- `mt-4` immediately before a table, history timeline, or the current-license card preview inside a card is `mt-3`. Other `mt-4` offsets (field grids, modal headers, buttons) stayed.
+- Sibling stat cards on the club, LTF, LTF finance, and ops dashboards use `gap-3`. The `md:gap-5` override is gone. Height/weight charts in that card use `gap-3`.
+- Ops pages had no parent gap, so stacked sections sat 24–32px apart (`mt-6` / `mt-8`) or flush with the block above. `OpsLayout` now wraps children in `space-y-3`, and those section margins were removed. Ops module cards use `p-3`.
+- The Payconiq card no longer adds `mt-6` inside an already `space-y-3` invoice page.
+
+Left on purpose: `space-y-2`, `gap-2`, form field grids at `gap-4`, designer/banner/dropzone `p-4`, modal header `gap-4`, and the marketing page.
 
 ## Screenshots
 
@@ -100,3 +116,9 @@ Recommendation: do not apply fixes in this change. The page stack is already eve
 | `/opt/cursor/artifacts/spacing_ltf_members_toolbar.png` | LTF members. Shared `ListToolbarPanel` at `p-3` / `gap-3`. |
 | `/opt/cursor/artifacts/spacing_national_stack.png` | National team. Tabs, then a `space-y-4` filter block, then the table. |
 | `/opt/cursor/artifacts/spacing_login_form.png` | Login. `space-y-3` form and `space-y-2` fields, which matches the proposed scale. |
+| `/opt/cursor/artifacts/spacing_member_detail_before.png` | Club member detail before the fix. Overview, National team, and Teams cards touch. |
+| `/opt/cursor/artifacts/spacing_member_detail_after.png` | Same page after `space-y-3` on the tabpanel. 12px between those cards. |
+| `/opt/cursor/artifacts/spacing_members_toolbar_after.png` | Club members toolbar at `p-3` / `gap-3`. |
+| `/opt/cursor/artifacts/spacing_invoices_toolbar_after.png` | Club invoices toolbar at the same 12px bar. |
+| `/opt/cursor/artifacts/spacing_income_form_after.png` | New income form. Stack is `space-y-3`; each field stays `space-y-2`. |
+| `/opt/cursor/artifacts/spacing_national_stack_after.png` | National team tab body at `space-y-3`. |

@@ -90,7 +90,7 @@ export function CurrentLicensesPanel({
       <h2 className="text-section text-foreground">{title}</h2>
       <p className="mt-1 text-sm text-muted">{subtitle}</p>
       {memberId && previewLicense ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <PublishedLicenseCardPreview
             memberId={memberId}
             licenseId={previewLicense.id}
@@ -102,9 +102,9 @@ export function CurrentLicensesPanel({
         </div>
       ) : null}
       {licenses.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">{emptyLabel}</p>
+        <p className="mt-3 text-sm text-muted">{emptyLabel}</p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-3 overflow-x-auto">
           <table className="app-data-table min-w-full text-left text-sm">
             <thead className="border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted">
               <tr>

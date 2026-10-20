@@ -912,7 +912,7 @@ export default function ClubMembersOrderLicensesPage() {
           </div>
 
           {selectedEligibleType || selectedReviewType ? (
-            <div className="mt-4">
+            <div className="mt-3">
               <EntityTable
                 columns={[
                   { key: "memberName", header: t("memberNameLabel") },

@@ -68,7 +68,7 @@ export default function LtfFinanceLicenseTypeCreatePage() {
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <FormPanel>
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-3" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">{t("licenseTypeNameLabel")}</label>
             <Input
@@ -78,7 +78,7 @@ export default function LtfFinanceLicenseTypeCreatePage() {
             />
           </div>
 
-          <div className="space-y-4 rounded-[var(--radius-card)] border border-border p-4">
+          <div className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">
             <p className="text-sm font-medium text-foreground">{t("initialPriceSectionLabel")}</p>
             <label className="flex items-center gap-2 text-sm text-foreground">
               <Checkbox

@@ -34,7 +34,7 @@ const severitySurface: Record<ActionQueueSeverity, string> = {
 
 export function ActionQueue({ title, emptyLabel, countLabel, openLabel, items }: ActionQueueProps) {
   return (
-    <section className="app-panel space-y-4 p-3">
+    <section className="app-panel space-y-3 p-3">
       <h2 className="text-section text-foreground">{title}</h2>
       {items.length === 0 ? (
         <p className="text-sm text-muted">{emptyLabel}</p>

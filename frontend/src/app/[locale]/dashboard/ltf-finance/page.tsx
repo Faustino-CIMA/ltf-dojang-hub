@@ -212,7 +212,7 @@ export default function LtfFinanceDashboardPage() {
             </Button>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard title={t("ordersReceivedCountLabel")} value={String(overview.cards.received_orders)} icon={ShoppingCart} tone="accent" />
             <SummaryCard title={t("ordersDeliveredCountLabel")} value={String(overview.cards.delivered_orders)} icon={ShoppingCart} tone="success" />
             <SummaryCard title={t("ordersCancelledCountLabel")} value={String(overview.cards.cancelled_orders)} icon={AlertTriangle} tone="danger" />
@@ -261,7 +261,7 @@ export default function LtfFinanceDashboardPage() {
             }))}
           />
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid gap-3 lg:grid-cols-2">
             <StatBreakdown
               title={t("ordersDistributionTitle")}
               items={[
@@ -288,7 +288,7 @@ export default function LtfFinanceDashboardPage() {
             />
           </section>
 
-          <section className="space-y-4">
+          <section className="space-y-3">
             <h2 className="text-section text-foreground">{t("recentActivityTitle")}</h2>
             {overview.recent_activity.length === 0 ? (
               <p className="text-sm text-muted">{t("recentActivityEmpty")}</p>

@@ -95,7 +95,7 @@ function RebateFields({
 }) {
   const t = useTranslations("ClubMgmt");
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="grid gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor={`${idPrefix}-rank`}>{t("rebateRank")}</Label>
@@ -271,7 +271,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
       {fees.length === 0 ? (
         <EmptyState title={t("feeEmptyTitle")} description={t("feeEmptySubtitle")} />
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {fees.map((fee) => {
             const draft = priceDrafts[fee.id] ?? { amount: "", effectiveFrom: "" };
             return (
@@ -595,7 +595,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
           </div>
         ) : null}
         {(licenseFee?.prices.length ?? 0) > 0 ? (
-          <div className="mt-4 overflow-hidden rounded-[var(--radius-card)] border border-border">
+          <div className="mt-3 overflow-hidden rounded-[var(--radius-card)] border border-border">
             <EntityTable
               columns={[
                 { key: "amount", header: t("feeAmount"), render: (row) => `${row.amount} EUR` },

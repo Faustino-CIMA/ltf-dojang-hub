@@ -50,7 +50,7 @@ function GroupForm({
       onClose={onClose}
     >
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (selected.length === 0) {
@@ -171,9 +171,9 @@ export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (te
       <p className="mt-1 text-sm text-muted">{t("teamGroupsHint")}</p>
       <p className="mt-1 text-xs text-muted">{t("teamGroupsSource")}</p>
       {groups.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">{t("teamGroupsEmpty")}</p>
+        <p className="mt-3 text-sm text-muted">{t("teamGroupsEmpty")}</p>
       ) : (
-        <div className="mt-4">
+        <div className="mt-3">
           <EntityTable embedded columns={columns} rows={groups} />
         </div>
       )}

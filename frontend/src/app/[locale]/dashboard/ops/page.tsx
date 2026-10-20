@@ -116,7 +116,7 @@ export default function OpsOverviewPage() {
   return (
     <OpsLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title={t("cardOnline")}
           value={isLoading ? "…" : String(overview?.online_sessions ?? "—")}
@@ -145,7 +145,7 @@ export default function OpsOverviewPage() {
         />
       </div>
 
-      <section className="mt-8">
+      <section>
         <div className="flex flex-wrap items-center gap-3">
           <HeartPulse className="size-5 text-[var(--accent)]" aria-hidden />
           <h2 className="text-lg font-semibold text-foreground">{t("healthTitle")}</h2>
@@ -206,7 +206,7 @@ export default function OpsOverviewPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <div className="mb-3 flex items-center gap-2">
           <Server className="size-4 text-muted" aria-hidden />
           <h2 className="text-lg font-semibold text-foreground">{t("sessionsTitle")}</h2>

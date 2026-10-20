@@ -231,7 +231,7 @@ export default function ClubPrintJobsPage() {
     <ClubAdminLayout title={t("printJobsTitle")} subtitle={t("printJobsSubtitle")}>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             className="w-full max-w-sm"

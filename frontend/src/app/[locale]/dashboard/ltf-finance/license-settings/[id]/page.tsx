@@ -265,7 +265,7 @@ export default function LtfFinanceLicenseTypeDetailPage() {
 
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <FormPanel className="space-y-4">
+      <FormPanel className="space-y-3">
         <h2 className="text-section text-foreground">{t("licenseTypeLabel")}</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -283,7 +283,7 @@ export default function LtfFinanceLicenseTypeDetailPage() {
         </div>
       </FormPanel>
 
-      <FormPanel className="space-y-5">
+      <FormPanel className="space-y-3">
         <h2 className="text-section text-foreground">{t("editPolicyAction")}</h2>
 
         <section className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">

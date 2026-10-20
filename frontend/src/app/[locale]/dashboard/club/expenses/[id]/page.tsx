@@ -299,7 +299,7 @@ export default function ClubExpenseDetailPage() {
         {canRecordPayments && !isLocked ? (
           <FormPanel>
             <h2 className="mb-4 text-section text-foreground">{t("clubExpenseFormSubtitle")}</h2>
-            <form className="space-y-5" onSubmit={handleSubmit}>
+            <form className="space-y-3" onSubmit={handleSubmit}>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground" htmlFor="expense-date">

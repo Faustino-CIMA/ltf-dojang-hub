@@ -295,7 +295,7 @@ export default function ClubBillingPage() {
             setSuccessMessage(null);
           }}
         />
-        <div className="space-y-4 rounded-[var(--radius-card)] border border-border bg-[var(--surface)] p-4">
+        <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-[var(--surface)] p-4">
           <div className="flex flex-wrap gap-4">
           <div className="w-full max-w-[12rem] space-y-2">
             <label className="text-sm font-medium">{t("billingYear")}</label>

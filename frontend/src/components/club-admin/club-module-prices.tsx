@@ -34,7 +34,7 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
       <h2 className="text-lg font-semibold text-foreground">{t("modulePricesTitle")}</h2>
       <p className="mt-2 text-sm text-muted">{t("modulePricesSubtitle")}</p>
       <p className="mt-2 text-sm text-muted">{t("modulePricesEstimateHint")}</p>
-      <div className="mt-4">
+      <div className="mt-3">
         <EntityTable
           clientSort
           sort={sort}

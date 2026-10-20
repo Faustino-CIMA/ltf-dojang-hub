@@ -440,7 +440,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
   }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, teamId]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-section text-foreground">{team?.name ?? t("teamsTitle")}</h2>

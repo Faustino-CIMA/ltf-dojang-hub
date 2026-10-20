@@ -146,7 +146,7 @@ export default function LtfFinanceAuditLogPage() {
     <LtfFinanceLayout title={t("auditLogTitle")} subtitle={t("auditLogSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input

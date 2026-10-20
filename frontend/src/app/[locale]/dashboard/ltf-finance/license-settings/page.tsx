@@ -577,7 +577,7 @@ export default function LtfFinanceLicenseSettingsPage() {
 
       {activeTab === "license-types" ? (
       <div className="space-y-3">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input
@@ -676,7 +676,7 @@ export default function LtfFinanceLicenseSettingsPage() {
         {licenseTypes.length === 0 ? (
           <EmptyState title={t("priceHistoryEmptyTitle")} description={t("priceHistoryEmptySubtitle")} />
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-3">
             {licenseTypes.map((licenseType) => {
               const rows = pricesByLicenseType[licenseType.id] ?? [];
               const draft = priceDrafts[licenseType.id] ?? { amount: "", effectiveFrom: "" };
@@ -826,7 +826,7 @@ export default function LtfFinanceLicenseSettingsPage() {
           {catalogFees.length === 0 ? (
             <EmptyState title={t("clubFeeEmptyTitle")} description={t("clubFeeEmptySubtitle")} />
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-3">
               {catalogFees.map((feeType) => {
                 const rows = pricesByFeeType[feeType.id] ?? [];
                 const draft = feePriceDrafts[feeType.id] ?? { amount: "", effectiveFrom: "" };
@@ -1228,7 +1228,7 @@ export default function LtfFinanceLicenseSettingsPage() {
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubFeeBillingClubsLabel")}</h2>
             <p className="mt-1 text-sm text-muted">{t("clubStatusHint")}</p>
-            <div className="mt-4">
+            <div className="mt-3">
               {clubs.length === 0 ? (
                 <p className="text-sm text-muted">{t("clubFeeBillingPickClubs")}</p>
               ) : (

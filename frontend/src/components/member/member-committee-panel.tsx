@@ -50,7 +50,7 @@ export function MemberCommitteePanel({
     <FormPanel>
       <h2 className="text-section text-foreground">{t("committeeHistoryTitle")}</h2>
       <p className="mt-1 text-sm text-muted">{t("committeeMemberSubtitle")}</p>
-      <div className="mt-4">
+      <div className="mt-3">
         {terms.length === 0 ? (
           <p className="text-sm text-muted">{t("committeeHistoryEmpty")}</p>
         ) : (

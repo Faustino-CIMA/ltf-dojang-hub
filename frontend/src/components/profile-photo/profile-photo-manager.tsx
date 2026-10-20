@@ -600,7 +600,7 @@ export function ProfilePhotoManager({
   };
 
   const editorContent = (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div
         onDragOver={(event) => {
           event.preventDefault();

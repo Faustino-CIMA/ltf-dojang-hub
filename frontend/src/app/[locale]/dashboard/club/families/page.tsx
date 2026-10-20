@@ -191,7 +191,7 @@ export default function ClubFamiliesPage() {
       {families.length === 0 ? (
         <EmptyState title={t("familiesEmptyTitle")} description={t("familiesEmptySubtitle")} />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {families.map((family) => {
             const availableMembers = members.filter((member) => !membersInFamilies.has(member.id));
             const open = Boolean(openFamilies[family.id]);

@@ -121,7 +121,7 @@ export default function LtfLicenseDeletePage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : !licenseId || !license ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("singleDeleteLicenseNotFoundTitle")}
             description={t("singleDeleteLicenseNotFoundSubtitle")}
@@ -131,7 +131,7 @@ export default function LtfLicenseDeletePage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3">
           <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
             <h2 className="text-sm font-semibold text-foreground">{t("singleDeleteLicensePreviewTitle")}</h2>
             <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">

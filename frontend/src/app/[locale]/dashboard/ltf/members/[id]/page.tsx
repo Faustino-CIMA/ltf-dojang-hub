@@ -313,6 +313,7 @@ export default function LtfMemberDetailPage() {
               role="tabpanel"
               id="member-detail-panel"
               aria-labelledby={`member-detail-${activeTab}`}
+              className="space-y-3"
             >
               {activeTab === "overview" ? (
                 <FormPanel>
@@ -445,7 +446,7 @@ export default function LtfMemberDetailPage() {
                 <FormPanel>
                   <h2 className="text-section text-foreground">{t("memberLicenseHistoryTab")}</h2>
                   <p className="mt-1 text-sm text-muted">{t("licenseHistorySubtitle")}</p>
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <MemberHistoryTimeline {...historyTimelineShared} visibleSection="licenses" />
                   </div>
                 </FormPanel>
@@ -455,7 +456,7 @@ export default function LtfMemberDetailPage() {
                 <FormPanel>
                   <h2 className="text-section text-foreground">{t("memberGradesTab")}</h2>
                   <p className="mt-1 text-sm text-muted">{t("gradeHistorySubtitle")}</p>
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <MemberHistoryTimeline {...historyTimelineShared} visibleSection="grades" />
                   </div>
                 </FormPanel>

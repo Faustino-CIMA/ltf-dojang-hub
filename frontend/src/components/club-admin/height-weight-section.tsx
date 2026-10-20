@@ -168,7 +168,7 @@ export function MeasurementEntryPanel({
       onClose={onClose}
     >
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           const problem = validate();
@@ -333,19 +333,19 @@ export function HeightWeightSection({
           })}
         </p>
       ) : null}
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
         <TrendChart label={t("heightWeightWeightChart")} empty={t("heightWeightChartEmpty")} unit="kg" points={weightPoints} />
         <TrendChart label={t("heightWeightHeightChart")} empty={t("heightWeightChartEmpty")} unit="cm" points={heightPoints} />
       </div>
       {loading ? (
-        <p className="mt-4 text-sm text-muted">{t("loadingTitle")}</p>
+        <p className="mt-3 text-sm text-muted">{t("loadingTitle")}</p>
       ) : rows.length === 0 ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <p className="text-sm font-medium text-foreground">{t("heightWeightEmptyTitle")}</p>
           <p className="mt-1 text-sm text-muted">{t("heightWeightEmptySubtitle")}</p>
         </div>
       ) : (
-        <div className="mt-4">
+        <div className="mt-3">
         <EntityTable
           embedded
           columns={[

@@ -205,7 +205,7 @@ export default function LtfFinanceIncomeDetailPage() {
           <span className="font-medium text-foreground">{income.income_number}</span>
           <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
         </div>
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-3" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">{t("incomeDateLabel")}</label>

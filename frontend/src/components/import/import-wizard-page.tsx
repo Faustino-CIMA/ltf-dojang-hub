@@ -1352,7 +1352,7 @@ export function ImportWizardPage({
     ) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
@@ -1393,7 +1393,7 @@ export function ImportWizardPage({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           {step === "source" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("sourceStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("sourceStepSubtitle")}</p>
@@ -1422,7 +1422,7 @@ export function ImportWizardPage({
               ) : null}
 
               {isMembersImport ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">{t("clubLabel")}</label>
                     {allowClubSelection && !fixedClubId ? (
@@ -1527,7 +1527,7 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "mapping" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("mappingStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("mappingStepSubtitle")}</p>
@@ -1608,7 +1608,7 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "preview" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("previewStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("previewStepSubtitle")}</p>
@@ -2067,7 +2067,7 @@ export function ImportWizardPage({
           )}
 
           {step === "confirm" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("confirmStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("confirmStepSubtitle")}</p>
@@ -2135,7 +2135,7 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "result" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <ImportSuccessConfetti active={resultTone === "success"} />
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("resultStepTitle")}</h2>

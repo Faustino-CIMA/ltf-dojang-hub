@@ -371,8 +371,8 @@ export default function ClubAdminInvoicesPage() {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -402,7 +402,7 @@ export default function ClubAdminInvoicesPage() {
               </div>
             </div>
 
-            <div className="min-w-0 border-t border-[var(--border)] pt-4">
+            <div className="min-w-0 border-t border-[var(--border)] pt-3">
               <FilterPills
                 ariaLabel={t("invoicesStatusFilterAriaLabel")}
                 value={overdueIssue ? "issued" : invoiceStatusFilter}
@@ -419,7 +419,7 @@ export default function ClubAdminInvoicesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
               <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
               <Button

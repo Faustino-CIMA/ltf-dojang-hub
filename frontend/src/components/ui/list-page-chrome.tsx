@@ -58,8 +58,8 @@ export function ListToolbarPanel({
         <div
           className={
             stackFilters
-              ? "min-w-0 border-t border-[var(--border)] pt-4"
-              : "min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0"
+              ? "min-w-0 border-t border-[var(--border)] pt-3"
+              : "min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0"
           }
         >
           {filters}
@@ -77,7 +77,7 @@ export function ListActionsRow({
   pagination?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
         {actions}
       </div>

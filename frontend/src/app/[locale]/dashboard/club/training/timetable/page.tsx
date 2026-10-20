@@ -365,7 +365,7 @@ export default function TrainingTimetablePage() {
             <EmptyState title={t("trainingNoClassesYet")} description={t("trainingNoClassesYetHint")} />
           ) : (
             <>
-              <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+              <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
                 <div className="min-w-[12rem] flex-1">
                   <Input
                     className="w-full max-w-xs"

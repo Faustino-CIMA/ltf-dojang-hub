@@ -743,8 +743,8 @@ export default function ClubAdminMembersPage() {
       </Modal>
 
       <div className="space-y-3">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -774,7 +774,7 @@ export default function ClubAdminMembersPage() {
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0">
+            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
               <FilterPills
                 ariaLabel={t("membersStatusFilterAriaLabel")}
                 disabled={!statusFilterHydrated || Boolean(issue)}
@@ -819,7 +819,7 @@ export default function ClubAdminMembersPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {canManageMembers ? (
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
                 <ActionMenu

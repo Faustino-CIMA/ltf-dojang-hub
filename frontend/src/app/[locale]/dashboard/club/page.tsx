@@ -390,7 +390,7 @@ export default function ClubAdminOverviewPage() {
             </Button>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-4">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard title={t("totalMembers")} value={String(filteredMembers.length)} icon={Users} tone="accent" />
             <SummaryCard title={t("activeMembers")} value={String(activeMembers.length)} icon={Users} tone="success" />
             <SummaryCard title={t("totalLicenses")} value={String(filteredLicenses.length)} icon={IdCard} tone="accent" />
@@ -419,7 +419,7 @@ export default function ClubAdminOverviewPage() {
             items={visibleQueueItems}
           />
 
-          <section className="grid gap-4 md:gap-5 xl:grid-cols-2">
+          <section className="grid gap-3 xl:grid-cols-2">
             <StatBreakdown
               title={t("licensesDistributionTitle")}
               items={[

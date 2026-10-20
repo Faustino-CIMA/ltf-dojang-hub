@@ -134,7 +134,7 @@ export function TrainingMonthView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -275,7 +275,7 @@ export function TrainingYearView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">

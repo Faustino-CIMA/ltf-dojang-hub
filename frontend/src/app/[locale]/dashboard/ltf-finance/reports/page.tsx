@@ -123,7 +123,7 @@ export default function LtfFinanceReportsPage() {
     <LtfFinanceLayout title={t("reportsTitle")} subtitle={t("reportsSubtitle")}>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <div className="flex flex-wrap items-end justify-between gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">{t("reportYearLabel")}</label>
           <Select value={year} onValueChange={setYear}>

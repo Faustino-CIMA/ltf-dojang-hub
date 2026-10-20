@@ -166,7 +166,7 @@ export function HouseholdInvoiceView({ householdId }: { householdId: string }) {
             ) : null}
 
             {preview ? (
-              <div className="mt-4 space-y-4">
+              <div className="mt-4 space-y-3">
                 <p className="text-sm">
                   {preview.needs_recipient ? t("chooseBillRecipient") : addressed}
                 </p>

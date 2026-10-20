@@ -80,7 +80,7 @@ export default function BeltTestPage() {
       ) : candidates === null ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <ActionNotices
             error={errorMessage}
             success={successMessage}
@@ -94,7 +94,7 @@ export default function BeltTestPage() {
               {t("navPromotion")}
             </Button>
           </div>
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+          <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <Input
               className="w-full max-w-xs"
               value={query}

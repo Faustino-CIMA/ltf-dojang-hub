@@ -263,7 +263,7 @@ export default function LtfFinanceRecordPaymentPage() {
         </PageNotice>
       ) : (
         <FormPanel>
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-3" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-foreground" htmlFor="payment-date" required>

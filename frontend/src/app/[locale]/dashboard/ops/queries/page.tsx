@@ -144,7 +144,7 @@ export default function OpsQueriesPage() {
           ) : null}
 
           {result ? (
-            <div className="mt-6">
+            <div className="mt-3">
               <p className="mb-3 text-sm text-muted">{t("rowCount", { count: result.row_count })}</p>
               <EntityTable
                 columns={result.columns.map((column) => ({

@@ -1025,7 +1025,7 @@ export default function ClubAdminsBoardPage() {
         onClose={resetConnect}
       >
         <RequiredForm>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="space-y-2">
             <Label required>{t("emailInputLabel")}</Label>
             <Input

@@ -96,7 +96,7 @@ export default function ClubExpensesPage() {
       <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={<Input className="w-full max-w-xs" placeholder={t("searchExpensesPlaceholder")} value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />}
             pageSize={<PageSizeSelect value={pageSize} onChange={setPageSize} ariaLabel={common("rowsPerPageLabel")} allLabel={common("rowsPerPageAll")} />}

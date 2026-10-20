@@ -218,15 +218,15 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
         ) : null}
       </div>
       {rows == null ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         </div>
       ) : rows.length === 0 ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <EmptyState title={t("publicationEmptyTitle")} description={t("publicationEmptySubtitle")} />
         </div>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-[var(--radius-card)] border border-border">
+        <div className="mt-3 overflow-x-auto rounded-[var(--radius-card)] border border-border">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-secondary/70 text-xs uppercase tracking-wide text-muted">
               <tr>

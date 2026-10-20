@@ -223,7 +223,7 @@ export default function ClubAdminMemberCreatePage() {
 
   return (
     <ClubAdminLayout title={t("createMember")} subtitle={t("memberCreatePageSubtitle")}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Button variant="outline" size="sm" asChild>
           <Link href={`/${locale}/dashboard/club/members`}>{t("backToMembers")}</Link>
         </Button>

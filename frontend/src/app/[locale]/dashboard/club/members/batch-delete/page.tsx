@@ -232,7 +232,7 @@ export default function ClubMembersBatchDeletePage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : !canManageMembers ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("batchDeleteMembersForbiddenTitle")}
             description={t("batchDeleteMembersForbiddenSubtitle")}
@@ -242,7 +242,7 @@ export default function ClubMembersBatchDeletePage() {
           </Button>
         </div>
       ) : selectedIds.length === 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("batchDeleteMembersNoSelectionTitle")}
             description={t("batchDeleteMembersNoSelectionSubtitle")}
@@ -252,7 +252,7 @@ export default function ClubMembersBatchDeletePage() {
           </Button>
         </div>
       ) : selectedMembers.length === 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("batchDeleteMembersNoMatchesTitle")}
             description={t("batchDeleteMembersNoMatchesSubtitle")}
@@ -262,7 +262,7 @@ export default function ClubMembersBatchDeletePage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3">
           <section className="grid gap-4 md:grid-cols-2">
             <article className="rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-xs uppercase tracking-wide text-muted">

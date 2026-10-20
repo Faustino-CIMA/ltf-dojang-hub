@@ -364,7 +364,7 @@ export function NationalTeamDesk({
       {loading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : tab === "selections" ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex flex-wrap items-end gap-3">
             <FilterField label={t("nationalTeamSeason")}>
               <PopoverSelect
@@ -516,7 +516,7 @@ function StaffSection({
   const t = useTranslations("LtfAdmin");
   const squadName = (id: number | null) => squads.find((item) => item.id === id)?.name || t("nationalTeamAllSquads");
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex justify-end">
         {canManage ? (
           <Button type="button" onClick={onAdd}>
@@ -567,7 +567,7 @@ function SeasonDates(props: {
 }) {
   const t = useTranslations("LtfAdmin");
   return (
-    <div className="app-panel space-y-3 p-4">
+    <div className="app-panel space-y-3 p-3">
       <h2 className="text-section text-foreground">{t("nationalTeamSeasonDates")}</h2>
       <p className="text-sm text-muted">{t("nationalTeamSeasonDatesHint")}</p>
       {props.season ? (
@@ -630,7 +630,7 @@ function LevelsSection(props: {
   const t = useTranslations("LtfAdmin");
   return (
     <div className="space-y-3">
-      <div className="app-panel space-y-3 p-4">
+      <div className="app-panel space-y-3 p-3">
         <div className="flex items-start gap-3">
           <Checkbox
             id="forbid-overlap"
@@ -720,7 +720,7 @@ function SelectionPanel(props: {
   return (
     <SidePanel open title={title} description={t("nationalTeamSelectionHint")} closeLabel={t("nationalTeamClose")} onClose={props.onClose}>
       {props.mode === "delete-selection" ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <p className="text-sm text-foreground">{t("nationalTeamDeleteHint")}</p>
           <Button type="button" variant="destructive" disabled={props.busy} onClick={props.onDelete}>
             {t("nationalTeamDelete")}
@@ -792,7 +792,7 @@ function SelectionForm({
   ];
   return (
     <form
-      className="space-y-4"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSave({
@@ -940,7 +940,7 @@ function EndDateForm({ initial, busy, onSave }: { initial: string; busy: boolean
   const [ended, setEnded] = useState(initial);
   return (
     <form
-      className="space-y-4"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSave(ended);
@@ -978,7 +978,7 @@ function StatusHistory(props: {
   const [support, setSupport] = useState("sportlycee");
   const activeLevels = props.levels.filter((level) => level.is_active);
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ul className="space-y-3">
         {props.statuses.length === 0 ? <li className="text-sm text-muted">{t("nationalTeamStatusEmpty")}</li> : null}
         {props.statuses.map((row) => (
@@ -1004,7 +1004,7 @@ function StatusHistory(props: {
         ))}
       </ul>
       <form
-        className="space-y-3 border-t border-border pt-4"
+        className="space-y-3 border-t border-border pt-3"
         onSubmit={(event) => {
           event.preventDefault();
           props.onSave({
@@ -1157,7 +1157,7 @@ function StaffForm({
   const [started, setStarted] = useState("");
   return (
     <form
-      className="space-y-4"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSave({
@@ -1214,7 +1214,7 @@ function SquadPanel({ open, busy, onClose, onSave }: { open: boolean; busy: bool
   return (
     <SidePanel open title={t("nationalTeamAddSquad")} description={t("nationalTeamAddSquadHint")} closeLabel={t("nationalTeamClose")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           onSave(name);
@@ -1251,7 +1251,7 @@ function LevelPanel({
   return (
     <SidePanel open title={t("nationalTeamLevelAdd")} description={t("nationalTeamLevelHint")} closeLabel={t("nationalTeamClose")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           onSave({ code, name, is_active: true, sort_order: 20 });
@@ -1292,7 +1292,7 @@ function SeasonPanel({
   return (
     <SidePanel open title={t("nationalTeamAddSeason")} description={t("nationalTeamSeasonDatesHint")} closeLabel={t("nationalTeamClose")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           onSave({ year: Number(year), starts_on: starts, ends_on: ends });

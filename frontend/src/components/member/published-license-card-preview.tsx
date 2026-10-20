@@ -168,7 +168,7 @@ export function PublishedLicenseCardPreview({
       <p className="mb-4 text-sm font-medium text-foreground">
         {front.template_name || title}
       </p>
-      <div className="flex flex-wrap justify-center gap-5">
+      <div className="flex flex-wrap justify-center gap-3">
         <div className="w-[min(100%,420px)] space-y-2">
           <CardPreviewFrame payload={front} title={frontLabel} />
           {back ? <p className="text-center text-xs text-muted">{frontLabel}</p> : null}

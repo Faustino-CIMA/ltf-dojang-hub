@@ -113,7 +113,7 @@ export function TeamForm({
   return (
     <SidePanel open title={team ? t("teamsEdit") : t("teamsAdd")} closeLabel={t("teamsClose")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (archived) return;
@@ -299,7 +299,7 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
 
   return (
     <SidePanel open title={t("teamsManageTitle")} description={t("teamsManageHint", { name: team.name })} closeLabel={t("teamsClose")} onClose={onClose}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {archived ? <p className="text-sm text-muted">{t("teamArchivedHint")}</p> : null}
         <Input aria-label={t("teamsSearchMembers")} placeholder={t("teamsSearchMembers")} value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="grid gap-3">
@@ -507,7 +507,7 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant={showArchived ? "default" : "outline"} aria-pressed={showArchived} onClick={() => setShowArchived((current) => !current)}>
           {t("teamShowArchived")}

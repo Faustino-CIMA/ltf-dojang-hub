@@ -155,7 +155,7 @@ export default function LtfFinanceExpensesPage() {
     <LtfFinanceLayout title={t("expensesTitle")} subtitle={t("expensesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input

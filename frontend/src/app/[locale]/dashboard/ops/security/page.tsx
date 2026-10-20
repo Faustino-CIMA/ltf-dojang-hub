@@ -134,7 +134,7 @@ export default function OpsSecurityPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("failedLoginsTitle")}</h2>
         <div className="mt-3">
           {events.length === 0 ? (
@@ -157,7 +157,7 @@ export default function OpsSecurityPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("sessionsTitle")}</h2>
         <div className="mt-3">
           <EntityTable

@@ -201,7 +201,7 @@ export default function OpsTranslationsPage() {
         }}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
+      <div className="grid gap-3 xl:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="app-panel h-fit p-3 xl:sticky xl:top-4">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("translationsPages")}

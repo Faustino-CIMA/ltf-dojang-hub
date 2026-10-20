@@ -184,7 +184,7 @@ export default function LtfAdminClubsPage() {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
               <Input
