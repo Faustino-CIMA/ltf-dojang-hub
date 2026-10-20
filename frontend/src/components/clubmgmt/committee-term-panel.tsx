@@ -20,7 +20,7 @@ export type CommitteePanelState =
   | { mode: "past"; committeeId: number };
 
 const FIELD_CLASS =
-  "min-h-24 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "min-h-24 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 export function CommitteeTermPanel({
   panel,
@@ -184,7 +184,7 @@ export function CommitteeTermPanel({
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
         {showRole ? (
           <div className="space-y-2">

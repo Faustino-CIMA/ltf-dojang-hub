@@ -113,7 +113,7 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
 
   return (
     <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      {children}
+      <div className="space-y-3">{children}</div>
     </AppShell>
   );
 }

@@ -47,7 +47,7 @@ export default function ClubShopSnapshotsPage() {
 
   return (
     <ClubAdminLayout title={t("shopCountSheetTitle")} subtitle={t("shopCountSheetSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubShopTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         <div className="flex flex-wrap gap-2">

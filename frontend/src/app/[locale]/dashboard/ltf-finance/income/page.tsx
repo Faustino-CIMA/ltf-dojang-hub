@@ -145,7 +145,7 @@ export default function LtfFinanceIncomePage() {
     <LtfFinanceLayout title={t("incomeTitle")} subtitle={t("incomeSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input

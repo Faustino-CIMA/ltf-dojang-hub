@@ -136,7 +136,7 @@ export default function TrainingWeekPage() {
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
           {canManage ? (
             <FormPanel>
@@ -204,7 +204,7 @@ export default function TrainingWeekPage() {
             <EmptyState title={t("trainingNoSessions")} description={t("trainingNoSessionsHint")} />
           ) : (
             <>
-              <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+              <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
                 <div className="min-w-[12rem] flex-1">
                   <Input
                     className="w-full max-w-xs"

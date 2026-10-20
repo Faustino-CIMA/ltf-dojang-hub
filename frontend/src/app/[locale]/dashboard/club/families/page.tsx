@@ -136,7 +136,7 @@ export default function ClubFamiliesPage() {
 
   return (
     <ClubAdminLayout title={t("familiesTitle")} subtitle={t("familiesBillingHint")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}
@@ -191,7 +191,7 @@ export default function ClubFamiliesPage() {
       {families.length === 0 ? (
         <EmptyState title={t("familiesEmptyTitle")} description={t("familiesEmptySubtitle")} />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {families.map((family) => {
             const availableMembers = members.filter((member) => !membersInFamilies.has(member.id));
             const open = Boolean(openFamilies[family.id]);

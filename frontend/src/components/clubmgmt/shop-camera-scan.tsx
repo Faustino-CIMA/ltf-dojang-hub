@@ -116,7 +116,7 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
   }, [t]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4 text-white">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--scrim)] p-4 text-[var(--scrim-foreground)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-medium">{t("shopScanCameraHint")}</p>
         <Button type="button" variant="secondary" size="sm" onClick={onClose}>
@@ -124,7 +124,7 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
           {t("shopScanClose")}
         </Button>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-[var(--radius-card)] bg-black">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
         <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="h-48 w-48 rounded-lg border-2 border-white/80" />

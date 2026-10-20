@@ -178,7 +178,7 @@ function StaffPanelForm({
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
         {showPerson ? (
           <>

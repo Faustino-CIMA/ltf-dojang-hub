@@ -445,7 +445,7 @@ export default function ClubMemberDetailPage() {
 
   return (
     <ClubAdminLayout title={title} subtitle={t("memberDetailSubtitle")}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-[var(--control-height)] min-h-[var(--control-height)]" asChild>
             <Link href={`/${locale}/dashboard/club/members`}>{t("backToMembers")}</Link>
@@ -470,7 +470,7 @@ export default function ClubMemberDetailPage() {
         ) : !member ? (
           <EmptyState title={t("noResultsTitle")} description={t("memberNotFound")} />
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {member.is_club_tourist ? (
               <PageNotice tone="warning">{t("clubTouristMemberHint")}</PageNotice>
             ) : null}
@@ -525,6 +525,7 @@ export default function ClubMemberDetailPage() {
               role="tabpanel"
               id="member-detail-panel"
               aria-labelledby={`member-detail-${activeTab}`}
+              className="space-y-3"
             >
             {activeTab === "club-record" && member ? (
               <MemberClubRecordPanel
@@ -903,7 +904,7 @@ export default function ClubMemberDetailPage() {
               <FormPanel>
                 <h2 className="text-section text-foreground">{t("memberLicenseHistoryTab")}</h2>
                 <p className="mt-1 text-sm text-muted">{t("licenseHistorySubtitle")}</p>
-                <div className="mt-4">
+                <div className="mt-3">
                   <MemberHistoryTimeline {...historyTimelineShared} visibleSection="licenses" />
                 </div>
               </FormPanel>
@@ -913,7 +914,7 @@ export default function ClubMemberDetailPage() {
               <FormPanel>
                 <h2 className="text-section text-foreground">{t("memberGradesTab")}</h2>
                 <p className="mt-1 text-sm text-muted">{t("gradeHistorySubtitle")}</p>
-                <div className="mt-4">
+                <div className="mt-3">
                   <MemberHistoryTimeline
                     {...historyTimelineShared}
                     visibleSection="grades"

@@ -10,28 +10,28 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[var(--default)] text-[var(--default-foreground)] hover:bg-[color-mix(in_oklab,var(--default)_78%,var(--foreground))]",
+          "bg-primary text-primary-foreground hover:bg-[color-mix(in_oklab,var(--accent)_86%,black)]",
         primary:
-          "border border-[var(--accent)] bg-[var(--surface)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)] active:bg-[color-mix(in_oklab,var(--accent)_78%,black)] active:text-[var(--accent-foreground)]",
+          "bg-primary text-primary-foreground hover:bg-[color-mix(in_oklab,var(--accent)_86%,black)]",
         destructive:
-          "bg-destructive text-[var(--danger-foreground)] hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-[var(--danger-foreground)] hover:bg-destructive/90 focus-visible:ring-destructive/20",
         outline:
-          "border border-[var(--border)] bg-[var(--surface)] text-[var(--surface-foreground)] shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border border-border bg-surface text-foreground hover:bg-[var(--accent-soft)] hover:text-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "hover:bg-[var(--accent-soft)] hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-[var(--control-height)] min-h-[var(--control-height)] px-[var(--control-padding-x)] py-2 has-[>svg]:px-3",
+        default: "h-[var(--control-height)] min-h-[var(--control-height)] px-[var(--control-padding-x)] has-[>svg]:px-3",
         xs: "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "min-h-10 gap-1.5 px-3 py-2 has-[>svg]:px-2.5",
-        lg: "min-h-12 px-6 py-3 has-[>svg]:px-4",
-        icon: "size-9",
+        sm: "h-[var(--control-height-sm)] min-h-[var(--control-height-sm)] gap-1 px-2 has-[>svg]:px-1.5",
+        lg: "h-[var(--control-height)] min-h-[var(--control-height)] px-[var(--control-padding-x)] has-[>svg]:px-3",
+        icon: "size-[var(--control-height)]",
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        "icon-lg": "size-[var(--control-height)]",
       },
     },
     defaultVariants: {

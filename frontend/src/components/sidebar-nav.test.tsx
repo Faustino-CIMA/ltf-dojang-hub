@@ -209,7 +209,7 @@ describe("sidebar navigation", () => {
     expect(theme).toContain("--sidebar-item-height: var(--control-height);");
     expect(theme).toContain("--sidebar-item-font-weight: 500;");
     expect(theme).toContain("--sidebar-item-icon-size: 1rem;");
-    expect(theme).toContain("--sidebar-item-padding-x: 0.75rem;");
+    expect(theme).toContain("--sidebar-item-padding-x: 0.625rem;");
     expect(css).toContain("height: var(--sidebar-item-height);");
     expect(css).toContain("font-weight: var(--sidebar-item-font-weight);");
     expect(css).toContain("padding: 0 var(--sidebar-item-padding-x);");

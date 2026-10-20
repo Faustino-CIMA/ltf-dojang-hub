@@ -283,7 +283,7 @@ export default function TrainingHoursPage() {
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices
             error={errorMessage}
             success={successMessage}
@@ -292,7 +292,7 @@ export default function TrainingHoursPage() {
               setSuccessMessage(null);
             }}
           />
-          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
             <Label>{t("subsidiesYear")}</Label>
             <Input className="mt-1" value={year} onChange={(event) => setYear(event.target.value)} />
           </div>
@@ -380,9 +380,9 @@ export default function TrainingHoursPage() {
                   <h2 className="text-section text-foreground">{t("trainingPayRateTitle")}</h2>
                   <p className="mt-2 text-sm text-muted">{t("trainingPayRateHint")}</p>
                   {rates.length === 0 ? (
-                    <p className="mt-4 text-sm text-muted">{t("trainingNoCoaches")}</p>
+                    <p className="mt-3 text-sm text-muted">{t("trainingNoCoaches")}</p>
                   ) : (
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <EntityTable
                         rows={rates.map((row) => ({ ...row, id: row.user_id }))}
                         columns={[
@@ -535,9 +535,9 @@ export default function TrainingHoursPage() {
                     </div>
                   </form>
                   {outings.length === 0 ? (
-                    <p className="mt-4 text-sm text-muted">{t("trainingNoOutings")}</p>
+                    <p className="mt-3 text-sm text-muted">{t("trainingNoOutings")}</p>
                   ) : (
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <EntityTable
                         rows={outings}
                         columns={[

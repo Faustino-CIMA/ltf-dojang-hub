@@ -146,7 +146,7 @@ describe("Height and weight section", () => {
     expect(charts[1].querySelector("polyline")).toBeTruthy();
     const section = document.getElementById("height-weight-title")?.closest("section");
     expect(section?.className).toContain("app-panel");
-    expect(section?.className).toContain("p-6");
+    expect(section?.className).toContain("p-3");
     expect(section?.querySelector("table")?.parentElement?.className ?? "").not.toContain("app-panel");
     render(<HeightWeightSection memberId={9} embedded />);
     const embeddedSection = screen.getAllByRole("region", { name: "heightWeightTitle" }).at(-1);

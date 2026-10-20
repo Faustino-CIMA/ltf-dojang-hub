@@ -217,12 +217,12 @@ export default function LtfFinanceExpenseDetailPage() {
       </Button>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <FormPanel className="space-y-5">
+      <FormPanel className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-section text-foreground">{t("expenseDetailSubtitle")}</h2>
           <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
         </div>
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-3" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">{t("expenseDateLabel")}</label>

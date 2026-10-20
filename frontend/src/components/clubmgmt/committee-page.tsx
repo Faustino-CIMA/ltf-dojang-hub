@@ -94,7 +94,7 @@ const CARD_BASE =
   "w-full rounded-[var(--radius-card)] border-2 bg-[var(--surface)] px-3 py-3 text-left transition-colors";
 const CARD_SELECTED = "border-primary";
 const CARD_IDLE = "border-border hover:border-primary/50";
-const CARD_VACANT = "border-dashed border-primary/50 bg-[color-mix(in_oklab,var(--primary)_6%,white)]";
+const CARD_VACANT = "border-dashed border-primary/50 bg-[var(--accent-soft)]";
 
 function displayMemberName(member: Member) {
   return formatFullName(member);
@@ -476,7 +476,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
     drafts[committeeId] ?? { role: firstOpenRole(mandates), started_on: todayIso(), title: "" };
 
   const body = (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}
@@ -666,7 +666,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
             </div>
 
             {connectFrom ? (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-form)] border border-primary/40 bg-[var(--accent-soft,color-mix(in_oklab,var(--primary)_10%,white))] px-3 py-2">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-form)] border border-primary/40 bg-[var(--accent-soft,var(--accent-soft))] px-3 py-2">
                 <p className="text-sm text-foreground">
                   {connectFrom === "mandate" && selectedMandate
                     ? t("committeeConnectingMandate", { role: t(`role_${selectedMandate.role}`) })

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
@@ -201,7 +202,7 @@ export default function OpsTranslationsPage() {
         }}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
+      <div className="grid gap-3 xl:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="app-panel h-fit p-3 xl:sticky xl:top-4">
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("translationsPages")}
@@ -236,7 +237,7 @@ export default function OpsTranslationsPage() {
         </aside>
 
         <div className="min-w-0">
-          <div className="app-panel p-5">
+          <div className="app-panel p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold text-foreground">{currentPage?.title ?? namespace}</h2>
@@ -279,12 +280,8 @@ export default function OpsTranslationsPage() {
                   placeholder={t("translationsSearchInPage")}
                 />
               </div>
-              <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-muted">
-                <input
-                  type="checkbox"
-                  checked={missingOnly}
-                  onChange={(event) => setMissingOnly(event.target.checked)}
-                />
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <Checkbox checked={missingOnly} onCheckedChange={(checked) => setMissingOnly(checked === true)} />
                 {t("missingLbOnly")}
               </label>
             </div>
@@ -298,7 +295,7 @@ export default function OpsTranslationsPage() {
             <p className="mt-4 text-sm text-muted">{t("translationsEmptyPage")}</p>
           ) : readingView ? (
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <article className="app-panel p-5">
+              <article className="app-panel p-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t("englishLabel")}</h3>
                 {groups.map((group) => (
                   <section key={`en-${group.id}`} className="mt-5">
@@ -311,7 +308,7 @@ export default function OpsTranslationsPage() {
                   </section>
                 ))}
               </article>
-              <article className="app-panel p-5">
+              <article className="app-panel p-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t("luxembourgishLabel")}</h3>
                 {groups.map((group) => (
                   <section key={`lb-${group.id}`} className="mt-5">
@@ -332,7 +329,7 @@ export default function OpsTranslationsPage() {
             </div>
           ) : (
             <div className="mt-4 overflow-hidden rounded-[var(--radius-card)] border border-border bg-[var(--surface)]">
-              <div className="sticky top-0 z-10 hidden grid-cols-[minmax(9rem,14rem)_1fr_1fr] border-b border-border bg-[var(--surface)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
+              <div className="sticky top-0 z-10 hidden grid-cols-[minmax(9rem,14rem)_1fr_1fr] border-b border-border bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
                 <span>{t("translationsOnScreen")}</span>
                 <span>{t("englishLabel")}</span>
                 <span>{t("luxembourgishLabel")}</span>
@@ -350,8 +347,8 @@ export default function OpsTranslationsPage() {
                         <li
                           key={row.key}
                           className={cn(
-                            "grid gap-3 border-t border-border/70 px-4 py-3 md:grid-cols-[minmax(9rem,14rem)_1fr_1fr]",
-                            row.missing_lb && !draft.lb.trim() ? "bg-[color-mix(in_oklab,var(--danger)_6%,white)]" : "",
+                            "grid gap-3 border-t border-border/70 px-3 py-2 md:grid-cols-[minmax(9rem,14rem)_1fr_1fr]",
+                            row.missing_lb && !draft.lb.trim() ? "bg-[var(--badge-danger-bg)]" : "",
                           )}
                         >
                           <div className="min-w-0">

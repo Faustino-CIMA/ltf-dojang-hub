@@ -400,17 +400,15 @@ export default function LtfAdminLicensesPage() {
     {
       key: "select",
       header: (
-        <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
-          <Checkbox
-            aria-label={common("selectAllLabel")}
-            checked={allSelected}
-            onCheckedChange={() => toggleSelectAll()}
-          />
-        </span>
+        <Checkbox
+          aria-label={common("selectAllLabel")}
+          checked={allSelected}
+          onCheckedChange={() => toggleSelectAll()}
+        />
       ),
       render: (license: License) => (
         <span
-          className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+          className="inline-flex"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
@@ -491,8 +489,8 @@ export default function LtfAdminLicensesPage() {
     <LtfAdminLayout title={t("licensesTitle")} subtitle={t("licensesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
               <Input

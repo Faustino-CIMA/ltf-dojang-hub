@@ -31,7 +31,7 @@ export function TeamWeighInPanel({
   return (
     <SidePanel open title={t("teamWeighIn")} description={t("teamWeighInHint")} closeLabel={t("teamsClose")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (!measuredOn) {

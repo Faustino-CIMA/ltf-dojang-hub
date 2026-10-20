@@ -34,7 +34,7 @@ const severitySurface: Record<ActionQueueSeverity, string> = {
 
 export function ActionQueue({ title, emptyLabel, countLabel, openLabel, items }: ActionQueueProps) {
   return (
-    <section className="app-panel space-y-4 p-6">
+    <section className="app-panel space-y-3 p-3">
       <h2 className="text-section text-foreground">{title}</h2>
       {items.length === 0 ? (
         <p className="text-sm text-muted">{emptyLabel}</p>
@@ -49,7 +49,7 @@ export function ActionQueue({ title, emptyLabel, countLabel, openLabel, items }:
               )}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <span className={cn("mt-0.5 h-10 w-1 shrink-0 rounded-full", severityBar[item.severity])} />
+                <span className={cn("mt-0.5 h-4 w-1 shrink-0 rounded-[var(--radius-chip)]", severityBar[item.severity])} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{item.label}</p>
                   <p className="text-meta">{countLabel(item.count)}</p>

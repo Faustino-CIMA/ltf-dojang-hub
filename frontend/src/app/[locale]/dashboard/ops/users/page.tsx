@@ -68,7 +68,7 @@ export default function OpsUsersPage() {
           />
         }
       />
-      <div className="mt-4">
+      <div className="mt-3">
         {isLoading ? (
           <LoadingCardGrid title={t("usersTitle")} description={t("usersSubtitle")} />
         ) : (

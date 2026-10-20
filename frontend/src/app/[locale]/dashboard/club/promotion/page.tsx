@@ -134,7 +134,7 @@ export default function PromotionPage() {
 
   return (
     <ClubAdminLayout title={t("navPromotion")} subtitle={t("trainingPromotionHint")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices
           error={errorMessage}
           success={successMessage}
@@ -186,11 +186,11 @@ export default function PromotionPage() {
             </form>
           ) : null}
           {rules === null ? (
-            <div className="mt-4"><EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading /></div>
+            <div className="mt-3"><EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading /></div>
           ) : rules.length === 0 ? (
-            <div className="mt-4"><EmptyState title={t("trainingNoRule")} description={t("trainingPromotionHint")} /></div>
+            <div className="mt-3"><EmptyState title={t("trainingNoRule")} description={t("trainingPromotionHint")} /></div>
           ) : (
-            <div className="mt-4">
+            <div className="mt-3">
               <EntityTable
                 rows={rules}
                 columns={[
@@ -250,9 +250,9 @@ export default function PromotionPage() {
             </form>
           ) : null}
           {tests === null ? null : tests.length === 0 ? (
-            <div className="mt-4"><EmptyState title={t("trainingBeltTests")} description={t("trainingAddBeltTest")} /></div>
+            <div className="mt-3"><EmptyState title={t("trainingBeltTests")} description={t("trainingAddBeltTest")} /></div>
           ) : (
-            <div className="mt-4">
+            <div className="mt-3">
               <EntityTable
                 rows={tests}
                 onRowClick={(row) => router.push(`/${locale}/dashboard/club/promotion/${row.id}`)}

@@ -65,7 +65,7 @@ export function MemberNationalTeamBlock({
       {data.selections.length === 0 ? (
         <p className="mt-4 text-sm text-muted">{t("nationalTeamBlockEmpty")}</p>
       ) : (
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-3">
           {data.selections.map((row) => (
             <article key={row.id} className="rounded-[var(--radius-form)] border border-border p-4">
               <div className="flex flex-wrap items-center gap-2">

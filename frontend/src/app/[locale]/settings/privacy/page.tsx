@@ -82,13 +82,13 @@ export default function PrivacySettingsPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-3xl rounded-[var(--radius-card)] bg-card p-10 shadow-sm">
+      <div className="w-full max-w-3xl rounded-[var(--radius-card)] bg-card p-3 border border-border">
         <h1 className="text-2xl font-semibold text-foreground">Privacy & GDPR</h1>
         <p className="mt-2 text-sm text-muted">
           Manage your consent and data rights in line with GDPR.
         </p>
 
-        <div className="mt-6 flex items-center gap-3">
+        <div className="mt-6 flex items-center gap-2">
           <Checkbox checked={consentGiven} onCheckedChange={handleConsentChange} />
           <span className="text-sm text-foreground">I consent to data processing.</span>
         </div>

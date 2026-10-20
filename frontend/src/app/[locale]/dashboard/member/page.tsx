@@ -85,7 +85,7 @@ export default function MemberDashboardPage() {
 
   return (
     <MemberLayout title={t("title")} subtitle={t("subtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {isLoading ? (
@@ -93,7 +93,7 @@ export default function MemberDashboardPage() {
         ) : !member ? (
           <EmptyState title={t("emptyTitle")} description={t("emptySubtitle")} />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <ProfilePhotoManager
               imageUrl={member.profile_picture_url}
               thumbnailUrl={member.profile_picture_thumbnail_url}

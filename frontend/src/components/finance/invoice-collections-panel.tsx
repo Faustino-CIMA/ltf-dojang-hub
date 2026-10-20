@@ -74,7 +74,7 @@ export function InvoiceCollectionsPanel({
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}

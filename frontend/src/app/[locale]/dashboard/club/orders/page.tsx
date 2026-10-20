@@ -231,12 +231,12 @@ export default function ClubAdminOrdersPage() {
 
   return (
     <ClubAdminLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -266,7 +266,7 @@ export default function ClubAdminOrdersPage() {
               </div>
             </div>
 
-            <div className="min-w-0 border-t border-[var(--border)] pt-4">
+            <div className="min-w-0 border-t border-[var(--border)] pt-3">
               <FilterPills
                 ariaLabel={t("ordersStatusFilterAriaLabel")}
                 value={orderStatusFilter}
@@ -289,7 +289,7 @@ export default function ClubAdminOrdersPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
               <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
               <Button

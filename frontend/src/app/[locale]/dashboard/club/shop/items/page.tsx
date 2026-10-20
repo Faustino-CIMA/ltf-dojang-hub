@@ -64,7 +64,7 @@ export default function ClubShopItemsPage() {
 
   return (
     <ClubAdminLayout title={t("shopItemsTitle")} subtitle={t("shopItemsSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubShopTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         <div className="flex flex-wrap items-center gap-3">

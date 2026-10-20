@@ -14,6 +14,7 @@ import { resolveAssignedClubId, useClubSelection } from "@/components/club-selec
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
+import { SexMark } from "@/components/ui/sex-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -713,7 +714,7 @@ export default function ClubAdminMembersPage() {
               : t("bulkChangeStatusMixedDescription", { count: selectedStatusBreakdown.total })
         }
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             variant="outline"
             disabled={bulkStatusBusy}
@@ -742,9 +743,9 @@ export default function ClubAdminMembersPage() {
         </div>
       </Modal>
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -774,7 +775,7 @@ export default function ClubAdminMembersPage() {
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0">
+            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
               <FilterPills
                 ariaLabel={t("membersStatusFilterAriaLabel")}
                 disabled={!statusFilterHydrated || Boolean(issue)}
@@ -802,7 +803,7 @@ export default function ClubAdminMembersPage() {
           </div>
 
           {issue ? (
-            <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+            <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
               <p className="min-w-0 flex-1">
                 {issue === "missing_ltf_licenseid"
                   ? t("membersMissingLtfLicenseIdFilterMessage")
@@ -819,7 +820,7 @@ export default function ClubAdminMembersPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {canManageMembers ? (
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
                 <ActionMenu
@@ -928,17 +929,15 @@ export default function ClubAdminMembersPage() {
                     {
                       key: "select",
                       header: (
-                        <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
-                          <Checkbox
-                            aria-label={common("selectAllLabel")}
-                            checked={allSelected}
-                            onCheckedChange={() => toggleSelectAll()}
-                          />
-                        </span>
+                        <Checkbox
+                          aria-label={common("selectAllLabel")}
+                          checked={allSelected}
+                          onCheckedChange={() => toggleSelectAll()}
+                        />
                       ),
                       render: (member: Member) => (
                         <span
-                          className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+                          className="inline-flex"
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
                         >
@@ -972,13 +971,7 @@ export default function ClubAdminMembersPage() {
                 header: t("sexLabel"),
                 sortable: true,
                 render: (member) => (
-                  <span
-                    className="inline-flex h-[var(--control-height)] w-[var(--control-height)] items-center justify-center text-2xl font-semibold leading-none"
-                    aria-label={member.sex === "F" ? "Female" : "Male"}
-                    title={member.sex === "F" ? "Female" : "Male"}
-                  >
-                    {member.sex === "F" ? "♀" : "♂"}
-                  </span>
+                  <SexMark sex={member.sex} label={member.sex === "F" ? "Female" : "Male"} />
                 ),
               },
               { key: "belt_rank", header: t("beltRankLabel"), sortable: true },
@@ -1029,7 +1022,7 @@ export default function ClubAdminMembersPage() {
                       type="button"
                       disabled={isUpdating}
                       aria-label={t("actionChangeStatus")}
-                      className={`inline-flex min-h-[var(--control-height)] min-w-[5.5rem] items-center justify-center rounded-[var(--radius-chip)] border px-2.5 text-xs font-semibold hover:opacity-80 ${
+                      className={`inline-flex h-5 items-center justify-center rounded-[var(--radius-chip)] border border-[var(--border)] px-1.5 text-xs font-medium hover:opacity-80 ${
                         member.is_active ? "badge-success" : "bg-secondary text-[var(--default-foreground)]"
                       } ${isUpdating ? "cursor-wait opacity-70" : ""}`}
                       onClick={(e) => {

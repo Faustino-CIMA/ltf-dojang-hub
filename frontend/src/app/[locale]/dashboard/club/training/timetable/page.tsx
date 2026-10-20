@@ -10,6 +10,7 @@ import { StudentMultiPicker, type StudentPick } from "@/components/club-admin/st
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -211,7 +212,7 @@ export default function TrainingTimetablePage() {
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices
             error={errorMessage}
             success={successMessage}
@@ -273,15 +274,15 @@ export default function TrainingTimetablePage() {
                 <Input className="mt-1" type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required />
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={skipPublic} onChange={(event) => setSkipPublic(event.target.checked)} />
+                <Checkbox checked={skipPublic} onCheckedChange={(checked) => setSkipPublic(checked === true)} />
                 {t("trainingSkipPublic")}
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={skipSchool} onChange={(event) => setSkipSchool(event.target.checked)} />
+                <Checkbox checked={skipSchool} onCheckedChange={(checked) => setSkipSchool(checked === true)} />
                 {t("trainingSkipSchool")}
               </label>
               <label className="flex items-center gap-2 text-sm md:col-span-2">
-                <input type="checkbox" checked={countsUnder16} onChange={(event) => setCountsUnder16(event.target.checked)} />
+                <Checkbox checked={countsUnder16} onCheckedChange={(checked) => setCountsUnder16(checked === true)} />
                 <span>
                   {t("trainingCountsUnder16")}
                   <span className="mt-0.5 block text-xs text-muted">{t("trainingCountsUnder16Hint")}</span>
@@ -365,7 +366,7 @@ export default function TrainingTimetablePage() {
             <EmptyState title={t("trainingNoClassesYet")} description={t("trainingNoClassesYetHint")} />
           ) : (
             <>
-              <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+              <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
                 <div className="min-w-[12rem] flex-1">
                   <Input
                     className="w-full max-w-xs"
@@ -476,7 +477,7 @@ export default function TrainingTimetablePage() {
                   </div>
                   <p className="mt-1 text-xs text-muted">{t("trainingRegularsHint")}</p>
                   <label className="mt-3 flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={editCountsUnder16} onChange={(event) => setEditCountsUnder16(event.target.checked)} />
+                    <Checkbox checked={editCountsUnder16} onCheckedChange={(checked) => setEditCountsUnder16(checked === true)} />
                     {t("trainingCountsUnder16")}
                   </label>
                   <div className="mt-3 max-w-md">

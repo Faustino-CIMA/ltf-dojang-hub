@@ -112,7 +112,7 @@ export function TeamCompetitionPanel({
   return (
     <SidePanel open title={t("teamCompetition")} description={t("teamCompetitionHint")} closeLabel={t("teamsClose")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           const trimmed = margin.trim();
@@ -169,7 +169,7 @@ export function TeamCompetitionPanel({
           </div>
         ) : null}
         {kyorugi && setCode === "custom" ? (
-          <div className="space-y-4 border-t border-border pt-4">
+          <div className="space-y-3 border-t border-border pt-4">
             <h3 className="text-sm font-medium text-foreground">{t("teamCustomTitle")}</h3>
             {bands.map((band, index) => (
               <div key={index} className="space-y-3 border-b border-border pb-4">

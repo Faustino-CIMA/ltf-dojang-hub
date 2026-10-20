@@ -88,8 +88,8 @@ export default function LtfAdminOverviewPage() {
       ) : !overview ? (
         <EmptyState title={t("overviewEmptyTitle")} description={t("overviewEmptySubtitle")} />
       ) : (
-        <div className="space-y-6">
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-sm">
+        <div className="space-y-3">
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
             <p className="text-meta">
               {lastRefreshAt
                 ? t("lastRefreshLabel", { time: formatDisplayDateTime(lastRefreshAt) })
@@ -100,7 +100,7 @@ export default function LtfAdminOverviewPage() {
             </Button>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-4">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard title={t("totalClubs")} value={String(overview.cards.total_clubs)} icon={Building2} tone="accent" />
             <SummaryCard title={t("activeMembers")} value={String(overview.cards.active_members)} icon={Users} tone="success" />
             <SummaryCard title={t("ltfStaffCount")} value={String(overview.cards.ltf_staff)} icon={Users} tone="accent" />

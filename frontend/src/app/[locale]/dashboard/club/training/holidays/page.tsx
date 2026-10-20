@@ -80,16 +80,16 @@ export default function TrainingHolidaysPage() {
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
             <Label>{t("subsidiesYear")}</Label>
             <Input className="mt-1" value={year} onChange={(event) => setYear(event.target.value)} />
           </div>
           {loading ? (
             <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
           ) : (
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               <div className="space-y-3">
                 <h2 className="text-section text-foreground">{t("trainingPublicHolidays")}</h2>
                 {publicHolidays.length === 0 ? (

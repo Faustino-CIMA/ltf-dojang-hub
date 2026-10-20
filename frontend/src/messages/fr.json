@@ -1,7 +1,11 @@
 {
   "Common": {
     "requiredMark": "obligatoire",
-    "requiredLegend": "Obligatoire"
+    "requiredLegend": "Obligatoire",
+    "themeLabel": "Thème",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système"
   },
   "ClubAdmin": {
     "memberCommitteeTab": "Comité",

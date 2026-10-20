@@ -50,7 +50,7 @@ function GroupForm({
       onClose={onClose}
     >
       <form
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (selected.length === 0) {
@@ -96,7 +96,7 @@ function GroupForm({
                   type="button"
                   aria-pressed={active}
                   className={cn(
-                    "flex min-h-10 w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-foreground hover:bg-accent",
+                    "flex min-h-[var(--control-height)] w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-foreground hover:bg-[var(--accent-soft)] hover:text-foreground",
                     active && "bg-accent text-accent-foreground",
                   )}
                   onClick={() =>
@@ -161,7 +161,7 @@ export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (te
   ];
 
   return (
-    <section className="app-panel p-6" aria-labelledby="team-groups-title">
+    <section className="app-panel p-3" aria-labelledby="team-groups-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="team-groups-title" className="text-section text-foreground">{t("teamGroupsTitle")}</h2>
         <Button type="button" variant="outline" onClick={() => { setEditing(null); setPanel("edit"); }}>
@@ -171,9 +171,9 @@ export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (te
       <p className="mt-1 text-sm text-muted">{t("teamGroupsHint")}</p>
       <p className="mt-1 text-xs text-muted">{t("teamGroupsSource")}</p>
       {groups.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">{t("teamGroupsEmpty")}</p>
+        <p className="mt-3 text-sm text-muted">{t("teamGroupsEmpty")}</p>
       ) : (
-        <div className="mt-4">
+        <div className="mt-3">
           <EntityTable embedded columns={columns} rows={groups} />
         </div>
       )}

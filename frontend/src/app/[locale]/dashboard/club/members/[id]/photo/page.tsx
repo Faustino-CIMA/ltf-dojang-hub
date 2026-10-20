@@ -54,7 +54,7 @@ export default function ClubMemberPhotoPage() {
 
   return (
     <ClubAdminLayout title={title} subtitle={t("photoModalDescription")}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Button variant="outline" size="sm" asChild>
           <Link href={backHref}>{t("backToMembers")}</Link>
         </Button>

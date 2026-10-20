@@ -145,7 +145,7 @@ export default function ClubMemberDeletePage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : !canManageMembers ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("singleDeleteMemberForbiddenTitle")}
             description={t("singleDeleteMemberForbiddenSubtitle")}
@@ -155,7 +155,7 @@ export default function ClubMemberDeletePage() {
           </Button>
         </div>
       ) : !memberId || !member ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("singleDeleteMemberNotFoundTitle")}
             description={t("singleDeleteMemberNotFoundSubtitle")}
@@ -165,8 +165,8 @@ export default function ClubMemberDeletePage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-5">
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-5 shadow-sm">
+        <div className="space-y-3">
+          <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
             <h2 className="text-sm font-semibold text-foreground">{t("singleDeleteMemberPreviewTitle")}</h2>
             <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
               <div>

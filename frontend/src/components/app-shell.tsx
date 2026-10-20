@@ -22,6 +22,7 @@ import {
 } from "@/components/club-selection-provider";
 import { AppVersionLink } from "@/components/app-version-link";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -222,8 +223,8 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
 
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div className={cn("flex items-center gap-3 py-5", iconOnly ? "justify-center px-2" : "px-5")}>
-          <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[oklch(22%_0.06_232)]">
+        <div className={cn("flex items-center gap-2 py-3", iconOnly ? "justify-center px-2" : "px-3")}>
+          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--logo-tile)]">
             <Image src="/ltf-logo.svg" alt="LTF" width={88} height={28} className="h-6 w-auto" />
           </div>
           {iconOnly ? null : (
@@ -264,14 +265,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                       "sidebar-nav-link relative transition-colors",
                       iconOnly && "sidebar-nav-link-icon",
                       isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-primary text-primary-foreground"
                         : "text-muted hover:bg-secondary hover:text-foreground"
                     )}
                   >
                     {item.badgeNew ? (
                       <span
                         className={cn(
-                          "pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-[10px] font-semibold leading-none",
+                          "pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-xs font-semibold leading-none",
                           isActive ? "text-primary-foreground" : "text-primary"
                         )}
                       >
@@ -281,7 +282,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                     {countLabel ? (
                       <span
                         className={cn(
-                          "pointer-events-none absolute right-1 top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-4",
+                          "pointer-events-none absolute right-1 top-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-chip)] px-1.5 text-xs font-semibold",
                           isActive ? "bg-surface text-primary" : "bg-primary text-primary-foreground"
                         )}
                       >
@@ -300,7 +301,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           {showCollapse ? (
             <button
               type="button"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
+              className="inline-flex size-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
               aria-pressed={iconOnly}
               aria-label={iconOnly ? t("sidebarExpand") : t("sidebarCollapse")}
               onClick={() => setCollapsed((current) => !current)}
@@ -340,7 +341,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           <aside className="relative h-full w-[min(var(--sidebar-width),86vw)] bg-surface shadow-[var(--shadow-float)]">
             <button
               type="button"
-              className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
+              className="absolute right-3 top-3 inline-flex size-[var(--control-height)] items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
               onClick={() => setNavOpen(false)}
               aria-label={t("navClose")}
             >
@@ -356,7 +357,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           <div
             className={cn(
               "flex min-h-[var(--topbar-height)] flex-wrap items-center justify-between gap-3",
-              isWorkspace ? "px-3 py-2" : "px-4 py-3 lg:px-8"
+              isWorkspace ? "px-3 py-1.5" : "px-[var(--page-padding-x)] py-1.5"
             )}
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -386,7 +387,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                     setSelectedClubId(value === ALL_CLUBS_SELECT_VALUE ? null : Number(value))
                   }
                 >
-                  <SelectTrigger className="min-w-[180px] sm:min-w-[240px]" aria-label={t("selectedClubLabel")}>
+                  <SelectTrigger className="min-w-60" aria-label={t("selectedClubLabel")}>
                     <SelectValue placeholder={t("selectedClubPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -422,6 +423,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                   <Link href={federationHref}>{t("openFederationDashboard")}</Link>
                 </Button>
               ) : null}
+              <ThemeToggle />
               <LanguageSwitcher compact />
               <Button variant="outline" onClick={handleSignOut}>
                 {t("signOut")}
@@ -435,13 +437,13 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
             "min-w-0 flex-1",
             isWorkspace
               ? "flex min-h-0 flex-col overflow-hidden p-0"
-              : "px-4 py-6 lg:px-8 lg:py-8"
+              : "px-[var(--page-padding-x)] py-[var(--page-padding-y)]"
           )}
         >
           {isWorkspace ? (
             children
           ) : (
-            <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+            <div className="w-full">{children}</div>
           )}
         </main>
       </div>

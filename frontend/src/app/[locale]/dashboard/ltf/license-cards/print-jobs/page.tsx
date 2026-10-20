@@ -298,8 +298,8 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
     <LtfAdminLayout title={t("licenseCardPrintJobsTitle")} subtitle={t("licenseCardPrintJobsSubtitle")}>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             filtersPlacement="below"
             search={

@@ -188,12 +188,12 @@ function HistoryEntityTable<T extends { id: number | string }>({
   cellClassName: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card shadow-sm">
-      <table className="min-w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card">
+      <table className="app-data-table min-w-full text-left text-sm">
         <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
           <tr>
             {columns.map((column) => (
-              <th key={column.key} className="px-4 py-3 font-medium">
+              <th key={column.key} className="px-[var(--control-padding-x)] py-1 font-medium">
                 {column.header}
               </th>
             ))}
@@ -501,7 +501,7 @@ export function MemberHistoryTimeline({
         header: <span className="sr-only">Select</span>,
         render: (row) => (
           <span
-            className="inline-flex min-h-11 min-w-11 items-center justify-center"
+            className="inline-flex"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -629,7 +629,7 @@ export function MemberHistoryTimeline({
   const showSectionTitles = visibleSection === "all";
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       {showLicenses ? (
       <div>
@@ -670,7 +670,7 @@ export function MemberHistoryTimeline({
               ]}
               rows={paginatedLicenses}
               rowClassName="h-[var(--table-row-height)]"
-              cellClassName="box-border h-[var(--table-row-height)] px-4 py-0 align-middle"
+              cellClassName="box-border h-[var(--table-row-height)] px-[var(--control-padding-x)] py-0 align-middle"
             />
             {sortedLicenses.length > ROWS_PER_PAGE ? (
               <HistoryPagination
@@ -777,7 +777,7 @@ export function MemberHistoryTimeline({
               columns={gradeTableColumns}
               rows={paginatedGrades}
               rowClassName="h-[var(--table-row-height)]"
-              cellClassName="box-border h-[var(--table-row-height)] px-4 py-0 align-middle"
+              cellClassName="box-border h-[var(--table-row-height)] px-[var(--control-padding-x)] py-0 align-middle"
             />
             {sortedGrades.length > ROWS_PER_PAGE ? (
               <HistoryPagination

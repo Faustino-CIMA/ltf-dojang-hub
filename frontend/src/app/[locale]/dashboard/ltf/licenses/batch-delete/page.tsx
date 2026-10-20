@@ -205,7 +205,7 @@ export default function LtfLicenseBatchDeletePage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : selectedIds.length === 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("batchDeleteLicensesNoSelectionTitle")}
             description={t("batchDeleteLicensesNoSelectionSubtitle")}
@@ -215,7 +215,7 @@ export default function LtfLicenseBatchDeletePage() {
           </Button>
         </div>
       ) : selectedLicenses.length === 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <EmptyState
             title={t("batchDeleteLicensesNoMatchesTitle")}
             description={t("batchDeleteLicensesNoMatchesSubtitle")}
@@ -225,15 +225,15 @@ export default function LtfLicenseBatchDeletePage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3">
           <section className="grid gap-4 md:grid-cols-2">
-            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4 shadow-sm">
+            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-xs uppercase tracking-wide text-muted">
                 {t("batchDeleteLicensesSelectedCountLabel")}
               </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">{selectedLicenses.length}</p>
             </article>
-            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4 shadow-sm">
+            <article className="rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-xs uppercase tracking-wide text-muted">
                 {t("batchDeleteLicensesImpactedMembersLabel")}
               </p>
@@ -255,7 +255,7 @@ export default function LtfLicenseBatchDeletePage() {
           ) : null}
 
           {result ? (
-            <section className="space-y-3 rounded-[var(--radius-card)] border border-border bg-card p-4 shadow-sm">
+            <section className="space-y-3 rounded-[var(--radius-card)] border border-border bg-card p-4">
               <p className="text-sm font-medium text-foreground">
                 {t("batchDeleteLicensesResultLabel", {
                   deleted: result.deleted,

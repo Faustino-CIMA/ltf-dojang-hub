@@ -157,7 +157,7 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
   const pdfCount = rows == null ? null : pdfMemberCount(rows, pdfRule, pdfChannels);
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -218,15 +218,15 @@ export function PublicationConsentPanel({ clubId }: { clubId: number }) {
         ) : null}
       </div>
       {rows == null ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         </div>
       ) : rows.length === 0 ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <EmptyState title={t("publicationEmptyTitle")} description={t("publicationEmptySubtitle")} />
         </div>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-[var(--radius-card)] border border-border">
+        <div className="mt-3 overflow-x-auto rounded-[var(--radius-card)] border border-border">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-secondary/70 text-xs uppercase tracking-wide text-muted">
               <tr>

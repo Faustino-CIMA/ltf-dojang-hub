@@ -30,11 +30,11 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
   };
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
       <h2 className="text-lg font-semibold text-foreground">{t("modulePricesTitle")}</h2>
       <p className="mt-2 text-sm text-muted">{t("modulePricesSubtitle")}</p>
       <p className="mt-2 text-sm text-muted">{t("modulePricesEstimateHint")}</p>
-      <div className="mt-4">
+      <div className="mt-3">
         <EntityTable
           clientSort
           sort={sort}

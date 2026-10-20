@@ -281,7 +281,7 @@ export default function LtfFinanceOrdersPage() {
         />
       </section>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input

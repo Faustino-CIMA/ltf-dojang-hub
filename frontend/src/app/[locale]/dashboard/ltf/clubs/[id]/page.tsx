@@ -233,8 +233,8 @@ export default function LtfClubDetailPage() {
 
   return (
     <LtfAdminLayout title={title} subtitle={t("clubDetailSubtitle")}>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <Button variant="outline" className="w-fit" asChild>
             <Link href={`/${locale}/dashboard/ltf/clubs`}>{t("backToClubs")}</Link>
           </Button>
@@ -247,7 +247,7 @@ export default function LtfClubDetailPage() {
         ) : !club ? (
           <EmptyState title={t("noResultsTitle")} description={t("noClubsResultsSubtitle")} />
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             <FormPanel>
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-section text-foreground">{t("clubOverviewTab")}</h2>

@@ -54,7 +54,7 @@ export function EntityTable<T extends { id: number | string }>({
 
   return (
     <div className={embedded ? "overflow-x-auto" : "app-panel overflow-x-auto"}>
-      <table className="min-w-full text-left text-sm">
+      <table className="app-data-table min-w-full text-left text-sm">
         <thead className="border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted">
           <tr>
             {columns.map((column) => {
@@ -67,7 +67,7 @@ export function EntityTable<T extends { id: number | string }>({
                   : "none"
                 : undefined;
               return (
-                <th key={column.key} className={`px-4 py-3 font-medium ${column.headerClassName ?? ""}`} aria-sort={ariaSort} scope="col">
+                <th key={column.key} className={`font-medium ${column.headerClassName ?? ""}`} aria-sort={ariaSort} scope="col">
                   {column.sortable && onSortChange ? (
                     <SortableColumnHeader
                       label={column.header}
@@ -93,7 +93,7 @@ export function EntityTable<T extends { id: number | string }>({
                     detail
                       ? "bg-secondary/70"
                       : isClickable
-                        ? "cursor-pointer hover:bg-[color-mix(in_oklab,var(--accent)_6%,white)]"
+                        ? "cursor-pointer hover:bg-[var(--accent-soft)]"
                         : "hover:bg-secondary/50"
                   }`}
                   onClick={(event) => {
@@ -119,14 +119,14 @@ export function EntityTable<T extends { id: number | string }>({
                   role={isClickable ? "button" : undefined}
                 >
                   {columns.map((column) => (
-                    <td key={column.key} className={`px-4 py-3 ${column.cellClassName ?? ""}`}>
+                    <td key={column.key} className={column.cellClassName ?? ""}>
                       {column.render ? column.render(row) : (row as Record<string, ReactNode>)[column.key]}
                     </td>
                   ))}
                 </tr>
                 {detail ? (
                   <tr className="bg-secondary/40">
-                    <td colSpan={columns.length} className="px-4 py-4">
+                    <td colSpan={columns.length} className="py-2">
                       {detail}
                     </td>
                   </tr>

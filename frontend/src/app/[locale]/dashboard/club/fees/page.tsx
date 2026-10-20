@@ -18,7 +18,7 @@ export default function ClubMembershipFeesPage() {
 
   return (
     <ClubAdminLayout title={t("feesTitle")} subtitle={t("feesSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices
           error={errorMessage}

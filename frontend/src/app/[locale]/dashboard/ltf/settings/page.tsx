@@ -249,7 +249,7 @@ export default function LtfAdminSettingsPage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <FormPanel>
           <h2 className="text-section text-foreground">
             {t("federationSettingsFormTitle")}
@@ -326,10 +326,10 @@ export default function LtfAdminSettingsPage() {
 
           </FormPanel>
 
-          <FormPanel className="space-y-4">
+          <FormPanel className="space-y-3">
             <h2 className="text-section text-foreground">{t("importPrefixRewriteTitle")}</h2>
             <p className="text-sm text-muted">{t("importPrefixRewriteHint")}</p>
-            <label className="flex items-start gap-3 text-sm text-foreground">
+            <label className="flex items-start gap-2 text-sm text-foreground">
               <Checkbox
                 checked={rewriteOnImport}
                 onCheckedChange={(checked) => {
@@ -349,7 +349,7 @@ export default function LtfAdminSettingsPage() {
             </Button>
           </FormPanel>
 
-          <FormPanel className="space-y-4">
+          <FormPanel className="space-y-3">
             <h2 className="text-section text-foreground">{t("existingPrefixRewriteTitle")}</h2>
             <p className="text-sm text-muted">{t("existingPrefixRewriteSubtitle")}</p>
             {isLoadingRewritePreview ? (

@@ -391,7 +391,7 @@ export default function ClubTransfersPage() {
 
   return (
     <ClubAdminLayout title={t("transfersTitle")} subtitle={t("transfersSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {clubsLoading || isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : !selectedClub ? (
@@ -632,7 +632,7 @@ export default function ClubTransfersPage() {
               </div>
 
               {selectedTransfer ? (
-                <div className="mt-6 space-y-4 rounded-[var(--radius-card)] border border-border p-4">
+                <div className="mt-6 space-y-3 rounded-[var(--radius-card)] border border-border p-4">
                   <div>
                     <p className="font-medium text-foreground">
                       {displayMemberName(selectedTransfer.member)}
@@ -742,7 +742,7 @@ export default function ClubTransfersPage() {
           setPendingMember(null);
         }}
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">{t("transferFeeAmountLabel")}</label>
             <Input

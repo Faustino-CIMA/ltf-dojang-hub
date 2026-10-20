@@ -119,7 +119,7 @@ export default function TrainingRollPage() {
       ) : !roll ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices
             error={errorMessage}
             success={successMessage}
@@ -198,7 +198,7 @@ export default function TrainingRollPage() {
                       type="button"
                       disabled={cancelled}
                       onClick={() => toggle(member.id)}
-                      className={`rounded-[var(--radius-form)] border px-4 py-3 text-base ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"}`}
+                      className={`inline-flex h-[var(--control-height)] items-center rounded-[var(--radius-form)] border px-3 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"}`}
                     >
                       {member.name}{member.age !== null ? ` · ${member.age}` : ""}
                     </button>

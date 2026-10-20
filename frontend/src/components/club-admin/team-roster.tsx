@@ -11,7 +11,9 @@ import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
 import { TeamGroups } from "@/components/club-admin/team-groups";
 import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SexMark } from "@/components/ui/sex-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
 import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamCompetition, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
@@ -220,11 +222,10 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
     const select: EntityTableColumn<TeamMember> = {
       key: "select",
       header: (
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={t("teamSelectAll")}
           checked={rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))}
-          onChange={() => {
+          onCheckedChange={() => {
             setBulkConfirm(false);
             const all = rows.every((row) => selectedIds.includes(row.id));
             setSelected(all ? [] : rows.map((row) => row.id));
@@ -234,11 +235,10 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       headerClassName: "w-12",
       cellClassName: "w-12",
       render: (row) => (
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={t("teamSelectMember", { name: formatFullName(row) })}
           checked={selectedIds.includes(row.id)}
-          onChange={() => {
+          onCheckedChange={() => {
             setBulkConfirm(false);
             setSelected((current) => (current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id]));
           }}
@@ -321,7 +321,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       cellClassName: `w-12 text-center ${nowrap}`,
       render: (row) =>
         row.sex === "F" || row.sex === "M" ? (
-          <span aria-label={row.sex === "F" ? t("sexFemale") : t("sexMale")}>{row.sex === "F" ? "♀" : "♂"}</span>
+          <SexMark sex={row.sex} label={row.sex === "F" ? t("sexFemale") : t("sexMale")} />
         ) : (
           <span className="text-muted">—</span>
         ),
@@ -440,7 +440,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
   }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, teamId]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-section text-foreground">{team?.name ?? t("teamsTitle")}</h2>

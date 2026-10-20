@@ -265,7 +265,7 @@ export default function ClubInvoiceDetailPage() {
 
   return (
     <ClubAdminLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
       <ClubFinanceTabs />
       <ActionNotices
         error={paymentError || payconiqError}
@@ -287,7 +287,7 @@ export default function ClubInvoiceDetailPage() {
         ) : null}
       </div>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("invoiceNumberLabel")}</span>

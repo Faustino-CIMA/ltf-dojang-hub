@@ -81,7 +81,7 @@ export default function LtfAdminCreateClubPage() {
 
   return (
     <LtfAdminLayout title={t("createClub")} subtitle={t("clubFormSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <Button variant="outline" asChild>
           <Link href={`/${locale}/dashboard/ltf/clubs`}>{t("backToClubs")}</Link>
         </Button>

@@ -619,7 +619,7 @@ export default function ClubAdminsBoardPage() {
 
   return (
     <LtfAdminLayout title={t("clubAdminsBoardTitle")} subtitle={t("clubAdminsBoardSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : (
@@ -1025,7 +1025,7 @@ export default function ClubAdminsBoardPage() {
         onClose={resetConnect}
       >
         <RequiredForm>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="space-y-2">
             <Label required>{t("emailInputLabel")}</Label>
             <Input

@@ -88,14 +88,14 @@ export default function ClubIncomeCreatePage() {
 
   return (
     <ClubAdminLayout title={t("recordIncomeAction")} subtitle={t("incomeFormSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <Button asChild variant="outline" className="w-fit">
           <Link href={`/${locale}/dashboard/club/income`}>{t("backToIncome")}</Link>
         </Button>
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         <FormPanel>
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-3" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="income-date" required>{t("incomeDateLabel")}</Label>

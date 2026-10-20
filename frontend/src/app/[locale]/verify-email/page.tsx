@@ -91,7 +91,7 @@ export default function VerifyEmailPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="w-full max-w-md rounded-[var(--radius-card)] bg-card p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-[var(--radius-card)] bg-card p-3 border border-border">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">{common("appTitle")}</p>
         <h1 className="mt-2 text-2xl font-semibold text-foreground">{t("title")}</h1>
         <p className="mt-2 text-sm text-muted">{t("subtitle")}</p>
@@ -108,16 +108,18 @@ export default function VerifyEmailPage() {
         ) : null}
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-4 space-y-3" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">{t("emailLabel")}</label>
             <Input type="email" placeholder="john@example.com" {...register("email")} />
             {errors.email ? <p className="text-sm text-destructive">{errors.email.message}</p> : null}
           </div>
 
-          <Button className="w-full" type="submit" variant="primary" disabled={isSubmitting}>
-            {isSubmitting ? t("verifying") : t("submit")}
-          </Button>
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary" disabled={isSubmitting}>
+              {isSubmitting ? t("verifying") : t("submit")}
+            </Button>
+          </div>
         </form>
 
         <p className="mt-4 text-sm text-muted">

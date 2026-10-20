@@ -45,7 +45,7 @@ export default function ClubShopSalesPage() {
 
   return (
     <ClubAdminLayout title={t("shopSalesTitle")} subtitle={t("shopSalesSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubShopTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         {isLoading ? (

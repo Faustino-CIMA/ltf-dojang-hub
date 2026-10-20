@@ -1352,10 +1352,10 @@ export function ImportWizardPage({
     ) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
+      <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
         <div className="flex flex-wrap items-center gap-2">
           {stepOrder.map((stepItem, index) => {
             const isCurrent = stepItem === step;
@@ -1391,9 +1391,9 @@ export function ImportWizardPage({
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
+        <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           {step === "source" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("sourceStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("sourceStepSubtitle")}</p>
@@ -1422,7 +1422,7 @@ export function ImportWizardPage({
               ) : null}
 
               {isMembersImport ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">{t("clubLabel")}</label>
                     {allowClubSelection && !fixedClubId ? (
@@ -1527,7 +1527,7 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "mapping" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("mappingStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("mappingStepSubtitle")}</p>
@@ -1608,7 +1608,7 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "preview" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("previewStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("previewStepSubtitle")}</p>
@@ -1642,7 +1642,7 @@ export function ImportWizardPage({
 
               {showMembershipYearPanel ? (
                 <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 p-4">
-                  <label className="flex items-start gap-3 text-sm text-foreground">
+                  <label className="flex items-start gap-2 text-sm text-foreground">
                     <Checkbox
                       checked={membershipYearRulesEnabled}
                       onCheckedChange={(checked) => {
@@ -2067,7 +2067,7 @@ export function ImportWizardPage({
           )}
 
           {step === "confirm" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("confirmStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("confirmStepSubtitle")}</p>
@@ -2135,7 +2135,7 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "result" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <ImportSuccessConfetti active={resultTone === "success"} />
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("resultStepTitle")}</h2>
@@ -2218,7 +2218,7 @@ export function ImportWizardPage({
           ) : null}
         </section>
 
-        <aside className="rounded-[var(--radius-card)] bg-card p-5 shadow-sm">
+        <aside className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           <h3 className="text-sm font-semibold text-foreground">{t("summaryTitle")}</h3>
           <div className="mt-3 space-y-2 text-sm text-foreground">
             <p>
@@ -2292,7 +2292,7 @@ export function ImportWizardPage({
         </aside>
       </div>
 
-      <section className="rounded-[var(--radius-card)] bg-card p-4 shadow-sm" data-wizard-nav>
+      <section className="rounded-[var(--radius-card)] bg-card p-4 border border-border" data-wizard-nav>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             {showListButton ? (

@@ -285,7 +285,7 @@ export default function ClubBillingPage() {
 
   return (
     <ClubAdminLayout title={t("billingTitle")} subtitle={t("billingSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices
           error={errorMessage}
@@ -295,7 +295,7 @@ export default function ClubBillingPage() {
             setSuccessMessage(null);
           }}
         />
-        <div className="space-y-4 rounded-[var(--radius-card)] border border-border bg-[var(--surface)] p-4">
+        <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-[var(--surface)] p-4">
           <div className="flex flex-wrap gap-4">
           <div className="w-full max-w-[12rem] space-y-2">
             <label className="text-sm font-medium">{t("billingYear")}</label>
@@ -454,14 +454,14 @@ export default function ClubBillingPage() {
                         className="cursor-pointer border-t border-border hover:bg-secondary/40"
                         onClick={() => openHousehold(row)}
                       >
-                        <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                        <td className="px-[var(--control-padding-x)] py-1" onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             checked={selected.has(row.id)}
                             disabled={row.status !== "ready"}
                             onCheckedChange={() => toggle(row.id, row.status === "ready")}
                           />
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-[var(--control-padding-x)] py-1">
                           <div className="font-medium">{row.name}</div>
                           <div className="text-xs text-muted">
                             {row.kind === "family"
@@ -469,13 +469,13 @@ export default function ClubBillingPage() {
                               : t("billingSingleMember")}
                           </div>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-[var(--control-padding-x)] py-1">
                           <div>{row.payer.name}</div>
                           <div className="text-xs text-muted">{row.payer.contact_label}</div>
                         </td>
-                        <td className="px-3 py-3"><StatusBadge label={delivery.label} tone={delivery.tone} /></td>
+                        <td className="px-[var(--control-padding-x)] py-1"><StatusBadge label={delivery.label} tone={delivery.tone} /></td>
                         {(preview.fees?.length ?? 0) > 1 ? (
-                          <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                          <td className="px-[var(--control-padding-x)] py-1" onClick={(event) => event.stopPropagation()}>
                             {canPickFee(row.status) && row.kind === "member" ? (
                               <Select
                                 value={row.fee_id ? String(row.fee_id) : ""}
@@ -499,7 +499,7 @@ export default function ClubBillingPage() {
                           </td>
                         ) : null}
                         {Number(preview.license_fee?.amount || 0) > 0 ? (
-                          <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                          <td className="px-[var(--control-padding-x)] py-1" onClick={(event) => event.stopPropagation()}>
                             <div className="space-y-2">
                               {row.lines
                                 .filter((line) => !line.supplementary && line.pays_license_fee !== undefined)
@@ -517,8 +517,8 @@ export default function ClubBillingPage() {
                             </div>
                           </td>
                         ) : null}
-                        <td className="px-3 py-3 font-medium">{row.total} EUR</td>
-                        <td className="px-3 py-3">
+                        <td className="px-[var(--control-padding-x)] py-1 font-medium">{row.total} EUR</td>
+                        <td className="px-[var(--control-padding-x)] py-1">
                           <StatusBadge label={status.label} tone={status.tone} />
                           {row.needs_recipient ? (
                             <div className="mt-1 text-xs text-muted">{t("chooseBillRecipient")}</div>

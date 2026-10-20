@@ -275,9 +275,9 @@ export default function ClubAdminLicensesPage() {
     <ClubAdminLayout title={t("licensesTitle")} subtitle={t("licensesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -304,7 +304,7 @@ export default function ClubAdminLicensesPage() {
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0">
+            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
               <FilterPills
                 ariaLabel={t("licensesStatusFilterAriaLabel")}
                 value={licenseStatusFilter}
@@ -319,7 +319,7 @@ export default function ClubAdminLicensesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
               <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
               <Button

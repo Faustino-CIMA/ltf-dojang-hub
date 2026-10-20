@@ -108,7 +108,7 @@ export function HomeLanding() {
       <main className="bg-background px-6 py-16 lg:py-24">
         <div className="mx-auto w-full max-w-5xl">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">{t("kicker")}</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-foreground">
+          <h1 className="mt-3 text-display text-foreground">
             {t("signedInTitle", { name: displayName })}
           </h1>
           <p className="mt-3 max-w-2xl text-lg text-muted">
@@ -117,7 +117,7 @@ export function HomeLanding() {
           <div className="mt-6">
             <Link
               href={dashboardHref}
-              className="inline-flex h-[var(--control-height)] items-center justify-center rounded-[var(--radius-chip)] bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-sm"
+              className="inline-flex h-[var(--control-height)] items-center justify-center rounded-[var(--radius-control)] bg-primary px-4 text-sm font-semibold text-primary-foreground"
             >
               {t("openDashboard")}
             </Link>
@@ -136,7 +136,7 @@ export function HomeLanding() {
                   href={def.href(locale)}
                   className="app-panel flex items-center gap-3 p-4 transition-colors hover:bg-secondary"
                 >
-                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-secondary text-accent">
+                  <span className="inline-flex size-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-secondary text-accent">
                     <Icon className="size-4" aria-hidden />
                   </span>
                   <span className="text-sm font-semibold text-foreground">{labelFor(def)}</span>
@@ -154,31 +154,31 @@ export function HomeLanding() {
       <div className="mx-auto grid w-full max-w-5xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">{t("kicker")}</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-foreground lg:text-5xl">{t("title")}</h1>
+          <h1 className="mt-3 text-display text-foreground">{t("title")}</h1>
           <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">{t("subtitle")}</p>
           <div className="mt-8">
             <Link
               href={`/${locale}/login`}
-              className="inline-flex h-[var(--control-height)] items-center justify-center rounded-[var(--radius-chip)] bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-sm"
+              className="inline-flex h-[var(--control-height)] items-center justify-center rounded-[var(--radius-control)] bg-primary px-4 text-sm font-semibold text-primary-foreground"
             >
               {t("signIn")}
             </Link>
           </div>
         </div>
-        <div className="app-panel grid gap-4 p-6 sm:grid-cols-2">
-          <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--accent)_12%,white)] p-4">
+        <div className="app-panel grid gap-4 p-3 sm:grid-cols-2">
+          <div className="rounded-[var(--radius-control)] bg-[var(--accent-soft)] p-3">
             <p className="text-meta">{t("tileMembersLabel")}</p>
             <p className="mt-1 text-xl font-semibold leading-snug">{t("tileMembersValue")}</p>
           </div>
-          <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--success)_14%,white)] p-4">
+          <div className="rounded-[var(--radius-control)] bg-[var(--badge-success-bg)] p-3">
             <p className="text-meta">{t("tileLicensesLabel")}</p>
             <p className="mt-1 text-xl font-semibold leading-snug">{t("tileLicensesValue")}</p>
           </div>
-          <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--warning)_16%,white)] p-4">
+          <div className="rounded-[var(--radius-control)] bg-[var(--badge-warning-bg)] p-3">
             <p className="text-meta">{t("tileDojangLabel")}</p>
             <p className="mt-1 text-xl font-semibold leading-snug">{t("tileDojangValue")}</p>
           </div>
-          <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,oklch(54%_0.16_25)_12%,white)] p-4">
+          <div className="rounded-[var(--radius-control)] bg-[color-mix(in_oklab,var(--brand-red)_14%,var(--surface))] p-3">
             <p className="text-meta">{t("tileAheadLabel")}</p>
             <p className="mt-1 text-xl font-semibold leading-snug">{t("tileAheadValue")}</p>
           </div>
