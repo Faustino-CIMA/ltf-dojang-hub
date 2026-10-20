@@ -45,6 +45,7 @@ from .promotion_views import (
 from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
 from .team_views import (
     ClubTeamDetailView,
+    ClubTeamDuplicateView,
     ClubTeamGroupView,
     ClubTeamListView,
     ClubTeamMemberBulkView,
@@ -129,6 +130,7 @@ urlpatterns = [
     path("subsidies/cases/<int:case_id>/form.pdf", ExtraordinarySubsidyPdfView.as_view(), name="clubmgmt-subsidy-pdf"),
     path("teams/", ClubTeamListView.as_view(), name="clubmgmt-teams"),
     path("teams/<int:team_id>/", ClubTeamDetailView.as_view(), name="clubmgmt-team"),
+    path("teams/<int:team_id>/duplicate/", ClubTeamDuplicateView.as_view(), name="clubmgmt-team-duplicate"),
     path("teams/<int:team_id>/members/", ClubTeamMemberView.as_view(), name="clubmgmt-team-members"),
     path("teams/<int:team_id>/members/bulk/", ClubTeamMemberBulkView.as_view(), name="clubmgmt-team-members-bulk"),
     path("teams/<int:team_id>/weigh-in/", ClubTeamWeighInView.as_view(), name="clubmgmt-team-weigh-in"),

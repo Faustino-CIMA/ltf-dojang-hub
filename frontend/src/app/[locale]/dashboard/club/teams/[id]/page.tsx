@@ -15,7 +15,11 @@ export default function ClubTeamPage() {
   return (
     <ClubAdminLayout title={t("teamsTitle")} subtitle={t("teamsSubtitle")}>
       {Number.isFinite(teamId) ? (
-        <TeamRoster teamId={teamId} onBack={() => router.push(`/${locale}/dashboard/club/teams`)} />
+        <TeamRoster
+          teamId={teamId}
+          onBack={() => router.push(`/${locale}/dashboard/club/teams`)}
+          onDuplicated={(team) => router.push(`/${locale}/dashboard/club/teams/${team.id}`)}
+        />
       ) : null}
     </ClubAdminLayout>
   );

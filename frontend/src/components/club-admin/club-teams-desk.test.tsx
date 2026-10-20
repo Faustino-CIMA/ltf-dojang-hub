@@ -6,6 +6,7 @@ import { getMembersList } from "@/lib/club-admin-api";
 import {
   addTeamMember,
   deleteClubTeam,
+  duplicateClubTeam,
   updateTeamMemberRole,
   getClubTeam,
   getClubTeams,
@@ -28,6 +29,7 @@ jest.mock("@/lib/club-teams-api", () => {
     getClubTeam: jest.fn(),
     saveClubTeam: jest.fn(),
     deleteClubTeam: jest.fn(),
+    duplicateClubTeam: jest.fn(),
     addTeamMember: jest.fn(),
     updateTeamMemberRole: jest.fn(),
     removeTeamMember: jest.fn(),
@@ -99,6 +101,7 @@ describe("Club teams desk", () => {
     expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
       "teamsEditAction",
       "teamsManageAction",
+      "teamDuplicateAction",
       "teamsDeleteAction",
     ]);
     fireEvent.click(within(menu).getByRole("menuitem", { name: "teamsDeleteAction" }));
@@ -106,6 +109,36 @@ describe("Club teams desk", () => {
     expect(within(panel).getByRole("heading", { name: "teamsDeleteTitle" })).toBeInTheDocument();
     fireEvent.click(within(panel).getByRole("button", { name: "teamsDeleteConfirm" }));
     await waitFor(() => expect(deleteClubTeam).toHaveBeenCalledWith(3));
+  });
+
+  it("asks for a new name and reports people and groups that were not copied", async () => {
+    jest.mocked(getClubTeams).mockResolvedValue([cadets]);
+    jest.mocked(getClubTeam).mockResolvedValue({
+      ...cadets,
+      athlete_count: 1,
+      coach_count: 0,
+      groups: [],
+      competition_on: "2026-05-02",
+      competition_name: "Open",
+    });
+    jest.mocked(duplicateClubTeam).mockResolvedValue({
+      team: { ...cadets, id: 9, name: "Cadets copy" },
+      skipped_left_club: 1,
+      dropped_groups: [{ name: "Gone", kind: "pair" }],
+    });
+    const onOpenTeam = jest.fn();
+    render(<ClubTeamsDesk clubId={2} onOpenTeam={onOpenTeam} />);
+    await screen.findByText("Cadets");
+    fireEvent.click(screen.getByRole("button", { name: "teamsActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "teamDuplicateAction" }));
+    const panel = await screen.findByRole("dialog");
+    expect(within(panel).getByText("teamDuplicateName").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
+    expect(await within(panel).findByDisplayValue("Cadets copy")).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole("button", { name: "teamDuplicateAction" }));
+    expect(await screen.findByText(/teamDuplicateSkipped/)).toBeInTheDocument();
+    expect(screen.getByText("Gone")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "teamDuplicateOpen" }));
+    expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }));
   });
 
   it("searches members and adds one from the manage panel", async () => {

@@ -170,6 +170,19 @@ export async function downloadTeamSheet(teamId: number, format: "csv" | "pdf", l
   window.URL.revokeObjectURL(url);
 }
 
+export type TeamDuplicateResult = {
+  team: ClubTeam;
+  skipped_left_club: number;
+  dropped_groups: Array<{ name: string; kind: "pair" | "team" }>;
+};
+
+export function duplicateClubTeam(teamId: number, name: string) {
+  return apiRequest<TeamDuplicateResult>(`/api/club-management/teams/${teamId}/duplicate/`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function deleteClubTeam(teamId: number) {
   return apiRequest<null>(`/api/club-management/teams/${teamId}/`, { method: "DELETE" });
 }

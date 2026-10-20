@@ -18,6 +18,7 @@ import { getMembersList, type Member } from "@/lib/club-admin-api";
 import {
   addTeamMember,
   deleteClubTeam,
+  duplicateClubTeam,
   getClubTeam,
   getClubTeams,
   removeTeamMember,
@@ -25,10 +26,12 @@ import {
   setTeamArchived,
   updateTeamMemberRole,
   type ClubTeam,
+  type TeamDuplicateResult,
   type TeamDiscipline,
   type TeamMember,
 } from "@/lib/club-teams-api";
 import { formatAgeClassLabel, suggestAgeClass } from "@/lib/age-class";
+import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
 import { cn } from "@/lib/utils";
@@ -186,6 +189,145 @@ export function TeamForm({
           </Button>
         ) : null}
       </form>
+    </SidePanel>
+  );
+}
+
+const CATEGORY_SET_KEYS: Record<string, string> = {
+  wt: "teamCategorySetWt",
+  be: "teamCategorySetBe",
+  nl: "teamCategorySetNl",
+  de: "teamCategorySetDe",
+  fr: "teamCategorySetFr",
+  at: "teamCategorySetAt",
+  custom: "teamCategorySetCustom",
+};
+
+function suggestedCopyName(name: string, taken: Set<string>) {
+  const first = `${name} copy`;
+  if (!taken.has(first)) return first;
+  let index = 2;
+  while (taken.has(`${name} copy ${index}`)) index += 1;
+  return `${name} copy ${index}`;
+}
+
+export function DuplicateTeamPanel({
+  teamId,
+  onClose,
+  onCreated,
+}: {
+  teamId: number;
+  onClose: () => void;
+  onCreated: (team: ClubTeam) => void;
+}) {
+  const t = useTranslations("ClubAdmin");
+  const [source, setSource] = useState<ClubTeam | null>(null);
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<TeamDuplicateResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getClubTeam(teamId).then((team) => {
+      if (cancelled) return;
+      setSource(team);
+      void getClubTeams(team.club, { includeArchived: true }).then((rows) => {
+        if (!cancelled) setName(suggestedCopyName(team.name, new Set(rows.map((row) => row.name))));
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [teamId]);
+
+  const finish = (payload: TeamDuplicateResult) => {
+    if (payload.skipped_left_club === 0 && payload.dropped_groups.length === 0) {
+      onCreated(payload.team);
+      return;
+    }
+    setResult(payload);
+  };
+
+  return (
+    <SidePanel
+      open
+      title={t("teamDuplicateTitle")}
+      description={t("teamDuplicateHint")}
+      closeLabel={t("teamsClose")}
+      onClose={onClose}
+    >
+      {result ? (
+        <div className="space-y-3">
+          {result.skipped_left_club > 0 ? (
+            <p className="text-sm text-foreground">{t("teamDuplicateSkipped", { count: result.skipped_left_club })}</p>
+          ) : null}
+          {result.dropped_groups.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm text-foreground">{t("teamDuplicateDropped", { count: result.dropped_groups.length })}</p>
+              <ul className="space-y-1 text-sm text-muted">
+                {result.dropped_groups.map((group) => (
+                  <li key={`${group.kind}-${group.name}`}>{group.name || group.kind}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <Button type="button" onClick={() => onCreated(result.team)}>
+            {t("teamDuplicateOpen")}
+          </Button>
+        </div>
+      ) : (
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!name.trim()) {
+              setError(t("teamsRequired"));
+              return;
+            }
+            setBusy(true);
+            setError(null);
+            void duplicateClubTeam(teamId, name.trim())
+              .then(finish)
+              .catch(() => setError(t("teamsRequired")))
+              .finally(() => setBusy(false));
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="duplicate-team-name" required>
+              {t("teamDuplicateName")}
+            </Label>
+            <Input id="duplicate-team-name" value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          {source ? (
+            <div className="space-y-1 text-sm text-foreground">
+              <p>{disciplineLabel(t, source.discipline)}</p>
+              <p>
+                {t("teamsMemberCount", {
+                  athletes: source.athlete_count ?? source.member_count,
+                  coaches: source.coach_count ?? 0,
+                })}
+              </p>
+              <p>{t("teamDuplicateGroups", { count: source.groups?.length ?? 0 })}</p>
+              <p>
+                {source.competition_on
+                  ? t("teamDuplicateCompetition", {
+                      name: [source.competition_name, formatDisplayDate(source.competition_on)].filter(Boolean).join(" · "),
+                    })
+                  : t("teamDuplicateNoCompetition")}
+              </p>
+              <p>{t("teamDuplicateCategory", { set: t(CATEGORY_SET_KEYS[source.category_set ?? "wt"] ?? "teamCategorySetWt") })}</p>
+              {(source.custom_bands?.length ?? 0) > 0 ? (
+                <p>{t("teamDuplicateBands", { count: source.custom_bands?.length ?? 0 })}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <Button type="submit" disabled={busy || !source}>
+            {busy ? t("teamsSaving") : t("teamDuplicateAction")}
+          </Button>
+        </form>
+      )}
     </SidePanel>
   );
 }
@@ -438,7 +580,7 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<TableSort>({ key: "name", direction: "asc" });
   const [editing, setEditing] = useState<ClubTeam | null>(null);
-  const [panel, setPanel] = useState<"create" | "edit" | "delete" | "members" | null>(null);
+  const [panel, setPanel] = useState<"create" | "edit" | "duplicate" | "delete" | "members" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
   function load(includeArchived = showArchived) {
@@ -510,6 +652,7 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
             actions={[
               { key: "edit", label: t("teamsEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
               { key: "members", label: t("teamsManageAction"), onSelect: () => { setEditing(row); setPanel("members"); } },
+              { key: "duplicate", label: t("teamDuplicateAction"), onSelect: () => { setEditing(row); setPanel("duplicate"); } },
               { key: "delete", label: t("teamsDeleteAction"), destructive: true, onSelect: () => { setEditing(row); setPanel("delete"); } },
             ]}
           />
@@ -540,6 +683,16 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
           onSaved={() => {
             setPanel(null);
             void load();
+          }}
+        />
+      ) : null}
+      {panel === "duplicate" && editing ? (
+        <DuplicateTeamPanel
+          teamId={editing.id}
+          onClose={() => setPanel(null)}
+          onCreated={(team) => {
+            setPanel(null);
+            onOpenTeam?.(team);
           }}
         />
       ) : null}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { TeamForm, disciplineLabel } from "@/components/club-admin/club-teams-desk";
+import { DuplicateTeamPanel, TeamForm, disciplineLabel } from "@/components/club-admin/club-teams-desk";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { HeightWeightSection, MeasurementEntryPanel } from "@/components/club-admin/height-weight-section";
@@ -164,13 +164,21 @@ function weightCell(t: Translator, member: TeamMember) {
   );
 }
 
-export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => void }) {
+export function TeamRoster({
+  teamId,
+  onBack,
+  onDuplicated,
+}: {
+  teamId: number;
+  onBack: () => void;
+  onDuplicated?: (team: ClubTeam) => void;
+}) {
   const t = useTranslations("ClubAdmin");
   const [team, setTeam] = useState<ClubTeam | null>(null);
   const [loadedId, setLoadedId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [panel, setPanel] = useState<"weigh" | "competition" | "edit" | null>(null);
+  const [panel, setPanel] = useState<"weigh" | "competition" | "edit" | "duplicate" | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [weightMember, setWeightMember] = useState<TeamMember | null>(null);
@@ -479,6 +487,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
           {team ? (
             <>
               <Button type="button" variant="outline" onClick={() => setPanel("edit")}>{t("teamsEdit")}</Button>
+              <Button type="button" variant="outline" onClick={() => setPanel("duplicate")}>{t("teamDuplicateAction")}</Button>
               {archived ? null : (
                 <>
                   <Button type="button" variant="outline" onClick={() => setPanel("weigh")}>{t("teamWeighIn")}</Button>
@@ -589,6 +598,13 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       ) : null}
       {panel === "competition" && team ? (
         <TeamCompetitionPanel team={team} onClose={() => setPanel(null)} onSaved={(next) => { setTeam(next); setPanel(null); }} />
+      ) : null}
+      {panel === "duplicate" && team ? (
+        <DuplicateTeamPanel
+          teamId={team.id}
+          onClose={() => setPanel(null)}
+          onCreated={(created) => onDuplicated?.(created)}
+        />
       ) : null}
       {panel === "edit" && team ? (
         <TeamForm

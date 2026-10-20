@@ -14,7 +14,7 @@ from modules.entitlements import install_id_str, redeem_product_code, set_club_a
 from modules.registry import COMPETITION_MODULE_ID
 
 from .body_measurements import BodyMeasurement, kyorugi_margin, poomsae_division
-from .teams import WeightCategoryBand
+from .teams import ClubTeamCategoryBand, ClubTeamGroup, ClubTeamMembership, WeightCategoryBand
 
 
 @override_settings(DEBUG=True, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
@@ -269,6 +269,80 @@ class ClubTeamApiTests(TestCase):
         federation_rows = federation.data["results"] if isinstance(federation.data, dict) else federation.data
         self.assertTrue(any(row["id"] == self.mira.id for row in federation_rows))
         self.assertNotIn("teams", federation_rows[0])
+
+    def test_duplicate_copies_the_squad_and_skips_people_who_left(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        self.lea.is_active = False
+        self.lea.save(update_fields=["is_active"])
+        self.mira.sex = Member.Sex.MALE
+        self.mira.save(update_fields=["sex"])
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {
+                "club": self.club.id,
+                "name": "Cadets",
+                "discipline": "poomsae",
+                "note": "Last season",
+                "competition_on": "2026-05-02",
+                "competition_name": "Open",
+                "weight_margin_kg": "1.5",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        team_id = created.data["id"]
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.lea.id}, format="json")
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.mira.id, "role": "coach"}, format="json")
+        ClubTeamMembership.objects.create(team_id=team_id, member=self.outsider, role=ClubTeamMembership.Role.ATHLETE)
+        ClubTeamCategoryBand.objects.create(
+            team_id=team_id, label="Youth", age_min=8, age_max=11, sex="F", ceilings=[30, 35], position=0
+        )
+        kept = self.client.post(
+            f"/api/club-management/teams/{team_id}/groups/",
+            {"kind": "pair", "name": "Mixed", "members": [self.lea.id, self.mira.id]},
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 400, kept.data)
+        self.mira_role = ClubTeamMembership.objects.get(team_id=team_id, member=self.mira)
+        self.mira_role.role = ClubTeamMembership.Role.ATHLETE
+        self.mira_role.save(update_fields=["role"])
+        kept = self.client.post(
+            f"/api/club-management/teams/{team_id}/groups/",
+            {"kind": "pair", "name": "Mixed", "members": [self.lea.id, self.mira.id]},
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 201, kept.data)
+        short = ClubTeamGroup.objects.create(team_id=team_id, kind=ClubTeamGroup.Kind.PAIR, name="Gone")
+        from .teams import ClubTeamGroupMember
+
+        ClubTeamGroupMember.objects.create(group=short, member=self.lea, position=0)
+        ClubTeamGroupMember.objects.create(group=short, member=self.outsider, position=1)
+        self.client.patch(f"/api/club-management/teams/{team_id}/", {"archived": True}, format="json")
+        before = BodyMeasurement.objects.count()
+        copied = self.client.post(
+            f"/api/club-management/teams/{team_id}/duplicate/",
+            {"name": "Cadets"},
+            format="json",
+        )
+        self.assertEqual(copied.status_code, 201, copied.data)
+        self.assertEqual(copied.data["skipped_left_club"], 1)
+        self.assertEqual(copied.data["dropped_groups"], [{"name": "Gone", "kind": "pair"}])
+        clone = copied.data["team"]
+        self.assertEqual(clone["name"], "Cadets")
+        self.assertFalse(clone["archived"])
+        self.assertEqual(clone["note"], "Last season")
+        self.assertEqual(clone["competition_on"], "2026-05-02")
+        self.assertEqual(clone["competition_name"], "Open")
+        self.assertEqual(clone["weight_margin_kg"], "1.5")
+        self.assertEqual({row["id"] for row in clone["members"]}, {self.lea.id, self.mira.id})
+        self.assertEqual(clone["groups"][0]["name"], "Mixed")
+        self.assertEqual(len(clone["custom_bands"]), 1)
+        self.assertEqual(BodyMeasurement.objects.count(), before)
+        self.assertEqual(self.client.get(f"/api/club-management/teams/?club={self.club.id}&archived=all").data.__len__(), 2)
+        self._auth(self.ltf_admin)
+        hidden = self.client.post(f"/api/club-management/teams/{team_id}/duplicate/", {"name": "Nope"}, format="json")
+        self.assertEqual(hidden.status_code, 403, hidden.data)
 
     def test_roster_uses_the_discipline_and_keeps_measurements_on_the_member(self):
         self._unlock()
