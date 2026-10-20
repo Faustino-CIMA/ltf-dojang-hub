@@ -13,6 +13,7 @@ import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SexMark } from "@/components/ui/sex-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
 import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamCompetition, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
@@ -320,7 +321,7 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       cellClassName: `w-12 text-center ${nowrap}`,
       render: (row) =>
         row.sex === "F" || row.sex === "M" ? (
-          <span aria-label={row.sex === "F" ? t("sexFemale") : t("sexMale")}>{row.sex === "F" ? "♀" : "♂"}</span>
+          <SexMark sex={row.sex} label={row.sex === "F" ? t("sexFemale") : t("sexMale")} />
         ) : (
           <span className="text-muted">—</span>
         ),

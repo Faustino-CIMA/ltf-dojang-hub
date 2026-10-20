@@ -14,6 +14,7 @@ import { resolveAssignedClubId, useClubSelection } from "@/components/club-selec
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
+import { SexMark } from "@/components/ui/sex-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -970,13 +971,7 @@ export default function ClubAdminMembersPage() {
                 header: t("sexLabel"),
                 sortable: true,
                 render: (member) => (
-                  <span
-                    className="inline-flex h-[var(--control-height)] w-[var(--control-height)] items-center justify-center text-2xl font-semibold leading-none"
-                    aria-label={member.sex === "F" ? "Female" : "Male"}
-                    title={member.sex === "F" ? "Female" : "Male"}
-                  >
-                    {member.sex === "F" ? "♀" : "♂"}
-                  </span>
+                  <SexMark sex={member.sex} label={member.sex === "F" ? "Female" : "Male"} />
                 ),
               },
               { key: "belt_rank", header: t("beltRankLabel"), sortable: true },
