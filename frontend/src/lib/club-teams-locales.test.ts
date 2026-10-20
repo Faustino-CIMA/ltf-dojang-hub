@@ -12,6 +12,7 @@ const KEYS = [
   "teamsManageAction",
   "teamsDeleteConfirm",
   "teamsFilter",
+  "teamsFilterNone",
   "teamsColumn",
   "teamsCardTitle",
   "teamsCardEmpty",

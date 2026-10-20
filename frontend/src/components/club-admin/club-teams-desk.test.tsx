@@ -178,9 +178,11 @@ describe("Teams on the members list and member page", () => {
   it("filters with a multi-select popover", () => {
     const onChange = jest.fn();
     render(
-      <TeamFilter teams={[{ id: 3, name: "Cadets", discipline: "kyorugi" }, { id: 4, name: "Poomsae A", discipline: "poomsae" }]} selected={[]} onChange={onChange} />
+      <TeamFilter teams={[{ id: 3, name: "Cadets", discipline: "kyorugi" }, { id: 4, name: "Poomsae A", discipline: "poomsae" }]} value={[]} onChange={onChange} />
     );
     fireEvent.click(screen.getByRole("button", { name: "teamsFilter" }));
+    fireEvent.click(screen.getByRole("option", { name: "teamsFilterNone" }));
+    expect(onChange).toHaveBeenCalledWith("none");
     fireEvent.click(screen.getByRole("option", { name: "Cadets" }));
     expect(onChange).toHaveBeenCalledWith([3]);
     expect(screen.queryByText("Cadets · teamsDisciplineKyorugi")).not.toBeInTheDocument();

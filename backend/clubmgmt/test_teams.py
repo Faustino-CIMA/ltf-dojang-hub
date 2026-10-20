@@ -214,6 +214,62 @@ class ClubTeamApiTests(TestCase):
         names = [row["last_name"] for row in both_rows]
         self.assertLess(names.index("WEBER"), names.index("KELLER"))
 
+    def test_not_on_a_team_skips_archived_squads_and_other_clubs(self):
+        self._unlock()
+        self.other.admins.add(self.club_admin)
+        self._auth(self.club_admin)
+        current = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        archived = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Last season", "discipline": "kyorugi"},
+            format="json",
+        )
+        self.client.post(f"/api/club-management/teams/{current.data['id']}/members/", {"member": self.lea.id}, format="json")
+        self.client.post(
+            f"/api/club-management/teams/{current.data['id']}/members/",
+            {"member": self.mira.id, "role": "coach"},
+            format="json",
+        )
+        parked = Member.objects.create(club=self.club, first_name="Ines", last_name="Simon", sex=Member.Sex.FEMALE)
+        self.client.post(f"/api/club-management/teams/{archived.data['id']}/members/", {"member": parked.id}, format="json")
+        self.client.patch(f"/api/club-management/teams/{archived.data['id']}/", {"archived": True}, format="json")
+        idle = Member.objects.create(club=self.club, first_name="Eva", last_name="Martin", is_active=False)
+        self.lea.club = self.other
+        self.lea.save(update_fields=["club"])
+
+        def ids(url):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200, response.data)
+            rows = response.data["results"] if isinstance(response.data, dict) else response.data
+            return {row["id"] for row in rows}
+
+        unassigned = ids(f"/api/members/?club_id={self.club.id}&teams=none&is_active=true")
+        self.assertIn(parked.id, unassigned)
+        self.assertNotIn(self.mira.id, unassigned)
+        self.assertNotIn(self.lea.id, unassigned)
+        self.assertNotIn(idle.id, unassigned)
+        including_inactive = ids(f"/api/members/?club_id={self.club.id}&teams=none")
+        self.assertIn(idle.id, including_inactive)
+        moved = ids(f"/api/members/?club_id={self.other.id}&teams=none")
+        self.assertIn(self.lea.id, moved)
+
+        set_club_assignment(club=self.club, module_id=COMPETITION_MODULE_ID, enabled=False, user=self.ltf_admin)
+        ignored = ids(f"/api/members/?club_id={self.club.id}&teams=none")
+        self.assertIn(self.mira.id, ignored)
+        hidden = self.client.get(f"/api/members/?club_id={self.club.id}&teams=none")
+        rows = hidden.data["results"] if isinstance(hidden.data, dict) else hidden.data
+        mira = next(row for row in rows if row["id"] == self.mira.id)
+        self.assertNotIn("teams", mira)
+        self._auth(self.ltf_admin)
+        federation = self.client.get(f"/api/members/?club_id={self.club.id}&teams=none")
+        federation_rows = federation.data["results"] if isinstance(federation.data, dict) else federation.data
+        self.assertTrue(any(row["id"] == self.mira.id for row in federation_rows))
+        self.assertNotIn("teams", federation_rows[0])
+
     def test_roster_uses_the_discipline_and_keeps_measurements_on_the_member(self):
         self._unlock()
         year = timezone.localdate().year

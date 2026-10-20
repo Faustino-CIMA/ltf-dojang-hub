@@ -256,7 +256,23 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             )
         if self.action == "list" and visible_clubs:
             raw_teams = (self.request.query_params.get("teams") or "").strip()
-            if raw_teams:
+            if raw_teams == "none":
+                club_param = (self.request.query_params.get("club_id") or "").strip()
+                apply_none = True
+                if club_param:
+                    try:
+                        apply_none = int(club_param) in visible_clubs
+                    except ValueError:
+                        apply_none = False
+                if apply_none:
+                    on_current_team = ClubTeamMembership.objects.filter(
+                        member_id=OuterRef("pk"),
+                        team__club_id=OuterRef("club_id"),
+                        team__club_id__in=visible_clubs,
+                        team__archived_at__isnull=True,
+                    )
+                    queryset = queryset.filter(~Exists(on_current_team))
+            elif raw_teams:
                 team_ids = []
                 for value in raw_teams.split(","):
                     try:

@@ -1527,6 +1527,7 @@
     "teamsNoMatches": "Keng Treffer",
     "teamsOnTeam": "An der Ekipp",
     "teamsFilter": "Ekippen",
+    "teamsFilterNone": "Op kenger Ekipp",
     "teamsFilterEmpty": "Nach keng Ekippen",
     "teamsColumn": "Ekippen",
     "teamsCardTitle": "Ekippen",
