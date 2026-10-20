@@ -9,8 +9,9 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { FloatingNotice, FormPanel } from "@/components/ui/list-page-chrome";
-import { Modal } from "@/components/ui/modal";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { formatFullName } from "@/lib/person-name";
@@ -603,42 +604,48 @@ export default function ClubAdminsPage() {
         ) : null}
       </FloatingNotice>
 
-      <Modal
-        isOpen={showEmailModal}
+      <SidePanel
+        open={showEmailModal}
         title={t("adminEmailTitle")}
+        description={t("adminEmailDescription")}
+        closeLabel={common("modalClose")}
         onClose={() => {
           setShowEmailModal(false);
           setPendingMember(null);
           setPendingClub(null);
         }}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowEmailModal(false);
+                setPendingMember(null);
+                setPendingClub(null);
+              }}
+            >
+              {common("deleteCancelButton")}
+            </Button>
+            <Button type="button" variant="primary" onClick={confirmEmail} disabled={isSaving}>
+              {t("adminsAssignAction")}
+            </Button>
+          </>
+        }
       >
-        <p className="text-sm text-muted">{t("adminEmailDescription")}</p>
-        <div className="mt-4">
+        <div className="space-y-2">
+          <Label htmlFor="club-admin-email" required>{t("emailLabel")}</Label>
           <Input
+            id="club-admin-email"
             type="email"
             value={emailValue}
             onChange={(event) => setEmailValue(event.target.value)}
             placeholder="name@example.com"
+            autoFocus
           />
-          {emailError ? <p className="mt-2 text-sm text-[var(--danger)]">{emailError}</p> : null}
+          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
         </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setShowEmailModal(false);
-              setPendingMember(null);
-              setPendingClub(null);
-            }}
-          >
-            {common("deleteCancelButton")}
-          </Button>
-          <Button type="button" variant="primary" onClick={confirmEmail} disabled={isSaving}>
-            {t("adminsAssignAction")}
-          </Button>
-        </div>
-      </Modal>
+      </SidePanel>
 
       <DeleteConfirmModal
         isOpen={Boolean(pendingRemove)}

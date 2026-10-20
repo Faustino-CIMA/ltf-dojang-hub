@@ -2,23 +2,21 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
 import { useLocale, useTranslations } from "next-intl";
-import { Pencil, Trash2 } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import {
+  PrinterProfilePanel,
+  printerProfileInitial,
+  type PrinterProfileFormValues,
+} from "@/components/ltf-admin/printer-profile-panel";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
-import {
-  AppTextarea,
-  ListActionsRow,
-  ListToolbarPanel,
-  ActionNotices
-} from "@/components/ui/list-page-chrome";
-import { Modal } from "@/components/ui/modal";
+import { ListActionsRow, ListToolbarPanel, ActionNotices } from "@/components/ui/list-page-chrome";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { apiRequest } from "@/lib/api";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
 import {
@@ -31,20 +29,6 @@ import {
 
 type AuthMeResponse = {
   role: string;
-};
-
-type PrinterProfileFormValues = {
-  name: string;
-  x_offset_mm: number;
-  y_offset_mm: number;
-  description: string;
-};
-
-const DEFAULT_FORM_VALUES: PrinterProfileFormValues = {
-  name: "",
-  x_offset_mm: 0,
-  y_offset_mm: 0,
-  description: "",
 };
 
 function formatOffsetMm(value: number | string): string {
@@ -72,15 +56,6 @@ export default function LtfAdminPrinterProfilesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const canManagePrinterProfiles = currentRole === "ltf_admin";
   const fallbackRoute = getDashboardRouteForRole(currentRole ?? "", locale) ?? `/${locale}/dashboard`;
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<PrinterProfileFormValues>({
-    defaultValues: DEFAULT_FORM_VALUES,
-  });
 
   const loadPrinterProfiles = useCallback(async () => {
     setIsLoading(true);
@@ -143,10 +118,9 @@ export default function LtfAdminPrinterProfilesPage() {
     });
   }, [printerProfiles, searchQuery]);
 
-  const closeFormModal = () => {
+  const closeForm = () => {
     setEditingProfile(null);
     setIsFormOpen(false);
-    reset(DEFAULT_FORM_VALUES);
   };
 
   const closeDeleteModal = () => {
@@ -159,22 +133,13 @@ export default function LtfAdminPrinterProfilesPage() {
     setSuccessMessage(null);
     setEditingProfile(null);
     setIsFormOpen(true);
-    reset(DEFAULT_FORM_VALUES);
   };
 
   const startEdit = (profile: PrinterProfile) => {
     setErrorMessage(null);
     setSuccessMessage(null);
-    const xOffset = Number(profile.x_offset_mm);
-    const yOffset = Number(profile.y_offset_mm);
     setEditingProfile(profile);
     setIsFormOpen(true);
-    reset({
-      name: profile.name,
-      x_offset_mm: Number.isFinite(xOffset) ? xOffset : 0,
-      y_offset_mm: Number.isFinite(yOffset) ? yOffset : 0,
-      description: profile.description ?? "",
-    });
   };
 
   const startDelete = (profile: PrinterProfile) => {
@@ -184,7 +149,7 @@ export default function LtfAdminPrinterProfilesPage() {
     setIsDeleteOpen(true);
   };
 
-  const onSubmit = async (values: PrinterProfileFormValues) => {
+  const saveProfile = async (values: PrinterProfileFormValues) => {
     setErrorMessage(null);
     setSuccessMessage(null);
     const normalizedDescription = values.description.trim();
@@ -203,7 +168,7 @@ export default function LtfAdminPrinterProfilesPage() {
         await createPrinterProfile(payload);
         setSuccessMessage(t("printerProfilesCreatedSuccess"));
       }
-      closeFormModal();
+      closeForm();
       await loadPrinterProfiles();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("printerProfilesSaveError"));
@@ -305,24 +270,13 @@ export default function LtfAdminPrinterProfilesPage() {
                 key: "actions",
                 header: t("actionsLabel"),
                 render: (profile: PrinterProfile) => (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
-                      aria-label={t("editAction")}
-                      onClick={() => startEdit(profile)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
-                      aria-label={t("deleteAction")}
-                      onClick={() => startDelete(profile)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <RowActionMenu
+                    label={common("rowActionsLabel")}
+                    actions={[
+                      { key: "edit", label: t("editAction"), onSelect: () => startEdit(profile) },
+                      { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => startDelete(profile) },
+                    ]}
+                  />
                 ),
               },
             ]}
@@ -331,91 +285,14 @@ export default function LtfAdminPrinterProfilesPage() {
         )}
       </div>
 
-      <Modal
-        title={editingProfile ? t("printerProfilesEditModalTitle") : t("printerProfilesCreateModalTitle")}
-        description={t("printerProfilesFormSubtitle")}
-        isOpen={isFormOpen}
-        onClose={closeFormModal}
-      >
-        <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("printerProfilesNameLabel")}</label>
-            <Input
-              placeholder={t("printerProfilesNamePlaceholder")}
-              {...register("name", {
-                validate: (value) => value.trim().length > 0 || t("printerProfilesNameRequiredError"),
-              })}
-            />
-            {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                {t("printerProfilesXOffsetLabel")}
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder={t("printerProfilesOffsetPlaceholder")}
-                {...register("x_offset_mm", {
-                  valueAsNumber: true,
-                  validate: (value) =>
-                    Number.isFinite(value) || t("printerProfilesOffsetRequiredError"),
-                })}
-              />
-              {errors.x_offset_mm ? (
-                <p className="text-sm text-destructive">{errors.x_offset_mm.message}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                {t("printerProfilesYOffsetLabel")}
-              </label>
-              <Input
-                type="number"
-                step="0.1"
-                placeholder={t("printerProfilesOffsetPlaceholder")}
-                {...register("y_offset_mm", {
-                  valueAsNumber: true,
-                  validate: (value) =>
-                    Number.isFinite(value) || t("printerProfilesOffsetRequiredError"),
-                })}
-              />
-              {errors.y_offset_mm ? (
-                <p className="text-sm text-destructive">{errors.y_offset_mm.message}</p>
-              ) : null}
-            </div>
-          </div>
-
-          <p className="text-xs text-muted">{t("printerProfilesOffsetHelpText")}</p>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              {t("printerProfilesDescriptionLabel")}
-            </label>
-            <AppTextarea
-              rows={4}
-              placeholder={t("printerProfilesDescriptionPlaceholder")}
-              {...register("description")}
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? t("printerProfilesSavingAction")
-                : editingProfile
-                  ? t("printerProfilesUpdateAction")
-                  : t("printerProfilesCreateAction")}
-            </Button>
-            <Button type="button" variant="outline" onClick={closeFormModal} disabled={isSubmitting}>
-              {t("cancelEdit")}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      <PrinterProfilePanel
+        open={isFormOpen}
+        editing={Boolean(editingProfile)}
+        formKey={editingProfile ? String(editingProfile.id) : "new"}
+        initialValues={printerProfileInitial(editingProfile)}
+        onClose={closeForm}
+        onSubmit={saveProfile}
+      />
 
       <DeleteConfirmModal
         isOpen={isDeleteOpen}

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
-import { Modal } from "@/components/ui/modal";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getMembers } from "@/lib/club-admin-api";
 import { formatFullName } from "@/lib/person-name";
@@ -31,6 +32,8 @@ import {
   type ContactMemberMatch,
 } from "@/lib/clubmgmt-api";
 import { formatFirstName, formatLastName } from "@/lib/person-name";
+
+const PARENT_RELATIONS = ["father", "mother", "guardian", "grandfather", "grandmother", "uncle", "aunt", "other"] as const;
 
 const emptyAddress = (): AddressValue => ({
   postal_code: "",
@@ -60,6 +63,7 @@ function todayYear() {
 
 export default function ClubFamiliesPage() {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const { selectedClubId } = useClubSelection();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -123,6 +127,51 @@ export default function ClubFamiliesPage() {
     }, 300);
     return () => window.clearTimeout(handle);
   }, [parentDraft.first_name, parentDraft.last_name, parentFamily, selectedClubId]);
+
+  const closeParentPanel = () => {
+    setParentFamily(null);
+  };
+
+  const saveParent = async () => {
+    if (!parentFamily) return;
+    const firstName = formatFirstName(parentDraft.first_name);
+    const lastName = formatLastName(parentDraft.last_name);
+    if (!firstName || !lastName) {
+      setErrorMessage(t("contactRequired"));
+      return;
+    }
+    if (parentMatches.length > 1 && !differentParent && !chosenParentId) {
+      setErrorMessage(t("contactChooseMember"));
+      return;
+    }
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await addFamilyParent(parentFamily.id, {
+        first_name: firstName,
+        last_name: lastName,
+        relation: parentDraft.relation,
+        email: parentDraft.email.trim(),
+        phone: parentDraft.phone.trim(),
+        is_emergency: parentDraft.is_emergency,
+        different_person: differentParent,
+        member_id: differentParent ? undefined : chosenParentId,
+        street: parentAddress.street,
+        house_number: parentAddress.house_number,
+        line2: parentAddress.line2,
+        postal_code: parentAddress.postal_code,
+        locality: parentAddress.locality,
+        country: parentAddress.country,
+      });
+      setParentFamily(null);
+      setSuccessMessage(t("parentSaved"));
+      await load();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const membersInFamilies = useMemo(() => {
     const used = new Set<number>();
@@ -425,64 +474,63 @@ export default function ClubFamiliesPage() {
       )}
       </div>
 
-      <Modal
-        isOpen={parentFamily !== null}
-        onClose={() => setParentFamily(null)}
+      <SidePanel
+        open={parentFamily !== null}
         title={t("addParentOrGuardian")}
         description={parentFamily ? parentFamily.name : undefined}
+        closeLabel={common("modalClose")}
+        onClose={closeParentPanel}
+        footer={
+          <Button type="button" variant="primary" disabled={isSaving} onClick={() => void saveParent()}>
+            {isSaving ? t("saving") : t("saveItem")}
+          </Button>
+        }
       >
         <div className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="parent-first-name">{t("firstName")}</Label>
-              <Input
-                id="parent-first-name"
-                value={parentDraft.first_name}
-                onChange={(event) => setParentDraft({ ...parentDraft, first_name: event.target.value })}
-                onBlur={() => setParentDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="parent-last-name">{t("lastName")}</Label>
-              <Input
-                id="parent-last-name"
-                value={parentDraft.last_name}
-                onChange={(event) => setParentDraft({ ...parentDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })}
-                onBlur={() => setParentDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="parent-relation">{t("relationLabel")}</Label>
-              <select
-                id="parent-relation"
-                className="block h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
-                value={parentDraft.relation}
-                onChange={(event) => setParentDraft({ ...parentDraft, relation: event.target.value })}
-              >
-                {["father", "mother", "guardian", "grandfather", "grandmother", "uncle", "aunt", "other"].map((relation) => (
-                  <option key={relation} value={relation}>
-                    {t(`relation_${relation}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="parent-email">{t("parentEmail")}</Label>
-              <Input
-                id="parent-email"
-                type="email"
-                value={parentDraft.email}
-                onChange={(event) => setParentDraft({ ...parentDraft, email: event.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="parent-phone">{t("phone")}</Label>
-              <Input
-                id="parent-phone"
-                value={parentDraft.phone}
-                onChange={(event) => setParentDraft({ ...parentDraft, phone: event.target.value })}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="parent-first-name" required>{t("firstName")}</Label>
+            <Input
+              id="parent-first-name"
+              value={parentDraft.first_name}
+              onChange={(event) => setParentDraft({ ...parentDraft, first_name: event.target.value })}
+              onBlur={() => setParentDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="parent-last-name" required>{t("lastName")}</Label>
+            <Input
+              id="parent-last-name"
+              value={parentDraft.last_name}
+              onChange={(event) => setParentDraft({ ...parentDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })}
+              onBlur={() => setParentDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("relationLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("relationLabel")}
+              className="w-full"
+              value={parentDraft.relation}
+              onValueChange={(value) => setParentDraft({ ...parentDraft, relation: value })}
+              options={PARENT_RELATIONS.map((relation) => ({ value: relation, label: t(`relation_${relation}`) }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="parent-email">{t("parentEmail")}</Label>
+            <Input
+              id="parent-email"
+              type="email"
+              value={parentDraft.email}
+              onChange={(event) => setParentDraft({ ...parentDraft, email: event.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="parent-phone">{t("phone")}</Label>
+            <Input
+              id="parent-phone"
+              value={parentDraft.phone}
+              onChange={(event) => setParentDraft({ ...parentDraft, phone: event.target.value })}
+            />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
@@ -493,26 +541,26 @@ export default function ClubFamiliesPage() {
           </label>
           <LuAddressFields value={parentAddress} onChange={setParentAddress} />
           {parentMatches.length > 0 && !differentParent ? (
-            <div className="rounded-[var(--radius-form)] border border-border bg-secondary/50 p-3 text-sm">
+            <div className="space-y-2 rounded-[var(--radius-form)] border border-border bg-secondary/50 p-3 text-sm">
               <p className="font-medium">{t("contactMatchesTitle")}</p>
-              <div className="mt-2 space-y-2">
-                {parentMatches.map((match) => (
-                  <label key={match.id} className="flex items-center gap-2">
-                    {parentMatches.length > 1 ? (
-                      <input
-                        type="radio"
-                        name="parent-member-match"
-                        checked={chosenParentId === match.id}
-                        onChange={() => setChosenParentId(match.id)}
-                      />
-                    ) : null}
-                    <span>
-                      {match.name}
-                      {match.ltf_licenseid ? ` · ${match.ltf_licenseid}` : ""}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              {parentMatches.length > 1 ? (
+                <PopoverSelect
+                  ariaLabel={t("contactMatchesTitle")}
+                  className="w-full"
+                  value={chosenParentId ? String(chosenParentId) : ""}
+                  onValueChange={(value) => setChosenParentId(Number(value))}
+                  placeholder={t("contactChooseMember")}
+                  options={parentMatches.map((match) => ({
+                    value: String(match.id),
+                    label: match.ltf_licenseid ? `${match.name} · ${match.ltf_licenseid}` : match.name,
+                  }))}
+                />
+              ) : (
+                <p>
+                  {parentMatches[0].name}
+                  {parentMatches[0].ltf_licenseid ? ` · ${parentMatches[0].ltf_licenseid}` : ""}
+                </p>
+              )}
             </div>
           ) : null}
           {parentMatches.length > 0 ? (
@@ -521,58 +569,8 @@ export default function ClubFamiliesPage() {
               {t("contactDifferentPerson")}
             </label>
           ) : null}
-          <div className="flex">
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full sm:ml-auto sm:w-auto"
-              disabled={isSaving}
-              onClick={async () => {
-                if (!parentFamily) return;
-                const firstName = formatFirstName(parentDraft.first_name);
-                const lastName = formatLastName(parentDraft.last_name);
-                if (!firstName || !lastName) {
-                  setErrorMessage(t("contactRequired"));
-                  return;
-                }
-                if (parentMatches.length > 1 && !differentParent && !chosenParentId) {
-                  setErrorMessage(t("contactChooseMember"));
-                  return;
-                }
-                setIsSaving(true);
-                setErrorMessage(null);
-                try {
-                  await addFamilyParent(parentFamily.id, {
-                    first_name: firstName,
-                    last_name: lastName,
-                    relation: parentDraft.relation,
-                    email: parentDraft.email.trim(),
-                    phone: parentDraft.phone.trim(),
-                    is_emergency: parentDraft.is_emergency,
-                    different_person: differentParent,
-                    member_id: differentParent ? undefined : chosenParentId,
-                    street: parentAddress.street,
-                    house_number: parentAddress.house_number,
-                    line2: parentAddress.line2,
-                    postal_code: parentAddress.postal_code,
-                    locality: parentAddress.locality,
-                    country: parentAddress.country,
-                  });
-                  setParentFamily(null);
-                  setSuccessMessage(t("parentSaved"));
-                  await load();
-                } catch (error) {
-                  setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                } finally {
-                  setIsSaving(false);
-                }
-              }}
-            >
-              {isSaving ? t("saving") : t("saveItem")}
-            </Button>
-          </div>
         </div>
-      </Modal>
+      </SidePanel>
     </ClubAdminLayout>
   );
 }

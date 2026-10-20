@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Modal } from "@/components/ui/modal";
+import { Label } from "@/components/ui/label";
+import { SidePanel } from "@/components/ui/side-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,7 @@ function isAdultMember(dateOfBirth: string | null) {
 
 export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPanelProps) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const boardRef = useRef<HTMLDivElement | null>(null);
   const memberCardRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const targetRef = useRef<HTMLDivElement | null>(null);
@@ -365,24 +367,17 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
           </div>
         </div>
       )}
-      <Modal
+      <SidePanel
+        open={pendingMember != null}
         title={t("trainerEmailRequired")}
         description={pendingMember ? formatFullName(pendingMember) : undefined}
-        isOpen={pendingMember != null}
+        closeLabel={common("modalClose")}
         onClose={() => {
           setPendingMember(null);
           setEmail("");
           setEmailError(null);
         }}
-      >
-        <div className="space-y-3">
-          <Input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder={t("trainerEmailPlaceholder")}
-          />
-          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
+        footer={
           <Button
             type="button"
             variant="primary"
@@ -398,8 +393,21 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
           >
             {t("trainerAdd")}
           </Button>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="trainer-email" required>{t("emailLabel")}</Label>
+          <Input
+            id="trainer-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder={t("trainerEmailPlaceholder")}
+            autoFocus
+          />
+          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
         </div>
-      </Modal>
+      </SidePanel>
     </section>
   );
 }

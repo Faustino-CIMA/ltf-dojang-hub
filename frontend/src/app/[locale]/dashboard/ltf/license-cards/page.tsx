@@ -17,6 +17,7 @@ import { LicenseCardRowActions } from "@/components/ltf-admin/license-card-row-a
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AppTextarea,
   ListActionsRow,
@@ -24,6 +25,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiRequest } from "@/lib/api";
 import { formatDisplayDateTime } from "@/lib/date-display";
@@ -142,6 +144,7 @@ export default function LtfAdminLicenseCardsPage() {
     setSuccessMessage(null);
     setNewTemplateName("");
     setNewTemplateDescription("");
+    setCloneSourceTemplate(null);
     setIsCreateModalOpen(true);
   };
 
@@ -241,6 +244,7 @@ export default function LtfAdminLicenseCardsPage() {
   const startCloneTemplate = (template: CardTemplate) => {
     setErrorMessage(null);
     setSuccessMessage(null);
+    setIsCreateModalOpen(false);
     setCloneSourceTemplate(template);
     setCloneTemplateName(`${template.name} ${t("licenseCardsCloneNameSuffix")}`);
     setCloneTemplateDescription(template.description || "");
@@ -505,109 +509,79 @@ export default function LtfAdminLicenseCardsPage() {
         )}
       </div>
 
-      <Modal
-        title={t("licenseCardsCreateModalTitle")}
-        description={t("licenseCardsCreateModalSubtitle")}
-        isOpen={isCreateModalOpen}
+      <SidePanel
+        open={isCreateModalOpen || Boolean(cloneSourceTemplate)}
+        title={cloneSourceTemplate ? t("licenseCardsCloneModalTitle") : t("licenseCardsCreateModalTitle")}
+        description={cloneSourceTemplate ? t("licenseCardsCloneModalSubtitle") : t("licenseCardsCreateModalSubtitle")}
+        closeLabel={common("modalClose")}
         onClose={() => {
-          if (isCreatingTemplate) {
+          if (isCreatingTemplate || isCloningTemplate) {
             return;
           }
           setIsCreateModalOpen(false);
-        }}
-      >
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              {t("licenseCardsTemplateNameLabel")}
-            </label>
-            <Input
-              placeholder={t("licenseCardsTemplateNamePlaceholder")}
-              value={newTemplateName}
-              onChange={(event) => setNewTemplateName(event.target.value)}
-              disabled={isCreatingTemplate}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              {t("licenseCardsTemplateDescriptionLabel")}
-            </label>
-            <AppTextarea
-              placeholder={t("licenseCardsTemplateDescriptionPlaceholder")}
-              value={newTemplateDescription}
-              onChange={(event) => setNewTemplateDescription(event.target.value)}
-              rows={4}
-              disabled={isCreatingTemplate}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <Button disabled={isCreatingTemplate} onClick={() => void submitCreateTemplate()}>
-              {isCreatingTemplate
-                ? t("licenseCardsCreatingTemplateAction")
-                : t("licenseCardsCreateAction")}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={isCreatingTemplate}
-              onClick={() => setIsCreateModalOpen(false)}
-            >
-              {t("cancelEdit")}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        title={t("licenseCardsCloneModalTitle")}
-        description={t("licenseCardsCloneModalSubtitle")}
-        isOpen={Boolean(cloneSourceTemplate)}
-        onClose={() => {
-          if (isCloningTemplate) {
-            return;
-          }
           setCloneSourceTemplate(null);
         }}
-      >
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              {t("licenseCardsTemplateNameLabel")}
-            </label>
-            <Input
-              placeholder={t("licenseCardsTemplateNamePlaceholder")}
-              value={cloneTemplateName}
-              onChange={(event) => setCloneTemplateName(event.target.value)}
-              disabled={isCloningTemplate}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              {t("licenseCardsTemplateDescriptionLabel")}
-            </label>
-            <AppTextarea
-              placeholder={t("licenseCardsTemplateDescriptionPlaceholder")}
-              value={cloneTemplateDescription}
-              onChange={(event) => setCloneTemplateDescription(event.target.value)}
-              rows={4}
-              disabled={isCloningTemplate}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <Button disabled={isCloningTemplate} onClick={() => void submitCloneTemplate()}>
-              {isCloningTemplate
-                ? t("licenseCardsCloningTemplateAction")
-                : t("licenseCardsCloneAction")}
-            </Button>
+        footer={
+          <>
             <Button
+              type="button"
               variant="outline"
-              disabled={isCloningTemplate}
-              onClick={() => setCloneSourceTemplate(null)}
+              disabled={isCreatingTemplate || isCloningTemplate}
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setCloneSourceTemplate(null);
+              }}
             >
               {t("cancelEdit")}
             </Button>
+            <Button
+              type="button"
+              disabled={isCreatingTemplate || isCloningTemplate}
+              onClick={() => void (cloneSourceTemplate ? submitCloneTemplate() : submitCreateTemplate())}
+            >
+              {cloneSourceTemplate
+                ? isCloningTemplate
+                  ? t("licenseCardsCloningTemplateAction")
+                  : t("licenseCardsCloneAction")
+                : isCreatingTemplate
+                  ? t("licenseCardsCreatingTemplateAction")
+                  : t("licenseCardsCreateAction")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="card-template-name" required>{t("licenseCardsTemplateNameLabel")}</Label>
+            <Input
+              id="card-template-name"
+              placeholder={t("licenseCardsTemplateNamePlaceholder")}
+              value={cloneSourceTemplate ? cloneTemplateName : newTemplateName}
+              onChange={(event) =>
+                cloneSourceTemplate
+                  ? setCloneTemplateName(event.target.value)
+                  : setNewTemplateName(event.target.value)
+              }
+              disabled={isCreatingTemplate || isCloningTemplate}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="card-template-description">{t("licenseCardsTemplateDescriptionLabel")}</Label>
+            <AppTextarea
+              id="card-template-description"
+              placeholder={t("licenseCardsTemplateDescriptionPlaceholder")}
+              value={cloneSourceTemplate ? cloneTemplateDescription : newTemplateDescription}
+              onChange={(event) =>
+                cloneSourceTemplate
+                  ? setCloneTemplateDescription(event.target.value)
+                  : setNewTemplateDescription(event.target.value)
+              }
+              rows={4}
+              disabled={isCreatingTemplate || isCloningTemplate}
+            />
           </div>
         </div>
-      </Modal>
+      </SidePanel>
 
       <Modal
         title={t("licenseCardsDeleteModalTitle")}

@@ -17,9 +17,10 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
-import { Label, RequiredForm } from "@/components/ui/label";
+import { Label } from "@/components/ui/label";
 import { FloatingNotice, FormPanel, PageNotice } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { formatFullName } from "@/lib/person-name";
@@ -1018,37 +1019,37 @@ export default function ClubAdminsBoardPage() {
         ) : null}
       </FloatingNotice>
 
-      <Modal
+      <SidePanel
+        open={showEmailModal}
         title={t("emailRequiredTitle")}
         description={t("emailRequiredDescription")}
-        isOpen={showEmailModal}
+        closeLabel={common("modalClose")}
         onClose={resetConnect}
-      >
-        <RequiredForm>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label required>{t("emailInputLabel")}</Label>
-            <Input
-              type="email"
-              value={emailValue}
-              onChange={(event) => setEmailValue(event.target.value)}
-              placeholder={t("emailInputPlaceholder")}
-              autoFocus
-            />
-            {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
-            {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={confirmEmailAssign} disabled={isSaving}>
-              {t("emailConfirmAction")}
-            </Button>
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={resetConnect}>
               {t("emailCancelAction")}
             </Button>
-          </div>
+            <Button type="button" onClick={confirmEmailAssign} disabled={isSaving}>
+              {t("emailConfirmAction")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="ltf-club-admin-email" required>{t("emailInputLabel")}</Label>
+          <Input
+            id="ltf-club-admin-email"
+            type="email"
+            value={emailValue}
+            onChange={(event) => setEmailValue(event.target.value)}
+            placeholder={t("emailInputPlaceholder")}
+            autoFocus
+          />
+          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
+          {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
         </div>
-        </RequiredForm>
-      </Modal>
+      </SidePanel>
 
       <Modal
         title={t("crossClubTitle")}

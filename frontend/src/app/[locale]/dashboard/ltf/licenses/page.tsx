@@ -18,12 +18,13 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
-import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
-import { Label, RequiredForm } from "@/components/ui/label";
+import { Label } from "@/components/ui/label";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
 import {
   ListActionsRow,
   ListPagination,
@@ -34,13 +35,6 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useClubSelection } from "@/components/club-selection-provider";
 import {
   Club,
@@ -579,108 +573,14 @@ export default function LtfAdminLicensesPage() {
         )}
       </div>
 
-      <Modal
+      <SidePanel
+        open={isFormOpen}
         title={editingLicense ? t("updateLicense") : t("createLicense")}
         description={t("licenseFormSubtitle")}
-        isOpen={isFormOpen}
+        closeLabel={common("modalClose")}
         onClose={() => setIsFormOpen(false)}
-      >
-        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          <RequiredForm className="contents" legendClassName="md:col-span-2">
-          <div className="space-y-2 md:col-span-2">
-            <Label required>{t("clubLabel")}</Label>
-            <Select
-              value={watch("club")}
-              onValueChange={(value) => setValue("club", value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectClubPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {clubs.map((club) => (
-                  <SelectItem key={club.id} value={String(club.id)}>
-                    {club.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.club ? <p className="text-sm text-destructive">{errors.club.message}</p> : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label required>{t("memberLabel")}</Label>
-            <Select
-              value={watch("member")}
-              onValueChange={(value) => setValue("member", value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectMemberPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {clubMembers.map((member) => (
-                  <SelectItem key={member.id} value={String(member.id)}>
-                    {formatFullName(member)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.member ? <p className="text-sm text-destructive">{errors.member.message}</p> : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label required>{t("licenseTypeLabel")}</Label>
-            <Select
-              value={watch("license_type")}
-              onValueChange={(value) => setValue("license_type", value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectLicenseTypePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {licenseTypes.map((licenseType) => (
-                  <SelectItem key={licenseType.id} value={String(licenseType.id)}>
-                    {licenseType.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.license_type ? (
-              <p className="text-sm text-destructive">{errors.license_type.message}</p>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label required>{t("yearLabel")}</Label>
-            <Input type="number" min="2000" {...register("year")} />
-            {errors.year ? <p className="text-sm text-destructive">{errors.year.message}</p> : null}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("statusLabel")}</label>
-            <Select
-              value={watch("status")}
-              onValueChange={(value) =>
-                setValue("status", value as "pending" | "active" | "expired", {
-                  shouldValidate: true,
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectStatusPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">{t("statusPending")}</SelectItem>
-                <SelectItem value="active">{t("statusActive")}</SelectItem>
-                <SelectItem value="expired">{t("statusExpired")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          </RequiredForm>
-          <div className="flex items-center gap-3 md:col-span-2">
-            <Button type="submit" disabled={isSubmitting}>
-              {editingLicense ? t("updateLicense") : t("createLicense")}
-            </Button>
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -698,9 +598,77 @@ export default function LtfAdminLicensesPage() {
             >
               {t("cancelEdit")}
             </Button>
+            <Button type="submit" form="ltf-license-form" disabled={isSubmitting}>
+              {editingLicense ? t("updateLicense") : t("createLicense")}
+            </Button>
+          </>
+        }
+      >
+        <form id="ltf-license-form" className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-2">
+            <Label required>{t("clubLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("clubLabel")}
+              className="w-full"
+              value={watch("club")}
+              onValueChange={(value) => setValue("club", value, { shouldValidate: true })}
+              placeholder={t("selectClubPlaceholder")}
+              searchable
+              searchPlaceholder={t("selectClubPlaceholder")}
+              options={clubs.map((club) => ({ value: String(club.id), label: club.name }))}
+            />
+            {errors.club ? <p className="text-sm text-destructive">{errors.club.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label required>{t("memberLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("memberLabel")}
+              className="w-full"
+              value={watch("member")}
+              onValueChange={(value) => setValue("member", value, { shouldValidate: true })}
+              placeholder={t("selectMemberPlaceholder")}
+              searchable
+              searchPlaceholder={t("selectMemberPlaceholder")}
+              options={clubMembers.map((member) => ({ value: String(member.id), label: formatFullName(member) }))}
+            />
+            {errors.member ? <p className="text-sm text-destructive">{errors.member.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label required>{t("licenseTypeLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("licenseTypeLabel")}
+              className="w-full"
+              value={watch("license_type")}
+              onValueChange={(value) => setValue("license_type", value, { shouldValidate: true })}
+              placeholder={t("selectLicenseTypePlaceholder")}
+              options={licenseTypes.map((licenseType) => ({ value: String(licenseType.id), label: licenseType.name }))}
+            />
+            {errors.license_type ? <p className="text-sm text-destructive">{errors.license_type.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ltf-license-year" required>{t("yearLabel")}</Label>
+            <Input id="ltf-license-year" type="number" min="2000" {...register("year")} />
+            {errors.year ? <p className="text-sm text-destructive">{errors.year.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label required>{t("statusLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("statusLabel")}
+              className="w-full"
+              value={watch("status")}
+              onValueChange={(value) =>
+                setValue("status", value as "pending" | "active" | "expired", { shouldValidate: true })
+              }
+              placeholder={t("selectStatusPlaceholder")}
+              options={[
+                { value: "pending", label: t("statusPending") },
+                { value: "active", label: t("statusActive") },
+                { value: "expired", label: t("statusExpired") },
+              ]}
+            />
           </div>
         </form>
-      </Modal>
+      </SidePanel>
     </LtfAdminLayout>
   );
 }
