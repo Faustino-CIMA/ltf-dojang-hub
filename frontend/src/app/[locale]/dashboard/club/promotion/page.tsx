@@ -1,9 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Pencil, Trash2 } from "lucide-react";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -11,10 +10,13 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SidePanel } from "@/components/ui/side-panel";
 import {
   createBeltTest,
   deletePromotionRule,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/training-api";
 
 const AUDIENCES: TrainingAudience[] = ["kids", "adults", "belt_test", "competition", "other"];
+const RULE_FORM_ID = "promotion-rule-form";
 
 function todayIso() {
   const now = new Date();
@@ -37,6 +40,7 @@ function todayIso() {
 
 export default function PromotionPage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
   const canManage = useCanManageTraining();
@@ -47,8 +51,9 @@ export default function PromotionPage() {
   const [toGrade, setToGrade] = useState("9th Kup");
   const [hours, setHours] = useState("10");
   const [audience, setAudience] = useState("all");
+  const [ruleOpen, setRuleOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
-  const ruleFormRef = useRef<HTMLFormElement>(null);
+  const [pendingRule, setPendingRule] = useState<PromotionRule | null>(null);
   const [testName, setTestName] = useState("");
   const [heldOn, setHeldOn] = useState(todayIso);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -93,6 +98,7 @@ export default function PromotionPage() {
         editingRuleId ?? undefined,
       );
       setEditingRuleId(null);
+      setRuleOpen(false);
       setSuccessMessage(t("trainingRuleSaved"));
       await load();
     } catch (error) {
@@ -107,7 +113,15 @@ export default function PromotionPage() {
     setHours(row.required_hours);
     setAudience(row.audience || "all");
     setSuccessMessage(null);
-    ruleFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setRuleOpen(true);
+  };
+
+  const openNewRule = () => {
+    setEditingRuleId(null);
+    setHours("10");
+    setAudience("all");
+    setSuccessMessage(null);
+    setRuleOpen(true);
   };
 
   const addTest = async (event: FormEvent) => {
@@ -144,47 +158,15 @@ export default function PromotionPage() {
           }}
         />
         <FormPanel>
-          <h2 className="text-section text-foreground">{t("trainingRequiredHours")}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-section text-foreground">{t("trainingRequiredHours")}</h2>
+            {canManage ? (
+              <Button type="button" variant="primary" onClick={openNewRule}>
+                {t("trainingSaveRule")}
+              </Button>
+            ) : null}
+          </div>
           <p className="mt-1 text-sm text-muted">{t("trainingPromotionHint")}</p>
-          {canManage ? (
-            <form ref={ruleFormRef} className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={(event) => void saveRule(event)}>
-              <div>
-                <Label>{t("trainingNextGrade")}</Label>
-                <Select value={toGrade} onValueChange={setToGrade}>
-                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {grades.map((grade) => (
-                      <SelectItem key={grade} value={grade}>{grade}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label required>{t("trainingRequiredHours")}</Label>
-                <Input className="mt-1" inputMode="decimal" value={hours} onChange={(event) => setHours(event.target.value)} required />
-              </div>
-              <div>
-                <Label>{t("trainingHoursCount")}</Label>
-                <Select value={audience} onValueChange={setAudience}>
-                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t("trainingHoursAll")}</SelectItem>
-                    {AUDIENCES.map((item) => (
-                      <SelectItem key={item} value={item}>{t(`trainingAudience_${item}`)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end gap-2">
-                <Button type="submit" variant="primary">{editingRuleId ? t("trainingUpdateRule") : t("trainingSaveRule")}</Button>
-                {editingRuleId ? (
-                  <Button type="button" variant="outline" onClick={() => setEditingRuleId(null)}>
-                    {t("cancelEdit")}
-                  </Button>
-                ) : null}
-              </div>
-            </form>
-          ) : null}
           {rules === null ? (
             <div className="mt-3"><EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading /></div>
           ) : rules.length === 0 ? (
@@ -193,6 +175,7 @@ export default function PromotionPage() {
             <div className="mt-3">
               <EntityTable
                 rows={rules}
+                onRowClick={canManage ? beginEdit : undefined}
                 columns={[
                   { key: "to_grade", header: t("trainingNextGrade") },
                   { key: "required_hours", header: t("trainingRequiredHours"), render: (row) => `${row.required_hours} h` },
@@ -202,28 +185,18 @@ export default function PromotionPage() {
                         key: "actions",
                         header: "",
                         render: (row: PromotionRule) => (
-                          <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" size="sm" aria-label={t("editAction")} onClick={() => beginEdit(row)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              aria-label={t("trainingRemove")}
-                              onClick={() => {
-                                if (!selectedClubId) return;
-                                void deletePromotionRule(selectedClubId, row.id)
-                                  .then(() => {
-                                    if (editingRuleId === row.id) setEditingRuleId(null);
-                                    return load();
-                                  })
-                                  .catch((error: Error) => setErrorMessage(error.message));
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <RowActionMenu
+                            label={common("rowActionsLabel")}
+                            actions={[
+                              { key: "edit", label: t("editAction"), onSelect: () => beginEdit(row) },
+                              {
+                                key: "delete",
+                                label: t("deleteAction"),
+                                destructive: true,
+                                onSelect: () => setPendingRule(row),
+                              },
+                            ]}
+                          />
                         ),
                       }]
                     : []),
@@ -274,6 +247,78 @@ export default function PromotionPage() {
             </div>
           )}
         </FormPanel>
+        <SidePanel
+          open={ruleOpen}
+          title={editingRuleId ? t("trainingUpdateRule") : t("trainingSaveRule")}
+          closeLabel={t("cancelEdit")}
+          onClose={() => setRuleOpen(false)}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => setRuleOpen(false)}>
+                {t("cancelEdit")}
+              </Button>
+              <Button type="submit" form={RULE_FORM_ID} variant="primary">
+                {editingRuleId ? t("trainingUpdateRule") : t("trainingSaveRule")}
+              </Button>
+            </>
+          }
+        >
+          <form id={RULE_FORM_ID} className="grid gap-3" onSubmit={(event) => void saveRule(event)}>
+            <div>
+              <Label>{t("trainingNextGrade")}</Label>
+              <PopoverSelect
+                className="mt-1 w-full"
+                value={toGrade}
+                onValueChange={setToGrade}
+                ariaLabel={t("trainingNextGrade")}
+                options={grades.map((grade) => ({ value: grade, label: grade }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="promotion-hours" required>
+                {t("trainingRequiredHours")}
+              </Label>
+              <Input id="promotion-hours" className="mt-1" inputMode="decimal" value={hours} onChange={(event) => setHours(event.target.value)} required />
+            </div>
+            <div>
+              <Label>{t("trainingHoursCount")}</Label>
+              <PopoverSelect
+                className="mt-1 w-full"
+                value={audience}
+                onValueChange={setAudience}
+                ariaLabel={t("trainingHoursCount")}
+                options={[
+                  { value: "all", label: t("trainingHoursAll") },
+                  ...AUDIENCES.map((item) => ({ value: item, label: t(`trainingAudience_${item}`) })),
+                ]}
+              />
+            </div>
+          </form>
+        </SidePanel>
+        <DeleteConfirmModal
+          isOpen={pendingRule !== null}
+          title={t("deleteAction")}
+          description={common("deleteDescriptionWithName", { name: pendingRule?.to_grade ?? "" })}
+          confirmLabel={common("deleteConfirmButton")}
+          cancelLabel={common("deleteCancelButton")}
+          onCancel={() => setPendingRule(null)}
+          onConfirm={() => {
+            if (!selectedClubId || !pendingRule) return;
+            void deletePromotionRule(selectedClubId, pendingRule.id)
+              .then(() => {
+                if (editingRuleId === pendingRule.id) {
+                  setEditingRuleId(null);
+                  setRuleOpen(false);
+                }
+                setPendingRule(null);
+                return load();
+              })
+              .catch((error: Error) => {
+                setPendingRule(null);
+                setErrorMessage(error.message);
+              });
+          }}
+        />
       </div>
     </ClubAdminLayout>
   );

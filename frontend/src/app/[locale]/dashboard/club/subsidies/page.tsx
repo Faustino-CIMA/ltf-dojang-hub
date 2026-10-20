@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,7 +21,10 @@ import {
   FormPanel,
   NestedTable,
 } from "@/components/ui/list-page-chrome";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SidePanel } from "@/components/ui/side-panel";
 import { formatFullName } from "@/lib/person-name";
 import {
   createExtraordinarySubsidy,
@@ -91,6 +95,7 @@ const CASE_STATUS_LABEL = {
   accounted: "subsidyCaseAccounted",
 } as const;
 const DOCUMENT_ACCEPT = "application/pdf,image/jpeg,image/png,image/webp";
+const CASE_FORM_ID = "subsidy-case-form";
 
 function SubsidyFileActions({
   uploadLabel,
@@ -197,6 +202,7 @@ function MemberPicker({
 
 export default function ClubSubsidiesPage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const { clubs, selectedClubId } = useClubSelection();
   const selectedClubName = clubs.find((club) => club.id === selectedClubId)?.name ?? "";
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -222,6 +228,8 @@ export default function ClubSubsidiesPage() {
   const [suppliesFee, setSuppliesFee] = useState("");
   const [notes, setNotes] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [caseOpen, setCaseOpen] = useState(false);
+  const [pendingCase, setPendingCase] = useState<SubsidyCase | null>(null);
 
   const load = useCallback(async () => {
     if (!selectedClubId) return;
@@ -302,6 +310,12 @@ export default function ClubSubsidiesPage() {
     setMedicalFee("");
     setSuppliesFee("");
     setNotes("");
+    setCaseOpen(false);
+  };
+
+  const openNewCase = () => {
+    resetCaseForm();
+    setCaseOpen(true);
   };
 
   const onEditCase = (row: SubsidyCase) => {
@@ -323,6 +337,7 @@ export default function ClubSubsidiesPage() {
     setMedicalFee(row.medical_fee);
     setSuppliesFee(row.supplies_fee);
     setNotes(row.notes);
+    setCaseOpen(true);
   };
 
   const onCreateCase = async (event: FormEvent) => {
@@ -782,22 +797,114 @@ export default function ClubSubsidiesPage() {
               )}
             </FormPanel>
             <FormPanel>
-              <h2 className="text-section text-foreground">{t("subsidiesExtraordinary")}</h2>
-              {editingId ? <p className="mt-1 text-xs text-muted">{t("subsidiesEditing")}</p> : null}
-              <form className="mt-4 space-y-3" onSubmit={(event) => void onCreateCase(event)}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-section text-foreground">{t("subsidiesExtraordinary")}</h2>
+                <Button type="button" variant="primary" onClick={openNewCase}>
+                  {t("subsidiesCreateCase")}
+                </Button>
+              </div>
+              {dossier.cases.length > 0 ? (
+                <div className="mt-6">
+                  <h3 className="text-sm font-medium text-foreground">{t("subsidiesSavedRequests")}</h3>
+                  <NestedTable className="mt-3">
+                    <table className={`${dataTableClass} min-w-[40rem]`}>
+                      <thead className={dataTheadClass}>
+                        <tr>
+                          <th className={dataThClass}>{t("subsidiesEventTitle")}</th>
+                          <th className={dataThClass}>{t("subsidiesCaseStatus")}</th>
+                          <th className={dataThClass}>{t("subsidiesAccountDueColumn")}</th>
+                          <th className={dataThClass} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dossier.cases.map((row) => (
+                          <tr key={row.id} className="border-b border-border last:border-0">
+                            <td className="px-[var(--control-padding-x)] py-1 text-sm font-medium">{row.title}</td>
+                            <td className="px-[var(--control-padding-x)] py-1">
+                              <Select
+                                value={row.status}
+                                onValueChange={(value) =>
+                                  selectedClubId &&
+                                  updateExtraordinarySubsidy(selectedClubId, row.id, { status: value })
+                                    .then(setDossier)
+                                    .catch((error) => setErrorMessage(error.message))
+                                }
+                              >
+                                <SelectTrigger size="sm" className="w-44"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {CASE_STATUS.map((status) => (
+                                    <SelectItem key={status} value={status}>{t(CASE_STATUS_LABEL[status])}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="px-[var(--control-padding-x)] py-1 text-sm text-muted">{row.account_due}</td>
+                            <td className="px-[var(--control-padding-x)] py-1">
+                              <RowActionMenu
+                                label={common("rowActionsLabel")}
+                                actions={[
+                                  { key: "edit", label: t("subsidiesEditCase"), onSelect: () => onEditCase(row) },
+                                  {
+                                    key: "download",
+                                    label: t("subsidiesDownloadForm"),
+                                    icon: <Download aria-hidden />,
+                                    onSelect: () => {
+                                      if (!selectedClubId) return;
+                                      void downloadExtraordinaryForm(selectedClubId, row.id).catch((error) => setErrorMessage(error.message));
+                                    },
+                                  },
+                                  {
+                                    key: "delete",
+                                    label: t("subsidiesDeleteCase"),
+                                    destructive: true,
+                                    onSelect: () => setPendingCase(row),
+                                  },
+                                ]}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </NestedTable>
+                </div>
+              ) : null}
+            </FormPanel>
+            <SidePanel
+              open={caseOpen}
+              wide
+              title={editingId ? t("subsidiesSaveCase") : t("subsidiesCreateCase")}
+              description={editingId ? t("subsidiesEditing") : t("subsidiesExtraordinaryHint")}
+              closeLabel={t("subsidiesCancelEdit")}
+              onClose={resetCaseForm}
+              footer={
+                <>
+                  <Button type="button" variant="outline" onClick={resetCaseForm}>
+                    {t("subsidiesCancelEdit")}
+                  </Button>
+                  <Button type="submit" form={CASE_FORM_ID} variant="primary">
+                    {editingId ? t("subsidiesSaveCase") : t("subsidiesCreateCase")}
+                  </Button>
+                </>
+              }
+            >
+              <form id={CASE_FORM_ID} className="space-y-3" onSubmit={(event) => void onCreateCase(event)}>
                 <section>
                   <h3 className="text-sm font-medium text-foreground">{t("subsidiesEventGroup")}</h3>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <div>
                       <Label>{t("subsidiesKind")}</Label>
-                      <Select value={kind} onValueChange={setKind}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="championship">{t("subsidiesKindChampionship")}</SelectItem>
-                          <SelectItem value="cup">{t("subsidiesKindCup")}</SelectItem>
-                          <SelectItem value="organisation">{t("subsidiesKindOrganisation")}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <PopoverSelect
+                        className="mt-1 w-full"
+                        value={kind}
+                        onValueChange={setKind}
+                        ariaLabel={t("subsidiesKind")}
+                        options={[
+                          { value: "championship", label: t("subsidiesKindChampionship") },
+                          { value: "cup", label: t("subsidiesKindCup") },
+                          { value: "organisation", label: t("subsidiesKindOrganisation") },
+                        ]}
+                      />
                     </div>
                     <div>
                       <Label required>{t("subsidiesEventTitle")}</Label>
@@ -847,14 +954,17 @@ export default function ClubSubsidiesPage() {
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <div>
                       <Label>{t("subsidiesTravelMode")}</Label>
-                      <Select value={travelMode} onValueChange={setTravelMode}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="train">{t("subsidiesTravelTrain")}</SelectItem>
-                          <SelectItem value="car">{t("subsidiesTravelCar")}</SelectItem>
-                          <SelectItem value="plane">{t("subsidiesTravelPlane")}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <PopoverSelect
+                        className="mt-1 w-full"
+                        value={travelMode}
+                        onValueChange={setTravelMode}
+                        ariaLabel={t("subsidiesTravelMode")}
+                        options={[
+                          { value: "train", label: t("subsidiesTravelTrain") },
+                          { value: "car", label: t("subsidiesTravelCar") },
+                          { value: "plane", label: t("subsidiesTravelPlane") },
+                        ]}
+                      />
                     </div>
                     <div>
                       <Label>{t("subsidiesTravelUnits")}</Label>
@@ -894,93 +1004,33 @@ export default function ClubSubsidiesPage() {
                     </div>
                   </div>
                 </section>
-                <div className="flex flex-wrap justify-end gap-2">
-                  {editingId ? (
-                    <Button type="button" variant="outline" onClick={resetCaseForm}>{t("subsidiesCancelEdit")}</Button>
-                  ) : null}
-                  <Button type="submit" variant="primary">{editingId ? t("subsidiesSaveCase") : t("subsidiesCreateCase")}</Button>
-                </div>
               </form>
-              {dossier.cases.length > 0 ? (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-foreground">{t("subsidiesSavedRequests")}</h3>
-                  <NestedTable className="mt-3">
-                    <table className={`${dataTableClass} min-w-[40rem]`}>
-                      <thead className={dataTheadClass}>
-                        <tr>
-                          <th className={dataThClass}>{t("subsidiesEventTitle")}</th>
-                          <th className={dataThClass}>{t("subsidiesCaseStatus")}</th>
-                          <th className={dataThClass}>{t("subsidiesAccountDueColumn")}</th>
-                          <th className={dataThClass} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dossier.cases.map((row) => (
-                          <tr key={row.id} className="border-b border-border last:border-0">
-                            <td className="px-[var(--control-padding-x)] py-1 text-sm font-medium">{row.title}</td>
-                            <td className="px-[var(--control-padding-x)] py-1">
-                              <Select
-                                value={row.status}
-                                onValueChange={(value) =>
-                                  selectedClubId &&
-                                  updateExtraordinarySubsidy(selectedClubId, row.id, { status: value })
-                                    .then(setDossier)
-                                    .catch((error) => setErrorMessage(error.message))
-                                }
-                              >
-                                <SelectTrigger size="sm" className="w-44"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {CASE_STATUS.map((status) => (
-                                    <SelectItem key={status} value={status}>{t(CASE_STATUS_LABEL[status])}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-[var(--control-padding-x)] py-1 text-sm text-muted">{row.account_due}</td>
-                            <td className="px-[var(--control-padding-x)] py-1">
-                              <div className="flex flex-wrap justify-end gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => onEditCase(row)}>
-                                  {t("subsidiesEditCase")}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    if (!selectedClubId || !window.confirm(t("subsidiesDeleteConfirm"))) return;
-                                    void deleteExtraordinarySubsidy(selectedClubId, row.id)
-                                      .then((next) => {
-                                        if (editingId === row.id) resetCaseForm();
-                                        setDossier(next);
-                                      })
-                                      .catch((error) => setErrorMessage(error.message));
-                                  }}
-                                >
-                                  {t("subsidiesDeleteCase")}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    selectedClubId && downloadExtraordinaryForm(selectedClubId, row.id).catch((error) => setErrorMessage(error.message))
-                                  }
-                                >
-                                  <Download aria-hidden />
-                                  {t("subsidiesDownloadForm")}
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </NestedTable>
-                </div>
-              ) : null}
-            </FormPanel>
+            </SidePanel>
           </>
         )}
+
+            <DeleteConfirmModal
+              isOpen={pendingCase !== null}
+              title={t("subsidiesDeleteCase")}
+              description={t("subsidiesDeleteConfirm")}
+              confirmLabel={t("subsidiesDeleteCase")}
+              cancelLabel={t("subsidiesCancelEdit")}
+              listItems={pendingCase ? [pendingCase.title] : []}
+              onCancel={() => setPendingCase(null)}
+              onConfirm={() => {
+                if (!selectedClubId || !pendingCase) return;
+                void deleteExtraordinarySubsidy(selectedClubId, pendingCase.id)
+                  .then((next) => {
+                    if (editingId === pendingCase.id) resetCaseForm();
+                    setPendingCase(null);
+                    setDossier(next);
+                  })
+                  .catch((error) => {
+                    setPendingCase(null);
+                    setErrorMessage(error.message);
+                  });
+              }}
+            />
       </div>
     </ClubAdminLayout>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -14,14 +14,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SidePanel } from "@/components/ui/side-panel";
 import { getClubTrainers, getMembersList, type Member } from "@/lib/club-admin-api";
 import { formatFullName } from "@/lib/person-name";
 import { getTrainingSeries, saveTrainingSeries, type TrainingAudience, type TrainingSeries } from "@/lib/training-api";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
 const AUDIENCES: TrainingAudience[] = ["kids", "adults", "belt_test", "competition", "other"];
+const FORM_ID = "training-class-form";
 
 function personName(member: { first_name: string; last_name: string }) {
   return formatFullName(member);
@@ -41,11 +44,13 @@ function ageToday(iso: string | null) {
 
 export default function TrainingTimetablePage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const canManage = useCanManageTraining();
   const { selectedClubId } = useClubSelection();
   const [rows, setRows] = useState<TrainingSeries[] | null>(null);
   const [coaches, setCoaches] = useState<{ user_id: number; first_name: string; last_name: string }[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [classOpen, setClassOpen] = useState(false);
   const [name, setName] = useState("");
   const [audience, setAudience] = useState<TrainingAudience>("kids");
   const [weekday, setWeekday] = useState("0");
@@ -60,16 +65,11 @@ export default function TrainingTimetablePage() {
   const [coachIds, setCoachIds] = useState<number[]>([]);
   const [regularIds, setRegularIds] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editRegulars, setEditRegulars] = useState<number[]>([]);
-  const [editCountsUnder16, setEditCountsUnder16] = useState(false);
-  const [editPlace, setEditPlace] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [audienceFilter, setAudienceFilter] = useState<"all" | TrainingAudience>("all");
   const [editingClassId, setEditingClassId] = useState<number | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   const load = useCallback(async () => {
     if (!selectedClubId) return;
@@ -102,10 +102,28 @@ export default function TrainingTimetablePage() {
       .filter((member) => !taken.includes(member.id))
       .map((member) => ({ id: member.id, label: personName(member), age: ageToday(member.date_of_birth) }));
 
+  const resetClassForm = () => {
+    setEditingClassId(null);
+    setName("");
+    setAudience("kids");
+    setWeekday("0");
+    setStartTime("17:00");
+    setEndTime("18:30");
+    setValidFrom("");
+    setValidUntil("");
+    setSkipPublic(true);
+    setSkipSchool(true);
+    setCountsUnder16(true);
+    setPlace("");
+    setCoachIds([]);
+    setRegularIds([]);
+  };
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!selectedClubId) return;
     setIsSaving(true);
+    const wasEditing = editingClassId !== null;
     try {
       await saveTrainingSeries(selectedClubId, {
         name,
@@ -122,15 +140,10 @@ export default function TrainingTimetablePage() {
         coach_ids: coachIds,
         regular_ids: regularIds,
       }, editingClassId ?? undefined);
-      setName("");
-      setRegularIds([]);
-      setPlace("");
-      setCoachIds([]);
-      setCountsUnder16(true);
-      setAudience("kids");
-      setEditingClassId(null);
+      setClassOpen(false);
+      resetClassForm();
       setErrorMessage(null);
-      setSuccessMessage(editingClassId ? t("trainingClassSaved") : t("trainingClassAdded"));
+      setSuccessMessage(wasEditing ? t("trainingClassSaved") : t("trainingClassAdded"));
       await load();
     } catch (error) {
       setSuccessMessage(null);
@@ -138,38 +151,9 @@ export default function TrainingTimetablePage() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const saveRegulars = async (seriesId: number) => {
-    if (!selectedClubId) return;
-    setIsSaving(true);
-    try {
-      await saveTrainingSeries(selectedClubId, {
-        regular_ids: editRegulars,
-        counts_for_under_16: editCountsUnder16,
-        place: editPlace,
-      }, seriesId);
-      setEditingId(null);
-      setErrorMessage(null);
-      setSuccessMessage(t("trainingRegularsSaved"));
-      await load();
-    } catch (error) {
-      setSuccessMessage(null);
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const openRegulars = (row: TrainingSeries) => {
-    setEditingId(row.id);
-    setEditRegulars(row.regular_ids);
-    setEditCountsUnder16(row.counts_for_under_16);
-    setEditPlace(row.place || "");
   };
 
   const beginEditClass = (row: TrainingSeries) => {
-    setEditingId(null);
     setEditingClassId(row.id);
     setName(row.name);
     setAudience(row.audience);
@@ -184,7 +168,7 @@ export default function TrainingTimetablePage() {
     setPlace(row.place || "");
     setCoachIds(row.coach_ids);
     setRegularIds(row.regular_ids);
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setClassOpen(true);
   };
 
   const visibleRows = useMemo(() => {
@@ -196,8 +180,6 @@ export default function TrainingTimetablePage() {
       return row.name.toLowerCase().includes(needle) || coachesText.includes(needle);
     });
   }, [audienceFilter, rows, search]);
-
-  const editing = rows?.find((row) => row.id === editingId) ?? null;
 
   const skipsLabel = (row: TrainingSeries) => {
     const parts = [
@@ -222,143 +204,18 @@ export default function TrainingTimetablePage() {
             }}
           />
           {canManage ? (
-            <FormPanel>
-            <h2 className="text-section text-foreground">{editingClassId ? t("trainingEditClass") : t("trainingAddClass")}</h2>
-            <form ref={formRef} className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void onSubmit(event)}>
-              <div>
-                <Label required>{t("trainingClassName")}</Label>
-                <Input className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
-              </div>
-              <div>
-                <Label>{t("trainingAudience")}</Label>
-                <Select value={audience} onValueChange={(value) => {
-                  const next = value as TrainingAudience;
-                  setAudience(next);
-                  setCountsUnder16(next === "kids");
-                }}>
-                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {AUDIENCES.map((item) => (
-                      <SelectItem key={item} value={item}>{t(`trainingAudience_${item}`)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>{t("trainingWeekday")}</Label>
-                <Select value={weekday} onValueChange={setWeekday}>
-                  <SelectTrigger className="mt-1 w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DAYS.map((day) => (
-                      <SelectItem key={day} value={String(day)}>{t(`trainingDay_${day}`)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label required>{t("trainingStarts")}</Label>
-                  <Input className="mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required />
-                </div>
-                <div>
-                  <Label required>{t("trainingEnds")}</Label>
-                  <Input className="mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
-                </div>
-              </div>
-              <div>
-                <Label required>{t("subsidiesFrom")}</Label>
-                <Input className="mt-1" type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} required />
-              </div>
-              <div>
-                <Label required>{t("subsidiesTo")}</Label>
-                <Input className="mt-1" type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={skipPublic} onCheckedChange={(checked) => setSkipPublic(checked === true)} />
-                {t("trainingSkipPublic")}
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={skipSchool} onCheckedChange={(checked) => setSkipSchool(checked === true)} />
-                {t("trainingSkipSchool")}
-              </label>
-              <label className="flex items-center gap-2 text-sm md:col-span-2">
-                <Checkbox checked={countsUnder16} onCheckedChange={(checked) => setCountsUnder16(checked === true)} />
-                <span>
-                  {t("trainingCountsUnder16")}
-                  <span className="mt-0.5 block text-xs text-muted">{t("trainingCountsUnder16Hint")}</span>
-                </span>
-              </label>
-              <div className="md:col-span-2">
-                <Label>{t("trainingPlace")}</Label>
-                <Input className="mt-1" value={place} onChange={(event) => setPlace(event.target.value)} placeholder={t("trainingPlaceHint")} />
-              </div>
-              <div className="md:col-span-2">
-                <p className="text-sm font-medium">{t("trainingUsualCoaches")}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {coaches.map((coach) => {
-                    const on = coachIds.includes(coach.user_id);
-                    return (
-                      <button
-                        key={coach.user_id}
-                        type="button"
-                        onClick={() => setCoachIds((current) => (on ? current.filter((id) => id !== coach.user_id) : [...current, coach.user_id]))}
-                        className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
-                      >
-                        {personName(coach)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="md:col-span-2">
-                <p className="text-sm font-medium">{t("trainingRegulars")}</p>
-                <p className="mt-1 text-xs text-muted">{t("trainingRegularsHint")}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {regularIds.map((id) => {
-                    const member = memberById.get(id);
-                    if (!member) return null;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setRegularIds((current) => current.filter((item) => item !== id))}
-                        className="rounded-[var(--radius-form)] border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground"
-                      >
-                        {personName(member)}
-                      </button>
-                    );
-                  })}
-                </div>
-                <StudentMultiPicker
-                  options={picksExcept(regularIds)}
-                  showAgeFilter
-                  onAdd={(ids) => setRegularIds((current) => Array.from(new Set([...current, ...ids])))}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="submit" variant="primary" disabled={isSaving}>
-                  {isSaving ? t("saving") : editingClassId ? t("trainingUpdateRule") : t("trainingAddClass")}
-                </Button>
-                {editingClassId ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingClassId(null);
-                      setName("");
-                      setRegularIds([]);
-                      setCoachIds([]);
-                      setPlace("");
-                      setCountsUnder16(true);
-                      setAudience("kids");
-                    }}
-                  >
-                    {t("cancelEdit")}
-                  </Button>
-                ) : null}
-              </div>
-            </form>
-            </FormPanel>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  resetClassForm();
+                  setClassOpen(true);
+                }}
+              >
+                {t("trainingAddClass")}
+              </Button>
+            </div>
           ) : null}
           {rows === null ? (
             <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
@@ -398,7 +255,7 @@ export default function TrainingTimetablePage() {
               ) : (
                 <EntityTable
                   rows={visibleRows}
-                  onRowClick={canManage ? openRegulars : undefined}
+                  onRowClick={canManage ? beginEditClass : undefined}
                   columns={[
                     { key: "name", header: t("trainingClassName") },
                     {
@@ -452,14 +309,10 @@ export default function TrainingTimetablePage() {
                             key: "actions",
                             header: "",
                             render: (row: TrainingSeries) => (
-                              <div className="flex flex-wrap gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => beginEditClass(row)}>
-                                  {t("editAction")}
-                                </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => openRegulars(row)}>
-                                  {t("trainingRegulars")}
-                                </Button>
-                              </div>
+                              <RowActionMenu
+                                label={common("rowActionsLabel")}
+                                actions={[{ key: "edit", label: t("editAction"), onSelect: () => beginEditClass(row) }]}
+                              />
                             ),
                           },
                         ]
@@ -467,51 +320,146 @@ export default function TrainingTimetablePage() {
                   ]}
                 />
               )}
-              {canManage && editing ? (
-                <FormPanel>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-section text-foreground">{editing.name} · {t("trainingRegulars")}</h2>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}>
-                      {t("trainingClosePanel")}
-                    </Button>
-                  </div>
-                  <p className="mt-1 text-xs text-muted">{t("trainingRegularsHint")}</p>
-                  <label className="mt-3 flex items-center gap-2 text-sm">
-                    <Checkbox checked={editCountsUnder16} onCheckedChange={(checked) => setEditCountsUnder16(checked === true)} />
-                    {t("trainingCountsUnder16")}
-                  </label>
-                  <div className="mt-3 max-w-md">
-                    <Label>{t("trainingPlace")}</Label>
-                    <Input className="mt-1" value={editPlace} onChange={(event) => setEditPlace(event.target.value)} placeholder={t("trainingPlaceHint")} />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {editRegulars.map((id) => {
-                      const member = memberById.get(id);
-                      if (!member) return null;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setEditRegulars((current) => current.filter((item) => item !== id))}
-                          className="rounded-[var(--radius-form)] border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground"
-                        >
-                          {personName(member)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <StudentMultiPicker
-                    options={picksExcept(editRegulars)}
-                    showAgeFilter
-                    onAdd={(ids) => setEditRegulars((current) => Array.from(new Set([...current, ...ids])))}
-                  />
-                  <Button className="mt-3" type="button" variant="primary" disabled={isSaving} onClick={() => void saveRegulars(editing.id)}>
-                    {isSaving ? t("saving") : t("trainingSaveRegulars")}
-                  </Button>
-                </FormPanel>
-              ) : null}
             </>
           )}
+          <SidePanel
+            open={classOpen}
+            wide
+            title={editingClassId ? t("trainingEditClass") : t("trainingAddClass")}
+            closeLabel={t("cancelEdit")}
+            onClose={() => setClassOpen(false)}
+            footer={
+              <>
+                <Button type="button" variant="outline" onClick={() => setClassOpen(false)} disabled={isSaving}>
+                  {t("cancelEdit")}
+                </Button>
+                <Button type="submit" form={FORM_ID} variant="primary" disabled={isSaving}>
+                  {isSaving ? t("saving") : editingClassId ? t("trainingUpdateRule") : t("trainingAddClass")}
+                </Button>
+              </>
+            }
+          >
+            <form id={FORM_ID} className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void onSubmit(event)}>
+              <div>
+                <Label htmlFor="class-name" required>
+                  {t("trainingClassName")}
+                </Label>
+                <Input id="class-name" className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
+              </div>
+              <div>
+                <Label>{t("trainingAudience")}</Label>
+                <PopoverSelect
+                  className="mt-1 w-full"
+                  value={audience}
+                  onValueChange={(value) => {
+                    const next = value as TrainingAudience;
+                    setAudience(next);
+                    setCountsUnder16(next === "kids");
+                  }}
+                  ariaLabel={t("trainingAudience")}
+                  options={AUDIENCES.map((item) => ({ value: item, label: t(`trainingAudience_${item}`) }))}
+                />
+              </div>
+              <div>
+                <Label>{t("trainingWeekday")}</Label>
+                <PopoverSelect
+                  className="mt-1 w-full"
+                  value={weekday}
+                  onValueChange={setWeekday}
+                  ariaLabel={t("trainingWeekday")}
+                  options={DAYS.map((day) => ({ value: String(day), label: t(`trainingDay_${day}`) }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="class-start" required>
+                    {t("trainingStarts")}
+                  </Label>
+                  <Input id="class-start" className="mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor="class-end" required>
+                    {t("trainingEnds")}
+                  </Label>
+                  <Input id="class-end" className="mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="class-from" required>
+                  {t("subsidiesFrom")}
+                </Label>
+                <Input id="class-from" className="mt-1" type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} required />
+              </div>
+              <div>
+                <Label htmlFor="class-until" required>
+                  {t("subsidiesTo")}
+                </Label>
+                <Input id="class-until" className="mt-1" type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={skipPublic} onCheckedChange={(checked) => setSkipPublic(checked === true)} />
+                {t("trainingSkipPublic")}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={skipSchool} onCheckedChange={(checked) => setSkipSchool(checked === true)} />
+                {t("trainingSkipSchool")}
+              </label>
+              <label className="flex items-center gap-2 text-sm md:col-span-2">
+                <Checkbox checked={countsUnder16} onCheckedChange={(checked) => setCountsUnder16(checked === true)} />
+                <span>
+                  {t("trainingCountsUnder16")}
+                  <span className="mt-0.5 block text-xs text-muted">{t("trainingCountsUnder16Hint")}</span>
+                </span>
+              </label>
+              <div className="md:col-span-2">
+                <Label htmlFor="class-place">{t("trainingPlace")}</Label>
+                <Input id="class-place" className="mt-1" value={place} onChange={(event) => setPlace(event.target.value)} placeholder={t("trainingPlaceHint")} />
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-sm font-medium">{t("trainingUsualCoaches")}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {coaches.map((coach) => {
+                    const on = coachIds.includes(coach.user_id);
+                    return (
+                      <button
+                        key={coach.user_id}
+                        type="button"
+                        onClick={() => setCoachIds((current) => (on ? current.filter((id) => id !== coach.user_id) : [...current, coach.user_id]))}
+                        className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
+                      >
+                        {personName(coach)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-sm font-medium">{t("trainingRegulars")}</p>
+                <p className="mt-1 text-xs text-muted">{t("trainingRegularsHint")}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {regularIds.map((id) => {
+                    const member = memberById.get(id);
+                    if (!member) return null;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setRegularIds((current) => current.filter((item) => item !== id))}
+                        className="rounded-[var(--radius-form)] border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground"
+                      >
+                        {personName(member)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <StudentMultiPicker
+                  options={picksExcept(regularIds)}
+                  showAgeFilter
+                  onAdd={(ids) => setRegularIds((current) => Array.from(new Set([...current, ...ids])))}
+                />
+              </div>
+            </form>
+          </SidePanel>
         </div>
       )}
     </ClubAdminLayout>

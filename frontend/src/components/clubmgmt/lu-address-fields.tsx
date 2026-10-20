@@ -5,13 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PopoverSelect } from "@/components/ui/popover-select";
 import { lookupLuAddress } from "@/lib/clubmgmt-api";
 import {
   ADDRESS_COUNTRIES,
@@ -86,23 +80,16 @@ export function LuAddressFields({ value, onChange }: Props) {
     <div className="grid gap-3 md:grid-cols-2">
       <div className="md:col-span-2">
         <Label>{t("country")}</Label>
-        <div className="mt-1">
-          <Select value={country} onValueChange={setCountry} modal={false}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("country")} />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {countryOptions.map((name) => {
-                const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
-                return (
-                  <SelectItem key={name} value={name}>
-                    {code ? nationalityLabel(code, locale) : name}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
+        <PopoverSelect
+          className="mt-1 w-full"
+          value={country}
+          onValueChange={setCountry}
+          ariaLabel={t("country")}
+          options={countryOptions.map((name) => {
+            const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
+            return { value: name, label: code ? nationalityLabel(code, locale) : name };
+          })}
+        />
       </div>
       <div>
         <Label>{t("postalCode")}</Label>

@@ -1,28 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { useClubSelection } from "@/components/club-selection-provider";
-import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
-import { MemberLayout } from "@/components/member/member-layout";
+import { EventReminderPanel } from "@/components/events/event-reminder-panel";
+import { notifyCalendarAttention } from "@/components/events/use-calendar-attention";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
-import { EventReminderPanel } from "@/components/events/event-reminder-panel";
-import { notifyCalendarAttention } from "@/components/events/use-calendar-attention";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
 import { getClubs } from "@/lib/club-admin-api";
 import {
   createEvent,
-  deleteEvent,
   getEvent,
   updateEvent,
   type CalendarEvent,
@@ -32,13 +28,7 @@ import {
 
 type FormVariant = "ltf" | "club" | "member";
 
-type EventFormPageProps = {
-  variant: FormVariant;
-  eventId?: number;
-};
-
-const selectClass =
-  "block h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm";
+const FORM_ID = "calendar-event-form";
 
 const schema = z
   .object({
@@ -65,6 +55,19 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+const emptyValues: FormValues = {
+  title: "",
+  description: "",
+  venue_name: "",
+  venue_address: "",
+  starts_local: "",
+  ends_local: "",
+  all_day: false,
+  kind: "calendar",
+  visibility: "public",
+  audience_clubs: [],
+};
+
 function toLocalValue(iso: string, allDay: boolean): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -84,36 +87,31 @@ function fromLocalValue(value: string, allDay: boolean, end: boolean): string {
   return new Date(value).toISOString();
 }
 
-export function EventFormPage({ variant, eventId }: EventFormPageProps) {
+export function EventFormPanel({
+  open,
+  variant,
+  eventId,
+  onClose,
+  onSaved,
+  onRequestDelete,
+}: {
+  open: boolean;
+  variant: FormVariant;
+  eventId?: number;
+  onClose: () => void;
+  onSaved: () => void;
+  onRequestDelete?: (title: string) => void;
+}) {
   const t = useTranslations("Events");
-  const locale = useLocale();
-  const router = useRouter();
   const { selectedClubId } = useClubSelection();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(variant !== "member");
   const [clubs, setClubs] = useState<Array<{ id: number; name: string }>>([]);
   const [loadedEvent, setLoadedEvent] = useState<CalendarEvent | null>(null);
-  const listHref =
-    variant === "ltf"
-      ? `/${locale}/dashboard/ltf/calendar`
-      : variant === "club"
-        ? `/${locale}/dashboard/club/calendar`
-        : `/${locale}/dashboard/member/calendar`;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      title: "",
-      description: "",
-      venue_name: "",
-      venue_address: "",
-      starts_local: "",
-      ends_local: "",
-      all_day: false,
-      kind: "calendar",
-      visibility: "public",
-      audience_clubs: [],
-    },
+    defaultValues: emptyValues,
   });
   const allDay = form.watch("all_day");
   const visibility = form.watch("visibility");
@@ -137,7 +135,14 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
   }, [variant]);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!open) return;
+    if (!eventId) {
+      setLoadedEvent(null);
+      setCanEdit(variant !== "member");
+      setErrorMessage(null);
+      form.reset(emptyValues);
+      return;
+    }
     let cancelled = false;
     getEvent(eventId)
       .then((event) => {
@@ -166,7 +171,7 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [eventId, form, t, variant]);
+  }, [eventId, form, open, t, variant]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setErrorMessage(null);
@@ -194,22 +199,11 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
       } else {
         await createEvent(payload);
       }
-      router.push(listHref);
+      onSaved();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("calendarSaveError"));
     }
   });
-
-  const onDelete = async () => {
-    if (!eventId) return;
-    setErrorMessage(null);
-    try {
-      await deleteEvent(eventId);
-      router.push(listHref);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("calendarSaveError"));
-    }
-  };
 
   const readOnly = !canEdit;
   const title = eventId ? t("calendarEditTitle") : t("calendarNewTitle");
@@ -218,184 +212,186 @@ export function EventFormPage({ variant, eventId }: EventFormPageProps) {
       ? (["public", "internal", "private", "shared", "presidents"] as const)
       : (["public", "internal", "private", "shared"] as const);
 
-  const body = (
-    <>
-      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-      {variant === "club" && eventId && loadedEvent ? (
-        <EventReminderPanel
-          eventId={eventId}
-          startsAt={loadedEvent.starts_at}
-          endsAt={loadedEvent.ends_at}
-          initial={loadedEvent.reminder}
-        />
-      ) : null}
-      <FormPanel>
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div>
-            <Label htmlFor="title" required>{t("calendarFieldTitle")}</Label>
-            <Input id="title" className="mt-1" disabled={readOnly} {...form.register("title")} />
-          </div>
-          <div>
-            <Label htmlFor="description">{t("calendarFieldDescription")}</Label>
-            <textarea
-              id="description"
-              disabled={readOnly}
-              className="mt-1 min-h-28 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm"
-              {...form.register("description")}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="all_day"
-              checked={allDay}
-              disabled={readOnly}
-              onCheckedChange={(checked) => form.setValue("all_day", Boolean(checked))}
-            />
-            <Label htmlFor="all_day">{t("calendarAllDay")}</Label>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="starts_local" required>{t("calendarFieldStart")}</Label>
-              <Input
-                id="starts_local"
-                type={allDay ? "date" : "datetime-local"}
-                className="mt-1"
-                disabled={readOnly}
-                {...form.register("starts_local")}
-              />
-            </div>
-            <div>
-              <Label htmlFor="ends_local" required>{t("calendarFieldEnd")}</Label>
-              <Input
-                id="ends_local"
-                type={allDay ? "date" : "datetime-local"}
-                className="mt-1"
-                disabled={readOnly}
-                {...form.register("ends_local")}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="venue_name">{t("calendarFieldVenue")}</Label>
-            <Input id="venue_name" className="mt-1" disabled={readOnly} {...form.register("venue_name")} />
-          </div>
-          <div>
-            <Label htmlFor="venue_address">{t("calendarFieldAddress")}</Label>
-            <Input id="venue_address" className="mt-1" disabled={readOnly} {...form.register("venue_address")} />
-          </div>
-          <div className="flex max-w-sm flex-col gap-2">
-            <Label htmlFor="kind">{t("calendarFieldKind")}</Label>
-            <select id="kind" className={selectClass} disabled={readOnly} {...form.register("kind")}>
-              {(["calendar", "kyorugi", "poomsae"] as const).map((value) => (
-                <option key={value} value={value}>
-                  {t(`calendarKind_${value}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          {variant !== "member" ? (
-            <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium leading-none">{t("calendarFieldVisibility")}</legend>
-              <p className="text-sm text-muted">{t("calendarVisibilityIntro")}</p>
-              {visibilityOptions.map((value) => {
-                const checked = visibility === value;
-                const scope = variant === "club" ? "club" : "federation";
-                return (
-                  <label
-                    key={value}
-                    className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-form)] border p-3 ${
-                      checked ? "border-primary bg-[var(--accent-soft)]" : "border-[var(--border)]"
-                    } ${readOnly ? "pointer-events-none opacity-70" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value={value}
-                      checked={checked}
-                      disabled={readOnly}
-                      onChange={() => form.setValue("visibility", value)}
-                      className="mt-1 size-4 accent-[var(--primary)]"
-                    />
-                    <span>
-                      <span className="block font-medium text-foreground">
-                        {t(`calendarVisibility_${value}`)}
-                      </span>
-                      <span className="mt-0.5 block text-sm text-muted">
-                        {t(`calendarVisibilityDetail_${value}_${scope}`)}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-              {visibility === "presidents" && variant === "ltf" ? (
-                <fieldset className="grid gap-2 pt-2">
-                  <legend className="text-sm font-medium leading-none">{t("calendarAudienceClubs")}</legend>
-                  <p className="text-sm text-muted">{t("calendarAudienceClubsHint")}</p>
-                  {clubs.map((club) => {
-                    const checked = audienceClubs.includes(club.id);
-                    const inputId = `audience-club-${club.id}`;
-                    return (
-                      <div key={club.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={inputId}
-                          checked={checked}
-                          disabled={readOnly}
-                          onCheckedChange={(next) => {
-                            const current = form.getValues("audience_clubs");
-                            const without = current.filter((id) => id !== club.id);
-                            form.setValue("audience_clubs", next ? [...without, club.id] : without, {
-                              shouldValidate: true,
-                            });
-                          }}
-                        />
-                        <Label htmlFor={inputId}>{club.name}</Label>
-                      </div>
-                    );
-                  })}
-                  {form.formState.errors.audience_clubs ? (
-                    <p className="text-sm text-destructive">{t("calendarNeedPresidents")}</p>
-                  ) : null}
-                </fieldset>
-              ) : null}
-            </fieldset>
-          ) : null}
-          <div className="flex flex-wrap gap-3">
-            {readOnly ? null : (
-              <Button type="submit" variant="primary" disabled={form.formState.isSubmitting}>
-                {t("calendarSave")}
-              </Button>
-            )}
-            {readOnly || !eventId ? null : (
-              <Button type="button" variant="destructive" onClick={() => void onDelete()}>
+  return (
+    <SidePanel
+      open={open}
+      wide
+      title={title}
+      description={t("calendarFormSubtitle")}
+      closeLabel={t("calendarBack")}
+      onClose={onClose}
+      footer={
+        readOnly ? null : (
+          <>
+            <Button type="button" variant="outline" onClick={onClose} disabled={form.formState.isSubmitting}>
+              {t("calendarBack")}
+            </Button>
+            {eventId && onRequestDelete ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={form.formState.isSubmitting}
+                onClick={() => onRequestDelete(form.getValues("title"))}
+              >
                 {t("calendarDelete")}
               </Button>
-            )}
-            <Button type="button" variant="outline" asChild>
-              <Link href={listHref}>{t("calendarBack")}</Link>
+            ) : null}
+            <Button type="submit" form={FORM_ID} variant="primary" disabled={form.formState.isSubmitting}>
+              {t("calendarSave")}
             </Button>
+          </>
+        )
+      }
+    >
+      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+      {variant === "club" && eventId && loadedEvent ? (
+        <div className="mb-4">
+          <EventReminderPanel
+            eventId={eventId}
+            startsAt={loadedEvent.starts_at}
+            endsAt={loadedEvent.ends_at}
+            initial={loadedEvent.reminder}
+          />
+        </div>
+      ) : null}
+      <form id={FORM_ID} onSubmit={onSubmit} className="grid gap-4">
+        <div>
+          <Label htmlFor="calendar-title" required>
+            {t("calendarFieldTitle")}
+          </Label>
+          <Input id="calendar-title" className="mt-1" disabled={readOnly} {...form.register("title")} />
+        </div>
+        <div>
+          <Label htmlFor="calendar-description">{t("calendarFieldDescription")}</Label>
+          <textarea
+            id="calendar-description"
+            disabled={readOnly}
+            className="mt-1 min-h-28 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm"
+            {...form.register("description")}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="calendar-all-day"
+            checked={allDay}
+            disabled={readOnly}
+            onCheckedChange={(checked) => form.setValue("all_day", Boolean(checked))}
+          />
+          <Label htmlFor="calendar-all-day">{t("calendarAllDay")}</Label>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label htmlFor="calendar-starts" required>
+              {t("calendarFieldStart")}
+            </Label>
+            <Input
+              id="calendar-starts"
+              type={allDay ? "date" : "datetime-local"}
+              className="mt-1"
+              disabled={readOnly}
+              {...form.register("starts_local")}
+            />
           </div>
-        </form>
-      </FormPanel>
-    </>
-  );
-
-  if (variant === "ltf") {
-    return (
-      <LtfAdminLayout title={title} subtitle={t("calendarFormSubtitle")}>
-        {body}
-      </LtfAdminLayout>
-    );
-  }
-  if (variant === "club") {
-    return (
-      <ClubAdminLayout title={title} subtitle={t("calendarFormSubtitle")}>
-        {body}
-      </ClubAdminLayout>
-    );
-  }
-  return (
-    <MemberLayout title={title} subtitle={t("calendarFormSubtitle")}>
-      {body}
-    </MemberLayout>
+          <div>
+            <Label htmlFor="calendar-ends" required>
+              {t("calendarFieldEnd")}
+            </Label>
+            <Input
+              id="calendar-ends"
+              type={allDay ? "date" : "datetime-local"}
+              className="mt-1"
+              disabled={readOnly}
+              {...form.register("ends_local")}
+            />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="calendar-venue">{t("calendarFieldVenue")}</Label>
+          <Input id="calendar-venue" className="mt-1" disabled={readOnly} {...form.register("venue_name")} />
+        </div>
+        <div>
+          <Label htmlFor="calendar-address">{t("calendarFieldAddress")}</Label>
+          <Input id="calendar-address" className="mt-1" disabled={readOnly} {...form.register("venue_address")} />
+        </div>
+        <div>
+          <Label>{t("calendarFieldKind")}</Label>
+          <PopoverSelect
+            className="mt-1 w-full"
+            value={form.watch("kind")}
+            onValueChange={(value) => form.setValue("kind", value as FormValues["kind"])}
+            ariaLabel={t("calendarFieldKind")}
+            disabled={readOnly}
+            options={(["calendar", "kyorugi", "poomsae"] as const).map((value) => ({
+              value,
+              label: t(`calendarKind_${value}`),
+            }))}
+          />
+        </div>
+        {variant !== "member" ? (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium leading-none">{t("calendarFieldVisibility")}</legend>
+            <p className="text-sm text-muted">{t("calendarVisibilityIntro")}</p>
+            {visibilityOptions.map((value) => {
+              const checked = visibility === value;
+              const scope = variant === "club" ? "club" : "federation";
+              return (
+                <label
+                  key={value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-form)] border p-3 ${
+                    checked ? "border-primary bg-[var(--accent-soft)]" : "border-[var(--border)]"
+                  } ${readOnly ? "pointer-events-none opacity-70" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value={value}
+                    checked={checked}
+                    disabled={readOnly}
+                    onChange={() => form.setValue("visibility", value)}
+                    className="mt-1 size-4 accent-[var(--primary)]"
+                  />
+                  <span>
+                    <span className="block font-medium text-foreground">{t(`calendarVisibility_${value}`)}</span>
+                    <span className="mt-0.5 block text-sm text-muted">
+                      {t(`calendarVisibilityDetail_${value}_${scope}`)}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+            {visibility === "presidents" && variant === "ltf" ? (
+              <fieldset className="grid gap-2 pt-2">
+                <legend className="text-sm font-medium leading-none">{t("calendarAudienceClubs")}</legend>
+                <p className="text-sm text-muted">{t("calendarAudienceClubsHint")}</p>
+                {clubs.map((club) => {
+                  const checked = audienceClubs.includes(club.id);
+                  const inputId = `audience-club-${club.id}`;
+                  return (
+                    <div key={club.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={inputId}
+                        checked={checked}
+                        disabled={readOnly}
+                        onCheckedChange={(next) => {
+                          const current = form.getValues("audience_clubs");
+                          const without = current.filter((id) => id !== club.id);
+                          form.setValue("audience_clubs", next ? [...without, club.id] : without, {
+                            shouldValidate: true,
+                          });
+                        }}
+                      />
+                      <Label htmlFor={inputId}>{club.name}</Label>
+                    </div>
+                  );
+                })}
+                {form.formState.errors.audience_clubs ? (
+                  <p className="text-sm text-destructive">{t("calendarNeedPresidents")}</p>
+                ) : null}
+              </fieldset>
+            ) : null}
+          </fieldset>
+        ) : null}
+      </form>
+    </SidePanel>
   );
 }
