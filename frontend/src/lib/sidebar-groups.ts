@@ -3,6 +3,7 @@ export const LTF_MANAGEMENT_GROUP_ID = "ltfManagement";
 export type CommonNavGroupKey =
   | "navGroupClub"
   | "navGroupClubManagement"
+  | "navGroupCompetition"
   | "navGroupLtfManagement"
   | "navGroupCalendar"
   | "navGroupPreview";
@@ -12,7 +13,8 @@ export type SidebarGroup = {
   labelKey: CommonNavGroupKey;
 };
 
-const CLUB_MANAGEMENT_ITEM_IDS = new Set(["finance", "families", "shop", "training", "promotion", "teams"]);
+const CLUB_MANAGEMENT_ITEM_IDS = new Set(["finance", "families", "shop", "training", "promotion"]);
+const COMPETITION_ITEM_IDS = new Set(["teams"]);
 
 export function ltfSidebarGroup(itemId: string): SidebarGroup {
   if (itemId === "calendar") {
@@ -34,6 +36,9 @@ export function clubSidebarGroup(itemId: string): SidebarGroup | undefined {
   }
   if (CLUB_MANAGEMENT_ITEM_IDS.has(itemId)) {
     return { id: "clubManagement", labelKey: "navGroupClubManagement" };
+  }
+  if (COMPETITION_ITEM_IDS.has(itemId)) {
+    return { id: "competition", labelKey: "navGroupCompetition" };
   }
   if (itemId === "calendar") {
     return { id: "calendar", labelKey: "navGroupCalendar" };

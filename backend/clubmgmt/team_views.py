@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from licenses.models import License
 from members.models import Member
 
+from .access import CompetitionModulePermission
 from .body_measurements import (
     BodyMeasurement,
     annotate_latest_measurements,
@@ -295,7 +296,8 @@ def _with_counts(queryset):
 
 
 class ClubTeamListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def get(self, request):
         clubs = _require_clubs(request.user)
@@ -340,7 +342,8 @@ class ClubTeamListView(APIView):
 
 
 class ClubTeamDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def get(self, request, team_id):
         team = _team_for(request.user, team_id)
@@ -384,7 +387,8 @@ class ClubTeamDetailView(APIView):
 
 
 class ClubTeamMemberView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
@@ -422,7 +426,8 @@ class ClubTeamMemberView(APIView):
 
 
 class ClubTeamMemberBulkView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
@@ -518,7 +523,8 @@ def _write_group_members(group: ClubTeamGroup, ordered: list[Member]) -> None:
 
 
 class ClubTeamWeighInView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
@@ -559,7 +565,8 @@ class ClubTeamWeighInView(APIView):
 
 
 class ClubTeamGroupView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def post(self, request, team_id):
         team = _team_for(request.user, team_id)
@@ -599,7 +606,8 @@ class ClubTeamGroupView(APIView):
 
 
 class ClubTeamSheetView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def get(self, request, team_id, export_format):
         team = _team_for(request.user, team_id)

@@ -16,6 +16,7 @@ const FINANCE_KEYS = [
   "moduleFeeMinimumHint",
   "moduleFeeBillingHint",
   "moduleClubManagement",
+  "moduleCompetition",
   "moduleEventCalendar",
 ] as const;
 
@@ -29,6 +30,7 @@ const CLUB_KEYS = [
   "modulePricesMinimumLine",
   "modulePricesFlat",
   "moduleClubManagement",
+  "moduleCompetition",
   "moduleEventCalendar",
 ] as const;
 

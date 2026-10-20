@@ -20,6 +20,7 @@ class ModuleSpec:
 PREVIEW_MODULE_ID = "preview"
 EVENT_CALENDAR_MODULE_ID = "event_calendar"
 CLUB_MANAGEMENT_MODULE_ID = "club_management"
+COMPETITION_MODULE_ID = "competition"
 INVENTORY_FEDERATION_MODULE_ID = "inventory_federation"
 # Historical product id. Club shop ships inside club_management; never mint this.
 INVENTORY_CLUB_LEGACY_ID = "inventory_club"
@@ -38,6 +39,13 @@ MODULE_SPECS: tuple[ModuleSpec, ...] = (
         label="Club management",
         scope="club",
         description="Club membership records, families, dues, committees, the in-club shop, and training.",
+        shipped=True,
+    ),
+    ModuleSpec(
+        id=COMPETITION_MODULE_ID,
+        label="Competition",
+        scope="club",
+        description="Club teams, roster, categories, weigh-in, and height and weight.",
         shipped=True,
     ),
     ModuleSpec(

@@ -915,7 +915,7 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
         from .module_fees import BILLABLE_MODULE_IDS
 
         if value not in BILLABLE_MODULE_IDS:
-            raise serializers.ValidationError("Choose Club management or Event calendar.")
+            raise serializers.ValidationError("Choose a billable module.")
         return value
 
     def validate_initial_minimum_amount(self, value):

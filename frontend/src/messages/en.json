@@ -93,6 +93,7 @@
     "sidebarExpand": "Expand sidebar",
     "navGroupClub": "Club",
     "navGroupClubManagement": "Club management",
+    "navGroupCompetition": "Competition",
     "navGroupLtfManagement": "LTF management",
     "navGroupCalendar": "Event calendar",
     "navGroupPreview": "Preview",
@@ -1424,6 +1425,7 @@
     "modulePricesColumnMinimum": "Minimum fee",
     "modulePricesColumnEstimate": "Estimated yearly cost",
     "moduleClubManagement": "Club management",
+    "moduleCompetition": "Competition",
     "moduleEventCalendar": "Event calendar",
     "nationalTeamBlockTitle": "National team",
     "nationalTeamBlockHint": "Read only. Coach names are shown. Private staff details are not.",
@@ -2207,6 +2209,7 @@
     "moduleFeeInactive": "Switched off",
     "moduleFeeClose": "Close",
     "moduleClubManagement": "Club management",
+    "moduleCompetition": "Competition",
     "moduleEventCalendar": "Event calendar",
     "clubFeeSwitchedOff": "Club fee switched off. Invoices already sent stay as they are.",
     "navNationalTeam": "National team"

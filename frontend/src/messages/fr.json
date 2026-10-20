@@ -5,7 +5,8 @@
     "themeLabel": "Thème",
     "themeLight": "Clair",
     "themeDark": "Sombre",
-    "themeSystem": "Système"
+    "themeSystem": "Système",
+    "navGroupCompetition": "Compétition"
   },
   "ClubAdmin": {
     "memberCommitteeTab": "Comité",
@@ -27,6 +28,7 @@
     "modulePricesColumnMinimum": "Frais minimum",
     "modulePricesColumnEstimate": "Coût annuel estimé",
     "moduleClubManagement": "Gestion du club",
+    "moduleCompetition": "Compétition",
     "moduleEventCalendar": "Calendrier des événements",
     "nationalTeamBlockTitle": "Équipe nationale",
     "nationalTeamBlockHint": "Lecture seule. Les noms des entraîneurs sont visibles. Aucune donnée privée du staff.",
@@ -532,6 +534,7 @@
     "moduleFeeInactive": "Désactivé",
     "moduleFeeClose": "Fermer",
     "moduleClubManagement": "Gestion du club",
+    "moduleCompetition": "Compétition",
     "moduleEventCalendar": "Calendrier des événements",
     "clubFeeSwitchedOff": "Frais de club désactivé. Les factures déjà envoyées restent.",
     "navNationalTeam": "Équipe nationale"

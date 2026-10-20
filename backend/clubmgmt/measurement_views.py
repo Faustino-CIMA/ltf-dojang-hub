@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from members.models import Member
 
+from .access import CompetitionModulePermission
 from .body_measurements import (
     BodyMeasurement,
     apply_measurement_fields,
@@ -36,7 +37,8 @@ def _measurement_payload(row: BodyMeasurement) -> dict:
 
 
 class BodyMeasurementListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def get(self, request):
         member = _member_for_write(request, request.query_params.get("member"))
@@ -57,7 +59,8 @@ class BodyMeasurementListView(APIView):
 
 
 class BodyMeasurementDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
 
     def _row(self, request, measurement_id) -> BodyMeasurement:
         row = get_object_or_404(

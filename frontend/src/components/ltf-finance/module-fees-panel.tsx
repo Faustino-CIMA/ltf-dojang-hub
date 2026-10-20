@@ -18,7 +18,7 @@ import { formatDisplayDate } from "@/lib/date-display";
 import type { ClubFeePrice, ClubFeeType, ModuleFeePricingType } from "@/lib/ltf-finance-api";
 import type { TableSort } from "@/lib/table-sort";
 
-export const BILLABLE_MODULE_IDS = ["club_management", "event_calendar"] as const;
+export const BILLABLE_MODULE_IDS = ["club_management", "competition", "event_calendar"] as const;
 
 type ModuleFeeDraft = {
   moduleId: string;
@@ -38,8 +38,11 @@ const emptyDraft = (): ModuleFeeDraft => ({
   isActive: true,
 });
 
-export function moduleFeeLabelKey(moduleId: string | null | undefined): "moduleClubManagement" | "moduleEventCalendar" | null {
+export function moduleFeeLabelKey(
+  moduleId: string | null | undefined,
+): "moduleClubManagement" | "moduleCompetition" | "moduleEventCalendar" | null {
   if (moduleId === "club_management") return "moduleClubManagement";
+  if (moduleId === "competition") return "moduleCompetition";
   if (moduleId === "event_calendar") return "moduleEventCalendar";
   return null;
 }

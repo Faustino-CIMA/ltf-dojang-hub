@@ -10,7 +10,7 @@ from clubs.models import Club
 from members.models import Member
 from modules.codes import build_payload, sign_payload
 from modules.entitlements import install_id_str, redeem_product_code, set_club_assignment
-from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+from modules.registry import COMPETITION_MODULE_ID
 
 from .body_measurements import kyorugi_category
 
@@ -57,10 +57,10 @@ class BodyMeasurementApiTests(TestCase):
         )
 
     def _unlock(self, *clubs):
-        token = sign_payload(build_payload(module_ids=[CLUB_MANAGEMENT_MODULE_ID], install_id=install_id_str()))
+        token = sign_payload(build_payload(module_ids=[COMPETITION_MODULE_ID], install_id=install_id_str()))
         redeem_product_code(token)
         for club in clubs or (self.club, self.other):
-            set_club_assignment(club=club, module_id=CLUB_MANAGEMENT_MODULE_ID, enabled=True, user=self.ltf_admin)
+            set_club_assignment(club=club, module_id=COMPETITION_MODULE_ID, enabled=True, user=self.ltf_admin)
 
     def _auth(self, user):
         self.client.force_authenticate(user=user)

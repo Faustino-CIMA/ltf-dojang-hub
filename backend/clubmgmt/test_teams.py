@@ -11,7 +11,7 @@ from licenses.models import License, LicenseType
 from members.models import Member
 from modules.codes import build_payload, sign_payload
 from modules.entitlements import install_id_str, redeem_product_code, set_club_assignment
-from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+from modules.registry import COMPETITION_MODULE_ID
 
 from .body_measurements import BodyMeasurement, kyorugi_margin, poomsae_division
 from .teams import WeightCategoryBand
@@ -41,10 +41,10 @@ class ClubTeamApiTests(TestCase):
         self.lea.save(update_fields=["user"])
 
     def _unlock(self, *clubs):
-        token = sign_payload(build_payload(module_ids=[CLUB_MANAGEMENT_MODULE_ID], install_id=install_id_str()))
+        token = sign_payload(build_payload(module_ids=[COMPETITION_MODULE_ID], install_id=install_id_str()))
         redeem_product_code(token)
         for club in clubs or (self.club, self.other):
-            set_club_assignment(club=club, module_id=CLUB_MANAGEMENT_MODULE_ID, enabled=True, user=self.ltf_admin)
+            set_club_assignment(club=club, module_id=COMPETITION_MODULE_ID, enabled=True, user=self.ltf_admin)
 
     def _auth(self, user):
         self.client.force_authenticate(user=user)
@@ -133,6 +133,63 @@ class ClubTeamApiTests(TestCase):
         roster = self.client.get("/api/members/")
         self.assertEqual(roster.status_code, 200, roster.data)
         self.assertNotIn("teams", roster.data[0])
+
+    def test_switching_competition_off_hides_teams_and_measurements(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.lea.id}, format="json")
+        measured = self.client.post(
+            "/api/club-management/measurements/",
+            {"member": self.lea.id, "measured_on": "2026-04-01", "weight_kg": "61.5", "height_cm": 168},
+            format="json",
+        )
+        self.assertEqual(measured.status_code, 201, measured.data)
+        visible = self.client.get(f"/api/members/?club_id={self.club.id}")
+        lea = next(row for row in visible.data if row["id"] == self.lea.id)
+        self.assertEqual(lea["teams"][0]["name"], "Cadets")
+        self.assertEqual(lea["latest_weight_kg"], "61.5")
+        self.assertEqual(lea["latest_height_cm"], 168)
+
+        set_club_assignment(club=self.club, module_id=COMPETITION_MODULE_ID, enabled=False, user=self.ltf_admin)
+        hidden_teams = self.client.get(f"/api/club-management/teams/?club={self.club.id}")
+        self.assertEqual(hidden_teams.status_code, 403, hidden_teams.data)
+        hidden_measurements = self.client.get(f"/api/club-management/measurements/?member={self.lea.id}")
+        self.assertEqual(hidden_measurements.status_code, 403, hidden_measurements.data)
+        hidden_rows = self.client.get(f"/api/members/?club_id={self.club.id}")
+        hidden = next(row for row in hidden_rows.data if row["id"] == self.lea.id)
+        self.assertNotIn("teams", hidden)
+        self.assertNotIn("latest_weight_kg", hidden)
+        self.assertNotIn("latest_height_cm", hidden)
+
+        set_club_assignment(club=self.club, module_id=COMPETITION_MODULE_ID, enabled=True, user=self.ltf_admin)
+        restored = self.client.get(f"/api/club-management/teams/?club={self.club.id}")
+        self.assertEqual(restored.status_code, 200, restored.data)
+        self.assertEqual(restored.data[0]["name"], "Cadets")
+        again_rows = self.client.get(f"/api/members/?club_id={self.club.id}")
+        again = next(row for row in again_rows.data if row["id"] == self.lea.id)
+        self.assertEqual(again["teams"][0]["name"], "Cadets")
+        self.assertEqual(again["latest_weight_kg"], "61.5")
+        self.assertEqual(again["latest_height_cm"], 168)
+
+    def test_club_management_does_not_open_teams(self):
+        from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+
+        token = sign_payload(build_payload(module_ids=[CLUB_MANAGEMENT_MODULE_ID], install_id=install_id_str()))
+        redeem_product_code(token)
+        set_club_assignment(club=self.club, module_id=CLUB_MANAGEMENT_MODULE_ID, enabled=True, user=self.ltf_admin)
+        self._auth(self.club_admin)
+        refused = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 403, refused.data)
 
     def test_member_list_filters_a_team_and_keeps_latest_measurements(self):
         self._unlock()

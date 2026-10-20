@@ -36,6 +36,7 @@ import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } fr
 import { clubSidebarGroup } from "@/lib/sidebar-groups";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
+  COMPETITION_MODULE_ID,
   EVENT_CALENDAR_MODULE_ID,
   getModuleStatus,
   isClubModuleAssigned,
@@ -204,8 +205,9 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
 const CLUB_GROUP_RANK: Record<string, number> = {
   club: 0,
   clubManagement: 1,
-  calendar: 2,
-  preview: 3,
+  competition: 2,
+  calendar: 3,
+  preview: 4,
 };
 
 function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps) {
@@ -242,6 +244,7 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
   const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
   const calendarAssigned = isClubModuleAssigned(modules, EVENT_CALENDAR_MODULE_ID, selectedClubId);
   const clubMgmtAssigned = isClubModuleAssigned(modules, CLUB_MANAGEMENT_MODULE_ID, selectedClubId);
+  const competitionAssigned = isClubModuleAssigned(modules, COMPETITION_MODULE_ID, selectedClubId);
   const calendarAttention = useCalendarAttention({
     enabled: calendarAssigned,
     scope: "club",
@@ -255,7 +258,8 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
         if (def.id === "preview") return role === "club_admin" && previewAssigned;
         if (def.id === "calendar") return calendarAssigned;
         if (def.id === "families" || def.id === "shop") return role === "club_admin" && clubMgmtAssigned;
-        if (def.id === "training" || def.id === "promotion" || def.id === "teams") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
+        if (def.id === "training" || def.id === "promotion") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
+        if (def.id === "teams") return (role === "club_admin" || role === "coach") && competitionAssigned;
         if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
         if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
         return true;
@@ -293,7 +297,7 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
         return leftRank - rightRank || left.index - right.index;
       })
       .map((entry) => entry.item),
-    [calendarAssigned, calendarAttention, clubMgmtAssigned, common, locale, previewAssigned, role, t]
+    [calendarAssigned, calendarAttention, clubMgmtAssigned, common, competitionAssigned, locale, previewAssigned, role, t]
   );
 
   const isPrinting =

@@ -42,7 +42,7 @@ import {
 } from "@/lib/club-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
-import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { getClubTeams, type ClubTeam } from "@/lib/club-teams-api";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
@@ -134,7 +134,7 @@ export default function ClubAdminMembersPage() {
   const [statusFilterHydrated, setStatusFilterHydrated] = useState(false);
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
-  const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [competitionOn, setCompetitionOn] = useState(false);
   const [clubTeams, setClubTeams] = useState<ClubTeam[]>([]);
   const [teamFilter, setTeamFilter] = useState<number[]>([]);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
@@ -282,7 +282,7 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
-  const showTeams = clubMgmtOn && (currentRole === "club_admin" || currentRole === "coach");
+  const showTeams = competitionOn && (currentRole === "club_admin" || currentRole === "coach");
 
   useEffect(() => {
     if (!showTeams || selectedClubId == null) {
@@ -307,10 +307,10 @@ export default function ClubAdminMembersPage() {
     let cancelled = false;
     getModuleStatus()
       .then((status) => {
-        if (!cancelled) setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+        if (!cancelled) setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
       })
       .catch(() => {
-        if (!cancelled) setClubMgmtOn(false);
+        if (!cancelled) setCompetitionOn(false);
       });
     return () => {
       cancelled = true;

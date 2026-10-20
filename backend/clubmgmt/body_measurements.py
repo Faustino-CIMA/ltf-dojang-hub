@@ -1,6 +1,6 @@
 """Dated height and weight entries for a club member.
 
-Club admins and coaches of a club with the club-management module record
+Club admins and coaches of a club with the competition module record
 these. The rows stay on the member so a later federation screen can read
 them. That screen is not built yet, and LTF roles cannot read them here.
 """
@@ -18,7 +18,7 @@ from rest_framework.exceptions import ValidationError
 
 from modules.entitlements import _stored_ids_for, is_install_entitled
 from modules.models import ClubModuleAssignment
-from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+from modules.registry import COMPETITION_MODULE_ID
 
 WEIGHT_MIN = Decimal("10")
 WEIGHT_MAX = Decimal("250")
@@ -82,12 +82,12 @@ def measurement_club_ids(user) -> set[int]:
         club_ids.update(user.clubs_trained.values_list("id", flat=True))
     else:
         return set()
-    if not club_ids or not is_install_entitled(CLUB_MANAGEMENT_MODULE_ID):
+    if not club_ids or not is_install_entitled(COMPETITION_MODULE_ID):
         return set()
     return set(
         ClubModuleAssignment.objects.filter(
             club_id__in=club_ids,
-            module_id__in=_stored_ids_for(CLUB_MANAGEMENT_MODULE_ID),
+            module_id__in=_stored_ids_for(COMPETITION_MODULE_ID),
             enabled=True,
         ).values_list("club_id", flat=True)
     )

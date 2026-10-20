@@ -15,6 +15,7 @@ from members.models import Member
 from modules.entitlements import is_club_assigned
 from modules.registry import (
     CLUB_MANAGEMENT_MODULE_ID,
+    COMPETITION_MODULE_ID,
     EVENT_CALENDAR_MODULE_ID,
     get_spec,
 )
@@ -23,6 +24,7 @@ from .models import ClubFeePrice, ClubFeeType, License
 
 BILLABLE_MODULE_IDS: tuple[str, ...] = (
     CLUB_MANAGEMENT_MODULE_ID,
+    COMPETITION_MODULE_ID,
     EVENT_CALENDAR_MODULE_ID,
 )
 VALID_LICENSE_STATUSES = (License.Status.ACTIVE, License.Status.PENDING)
