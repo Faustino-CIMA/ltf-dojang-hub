@@ -1,137 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
-import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import {
-  FormPanel,
-  ActionNotices
-} from "@/components/ui/list-page-chrome";
-import { createFinanceLicenseType } from "@/lib/ltf-finance-api";
-
-export default function LtfFinanceLicenseTypeCreatePage() {
-  const t = useTranslations("LtfFinance");
-  const common = useTranslations("Common");
-  const locale = useLocale();
+export default function RedirectPage() {
   const router = useRouter();
+  const params = useParams();
 
-  const [licenseTypeName, setLicenseTypeName] = useState("");
-  const [initialPriceAmount, setInitialPriceAmount] = useState("");
-  const [initialPriceEffectiveFrom, setInitialPriceEffectiveFrom] = useState("");
-  const [initialPriceIsFree, setInitialPriceIsFree] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useEffect(() => {
+    const locale = typeof params.locale === "string" ? params.locale : "en";
+    const rawId = params.id;
+    const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
+    router.replace(`/${locale}/dashboard/ltf-finance/license-settings?create=1`);
+  }, [params, router]);
 
-  const saveLicenseType = async () => {
-    const trimmedName = licenseTypeName.trim();
-    if (!trimmedName) {
-      setErrorMessage(t("licenseTypeNameRequiredError"));
-      return;
-    }
-
-    const normalizedInitialAmount = initialPriceIsFree ? "0.00" : initialPriceAmount.trim();
-    if (!normalizedInitialAmount) {
-      setErrorMessage(t("initialPriceRequiredError"));
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsSaving(true);
-    try {
-      await createFinanceLicenseType({
-        name: trimmedName,
-        initial_price_amount: normalizedInitialAmount,
-        initial_price_currency: "EUR",
-        initial_price_effective_from: initialPriceEffectiveFrom || undefined,
-      });
-      router.push(`/${locale}/dashboard/ltf-finance/license-settings`);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("licenseTypeSaveError"));
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await saveLicenseType();
-  };
-
-  return (
-    <LtfFinanceLayout title={t("createLicenseType")} subtitle={t("licenseTypeFormSubtitle")}>
-      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-
-      <FormPanel>
-        <form className="space-y-3" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("licenseTypeNameLabel")}</label>
-            <Input
-              placeholder={t("licenseTypeNamePlaceholder")}
-              value={licenseTypeName}
-              onChange={(event) => setLicenseTypeName(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">
-            <p className="text-sm font-medium text-foreground">{t("initialPriceSectionLabel")}</p>
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <Checkbox
-                checked={initialPriceIsFree}
-                onCheckedChange={(checked) => {
-                  const nextValue = checked === true;
-                  setInitialPriceIsFree(nextValue);
-                  if (nextValue) {
-                    setInitialPriceAmount("0.00");
-                  } else {
-                    setInitialPriceAmount("");
-                  }
-                }}
-              />
-              {t("initialPriceFreeLabel")}
-            </label>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("priceAmountLabel")}</label>
-                <Input
-                  value={initialPriceAmount}
-                  onChange={(event) => setInitialPriceAmount(event.target.value)}
-                  placeholder="0.00"
-                  inputMode="decimal"
-                  disabled={initialPriceIsFree}
-                />
-                <p className="text-xs text-muted">{t("initialPriceHint")}</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("priceEffectiveFromLabel")}</label>
-                <Input
-                  type="date"
-                  value={initialPriceEffectiveFrom}
-                  onChange={(event) => setInitialPriceEffectiveFrom(event.target.value)}
-                />
-                <p className="text-xs text-muted">{t("priceEffectiveFromHint")}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button type="submit" variant="primary" disabled={isSaving}>
-              {isSaving ? t("savingAction") : t("createLicenseType")}
-            </Button>
-            <Button asChild type="button" variant="outline">
-              <Link href={`/${locale}/dashboard/ltf-finance/license-settings`}>
-                {common("deleteCancelButton")}
-              </Link>
-            </Button>
-          </div>
-        </form>
-      </FormPanel>
-    </LtfFinanceLayout>
-  );
+  return null;
 }

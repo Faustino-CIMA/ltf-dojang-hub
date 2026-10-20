@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Trash2, X } from "lucide-react";
+import { X } from "lucide-react";
 
+import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/list-page-chrome";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { sortRowsByKey, type TableSort } from "@/lib/table-sort";
 
 export default function LtfAdminClubsPage() {
@@ -44,6 +46,7 @@ export default function LtfAdminClubsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedClubId } = useClubSelection();
@@ -64,6 +67,8 @@ export default function LtfAdminClubsPage() {
   useEffect(() => {
     void loadClubs();
   }, [loadClubs]);
+
+  useConsumeSearchParam("create", () => setCreateOpen(true));
 
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/ltf/clubs`);
@@ -214,7 +219,7 @@ export default function LtfAdminClubsPage() {
                     {
                       key: "create",
                       label: t("createClub"),
-                      onSelect: () => router.push(`/${locale}/dashboard/ltf/clubs/new`),
+                      onSelect: () => setCreateOpen(true),
                     },
                     {
                       key: "import-clubs",
@@ -309,16 +314,18 @@ export default function LtfAdminClubsPage() {
                 key: "actions",
                 header: t("actionsLabel"),
                 render: (club) => (
-                  <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={t("deleteAction")}
-                      onClick={() => handleDelete(club)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div onClick={(event) => event.stopPropagation()}>
+                    <RowActionMenu
+                      label={common("rowActionsLabel")}
+                      actions={[
+                        {
+                          key: "delete",
+                          label: t("deleteAction"),
+                          destructive: true,
+                          onSelect: () => handleDelete(club),
+                        },
+                      ]}
+                    />
                   </div>
                 ),
               },
@@ -330,6 +337,16 @@ export default function LtfAdminClubsPage() {
           />
         )}
       </div>
+
+      <ClubFormPanel
+        open={createOpen}
+        mode="create"
+        onClose={() => setCreateOpen(false)}
+        onSaved={async () => {
+          setCreateOpen(false);
+          await loadClubs();
+        }}
+      />
 
       <DeleteConfirmModal
         isOpen={isDeleteOpen}

@@ -12,7 +12,8 @@ import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
 import { displayClubName } from "@/lib/club-label";
 import { GradeHistoryEntry, LicenseHistoryEvent } from "@/lib/ltf-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
@@ -282,6 +283,7 @@ function GradeInlineForm({
   onIssuedByOtherChange,
   onSubmit,
   onCancel,
+  open,
 }: {
   editingGradeId: number | null;
   gradeFormTitle?: string;
@@ -307,60 +309,72 @@ function GradeInlineForm({
   onIssuedByOtherChange: (value: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  open: boolean;
 }) {
+  const title = editingGradeId !== null ? editGradeFormTitle ?? gradeFormTitle ?? "" : gradeFormTitle ?? "";
   return (
-    <div className="rounded-[var(--radius-form)] border border-border bg-secondary/20 p-4">
-      <p className="text-sm font-semibold text-foreground">
-        {editingGradeId !== null ? editGradeFormTitle ?? gradeFormTitle : gradeFormTitle}
-      </p>
-      <div className="mt-3 grid gap-4 md:grid-cols-2">
+    <SidePanel
+      open={open}
+      wide
+      title={title}
+      closeLabel={cancelLabel ?? "Close"}
+      onClose={onCancel}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            {cancelLabel}
+          </Button>
+          <Button type="button" disabled={isSubmitting} onClick={onSubmit}>
+            {promoteSubmitLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="grade-promotion-date">{promoteDateLabel}</Label>
           <Input
             id="grade-promotion-date"
             type="date"
-            className="rounded-[var(--radius-form)]"
             value={promotionDate}
             onChange={(event) => onPromotionDateChange(event.target.value)}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="grade-to-rank" required>{promoteToGradeLabel}</Label>
-          <Select value={toGrade || undefined} onValueChange={onToGradeChange}>
-            <SelectTrigger id="grade-to-rank" className="rounded-[var(--radius-form)]">
-              <SelectValue placeholder={promoteToGradeLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              {gradeOptions.map((grade) => (
-                <SelectItem key={grade} value={grade}>
-                  {grade}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="grade-to-rank" required>
+            {promoteToGradeLabel}
+          </Label>
+          <PopoverSelect
+            className="w-full"
+            value={toGrade}
+            onValueChange={onToGradeChange}
+            ariaLabel={promoteToGradeLabel ?? "Grade"}
+            placeholder={promoteToGradeLabel}
+            options={gradeOptions.map((grade) => ({ value: grade, label: grade }))}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="grade-issued-by">{issuedByLabel}</Label>
-          <Select
+          <PopoverSelect
+            className="w-full"
             value={issuedByOption}
             onValueChange={(value) => onIssuedByOptionChange(value as IssuedByOption)}
-          >
-            <SelectTrigger id="grade-issued-by" className="rounded-[var(--radius-form)]">
-              <SelectValue placeholder={issuedByLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="club">{issuedByClubOption}</SelectItem>
-              <SelectItem value="ltf">{issuedByLtfOption}</SelectItem>
-              <SelectItem value="other">{issuedByOtherOption}</SelectItem>
-            </SelectContent>
-          </Select>
+            ariaLabel={issuedByLabel ?? "Issued by"}
+            placeholder={issuedByLabel}
+            options={[
+              { value: "club", label: issuedByClubOption ?? "Club" },
+              { value: "ltf", label: issuedByLtfOption ?? "LTF" },
+              { value: "other", label: issuedByOtherOption ?? "Other" },
+            ]}
+          />
         </div>
         {issuedByOption === "other" ? (
           <div className="space-y-2">
-            <Label htmlFor="grade-issued-by-other" required>{issuedByOtherPlaceholder}</Label>
+            <Label htmlFor="grade-issued-by-other" required>
+              {issuedByOtherPlaceholder}
+            </Label>
             <Input
               id="grade-issued-by-other"
-              className="rounded-[var(--radius-form)]"
               value={issuedByOther}
               onChange={(event) => onIssuedByOtherChange(event.target.value)}
               placeholder={issuedByOtherPlaceholder}
@@ -368,15 +382,7 @@ function GradeInlineForm({
           </div>
         ) : null}
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="outline" className="h-[var(--control-height)] min-h-[var(--control-height)]" onClick={onCancel}>
-          {cancelLabel}
-        </Button>
-        <Button type="button" className="h-[var(--control-height)] min-h-[var(--control-height)]" disabled={isSubmitting} onClick={onSubmit}>
-          {promoteSubmitLabel}
-        </Button>
-      </div>
-    </div>
+    </SidePanel>
   );
 }
 
@@ -740,36 +746,7 @@ export function MemberHistoryTimeline({
           ) : null}
         </div>
         ) : null}
-        {gradeFormOpen ? (
-          <div className="mt-3">
-            <GradeInlineForm
-              editingGradeId={editingGradeId}
-              gradeFormTitle={gradeFormTitle}
-              editGradeFormTitle={editGradeFormTitle}
-              promoteDateLabel={promoteDateLabel}
-              promoteToGradeLabel={promoteToGradeLabel}
-              issuedByLabel={issuedByLabel}
-              issuedByClubOption={issuedByClubOption}
-              issuedByLtfOption={issuedByLtfOption}
-              issuedByOtherOption={issuedByOtherOption}
-              issuedByOtherPlaceholder={issuedByOtherPlaceholder}
-              promoteSubmitLabel={promoteSubmitLabel}
-              cancelLabel={cancelLabel}
-              gradeOptions={gradeOptions}
-              toGrade={toGrade}
-              promotionDate={promotionDate}
-              issuedByOption={issuedByOption}
-              issuedByOther={issuedByOther}
-              isSubmitting={isSubmitting}
-              onToGradeChange={setToGrade}
-              onPromotionDateChange={setPromotionDate}
-              onIssuedByOptionChange={setIssuedByOption}
-              onIssuedByOtherChange={setIssuedByOther}
-              onSubmit={submitGradeForm}
-              onCancel={closeGradeForm}
-            />
-          </div>
-        ) : sortedGrades.length === 0 ? (
+        {sortedGrades.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{emptyLabel}</p>
         ) : (
           <div className="mt-3">
@@ -791,6 +768,33 @@ export function MemberHistoryTimeline({
             ) : null}
           </div>
         )}
+        <GradeInlineForm
+          open={gradeFormOpen}
+          editingGradeId={editingGradeId}
+          gradeFormTitle={gradeFormTitle}
+          editGradeFormTitle={editGradeFormTitle}
+          promoteDateLabel={promoteDateLabel}
+          promoteToGradeLabel={promoteToGradeLabel}
+          issuedByLabel={issuedByLabel}
+          issuedByClubOption={issuedByClubOption}
+          issuedByLtfOption={issuedByLtfOption}
+          issuedByOtherOption={issuedByOtherOption}
+          issuedByOtherPlaceholder={issuedByOtherPlaceholder}
+          promoteSubmitLabel={promoteSubmitLabel}
+          cancelLabel={cancelLabel}
+          gradeOptions={gradeOptions}
+          toGrade={toGrade}
+          promotionDate={promotionDate}
+          issuedByOption={issuedByOption}
+          issuedByOther={issuedByOther}
+          isSubmitting={isSubmitting}
+          onToGradeChange={setToGrade}
+          onPromotionDateChange={setPromotionDate}
+          onIssuedByOptionChange={setIssuedByOption}
+          onIssuedByOtherChange={setIssuedByOther}
+          onSubmit={submitGradeForm}
+          onCancel={closeGradeForm}
+        />
       </div>
       ) : null}
       <DeleteConfirmModal

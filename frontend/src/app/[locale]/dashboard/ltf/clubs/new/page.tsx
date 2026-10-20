@@ -1,155 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { useForm, useWatch } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
-import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  FormPanel,
-  ActionNotices
-} from "@/components/ui/list-page-chrome";
-import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
-import { createClub } from "@/lib/ltf-admin-api";
-
-const clubSchema = z.object({
-  name: z.string().min(1, "Club name is required"),
-  address_line1: z.string().optional(),
-  address_line2: z.string().optional(),
-  postal_code: z.string().optional(),
-  locality: z.string().optional(),
-  iban: z
-    .string()
-    .optional()
-    .refine((value) => !value || isValidIban(value), "Enter a valid IBAN."),
-  email: z.string().optional(),
-  website: z.string().optional(),
-});
-
-type ClubFormValues = z.infer<typeof clubSchema>;
-
-export default function LtfAdminCreateClubPage() {
-  const t = useTranslations("LtfAdmin");
-  const pathname = usePathname();
+export default function LtfAdminCreateClubRedirect() {
   const router = useRouter();
-  const locale = pathname?.split("/")[1] || "en";
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const params = useParams();
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<ClubFormValues>({
-    resolver: zodResolver(clubSchema),
-    defaultValues: {
-      name: "",
-      address_line1: "",
-      address_line2: "",
-      postal_code: "",
-      locality: "",
-      iban: "",
-      email: "",
-      website: "",
-    },
-  });
-  const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
-  const derivedBankName = deriveBankNameFromIban(watchedIban);
+  useEffect(() => {
+    const locale = typeof params.locale === "string" ? params.locale : "en";
+    router.replace(`/${locale}/dashboard/ltf/clubs?create=1`);
+  }, [params.locale, router]);
 
-  const onSubmit = async (values: ClubFormValues) => {
-    setErrorMessage(null);
-    const payload = {
-      ...values,
-      address: values.address_line1 ?? "",
-      city: values.locality ?? "",
-      iban: values.iban ?? "",
-    };
-    try {
-      await createClub(payload);
-      router.push(`/${locale}/dashboard/ltf/clubs`);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to create club.");
-    }
-  };
-
-  return (
-    <LtfAdminLayout title={t("createClub")} subtitle={t("clubFormSubtitle")}>
-      <div className="space-y-3">
-        <Button variant="outline" asChild>
-          <Link href={`/${locale}/dashboard/ltf/clubs`}>{t("backToClubs")}</Link>
-        </Button>
-
-        <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-
-        <FormPanel>
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-            <div className="space-y-2 md:col-span-2">
-              <Label required>{t("clubNameLabel")}</Label>
-              <Input placeholder="LTF Central Club" {...register("name")} />
-              {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("addressLine1Label")}</label>
-              <Input placeholder="12 Rue de la Gare" {...register("address_line1")} />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("addressLine2Label")}</label>
-              <Input placeholder="Building, floor, unit (optional)" {...register("address_line2")} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("postalCodeLabel")}</label>
-              <Input placeholder="1234" {...register("postal_code")} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("localityLabel")}</label>
-              <Input placeholder="Luxembourg" {...register("locality")} />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
-              <Input type="email" placeholder="club@example.com" {...register("email")} />
-              <p className="text-xs text-muted">{t("clubEmailHint")}</p>
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
-              <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
-              <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
-              <Input placeholder="LU28 0019 4006 4475 0000" {...register("iban")} />
-              {errors.iban ? <p className="text-sm text-destructive">{errors.iban.message}</p> : null}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("bankNameLabel")}</label>
-              <Input value={derivedBankName || "-"} readOnly />
-            </div>
-
-            <div className="flex items-center gap-3 md:col-span-2">
-              <Button type="submit" variant="primary" disabled={isSubmitting}>
-                {t("createClub")}
-              </Button>
-              <Button type="button" variant="outline" asChild>
-                <Link href={`/${locale}/dashboard/ltf/clubs`}>{t("cancelEdit")}</Link>
-              </Button>
-            </div>
-          </form>
-        </FormPanel>
-      </div>
-    </LtfAdminLayout>
-  );
+  return null;
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { RequiredForm } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export function SidePanel({
   open,
@@ -13,6 +14,7 @@ export function SidePanel({
   onClose,
   children,
   footer,
+  wide = false,
 }: {
   open: boolean;
   title: string;
@@ -21,6 +23,8 @@ export function SidePanel({
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** Two-column forms. The default panel stays max-w-md. */
+  wide?: boolean;
 }) {
   if (!open) {
     return null;
@@ -32,7 +36,10 @@ export function SidePanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="side-panel-title"
-        className="relative flex h-full w-full max-w-md flex-col border-l border-border bg-surface"
+        className={cn(
+          "relative flex h-full w-full flex-col border-l border-border bg-surface",
+          wide ? "max-w-3xl" : "max-w-md",
+        )}
       >
         <div className="flex items-start justify-between gap-3 border-b border-border px-3 py-2">
           <div>

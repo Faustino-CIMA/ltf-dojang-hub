@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Trash2, X } from "lucide-react";
+import { CircleAlert, X } from "lucide-react";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { MemberFormPanel } from "@/components/club-admin/member-form-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { TeamFilter } from "@/components/club-admin/club-teams-desk";
@@ -18,7 +19,9 @@ import { SexMark } from "@/components/ui/sex-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Modal } from "@/components/ui/modal";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import {
   Select,
   SelectContent,
@@ -30,7 +33,9 @@ import { apiRequest } from "@/lib/api";
 import {
   Member,
   MemberIssueFilter,
+  deleteMember,
   getClubs,
+  getLicensesList,
   getMember,
   getMembersPage,
   updateMember,
@@ -80,7 +85,6 @@ function memberStatusFilterFromLegacySwitches(parsed: {
 const MEMBERS_LIST_PAGE_SIZE_CAP = 200;
 const MEMBERS_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
 
-const BATCH_DELETE_STORAGE_KEY = "club_members_batch_delete_payload";
 const ORDER_LICENSE_STORAGE_KEY = "club_members_order_license_payload";
 
 function memberToUpdateBody(member: Member, is_active: boolean) {
@@ -557,35 +561,123 @@ export default function ClubAdminMembersPage() {
     lastSelectedMemberIdRef.current = id;
   };
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Member | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<string[]>([]);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchImpact, setBatchImpact] = useState<string[]>([]);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const licenseImpactLine = useCallback(
+    (year: number | string, status: string) => {
+      const statusLabel =
+        status === "active" ? t("statusActive") : status === "expired" ? t("statusExpired") : t("statusPending");
+      return t("yearLabel") + ` ${year} · ${statusLabel}`;
+    },
+    [t],
+  );
+
+  const openMemberDelete = useCallback(
+    async (member: Member) => {
+      setPendingDelete(member);
+      setDeleteImpact([]);
+      try {
+        const licenses = await getLicensesList({ memberId: member.id });
+        setDeleteImpact(
+          licenses
+            .filter((license) => license.member === member.id)
+            .map((license) => licenseImpactLine(license.year, license.status)),
+        );
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : t("singleDeleteMemberLoadError"));
+      }
+    },
+    [licenseImpactLine, t],
+  );
+
+  const openBatchDelete = useCallback(async () => {
+    if (!canManageMembers || selectedIds.length === 0) {
+      return;
+    }
+    setBatchDeleteOpen(true);
+    setBatchImpact([]);
+    try {
+      const roster = [];
+      for (const id of selectedIds) {
+        const known = members.find((member) => member.id === id);
+        roster.push(known ?? (await getMember(id)));
+      }
+      let licenses = [];
+      try {
+        licenses = await getLicensesList({
+          clubId: selectedClubId ?? undefined,
+          memberIds: selectedIds,
+        });
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : t("batchDeleteMembersLoadError"));
+      }
+      const counts = new Map<number, number>();
+      licenses.forEach((license) => counts.set(license.member, (counts.get(license.member) ?? 0) + 1));
+      setBatchImpact(
+        roster.map((member) => {
+          const count = counts.get(member.id) ?? 0;
+          return `${formatFullName(member)} · ${member.ltf_licenseid || "—"} · ${t("batchDeleteMembersCascadeColumnLabel")} ${count}`;
+        }),
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("batchDeleteMembersLoadError"));
+    }
+  }, [canManageMembers, members, selectedClubId, selectedIds, t]);
+
   const startCreate = () => {
     if (!canManageMembers) {
       return;
     }
-    router.push(`/${locale}/dashboard/club/members/new`);
+    setCreateOpen(true);
   };
 
-  const handleDelete = (member: Member) => {
-    if (!canManageMembers) {
-      return;
-    }
-    router.push(`/${locale}/dashboard/club/members/${member.id}/delete`);
-  };
+  const dropQuery = useCallback(
+    (key: string) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (!next.has(key)) {
+        return;
+      }
+      next.delete(key);
+      const query = next.toString();
+      router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
-  const openBatchDeletePage = () => {
-    if (!canManageMembers || selectedIds.length === 0) {
+  useEffect(() => {
+    if (searchParams.get("create") === "1" && canManageMembers) {
+      setCreateOpen(true);
+      dropQuery("create");
+    }
+  }, [canManageMembers, dropQuery, searchParams]);
+
+  useEffect(() => {
+    const rawId = Number(searchParams.get("delete"));
+    if (!canManageMembers || !Number.isInteger(rawId) || rawId <= 0) {
       return;
     }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        BATCH_DELETE_STORAGE_KEY,
-        JSON.stringify({
-          selectedIds,
-          selectedClubId,
-        })
-      );
+    dropQuery("delete");
+    const known = members.find((member) => member.id === rawId);
+    if (known) {
+      void openMemberDelete(known);
+      return;
     }
-    router.push(`/${locale}/dashboard/club/members/batch-delete`);
-  };
+    void getMember(rawId)
+      .then((member) => openMemberDelete(member))
+      .catch(() => undefined);
+  }, [canManageMembers, dropQuery, members, openMemberDelete, searchParams]);
+
+  useEffect(() => {
+    if (searchParams.get("batchDelete") === "1" && canManageMembers && selectedIds.length > 0 && !batchDeleteOpen) {
+      dropQuery("batchDelete");
+      void openBatchDelete();
+    }
+  }, [batchDeleteOpen, canManageMembers, dropQuery, openBatchDelete, searchParams, selectedIds.length]);
 
   const openOrderPage = () => {
     if (!canManageMembers || selectedIds.length === 0) {
@@ -839,7 +931,7 @@ export default function ClubAdminMembersPage() {
                   label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
                   actions={[
-                    { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
+                    { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete() },
                     { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
                     {
                       key: "change-status",
@@ -1041,19 +1133,23 @@ export default function ClubAdminMembersPage() {
                       key: "actions",
                       header: t("actionsLabel"),
                       render: (member: Member) => (
-                        <div
-                          className="flex flex-wrap items-center gap-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            aria-label={t("deleteAction")}
-                            onClick={() => handleDelete(member)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div onClick={(event) => event.stopPropagation()}>
+                          <RowActionMenu
+                            label={common("rowActionsLabel")}
+                            actions={[
+                              {
+                                key: "edit",
+                                label: t("editAction"),
+                                onSelect: () => router.push(`/${locale}/dashboard/club/members/${member.id}?edit=1`),
+                              },
+                              {
+                                key: "delete",
+                                label: t("deleteAction"),
+                                destructive: true,
+                                onSelect: () => void openMemberDelete(member),
+                              },
+                            ]}
+                          />
                         </div>
                       ),
                     },
@@ -1067,6 +1163,85 @@ export default function ClubAdminMembersPage() {
           />
         )}
       </div>
+      <MemberFormPanel
+        open={createOpen}
+        mode="create"
+        clubs={[]}
+        selectedClubId={selectedClubId}
+        onClose={() => setCreateOpen(false)}
+        onSaved={async () => {
+          setCreateOpen(false);
+          await loadData();
+        }}
+      />
+      <DeleteConfirmModal
+        isOpen={pendingDelete !== null}
+        title={t("singleDeleteMemberTitle")}
+        description={
+          pendingDelete
+            ? `${formatFullName(pendingDelete)} · ${pendingDelete.ltf_licenseid || "—"} · ${pendingDelete.is_active ? t("activeLabel") : t("inactiveLabel")}. ${t("singleDeleteMemberWarning")}`
+            : t("singleDeleteMemberWarning")
+        }
+        listTitle={deleteImpact.length > 0 ? t("singleDeleteMemberCascadeTitle") : undefined}
+        listItems={deleteImpact}
+        confirmLabel={t("singleDeleteMemberConfirmAction")}
+        cancelLabel={t("singleDeleteMemberBackAction")}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setPendingDelete(null);
+          }
+        }}
+        onConfirm={() => {
+          if (!pendingDelete) {
+            return;
+          }
+          setDeleteBusy(true);
+          void deleteMember(pendingDelete.id)
+            .then(async () => {
+              setPendingDelete(null);
+              setSelectedIds((current) => current.filter((id) => id !== pendingDelete.id));
+              await loadData();
+            })
+            .catch((error) => {
+              setErrorMessage(error instanceof Error ? error.message : t("singleDeleteMemberDeleteError"));
+            })
+            .finally(() => setDeleteBusy(false));
+        }}
+      />
+      <DeleteConfirmModal
+        isOpen={batchDeleteOpen}
+        title={t("batchDeleteMembersTitle")}
+        description={t("batchDeleteMembersWarning")}
+        listTitle={t("batchDeleteMembersPreviewTitle")}
+        listItems={batchImpact}
+        confirmLabel={t("batchDeleteMembersConfirmAction")}
+        cancelLabel={t("batchDeleteMembersBackAction")}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setBatchDeleteOpen(false);
+          }
+        }}
+        onConfirm={() => {
+          const targets = members.filter((member) => selectedIds.includes(member.id));
+          setDeleteBusy(true);
+          void (async () => {
+            const failed: string[] = [];
+            for (const member of targets) {
+              try {
+                await deleteMember(member.id);
+              } catch {
+                failed.push(formatFullName(member));
+              }
+            }
+            setBatchDeleteOpen(false);
+            setSelectedIds([]);
+            if (failed.length > 0) {
+              setErrorMessage(t("batchDeleteMembersResultLabel", { deleted: targets.length - failed.length, failed: failed.length }));
+            }
+            await loadData();
+          })().finally(() => setDeleteBusy(false));
+        }}
+      />
     </ClubAdminLayout>
   );
 }

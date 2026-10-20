@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { LedgerEntryPanel } from "@/components/finance/ledger-entry-panel";
 import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -25,6 +25,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getClubExpensesPage } from "@/lib/club-finance-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { FinanceExpense } from "@/lib/ltf-finance-api";
 
 type ExpenseStatusFilter = "all" | "recorded" | "paid" | "void";
@@ -33,9 +34,8 @@ export default function ClubExpensesPage() {
   const t = useTranslations("LtfFinance");
   const clubT = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
-  const locale = useLocale();
-  const router = useRouter();
   const { selectedClubId } = useClubSelection();
+  const [entryPanel, setEntryPanel] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(null);
   const { canRecordPayments } = useClubFinanceAccess();
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [searchInput, setSearchInput] = useState("");
@@ -47,6 +47,14 @@ export default function ClubExpensesPage() {
   const [facetCounts, setFacetCounts] = useState({ all: 0, recorded: 0, paid: 0, void: 0 });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useConsumeSearchParam("create", () => setEntryPanel({ mode: "create" }));
+  useConsumeSearchParam("edit", (value) => {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) {
+      setEntryPanel({ mode: "edit", id });
+    }
+  });
   const requestAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -117,7 +125,7 @@ export default function ClubExpensesPage() {
           <ListActionsRow
             actions={
               canRecordPayments ? (
-                <Button variant="primary" onClick={() => router.push(`/${locale}/dashboard/club/expenses/new`)}>
+                <Button variant="primary" onClick={() => setEntryPanel({ mode: "create" })}>
                   {t("recordExpenseAction")}
                 </Button>
               ) : null
@@ -160,10 +168,23 @@ export default function ClubExpensesPage() {
               },
             ]}
             rows={expenses}
-            onRowClick={(row) => router.push(`/${locale}/dashboard/club/expenses/${row.id}`)}
+            onRowClick={(row) => setEntryPanel({ mode: "edit", id: row.id })}
           />
         )}
       </div>
+      <LedgerEntryPanel
+        open={entryPanel !== null}
+        kind="expense"
+        desk="club"
+        mode={entryPanel?.mode ?? "create"}
+        entryId={entryPanel?.mode === "edit" ? entryPanel.id : null}
+        clubId={selectedClubId}
+        onClose={() => setEntryPanel(null)}
+        onSaved={async () => {
+          setEntryPanel(null);
+          await loadExpenses();
+        }}
+      />
     </ClubAdminLayout>
   );
 }
