@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -10,10 +9,14 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SidePanel } from "@/components/ui/side-panel";
 import {
   deleteCoachOuting,
   deleteCoachPayRate,
@@ -51,6 +54,9 @@ function emptyOuting(): OutingDraft {
   return { id: null, coachId: "", heldOn: "", name: "", quantity: "", coachingAmount: "", fuel: "", hotel: "" };
 }
 
+const RATE_FORM_ID = "coach-rate-form";
+const OUTING_FORM_ID = "coach-outing-form";
+
 function monthName(month: number, locale: string) {
   return new Date(2026, month - 1, 1).toLocaleDateString(locale, { month: "long" });
 }
@@ -63,6 +69,7 @@ function euros(value: string, locale: string) {
 
 export default function TrainingHoursPage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const canManage = useCanManageTraining();
   const { selectedClubId } = useClubSelection();
@@ -71,11 +78,15 @@ export default function TrainingHoursPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [rateDrafts, setRateDrafts] = useState<Record<number, RateDraft>>({});
+  const [rateOpen, setRateOpen] = useState(false);
+  const [rateTarget, setRateTarget] = useState<CoachPayRateRow | null>(null);
+  const [rateDraft, setRateDraft] = useState<RateDraft>({ basis: "hourly", rate: "" });
   const [savingRateId, setSavingRateId] = useState<number | null>(null);
+  const [pendingRate, setPendingRate] = useState<CoachPayRateRow | null>(null);
+  const [outingOpen, setOutingOpen] = useState(false);
   const [outing, setOuting] = useState<OutingDraft>(emptyOuting);
   const [isSavingOuting, setIsSavingOuting] = useState(false);
-  const outingFormRef = useRef<HTMLFormElement>(null);
+  const [pendingOuting, setPendingOuting] = useState<CoachOutingRow | null>(null);
   const reportYear = Number(year) || new Date().getFullYear();
 
   const load = useCallback(async () => {
@@ -121,28 +132,24 @@ export default function TrainingHoursPage() {
     }
   };
 
-  const draftFor = (row: CoachPayRateRow): RateDraft => {
-    const existing = rateDrafts[row.user_id];
-    if (existing) return existing;
-    return { basis: row.basis === "" ? "hourly" : row.basis, rate: row.rate };
+  const openRate = (row: CoachPayRateRow) => {
+    setRateTarget(row);
+    setRateDraft({ basis: row.basis === "" ? "hourly" : row.basis, rate: row.rate });
+    setRateOpen(true);
   };
 
-  const saveRate = async (row: CoachPayRateRow) => {
-    if (!selectedClubId) return;
-    const draft = draftFor(row);
-    setSavingRateId(row.user_id);
+  const saveRate = async () => {
+    if (!selectedClubId || !rateTarget) return;
+    setSavingRateId(rateTarget.user_id);
     setSuccessMessage(null);
     try {
       setReport(await saveCoachPayRate(selectedClubId, reportYear, {
-        coach_id: row.user_id,
-        basis: draft.basis,
-        rate: draft.rate.trim() === "" ? "0" : draft.rate,
+        coach_id: rateTarget.user_id,
+        basis: rateDraft.basis,
+        rate: rateDraft.rate.trim() === "" ? "0" : rateDraft.rate,
       }));
-      setRateDrafts((current) => {
-        const next = { ...current };
-        delete next[row.user_id];
-        return next;
-      });
+      setRateOpen(false);
+      setRateTarget(null);
       setErrorMessage(null);
       setSuccessMessage(t("trainingRateSaved"));
     } catch (error) {
@@ -153,21 +160,22 @@ export default function TrainingHoursPage() {
     }
   };
 
-  const removeRate = async (userId: number) => {
-    if (!selectedClubId || !window.confirm(t("trainingRemoveRateConfirm"))) return;
-    setSavingRateId(userId);
+  const confirmRemoveRate = async () => {
+    if (!selectedClubId || !pendingRate) return;
+    setSavingRateId(pendingRate.user_id);
     setSuccessMessage(null);
     try {
-      setReport(await deleteCoachPayRate(selectedClubId, reportYear, userId));
-      setRateDrafts((current) => {
-        const next = { ...current };
-        delete next[userId];
-        return next;
-      });
+      setReport(await deleteCoachPayRate(selectedClubId, reportYear, pendingRate.user_id));
+      if (rateTarget?.user_id === pendingRate.user_id) {
+        setRateOpen(false);
+        setRateTarget(null);
+      }
+      setPendingRate(null);
       setErrorMessage(null);
       setSuccessMessage(t("trainingRateRemoved"));
     } catch (error) {
       setSuccessMessage(null);
+      setPendingRate(null);
       setErrorMessage(error instanceof Error ? error.message : t("saveError"));
     } finally {
       setSavingRateId(null);
@@ -199,6 +207,7 @@ export default function TrainingHoursPage() {
       );
       setReport(saved);
       setOuting(emptyOuting());
+      setOutingOpen(false);
       setErrorMessage(null);
       setSuccessMessage(visible ? t("trainingOutingSaved") : t("trainingOutingSavedOtherYear"));
     } catch (error) {
@@ -220,19 +229,29 @@ export default function TrainingHoursPage() {
       fuel: row.fuel_amount,
       hotel: row.hotel_amount,
     });
-    outingFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setOutingOpen(true);
   };
 
-  const removeOuting = async (outingId: number) => {
-    if (!selectedClubId || !window.confirm(t("trainingRemoveOutingConfirm"))) return;
+  const openNewOuting = () => {
+    setOuting(emptyOuting());
+    setOutingOpen(true);
+  };
+
+  const confirmRemoveOuting = async () => {
+    if (!selectedClubId || !pendingOuting) return;
     setSuccessMessage(null);
     try {
-      setReport(await deleteCoachOuting(selectedClubId, reportYear, outingId));
-      if (outing.id === outingId) setOuting(emptyOuting());
+      setReport(await deleteCoachOuting(selectedClubId, reportYear, pendingOuting.id));
+      if (outing.id === pendingOuting.id) {
+        setOuting(emptyOuting());
+        setOutingOpen(false);
+      }
+      setPendingOuting(null);
       setErrorMessage(null);
       setSuccessMessage(t("trainingOutingRemoved"));
     } catch (error) {
       setSuccessMessage(null);
+      setPendingOuting(null);
       setErrorMessage(error instanceof Error ? error.message : t("saveError"));
     }
   };
@@ -385,79 +404,55 @@ export default function TrainingHoursPage() {
                     <div className="mt-3">
                       <EntityTable
                         rows={rates.map((row) => ({ ...row, id: row.user_id }))}
+                        onRowClick={canManage ? openRate : undefined}
                         columns={[
                           { key: "name", header: t("trainingCoachColumn") },
                           {
                             key: "basis",
                             header: t("trainingBasisColumn"),
-                            render: (row) => (
-                              <Select
-                                value={draftFor(row).basis}
-                                onValueChange={(value) =>
-                                  setRateDrafts((current) => ({
-                                    ...current,
-                                    [row.user_id]: { ...draftFor(row), basis: value as CoachPayBasis },
-                                  }))
-                                }
-                              >
-                                <SelectTrigger className="w-full min-w-36" aria-label={t("trainingBasisColumn")}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="hourly">{t("trainingBasisHourly")}</SelectItem>
-                                  <SelectItem value="unit">{t("trainingBasisUnit")}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ),
+                            render: (row) =>
+                              row.basis === "hourly"
+                                ? t("trainingBasisHourly")
+                                : row.basis === "unit"
+                                  ? t("trainingBasisUnit")
+                                  : t("trainingNoRate"),
                           },
                           {
                             key: "rate",
                             header: t("trainingRateColumn"),
-                            render: (row) => (
-                              <Input
-                                aria-label={t("trainingRateColumn")}
-                                inputMode="decimal"
-                                value={draftFor(row).rate}
-                                placeholder="0.00"
-                                onChange={(event) =>
-                                  setRateDrafts((current) => ({
-                                    ...current,
-                                    [row.user_id]: { ...draftFor(row), rate: event.target.value },
-                                  }))
-                                }
-                              />
-                            ),
+                            render: (row) => (row.basis === "" ? "—" : euros(row.rate, locale)),
                           },
-                          {
-                            key: "actions",
-                            header: "",
-                            render: (row) => (
-                              <div className="flex flex-wrap items-center gap-2">
-                                {row.basis === "" ? <span className="text-xs text-muted">{t("trainingNoRate")}</span> : null}
-                                <Button
-                                  type="button"
-                                  variant="primary"
-                                  size="sm"
-                                  disabled={savingRateId === row.user_id}
-                                  onClick={() => void saveRate(row)}
-                                >
-                                  {savingRateId === row.user_id ? t("saving") : t("trainingSaveRate")}
-                                </Button>
-                                {row.basis !== "" ? (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    aria-label={t("trainingRemove")}
-                                    disabled={savingRateId === row.user_id}
-                                    onClick={() => void removeRate(row.user_id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                ) : null}
-                              </div>
-                            ),
-                          },
+                          ...(canManage
+                            ? [
+                                {
+                                  key: "actions",
+                                  header: "",
+                                  render: (row: CoachPayRateRow & { id: number }) => (
+                                    <RowActionMenu
+                                      label={common("rowActionsLabel")}
+                                      actions={[
+                                        {
+                                          key: "edit",
+                                          label: t("editAction"),
+                                          onSelect: () => openRate(row),
+                                        },
+                                        ...(row.basis !== ""
+                                          ? [
+                                              {
+                                                key: "delete",
+                                                label: t("trainingRemove"),
+                                                destructive: true,
+                                                disabled: savingRateId === row.user_id,
+                                                onSelect: () => setPendingRate(row),
+                                              },
+                                            ]
+                                          : []),
+                                      ]}
+                                    />
+                                  ),
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     </div>
@@ -466,80 +461,22 @@ export default function TrainingHoursPage() {
               ) : null}
               {showPay ? (
                 <FormPanel>
-                  <h2 className="text-section text-foreground">{t("trainingOutingsTitle")}</h2>
-                  <p className="mt-2 text-sm text-muted">{t("trainingOutingsHint")}</p>
-                  <form
-                    ref={outingFormRef}
-                    className="mt-4"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void saveOuting();
-                    }}
-                  >
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      <div className="flex flex-col gap-2">
-                        <Label>{t("trainingCoachColumn")}</Label>
-                        <Select value={outing.coachId || undefined} onValueChange={(value) => setOuting({ ...outing, coachId: value })}>
-                          <SelectTrigger className="w-full"><SelectValue placeholder={t("trainingCoachColumn")} /></SelectTrigger>
-                          <SelectContent>
-                            {rates.map((row) => (
-                              <SelectItem key={row.user_id} value={String(row.user_id)}>{row.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{t("trainingDate")}</Label>
-                        <Input className="mt-1" type="date" value={outing.heldOn} onChange={(event) => setOuting({ ...outing, heldOn: event.target.value })} />
-                      </div>
-                      <div>
-                        <Label>{t("trainingTournamentName")}</Label>
-                        <Input className="mt-1" value={outing.name} onChange={(event) => setOuting({ ...outing, name: event.target.value })} />
-                      </div>
-                      <div>
-                        <Label>{quantityLabel}</Label>
-                        <Input className="mt-1" inputMode="decimal" value={outing.quantity} onChange={(event) => setOuting({ ...outing, quantity: event.target.value })} />
-                      </div>
-                      <div>
-                        <Label>{t("trainingCoachingFee")}</Label>
-                        <Input
-                          className="mt-1"
-                          inputMode="decimal"
-                          placeholder={t("trainingCoachingFeePlaceholder")}
-                          value={outing.coachingAmount}
-                          onChange={(event) => setOuting({ ...outing, coachingAmount: event.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{t("trainingFuelColumn")}</Label>
-                        <Input className="mt-1" inputMode="decimal" placeholder="0.00" value={outing.fuel} onChange={(event) => setOuting({ ...outing, fuel: event.target.value })} />
-                      </div>
-                      <div>
-                        <Label>{t("trainingHotelColumn")}</Label>
-                        <Input className="mt-1" inputMode="decimal" placeholder="0.00" value={outing.hotel} onChange={(event) => setOuting({ ...outing, hotel: event.target.value })} />
-                      </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        disabled={isSavingOuting || outing.coachId === "" || outing.heldOn === "" || outing.name.trim() === ""}
-                      >
-                        {isSavingOuting ? t("saving") : outing.id === null ? t("trainingAddOuting") : t("trainingUpdateRule")}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-section text-foreground">{t("trainingOutingsTitle")}</h2>
+                    {canManage ? (
+                      <Button type="button" variant="primary" onClick={openNewOuting}>
+                        {t("trainingAddOuting")}
                       </Button>
-                      {outing.id !== null ? (
-                        <Button type="button" variant="outline" onClick={() => setOuting(emptyOuting())}>
-                          {t("cancelEdit")}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </form>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-sm text-muted">{t("trainingOutingsHint")}</p>
                   {outings.length === 0 ? (
                     <p className="mt-3 text-sm text-muted">{t("trainingNoOutings")}</p>
                   ) : (
                     <div className="mt-3">
                       <EntityTable
                         rows={outings}
+                        onRowClick={canManage ? beginOutingEdit : undefined}
                         columns={[
                           { key: "held_on", header: t("trainingDate") },
                           { key: "name", header: t("trainingCoachColumn") },
@@ -555,20 +492,28 @@ export default function TrainingHoursPage() {
                           { key: "coaching_pay", header: t("trainingCoachingFee"), render: (row) => euros(row.coaching_pay, locale) },
                           { key: "fuel_amount", header: t("trainingFuelColumn"), render: (row) => euros(row.fuel_amount, locale) },
                           { key: "hotel_amount", header: t("trainingHotelColumn"), render: (row) => euros(row.hotel_amount, locale) },
-                          {
-                            key: "actions",
-                            header: "",
-                            render: (row) => (
-                              <div className="flex flex-wrap gap-2">
-                                <Button type="button" variant="outline" size="sm" aria-label={t("editAction")} onClick={() => beginOutingEdit(row)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button type="button" variant="outline" size="sm" aria-label={t("trainingRemove")} onClick={() => void removeOuting(row.id)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ),
-                          },
+                          ...(canManage
+                            ? [
+                                {
+                                  key: "actions",
+                                  header: "",
+                                  render: (row: CoachOutingRow) => (
+                                    <RowActionMenu
+                                      label={common("rowActionsLabel")}
+                                      actions={[
+                                        { key: "edit", label: t("editAction"), onSelect: () => beginOutingEdit(row) },
+                                        {
+                                          key: "delete",
+                                          label: t("trainingRemove"),
+                                          destructive: true,
+                                          onSelect: () => setPendingOuting(row),
+                                        },
+                                      ]}
+                                    />
+                                  ),
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     </div>
@@ -622,6 +567,155 @@ export default function TrainingHoursPage() {
                       ]
                     : []),
                 ]}
+              />
+              <SidePanel
+                open={rateOpen}
+                title={t("trainingPayRateTitle")}
+                description={rateTarget?.name}
+                closeLabel={t("cancelEdit")}
+                onClose={() => setRateOpen(false)}
+                footer={
+                  <>
+                    <Button type="button" variant="outline" onClick={() => setRateOpen(false)}>
+                      {t("cancelEdit")}
+                    </Button>
+                    <Button type="submit" form={RATE_FORM_ID} variant="primary" disabled={savingRateId !== null}>
+                      {savingRateId !== null ? t("saving") : t("trainingSaveRate")}
+                    </Button>
+                  </>
+                }
+              >
+                <form
+                  id={RATE_FORM_ID}
+                  className="grid gap-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveRate();
+                  }}
+                >
+                  <div>
+                    <Label>{t("trainingBasisColumn")}</Label>
+                    <PopoverSelect
+                      className="mt-1 w-full"
+                      value={rateDraft.basis}
+                      onValueChange={(value) => setRateDraft((current) => ({ ...current, basis: value as CoachPayBasis }))}
+                      ariaLabel={t("trainingBasisColumn")}
+                      options={[
+                        { value: "hourly", label: t("trainingBasisHourly") },
+                        { value: "unit", label: t("trainingBasisUnit") },
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="coach-rate">{t("trainingRateColumn")}</Label>
+                    <Input
+                      id="coach-rate"
+                      className="mt-1"
+                      inputMode="decimal"
+                      value={rateDraft.rate}
+                      placeholder="0.00"
+                      onChange={(event) => setRateDraft((current) => ({ ...current, rate: event.target.value }))}
+                    />
+                  </div>
+                </form>
+              </SidePanel>
+              <SidePanel
+                open={outingOpen}
+                wide
+                title={outing.id === null ? t("trainingAddOuting") : t("trainingOutingsTitle")}
+                closeLabel={t("cancelEdit")}
+                onClose={() => setOutingOpen(false)}
+                footer={
+                  <>
+                    <Button type="button" variant="outline" onClick={() => setOutingOpen(false)}>
+                      {t("cancelEdit")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      form={OUTING_FORM_ID}
+                      variant="primary"
+                      disabled={isSavingOuting || outing.coachId === "" || outing.heldOn === "" || outing.name.trim() === ""}
+                    >
+                      {isSavingOuting ? t("saving") : outing.id === null ? t("trainingAddOuting") : t("trainingUpdateRule")}
+                    </Button>
+                  </>
+                }
+              >
+                <form
+                  id={OUTING_FORM_ID}
+                  className="grid gap-4 md:grid-cols-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveOuting();
+                  }}
+                >
+                  <div className="flex flex-col gap-2">
+                    <Label required>{t("trainingCoachColumn")}</Label>
+                    <PopoverSelect
+                      className="w-full"
+                      value={outing.coachId}
+                      onValueChange={(value) => setOuting({ ...outing, coachId: value })}
+                      ariaLabel={t("trainingCoachColumn")}
+                      placeholder={t("trainingCoachColumn")}
+                      options={rates.map((row) => ({ value: String(row.user_id), label: row.name }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="outing-date" required>
+                      {t("trainingDate")}
+                    </Label>
+                    <Input id="outing-date" className="mt-1" type="date" required value={outing.heldOn} onChange={(event) => setOuting({ ...outing, heldOn: event.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="outing-name" required>
+                      {t("trainingTournamentName")}
+                    </Label>
+                    <Input id="outing-name" className="mt-1" required value={outing.name} onChange={(event) => setOuting({ ...outing, name: event.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="outing-quantity">{quantityLabel}</Label>
+                    <Input id="outing-quantity" className="mt-1" inputMode="decimal" value={outing.quantity} onChange={(event) => setOuting({ ...outing, quantity: event.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="outing-fee">{t("trainingCoachingFee")}</Label>
+                    <Input
+                      id="outing-fee"
+                      className="mt-1"
+                      inputMode="decimal"
+                      placeholder={t("trainingCoachingFeePlaceholder")}
+                      value={outing.coachingAmount}
+                      onChange={(event) => setOuting({ ...outing, coachingAmount: event.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="outing-fuel">{t("trainingFuelColumn")}</Label>
+                    <Input id="outing-fuel" className="mt-1" inputMode="decimal" placeholder="0.00" value={outing.fuel} onChange={(event) => setOuting({ ...outing, fuel: event.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="outing-hotel">{t("trainingHotelColumn")}</Label>
+                    <Input id="outing-hotel" className="mt-1" inputMode="decimal" placeholder="0.00" value={outing.hotel} onChange={(event) => setOuting({ ...outing, hotel: event.target.value })} />
+                  </div>
+                </form>
+              </SidePanel>
+              <DeleteConfirmModal
+                isOpen={pendingRate !== null}
+                title={t("trainingRemove")}
+                description={t("trainingRemoveRateConfirm")}
+                confirmLabel={t("trainingRemove")}
+                cancelLabel={t("cancelEdit")}
+                listItems={pendingRate ? [pendingRate.name] : []}
+                onCancel={() => setPendingRate(null)}
+                onConfirm={() => void confirmRemoveRate()}
+              />
+              <DeleteConfirmModal
+                isOpen={pendingOuting !== null}
+                title={t("trainingRemove")}
+                description={t("trainingRemoveOutingConfirm")}
+                confirmLabel={t("trainingRemove")}
+                cancelLabel={t("cancelEdit")}
+                listItems={pendingOuting ? [`${pendingOuting.tournament} · ${pendingOuting.held_on}`] : []}
+                onCancel={() => setPendingOuting(null)}
+                onConfirm={() => void confirmRemoveOuting()}
               />
             </>
           ) : null}

@@ -9,21 +9,31 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
+import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SidePanel } from "@/components/ui/side-panel";
 import { addSchoolHoliday, deleteSchoolHoliday, getTrainingHolidays } from "@/lib/training-api";
+
+const FORM_ID = "school-holiday-form";
+
+type SchoolHoliday = { id: number; name: string; starts_on: string; ends_on: string };
 
 export default function TrainingHolidaysPage() {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const canManage = useCanManageTraining();
   const { selectedClubId } = useClubSelection();
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [publicHolidays, setPublicHolidays] = useState<{ date: string; name: string }[]>([]);
-  const [school, setSchool] = useState<{ id: number; name: string; starts_on: string; ends_on: string }[]>([]);
+  const [school, setSchool] = useState<SchoolHoliday[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
   const [name, setName] = useState("");
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<SchoolHoliday | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -46,6 +56,13 @@ export default function TrainingHolidaysPage() {
     void load();
   }, [load]);
 
+  const closeAdd = () => {
+    setAddOpen(false);
+    setName("");
+    setStartsOn("");
+    setEndsOn("");
+  };
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!selectedClubId) return;
@@ -56,21 +73,21 @@ export default function TrainingHolidaysPage() {
         ends_on: endsOn,
         school_year: Number(year),
       });
-      setName("");
-      setStartsOn("");
-      setEndsOn("");
+      closeAdd();
       await load();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("saveError"));
     }
   };
 
-  const remove = async (id: number) => {
-    if (!selectedClubId || !window.confirm(t("trainingRemoveHolidayConfirm"))) return;
+  const confirmRemove = async () => {
+    if (!selectedClubId || !pendingDelete) return;
     try {
-      await deleteSchoolHoliday(selectedClubId, id);
+      await deleteSchoolHoliday(selectedClubId, pendingDelete.id);
+      setPendingDelete(null);
       await load();
     } catch (error) {
+      setPendingDelete(null);
       setErrorMessage(error instanceof Error ? error.message : t("saveError"));
     }
   };
@@ -82,9 +99,16 @@ export default function TrainingHolidaysPage() {
       ) : (
         <div className="space-y-3">
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-          <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
-            <Label>{t("subsidiesYear")}</Label>
-            <Input className="mt-1" value={year} onChange={(event) => setYear(event.target.value)} />
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="max-w-xs rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4">
+              <Label htmlFor="holiday-year">{t("subsidiesYear")}</Label>
+              <Input id="holiday-year" className="mt-1" value={year} onChange={(event) => setYear(event.target.value)} />
+            </div>
+            {canManage ? (
+              <Button type="button" variant="primary" onClick={() => setAddOpen(true)}>
+                {t("trainingAddHoliday")}
+              </Button>
+            ) : null}
           </div>
           {loading ? (
             <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
@@ -120,10 +144,18 @@ export default function TrainingHolidaysPage() {
                             {
                               key: "actions",
                               header: "",
-                              render: (row: { id: number }) => (
-                                <Button type="button" variant="outline" size="sm" onClick={() => void remove(row.id)}>
-                                  {t("trainingRemove")}
-                                </Button>
+                              render: (row: SchoolHoliday) => (
+                                <RowActionMenu
+                                  label={common("rowActionsLabel")}
+                                  actions={[
+                                    {
+                                      key: "delete",
+                                      label: t("trainingRemove"),
+                                      destructive: true,
+                                      onSelect: () => setPendingDelete(row),
+                                    },
+                                  ]}
+                                />
                               ),
                             },
                           ]
@@ -131,29 +163,56 @@ export default function TrainingHolidaysPage() {
                     ]}
                   />
                 )}
-                {canManage ? (
-                  <FormPanel>
-                    <h2 className="text-section text-foreground">{t("trainingAddHoliday")}</h2>
-                    <form className="mt-4 grid gap-3" onSubmit={(event) => void onSubmit(event)}>
-                      <div>
-                        <Label required>{t("trainingHolidayName")}</Label>
-                        <Input className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
-                      </div>
-                      <div>
-                        <Label required>{t("subsidiesFrom")}</Label>
-                        <Input className="mt-1" type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
-                      </div>
-                      <div>
-                        <Label required>{t("subsidiesTo")}</Label>
-                        <Input className="mt-1" type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} required />
-                      </div>
-                      <Button type="submit" variant="outline">{t("trainingAddHoliday")}</Button>
-                    </form>
-                  </FormPanel>
-                ) : null}
               </div>
             </div>
           )}
+          <SidePanel
+            open={addOpen}
+            title={t("trainingAddHoliday")}
+            closeLabel={t("cancelEdit")}
+            onClose={closeAdd}
+            footer={
+              <>
+                <Button type="button" variant="outline" onClick={closeAdd}>
+                  {t("cancelEdit")}
+                </Button>
+                <Button type="submit" form={FORM_ID} variant="primary">
+                  {t("trainingAddHoliday")}
+                </Button>
+              </>
+            }
+          >
+            <form id={FORM_ID} className="grid gap-3" onSubmit={(event) => void onSubmit(event)}>
+              <div>
+                <Label htmlFor="holiday-name" required>
+                  {t("trainingHolidayName")}
+                </Label>
+                <Input id="holiday-name" className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
+              </div>
+              <div>
+                <Label htmlFor="holiday-from" required>
+                  {t("subsidiesFrom")}
+                </Label>
+                <Input id="holiday-from" className="mt-1" type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} required />
+              </div>
+              <div>
+                <Label htmlFor="holiday-to" required>
+                  {t("subsidiesTo")}
+                </Label>
+                <Input id="holiday-to" className="mt-1" type="date" value={endsOn} onChange={(event) => setEndsOn(event.target.value)} required />
+              </div>
+            </form>
+          </SidePanel>
+          <DeleteConfirmModal
+            isOpen={pendingDelete !== null}
+            title={t("trainingRemove")}
+            description={t("trainingRemoveHolidayConfirm")}
+            confirmLabel={t("trainingRemove")}
+            cancelLabel={t("cancelEdit")}
+            listItems={pendingDelete ? [`${pendingDelete.name} · ${pendingDelete.starts_on} – ${pendingDelete.ends_on}`] : []}
+            onCancel={() => setPendingDelete(null)}
+            onConfirm={() => void confirmRemove()}
+          />
         </div>
       )}
     </ClubAdminLayout>

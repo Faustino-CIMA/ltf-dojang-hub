@@ -71,6 +71,7 @@ export default function ClubFamiliesPage() {
   const [families, setFamilies] = useState<FamilyRecord[]>([]);
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [name, setName] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [openFamilies, setOpenFamilies] = useState<Record<number, boolean>>({});
   const [parentFamily, setParentFamily] = useState<FamilyRecord | null>(null);
@@ -195,47 +196,65 @@ export default function ClubFamiliesPage() {
         }}
       />
 
-      <FormPanel>
-        <h2 className="text-section text-foreground">{t("createFamily")}</h2>
-        <div className="mt-4 max-w-md space-y-3">
+      <div className="flex justify-end">
+        <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}>
+          {t("createFamily")}
+        </Button>
+      </div>
+      <SidePanel
+        open={createOpen}
+        title={t("createFamily")}
+        closeLabel={t("cancel")}
+        onClose={() => setCreateOpen(false)}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={isSaving}>
+              {t("cancel")}
+            </Button>
+            <Button type="submit" form="family-create-form" variant="primary" disabled={isSaving}>
+              {t("createFamily")}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="family-create-form"
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (selectedClubId == null) return;
+            if (!name.trim()) {
+              setErrorMessage(t("familyNeedName"));
+              return;
+            }
+            setIsSaving(true);
+            void createFamily({ club: selectedClubId, name: name.trim() })
+              .then(async () => {
+                setName("");
+                setCreateOpen(false);
+                setSuccessMessage(t("saved"));
+                await load();
+              })
+              .catch((error) => {
+                setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+              })
+              .finally(() => setIsSaving(false));
+          }}
+        >
           <div className="space-y-2">
-            <Label htmlFor="family-name">{t("familyName")}</Label>
+            <Label htmlFor="family-name" required>
+              {t("familyName")}
+            </Label>
             <Input
               id="family-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t("familyName")}
+              required
             />
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={isSaving}
-            onClick={async () => {
-              if (selectedClubId == null) {
-                return;
-              }
-              if (!name.trim()) {
-                setErrorMessage(t("familyNeedName"));
-                return;
-              }
-              setIsSaving(true);
-              try {
-                await createFamily({ club: selectedClubId, name: name.trim() });
-                setName("");
-                setSuccessMessage(t("saved"));
-                await load();
-              } catch (error) {
-                setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-              } finally {
-                setIsSaving(false);
-              }
-            }}
-          >
-            {t("createFamily")}
-          </Button>
-        </div>
-      </FormPanel>
+        </form>
+      </SidePanel>
 
       {families.length === 0 ? (
         <EmptyState title={t("familiesEmptyTitle")} description={t("familiesEmptySubtitle")} />

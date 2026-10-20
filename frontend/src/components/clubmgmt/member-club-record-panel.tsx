@@ -9,6 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatFullName } from "@/lib/person-name";
 import {
@@ -181,6 +184,7 @@ function phoneLabelText(label: string, t: ReturnType<typeof useTranslations>) {
 
 export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: Props) {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
   const [record, setRecord] = useState<MemberRecord | null>(null);
@@ -588,13 +592,20 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
 
   const emailEditor = (
     <div className="space-y-3">
-      <Input
-        type="email"
-        autoFocus
-        value={emailDraft.email}
-        placeholder={t("emails")}
-        onChange={(event) => setEmailDraft({ ...emailDraft, email: event.target.value })}
-      />
+      <div>
+        <Label htmlFor="record-email" required>
+          {t("emails")}
+        </Label>
+        <Input
+          id="record-email"
+          type="email"
+          className="mt-1"
+          value={emailDraft.email}
+          placeholder={t("emails")}
+          onChange={(event) => setEmailDraft({ ...emailDraft, email: event.target.value })}
+          required
+        />
+      </div>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox
           checked={emailDraft.use_for_invoice}
@@ -602,49 +613,34 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         />
         {t("useForInvoice")}
       </label>
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onCancel={closeDraft}
-        onSave={() => void saveEmailDraft()}
-      />
     </div>
   );
 
   const phoneEditor = (
-    <div className="space-y-3">
-      <div className="grid gap-2 md:grid-cols-2">
+    <div className="grid gap-3 md:grid-cols-2">
+      <div>
+        <Label htmlFor="record-phone" required>
+          {t("phone")}
+        </Label>
         <Input
-          autoFocus
+          id="record-phone"
+          className="mt-1"
           value={phoneDraft.number}
           placeholder={t("phone")}
           onChange={(event) => setPhoneDraft({ ...phoneDraft, number: event.target.value })}
+          required
         />
-        <Select
+      </div>
+      <div>
+        <Label>{t("phoneLabel")}</Label>
+        <PopoverSelect
+          className="mt-1 w-full"
           value={normalizePhoneLabel(phoneDraft.label) || "mobile"}
           onValueChange={(value) => setPhoneDraft({ ...phoneDraft, label: value })}
-          modal={false}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t("phoneLabel")} />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            {PHONE_LABELS.map((label) => (
-              <SelectItem key={label} value={label}>
-                {t(`phoneLabel_${label}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          ariaLabel={t("phoneLabel")}
+          options={PHONE_LABELS.map((label) => ({ value: label, label: t(`phoneLabel_${label}`) }))}
+        />
       </div>
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onSave={() => void savePhoneDraft()}
-        onCancel={closeDraft}
-      />
     </div>
   );
 
@@ -658,54 +654,56 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         />
         {t("useForInvoice")}
       </label>
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onSave={() => void saveAddressDraft()}
-        onCancel={closeDraft}
-      />
     </div>
   );
 
   const contactEditor = (
     <div className="space-y-3">
       <div className="grid gap-2 md:grid-cols-2">
-        <Input
-          autoFocus
-          placeholder={t("firstName")}
-          value={contactDraft.first_name}
-          onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
-          onBlur={() =>
-            setContactDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))
-          }
-        />
-        <Input
-          placeholder={t("lastName")}
-          value={contactDraft.last_name}
-          onChange={(event) =>
-            setContactDraft({ ...contactDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })
-          }
-          onBlur={() =>
-            setContactDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))
-          }
-        />
-        <Select
-          value={contactDraft.relation}
-          onValueChange={(value) => setContactDraft({ ...contactDraft, relation: value })}
-          modal={false}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            {RELATIONS.map((rel) => (
-              <SelectItem key={rel} value={rel}>
-                {t(`relation_${rel}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div>
+          <Label htmlFor="contact-first-name" required>
+            {t("firstName")}
+          </Label>
+          <Input
+            id="contact-first-name"
+            className="mt-1"
+            placeholder={t("firstName")}
+            value={contactDraft.first_name}
+            onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
+            onBlur={() =>
+              setContactDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))
+            }
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="contact-last-name" required>
+            {t("lastName")}
+          </Label>
+          <Input
+            id="contact-last-name"
+            className="mt-1"
+            placeholder={t("lastName")}
+            value={contactDraft.last_name}
+            onChange={(event) =>
+              setContactDraft({ ...contactDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })
+            }
+            onBlur={() =>
+              setContactDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))
+            }
+            required
+          />
+        </div>
+        <div>
+          <Label>{t("relationLabel")}</Label>
+          <PopoverSelect
+            className="mt-1 w-full"
+            value={contactDraft.relation}
+            onValueChange={(value) => setContactDraft({ ...contactDraft, relation: value })}
+            ariaLabel={t("relationLabel")}
+            options={RELATIONS.map((rel) => ({ value: rel, label: t(`relation_${rel}`) }))}
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={contactDraft.is_emergency}
@@ -770,13 +768,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
           {t("contactDifferentPerson")}
         </label>
       ) : null}
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onSave={() => void saveContactDraft()}
-        onCancel={closeDraft}
-      />
     </div>
   );
 
@@ -907,45 +898,33 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-3 space-y-2">
             {record.emails.map((row, index) => (
-              <li key={`${row.id}-${row.email}`} className="rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                {adding === "email" && editingIndex === index ? (
-                  emailEditor
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {row.email}
-                      {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditEmail(index)}>
-                        {t("editItem")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setErrorMessage(null);
-                          try {
-                            await persist({ ...record, emails: record.emails.filter((_, i) => i !== index) });
-                          } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                          }
-                        }}
-                      >
-                        {t("removeItem")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <li key={`${row.id}-${row.email}`} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
+                <span>
+                  {row.email}
+                  {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditEmail(index) },
+                    {
+                      key: "delete",
+                      label: t("removeItem"),
+                      destructive: true,
+                      onSelect: () => {
+                        setErrorMessage(null);
+                        void persist({ ...record, emails: record.emails.filter((_, i) => i !== index) }).catch((error) => {
+                          setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                        });
+                      },
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "email" && editingIndex === null ? (
-          <div className="mt-3">{emailEditor}</div>
-        ) : adding === "email" ? null : (
-          <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
             {trimmedOverview && !overviewEmailInUse ? (
               <Button type="button" variant="outline" onClick={() => void handleReuseOverviewEmail()}>
                 {t("reuseOverviewEmail", { email: trimmedOverview })}
@@ -955,7 +934,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
               {t("addEmail")}
             </Button>
           </div>
-        )}
       </FormPanel>
 
       <FormPanel>
@@ -965,48 +943,35 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-3 space-y-2">
             {record.phones.map((row, index) => (
-              <li key={`${row.id}-${row.number}`} className="rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                {adding === "phone" && editingIndex === index ? (
-                  phoneEditor
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {row.number}
-                      {phoneLabelText(row.label, t) ? ` · ${phoneLabelText(row.label, t)}` : ""}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditPhone(index)}>
-                        {t("editItem")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setErrorMessage(null);
-                          try {
-                            await persist({ ...record, phones: record.phones.filter((_, i) => i !== index) });
-                          } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                          }
-                        }}
-                      >
-                        {t("removeItem")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <li key={`${row.id}-${row.number}`} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
+                <span>
+                  {row.number}
+                  {phoneLabelText(row.label, t) ? ` · ${phoneLabelText(row.label, t)}` : ""}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditPhone(index) },
+                    {
+                      key: "delete",
+                      label: t("removeItem"),
+                      destructive: true,
+                      onSelect: () => {
+                        setErrorMessage(null);
+                        void persist({ ...record, phones: record.phones.filter((_, i) => i !== index) }).catch((error) => {
+                          setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                        });
+                      },
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "phone" && editingIndex === null ? (
-          <div className="mt-3">{phoneEditor}</div>
-        ) : adding === "phone" ? null : (
-          <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("phone")}>
-            {t("addPhone")}
-          </Button>
-        )}
+        <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("phone")}>
+          {t("addPhone")}
+        </Button>
       </FormPanel>
 
       <FormPanel>
@@ -1016,50 +981,37 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-3 space-y-2">
             {record.addresses.map((row, index) => (
-              <li key={`${row.id}-${row.postal_code}-${row.street}`} className="rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                {adding === "address" && editingIndex === index ? (
-                  addressEditor
-                ) : (
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <span>
-                      {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
-                        .filter(Boolean)
-                        .join(" ")}
-                      {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditAddress(index)}>
-                        {t("editItem")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setErrorMessage(null);
-                          try {
-                            await persist({ ...record, addresses: record.addresses.filter((_, i) => i !== index) });
-                          } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                          }
-                        }}
-                      >
-                        {t("removeItem")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <li key={`${row.id}-${row.postal_code}-${row.street}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
+                <span>
+                  {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
+                    .filter(Boolean)
+                    .join(" ")}
+                  {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditAddress(index) },
+                    {
+                      key: "delete",
+                      label: t("removeItem"),
+                      destructive: true,
+                      onSelect: () => {
+                        setErrorMessage(null);
+                        void persist({ ...record, addresses: record.addresses.filter((_, i) => i !== index) }).catch((error) => {
+                          setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                        });
+                      },
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "address" && editingIndex === null ? (
-          <div className="mt-3">{addressEditor}</div>
-        ) : adding === "address" ? null : (
-          <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("address")}>
-            {t("addAddress")}
-          </Button>
-        )}
+        <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("address")}>
+          {t("addAddress")}
+        </Button>
       </FormPanel>
 
       <FormPanel>
@@ -1184,65 +1136,123 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-2 space-y-2 text-sm">
             {contacts.map((row, index) => (
-              <li key={row.id} className="rounded-[var(--radius-form)] border border-border px-3 py-2">
-                {adding === "contact" && editingIndex === index ? (
-                  contactEditor
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>
-                      {formatFullName(row.person_detail)} ({t(`relation_${row.relation}`)})
-                      {row.is_primary ? ` · ${t("primaryContact")}` : ""}
-                      {row.is_emergency ? ` · ${t("emergency")}` : ""}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditContact(index)}>
-                        {t("editItem")}
-                      </Button>
-                      {row.person_detail.converted_member ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/${locale}/dashboard/club/members/${row.person_detail.converted_member}`)}
-                        >
-                          {t("openMember")}
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={convertingPersonId === row.person}
-                          onClick={async () => {
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-form)] border border-border px-3 py-2">
+                <span>
+                  {formatFullName(row.person_detail)} ({t(`relation_${row.relation}`)})
+                  {row.is_primary ? ` · ${t("primaryContact")}` : ""}
+                  {row.is_emergency ? ` · ${t("emergency")}` : ""}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditContact(index) },
+                    row.person_detail.converted_member
+                      ? {
+                          key: "open",
+                          label: t("openMember"),
+                          onSelect: () => router.push(`/${locale}/dashboard/club/members/${row.person_detail.converted_member}`),
+                        }
+                      : {
+                          key: "member",
+                          label: t("makeMember"),
+                          disabled: convertingPersonId === row.person,
+                          onSelect: () => {
                             setConvertingPersonId(row.person);
                             setErrorMessage(null);
-                            try {
-                              const converted = await convertPersonToMember(row.person);
-                              router.push(`/${locale}/dashboard/club/members/${converted.member_id}`);
-                            } catch (error) {
-                              setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                              setConvertingPersonId(null);
-                            }
-                          }}
-                        >
-                          {t("makeMember")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
+                            void convertPersonToMember(row.person)
+                              .then((converted) => {
+                                router.push(`/${locale}/dashboard/club/members/${converted.member_id}`);
+                              })
+                              .catch((error) => {
+                                setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                                setConvertingPersonId(null);
+                              });
+                          },
+                        },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "contact" && editingIndex === null ? (
-          <div className="mt-3">{contactEditor}</div>
-        ) : adding === "contact" ? null : (
-          <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("contact")}>
-            {t("addContact")}
-          </Button>
-        )}
+        <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("contact")}>
+          {t("addContact")}
+        </Button>
       </FormPanel>
+      <SidePanel
+        open={adding === "email"}
+        title={editingIndex !== null ? t("editItem") : t("addEmail")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void saveEmailDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {emailEditor}
+      </SidePanel>
+      <SidePanel
+        open={adding === "phone"}
+        title={editingIndex !== null ? t("editItem") : t("addPhone")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void savePhoneDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {phoneEditor}
+      </SidePanel>
+      <SidePanel
+        open={adding === "address"}
+        wide
+        title={editingIndex !== null ? t("editItem") : t("addAddress")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void saveAddressDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {addressEditor}
+      </SidePanel>
+      <SidePanel
+        open={adding === "contact"}
+        wide
+        title={editingIndex !== null ? t("editItem") : t("addContact")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void saveContactDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {contactEditor}
+      </SidePanel>
 
       <Button type="button" variant="primary" onClick={() => void saveIdentity()}>
         {t("saveRecord")}
