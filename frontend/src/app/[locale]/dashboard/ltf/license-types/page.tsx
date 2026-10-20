@@ -5,16 +5,16 @@ import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Trash2 } from "lucide-react";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
-import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label, RequiredForm } from "@/components/ui/label";
+import { Label } from "@/components/ui/label";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SidePanel } from "@/components/ui/side-panel";
 import {
   ListActionsRow,
   ListToolbarPanel,
@@ -204,24 +204,13 @@ export default function LtfAdminLicenseTypesPage() {
                       key: "actions",
                       header: t("actionsLabel"),
                       render: (licenseType: LicenseType) => (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            variant="outline"
-                            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
-                            aria-label={t("editAction")}
-                            onClick={() => startEdit(licenseType)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
-                            aria-label={t("deleteAction")}
-                            onClick={() => handleDelete(licenseType)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <RowActionMenu
+                          label={common("rowActionsLabel")}
+                          actions={[
+                            { key: "edit", label: t("editAction"), onSelect: () => startEdit(licenseType) },
+                            { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => handleDelete(licenseType) },
+                          ]}
+                        />
                       ),
                     },
                   ]
@@ -232,24 +221,14 @@ export default function LtfAdminLicenseTypesPage() {
         )}
       </div>
 
-      <Modal
+      <SidePanel
+        open={isFormOpen && canManageLicenseTypes}
         title={editingType ? t("updateLicenseType") : t("createLicenseType")}
         description={t("licenseTypeFormSubtitle")}
-        isOpen={isFormOpen && canManageLicenseTypes}
+        closeLabel={common("modalClose")}
         onClose={() => setIsFormOpen(false)}
-      >
-        <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-          <RequiredForm>
-          <div className="space-y-2">
-            <Label required>{t("licenseTypeNameLabel")}</Label>
-            <Input placeholder={t("licenseTypeNamePlaceholder")} {...register("name")} />
-            {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
-          </div>
-          </RequiredForm>
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={isSubmitting}>
-              {editingType ? t("updateLicenseType") : t("createLicenseType")}
-            </Button>
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -261,9 +240,20 @@ export default function LtfAdminLicenseTypesPage() {
             >
               {t("cancelEdit")}
             </Button>
+            <Button type="submit" form="license-type-form" disabled={isSubmitting}>
+              {editingType ? t("updateLicenseType") : t("createLicenseType")}
+            </Button>
+          </>
+        }
+      >
+        <form id="license-type-form" className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-2">
+            <Label htmlFor="license-type-name" required>{t("licenseTypeNameLabel")}</Label>
+            <Input id="license-type-name" placeholder={t("licenseTypeNamePlaceholder")} {...register("name")} />
+            {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
           </div>
         </form>
-      </Modal>
+      </SidePanel>
 
       <DeleteConfirmModal
         isOpen={isDeleteOpen && canManageLicenseTypes}
