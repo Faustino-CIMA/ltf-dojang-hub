@@ -45,7 +45,7 @@ import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { MemberClubRecordPanel } from "@/components/clubmgmt/member-club-record-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
-import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
+import { MemberNationalTeamBadge } from "@/components/national-team/member-national-team-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { downloadClubStatement } from "@/lib/club-finance-api";
 import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
@@ -414,7 +414,10 @@ export default function ClubMemberDetailPage() {
             <>
             <FormPanel>
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
+                  <MemberNationalTeamBadge memberId={member.id} />
+                </div>
                 {canManageMemberFull ? (
                   <Button
                     variant="outline"
@@ -536,7 +539,6 @@ export default function ClubMemberDetailPage() {
                   </div>
                 </div>
             </FormPanel>
-            <MemberNationalTeamBlock memberId={member.id} />
             {competitionOn && canEditMember ? (
               <MemberTeamsCard
                 memberId={member.id}

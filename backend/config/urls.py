@@ -97,6 +97,7 @@ from members.transfer_views import MemberTransferViewSet
 from events.views import EventViewSet
 from members.views import MemberViewSet, RewriteLtfLicensePrefixView
 from nationalteam.views import (
+    AthleteNationalTeamBadgeView,
     AthleteNationalTeamView,
     AthleteStatusViewSet,
     CadreLevelViewSet,
@@ -270,6 +271,11 @@ urlpatterns = [
         name="card-designer-lookups-clubs",
     ),
     path("api/national-team/settings/", NationalTeamSettingsView.as_view(), name="national-team-settings"),
+    path(
+        "api/national-team/athletes/<int:member_id>/badge/",
+        AthleteNationalTeamBadgeView.as_view(),
+        name="national-team-athlete-badge",
+    ),
     path(
         "api/national-team/athletes/<int:member_id>/",
         AthleteNationalTeamView.as_view(),

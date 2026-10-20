@@ -209,6 +209,15 @@ export function deleteNationalTeamStaff(id: number) {
   return apiRequest<null>(`/api/national-team/staff/${id}/`, { method: "DELETE" });
 }
 
+export type NationalTeamBadge = {
+  selected: boolean;
+  labels: string[];
+};
+
 export function getAthleteNationalTeam(memberId: number) {
   return apiRequest<AthleteNationalTeam>(`/api/national-team/athletes/${memberId}/`);
+}
+
+export function getNationalTeamBadge(memberId: number) {
+  return apiRequest<NationalTeamBadge>(`/api/national-team/athletes/${memberId}/badge/`);
 }

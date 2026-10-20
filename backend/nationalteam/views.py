@@ -1,4 +1,6 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
@@ -116,7 +118,7 @@ class NationalTeamSettingsView(APIView):
 class SelectionViewSet(viewsets.ModelViewSet):
     serializer_class = SelectionSerializer
     permission_classes = [NationalTeamAccess]
-    club_read = True
+    club_read = False
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -196,11 +198,36 @@ class StaffViewSet(viewsets.ModelViewSet):
         return context
 
 
-class AthleteNationalTeamView(APIView):
-    """Read-only squad, status, and coach names for one athlete. No private staff fields."""
+class AthleteNationalTeamBadgeView(APIView):
+    """Whether this athlete is on a squad today, plus the squad and season names."""
 
     permission_classes = [NationalTeamAccess]
     club_read = True
+
+    def get(self, request, member_id: int):
+        member = get_object_or_404(Member.objects.select_related("club"), pk=member_id)
+        if not member_visible_to(request.user, member):
+            return Response({"detail": "not_found"}, status=404)
+        today = timezone.localdate()
+        rows = list(
+            SquadSelection.objects.filter(member=member, started_on__lte=today)
+            .filter(Q(ended_on__isnull=True) | Q(ended_on__gt=today))
+            .select_related("squad", "season")
+            .order_by("squad__sort_order", "squad__name", "-season__year", "id")
+        )
+        return Response(
+            {
+                "selected": bool(rows),
+                "labels": [f"{row.squad.name} · {row.season.year}" for row in rows],
+            }
+        )
+
+
+class AthleteNationalTeamView(APIView):
+    """Read-only squad, status, and coach names for one athlete. LTF only."""
+
+    permission_classes = [NationalTeamAccess]
+    club_read = False
 
     def get(self, request, member_id: int):
         member = get_object_or_404(Member.objects.select_related("club"), pk=member_id)
@@ -211,8 +238,6 @@ class AthleteNationalTeamView(APIView):
             .select_related("member", "member__club", "squad", "season")
             .order_by("-season__year", "-started_on", "id")
         )
-        from django.utils import timezone
-
         today = timezone.localdate()
         day = today
         if selections:
