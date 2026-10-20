@@ -32,7 +32,9 @@ from .teams import (
     ClubTeamGroup,
     ClubTeamGroupMember,
     ClubTeamMembership,
+    ClubTeamMembershipEvent,
     WeightCategorySet,
+    record_membership_event,
 )
 
 
@@ -401,26 +403,63 @@ class ClubTeamMemberView(APIView):
         if member.club_id != team.club_id:
             raise ValidationError({"member": "member_other_club"})
         role = _parse_role(request.data.get("role"), default=ClubTeamMembership.Role.ATHLETE)
-        membership, _created = ClubTeamMembership.objects.get_or_create(
+        membership, created = ClubTeamMembership.objects.get_or_create(
             team=team,
             member=member,
             defaults={"role": role},
         )
-        if membership.role != role:
+        if not created and membership.role != role:
+            previous = membership.role
             _set_membership_role(membership, role)
+            record_membership_event(
+                team=team,
+                member=member,
+                action=ClubTeamMembershipEvent.Action.ROLE_CHANGED,
+                role=role,
+                previous_role=previous,
+                actor=request.user,
+            )
+        elif created:
+            record_membership_event(
+                team=team,
+                member=member,
+                action=ClubTeamMembershipEvent.Action.ADDED,
+                role=role,
+                actor=request.user,
+            )
         return Response(_team_payload(team, include_members=True))
 
     def patch(self, request, team_id, member_id):
         team = _team_for(request.user, team_id)
         _require_writable(team)
-        membership = get_object_or_404(ClubTeamMembership, team=team, member_id=member_id)
-        _set_membership_role(membership, _parse_role(request.data.get("role")))
+        membership = get_object_or_404(ClubTeamMembership.objects.select_related("member"), team=team, member_id=member_id)
+        role = _parse_role(request.data.get("role"))
+        if membership.role != role:
+            previous = membership.role
+            _set_membership_role(membership, role)
+            record_membership_event(
+                team=team,
+                member=membership.member,
+                action=ClubTeamMembershipEvent.Action.ROLE_CHANGED,
+                role=role,
+                previous_role=previous,
+                actor=request.user,
+            )
         return Response(_team_payload(team, include_members=True))
 
     def delete(self, request, team_id, member_id):
         team = _team_for(request.user, team_id)
         _require_writable(team)
-        ClubTeamMembership.objects.filter(team=team, member_id=member_id).delete()
+        membership = ClubTeamMembership.objects.select_related("member").filter(team=team, member_id=member_id).first()
+        if membership is not None:
+            record_membership_event(
+                team=team,
+                member=membership.member,
+                action=ClubTeamMembershipEvent.Action.REMOVED,
+                role=membership.role,
+                actor=request.user,
+            )
+            membership.delete()
         ClubTeamGroupMember.objects.filter(group__team=team, member_id=member_id).delete()
         return Response(_team_payload(team, include_members=True))
 
@@ -443,15 +482,34 @@ class ClubTeamMemberBulkView(APIView):
             except (TypeError, ValueError) as exc:
                 raise ValidationError({"members": "member_required"}) from exc
         ids = list(dict.fromkeys(ids))
-        memberships = list(ClubTeamMembership.objects.filter(team=team, member_id__in=ids))
+        memberships = list(ClubTeamMembership.objects.select_related("member").filter(team=team, member_id__in=ids))
         if len(memberships) != len(ids):
             raise ValidationError({"members": "member_not_on_team"})
         if action == "remove":
+            for membership in memberships:
+                record_membership_event(
+                    team=team,
+                    member=membership.member,
+                    action=ClubTeamMembershipEvent.Action.REMOVED,
+                    role=membership.role,
+                    actor=request.user,
+                )
             ClubTeamMembership.objects.filter(team=team, member_id__in=ids).delete()
             ClubTeamGroupMember.objects.filter(group__team=team, member_id__in=ids).delete()
         elif action in {ClubTeamMembership.Role.ATHLETE, ClubTeamMembership.Role.COACH}:
             for membership in memberships:
+                if membership.role == action:
+                    continue
+                previous = membership.role
                 _set_membership_role(membership, action)
+                record_membership_event(
+                    team=team,
+                    member=membership.member,
+                    action=ClubTeamMembershipEvent.Action.ROLE_CHANGED,
+                    role=action,
+                    previous_role=previous,
+                    actor=request.user,
+                )
         else:
             raise ValidationError({"action": "action_required"})
         return Response(_team_payload(team, include_members=True))
@@ -647,6 +705,14 @@ class ClubTeamDuplicateView(APIView):
                     skipped += 1
                     continue
                 ClubTeamMembership.objects.create(team=clone, member=row.member, role=row.role)
+                record_membership_event(
+                    team=clone,
+                    member=row.member,
+                    action=ClubTeamMembershipEvent.Action.ADDED,
+                    role=row.role,
+                    actor=request.user,
+                    note=source.name,
+                )
                 kept_roles[row.member_id] = row.role
             for group in source.groups.prefetch_related("slots__member").order_by("kind", "id"):
                 slots = [
@@ -676,6 +742,81 @@ class ClubTeamDuplicateView(APIView):
                 "dropped_groups": dropped,
             },
             status=201,
+        )
+
+
+def _actor_name(user) -> str:
+    if user is None:
+        return ""
+    last = str(user.last_name or "").strip()
+    first = str(user.first_name or "").strip()
+    if last or first:
+        return f"{last} {first}".strip()
+    return user.get_username()
+
+
+class ClubTeamHistoryView(APIView):
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
+
+    def get(self, request, team_id):
+        team = _team_for(request.user, team_id)
+        raw = request.query_params.get("on")
+        if raw in (None, ""):
+            day = timezone.localdate()
+        else:
+            try:
+                day = date.fromisoformat(str(raw)[:10])
+            except ValueError as exc:
+                raise ValidationError({"on": "date_required"}) from exc
+        started = team.roster_history_from
+        incomplete = bool(started and day < started)
+        roster = []
+        matched = []
+        if not incomplete:
+            state = {}
+            for event in team.membership_events.select_related("actor").order_by("occurred_at", "id"):
+                if timezone.localtime(event.occurred_at).date() > day:
+                    continue
+                matched.append(event)
+                if event.action in {ClubTeamMembershipEvent.Action.ADDED, ClubTeamMembershipEvent.Action.ALREADY}:
+                    state[event.member_key] = event
+                elif event.action == ClubTeamMembershipEvent.Action.REMOVED:
+                    state.pop(event.member_key, None)
+                elif event.action == ClubTeamMembershipEvent.Action.ROLE_CHANGED and event.member_key in state:
+                    state[event.member_key] = event
+            roster = [
+                {
+                    "id": event.member_key,
+                    "first_name": event.first_name,
+                    "last_name": event.last_name,
+                    "role": event.role,
+                }
+                for event in state.values()
+            ]
+            roster.sort(key=lambda row: (row["last_name"], row["first_name"], row["id"]))
+        return Response(
+            {
+                "on": day.isoformat(),
+                "history_started_on": started.isoformat() if started else None,
+                "incomplete": incomplete,
+                "roster": roster,
+                "events": [
+                    {
+                        "id": event.id,
+                        "action": event.action,
+                        "role": event.role,
+                        "previous_role": event.previous_role,
+                        "first_name": event.first_name,
+                        "last_name": event.last_name,
+                        "note": event.note,
+                        "occurred_on": timezone.localtime(event.occurred_at).date().isoformat(),
+                        "occurred_time": timezone.localtime(event.occurred_at).strftime("%H:%M"),
+                        "actor_name": _actor_name(event.actor),
+                    }
+                    for event in matched
+                ],
+            }
         )
 
 

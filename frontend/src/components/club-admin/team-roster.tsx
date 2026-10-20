@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { HeightWeightSection, MeasurementEntryPanel } from "@/components/club-admin/height-weight-section";
 import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
+import { TeamHistoryPanel } from "@/components/club-admin/team-history";
 import { TeamGroups } from "@/components/club-admin/team-groups";
 import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
 import { Button } from "@/components/ui/button";
@@ -178,7 +179,7 @@ export function TeamRoster({
   const [loadedId, setLoadedId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [panel, setPanel] = useState<"weigh" | "competition" | "edit" | "duplicate" | null>(null);
+  const [panel, setPanel] = useState<"weigh" | "competition" | "edit" | "duplicate" | "history" | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [weightMember, setWeightMember] = useState<TeamMember | null>(null);
@@ -488,6 +489,7 @@ export function TeamRoster({
             <>
               <Button type="button" variant="outline" onClick={() => setPanel("edit")}>{t("teamsEdit")}</Button>
               <Button type="button" variant="outline" onClick={() => setPanel("duplicate")}>{t("teamDuplicateAction")}</Button>
+              <Button type="button" variant="outline" onClick={() => setPanel("history")}>{t("teamHistory")}</Button>
               {archived ? null : (
                 <>
                   <Button type="button" variant="outline" onClick={() => setPanel("weigh")}>{t("teamWeighIn")}</Button>
@@ -599,6 +601,7 @@ export function TeamRoster({
       {panel === "competition" && team ? (
         <TeamCompetitionPanel team={team} onClose={() => setPanel(null)} onSaved={(next) => { setTeam(next); setPanel(null); }} />
       ) : null}
+      {panel === "history" && team ? <TeamHistoryPanel teamId={team.id} onClose={() => setPanel(null)} /> : null}
       {panel === "duplicate" && team ? (
         <DuplicateTeamPanel
           teamId={team.id}

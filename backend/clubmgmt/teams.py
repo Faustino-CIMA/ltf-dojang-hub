@@ -1,13 +1,15 @@
 """Club competition teams.
 
 Club admins and coaches of a club with the competition module manage
-every team in that club. Membership is the current list only. LTF roles
-cannot read these rows.
+every team in that club. The current roster is the membership list.
+Changes are kept on membership events. LTF roles cannot read these rows.
 """
 
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class ClubTeam(models.Model):
@@ -24,6 +26,7 @@ class ClubTeam(models.Model):
     weight_margin_kg = models.DecimalField(max_digits=4, decimal_places=1, default=Decimal("1.0"))
     category_set_code = models.CharField(max_length=20, default="wt")
     archived_at = models.DateTimeField(null=True, blank=True)
+    roster_history_from = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -136,3 +139,69 @@ class ClubTeamGroupMember(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["group", "member"], name="club_team_group_member_uniq"),
         ]
+
+
+class ClubTeamMembershipEvent(models.Model):
+    """One roster change. member_key keeps the person after the member row is gone."""
+
+    class Action(models.TextChoices):
+        ALREADY = "already", "Already"
+        ADDED = "added", "Added"
+        REMOVED = "removed", "Removed"
+        ROLE_CHANGED = "role_changed", "Role changed"
+
+    team = models.ForeignKey(ClubTeam, on_delete=models.CASCADE, related_name="membership_events")
+    member = models.ForeignKey(
+        "members.Member",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="team_membership_events",
+    )
+    member_key = models.PositiveIntegerField()
+    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=150)
+    role = models.CharField(max_length=10, choices=ClubTeamMembership.Role.choices)
+    previous_role = models.CharField(max_length=10, blank=True)
+    action = models.CharField(max_length=20, choices=Action.choices)
+    note = models.CharField(max_length=120, blank=True)
+    occurred_at = models.DateTimeField()
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_team_membership_events",
+    )
+
+    class Meta:
+        ordering = ["occurred_at", "id"]
+        indexes = [
+            models.Index(fields=["team", "occurred_at"], name="club_team_event_when_idx"),
+        ]
+
+
+def record_membership_event(*, team, member, action: str, role: str, actor=None, previous_role: str = "", note: str = ""):
+    ClubTeamMembershipEvent.objects.create(
+        team=team,
+        member=member,
+        member_key=member.id,
+        last_name=member.last_name,
+        first_name=member.first_name,
+        role=role,
+        previous_role=previous_role,
+        action=action,
+        note=(note or "")[:120],
+        occurred_at=timezone.now(),
+        actor=actor if getattr(actor, "is_authenticated", False) else None,
+    )
+
+
+def log_memberships_before_member_delete(sender, instance, **kwargs):
+    for row in instance.team_memberships.select_related("team"):
+        record_membership_event(
+            team=row.team,
+            member=instance,
+            action=ClubTeamMembershipEvent.Action.REMOVED,
+            role=row.role,
+        )

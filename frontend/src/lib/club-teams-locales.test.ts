@@ -18,6 +18,23 @@ const KEYS = [
   "teamDuplicateName",
   "teamDuplicateSkipped",
   "teamDuplicateDropped",
+  "teamHistory",
+  "teamHistoryTitle",
+  "teamHistoryHint",
+  "teamHistoryOn",
+  "teamHistoryIncomplete",
+  "teamHistoryEmpty",
+  "teamHistoryRoster",
+  "teamHistoryChanges",
+  "teamHistoryWhen",
+  "teamHistoryChange",
+  "teamHistoryBy",
+  "teamHistoryAdded",
+  "teamHistoryRemoved",
+  "teamHistoryRoleChanged",
+  "teamHistoryAlready",
+  "teamHistoryCopied",
+  "teamHistoryNoActor",
   "teamsColumn",
   "teamsCardTitle",
   "teamsCardEmpty",
@@ -127,5 +144,8 @@ describe("Club team copy", () => {
     expect(club.teamSelectMember).toContain("{name}");
     expect(club.teamBulkCount).toContain("{count}");
     expect(club.teamBulkRemoveConfirm).toContain("{count}");
+    expect(club.teamHistoryIncomplete).toContain("{date}");
+    expect(club.teamHistoryRoleChanged).toContain("{role}");
+    expect(club.teamHistoryCopied).toContain("{name}");
   });
 });
