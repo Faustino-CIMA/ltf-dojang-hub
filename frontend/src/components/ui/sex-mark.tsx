@@ -8,7 +8,7 @@ export function SexMark({ sex, label }: SexMarkProps) {
     <span
       aria-label={label}
       title={label}
-      className="inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-chip)] border border-[var(--border)] bg-secondary px-1.5 text-xs font-medium leading-none text-[var(--default-foreground)]"
+      className="inline-flex h-[var(--control-height-sm)] w-[var(--control-height-sm)] items-center justify-center text-xl font-semibold leading-none"
     >
       {sex === "F" ? "♀" : "♂"}
     </span>
