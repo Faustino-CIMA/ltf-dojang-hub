@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 
+import { PaymentRecordPanel } from "@/components/finance/payment-record-panel";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -23,6 +24,7 @@ import {
   getFinanceOrder,
   getFinancePayments,
 } from "@/lib/ltf-finance-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 
 type PaymentRow = {
   id: number;
@@ -48,6 +50,9 @@ export default function LtfFinancePaymentDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  useConsumeSearchParam("record", () => setRecordOpen(true));
 
   const invoiceId = useMemo(() => {
     const rawId = params?.id;
@@ -97,7 +102,7 @@ export default function LtfFinancePaymentDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [invoiceId, t]);
+  }, [invoiceId, reloadKey, t]);
 
   const statusMeta = useMemo(() => {
     const status = invoice?.status ?? "";
@@ -199,10 +204,8 @@ export default function LtfFinancePaymentDetailPage() {
           <Link href={`/${locale}/dashboard/ltf-finance/payments`}>{t("backToPayments")}</Link>
         </Button>
         {invoice.status !== "paid" && invoice.status !== "void" ? (
-          <Button asChild variant="primary">
-            <Link href={`/${locale}/dashboard/ltf-finance/payments/${invoice.id}/record`}>
-              {t("recordPaymentButton")}
-            </Link>
+          <Button variant="primary" onClick={() => setRecordOpen(true)}>
+            {t("recordPaymentButton")}
           </Button>
         ) : null}
       </div>
@@ -251,6 +254,16 @@ export default function LtfFinancePaymentDetailPage() {
           <EntityTable columns={columns} rows={paymentRows} />
         )}
       </section>
+      <PaymentRecordPanel
+        open={recordOpen}
+        desk="ltf"
+        invoice={invoice}
+        onClose={() => setRecordOpen(false)}
+        onSaved={() => {
+          setRecordOpen(false);
+          setReloadKey((value) => value + 1);
+        }}
+      />
     </LtfFinanceLayout>
   );
 }

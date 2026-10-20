@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { PaymentRecordPanel } from "@/components/finance/payment-record-panel";
 import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -21,6 +22,7 @@ import {
   getClubOrder,
   getClubPayments,
 } from "@/lib/club-finance-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { isClubLedger, Payment } from "@/lib/ltf-finance-api";
 
 type PaymentRow = {
@@ -48,7 +50,10 @@ export default function ClubPaymentDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const { canRecordPayments } = useClubFinanceAccess(invoice?.club ?? null);
+  useConsumeSearchParam("record", () => setRecordOpen(true));
 
   const invoiceId = useMemo(() => {
     const rawId = params?.id;
@@ -98,7 +103,7 @@ export default function ClubPaymentDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [invoiceId, t]);
+  }, [invoiceId, reloadKey, t]);
 
   const statusMeta = useMemo(() => {
     const status = invoice?.status ?? "";
@@ -208,10 +213,8 @@ export default function ClubPaymentDetailPage() {
             <Link href={`/${locale}/dashboard/club/payments`}>{t("backToPayments")}</Link>
           </Button>
           {canRecordPayments && canRecordInvoice ? (
-            <Button asChild variant="primary">
-              <Link href={`/${locale}/dashboard/club/payments/${invoice.id}/record`}>
-                {t("recordPaymentButton")}
-              </Link>
+            <Button variant="primary" onClick={() => setRecordOpen(true)}>
+              {t("recordPaymentButton")}
             </Button>
           ) : null}
         </div>
@@ -257,6 +260,17 @@ export default function ClubPaymentDetailPage() {
           )}
         </section>
       </div>
+      <PaymentRecordPanel
+        open={recordOpen}
+        desk="club"
+        invoice={invoice}
+        canRecord={canRecordPayments}
+        onClose={() => setRecordOpen(false)}
+        onSaved={() => {
+          setRecordOpen(false);
+          setReloadKey((value) => value + 1);
+        }}
+      />
     </ClubAdminLayout>
   );
 }

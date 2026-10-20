@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeftRight,
   Award,
@@ -14,26 +13,15 @@ import {
   Pencil,
   User,
 } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { z } from "zod";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { MemberFormPanel } from "@/components/club-admin/member-form-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   deleteMemberGrade,
   deleteMemberProfilePicture,
@@ -45,7 +33,6 @@ import {
   getMemberClubTransfers,
   getMemberHistory,
   promoteMemberGrade,
-  updateMember,
   updateMemberGrade,
   } from "@/lib/club-admin-api";
 import { MemberClubMovementPanel } from "@/components/member/member-club-movement-panel";
@@ -63,51 +50,9 @@ import { useClubSelection } from "@/components/club-selection-provider";
 import { downloadClubStatement } from "@/lib/club-finance-api";
 import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { apiRequest } from "@/lib/api";
-import { formatDateInputValue, formatDisplayDate, parseDisplayDateToIso } from "@/lib/date-display";
-import {
-  LICENSE_ROLE_VALUES,
-  type LicenseRoleValue,
-  canonicalizeLicenseRole,
-} from "@/lib/license-roles";
+import { formatDisplayDate } from "@/lib/date-display";
+import { canonicalizeLicenseRole } from "@/lib/license-roles";
 
-function normalizeMemberSex(value: unknown): "M" | "F" {
-  const normalized = String(value ?? "").trim().toUpperCase();
-  if (normalized === "F" || normalized === "FEMALE") {
-    return "F";
-  }
-  return "M";
-}
-
-function normalizeLicenseRole(value: unknown): LicenseRoleValue | "" {
-  return canonicalizeLicenseRole(value);
-}
-
-const memberSchema = z.object({
-  first_name: z.string().trim().min(1, "First name is required."),
-  last_name: z.string().trim().min(1, "Last name is required."),
-  sex: z.preprocess(normalizeMemberSex, z.enum(["M", "F"])),
-  email: z.union([z.literal(""), z.string().email("Please enter a valid email address.")]),
-  wt_licenseid: z.string().max(32, "WT license ID must be at most 32 characters."),
-  ltf_licenseid: z.string().max(20, "LTF license ID must be at most 20 characters."),
-  date_of_birth: z.string().refine(
-    (value) => {
-      const normalized = String(value ?? "").trim();
-      return !normalized || parseDisplayDateToIso(normalized) !== null;
-    },
-    "Use date format 29 Nov 2026."
-  ),
-  primary_license_role: z.preprocess(
-    normalizeLicenseRole,
-    z.enum(LICENSE_ROLE_VALUES).or(z.literal(""))
-  ),
-  secondary_license_role: z.preprocess(
-    normalizeLicenseRole,
-    z.enum(LICENSE_ROLE_VALUES).or(z.literal(""))
-  ),
-  is_active: z.boolean(),
-});
-
-type MemberFormValues = z.infer<typeof memberSchema>;
 type AuthMeResponse = { role: string };
 
 const MEMBER_DETAIL_TABS = [
@@ -127,21 +72,6 @@ function parseMemberDetailTab(value: string | null): MemberDetailTab {
     return value as MemberDetailTab;
   }
   return "overview";
-}
-
-function memberToFormValues(member: Member): MemberFormValues {
-  return {
-    first_name: member.first_name,
-    last_name: member.last_name,
-    sex: normalizeMemberSex(member.sex),
-    email: member.email ?? "",
-    wt_licenseid: member.wt_licenseid ?? "",
-    ltf_licenseid: member.ltf_licenseid ?? "",
-    date_of_birth: formatDateInputValue(member.date_of_birth),
-    primary_license_role: normalizeLicenseRole(member.primary_license_role),
-    secondary_license_role: normalizeLicenseRole(member.secondary_license_role),
-    is_active: member.is_active,
-  };
 }
 
 export default function ClubMemberDetailPage() {
@@ -168,30 +98,6 @@ export default function ClubMemberDetailPage() {
   const { selectedClubId } = useClubSelection();
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<MemberFormValues>({
-    resolver: zodResolver(memberSchema),
-    defaultValues: {
-      first_name: "",
-      last_name: "",
-      sex: "M",
-      email: "",
-      wt_licenseid: "",
-      ltf_licenseid: "",
-      date_of_birth: "",
-      primary_license_role: "",
-      secondary_license_role: "",
-      is_active: true,
-    },
-    values: member ? memberToFormValues(member) : undefined,
-  });
   const roleLabelByValue = useMemo(
     () => ({
       Athlete: t("licenseRoleAthlete"),
@@ -347,13 +253,6 @@ export default function ClubMemberDetailPage() {
   const canEditMember = canManageMemberFull || isCoach;
   const canManageGrades = canEditMember;
 
-  useEffect(() => {
-    if (!member || !isEditing || !canManageMemberFull) {
-      return;
-    }
-    reset(memberToFormValues(member));
-  }, [canManageMemberFull, isEditing, member, reset]);
-
   const onEdit = () => {
     if (!canEditMember) {
       return;
@@ -363,36 +262,6 @@ export default function ClubMemberDetailPage() {
 
   const onCancelEdit = () => {
     updateEditQuery(false);
-    if (member) {
-      reset(memberToFormValues(member));
-    }
-  };
-
-  const onSubmit = async (values: MemberFormValues) => {
-    if (!member) {
-      return;
-    }
-    setErrorMessage(null);
-    const dateOfBirthIso = parseDisplayDateToIso(values.date_of_birth);
-    try {
-      await updateMember(member.id, {
-        club: member.club,
-        first_name: values.first_name.trim(),
-        last_name: values.last_name.trim(),
-        sex: values.sex,
-        email: values.email.trim(),
-        wt_licenseid: values.wt_licenseid.trim(),
-        ltf_licenseid: values.ltf_licenseid.trim(),
-        date_of_birth: dateOfBirthIso,
-        primary_license_role: values.primary_license_role ?? "",
-        secondary_license_role: values.secondary_license_role ?? "",
-        is_active: values.is_active,
-      });
-      updateEditQuery(false);
-      await loadMember();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to update member.");
-    }
   };
 
   const licenseHistoryCount = useMemo(() => {
@@ -539,11 +408,7 @@ export default function ClubMemberDetailPage() {
             <FormPanel>
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
-                {isEditing && canManageMemberFull ? (
-                  <Button variant="outline" size="sm" className="h-[var(--control-height)] min-h-[var(--control-height)]" onClick={onCancelEdit}>
-                    {t("cancelEdit")}
-                  </Button>
-                ) : canManageMemberFull ? (
+                {canManageMemberFull ? (
                   <Button
                     variant="outline"
                     size="icon-lg"
@@ -605,207 +470,6 @@ export default function ClubMemberDetailPage() {
                   }
                 />
               </div>
-              {isEditing && canManageMemberFull ? (
-                <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-                  <div className="space-y-2">
-                    <Label htmlFor="member-first-name" required>{t("firstNameLabel")}</Label>
-                    <Input
-                      id="member-first-name"
-                      placeholder="Jane"
-                      disabled={isCoach}
-                      {...register("first_name")}
-                    />
-                    {errors.first_name ? (
-                      <p className="text-sm text-destructive">{errors.first_name.message}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="member-last-name" required>{t("lastNameLabel")}</Label>
-                    <Input
-                      id="member-last-name"
-                      placeholder="Doe"
-                      disabled={isCoach}
-                      {...register("last_name")}
-                    />
-                    {errors.last_name ? (
-                      <p className="text-sm text-destructive">{errors.last_name.message}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t("sexLabel")}</Label>
-                    <Controller
-                      name="sex"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          disabled={isCoach}
-                          value={field.value === "F" ? "F" : "M"}
-                          onValueChange={(value) => {
-                            if (value === "M" || value === "F") {
-                              field.onChange(value);
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("sexLabel")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="M">{t("sexMale")}</SelectItem>
-                            <SelectItem value="F">{t("sexFemale")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.sex ? <p className="text-sm text-destructive">{errors.sex.message}</p> : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="member-email">{t("emailLabel")}</Label>
-                    <Input
-                      id="member-email"
-                      type="email"
-                      placeholder="member@example.com"
-                      disabled={isCoach}
-                      {...register("email")}
-                    />
-                    {errors.email ? <p className="text-sm text-destructive">{errors.email.message}</p> : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="member-wt-license">{importT("wtLicenseLabel")}</Label>
-                    <Input
-                      id="member-wt-license"
-                      placeholder="LUX-12345"
-                      disabled={isCoach}
-                      {...register("wt_licenseid")}
-                    />
-                    {errors.wt_licenseid ? (
-                      <p className="text-sm text-destructive">{errors.wt_licenseid.message}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="member-ltf-license">{t("ltfLicenseLabel")}</Label>
-                    <Input
-                      id="member-ltf-license"
-                      placeholder="LTF-12345"
-                      disabled={isCoach}
-                      {...register("ltf_licenseid")}
-                    />
-                    {errors.ltf_licenseid ? (
-                      <p className="text-sm text-destructive">{errors.ltf_licenseid.message}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="member-dob">{t("dobLabel")}</Label>
-                    <Input
-                      id="member-dob"
-                      placeholder="29 Nov 2026"
-                      disabled={isCoach}
-                      {...register("date_of_birth")}
-                    />
-                    {errors.date_of_birth ? (
-                      <p className="text-sm text-destructive">{errors.date_of_birth.message}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t("beltRankLabel")}</Label>
-                    <p className="text-sm font-medium text-foreground">{member.belt_rank || "-"}</p>
-                    <p className="text-xs text-muted">{t("beltRankManagedInGradesHint")}</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t("primaryLicenseRoleLabel")}</Label>
-                    <Controller
-                      name="primary_license_role"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          disabled={isCoach}
-                          value={field.value || "none"}
-                          onValueChange={(value) => {
-                            const nextPrimary = value === "none" ? "" : value;
-                            field.onChange(nextPrimary);
-                            if (nextPrimary === watch("secondary_license_role")) {
-                              setValue("secondary_license_role", "", { shouldValidate: true });
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("primaryLicenseRoleLabel")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">{t("roleNoneOption")}</SelectItem>
-                            {LICENSE_ROLE_VALUES.map((role) => (
-                              <SelectItem key={role} value={role}>
-                                {roleLabelByValue[role]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t("secondaryLicenseRoleLabel")}</Label>
-                    <Controller
-                      name="secondary_license_role"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          disabled={isCoach || !watch("primary_license_role")}
-                          value={field.value || "none"}
-                          onValueChange={(value) =>
-                            field.onChange(value === "none" ? "" : value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("secondaryLicenseRoleLabel")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">{t("roleNoneOption")}</SelectItem>
-                            {LICENSE_ROLE_VALUES.filter((role) => role !== watch("primary_license_role")).map(
-                              (role) => (
-                                <SelectItem key={role} value={role}>
-                                  {roleLabelByValue[role]}
-                                </SelectItem>
-                              )
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 md:col-span-2">
-                    <Checkbox
-                      checked={watch("is_active")}
-                      disabled={isCoach}
-                      onCheckedChange={(value) => {
-                        if (!isCoach) {
-                          setValue("is_active", Boolean(value));
-                        }
-                      }}
-                      id="member-active"
-                    />
-                    <Label htmlFor="member-active">{t("isActiveLabel")}</Label>
-                  </div>
-
-                  <div className="flex items-center gap-3 md:col-span-2">
-                    <Button type="submit" className="h-[var(--control-height)] min-h-[var(--control-height)]" disabled={isSubmitting}>
-                      {t("updateMember")}
-                    </Button>
-                    <Button type="button" variant="outline" className="h-[var(--control-height)] min-h-[var(--control-height)]" onClick={onCancelEdit}>
-                      {t("cancelEdit")}
-                    </Button>
-                  </div>
-                </form>
-              ) : (
                 <div className="mt-4 grid gap-3 text-sm text-foreground md:grid-cols-2">
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("firstNameLabel")}</span>
@@ -864,7 +528,6 @@ export default function ClubMemberDetailPage() {
                     </span>
                   </div>
                 </div>
-              )}
             </FormPanel>
             <MemberNationalTeamBlock memberId={member.id} />
             {clubMgmtOn && canEditMember ? (
@@ -970,6 +633,18 @@ export default function ClubMemberDetailPage() {
           </div>
         )}
       </div>
+      <MemberFormPanel
+        open={isEditing && canManageMemberFull && Boolean(member)}
+        mode="edit"
+        member={member}
+        clubs={[]}
+        selectedClubId={selectedClubId}
+        onClose={onCancelEdit}
+        onSaved={async () => {
+          onCancelEdit();
+          await loadMember();
+        }}
+      />
     </ClubAdminLayout>
   );
 }

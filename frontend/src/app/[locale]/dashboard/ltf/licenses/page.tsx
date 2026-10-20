@@ -17,6 +17,7 @@ import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,12 +43,15 @@ import {
   LicenseType,
   Member,
   createLicense,
+  deleteLicense,
   getClubs,
   getLicenseTypes,
+  getLicensesList,
   getLicensesPage,
   getMembersList,
   updateLicense,
 } from "@/lib/ltf-admin-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate } from "@/lib/date-display";
 import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
@@ -80,6 +84,9 @@ export default function LtfAdminLicensesPage() {
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<License | null>(null);
+  const [batchLicenses, setBatchLicenses] = useState<License[]>([]);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [licenseStatusFilter, setLicenseStatusFilter] = useState<LicenseStatusFilter>("all");
@@ -343,18 +350,108 @@ export default function LtfAdminLicensesPage() {
     });
   };
 
-  const handleDelete = (license: License) => {
-    router.push(`/${locale}/dashboard/ltf/licenses/${license.id}/delete`);
-  };
-
-  const openBatchDeletePage = () => {
-    if (selectedIds.length === 0) {
+  const rememberMembers = async (memberIds: number[]) => {
+    const missing = memberIds.filter((id) => !memberById.has(id));
+    if (missing.length === 0) {
       return;
     }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(BATCH_DELETE_STORAGE_KEY, JSON.stringify(selectedIds));
+    const extra = await getMembersList({ ids: missing });
+    setMembers((current) => {
+      const seen = new Set(current.map((member) => member.id));
+      return [...current, ...extra.filter((member) => !seen.has(member.id))];
+    });
+  };
+
+  const openLicenseDelete = async (licenseOrId: License | number) => {
+    const license =
+      typeof licenseOrId === "number"
+        ? licenses.find((item) => item.id === licenseOrId) ??
+          (await getLicensesList({ ids: [licenseOrId] }))[0]
+        : licenseOrId;
+    if (!license) {
+      return;
     }
-    router.push(`/${locale}/dashboard/ltf/licenses/batch-delete`);
+    await rememberMembers([license.member]);
+    setPendingDelete(license);
+  };
+
+  const openBatchDelete = async (ids: number[]) => {
+    if (ids.length === 0) {
+      return;
+    }
+    const rows = await getLicensesList({ ids });
+    await rememberMembers(rows.map((license) => license.member));
+    setBatchLicenses(rows);
+    setBatchDeleteOpen(true);
+  };
+
+  useConsumeSearchParam("delete", (value) => {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) {
+      void openLicenseDelete(id);
+    }
+  });
+  useConsumeSearchParam("batchDelete", () => {
+    let ids = selectedIds;
+    if (typeof window !== "undefined") {
+      try {
+        const rawValue = window.sessionStorage.getItem(BATCH_DELETE_STORAGE_KEY);
+        const parsed = rawValue ? JSON.parse(rawValue) : [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          ids = parsed.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0);
+          setSelectedIds(ids);
+        }
+      } catch {
+        ids = selectedIds;
+      }
+      window.sessionStorage.removeItem(BATCH_DELETE_STORAGE_KEY);
+    }
+    void openBatchDelete(ids);
+  });
+
+  const licenseImpactLine = (license: License) => {
+    const member = memberById.get(license.member);
+    const memberLabel = member ? formatFullName(member) : t("unknownMember");
+    const clubLabel = displayClubName(license.club, license.club ? clubById.get(license.club)?.name : "", {
+      noClub: t("noClub"),
+      unknownClub: t("unknownClub"),
+    });
+    const typeLabel = licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType");
+    return `${memberLabel} · ${clubLabel} · ${typeLabel} · ${license.year} · ${getStatusLabel(license.status)} · ${formatIssuedAt(license.issued_at)}`;
+  };
+
+  const confirmLicenseDelete = async () => {
+    if (!pendingDelete) {
+      return;
+    }
+    try {
+      await deleteLicense(pendingDelete.id);
+      setSelectedIds((current) => current.filter((id) => id !== pendingDelete.id));
+      setPendingDelete(null);
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("singleDeleteLicenseDeleteError"));
+    }
+  };
+
+  const confirmBatchLicenseDelete = async () => {
+    let deleted = 0;
+    let failed = 0;
+    for (const license of batchLicenses) {
+      try {
+        await deleteLicense(license.id);
+        deleted += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setBatchDeleteOpen(false);
+    setBatchLicenses([]);
+    setSelectedIds([]);
+    if (failed > 0) {
+      setErrorMessage(t("batchDeleteLicensesResultLabel", { deleted, failed }));
+    }
+    await loadData();
   };
 
   const getStatusLabel = (status: License["status"]) => {
@@ -472,7 +569,7 @@ export default function LtfAdminLicensesPage() {
           label={common("rowActionsLabel")}
           actions={[
             { key: "edit", label: t("editAction"), onSelect: () => startEdit(license) },
-            { key: "delete", label: t("deleteAction"), onSelect: () => handleDelete(license) },
+            { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => void openLicenseDelete(license) },
           ]}
         />
       ),
@@ -531,7 +628,7 @@ export default function LtfAdminLicensesPage() {
                   label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
                   actions={[
-                    { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
+                    { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete(selectedIds) },
                   ]}
                 />
                 <SelectionMeta
@@ -669,6 +766,31 @@ export default function LtfAdminLicensesPage() {
           </div>
         </form>
       </SidePanel>
+      <DeleteConfirmModal
+        isOpen={pendingDelete !== null}
+        title={t("singleDeleteLicenseTitle")}
+        description={t("singleDeleteLicenseWarning")}
+        confirmLabel={t("deleteAction")}
+        cancelLabel={common("deleteCancelButton")}
+        listTitle={t("singleDeleteLicensePreviewTitle")}
+        listItems={pendingDelete ? [licenseImpactLine(pendingDelete)] : []}
+        onConfirm={() => void confirmLicenseDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <DeleteConfirmModal
+        isOpen={batchDeleteOpen}
+        title={t("batchDeleteLicensesTitle")}
+        description={t("batchDeleteLicensesWarning")}
+        confirmLabel={common("batchDeleteLabel")}
+        cancelLabel={common("deleteCancelButton")}
+        listTitle={t("singleDeleteLicensePreviewTitle")}
+        listItems={batchLicenses.map((license) => licenseImpactLine(license))}
+        onConfirm={() => void confirmBatchLicenseDelete()}
+        onCancel={() => {
+          setBatchDeleteOpen(false);
+          setBatchLicenses([]);
+        }}
+      />
     </LtfAdminLayout>
   );
 }

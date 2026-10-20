@@ -23,6 +23,8 @@ import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { LicenseTypeFormPanel, OrderWindowPanel } from "@/components/ltf-finance/license-type-panels";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -67,6 +69,7 @@ import {
 } from "@/lib/ltf-finance-api";
 import { ModuleFeesPanel, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Club, getClubs, updateClub } from "@/lib/club-admin-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-display";
 
 const SETTINGS_TABS = ["license-types", "license-prices", "club-fees", "module-fees", "billing"] as const;
@@ -105,6 +108,8 @@ export default function LtfFinanceLicenseSettingsPage() {
   const [clubFeeTypes, setClubFeeTypes] = useState<ClubFeeType[]>([]);
   const [clubFeePrices, setClubFeePrices] = useState<ClubFeePrice[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [typePanel, setTypePanel] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(null);
+  const [windowTypeId, setWindowTypeId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,6 +163,27 @@ export default function LtfFinanceLicenseSettingsPage() {
     },
     [pathname, router, searchParams]
   );
+
+  useConsumeSearchParam("create", () => {
+    setActiveTab("license-types");
+    setTypePanel({ mode: "create" });
+  });
+  useConsumeSearchParam("edit", (value) => {
+    const id = Number(value);
+    if (!Number.isInteger(id) || id <= 0) {
+      return;
+    }
+    setActiveTab("license-types");
+    setTypePanel({ mode: "edit", id });
+  });
+  useConsumeSearchParam("window", (value) => {
+    const id = Number(value);
+    if (!Number.isInteger(id) || id <= 0) {
+      return;
+    }
+    setActiveTab("license-types");
+    setWindowTypeId(id);
+  });
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -593,7 +619,7 @@ export default function LtfFinanceLicenseSettingsPage() {
           actions={
             <Button
               variant="primary"
-              onClick={() => router.push(`/${locale}/dashboard/ltf-finance/license-settings/new`)}
+              onClick={() => setTypePanel({ mode: "create" })}
             >
               {t("createLicenseType")}
             </Button>
@@ -641,23 +667,34 @@ export default function LtfFinanceLicenseSettingsPage() {
                 key: "actions",
                 header: t("actionLabel"),
                 render: (licenseType: FinanceLicenseType) => (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="destructive"
-                      size="icon-sm"
-                      aria-label={t("deleteAction")}
-                      onClick={() => openDeleteTypeModal(licenseType)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div onClick={(event) => event.stopPropagation()}>
+                    <RowActionMenu
+                      label={common("rowActionsLabel")}
+                      actions={[
+                        {
+                          key: "edit",
+                          label: t("editAction"),
+                          onSelect: () => setTypePanel({ mode: "edit", id: licenseType.id }),
+                        },
+                        {
+                          key: "window",
+                          label: t("editPolicyAction"),
+                          onSelect: () => setWindowTypeId(licenseType.id),
+                        },
+                        {
+                          key: "delete",
+                          label: t("deleteAction"),
+                          destructive: true,
+                          onSelect: () => openDeleteTypeModal(licenseType),
+                        },
+                      ]}
+                    />
                   </div>
                 ),
               },
             ]}
             rows={filteredLicenseTypes}
-            onRowClick={(row) =>
-              router.push(`/${locale}/dashboard/ltf-finance/license-settings/${row.id}`)
-            }
+            onRowClick={(row) => setTypePanel({ mode: "edit", id: row.id })}
           />
         )}
       </div>
@@ -1297,6 +1334,26 @@ export default function LtfFinanceLicenseSettingsPage() {
         </div>
       ) : null}
 
+      <LicenseTypeFormPanel
+        open={typePanel !== null}
+        mode={typePanel?.mode ?? "create"}
+        licenseTypeId={typePanel?.mode === "edit" ? typePanel.id : null}
+        onClose={() => setTypePanel(null)}
+        onSaved={async () => {
+          setTypePanel(null);
+          await loadData();
+        }}
+      />
+      <OrderWindowPanel
+        open={windowTypeId !== null}
+        licenseTypeId={windowTypeId}
+        licenseTypeName={licenseTypes.find((item) => item.id === windowTypeId)?.name}
+        onClose={() => setWindowTypeId(null)}
+        onSaved={async () => {
+          setWindowTypeId(null);
+          await loadData();
+        }}
+      />
       <DeleteConfirmModal
         isOpen={isDeleteOpen}
         title={common("deleteTitle", {

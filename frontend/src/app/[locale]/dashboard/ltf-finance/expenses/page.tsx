@@ -7,10 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { LedgerEntryPanel } from "@/components/finance/ledger-entry-panel";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import {
   FinanceExpense,
   getFinanceExpensesPage,
 } from "@/lib/ltf-finance-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate } from "@/lib/date-display";
 
 type ExpenseStatusFilter = "all" | "recorded" | "paid" | "void";
@@ -37,8 +38,7 @@ type ExpenseStatusFilter = "all" | "recorded" | "paid" | "void";
 export default function LtfFinanceExpensesPage() {
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
-  const locale = useLocale();
-  const router = useRouter();
+  const [entryPanel, setEntryPanel] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(null);
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,6 +50,14 @@ export default function LtfFinanceExpensesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const requestAbortRef = useRef<AbortController | null>(null);
+
+  useConsumeSearchParam("create", () => setEntryPanel({ mode: "create" }));
+  useConsumeSearchParam("edit", (value) => {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) {
+      setEntryPanel({ mode: "edit", id });
+    }
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -190,7 +198,7 @@ export default function LtfFinanceExpensesPage() {
         />
         <ListActionsRow
           actions={
-            <Button variant="primary" onClick={() => router.push(`/${locale}/dashboard/ltf-finance/expenses/new`)}>
+            <Button variant="primary" onClick={() => setEntryPanel({ mode: "create" })}>
               {t("recordExpenseAction")}
             </Button>
           }
@@ -243,9 +251,21 @@ export default function LtfFinanceExpensesPage() {
             },
           ]}
           rows={expenses}
-          onRowClick={(row) => router.push(`/${locale}/dashboard/ltf-finance/expenses/${row.id}`)}
+          onRowClick={(row) => setEntryPanel({ mode: "edit", id: row.id })}
         />
       )}
+      <LedgerEntryPanel
+        open={entryPanel !== null}
+        kind="expense"
+        desk="ltf"
+        mode={entryPanel?.mode ?? "create"}
+        entryId={entryPanel?.mode === "edit" ? entryPanel.id : null}
+        onClose={() => setEntryPanel(null)}
+        onSaved={async () => {
+          setEntryPanel(null);
+          await loadExpenses();
+        }}
+      />
     </LtfFinanceLayout>
   );
 }
