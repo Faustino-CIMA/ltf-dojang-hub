@@ -16,6 +16,7 @@ const ADMIN_KEYS = [
 ] as const;
 
 const CLUB_KEYS = [
+  "nationalTeamBadge",
   "nationalTeamBlockTitle",
   "nationalTeamBlockEmpty",
   "nationalTeamCoaches",

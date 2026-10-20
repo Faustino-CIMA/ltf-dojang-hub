@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
+import { MemberNationalTeamBadge } from "@/components/national-team/member-national-team-badge";
 import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
 import { NationalTeamDesk } from "@/components/national-team/national-team-desk";
 import { getMembersList, type Member } from "@/lib/ltf-admin-api";
@@ -309,6 +310,20 @@ function peopleIn(dialog: HTMLElement) {
     .filter((text) => text.includes("COACH Alex") || text.includes("WEBER Lea") || text.includes("LENS Pia") || text.includes("MEDIC Noa"))
     .map((text) => text.replace(/\s·.*/, ""));
 }
+
+describe("Club national team badge", () => {
+  it("shows the squad label only while the athlete is selected", () => {
+    const { rerender } = render(
+      <MemberNationalTeamBadge memberId={9} preview={{ selected: true, labels: ["National team · 2026"] }} />
+    );
+    expect(screen.getByText("nationalTeamBadge")).toBeInTheDocument();
+    expect(screen.getByText("National team · 2026")).toBeInTheDocument();
+    expect(screen.queryByText("nationalTeamCosl")).toBeNull();
+    expect(screen.queryByText("nationalTeamCoaches")).toBeNull();
+    rerender(<MemberNationalTeamBadge memberId={9} preview={{ selected: false, labels: [] }} />);
+    expect(screen.queryByText("nationalTeamBadge")).toBeNull();
+  });
+});
 
 describe("Club national team block", () => {
   const athlete: AthleteNationalTeam = {

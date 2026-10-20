@@ -1427,6 +1427,7 @@
     "moduleClubManagement": "Club management",
     "moduleCompetition": "Competition",
     "moduleEventCalendar": "Event calendar",
+    "nationalTeamBadge": "National team",
     "nationalTeamBlockTitle": "National team",
     "nationalTeamBlockHint": "Read only. Coach names are shown. Private staff details are not.",
     "nationalTeamBlockEmpty": "This athlete is not on a national-team squad.",

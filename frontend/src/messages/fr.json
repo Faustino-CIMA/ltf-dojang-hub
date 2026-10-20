@@ -30,6 +30,7 @@
     "moduleClubManagement": "Gestion du club",
     "moduleCompetition": "Compétition",
     "moduleEventCalendar": "Calendrier des événements",
+    "nationalTeamBadge": "Équipe nationale",
     "nationalTeamBlockTitle": "Équipe nationale",
     "nationalTeamBlockHint": "Lecture seule. Les noms des entraîneurs sont visibles. Aucune donnée privée du staff.",
     "nationalTeamBlockEmpty": "Cet athlète n'est dans aucun collectif national.",

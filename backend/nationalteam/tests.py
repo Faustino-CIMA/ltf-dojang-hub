@@ -205,20 +205,24 @@ class NationalTeamApiTests(TestCase):
         self.assertEqual(staff.status_code, status.HTTP_201_CREATED, staff.data)
         self.assertIsNone(staff.data["person"]["club_id"])
         self.assertNotIn("email", staff.data["person"])
-        self.client.force_authenticate(user=self.coach_user)
         listing = self.client.get(f"/api/national-team/selections/?season={self.season.id}")
         self.assertEqual(listing.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(listing.data), 1)
         self.assertEqual(listing.data[0]["coaches"][0]["last_name"], "COACH")
         self.assertNotIn("alex.coach@ltf.lu", str(listing.data))
+        self.client.force_authenticate(user=self.coach_user)
+        listing = self.client.get(f"/api/national-team/selections/?season={self.season.id}")
+        listing = self.client.get(f"/api/national-team/selections/?season={self.season.id}")
+        self.assertEqual(listing.status_code, status.HTTP_403_FORBIDDEN)
         hidden = self.client.get("/api/national-team/staff/")
         self.assertEqual(hidden.status_code, status.HTTP_403_FORBIDDEN)
         other = self.client.get(f"/api/national-team/athletes/{self.other_athlete.id}/")
-        self.assertEqual(other.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(other.status_code, status.HTTP_403_FORBIDDEN)
         own = self.client.get(f"/api/national-team/athletes/{self.athlete.id}/")
-        self.assertEqual(own.status_code, status.HTTP_200_OK)
-        self.assertEqual(own.data["selections"][0]["squad_code"], "national_team")
-        self.assertEqual(own.data["selections"][0]["coaches"][0]["function"], "national_coach")
+        self.assertEqual(own.status_code, status.HTTP_403_FORBIDDEN)
+        badge = self.client.get(f"/api/national-team/athletes/{self.athlete.id}/badge/")
+        self.assertEqual(badge.status_code, status.HTTP_200_OK)
+        self.assertTrue(badge.data["selected"])
+        self.assertEqual(badge.data["labels"], [f"{self.national.name} · {self.season.year}"])
 
     def test_photographer_physiotherapist_and_other_can_be_saved_for_club_and_federation_people(self):
         self.client.force_authenticate(user=self.admin)
@@ -351,6 +355,82 @@ class NationalTeamApiTests(TestCase):
         )
         self.assertEqual(poomsae.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("poomsae", str(poomsae.data))
+
+    def test_club_badge_hides_cosl_support_and_coaches(self):
+        self.client.force_authenticate(user=self.admin)
+        created = self.client.post("/api/national-team/selections/", self._selection(), format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        cosl = self.client.post(
+            "/api/national-team/statuses/",
+            {
+                "member": self.athlete.id,
+                "scheme": "cosl",
+                "started_on": self.season.starts_on.isoformat(),
+                "cosl_pathway": "elite",
+                "cosl_rank": "P3",
+                "cosl_project": "olympic",
+            },
+            format="json",
+        )
+        self.assertEqual(cosl.status_code, status.HTTP_201_CREATED, cosl.data)
+        support = self.client.post(
+            "/api/national-team/statuses/",
+            {
+                "member": self.athlete.id,
+                "scheme": "support",
+                "started_on": self.season.starts_on.isoformat(),
+                "support_program": "sportlycee",
+            },
+            format="json",
+        )
+        self.assertEqual(support.status_code, status.HTTP_201_CREATED, support.data)
+        staff = self.client.post(
+            "/api/national-team/staff/",
+            {
+                "member": self.coach_member.id,
+                "function": "national_coach",
+                "squad": self.national.id,
+                "started_on": self.season.starts_on.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(staff.status_code, status.HTTP_201_CREATED, staff.data)
+        dossier = self.client.get(f"/api/national-team/athletes/{self.athlete.id}/")
+        self.assertEqual(dossier.status_code, status.HTTP_200_OK)
+        self.assertEqual(dossier.data["current"]["cosl"]["rank"], "P3")
+        self.assertEqual(dossier.data["current"]["support"], "sportlycee")
+        self.assertEqual(dossier.data["selections"][0]["coaches"][0]["function"], "national_coach")
+
+        self.client.force_authenticate(user=self.coach_user)
+        hidden = self.client.get(f"/api/national-team/athletes/{self.athlete.id}/")
+        self.assertEqual(hidden.status_code, status.HTTP_403_FORBIDDEN)
+        badge = self.client.get(f"/api/national-team/athletes/{self.athlete.id}/badge/")
+        self.assertEqual(badge.status_code, status.HTTP_200_OK, badge.data)
+        self.assertEqual(badge.data, {"selected": True, "labels": [f"{self.national.name} · {self.season.year}"]})
+        self.assertNotIn("cosl", badge.data)
+        self.assertNotIn("support", badge.data)
+        self.assertNotIn("coaches", str(badge.data).lower())
+        self.assertNotIn("sportlycee", str(badge.data))
+        self.assertEqual(
+            self.client.get(f"/api/national-team/athletes/{self.other_athlete.id}/badge/").status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        quiet = Member.objects.create(club=self.club, first_name="Ines", last_name="Simon")
+        empty = self.client.get(f"/api/national-team/athletes/{quiet.id}/badge/")
+        self.assertEqual(empty.status_code, status.HTTP_200_OK)
+        self.assertEqual(empty.data, {"selected": False, "labels": []})
+
+        self.client.force_authenticate(user=self.admin)
+        closed = self.client.patch(
+            f"/api/national-team/selections/{created.data['id']}/",
+            {"ended_on": timezone.localdate().isoformat()},
+            format="json",
+        )
+        self.assertEqual(closed.status_code, status.HTTP_200_OK, closed.data)
+        self.client.force_authenticate(user=self.coach_user)
+        after = self.client.get(f"/api/national-team/athletes/{self.athlete.id}/badge/")
+        self.assertEqual(after.status_code, status.HTTP_200_OK)
+        self.assertEqual(after.data, {"selected": False, "labels": []})
 
     def test_admin_can_add_a_squad_and_change_season_dates(self):
         self.client.force_authenticate(user=self.admin)
