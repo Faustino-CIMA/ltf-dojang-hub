@@ -93,6 +93,7 @@
     "sidebarExpand": "Säiteleescht opmaachen",
     "navGroupClub": "Club",
     "navGroupClubManagement": "Clubverwaltung",
+    "navGroupCompetition": "Competitioun",
     "navGroupLtfManagement": "LTF-Verwaltung",
     "navGroupCalendar": "Evenementer",
     "navGroupPreview": "Virschau",
@@ -1425,6 +1426,7 @@
     "modulePricesColumnMinimum": "Mindestkäscht",
     "modulePricesColumnEstimate": "Geschätzte Käschte am Joer",
     "moduleClubManagement": "Clubverwaltung",
+    "moduleCompetition": "Competitioun",
     "moduleEventCalendar": "Evenementskalenner",
     "nationalTeamBlockTitle": "Nationalequipe",
     "nationalTeamBlockHint": "Nëmme liesen. Trainerimm si sichtbar. Keng privat Staff-Donnéeën.",
@@ -2207,6 +2209,7 @@
     "moduleFeeInactive": "Ausgeschalt",
     "moduleFeeClose": "Zoumaachen",
     "moduleClubManagement": "Clubverwaltung",
+    "moduleCompetition": "Competitioun",
     "moduleEventCalendar": "Evenementskalenner",
     "clubFeeSwitchedOff": "Clubkäscht ausgeschalt. Schonn geschéckte Rechnungen bleiwen.",
     "navNationalTeam": "Nationalequipe"

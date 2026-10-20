@@ -5,7 +5,8 @@
     "themeLabel": "Darstellung",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
-    "themeSystem": "System"
+    "themeSystem": "System",
+    "navGroupCompetition": "Wettkampf"
   },
   "ClubAdmin": {
     "memberCommitteeTab": "Vorstand",
@@ -27,6 +28,7 @@
     "modulePricesColumnMinimum": "Mindestgebühr",
     "modulePricesColumnEstimate": "Geschätzte Jahreskosten",
     "moduleClubManagement": "Vereinsverwaltung",
+    "moduleCompetition": "Wettkampf",
     "moduleEventCalendar": "Veranstaltungskalender",
     "nationalTeamBlockTitle": "Nationalmannschaft",
     "nationalTeamBlockHint": "Nur lesen. Trainernamen sind sichtbar. Keine privaten Stabdaten.",
@@ -532,6 +534,7 @@
     "moduleFeeInactive": "Ausgeschaltet",
     "moduleFeeClose": "Schliessen",
     "moduleClubManagement": "Vereinsverwaltung",
+    "moduleCompetition": "Wettkampf",
     "moduleEventCalendar": "Veranstaltungskalender",
     "clubFeeSwitchedOff": "Vereinsgebühr ausgeschaltet. Bereits versandte Rechnungen bleiben.",
     "navNationalTeam": "Nationalmannschaft"

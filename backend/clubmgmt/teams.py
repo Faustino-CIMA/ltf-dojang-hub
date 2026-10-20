@@ -1,6 +1,6 @@
 """Club competition teams.
 
-Club admins and coaches of a club with the club-management module manage
+Club admins and coaches of a club with the competition module manage
 every team in that club. Membership is the current list only. LTF roles
 cannot read these rows.
 """

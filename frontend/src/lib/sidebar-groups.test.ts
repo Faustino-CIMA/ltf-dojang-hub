@@ -18,6 +18,7 @@ describe("sidebar group titles", () => {
 
   it("keeps club management on club pages", () => {
     expect(clubSidebarGroup("finance")?.labelKey).toBe("navGroupClubManagement");
+    expect(clubSidebarGroup("teams")?.labelKey).toBe("navGroupCompetition");
     expect(clubSidebarGroup("members")?.labelKey).toBe("navGroupClub");
     expect(clubSidebarGroup("settings")).toBeUndefined();
   });
@@ -26,6 +27,7 @@ describe("sidebar group titles", () => {
     expect(en.Common.navGroupLtfManagement).toBe("LTF management");
     expect(lb.Common.navGroupLtfManagement.trim().length).toBeGreaterThan(0);
     expect(en.Common.navGroupClubManagement).toBe("Club management");
+    expect(en.Common.navGroupCompetition).toBe("Competition");
     expect(lb.Common.navGroupClubManagement).not.toBe(lb.Common.navGroupLtfManagement);
   });
 });

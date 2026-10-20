@@ -1,7 +1,8 @@
 from django.utils import timezone
 
 from modules.entitlements import is_club_assigned, is_install_entitled
-from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+from modules.permissions import IsClubModuleAssigned
+from modules.registry import CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID
 
 from .models import Committee, CommitteeMandate
 
@@ -12,6 +13,34 @@ def club_mgmt_entitled() -> bool:
 
 def club_mgmt_assigned(club_id: int | None) -> bool:
     return is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, club_id)
+
+
+def _request_club_id(request) -> int | None:
+    raw = request.query_params.get("club") or request.data.get("club") or request.data.get("club_id")
+    if raw in (None, ""):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+class CompetitionModulePermission(IsClubModuleAssigned):
+    """Competition assignment when the request names a club.
+
+    Detail routes identify a team or a member instead of a club. Those views
+    still reject the caller through measurement_club_ids().
+    """
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if not getattr(view, "module_id", None):
+            view.module_id = COMPETITION_MODULE_ID
+        if _request_club_id(request) is None:
+            return True
+        return super().has_permission(request, view)
 
 
 def is_ltf_manager(user) -> bool:

@@ -19,6 +19,7 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
 
   const moduleName = (moduleId: string) => {
     if (moduleId === "club_management") return t("moduleClubManagement");
+    if (moduleId === "competition") return t("moduleCompetition");
     if (moduleId === "event_calendar") return t("moduleEventCalendar");
     return moduleId;
   };

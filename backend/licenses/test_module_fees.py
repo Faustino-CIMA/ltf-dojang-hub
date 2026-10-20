@@ -12,7 +12,7 @@ from members.models import Member
 from modules.codes import build_payload, sign_payload
 from modules.entitlements import install_id_str, redeem_product_code, set_club_assignment
 from modules.models import ClubModuleAssignment
-from modules.registry import CLUB_MANAGEMENT_MODULE_ID, EVENT_CALENDAR_MODULE_ID
+from modules.registry import CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, EVENT_CALENDAR_MODULE_ID
 
 from .models import ClubFeePrice, ClubFeeType, Invoice, License, LicenseType
 from .module_fees import active_member_count, module_fee_quote, quote_price
@@ -348,7 +348,7 @@ class ModuleFeeBillingTests(APITestCase):
         quote = self.client.get(f"/api/clubs/{self.club.id}/module-fees/")
         self.assertEqual(quote.status_code, status.HTTP_200_OK, quote.data)
         by_id = {row["module_id"]: row for row in quote.data["modules"]}
-        self.assertEqual(set(by_id), {CLUB_MANAGEMENT_MODULE_ID, EVENT_CALENDAR_MODULE_ID})
+        self.assertEqual(set(by_id), {CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, EVENT_CALENDAR_MODULE_ID})
         self.assertTrue(by_id[CLUB_MANAGEMENT_MODULE_ID]["enabled"])
         self.assertFalse(by_id[EVENT_CALENDAR_MODULE_ID]["enabled"])
         self.assertEqual(by_id[CLUB_MANAGEMENT_MODULE_ID]["pricing_type"], "flat")

@@ -48,7 +48,7 @@ import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
 import { MemberNationalTeamBlock } from "@/components/national-team/member-national-team-block";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { downloadClubStatement } from "@/lib/club-finance-api";
-import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { apiRequest } from "@/lib/api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { canonicalizeLicenseRole } from "@/lib/license-roles";
@@ -97,6 +97,7 @@ export default function ClubMemberDetailPage() {
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const { selectedClubId } = useClubSelection();
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [competitionOn, setCompetitionOn] = useState(false);
 
   const roleLabelByValue = useMemo(
     () => ({
@@ -218,10 +219,16 @@ export default function ClubMemberDetailPage() {
     let cancelled = false;
     getModuleStatus()
       .then((status) => {
-        if (!cancelled) setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+        if (!cancelled) {
+          setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+          setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
+        }
       })
       .catch(() => {
-        if (!cancelled) setClubMgmtOn(false);
+        if (!cancelled) {
+          setClubMgmtOn(false);
+          setCompetitionOn(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -530,7 +537,7 @@ export default function ClubMemberDetailPage() {
                 </div>
             </FormPanel>
             <MemberNationalTeamBlock memberId={member.id} />
-            {clubMgmtOn && canEditMember ? (
+            {competitionOn && canEditMember ? (
               <MemberTeamsCard
                 memberId={member.id}
                 clubId={member.club}

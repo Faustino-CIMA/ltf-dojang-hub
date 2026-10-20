@@ -28,6 +28,7 @@ from .entitlements import (
 from .models import ClubModuleAssignment, InstallEntitlement, InstallIdentity, ProductCodeRedemption
 from .registry import (
     CLUB_MANAGEMENT_MODULE_ID,
+    COMPETITION_MODULE_ID,
     INVENTORY_CLUB_LEGACY_ID,
     INVENTORY_FEDERATION_MODULE_ID,
     PREVIEW_MODULE_ID,
@@ -246,6 +247,7 @@ class ModuleEntitlementTests(TestCase):
         ids = [row["id"] for row in catalog()]
         self.assertNotIn(INVENTORY_CLUB_LEGACY_ID, ids)
         self.assertIn(CLUB_MANAGEMENT_MODULE_ID, ids)
+        self.assertIn(COMPETITION_MODULE_ID, ids)
         self.assertIn(INVENTORY_FEDERATION_MODULE_ID, ids)
         self._auth(self.superuser)
         response = self.client.get("/api/ops/modules/")
@@ -339,6 +341,47 @@ class ModuleEntitlementTests(TestCase):
         redemption = ProductCodeRedemption.objects.get(jti="legacy-inv-club")
         self.assertEqual(sorted(redemption.modules), [CLUB_MANAGEMENT_MODULE_ID, PREVIEW_MODULE_ID])
         self.assertEqual(redemption.payload["modules"], [CLUB_MANAGEMENT_MODULE_ID])
+
+    def test_competition_backfill_copies_enabled_clubs_and_reverses(self):
+        import importlib
+
+        from django.apps import apps
+
+        migration = importlib.import_module("modules.migrations.0003_backfill_competition")
+        backfill_competition = migration.backfill_competition
+        reverse_competition = migration.reverse_competition
+
+        InstallEntitlement.objects.create(module_id=CLUB_MANAGEMENT_MODULE_ID, active=True)
+        ClubModuleAssignment.objects.create(
+            club=self.club,
+            module_id=CLUB_MANAGEMENT_MODULE_ID,
+            enabled=True,
+            assigned_by=self.superuser,
+        )
+        quiet = Club.objects.create(name="Quiet Club", created_by=self.superuser)
+        ClubModuleAssignment.objects.create(
+            club=quiet,
+            module_id=CLUB_MANAGEMENT_MODULE_ID,
+            enabled=False,
+            assigned_by=self.superuser,
+        )
+        backfill_competition(apps, None)
+        backfill_competition(apps, None)
+        self.assertTrue(is_install_entitled(COMPETITION_MODULE_ID))
+        self.assertEqual(
+            ClubModuleAssignment.objects.filter(club=self.club, module_id=COMPETITION_MODULE_ID, enabled=True).count(),
+            1,
+        )
+        self.assertFalse(ClubModuleAssignment.objects.filter(club=quiet, module_id=COMPETITION_MODULE_ID).exists())
+        reverse_competition(apps, None)
+        self.assertFalse(InstallEntitlement.objects.filter(module_id=COMPETITION_MODULE_ID).exists())
+        self.assertFalse(ClubModuleAssignment.objects.filter(module_id=COMPETITION_MODULE_ID).exists())
+        self.assertTrue(InstallEntitlement.objects.filter(module_id=CLUB_MANAGEMENT_MODULE_ID, active=True).exists())
+        self.assertTrue(
+            ClubModuleAssignment.objects.filter(
+                club=self.club, module_id=CLUB_MANAGEMENT_MODULE_ID, enabled=True
+            ).exists()
+        )
 
     def test_install_id_is_not_a_product_code(self):
         self._auth(self.superuser)
