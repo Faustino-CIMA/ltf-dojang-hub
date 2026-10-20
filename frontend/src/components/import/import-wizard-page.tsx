@@ -1642,7 +1642,7 @@ export function ImportWizardPage({
 
               {showMembershipYearPanel ? (
                 <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 p-4">
-                  <label className="flex items-start gap-3 text-sm text-foreground">
+                  <label className="flex items-start gap-2 text-sm text-foreground">
                     <Checkbox
                       checked={membershipYearRulesEnabled}
                       onCheckedChange={(checked) => {

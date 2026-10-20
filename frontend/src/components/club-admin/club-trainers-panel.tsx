@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -311,16 +312,14 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
                   {trainers.map((trainer) => (
                     <li key={trainer.user_id} className="flex items-center justify-between gap-3 rounded-[var(--radius-form)] border border-border bg-[var(--surface)] px-3 py-2">
                       <label className="flex min-w-0 items-start gap-2" onClick={(event) => event.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          className="mt-1"
+                        <Checkbox
+                          className="mt-0.5"
                           checked={trainer.include_in_qualite !== false}
                           disabled={isSaving}
                           aria-label={t("trainerQualite")}
-                          onChange={(event) => {
-                            event.stopPropagation();
+                          onCheckedChange={(checked) => {
                             setIsSaving(true);
-                            setClubTrainerQualite(clubId, trainer.user_id, event.target.checked)
+                            setClubTrainerQualite(clubId, trainer.user_id, checked === true)
                               .then((result) => {
                                 setTrainers(result.trainers);
                                 onSuccess(t("trainerQualiteSaved"));

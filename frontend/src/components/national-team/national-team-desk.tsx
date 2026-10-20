@@ -631,7 +631,7 @@ function LevelsSection(props: {
   return (
     <div className="space-y-3">
       <div className="app-panel space-y-3 p-3">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2">
           <Checkbox
             id="forbid-overlap"
             checked={props.settings.forbid_overlapping_squads}

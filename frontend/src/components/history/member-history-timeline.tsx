@@ -501,7 +501,7 @@ export function MemberHistoryTimeline({
         header: <span className="sr-only">Select</span>,
         render: (row) => (
           <span
-            className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+            className="inline-flex"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >

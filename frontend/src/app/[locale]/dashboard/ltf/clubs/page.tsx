@@ -266,17 +266,15 @@ export default function LtfAdminClubsPage() {
               {
                 key: "select",
                 header: (
-                  <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
-                    <Checkbox
-                      aria-label={common("selectAllLabel")}
-                      checked={allSelected}
-                      onCheckedChange={() => toggleSelectAll()}
-                    />
-                  </span>
+                  <Checkbox
+                    aria-label={common("selectAllLabel")}
+                    checked={allSelected}
+                    onCheckedChange={() => toggleSelectAll()}
+                  />
                 ),
                 render: (club) => (
                   <span
-                    className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+                    className="inline-flex"
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
                   >

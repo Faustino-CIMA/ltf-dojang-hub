@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { OpsLayout } from "@/components/ops/ops-layout";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
@@ -279,12 +280,8 @@ export default function OpsTranslationsPage() {
                   placeholder={t("translationsSearchInPage")}
                 />
               </div>
-              <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-muted">
-                <input
-                  type="checkbox"
-                  checked={missingOnly}
-                  onChange={(event) => setMissingOnly(event.target.checked)}
-                />
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <Checkbox checked={missingOnly} onCheckedChange={(checked) => setMissingOnly(checked === true)} />
                 {t("missingLbOnly")}
               </label>
             </div>

@@ -11,6 +11,7 @@ import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
 import { TeamGroups } from "@/components/club-admin/team-groups";
 import { TeamWeighInPanel } from "@/components/club-admin/team-weigh-in";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
@@ -220,11 +221,10 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
     const select: EntityTableColumn<TeamMember> = {
       key: "select",
       header: (
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={t("teamSelectAll")}
           checked={rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))}
-          onChange={() => {
+          onCheckedChange={() => {
             setBulkConfirm(false);
             const all = rows.every((row) => selectedIds.includes(row.id));
             setSelected(all ? [] : rows.map((row) => row.id));
@@ -234,11 +234,10 @@ export function TeamRoster({ teamId, onBack }: { teamId: number; onBack: () => v
       headerClassName: "w-12",
       cellClassName: "w-12",
       render: (row) => (
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={t("teamSelectMember", { name: formatFullName(row) })}
           checked={selectedIds.includes(row.id)}
-          onChange={() => {
+          onCheckedChange={() => {
             setBulkConfirm(false);
             setSelected((current) => (current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id]));
           }}

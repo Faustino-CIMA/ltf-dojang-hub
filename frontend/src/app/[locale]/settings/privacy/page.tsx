@@ -88,7 +88,7 @@ export default function PrivacySettingsPage() {
           Manage your consent and data rights in line with GDPR.
         </p>
 
-        <div className="mt-6 flex items-center gap-3">
+        <div className="mt-6 flex items-center gap-2">
           <Checkbox checked={consentGiven} onCheckedChange={handleConsentChange} />
           <span className="text-sm text-foreground">I consent to data processing.</span>
         </div>

@@ -329,7 +329,7 @@ export default function LtfAdminSettingsPage() {
           <FormPanel className="space-y-3">
             <h2 className="text-section text-foreground">{t("importPrefixRewriteTitle")}</h2>
             <p className="text-sm text-muted">{t("importPrefixRewriteHint")}</p>
-            <label className="flex items-start gap-3 text-sm text-foreground">
+            <label className="flex items-start gap-2 text-sm text-foreground">
               <Checkbox
                 checked={rewriteOnImport}
                 onCheckedChange={(checked) => {

@@ -1173,7 +1173,7 @@ export default function LtfFinanceLicenseSettingsPage() {
                   : "border-border bg-secondary/40"
               )}
             >
-              <label className="flex items-start gap-3 text-sm">
+              <label className="flex items-start gap-2 text-sm">
                 <Checkbox
                   checked={billingRebill}
                   onCheckedChange={(value) => setBillingRebill(Boolean(value))}
