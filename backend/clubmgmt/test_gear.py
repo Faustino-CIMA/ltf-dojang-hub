@@ -126,3 +126,73 @@ class MemberGearApiTests(TestCase):
         self._auth(self.club_admin)
         hidden = self.client.get(f"/api/club-management/gear/?member={self.athlete.id}")
         self.assertEqual(hidden.status_code, 403)
+
+    def test_brand_switches_default_on_and_do_not_wipe_sizes(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        saved = self.client.put(
+            "/api/club-management/gear/",
+            {"member": self.athlete.id, "daedo_sock": "M", "kpnp_sock": "6", "kpnp_glove": "L", "chest": "S"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertTrue(saved.data["egear_daedo"])
+        self.assertTrue(saved.data["egear_kpnp"])
+
+        brands = self.client.get(f"/api/club-management/egear-brands/?club={self.club.id}")
+        self.assertEqual(brands.status_code, 200, brands.data)
+        self.assertEqual(brands.data, {"club": self.club.id, "egear_daedo": True, "egear_kpnp": True})
+
+        switched = self.client.put(
+            "/api/club-management/egear-brands/?club=%s" % self.club.id,
+            {"club": self.club.id, "kpnp": False},
+            format="json",
+        )
+        self.assertEqual(switched.status_code, 200, switched.data)
+        self.assertFalse(switched.data["egear_kpnp"])
+        self.assertTrue(switched.data["egear_daedo"])
+        row = MemberGear.objects.get(member=self.athlete)
+        self.assertEqual(row.kpnp_sock, "6")
+        self.assertEqual(row.kpnp_glove, "L")
+
+        kept = self.client.put(
+            "/api/club-management/gear/",
+            {"member": self.athlete.id, "daedo_sock": "L"},
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 200, kept.data)
+        self.assertEqual(kept.data["daedo_sock"], "L")
+        self.assertEqual(kept.data["kpnp_sock"], "6")
+        self.assertEqual(kept.data["kpnp_glove"], "L")
+        self.assertFalse(kept.data["egear_kpnp"])
+
+        self._auth(self.coach)
+        readable = self.client.get(f"/api/club-management/egear-brands/?club={self.club.id}")
+        self.assertEqual(readable.status_code, 200, readable.data)
+        denied = self.client.put(
+            "/api/club-management/egear-brands/",
+            {"club": self.club.id, "daedo": False},
+            format="json",
+        )
+        self.assertEqual(denied.status_code, 403)
+        self.club.refresh_from_db()
+        self.assertTrue(self.club.egear_daedo)
+
+        self._auth(self.ltf_admin)
+        ltf = self.client.get(f"/api/club-management/egear-brands/?club={self.club.id}")
+        self.assertEqual(ltf.status_code, 403)
+
+        self._auth(self.club_admin)
+        invalid = self.client.put(
+            "/api/club-management/egear-brands/",
+            {"club": self.club.id, "daedo": "no"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, 400)
+
+        set_club_assignment(club=self.club, module_id=COMPETITION_MODULE_ID, enabled=False, user=self.ltf_admin)
+        hidden = self.client.get(f"/api/club-management/egear-brands/?club={self.club.id}")
+        self.assertEqual(hidden.status_code, 403)
+        self.club.refresh_from_db()
+        self.assertFalse(self.club.egear_kpnp)
+        self.assertEqual(MemberGear.objects.get(member=self.athlete).kpnp_sock, "6")

@@ -279,6 +279,8 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
         "category_set": team.category_set_code or "wt",
         "pss_system": team.pss_system or "",
+        "egear_daedo": bool(team.club.egear_daedo),
+        "egear_kpnp": bool(team.club.egear_kpnp),
         "archived": team.archived_at is not None,
     }
     if include_members:

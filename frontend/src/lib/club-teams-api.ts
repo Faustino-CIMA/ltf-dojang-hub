@@ -68,6 +68,8 @@ export type ClubTeam = {
   weight_margin_kg?: string;
   category_set?: CategorySetCode;
   pss_system?: "" | "daedo" | "kpnp";
+  egear_daedo?: boolean;
+  egear_kpnp?: boolean;
   archived?: boolean;
   custom_bands?: CustomBand[];
   category_sets?: CategorySetOption[];

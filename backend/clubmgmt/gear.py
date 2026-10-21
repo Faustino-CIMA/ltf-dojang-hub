@@ -77,6 +77,12 @@ def roster_gear(member) -> dict:
     return payload
 
 
+def _egear_flags(member) -> dict:
+    from .egear_views import egear_flags
+
+    return egear_flags(member.club)
+
+
 def blank_gear_payload(member) -> dict:
     from .clothing import clothing_choices
 
@@ -84,6 +90,7 @@ def blank_gear_payload(member) -> dict:
     payload["member"] = member.id
     payload["updated_at"] = None
     payload["clothing"] = clothing_choices(member)
+    payload.update(_egear_flags(member))
     return payload
 
 
@@ -102,6 +109,7 @@ def gear_row_payload(row: MemberGear) -> dict:
     payload["member"] = row.member_id
     payload["updated_at"] = timezone.localtime(row.updated_at).date().isoformat()
     payload["clothing"] = clothing_choices(row.member)
+    payload.update(_egear_flags(row.member))
     return payload
 
 

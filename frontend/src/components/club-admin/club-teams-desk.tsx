@@ -31,6 +31,8 @@ import {
   type TeamMember,
 } from "@/lib/club-teams-api";
 import { formatAgeClassLabel, suggestAgeClass } from "@/lib/age-class";
+import { getEgearBrands } from "@/lib/egear-brands-api";
+import { egearBrandsFrom, type EgearBrands } from "@/lib/member-gear-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
@@ -123,10 +125,37 @@ export function TeamForm({
   const [discipline, setDiscipline] = useState<TeamDiscipline>(team?.discipline ?? "kyorugi");
   const [note, setNote] = useState(team?.note ?? "");
   const [pss, setPss] = useState<"" | "daedo" | "kpnp">(team?.pss_system ?? "");
+  const [brands, setBrands] = useState<EgearBrands>(() => egearBrandsFrom(team));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const archived = Boolean(team?.archived);
   const disciplineChanged = Boolean(team && discipline !== team.discipline);
+
+  useEffect(() => {
+    let cancelled = false;
+    getEgearBrands(clubId)
+      .then((payload) => {
+        if (!cancelled) setBrands(egearBrandsFrom(payload));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId]);
+
+  const pssOptions = [
+    { value: "", label: t("gearNone") },
+    ...(["daedo", "kpnp"] as const).flatMap((brand) => {
+      const on = brands[brand];
+      if (!on && pss !== brand) return [];
+      const name = t(brand === "daedo" ? "gearDaedo" : "gearKpnp");
+      return [{
+        value: brand,
+        label: on ? name : t("teamPssSwitchedOff", { brand: name }),
+        disabled: !on,
+      }];
+    }),
+  ];
   return (
     <SidePanel open title={team ? t("teamsEdit") : t("teamsAdd")} closeLabel={t("teamsClose")} onClose={onClose}>
       <form
@@ -181,11 +210,7 @@ export function TeamForm({
               value={pss}
               disabled={archived}
               onValueChange={(value) => setPss(value as "" | "daedo" | "kpnp")}
-              options={[
-                { value: "", label: t("gearNone") },
-                { value: "daedo", label: t("gearDaedo") },
-                { value: "kpnp", label: t("gearKpnp") },
-              ]}
+              options={pssOptions}
             />
             <p className="text-sm text-muted">{t("teamPssHint")}</p>
           </div>

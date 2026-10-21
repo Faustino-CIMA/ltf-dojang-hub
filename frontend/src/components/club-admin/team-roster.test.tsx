@@ -139,6 +139,10 @@ describe("Gear sock order", () => {
       gearSockSortRank("kpnp", { kpnp_sock: "10" }, "athlete") ?? 0,
     );
     expect(gearSockSortRank("daedo", { daedo_sock: "M" }, "coach")).toBeNull();
+    expect(gearSockSortRank("kpnp", { kpnp_sock: "2" }, "athlete", { daedo: true, kpnp: false })).toBeNull();
+    expect(gearSockSortRank("", { daedo_sock: "S", kpnp_sock: "10" }, "athlete", { daedo: true, kpnp: false })).toBe(
+      gearSockSortRank("daedo", { daedo_sock: "S" }, "athlete"),
+    );
   });
 });
 
@@ -198,6 +202,35 @@ describe("Team roster", () => {
     expect(screen.getByText("teamPoomsaeSource")).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "gearColumn" })).not.toBeInTheDocument();
     expect(screen.getByText("4th Kup")).toBeInTheDocument();
+  });
+
+  it("shows only the brand the club still uses when the team system is blank", async () => {
+    jest.mocked(getClubTeam).mockResolvedValue({
+      ...kyorugi,
+      pss_system: "",
+      egear_daedo: true,
+      egear_kpnp: false,
+    });
+    render(<TeamRoster teamId={1} onBack={() => undefined} />);
+    expect(await screen.findByText("gearSock M")).toBeInTheDocument();
+    expect(screen.queryByText("gearKpnp")).not.toBeInTheDocument();
+  });
+
+  it("does not substitute the other brand when the stored system is switched off", async () => {
+    jest.mocked(getClubTeam).mockResolvedValue({
+      ...kyorugi,
+      pss_system: "kpnp",
+      egear_daedo: true,
+      egear_kpnp: false,
+    });
+    render(<TeamRoster teamId={8} onBack={() => undefined} />);
+    expect(await screen.findByRole("columnheader", { name: "gearColumn" })).toBeInTheDocument();
+    expect(screen.queryByText("gearSock M")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("WEBER Lea"));
+    expect(await screen.findByText('teamPssSwitchedOffNote:{"brand":"gearKpnp"}')).toBeInTheDocument();
+    expect(screen.getByText("gearDaedo")).toBeInTheDocument();
+    expect(screen.getByText("gearProtectors")).toBeInTheDocument();
+    expect(screen.queryByText("gearKpnp")).not.toBeInTheDocument();
   });
 
   it("groups coaches and explains a blank weight category", async () => {

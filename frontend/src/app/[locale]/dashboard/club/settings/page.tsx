@@ -33,6 +33,7 @@ import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { ClothingSizesDesk } from "@/components/club-admin/clothing-sizes-desk";
+import { EgearBrandsDesk } from "@/components/club-admin/egear-brands-desk";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
 import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
@@ -373,7 +374,12 @@ export default function ClubAdminSettingsPage() {
 
           {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
           {activeTab === "publication" && clubMgmtOn ? <PublicationConsentPanel clubId={selectedClubId} /> : null}
-          {activeTab === "equipment" && competitionOn ? <ClothingSizesDesk clubId={selectedClubId} /> : null}
+          {activeTab === "equipment" && competitionOn ? (
+            <div className="space-y-6">
+              <EgearBrandsDesk clubId={selectedClubId} />
+              <ClothingSizesDesk clubId={selectedClubId} />
+            </div>
+          ) : null}
 
           {activeTab === "trainers" ? (
             <ClubTrainersPanel

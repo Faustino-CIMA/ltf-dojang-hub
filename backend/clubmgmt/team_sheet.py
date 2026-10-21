@@ -396,26 +396,45 @@ def _category_cell(row: dict, text: dict[str, str], set_label: str) -> str:
     return text.get(reason, "")
 
 
-def _gear_headers(text: dict[str, str], pss: str) -> list[str]:
+def visible_electronic_brands(pss: str, *, daedo: bool, kpnp: bool) -> list[str]:
+    """Brands whose columns belong on a Kyorugi sheet.
+
+    A blank team system shows every brand the club still uses. A team system
+    that the club has switched off contributes no columns and does not fall
+    through to the other brand.
+    """
+    if pss == "daedo":
+        return ["daedo"] if daedo else []
+    if pss == "kpnp":
+        return ["kpnp"] if kpnp else []
+    brands = []
+    if daedo:
+        brands.append("daedo")
+    if kpnp:
+        brands.append("kpnp")
+    return brands
+
+
+def _gear_headers(text: dict[str, str], brands: list[str]) -> list[str]:
     headers = []
-    if pss != "kpnp":
+    if "daedo" in brands:
         headers.extend([text["daedo_sock"], text["daedo_glove"], text["daedo_hogu"], text["daedo_head"]])
-    if pss != "daedo":
+    if "kpnp" in brands:
         headers.extend([text["kpnp_sock"], text["kpnp_glove"], text["kpnp_hogu"], text["kpnp_head"]])
     headers.extend([text["chest"], text["headgear"], text["shin"], text["forearm"], text["groin"], text["mouth"]])
     return headers
 
 
-def _gear_cells(row: dict, text: dict[str, str], pss: str) -> list[str]:
+def _gear_cells(row: dict, text: dict[str, str], brands: list[str]) -> list[str]:
     gear = row.get("gear") or {}
 
     def value(key: str) -> str:
         return str(gear.get(key) or "")
 
     cells = []
-    if pss != "kpnp":
+    if "daedo" in brands:
         cells.extend([value("daedo_sock"), value("daedo_glove"), value("daedo_hogu"), value("daedo_head")])
-    if pss != "daedo":
+    if "kpnp" in brands:
         cells.extend([value("kpnp_sock"), value("kpnp_glove"), value("kpnp_hogu"), value("kpnp_head")])
     mouth = value("mouthguard")
     mouth_label = text["youth"] if mouth == "youth" else text["adult"] if mouth == "adult" else ""
@@ -423,7 +442,7 @@ def _gear_cells(row: dict, text: dict[str, str], pss: str) -> list[str]:
     return cells
 
 
-def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: str, pss: str) -> list[str]:
+def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: str, brands: list[str]) -> list[str]:
     licence = text.get(row.get("licence_status") or "none", text["none"])
     shared = [
         _full_name(row),
@@ -454,7 +473,7 @@ def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: s
         row.get("latest_height_on") or "",
         licence,
         _warnings(row, text),
-        *_gear_cells(row, text, pss),
+        *_gear_cells(row, text, brands),
     ]
 
 
@@ -477,6 +496,11 @@ def sheet_rows(payload: dict, lang: str):
     set_code = payload.get("category_set") or "wt"
     set_label = text.get(f"set_{set_code}", set_code)
     pss = payload.get("pss_system") or ""
+    brands = visible_electronic_brands(
+        pss,
+        daedo=payload.get("egear_daedo", True) is not False,
+        kpnp=payload.get("egear_kpnp", True) is not False,
+    )
     meta = [
         (text["team"], payload.get("name") or ""),
         (text["discipline"], text["poomsae"] if poomsae else text["kyorugi"]),
@@ -514,7 +538,7 @@ def sheet_rows(payload: dict, lang: str):
             text["height_on"],
             text["licence"],
             text["warning"],
-            *_gear_headers(text, pss),
+            *_gear_headers(text, brands),
         ]
     coach_headers = [text["name"], text["sex"], text["birth"], text["licence"], text["warning"]]
     athletes = []
@@ -523,7 +547,7 @@ def sheet_rows(payload: dict, lang: str):
         if row.get("role") == "coach":
             coaches.append(_coach_row(row, text))
         else:
-            athletes.append(_athlete_row(row, text, poomsae=poomsae, set_label=set_label, pss=pss))
+            athletes.append(_athlete_row(row, text, poomsae=poomsae, set_label=set_label, brands=brands))
     return {
         "meta": meta,
         "athlete_title": text["athletes"],
