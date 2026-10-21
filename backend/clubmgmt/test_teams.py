@@ -14,7 +14,7 @@ from modules.entitlements import install_id_str, redeem_product_code, set_club_a
 from modules.registry import COMPETITION_MODULE_ID
 
 from .body_measurements import BodyMeasurement, kyorugi_margin, poomsae_division
-from .teams import ClubTeamCategoryBand, ClubTeamGroup, ClubTeamMembership, WeightCategoryBand
+from .teams import ClubTeam, ClubTeamCategoryBand, ClubTeamGroup, ClubTeamMembership, ClubTeamMembershipEvent, WeightCategoryBand
 
 
 @override_settings(DEBUG=True, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
@@ -342,6 +342,77 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(self.client.get(f"/api/club-management/teams/?club={self.club.id}&archived=all").data.__len__(), 2)
         self._auth(self.ltf_admin)
         hidden = self.client.post(f"/api/club-management/teams/{team_id}/duplicate/", {"name": "Nope"}, format="json")
+        self.assertEqual(hidden.status_code, 403, hidden.data)
+
+    def test_membership_history_starts_at_deploy_and_logs_roster_changes(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Cadets", "discipline": "kyorugi"},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.lea.id}, format="json")
+        self.client.patch(
+            f"/api/club-management/teams/{team_id}/members/{self.lea.id}/",
+            {"role": "coach"},
+            format="json",
+        )
+        self.client.post(
+            f"/api/club-management/teams/{team_id}/members/bulk/",
+            {"action": "remove", "members": [self.lea.id]},
+            format="json",
+        )
+        today = timezone.localdate().isoformat()
+        history = self.client.get(f"/api/club-management/teams/{team_id}/history/?on={today}")
+        self.assertEqual(history.status_code, 200, history.data)
+        self.assertFalse(history.data["incomplete"])
+        self.assertEqual([row["action"] for row in history.data["events"]], ["added", "role_changed", "removed"])
+        self.assertEqual(history.data["events"][0]["actor_name"], "club-team")
+        self.assertEqual(history.data["roster"], [])
+
+        source = ClubTeam.objects.get(pk=team_id)
+        source.roster_history_from = timezone.localdate()
+        source.save(update_fields=["roster_history_from"])
+        ClubTeamMembership.objects.create(team=source, member=self.mira, role=ClubTeamMembership.Role.ATHLETE)
+        ClubTeamMembershipEvent.objects.create(
+            team=source,
+            member=self.mira,
+            member_key=self.mira.id,
+            last_name=self.mira.last_name,
+            first_name=self.mira.first_name,
+            role=ClubTeamMembership.Role.ATHLETE,
+            action=ClubTeamMembershipEvent.Action.ALREADY,
+            occurred_at=timezone.now(),
+        )
+        past = self.client.get(f"/api/club-management/teams/{team_id}/history/?on=2020-01-01")
+        self.assertTrue(past.data["incomplete"])
+        self.assertEqual(past.data["roster"], [])
+        self.assertEqual(past.data["events"], [])
+        present = self.client.get(f"/api/club-management/teams/{team_id}/history/?on={today}")
+        self.assertFalse(present.data["incomplete"])
+        self.assertEqual(present.data["roster"][0]["last_name"], "KELLER")
+
+        copied = self.client.post(f"/api/club-management/teams/{team_id}/duplicate/", {"name": "Cadets copy"}, format="json")
+        copy_id = copied.data["team"]["id"]
+        copy_history = self.client.get(f"/api/club-management/teams/{copy_id}/history/?on={today}")
+        self.assertEqual(copy_history.data["events"][0]["action"], "added")
+        self.assertEqual(copy_history.data["events"][0]["note"], "Cadets")
+
+        quiet = Member.objects.create(club=self.club, first_name="Ines", last_name="Simon")
+        self.client.post(f"/api/club-management/teams/{copy_id}/members/", {"member": quiet.id}, format="json")
+        quiet_id = quiet.id
+        quiet.delete()
+        kept = ClubTeamMembershipEvent.objects.filter(team_id=copy_id, member_key=quiet_id, action="removed")
+        self.assertEqual(kept.count(), 1)
+        self.assertIsNone(kept.get().member_id)
+        self.assertEqual(kept.get().last_name, "SIMON")
+
+        self.client.delete(f"/api/club-management/teams/{copy_id}/")
+        self.assertFalse(ClubTeamMembershipEvent.objects.filter(team_id=copy_id).exists())
+        self._auth(self.ltf_admin)
+        hidden = self.client.get(f"/api/club-management/teams/{team_id}/history/")
         self.assertEqual(hidden.status_code, 403, hidden.data)
 
     def test_roster_uses_the_discipline_and_keeps_measurements_on_the_member(self):

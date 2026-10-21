@@ -176,6 +176,38 @@ export type TeamDuplicateResult = {
   dropped_groups: Array<{ name: string; kind: "pair" | "team" }>;
 };
 
+export type TeamHistoryPerson = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  role: "athlete" | "coach";
+};
+
+export type TeamHistoryEvent = {
+  id: number;
+  action: "already" | "added" | "removed" | "role_changed";
+  role: "athlete" | "coach";
+  previous_role: string;
+  first_name: string;
+  last_name: string;
+  note: string;
+  occurred_on: string;
+  occurred_time: string;
+  actor_name: string;
+};
+
+export type TeamHistory = {
+  on: string;
+  history_started_on: string | null;
+  incomplete: boolean;
+  roster: TeamHistoryPerson[];
+  events: TeamHistoryEvent[];
+};
+
+export function getTeamHistory(teamId: number, on: string) {
+  return apiRequest<TeamHistory>(`/api/club-management/teams/${teamId}/history/?on=${encodeURIComponent(on)}`);
+}
+
 export function duplicateClubTeam(teamId: number, name: string) {
   return apiRequest<TeamDuplicateResult>(`/api/club-management/teams/${teamId}/duplicate/`, {
     method: "POST",
