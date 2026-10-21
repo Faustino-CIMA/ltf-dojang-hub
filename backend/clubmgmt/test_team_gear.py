@@ -55,6 +55,8 @@ class TeamGearSheetTests(TestCase):
                 "daedo_sock": "M",
                 "daedo_glove": "S",
                 "kpnp_sock": "6",
+                "chest": "XXL",
+                "headgear": "S",
                 "shin": "L",
                 "mouthguard": "youth",
                 "dobok": "160",
@@ -68,6 +70,7 @@ class TeamGearSheetTests(TestCase):
         athlete = next(row for row in roster.data["members"] if row["id"] == self.athlete.id)
         self.assertEqual(athlete["gear"]["daedo_sock"], "M")
         self.assertEqual(athlete["gear"]["dobok"], "160")
+        self.assertEqual(athlete["gear"]["chest"], "XXL")
 
         sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en")
         self.assertEqual(sheet.status_code, 200, sheet.content)
@@ -75,6 +78,8 @@ class TeamGearSheetTests(TestCase):
         self.assertIn("Daedo socks", text)
         self.assertNotIn("KPNP socks", text)
         self.assertIn("Youth", text)
+        self.assertIn("Chest protector", text)
+        self.assertIn("XXL", text)
         self.assertNotIn("Dobok", text)
         self.assertNotIn("T-shirt", text)
         self.assertIn("WEBER Lea", text)
@@ -117,6 +122,7 @@ class TeamGearSheetTests(TestCase):
         poomsae_sheet = self.client.get(f"/api/club-management/teams/{poomsae.data['id']}/sheet.csv?lang=en")
         poomsae_text = poomsae_sheet.content.decode("utf-8-sig")
         self.assertNotIn("Daedo socks", poomsae_text)
+        self.assertNotIn("Chest protector", poomsae_text)
         self.assertNotIn("Dobok", poomsae_text)
 
         invalid = self.client.patch(

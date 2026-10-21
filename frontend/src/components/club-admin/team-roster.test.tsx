@@ -89,6 +89,8 @@ const kyorugi: ClubTeam = {
         kpnp_glove: "",
         kpnp_hogu: "",
         kpnp_head: "",
+        chest: "",
+        headgear: "",
         shin: "",
         forearm: "",
         groin: "",
@@ -154,7 +156,9 @@ describe("Team roster", () => {
     expect(getBodyMeasurements).toHaveBeenCalledWith(4);
     expect(screen.getByRole("heading", { name: "gearTitle" })).toBeInTheDocument();
     expect(screen.getByText('gearDobokCm:{"size":"160"}')).toBeInTheDocument();
-    expect(screen.getByText("gearClothing")).toBeInTheDocument();
+    expect(screen.getByText("gearProtectors")).toBeInTheDocument();
+    expect(screen.getByText("gearEgear")).toBeInTheDocument();
+    expect(screen.getByText("gearClothingOther")).toBeInTheDocument();
     const section = document.getElementById("height-weight-title")?.closest("section");
     expect(section?.className ?? "").not.toContain("app-panel");
   });

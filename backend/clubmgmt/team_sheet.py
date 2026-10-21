@@ -84,6 +84,8 @@ _LABELS = {
         "kpnp_glove": "KPNP gloves",
         "kpnp_hogu": "KPNP chest protector",
         "kpnp_head": "KPNP headgear",
+        "chest": "Chest protector",
+        "headgear": "Headgear",
         "shin": "Shin guards",
         "forearm": "Forearm guards",
         "groin": "Groin guard",
@@ -166,6 +168,8 @@ _LABELS = {
         "kpnp_glove": "Gants KPNP",
         "kpnp_hogu": "Plastron KPNP",
         "kpnp_head": "Casque KPNP",
+        "chest": "Plastron",
+        "headgear": "Casque",
         "shin": "Protège-tibias",
         "forearm": "Protège-avant-bras",
         "groin": "Coquille",
@@ -248,6 +252,8 @@ _LABELS = {
         "kpnp_glove": "KPNP-Handschuhe",
         "kpnp_hogu": "KPNP-Brustschutz",
         "kpnp_head": "KPNP-Kopfschutz",
+        "chest": "Brustschutz",
+        "headgear": "Kopfschutz",
         "shin": "Schienbeinschoner",
         "forearm": "Unterarmschoner",
         "groin": "Tiefschutz",
@@ -330,6 +336,8 @@ _LABELS = {
         "kpnp_glove": "KPNP-Händschen",
         "kpnp_hogu": "KPNP-Brustschutz",
         "kpnp_head": "KPNP-Kappenschutz",
+        "chest": "Brustschutz",
+        "headgear": "Kappenschutz",
         "shin": "Schinnebäischoner",
         "forearm": "Ënneraarmschoner",
         "groin": "Déifschutz",
@@ -394,7 +402,7 @@ def _gear_headers(text: dict[str, str], pss: str) -> list[str]:
         headers.extend([text["daedo_sock"], text["daedo_glove"], text["daedo_hogu"], text["daedo_head"]])
     if pss != "daedo":
         headers.extend([text["kpnp_sock"], text["kpnp_glove"], text["kpnp_hogu"], text["kpnp_head"]])
-    headers.extend([text["shin"], text["forearm"], text["groin"], text["mouth"]])
+    headers.extend([text["chest"], text["headgear"], text["shin"], text["forearm"], text["groin"], text["mouth"]])
     return headers
 
 
@@ -411,7 +419,7 @@ def _gear_cells(row: dict, text: dict[str, str], pss: str) -> list[str]:
         cells.extend([value("kpnp_sock"), value("kpnp_glove"), value("kpnp_hogu"), value("kpnp_head")])
     mouth = value("mouthguard")
     mouth_label = text["youth"] if mouth == "youth" else text["adult"] if mouth == "adult" else ""
-    cells.extend([value("shin"), value("forearm"), value("groin"), mouth_label])
+    cells.extend([value("chest"), value("headgear"), value("shin"), value("forearm"), value("groin"), mouth_label])
     return cells
 
 

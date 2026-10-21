@@ -322,17 +322,22 @@ export function MemberGearSummary({
         <h3 id={`gear-summary-${memberId}`} className="text-sm font-medium text-foreground">{t("gearTitle")}</h3>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>{t("gearEdit")}</Button>
       </div>
-      {GROUPS.map((group) => (
-        <div key={group.title}>
-          <p className="text-xs text-muted">{t(group.title)}</p>
-          <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
-            {group.fields.map((field) => (
-              <div key={field.key}>
-                <dt className="text-xs text-muted">{t(field.label)}</dt>
-                <dd className="text-sm text-foreground">{gearLabel(t, field.key, shown[field.key])}</dd>
-              </div>
-            ))}
-          </dl>
+      {GEAR_TABS.map((tab) => (
+        <div key={tab.id} className="space-y-2">
+          <p className="text-xs text-muted">{t(tab.label)}</p>
+          {tab.sections.map((section) => (
+            <div key={section.id}>
+              {section.title ? <p className="text-xs text-muted">{t(section.title)}</p> : null}
+              <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                {section.fields.map((field) => (
+                  <div key={field.key}>
+                    <dt className="text-xs text-muted">{t(field.label)}</dt>
+                    <dd className="text-sm text-foreground">{gearLabel(t, field.key, shown[field.key])}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
         </div>
       ))}
       {open ? (
