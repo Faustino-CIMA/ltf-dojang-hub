@@ -118,6 +118,26 @@ const KEYS = [
   "teamUnarchive",
   "teamShowArchived",
   "teamDisciplineWarning",
+  "gearTitle",
+  "gearProtectors",
+  "gearEgear",
+  "gearClothingOther",
+  "gearHint",
+  "gearEdit",
+  "gearSave",
+  "gearDaedo",
+  "gearKpnp",
+  "gearOther",
+  "gearClothing",
+  "gearSock",
+  "gearGlove",
+  "gearHogu",
+  "gearHead",
+  "gearDobok",
+  "gearTshirt",
+  "gearSockHint",
+  "gearMouthYouth",
+  "gearMouthAdult",
 ] as const;
 
 describe("Club team copy", () => {
@@ -147,5 +167,7 @@ describe("Club team copy", () => {
     expect(club.teamHistoryIncomplete).toContain("{date}");
     expect(club.teamHistoryRoleChanged).toContain("{role}");
     expect(club.teamHistoryCopied).toContain("{name}");
+    expect(club.gearUpdated).toContain("{date}");
+    expect(club.gearDobokCm).toContain("{size}");
   });
 });
