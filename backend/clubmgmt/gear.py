@@ -1,4 +1,4 @@
-"""Current protective-gear and clothing sizes for one club member.
+"""Current equipment sizes for one club member.
 
 Club admins and coaches of a club with the competition module keep the
 labels the athlete wears now. There is no history of older sizes. LTF
@@ -18,6 +18,7 @@ KPNP_GLOVE = ("XS", "S", "M", "L", "XL", "2XL")
 KPNP_HOGU = ("0", "1", "2", "3", "4", "5")
 KPNP_HEAD = ("XS", "S", "M", "L")
 GENERIC_SIZE = ("XS", "S", "M", "L", "XL")
+REGULAR_SIZE = ("XXS", "XS", "S", "M", "L", "XL", "XXL")
 MOUTHGUARD = ("youth", "adult")
 DOBOK = ("100", "110", "120", "130", "140", "150", "160", "170", "180", "190", "200", "210")
 TSHIRT = ("98", "104", "110", "116", "128", "140", "152", "164", "XS", "S", "M", "L", "XL", "2XL", "3XL")
@@ -31,6 +32,8 @@ GEAR_SCALES = {
     "kpnp_glove": KPNP_GLOVE,
     "kpnp_hogu": KPNP_HOGU,
     "kpnp_head": KPNP_HEAD,
+    "chest": REGULAR_SIZE,
+    "headgear": REGULAR_SIZE,
     "shin": GENERIC_SIZE,
     "forearm": GENERIC_SIZE,
     "groin": GENERIC_SIZE,
@@ -54,6 +57,8 @@ class MemberGear(models.Model):
     kpnp_glove = models.CharField(max_length=8, blank=True)
     kpnp_hogu = models.CharField(max_length=8, blank=True)
     kpnp_head = models.CharField(max_length=8, blank=True)
+    chest = models.CharField(max_length=8, blank=True)
+    headgear = models.CharField(max_length=8, blank=True)
     shin = models.CharField(max_length=8, blank=True)
     forearm = models.CharField(max_length=8, blank=True)
     groin = models.CharField(max_length=8, blank=True)

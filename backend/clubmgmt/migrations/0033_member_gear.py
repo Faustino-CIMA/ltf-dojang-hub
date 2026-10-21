@@ -22,6 +22,8 @@ class Migration(migrations.Migration):
                 ("kpnp_glove", models.CharField(blank=True, max_length=8)),
                 ("kpnp_hogu", models.CharField(blank=True, max_length=8)),
                 ("kpnp_head", models.CharField(blank=True, max_length=8)),
+                ("chest", models.CharField(blank=True, max_length=8)),
+                ("headgear", models.CharField(blank=True, max_length=8)),
                 ("shin", models.CharField(blank=True, max_length=8)),
                 ("forearm", models.CharField(blank=True, max_length=8)),
                 ("groin", models.CharField(blank=True, max_length=8)),

@@ -64,6 +64,8 @@ class MemberGearApiTests(TestCase):
                 "kpnp_sock": "6",
                 "kpnp_hogu": "0",
                 "mouthguard": "youth",
+                "chest": "XXL",
+                "headgear": "XXS",
                 "dobok": "160",
                 "tshirt": "104",
             },
@@ -72,6 +74,8 @@ class MemberGearApiTests(TestCase):
         self.assertEqual(saved.status_code, 200, saved.data)
         self.assertEqual(saved.data["daedo_sock"], "M")
         self.assertEqual(saved.data["kpnp_sock"], "6")
+        self.assertEqual(saved.data["chest"], "XXL")
+        self.assertEqual(saved.data["headgear"], "XXS")
         self.assertEqual(saved.data["dobok"], "160")
         self.assertEqual(saved.data["tshirt"], "104")
         self.assertEqual(saved.data["updated_at"], self.today.isoformat())
@@ -93,13 +97,15 @@ class MemberGearApiTests(TestCase):
         self._auth(self.club_admin)
         invalid = self.client.put(
             "/api/club-management/gear/",
-            {"member": self.athlete.id, "daedo_sock": "EU39", "dobok": "165", "kpnp_sock": "M"},
+            {"member": self.athlete.id, "daedo_sock": "EU39", "dobok": "165", "kpnp_sock": "M", "chest": "XXXS", "headgear": "3"},
             format="json",
         )
         self.assertEqual(invalid.status_code, 400, invalid.data)
         self.assertIn("daedo_sock", invalid.data)
         self.assertIn("dobok", invalid.data)
         self.assertIn("kpnp_sock", invalid.data)
+        self.assertIn("chest", invalid.data)
+        self.assertIn("headgear", invalid.data)
         self.assertFalse(MemberGear.objects.filter(member=self.athlete).exists())
 
         self._auth(self.ltf_admin)

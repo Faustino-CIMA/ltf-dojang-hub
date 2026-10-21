@@ -8,6 +8,7 @@ export const KPNP_GLOVE = ["XS", "S", "M", "L", "XL", "2XL"] as const;
 export const KPNP_HOGU = ["0", "1", "2", "3", "4", "5"] as const;
 export const KPNP_HEAD = ["XS", "S", "M", "L"] as const;
 export const GENERIC_SIZE = ["XS", "S", "M", "L", "XL"] as const;
+export const REGULAR_SIZE = ["XXS", "XS", "S", "M", "L", "XL", "XXL"] as const;
 export const MOUTHGUARD = ["youth", "adult"] as const;
 export const DOBOK = ["100", "110", "120", "130", "140", "150", "160", "170", "180", "190", "200", "210"] as const;
 export const TSHIRT = ["98", "104", "110", "116", "128", "140", "152", "164", "XS", "S", "M", "L", "XL", "2XL", "3XL"] as const;
@@ -22,6 +23,8 @@ export type MemberGear = {
   kpnp_glove: string;
   kpnp_hogu: string;
   kpnp_head: string;
+  chest: string;
+  headgear: string;
   shin: string;
   forearm: string;
   groin: string;
@@ -40,6 +43,8 @@ export const GEAR_KEYS = [
   "kpnp_glove",
   "kpnp_hogu",
   "kpnp_head",
+  "chest",
+  "headgear",
   "shin",
   "forearm",
   "groin",
