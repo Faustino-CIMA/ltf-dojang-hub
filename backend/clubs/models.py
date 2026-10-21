@@ -44,6 +44,8 @@ class Club(models.Model):
     email = models.EmailField(blank=True)
     website = models.URLField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
+    egear_daedo = models.BooleanField(default=True)
+    egear_kpnp = models.BooleanField(default=True)
     communication_language = models.CharField(max_length=10, default=DEFAULT_CLUB_LANGUAGE)
     max_admins = models.PositiveIntegerField(default=10)
     created_by = models.ForeignKey(

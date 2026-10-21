@@ -142,3 +142,50 @@ class TeamGearSheetTests(TestCase):
         self.client.force_authenticate(user=self.ltf_admin)
         hidden = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv")
         self.assertEqual(hidden.status_code, 403)
+
+    def test_switched_off_brand_stays_stored_and_leaves_the_sheet(self):
+        created = self.client.post(
+            "/api/club-management/teams/",
+            {"club": self.club.id, "name": "Juniors", "discipline": "kyorugi", "pss_system": ""},
+            format="json",
+        )
+        team_id = created.data["id"]
+        self.assertTrue(created.data["egear_daedo"])
+        self.assertTrue(created.data["egear_kpnp"])
+        self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": self.athlete.id}, format="json")
+        self.client.put(
+            "/api/club-management/gear/",
+            {"member": self.athlete.id, "daedo_sock": "M", "kpnp_sock": "6", "chest": "S"},
+            format="json",
+        )
+        switched = self.client.put(
+            "/api/club-management/egear-brands/",
+            {"club": self.club.id, "kpnp": False},
+            format="json",
+        )
+        self.assertEqual(switched.status_code, 200, switched.data)
+
+        one_brand = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en").content.decode("utf-8-sig")
+        self.assertIn("Daedo socks", one_brand)
+        self.assertNotIn("KPNP socks", one_brand)
+        self.assertIn("Chest protector", one_brand)
+
+        self.client.patch(f"/api/club-management/teams/{team_id}/", {"pss_system": "kpnp"}, format="json")
+        named = self.client.get(f"/api/club-management/teams/{team_id}/")
+        self.assertEqual(named.data["pss_system"], "kpnp")
+        self.assertFalse(named.data["egear_kpnp"])
+        named_sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en").content.decode("utf-8-sig")
+        self.assertNotIn("Daedo socks", named_sheet)
+        self.assertNotIn("KPNP socks", named_sheet)
+        self.assertIn("Chest protector", named_sheet)
+        self.assertIn("KPNP", named_sheet)
+
+        copied = self.client.post(f"/api/club-management/teams/{team_id}/duplicate/", {"name": "Juniors copy"}, format="json")
+        self.assertEqual(copied.data["team"]["pss_system"], "kpnp")
+
+        self.client.put("/api/club-management/egear-brands/", {"club": self.club.id, "daedo": False}, format="json")
+        both_off = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en").content.decode("utf-8-sig")
+        self.assertNotIn("Daedo socks", both_off)
+        self.assertNotIn("KPNP socks", both_off)
+        self.assertIn("Chest protector", both_off)
+        self.assertEqual(self.client.get(f"/api/club-management/gear/?member={self.athlete.id}").data["kpnp_sock"], "6")

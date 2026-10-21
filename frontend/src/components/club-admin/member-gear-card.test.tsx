@@ -127,4 +127,35 @@ describe("Member gear card", () => {
       }),
     );
   });
+
+  it("hides a switched-off brand and still saves its stored sizes", async () => {
+    jest.mocked(saveMemberGear).mockResolvedValue({ ...recorded, egear_kpnp: false });
+    render(<MemberGearCard memberId={9} preview={{ ...recorded, egear_daedo: true, egear_kpnp: false }} />);
+    const card = screen.getByRole("region", { name: "gearTitle" });
+    fireEvent.click(within(card).getByRole("tab", { name: "gearEgear 2" }));
+    expect(within(card).getByRole("heading", { name: "gearDaedo" })).toBeInTheDocument();
+    expect(within(card).queryByRole("heading", { name: "gearKpnp" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "gearEdit" }));
+    const panel = screen.getByRole("dialog", { name: "gearEdit" });
+    expect(within(panel).queryByRole("heading", { name: "gearKpnp" })).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole("button", { name: "gearSave" }));
+    expect(saveMemberGear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        daedo_sock: "M",
+        daedo_glove: "S",
+        kpnp_sock: "6",
+        kpnp_glove: "",
+        kpnp_hogu: "",
+        kpnp_head: "",
+      }),
+    );
+  });
+
+  it("hides the E-gear tab when both brands are off", () => {
+    render(<MemberGearCard memberId={9} preview={{ ...recorded, egear_daedo: false, egear_kpnp: false }} />);
+    const card = screen.getByRole("region", { name: "gearTitle" });
+    expect(within(card).queryByRole("tab", { name: /gearEgear/ })).not.toBeInTheDocument();
+    expect(within(card).getByRole("tab", { name: "gearProtectors 3" })).toBeInTheDocument();
+  });
 });

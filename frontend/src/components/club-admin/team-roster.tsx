@@ -18,7 +18,7 @@ import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
 import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamCompetition, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
-import { gearSockSortRank, type MemberGear } from "@/lib/member-gear-api";
+import { egearBrandsFrom, gearDisplaySystem, gearSockSortRank, type EgearBrands, type MemberGear } from "@/lib/member-gear-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName, fullNameSortKey } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
@@ -153,11 +153,13 @@ function licenceCell(t: Translator, member: TeamMember) {
   );
 }
 
-function gearCell(t: Translator, pss: string, member: TeamMember) {
+function gearCell(t: Translator, pss: string, member: TeamMember, brands: EgearBrands) {
   if (member.role === "coach") return <span className="text-muted">—</span>;
+  const system = gearDisplaySystem(pss, brands);
+  if (system === "none") return <span className="text-muted">—</span>;
   const gear = member.gear;
   const shown = (value?: string) => value || "—";
-  if (pss === "kpnp") {
+  if (system === "kpnp") {
     return (
       <span className="block">
         <span className="block">{t("gearSock")} {shown(gear?.kpnp_sock)}</span>
@@ -165,7 +167,7 @@ function gearCell(t: Translator, pss: string, member: TeamMember) {
       </span>
     );
   }
-  if (pss === "daedo") {
+  if (system === "daedo") {
     return (
       <span className="block">
         <span className="block">{t("gearSock")} {shown(gear?.daedo_sock)}</span>
@@ -427,12 +429,13 @@ export function TeamRoster({
       ];
     }
     const pss = team?.pss_system || "";
+    const brands = egearBrandsFrom(team);
     const gear: EntityTableColumn<TeamMember> = {
       key: "gear",
       header: t("gearColumn"),
       sortable: true,
-      sortValue: (row) => gearSockSortRank(pss, row.gear, row.role),
-      render: (row) => gearCell(t, pss, row),
+      sortValue: (row) => gearSockSortRank(pss, row.gear, row.role, brands),
+      render: (row) => gearCell(t, pss, row, brands),
     };
     return [
       ...leading,
@@ -484,7 +487,7 @@ export function TeamRoster({
       licence,
       actions,
     ];
-  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, team?.pss_system, teamId]);
+  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, team?.pss_system, team?.egear_daedo, team?.egear_kpnp, teamId]);
 
   const saveGear = (memberId: number, saved: MemberGear) => {
     setTeam((current) =>
@@ -505,6 +508,8 @@ export function TeamRoster({
         <MemberGearSummary
           memberId={row.id}
           gear={{ ...(row.gear ?? {}), clothing: row.clothing ?? [] }}
+          brands={egearBrandsFrom(team)}
+          pssSystem={team?.discipline === "poomsae" ? "" : team?.pss_system}
           onSaved={(saved) => saveGear(row.id, saved)}
         />
       </div>

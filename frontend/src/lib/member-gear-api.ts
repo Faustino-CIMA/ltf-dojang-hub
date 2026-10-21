@@ -23,8 +23,15 @@ export type ClothingChoice = {
   sizes: ClothingSize[];
 };
 
+export type EgearBrands = {
+  daedo: boolean;
+  kpnp: boolean;
+};
+
 export type MemberGear = {
   member: number;
+  egear_daedo?: boolean;
+  egear_kpnp?: boolean;
   daedo_sock: string;
   daedo_glove: string;
   daedo_hogu: string;
@@ -64,18 +71,44 @@ export type GearKey = (typeof GEAR_KEYS)[number];
 
 export type RosterGear = Omit<MemberGear, "member" | "clothing">;
 
-export function gearSockSortRank(pss: string, gear: Partial<MemberGear> | null | undefined, role?: string): number | null {
+export function egearBrandsFrom(source?: { egear_daedo?: boolean; egear_kpnp?: boolean } | null): EgearBrands {
+  return {
+    daedo: source?.egear_daedo !== false,
+    kpnp: source?.egear_kpnp !== false,
+  };
+}
+
+/** Blank team PSS shows the brands the club still uses. A named system that is off shows nothing. */
+export function gearDisplaySystem(pss: string, brands?: Partial<EgearBrands> | null): "" | "daedo" | "kpnp" | "none" {
+  const daedo = brands?.daedo !== false;
+  const kpnp = brands?.kpnp !== false;
+  if (pss === "daedo") return daedo ? "daedo" : "none";
+  if (pss === "kpnp") return kpnp ? "kpnp" : "none";
+  if (daedo && kpnp) return "";
+  if (daedo) return "daedo";
+  if (kpnp) return "kpnp";
+  return "none";
+}
+
+export function gearSockSortRank(
+  pss: string,
+  gear: Partial<MemberGear> | null | undefined,
+  role?: string,
+  brands?: Partial<EgearBrands> | null,
+): number | null {
   if (role === "coach" || !gear) return null;
+  const system = gearDisplaySystem(pss, brands);
+  if (system === "none") return null;
   const daedo = (DAEDO_SOCK as readonly string[]).indexOf(gear.daedo_sock || "");
   const kpnp = (KPNP_SOCK as readonly string[]).indexOf(gear.kpnp_sock || "");
-  if (pss === "kpnp") return kpnp < 0 ? null : kpnp;
-  if (pss === "daedo") return daedo < 0 ? null : daedo;
+  if (system === "kpnp") return kpnp < 0 ? null : kpnp;
+  if (system === "daedo") return daedo < 0 ? null : daedo;
   if (daedo < 0 && kpnp < 0) return null;
   return (daedo < 0 ? DAEDO_SOCK.length : daedo) * 100 + (kpnp < 0 ? 99 : kpnp);
 }
 
 export function blankGear(memberId: number): MemberGear {
-  const gear = { member: memberId, updated_at: null, clothing: [] } as MemberGear;
+  const gear = { member: memberId, updated_at: null, clothing: [], egear_daedo: true, egear_kpnp: true } as MemberGear;
   for (const key of GEAR_KEYS) gear[key] = "";
   return gear;
 }

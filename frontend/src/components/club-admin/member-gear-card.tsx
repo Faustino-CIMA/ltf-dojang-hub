@@ -21,9 +21,11 @@ import {
   MOUTHGUARD,
   REGULAR_SIZE,
   blankGear,
+  egearBrandsFrom,
   getMemberGear,
   saveMemberGear,
   type ClothingChoice,
+  type EgearBrands,
   type GearKey,
   type MemberGear,
 } from "@/lib/member-gear-api";
@@ -91,19 +93,41 @@ export const GEAR_TABS: Array<{ id: GearTabId; label: string; sections: GearSect
   },
 ];
 
-const GEAR_TAB_OPTIONS: Array<{ id: GearTabId; label: string }> = [
-  ...GEAR_TABS.map((tab) => ({ id: tab.id, label: tab.label })),
-  { id: "clothing", label: "gearClothingOther" },
-];
+function sectionEnabled(sectionId: string, brands: EgearBrands) {
+  if (sectionId === "daedo") return brands.daedo;
+  if (sectionId === "kpnp") return brands.kpnp;
+  return true;
+}
 
-export function gearTabCount(gear: MemberGear, tabId: GearTabId) {
+export function gearTabs(brands: EgearBrands = { daedo: true, kpnp: true }) {
+  return GEAR_TABS.flatMap((tab) => {
+    if (tab.id !== "egear") return [tab];
+    const sections = tab.sections.filter((section) => sectionEnabled(section.id, brands));
+    return sections.length === 0 ? [] : [{ ...tab, sections }];
+  });
+}
+
+export function gearTabOptions(brands: EgearBrands = { daedo: true, kpnp: true }) {
+  return [
+    ...gearTabs(brands).map((tab) => ({ id: tab.id, label: tab.label })),
+    { id: "clothing" as const, label: "gearClothingOther" },
+  ];
+}
+
+export function gearTabCount(gear: MemberGear, tabId: GearTabId, brands: EgearBrands = egearBrandsFrom(gear)) {
   if (tabId === "clothing") return (gear.clothing ?? []).filter((row) => Boolean(row.label)).length;
-  const tab = GEAR_TABS.find((item) => item.id === tabId);
+  const tab = gearTabs(brands).find((item) => item.id === tabId);
   if (!tab) return 0;
   return tab.sections.reduce(
     (total, section) => total + section.fields.filter((field) => Boolean(gear[field.key])).length,
     0,
   );
+}
+
+export function switchedOffBrand(pss: string | undefined, brands: EgearBrands): "gearDaedo" | "gearKpnp" | null {
+  if (pss === "daedo" && !brands.daedo) return "gearDaedo";
+  if (pss === "kpnp" && !brands.kpnp) return "gearKpnp";
+  return null;
 }
 
 export function gearLabel(t: Translator, key: GearKey, value: string) {
@@ -174,14 +198,16 @@ function GearReadout({
   gear,
   tabId,
   idPrefix,
+  brands,
 }: {
   gear: MemberGear;
   tabId: GearTabId;
   idPrefix: string;
+  brands: EgearBrands;
 }) {
   const t = useTranslations("ClubAdmin");
   if (tabId === "clothing") return <ClothingList rows={gear.clothing ?? []} idPrefix={idPrefix} />;
-  const tab = GEAR_TABS.find((item) => item.id === tabId) ?? GEAR_TABS[0];
+  const tab = gearTabs(brands).find((item) => item.id === tabId) ?? gearTabs(brands)[0];
   return (
     <div id={`${idPrefix}-panel`} role="tabpanel" aria-labelledby={`${idPrefix}-${tab.id}`} className="space-y-4">
       {tab.sections.map((section) => (
@@ -215,11 +241,13 @@ export function GearSizePanel({
   onSaved: (gear: MemberGear) => void;
 }) {
   const t = useTranslations("ClubAdmin");
+  const brands = egearBrandsFrom(gear);
+  const tabs = gearTabOptions(brands);
   const [draft, setDraft] = useState<MemberGear>(gear);
-  const [tab, setTab] = useState<GearTabId>(initialTab);
+  const [tab, setTab] = useState<GearTabId>(tabs.some((item) => item.id === initialTab) ? initialTab : "protectors");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const current = GEAR_TABS.find((item) => item.id === tab);
+  const current = gearTabs(brands).find((item) => item.id === tab);
 
   function setClothingLabel(index: number, label: string) {
     setDraft((currentDraft) => ({
@@ -250,10 +278,10 @@ export function GearSizePanel({
           ariaLabel={t("gearTitle")}
           value={tab}
           onChange={setTab}
-          options={GEAR_TAB_OPTIONS.map((item) => ({
+          options={tabs.map((item) => ({
             value: item.id,
             label: t(item.label),
-            count: gearTabCount(draft, item.id),
+            count: gearTabCount(draft, item.id, brands),
           }))}
         />
         {tab === "clothing" ? (
@@ -336,6 +364,11 @@ export function MemberGearCard({ memberId, preview }: { memberId: number; previe
   }, [memberId, preview]);
 
   const shown = gear ?? blankGear(memberId);
+  const brands = egearBrandsFrom(shown);
+  const tabs = gearTabOptions(brands);
+  useEffect(() => {
+    if (!tabs.some((item) => item.id === tab)) setTab("protectors");
+  }, [tab, brands.daedo, brands.kpnp, tabs]);
   return (
     <section className="app-panel p-3" aria-labelledby="member-gear-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -360,13 +393,13 @@ export function MemberGearCard({ memberId, preview }: { memberId: number; previe
           ariaLabel={t("gearTitle")}
           value={tab}
           onChange={setTab}
-          options={GEAR_TAB_OPTIONS.map((item) => ({
+          options={tabs.map((item) => ({
             value: item.id,
             label: t(item.label),
-            count: gearTabCount(shown, item.id),
+            count: gearTabCount(shown, item.id, brands),
           }))}
         />
-        <GearReadout gear={shown} tabId={tab} idPrefix="member-gear" />
+        <GearReadout gear={shown} tabId={tab} idPrefix="member-gear" brands={brands} />
       </div>
       {open ? (
         <GearSizePanel
@@ -386,14 +419,27 @@ export function MemberGearCard({ memberId, preview }: { memberId: number; previe
 export function MemberGearSummary({
   memberId,
   gear,
+  brands,
+  pssSystem,
   onSaved,
 }: {
   memberId: number;
   gear?: Partial<MemberGear> | null;
+  brands?: EgearBrands;
+  pssSystem?: string;
   onSaved?: (gear: MemberGear) => void;
 }) {
   const t = useTranslations("ClubAdmin");
-  const shown: MemberGear = { ...blankGear(memberId), ...gear, member: memberId, clothing: gear?.clothing ?? [] };
+  const resolved = brands ?? egearBrandsFrom(gear);
+  const shown: MemberGear = {
+    ...blankGear(memberId),
+    ...gear,
+    member: memberId,
+    clothing: gear?.clothing ?? [],
+    egear_daedo: resolved.daedo,
+    egear_kpnp: resolved.kpnp,
+  };
+  const switched = switchedOffBrand(pssSystem, resolved);
   const [open, setOpen] = useState(false);
   return (
     <section className="min-w-0 space-y-2" aria-labelledby={`gear-summary-${memberId}`}>
@@ -401,7 +447,8 @@ export function MemberGearSummary({
         <h3 id={`gear-summary-${memberId}`} className="text-sm font-medium text-foreground">{t("gearTitle")}</h3>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>{t("gearEdit")}</Button>
       </div>
-      {GEAR_TABS.map((tab) => (
+      {switched ? <p className="text-sm text-muted">{t("teamPssSwitchedOffNote", { brand: t(switched) })}</p> : null}
+      {gearTabs(resolved).map((tab) => (
         <div key={tab.id} className="space-y-2">
           <p className="text-xs text-muted">{t(tab.label)}</p>
           {tab.sections.map((section) => (

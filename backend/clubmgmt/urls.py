@@ -43,6 +43,7 @@ from .promotion_views import (
     PromotionRuleView,
 )
 from .clothing_views import ClubClothingDetailView, ClubClothingListView, ClubClothingReorderView
+from .egear_views import EgearBrandsView
 from .gear_views import MemberGearView
 from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
 from .team_views import (
@@ -147,6 +148,7 @@ urlpatterns = [
         name="clubmgmt-team-member",
     ),
     path("gear/", MemberGearView.as_view(), name="clubmgmt-gear"),
+    path("egear-brands/", EgearBrandsView.as_view(), name="clubmgmt-egear-brands"),
     path("clothing/", ClubClothingListView.as_view(), name="clubmgmt-clothing"),
     path("clothing/reorder/", ClubClothingReorderView.as_view(), name="clubmgmt-clothing-reorder"),
     path("clothing/<int:item_id>/", ClubClothingDetailView.as_view(), name="clubmgmt-clothing-detail"),

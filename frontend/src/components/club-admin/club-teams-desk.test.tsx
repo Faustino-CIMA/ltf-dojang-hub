@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-import { ClubTeamsDesk, TeamFilter } from "@/components/club-admin/club-teams-desk";
+import { ClubTeamsDesk, TeamFilter, TeamForm } from "@/components/club-admin/club-teams-desk";
 import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
 import { getMembersList } from "@/lib/club-admin-api";
+import { getEgearBrands } from "@/lib/egear-brands-api";
 import {
   addTeamMember,
   deleteClubTeam,
@@ -42,6 +43,11 @@ jest.mock("@/lib/club-admin-api", () => {
   return { ...actual, getMembersList: jest.fn() };
 });
 
+jest.mock("@/lib/egear-brands-api", () => ({
+  getEgearBrands: jest.fn().mockResolvedValue({ club: 2, egear_daedo: true, egear_kpnp: true }),
+  saveEgearBrands: jest.fn(),
+}));
+
 beforeAll(() => {
   global.ResizeObserver = class {
     observe() {}
@@ -62,6 +68,7 @@ const cadets: ClubTeam = {
 
 describe("Club teams desk", () => {
   beforeEach(() => {
+    jest.mocked(getEgearBrands).mockResolvedValue({ club: 2, egear_daedo: true, egear_kpnp: true });
     jest.mocked(getClubTeams).mockResolvedValue([]);
     jest.mocked(saveClubTeam).mockResolvedValue(cadets);
     jest.mocked(deleteClubTeam).mockResolvedValue(null);
@@ -242,5 +249,24 @@ describe("Teams on the members list and member page", () => {
     expect(await screen.findByText(/Poomsae A/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "teamsRemoveMember" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("keeps a switched-off scoring system visible and not selectable", async () => {
+    jest.mocked(getEgearBrands).mockResolvedValue({ club: 2, egear_daedo: true, egear_kpnp: false });
+    render(
+      <TeamForm
+        clubId={2}
+        team={{ ...cadets, pss_system: "kpnp", egear_daedo: true, egear_kpnp: false }}
+        onClose={() => undefined}
+        onSaved={() => undefined}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "teamPss" });
+    expect(trigger).toHaveTextContent('teamPssSwitchedOff:{"brand":"gearKpnp"}');
+    fireEvent.click(trigger);
+    const option = await screen.findByRole("option", { name: 'teamPssSwitchedOff:{"brand":"gearKpnp"}' });
+    expect(option).toBeDisabled();
+    expect(screen.getByRole("option", { name: "gearDaedo" })).toBeEnabled();
+    expect(screen.queryByRole("option", { name: "gearKpnp" })).not.toBeInTheDocument();
   });
 });
