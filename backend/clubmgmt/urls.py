@@ -42,6 +42,7 @@ from .promotion_views import (
     PromotionRuleDetailView,
     PromotionRuleView,
 )
+from .gear_views import MemberGearView
 from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
 from .team_views import (
     ClubTeamDetailView,
@@ -144,6 +145,7 @@ urlpatterns = [
         ClubTeamMemberView.as_view(),
         name="clubmgmt-team-member",
     ),
+    path("gear/", MemberGearView.as_view(), name="clubmgmt-gear"),
     path("measurements/", BodyMeasurementListView.as_view(), name="clubmgmt-measurements"),
     path("measurements/<int:measurement_id>/", BodyMeasurementDetailView.as_view(), name="clubmgmt-measurement"),
     path("training/series/", TrainingSeriesView.as_view(), name="clubmgmt-training-series"),

@@ -44,6 +44,7 @@ import {
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { MemberClubRecordPanel } from "@/components/clubmgmt/member-club-record-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
+import { MemberGearCard } from "@/components/club-admin/member-gear-card";
 import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
 import { MemberNationalTeamBadge } from "@/components/national-team/member-national-team-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -540,12 +541,15 @@ export default function ClubMemberDetailPage() {
                 </div>
             </FormPanel>
             {competitionOn && canEditMember ? (
-              <MemberTeamsCard
-                memberId={member.id}
-                clubId={member.club}
-                teams={member.teams ?? []}
-                onChanged={() => void loadMember()}
-              />
+              <>
+                <MemberTeamsCard
+                  memberId={member.id}
+                  clubId={member.club}
+                  teams={member.teams ?? []}
+                  onChanged={() => void loadMember()}
+                />
+                <MemberGearCard memberId={member.id} />
+              </>
             ) : null}
             </>
             ) : null}
