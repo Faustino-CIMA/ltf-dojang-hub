@@ -605,6 +605,80 @@ class ClubTeamGroupView(APIView):
         return Response(_team_payload(team, include_members=True))
 
 
+class ClubTeamDuplicateView(APIView):
+    permission_classes = [IsAuthenticated, CompetitionModulePermission]
+    module_id = "competition"
+
+    def post(self, request, team_id):
+        source = _team_for(request.user, team_id)
+        name = str(request.data.get("name") or "").strip()
+        if not name:
+            raise ValidationError({"name": "name_required"})
+        skipped = 0
+        dropped = []
+        with transaction.atomic():
+            clone = ClubTeam.objects.create(
+                club_id=source.club_id,
+                name=name[:120],
+                discipline=source.discipline,
+                note=source.note,
+                competition_on=source.competition_on,
+                competition_name=source.competition_name,
+                weight_margin_kg=source.weight_margin_kg,
+                category_set_code=source.category_set_code or "wt",
+            )
+            ClubTeamCategoryBand.objects.bulk_create(
+                [
+                    ClubTeamCategoryBand(
+                        team=clone,
+                        label=row.label,
+                        age_min=row.age_min,
+                        age_max=row.age_max,
+                        sex=row.sex,
+                        ceilings=list(row.ceilings or []),
+                        position=row.position,
+                    )
+                    for row in source.custom_bands.all()
+                ]
+            )
+            kept_roles = {}
+            for row in source.memberships.select_related("member"):
+                if row.member.club_id != source.club_id:
+                    skipped += 1
+                    continue
+                ClubTeamMembership.objects.create(team=clone, member=row.member, role=row.role)
+                kept_roles[row.member_id] = row.role
+            for group in source.groups.prefetch_related("slots__member").order_by("kind", "id"):
+                slots = [
+                    slot
+                    for slot in group.slots.all()
+                    if kept_roles.get(slot.member_id) == ClubTeamMembership.Role.ATHLETE
+                ]
+                sexes = [slot.member.sex for slot in slots]
+                valid_pair = group.kind == ClubTeamGroup.Kind.PAIR and len(slots) == 2 and sorted(sexes) == ["F", "M"]
+                valid_trio = group.kind == ClubTeamGroup.Kind.TEAM and len(slots) == 3 and len(set(sexes)) == 1
+                if not valid_pair and not valid_trio:
+                    dropped.append({"name": group.name, "kind": group.kind})
+                    continue
+                copy = ClubTeamGroup.objects.create(team=clone, kind=group.kind, name=group.name)
+                ClubTeamGroupMember.objects.bulk_create(
+                    [
+                        ClubTeamGroupMember(group=copy, member_id=slot.member_id, position=index)
+                        for index, slot in enumerate(slots)
+                    ]
+                )
+        clone.athlete_count = sum(1 for role in kept_roles.values() if role == ClubTeamMembership.Role.ATHLETE)
+        clone.coach_count = sum(1 for role in kept_roles.values() if role == ClubTeamMembership.Role.COACH)
+        return Response(
+            {
+                "team": _team_payload(clone, include_members=True),
+                "skipped_left_club": skipped,
+                "dropped_groups": dropped,
+            },
+            status=201,
+        )
+
+
 class ClubTeamSheetView(APIView):
     permission_classes = [IsAuthenticated, CompetitionModulePermission]
     module_id = "competition"
