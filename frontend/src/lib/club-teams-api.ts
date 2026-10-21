@@ -1,6 +1,6 @@
 import { apiRequest, API_URL } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import type { RosterGear } from "@/lib/member-gear-api";
+import type { ClothingChoice, RosterGear } from "@/lib/member-gear-api";
 
 export type TeamDiscipline = "kyorugi" | "poomsae";
 
@@ -26,6 +26,7 @@ export type TeamMember = {
   licence_warning?: "" | "expires" | "missing" | string;
   role?: "athlete" | "coach";
   gear?: RosterGear;
+  clothing?: ClothingChoice[];
 };
 
 export type TeamGroup = {

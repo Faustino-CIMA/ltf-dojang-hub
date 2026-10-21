@@ -141,6 +141,19 @@ const KEYS = [
   "gearColumn",
   "teamPss",
   "teamPssHint",
+  "clothingSizesTitle",
+  "clothingPresetThai",
+  "clothingPresetJakoShirt",
+  "clothingPresetHummelJacket",
+  "clothingDeleteHint",
+  "clothingDeleteCount",
+  "clothingRowActions",
+  "clothingRetired",
+  "clothingAge",
+  "clothingChest",
+  "clothingLength",
+  "clothingHeight",
+  "clothingHeightRange",
 ] as const;
 
 describe("Club team copy", () => {
@@ -172,5 +185,15 @@ describe("Club team copy", () => {
     expect(club.teamHistoryCopied).toContain("{name}");
     expect(club.gearUpdated).toContain("{date}");
     expect(club.gearDobokCm).toContain("{size}");
+    expect(club.clothingDeleteHint).toContain("{name}");
+    expect(club.clothingDeleteCount).toContain("{count}");
+    expect(club.clothingRowActions).toContain("{name}");
+    expect(club.clothingRetired).toContain("{label}");
+    expect(club.clothingAge).toContain("{age}");
+    expect(club.clothingChest).toContain("{chest}");
+    expect(club.clothingLength).toContain("{length}");
+    expect(club.clothingHeight).toContain("{min}");
+    expect(club.clothingHeightRange).toContain("{min}");
+    expect(club.clothingHeightRange).toContain("{max}");
   });
 });

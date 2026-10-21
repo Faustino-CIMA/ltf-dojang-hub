@@ -8,6 +8,7 @@ from members.models import Member
 
 from .access import CompetitionModulePermission
 from .body_measurements import can_record_measurements
+from .clothing import apply_clothing_plan, prepare_clothing
 from .gear import MemberGear, clean_gear_fields, gear_payload, gear_row_payload
 
 
@@ -30,8 +31,11 @@ class MemberGearView(APIView):
         raw = request.data.get("member") if isinstance(request.data, dict) else None
         member = _member_for_gear(request, raw or request.query_params.get("member"))
         fields = clean_gear_fields(request.data)
+        clothing = request.data.get("clothing") if isinstance(request.data, dict) and "clothing" in request.data else None
+        plan = prepare_clothing(member, clothing)
         row, _created = MemberGear.objects.get_or_create(member=member)
         for key, value in fields.items():
             setattr(row, key, value)
         row.save()
+        apply_clothing_plan(member, plan)
         return Response(gear_row_payload(row))

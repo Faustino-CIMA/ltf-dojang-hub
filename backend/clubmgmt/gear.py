@@ -20,8 +20,6 @@ KPNP_HEAD = ("XS", "S", "M", "L")
 GENERIC_SIZE = ("XS", "S", "M", "L", "XL")
 REGULAR_SIZE = ("XXS", "XS", "S", "M", "L", "XL", "XXL")
 MOUTHGUARD = ("youth", "adult")
-DOBOK = ("100", "110", "120", "130", "140", "150", "160", "170", "180", "190", "200", "210")
-TSHIRT = ("98", "104", "110", "116", "128", "140", "152", "164", "XS", "S", "M", "L", "XL", "2XL", "3XL")
 
 GEAR_SCALES = {
     "daedo_sock": DAEDO_SOCK,
@@ -38,8 +36,6 @@ GEAR_SCALES = {
     "forearm": GENERIC_SIZE,
     "groin": GENERIC_SIZE,
     "mouthguard": MOUTHGUARD,
-    "dobok": DOBOK,
-    "tshirt": TSHIRT,
 }
 
 
@@ -63,8 +59,6 @@ class MemberGear(models.Model):
     forearm = models.CharField(max_length=8, blank=True)
     groin = models.CharField(max_length=8, blank=True)
     mouthguard = models.CharField(max_length=8, blank=True)
-    dobok = models.CharField(max_length=8, blank=True)
-    tshirt = models.CharField(max_length=8, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
@@ -83,10 +77,13 @@ def roster_gear(member) -> dict:
     return payload
 
 
-def blank_gear_payload(member_id: int) -> dict:
+def blank_gear_payload(member) -> dict:
+    from .clothing import clothing_choices
+
     payload = {key: "" for key in GEAR_SCALES}
-    payload["member"] = member_id
+    payload["member"] = member.id
     payload["updated_at"] = None
+    payload["clothing"] = clothing_choices(member)
     return payload
 
 
@@ -94,14 +91,17 @@ def gear_payload(member) -> dict:
     try:
         row = member.gear
     except MemberGear.DoesNotExist:
-        return blank_gear_payload(member.id)
+        return blank_gear_payload(member)
     return gear_row_payload(row)
 
 
 def gear_row_payload(row: MemberGear) -> dict:
+    from .clothing import clothing_choices
+
     payload = {key: getattr(row, key) or "" for key in GEAR_SCALES}
     payload["member"] = row.member_id
     payload["updated_at"] = timezone.localtime(row.updated_at).date().isoformat()
+    payload["clothing"] = clothing_choices(row.member)
     return payload
 
 

@@ -52,7 +52,9 @@ class MemberGearApiTests(TestCase):
         empty = self.client.get(f"/api/club-management/gear/?member={self.athlete.id}")
         self.assertEqual(empty.status_code, 200, empty.data)
         self.assertEqual(empty.data["daedo_sock"], "")
-        self.assertEqual(empty.data["dobok"], "")
+        self.assertNotIn("dobok", empty.data)
+        self.assertNotIn("tshirt", empty.data)
+        self.assertEqual([row["name"] for row in empty.data["clothing"]], ["Dobok", "T-shirt"])
         self.assertIsNone(empty.data["updated_at"])
 
         saved = self.client.put(
@@ -66,8 +68,6 @@ class MemberGearApiTests(TestCase):
                 "mouthguard": "youth",
                 "chest": "XXL",
                 "headgear": "XXS",
-                "dobok": "160",
-                "tshirt": "104",
             },
             format="json",
         )
@@ -76,33 +76,31 @@ class MemberGearApiTests(TestCase):
         self.assertEqual(saved.data["kpnp_sock"], "6")
         self.assertEqual(saved.data["chest"], "XXL")
         self.assertEqual(saved.data["headgear"], "XXS")
-        self.assertEqual(saved.data["dobok"], "160")
-        self.assertEqual(saved.data["tshirt"], "104")
+        self.assertTrue(all(row["label"] == "" for row in saved.data["clothing"]))
         self.assertEqual(saved.data["updated_at"], self.today.isoformat())
         self.assertEqual(MemberGear.objects.get(member=self.athlete).daedo_glove, "S")
 
         self._auth(self.coach)
         cleared = self.client.put(
             "/api/club-management/gear/",
-            {"member": self.athlete.id, "daedo_sock": "", "tshirt": "3XL"},
+            {"member": self.athlete.id, "daedo_sock": "", "shin": "L"},
             format="json",
         )
         self.assertEqual(cleared.status_code, 200, cleared.data)
         self.assertEqual(cleared.data["daedo_sock"], "")
         self.assertEqual(cleared.data["daedo_glove"], "S")
-        self.assertEqual(cleared.data["tshirt"], "3XL")
+        self.assertEqual(cleared.data["shin"], "L")
 
     def test_rejects_unknown_labels_and_hides_the_record(self):
         self._unlock()
         self._auth(self.club_admin)
         invalid = self.client.put(
             "/api/club-management/gear/",
-            {"member": self.athlete.id, "daedo_sock": "EU39", "dobok": "165", "kpnp_sock": "M", "chest": "XXXS", "headgear": "3"},
+            {"member": self.athlete.id, "daedo_sock": "EU39", "kpnp_sock": "M", "chest": "XXXS", "headgear": "3"},
             format="json",
         )
         self.assertEqual(invalid.status_code, 400, invalid.data)
         self.assertIn("daedo_sock", invalid.data)
-        self.assertIn("dobok", invalid.data)
         self.assertIn("kpnp_sock", invalid.data)
         self.assertIn("chest", invalid.data)
         self.assertIn("headgear", invalid.data)

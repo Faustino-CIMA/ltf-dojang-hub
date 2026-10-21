@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Landmark, Newspaper, Settings, Users } from "lucide-react";
+import { Landmark, Newspaper, Settings, Shirt, Users } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,11 +32,12 @@ import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { ClothingSizesDesk } from "@/components/club-admin/clothing-sizes-desk";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
 import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
 import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
-import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { getClubModuleFees, type ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
 import {
   Select,
@@ -61,7 +62,7 @@ const clubSchema = z.object({
 
 type ClubFormValues = z.infer<typeof clubSchema>;
 
-const SETTINGS_TABS = ["profile", "trainers", "committee", "publication"] as const;
+const SETTINGS_TABS = ["profile", "trainers", "committee", "publication", "equipment"] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 function parseSettingsTab(value: string | null): SettingsTab {
@@ -79,6 +80,7 @@ export default function ClubAdminSettingsPage() {
   const searchParams = useSearchParams();
   const { selectedClubId } = useClubSelection();
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [competitionOn, setCompetitionOn] = useState(false);
   const [activeTab, setActiveTabState] = useState<SettingsTab>(parseSettingsTab(searchParams.get("tab")));
   const requestIdRef = useRef(0);
   const logoRequestIdRef = useRef(0);
@@ -247,10 +249,14 @@ export default function ClubAdminSettingsPage() {
       .then((status) => {
         if (!cancelled) {
           setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+          setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
         }
       })
       .catch(() => {
-        if (!cancelled) setClubMgmtOn(false);
+        if (!cancelled) {
+          setClubMgmtOn(false);
+          setCompetitionOn(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -326,6 +332,9 @@ export default function ClubAdminSettingsPage() {
     await loadLogos();
   };
 
+  const managementHidden = (activeTab === "committee" || activeTab === "publication") && !clubMgmtOn;
+  const equipmentHidden = activeTab === "equipment" && !competitionOn;
+
   return (
     <ClubAdminLayout title={t("clubProfileTitle")} subtitle={t("clubProfileSubtitle")}>
       <ActionNotices
@@ -345,7 +354,7 @@ export default function ClubAdminSettingsPage() {
           <UnderlineTabs
             idPrefix="club-settings"
             ariaLabel={t("clubSettingsTabsAriaLabel")}
-            value={(activeTab === "committee" || activeTab === "publication") && !clubMgmtOn ? "profile" : activeTab}
+            value={managementHidden || equipmentHidden ? "profile" : activeTab}
             onChange={setActiveTab}
             options={[
               { value: "profile", label: t("clubSettingsProfileTab"), icon: Settings },
@@ -356,11 +365,15 @@ export default function ClubAdminSettingsPage() {
                     { value: "publication" as const, label: t("clubSettingsPublicationTab"), icon: Newspaper },
                   ]
                 : []),
+              ...(competitionOn
+                ? [{ value: "equipment" as const, label: t("clubSettingsEquipmentTab"), icon: Shirt }]
+                : []),
             ]}
           />
 
           {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
           {activeTab === "publication" && clubMgmtOn ? <PublicationConsentPanel clubId={selectedClubId} /> : null}
+          {activeTab === "equipment" && competitionOn ? <ClothingSizesDesk clubId={selectedClubId} /> : null}
 
           {activeTab === "trainers" ? (
             <ClubTrainersPanel
@@ -370,7 +383,7 @@ export default function ClubAdminSettingsPage() {
             />
           ) : null}
 
-          {activeTab === "profile" || ((activeTab === "committee" || activeTab === "publication") && !clubMgmtOn) ? (
+          {activeTab === "profile" || managementHidden || equipmentHidden ? (
           <>
           <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>

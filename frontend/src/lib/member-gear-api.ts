@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api";
+import type { ClothingSize } from "@/lib/clothing-api";
 
 export const DAEDO_SOCK = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"] as const;
 export const DAEDO_HOGU = ["XXS", "XS", "S", "M", "L", "XL"] as const;
@@ -10,8 +11,17 @@ export const KPNP_HEAD = ["XS", "S", "M", "L"] as const;
 export const GENERIC_SIZE = ["XS", "S", "M", "L", "XL"] as const;
 export const REGULAR_SIZE = ["XXS", "XS", "S", "M", "L", "XL", "XXL"] as const;
 export const MOUTHGUARD = ["youth", "adult"] as const;
-export const DOBOK = ["100", "110", "120", "130", "140", "150", "160", "170", "180", "190", "200", "210"] as const;
-export const TSHIRT = ["98", "104", "110", "116", "128", "140", "152", "164", "XS", "S", "M", "L", "XL", "2XL", "3XL"] as const;
+
+export type ClothingChoice = {
+  item: number | null;
+  value: number | null;
+  name: string;
+  note: string;
+  label: string;
+  offered: boolean;
+  retired: boolean;
+  sizes: ClothingSize[];
+};
 
 export type MemberGear = {
   member: number;
@@ -29,8 +39,7 @@ export type MemberGear = {
   forearm: string;
   groin: string;
   mouthguard: string;
-  dobok: string;
-  tshirt: string;
+  clothing: ClothingChoice[];
   updated_at: string | null;
 };
 
@@ -49,13 +58,11 @@ export const GEAR_KEYS = [
   "forearm",
   "groin",
   "mouthguard",
-  "dobok",
-  "tshirt",
 ] as const;
 
 export type GearKey = (typeof GEAR_KEYS)[number];
 
-export type RosterGear = Omit<MemberGear, "member">;
+export type RosterGear = Omit<MemberGear, "member" | "clothing">;
 
 export function gearSockSortRank(pss: string, gear: Partial<MemberGear> | null | undefined, role?: string): number | null {
   if (role === "coach" || !gear) return null;
@@ -68,7 +75,7 @@ export function gearSockSortRank(pss: string, gear: Partial<MemberGear> | null |
 }
 
 export function blankGear(memberId: number): MemberGear {
-  const gear = { member: memberId, updated_at: null } as MemberGear;
+  const gear = { member: memberId, updated_at: null, clothing: [] } as MemberGear;
   for (const key of GEAR_KEYS) gear[key] = "";
   return gear;
 }
