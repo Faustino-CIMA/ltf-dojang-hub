@@ -7,6 +7,7 @@ import { DuplicateTeamPanel, TeamForm, disciplineLabel } from "@/components/club
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { HeightWeightSection, MeasurementEntryPanel } from "@/components/club-admin/height-weight-section";
+import { MemberGearSummary } from "@/components/club-admin/member-gear-card";
 import { TeamCompetitionPanel } from "@/components/club-admin/team-competition";
 import { TeamHistoryPanel } from "@/components/club-admin/team-history";
 import { TeamGroups } from "@/components/club-admin/team-groups";
@@ -17,6 +18,7 @@ import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAgeClassLabel } from "@/lib/age-class";
 import { bulkTeamMembers, downloadTeamSheet, getClubTeam, removeTeamCompetition, removeTeamMember, updateTeamMemberRole, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
+import { gearSockSortRank, type MemberGear } from "@/lib/member-gear-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName, fullNameSortKey } from "@/lib/person-name";
 import { type TableSort } from "@/lib/table-sort";
@@ -147,6 +149,34 @@ function licenceCell(t: Translator, member: TeamMember) {
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       {statusNode}
       {marker}
+    </span>
+  );
+}
+
+function gearCell(t: Translator, pss: string, member: TeamMember) {
+  if (member.role === "coach") return <span className="text-muted">—</span>;
+  const gear = member.gear;
+  const shown = (value?: string) => value || "—";
+  if (pss === "kpnp") {
+    return (
+      <span className="block">
+        <span className="block">{t("gearSock")} {shown(gear?.kpnp_sock)}</span>
+        <span className="block text-xs text-muted">{t("gearGlove")} {shown(gear?.kpnp_glove)}</span>
+      </span>
+    );
+  }
+  if (pss === "daedo") {
+    return (
+      <span className="block">
+        <span className="block">{t("gearSock")} {shown(gear?.daedo_sock)}</span>
+        <span className="block text-xs text-muted">{t("gearGlove")} {shown(gear?.daedo_glove)}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="block">
+      <span className="block">{t("gearDaedo")} {shown(gear?.daedo_sock)}</span>
+      <span className="block text-xs text-muted">{t("gearKpnp")} {shown(gear?.kpnp_sock)}</span>
     </span>
   );
 }
@@ -396,9 +426,18 @@ export function TeamRoster({
         actions,
       ];
     }
+    const pss = team?.pss_system || "";
+    const gear: EntityTableColumn<TeamMember> = {
+      key: "gear",
+      header: t("gearColumn"),
+      sortable: true,
+      sortValue: (row) => gearSockSortRank(pss, row.gear, row.role),
+      render: (row) => gearCell(t, pss, row),
+    };
     return [
       ...leading,
       name,
+      gear,
       sex,
       birth,
       {
@@ -445,7 +484,25 @@ export function TeamRoster({
       licence,
       actions,
     ];
-  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, teamId]);
+  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, team?.pss_system, teamId]);
+
+  const saveGear = (memberId: number, saved: MemberGear) => {
+    setTeam((current) =>
+      current
+        ? {
+            ...current,
+            members: current.members?.map((member) => (member.id === memberId ? { ...member, gear: saved } : member)),
+          }
+        : current,
+    );
+  };
+  const renderGearDetail = (row: TeamMember) =>
+    expandedId === row.id ? (
+      <div className="space-y-3">
+        <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded onChanged={reloadTeam} />
+        <MemberGearSummary memberId={row.id} gear={row.gear} onSaved={(saved) => saveGear(row.id, saved)} />
+      </div>
+    ) : null;
 
   return (
     <div className="space-y-3">
@@ -556,11 +613,7 @@ export function TeamRoster({
                 onSortChange={setSort}
                 clientSort
                 onRowClick={(row) => setExpandedId((current) => (current === row.id ? null : row.id))}
-                renderDetail={(row) =>
-                  expandedId === row.id ? (
-                    <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded onChanged={reloadTeam} />
-                  ) : null
-                }
+                renderDetail={renderGearDetail}
               />
             </section>
           ) : null}
@@ -576,11 +629,7 @@ export function TeamRoster({
                 onSortChange={setSort}
                 clientSort
                 onRowClick={(row) => setExpandedId((current) => (current === row.id ? null : row.id))}
-                renderDetail={(row) =>
-                  expandedId === row.id ? (
-                    <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded onChanged={reloadTeam} />
-                  ) : null
-                }
+                renderDetail={renderGearDetail}
               />
             )}
           </section>

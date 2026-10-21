@@ -15,6 +15,7 @@ from licenses.models import License
 from members.models import Member
 
 from .access import CompetitionModulePermission
+from .gear import roster_gear
 from .body_measurements import (
     BodyMeasurement,
     annotate_latest_measurements,
@@ -86,6 +87,11 @@ def _clean_fields(data, *, creating: bool) -> dict:
         if code not in SET_CODES:
             raise ValidationError({"category_set": "category_set_required"})
         cleaned["category_set_code"] = code
+    if "pss_system" in data:
+        system = str(data.get("pss_system") or "").strip()
+        if system not in {"", *ClubTeam.Pss.values}:
+            raise ValidationError({"pss_system": "pss_required"})
+        cleaned["pss_system"] = system
     if "archived" in data:
         flag = data.get("archived")
         if flag is True:
@@ -164,7 +170,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
     queryset = annotate_latest_measurements(
         Member.objects.filter(team_memberships__team=team),
         {team.club_id},
-    ).annotate(team_role=Subquery(role_rows)).prefetch_related("licenses").order_by("last_name", "first_name", "id")
+    ).annotate(team_role=Subquery(role_rows)).prefetch_related("licenses", "gear").order_by("last_name", "first_name", "id")
     rows = []
     for member in queryset:
         role = member.team_role or ClubTeamMembership.Role.ATHLETE
@@ -207,6 +213,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
                 "weight_warning": warning,
                 "licence_status": _licence_status(member),
                 "licence_warning": _licence_covers(member, team.competition_on),
+                "gear": roster_gear(member),
             }
         )
     return rows
@@ -264,6 +271,7 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "competition_name": team.competition_name,
         "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
         "category_set": team.category_set_code or "wt",
+        "pss_system": team.pss_system or "",
         "archived": team.archived_at is not None,
     }
     if include_members:
@@ -684,6 +692,7 @@ class ClubTeamDuplicateView(APIView):
                 competition_name=source.competition_name,
                 weight_margin_kg=source.weight_margin_kg,
                 category_set_code=source.category_set_code or "wt",
+                pss_system=source.pss_system or "",
             )
             ClubTeamCategoryBand.objects.bulk_create(
                 [

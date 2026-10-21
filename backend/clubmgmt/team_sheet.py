@@ -73,6 +73,23 @@ _LABELS = {
         "under_60": "Under 60 (51–60)",
         "under_65": "Under 65 (61–65)",
         "over_65": "Over 65 (66+)",
+        "pss": "Scoring system",
+        "daedo": "Daedo",
+        "kpnp": "KPNP",
+        "daedo_sock": "Daedo socks",
+        "daedo_glove": "Daedo gloves",
+        "daedo_hogu": "Daedo chest protector",
+        "daedo_head": "Daedo headgear",
+        "kpnp_sock": "KPNP socks",
+        "kpnp_glove": "KPNP gloves",
+        "kpnp_hogu": "KPNP chest protector",
+        "kpnp_head": "KPNP headgear",
+        "shin": "Shin guards",
+        "forearm": "Forearm guards",
+        "groin": "Groin guard",
+        "mouth": "Mouthguard",
+        "youth": "Youth",
+        "adult": "Adult",
     },
     "fr": {
         "team": "Équipe",
@@ -138,6 +155,23 @@ _LABELS = {
         "under_60": "Moins de 60 ans (51–60)",
         "under_65": "Moins de 65 ans (61–65)",
         "over_65": "Plus de 65 ans (66+)",
+        "pss": "Système de scoring",
+        "daedo": "Daedo",
+        "kpnp": "KPNP",
+        "daedo_sock": "Chaussettes Daedo",
+        "daedo_glove": "Gants Daedo",
+        "daedo_hogu": "Plastron Daedo",
+        "daedo_head": "Casque Daedo",
+        "kpnp_sock": "Chaussettes KPNP",
+        "kpnp_glove": "Gants KPNP",
+        "kpnp_hogu": "Plastron KPNP",
+        "kpnp_head": "Casque KPNP",
+        "shin": "Protège-tibias",
+        "forearm": "Protège-avant-bras",
+        "groin": "Coquille",
+        "mouth": "Protège-dents",
+        "youth": "Enfant",
+        "adult": "Adulte",
     },
     "de": {
         "team": "Mannschaft",
@@ -203,6 +237,23 @@ _LABELS = {
         "under_60": "Unter 60 (51–60)",
         "under_65": "Unter 65 (61–65)",
         "over_65": "Über 65 (66+)",
+        "pss": "Wertungssystem",
+        "daedo": "Daedo",
+        "kpnp": "KPNP",
+        "daedo_sock": "Daedo-Socken",
+        "daedo_glove": "Daedo-Handschuhe",
+        "daedo_hogu": "Daedo-Brustschutz",
+        "daedo_head": "Daedo-Kopfschutz",
+        "kpnp_sock": "KPNP-Socken",
+        "kpnp_glove": "KPNP-Handschuhe",
+        "kpnp_hogu": "KPNP-Brustschutz",
+        "kpnp_head": "KPNP-Kopfschutz",
+        "shin": "Schienbeinschoner",
+        "forearm": "Unterarmschoner",
+        "groin": "Tiefschutz",
+        "mouth": "Zahnschutz",
+        "youth": "Kind",
+        "adult": "Erwachsen",
     },
     "lb": {
         "team": "Ekipp",
@@ -268,6 +319,23 @@ _LABELS = {
         "under_60": "Ënner 60 (51–60)",
         "under_65": "Ënner 65 (61–65)",
         "over_65": "Iwwer 65 (66+)",
+        "pss": "Wertungssystem",
+        "daedo": "Daedo",
+        "kpnp": "KPNP",
+        "daedo_sock": "Daedo-Socken",
+        "daedo_glove": "Daedo-Händschen",
+        "daedo_hogu": "Daedo-Brustschutz",
+        "daedo_head": "Daedo-Kappenschutz",
+        "kpnp_sock": "KPNP-Socken",
+        "kpnp_glove": "KPNP-Händschen",
+        "kpnp_hogu": "KPNP-Brustschutz",
+        "kpnp_head": "KPNP-Kappenschutz",
+        "shin": "Schinnebäischoner",
+        "forearm": "Ënneraarmschoner",
+        "groin": "Déifschutz",
+        "mouth": "Zännschutz",
+        "youth": "Kand",
+        "adult": "Erwuessen",
     },
 }
 
@@ -320,7 +388,34 @@ def _category_cell(row: dict, text: dict[str, str], set_label: str) -> str:
     return text.get(reason, "")
 
 
-def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: str) -> list[str]:
+def _gear_headers(text: dict[str, str], pss: str) -> list[str]:
+    headers = []
+    if pss != "kpnp":
+        headers.extend([text["daedo_sock"], text["daedo_glove"], text["daedo_hogu"], text["daedo_head"]])
+    if pss != "daedo":
+        headers.extend([text["kpnp_sock"], text["kpnp_glove"], text["kpnp_hogu"], text["kpnp_head"]])
+    headers.extend([text["shin"], text["forearm"], text["groin"], text["mouth"]])
+    return headers
+
+
+def _gear_cells(row: dict, text: dict[str, str], pss: str) -> list[str]:
+    gear = row.get("gear") or {}
+
+    def value(key: str) -> str:
+        return str(gear.get(key) or "")
+
+    cells = []
+    if pss != "kpnp":
+        cells.extend([value("daedo_sock"), value("daedo_glove"), value("daedo_hogu"), value("daedo_head")])
+    if pss != "daedo":
+        cells.extend([value("kpnp_sock"), value("kpnp_glove"), value("kpnp_hogu"), value("kpnp_head")])
+    mouth = value("mouthguard")
+    mouth_label = text["youth"] if mouth == "youth" else text["adult"] if mouth == "adult" else ""
+    cells.extend([value("shin"), value("forearm"), value("groin"), mouth_label])
+    return cells
+
+
+def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: str, pss: str) -> list[str]:
     licence = text.get(row.get("licence_status") or "none", text["none"])
     shared = [
         _full_name(row),
@@ -351,6 +446,7 @@ def _athlete_row(row: dict, text: dict[str, str], *, poomsae: bool, set_label: s
         row.get("latest_height_on") or "",
         licence,
         _warnings(row, text),
+        *_gear_cells(row, text, pss),
     ]
 
 
@@ -372,6 +468,7 @@ def sheet_rows(payload: dict, lang: str):
     poomsae = payload.get("discipline") == "poomsae"
     set_code = payload.get("category_set") or "wt"
     set_label = text.get(f"set_{set_code}", set_code)
+    pss = payload.get("pss_system") or ""
     meta = [
         (text["team"], payload.get("name") or ""),
         (text["discipline"], text["poomsae"] if poomsae else text["kyorugi"]),
@@ -380,6 +477,8 @@ def sheet_rows(payload: dict, lang: str):
     ]
     if not poomsae:
         meta.append((text["category_set"], set_label))
+        if pss in {"daedo", "kpnp"}:
+            meta.append((text["pss"], text[pss]))
     if poomsae:
         headers = [
             text["name"],
@@ -407,6 +506,7 @@ def sheet_rows(payload: dict, lang: str):
             text["height_on"],
             text["licence"],
             text["warning"],
+            *_gear_headers(text, pss),
         ]
     coach_headers = [text["name"], text["sex"], text["birth"], text["licence"], text["warning"]]
     athletes = []
@@ -415,7 +515,7 @@ def sheet_rows(payload: dict, lang: str):
         if row.get("role") == "coach":
             coaches.append(_coach_row(row, text))
         else:
-            athletes.append(_athlete_row(row, text, poomsae=poomsae, set_label=set_label))
+            athletes.append(_athlete_row(row, text, poomsae=poomsae, set_label=set_label, pss=pss))
     return {
         "meta": meta,
         "athlete_title": text["athletes"],

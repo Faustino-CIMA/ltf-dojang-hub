@@ -122,6 +122,7 @@ export function TeamForm({
   const [name, setName] = useState(team?.name ?? "");
   const [discipline, setDiscipline] = useState<TeamDiscipline>(team?.discipline ?? "kyorugi");
   const [note, setNote] = useState(team?.note ?? "");
+  const [pss, setPss] = useState<"" | "daedo" | "kpnp">(team?.pss_system ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const archived = Boolean(team?.archived);
@@ -139,7 +140,13 @@ export function TeamForm({
           }
           setBusy(true);
           setError(null);
-          void saveClubTeam(team?.id ?? null, { club: clubId, name: name.trim(), discipline, note })
+          void saveClubTeam(team?.id ?? null, {
+            club: clubId,
+            name: name.trim(),
+            discipline,
+            note,
+            pss_system: discipline === "kyorugi" ? pss : "",
+          })
             .then((saved) => onSaved(saved))
             .catch(() => setError(t("teamsRequired")))
             .finally(() => setBusy(false));
@@ -165,6 +172,24 @@ export function TeamForm({
           />
           {disciplineChanged ? <p className="text-sm text-destructive">{t("teamDisciplineWarning")}</p> : null}
         </div>
+        {discipline === "kyorugi" ? (
+          <div className="space-y-2">
+            <Label>{t("teamPss")}</Label>
+            <PopoverSelect
+              className="w-full"
+              ariaLabel={t("teamPss")}
+              value={pss}
+              disabled={archived}
+              onValueChange={(value) => setPss(value as "" | "daedo" | "kpnp")}
+              options={[
+                { value: "", label: t("gearNone") },
+                { value: "daedo", label: t("gearDaedo") },
+                { value: "kpnp", label: t("gearKpnp") },
+              ]}
+            />
+            <p className="text-sm text-muted">{t("teamPssHint")}</p>
+          </div>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="team-note">{t("teamsNote")}</Label>
           <Input id="team-note" value={note} disabled={archived} onChange={(event) => setNote(event.target.value)} />

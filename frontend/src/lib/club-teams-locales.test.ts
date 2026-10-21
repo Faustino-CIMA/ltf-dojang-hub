@@ -138,6 +138,9 @@ const KEYS = [
   "gearSockHint",
   "gearMouthYouth",
   "gearMouthAdult",
+  "gearColumn",
+  "teamPss",
+  "teamPssHint",
 ] as const;
 
 describe("Club team copy", () => {
