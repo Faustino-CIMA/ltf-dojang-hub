@@ -148,7 +148,7 @@ export default function MemberDashboardPage() {
               gradeIssuedByLabel={t("historyGradeIssuedByColumn")}
               previousPageLabel={commonT("paginationPrevious")}
               nextPageLabel={commonT("paginationNext")}
-              pageLabel={commonT("paginationPage")}
+              pageLabel={(current, total) => commonT("paginationPage", { current, total })}
               licenseHistory={history?.license_history ?? []}
               gradeHistory={history?.grade_history ?? []}
             />

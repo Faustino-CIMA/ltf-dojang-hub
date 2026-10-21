@@ -236,6 +236,7 @@ export default function LtfMemberDetailPage() {
     gradeIssuedByLabel: t("historyGradeIssuedByColumn"),
     previousPageLabel: commonT("paginationPrevious"),
     nextPageLabel: commonT("paginationNext"),
+    pageLabel: (current: number, total: number) => commonT("paginationPage", { current, total }),
     licenseHistory: history?.license_history ?? [],
     gradeHistory: history?.grade_history ?? [],
   };

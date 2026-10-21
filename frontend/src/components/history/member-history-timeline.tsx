@@ -82,7 +82,8 @@ type HistoryTimelineProps = {
   cancelLabel?: string;
   previousPageLabel?: string;
   nextPageLabel?: string;
-  pageLabel?: string;
+  /** Called with the visible page. The label is translated here so ICU placeholders receive values. */
+  pageLabel?: (current: number, total: number) => string;
   onPromote?: (input: GradeFormInput) => Promise<void>;
   onUpdateGrade?: (id: number, input: GradeFormInput) => Promise<void>;
   onDeleteGrade?: (id: number) => Promise<void>;
@@ -223,6 +224,7 @@ function HistoryPagination({
   onNext,
   previousPageLabel,
   nextPageLabel,
+  pageLabel,
 }: {
   currentPage: number;
   totalPages: number;
@@ -230,6 +232,7 @@ function HistoryPagination({
   onNext: () => void;
   previousPageLabel: string;
   nextPageLabel: string;
+  pageLabel?: (current: number, total: number) => string;
 }) {
   return (
     <div className="mt-3 flex items-center justify-between gap-2">
@@ -243,7 +246,7 @@ function HistoryPagination({
         {previousPageLabel}
       </Button>
       <span className="flex-1 text-center text-xs text-muted">
-        {currentPage} / {totalPages}
+        {pageLabel ? pageLabel(currentPage, totalPages) : `${currentPage} / ${totalPages}`}
       </span>
       <Button
         type="button"
@@ -416,6 +419,7 @@ export function MemberHistoryTimeline({
   cancelLabel,
   previousPageLabel = "Previous page",
   nextPageLabel = "Next page",
+  pageLabel,
   onPromote,
   onUpdateGrade,
   onDeleteGrade,
@@ -686,6 +690,7 @@ export function MemberHistoryTimeline({
                 onNext={() => setLicensePage((page) => Math.min(licenseTotalPages, page + 1))}
                 previousPageLabel={previousPageLabel}
                 nextPageLabel={nextPageLabel}
+                pageLabel={pageLabel}
               />
             ) : null}
           </div>
@@ -764,6 +769,7 @@ export function MemberHistoryTimeline({
                 onNext={() => setGradePage((page) => Math.min(gradeTotalPages, page + 1))}
                 previousPageLabel={previousPageLabel}
                 nextPageLabel={nextPageLabel}
+                pageLabel={pageLabel}
               />
             ) : null}
           </div>
