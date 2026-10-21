@@ -68,6 +68,7 @@ class MemberGearApiTests(TestCase):
                 "headgear": "XXS",
                 "dobok": "160",
                 "tshirt": "104",
+                "club_tshirt": "YXL",
             },
             format="json",
         )
@@ -78,6 +79,7 @@ class MemberGearApiTests(TestCase):
         self.assertEqual(saved.data["headgear"], "XXS")
         self.assertEqual(saved.data["dobok"], "160")
         self.assertEqual(saved.data["tshirt"], "104")
+        self.assertEqual(saved.data["club_tshirt"], "YXL")
         self.assertEqual(saved.data["updated_at"], self.today.isoformat())
         self.assertEqual(MemberGear.objects.get(member=self.athlete).daedo_glove, "S")
 
@@ -91,13 +93,30 @@ class MemberGearApiTests(TestCase):
         self.assertEqual(cleared.data["daedo_sock"], "")
         self.assertEqual(cleared.data["daedo_glove"], "S")
         self.assertEqual(cleared.data["tshirt"], "3XL")
+        self.assertEqual(cleared.data["club_tshirt"], "YXL")
+        adult = self.client.put(
+            "/api/club-management/gear/",
+            {"member": self.athlete.id, "club_tshirt": "10XL"},
+            format="json",
+        )
+        self.assertEqual(adult.status_code, 200, adult.data)
+        self.assertEqual(adult.data["club_tshirt"], "10XL")
+        self.assertEqual(adult.data["tshirt"], "3XL")
 
     def test_rejects_unknown_labels_and_hides_the_record(self):
         self._unlock()
         self._auth(self.club_admin)
         invalid = self.client.put(
             "/api/club-management/gear/",
-            {"member": self.athlete.id, "daedo_sock": "EU39", "dobok": "165", "kpnp_sock": "M", "chest": "XXXS", "headgear": "3"},
+            {
+                "member": self.athlete.id,
+                "daedo_sock": "EU39",
+                "dobok": "165",
+                "kpnp_sock": "M",
+                "chest": "XXXS",
+                "headgear": "3",
+                "club_tshirt": "YXXL",
+            },
             format="json",
         )
         self.assertEqual(invalid.status_code, 400, invalid.data)
@@ -106,6 +125,7 @@ class MemberGearApiTests(TestCase):
         self.assertIn("kpnp_sock", invalid.data)
         self.assertIn("chest", invalid.data)
         self.assertIn("headgear", invalid.data)
+        self.assertIn("club_tshirt", invalid.data)
         self.assertFalse(MemberGear.objects.filter(member=self.athlete).exists())
 
         self._auth(self.ltf_admin)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,6 +11,7 @@ export type PopoverSelectOption = {
   label: ReactNode;
   searchText?: string;
   disabled?: boolean;
+  group?: string;
 };
 
 const triggerClassName =
@@ -150,26 +151,35 @@ export function PopoverSelect({
           className="max-h-64 overflow-y-auto"
           onKeyDown={handleKeyDown}
         >
-          {filteredOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              disabled={option.disabled}
-              className={cn(optionClassName, option.value === value && "bg-accent text-accent-foreground")}
-              onClick={() => {
-                if (option.disabled) {
-                  return;
-                }
-                onValueChange(option.value);
-                setOpen(false);
-                setQuery("");
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
+          {filteredOptions.map((option, index) => {
+            const showGroup = Boolean(option.group) && option.group !== filteredOptions[index - 1]?.group;
+            return (
+              <Fragment key={option.value || "blank"}>
+                {showGroup ? (
+                  <p className="px-3 pb-1 pt-2 text-xs font-medium text-muted" role="presentation">
+                    {option.group}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={option.value === value}
+                  disabled={option.disabled}
+                  className={cn(optionClassName, option.value === value && "bg-accent text-accent-foreground")}
+                  onClick={() => {
+                    if (option.disabled) {
+                      return;
+                    }
+                    onValueChange(option.value);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                >
+                  {option.label}
+                </button>
+              </Fragment>
+            );
+          })}
           {filteredOptions.length === 0 ? (
             <p className="px-3 py-2 text-sm text-muted">{emptyMessage}</p>
           ) : null}

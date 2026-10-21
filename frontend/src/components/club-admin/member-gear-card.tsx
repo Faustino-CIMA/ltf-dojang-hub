@@ -13,6 +13,7 @@ import {
   DAEDO_HEAD,
   DAEDO_HOGU,
   DAEDO_SOCK,
+  CLUB_TSHIRT,
   DOBOK,
   GENERIC_SIZE,
   KPNP_GLOVE,
@@ -23,6 +24,8 @@ import {
   REGULAR_SIZE,
   TSHIRT,
   blankGear,
+  clubTshirtSize,
+  inchesToCm,
   getMemberGear,
   saveMemberGear,
   type GearKey,
@@ -37,6 +40,7 @@ type GearField = {
   key: GearKey;
   label: string;
   scale: readonly string[];
+  groups?: Array<{ label: string; values: readonly string[] }>;
   hint?: string;
 };
 
@@ -99,6 +103,15 @@ export const GEAR_TABS: Array<{ id: GearTabId; label: string; sections: GearSect
         fields: [
           { key: "dobok", label: "gearDobok", scale: DOBOK },
           { key: "tshirt", label: "gearTshirt", scale: TSHIRT },
+          {
+            key: "club_tshirt",
+            label: "gearClubTshirt",
+            scale: CLUB_TSHIRT.map((size) => size.label),
+            groups: [
+              { label: "gearClubYouth", values: CLUB_TSHIRT.filter((size) => size.group === "youth").map((size) => size.label) },
+              { label: "gearClubAdult", values: CLUB_TSHIRT.filter((size) => size.group === "adult").map((size) => size.label) },
+            ],
+          },
         ],
       },
     ],
@@ -125,6 +138,39 @@ function optionLabel(t: Translator, key: GearKey, value: string) {
   return gearLabel(t, key, value);
 }
 
+function fieldOptions(t: Translator, field: GearField) {
+  const blank = { value: "", label: t("gearNone") };
+  if (!field.groups) {
+    return [blank, ...field.scale.map((value) => ({ value, label: optionLabel(t, field.key, value) }))];
+  }
+  return [
+    blank,
+    ...field.groups.flatMap((group) =>
+      group.values.map((value) => ({
+        value,
+        label: optionLabel(t, field.key, value),
+        group: t(group.label),
+      })),
+    ),
+  ];
+}
+
+function clubTshirtHint(t: Translator, value: string) {
+  const size = clubTshirtSize(value);
+  if (!size) return null;
+  const chest = inchesToCm(size.chestIn);
+  const length = inchesToCm(size.lengthIn);
+  if (size.group === "youth") return t("gearClubYouthHint", { age: size.age ?? "", chest, length });
+  return t("gearClubAdultHint", { chest, length });
+}
+
+function ClubTshirtHint({ value }: { value: string }) {
+  const t = useTranslations("ClubAdmin");
+  const text = clubTshirtHint(t, value);
+  if (!text) return null;
+  return <p className="text-xs text-muted">{text}</p>;
+}
+
 function GearReadout({
   gear,
   tabId,
@@ -147,7 +193,10 @@ function GearReadout({
             {section.fields.map((field) => (
               <div key={field.key}>
                 <dt className="text-xs text-muted">{t(field.label)}</dt>
-                <dd className="text-sm text-foreground">{gearLabel(t, field.key, gear[field.key])}</dd>
+                <dd className="text-sm text-foreground">
+                  {gearLabel(t, field.key, gear[field.key])}
+                  {field.key === "club_tshirt" ? <ClubTshirtHint value={gear.club_tshirt} /> : null}
+                </dd>
               </div>
             ))}
           </dl>
@@ -214,11 +263,9 @@ export function GearSizePanel({
                     ariaLabel={`${t(section.title ?? current.label)} ${t(field.label)}`}
                     value={draft[field.key]}
                     onValueChange={(value) => setDraft((currentDraft) => ({ ...currentDraft, [field.key]: value }))}
-                    options={[
-                      { value: "", label: t("gearNone") },
-                      ...field.scale.map((value) => ({ value, label: optionLabel(t, field.key, value) })),
-                    ]}
+                    options={fieldOptions(t, field)}
                   />
+                  {field.key === "club_tshirt" ? <ClubTshirtHint value={draft.club_tshirt} /> : null}
                   {field.hint ? <p className="text-sm text-muted">{t(field.hint)}</p> : null}
                 </div>
               ))}
@@ -332,7 +379,10 @@ export function MemberGearSummary({
                 {section.fields.map((field) => (
                   <div key={field.key}>
                     <dt className="text-xs text-muted">{t(field.label)}</dt>
-                    <dd className="text-sm text-foreground">{gearLabel(t, field.key, shown[field.key])}</dd>
+                    <dd className="text-sm text-foreground">
+                      {gearLabel(t, field.key, shown[field.key])}
+                      {field.key === "club_tshirt" ? <ClubTshirtHint value={shown.club_tshirt} /> : null}
+                    </dd>
                   </div>
                 ))}
               </dl>

@@ -39,6 +39,7 @@ const recorded: MemberGear = {
   mouthguard: "youth",
   dobok: "160",
   tshirt: "104",
+  club_tshirt: "YXL",
   updated_at: "2026-10-21",
 };
 
@@ -49,7 +50,7 @@ describe("Member gear card", () => {
     expect(card.className).toContain("app-panel");
     expect(within(card).getByRole("tab", { name: "gearProtectors 3", selected: true })).toBeInTheDocument();
     expect(within(card).getByRole("tab", { name: "gearEgear 3" })).toBeInTheDocument();
-    expect(within(card).getByRole("tab", { name: "gearClothingOther 2" })).toBeInTheDocument();
+    expect(within(card).getByRole("tab", { name: "gearClothingOther 3" })).toBeInTheDocument();
     expect(within(card).getByText("gearMouthYouth")).toBeInTheDocument();
     expect(within(card).getByText("L")).toBeInTheDocument();
     expect(within(card).queryByRole("heading", { name: "gearDaedo" })).not.toBeInTheDocument();
@@ -61,9 +62,11 @@ describe("Member gear card", () => {
     expect(within(card).getByText("6")).toBeInTheDocument();
     expect(within(card).queryByText("gearMouthYouth")).not.toBeInTheDocument();
 
-    fireEvent.click(within(card).getByRole("tab", { name: "gearClothingOther 2" }));
+    fireEvent.click(within(card).getByRole("tab", { name: "gearClothingOther 3" }));
     expect(within(card).getByText('gearDobokCm:{"size":"160"}')).toBeInTheDocument();
     expect(within(card).getByText("104")).toBeInTheDocument();
+    expect(within(card).getByText("YXL")).toBeInTheDocument();
+    expect(within(card).getByText('gearClubYouthHint:{"age":"9-10","chest":38,"length":48}')).toBeInTheDocument();
     expect(within(card).getByText('gearUpdated:{"date":"21 Oct 2026"}')).toBeInTheDocument();
   });
 
@@ -80,7 +83,7 @@ describe("Member gear card", () => {
     const sock = within(panel).getByRole("button", { name: "gearDaedo gearSock" });
     expect(sock).toBeTruthy();
 
-    fireEvent.click(within(panel).getByRole("tab", { name: "gearClothingOther 2" }));
+    fireEvent.click(within(panel).getByRole("tab", { name: "gearClothingOther 3" }));
     const dobok = within(panel).getByText("gearDobok").closest("label");
     expect(dobok?.querySelector("[data-required='true']")).toBeNull();
     const chestTab = within(panel).getByRole("tab", { name: "gearProtectors 3" });
@@ -90,7 +93,24 @@ describe("Member gear card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "gearSave" }));
     expect(saveMemberGear).toHaveBeenCalledWith(
-      expect.objectContaining({ daedo_sock: "M", dobok: "160", tshirt: "104", chest: "M", headgear: "" }),
+      expect.objectContaining({ daedo_sock: "M", dobok: "160", tshirt: "104", club_tshirt: "YXL", chest: "M", headgear: "" }),
     );
+  });
+
+  it("groups club T-shirt sizes youth then adult and does not require one", () => {
+    render(<MemberGearCard memberId={9} preview={{ ...recorded, club_tshirt: "XL" }} />);
+    fireEvent.click(screen.getByRole("tab", { name: "gearClothingOther 3" }));
+    expect(screen.getByText('gearClubAdultHint:{"chest":56,"length":72}')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "gearEdit" }));
+    const panel = screen.getByRole("dialog", { name: "gearEdit" });
+    const label = within(panel).getByText("gearClubTshirt").closest("label");
+    expect(label?.querySelector("[data-required='true']")).toBeNull();
+    fireEvent.click(within(panel).getByRole("button", { name: "gearClothingOther gearClubTshirt" }));
+    const list = screen.getByRole("listbox", { name: "gearClothingOther gearClubTshirt" });
+    const text = list.textContent ?? "";
+    expect(text.indexOf("gearClubYouth")).toBeLessThan(text.indexOf("YXS"));
+    expect(text.indexOf("Y3XL")).toBeLessThan(text.indexOf("gearClubAdult"));
+    expect(text.indexOf("gearClubAdult")).toBeLessThan(text.indexOf("10XL"));
+    expect(text.indexOf("104")).toBe(-1);
   });
 });

@@ -46,6 +46,28 @@ describe("PopoverSelect", () => {
     expect(onValueChange).toHaveBeenCalledWith("draft");
   });
 
+  it("keeps grouped options in the given order", () => {
+    render(
+      <PopoverSelect
+        value=""
+        onValueChange={() => undefined}
+        ariaLabel="Club T-shirt"
+        options={[
+          { value: "", label: "—" },
+          { value: "YXL", label: "YXL", group: "Youth" },
+          { value: "Y3XL", label: "Y3XL", group: "Youth" },
+          { value: "XXS", label: "XXS", group: "Adult" },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Club T-shirt" }));
+    const list = screen.getByRole("listbox", { name: "Club T-shirt" });
+    const text = list.textContent ?? "";
+    expect(text.indexOf("Youth")).toBeLessThan(text.indexOf("YXL"));
+    expect(text.indexOf("Y3XL")).toBeLessThan(text.indexOf("Adult"));
+    expect(text.indexOf("Adult")).toBeLessThan(text.indexOf("XXS"));
+  });
+
   it("filters a long list from the search field", () => {
     const onValueChange = jest.fn();
     const columns = [

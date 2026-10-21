@@ -22,6 +22,30 @@ REGULAR_SIZE = ("XXS", "XS", "S", "M", "L", "XL", "XXL")
 MOUTHGUARD = ("youth", "adult")
 DOBOK = ("100", "110", "120", "130", "140", "150", "160", "170", "180", "190", "200", "210")
 TSHIRT = ("98", "104", "110", "116", "128", "140", "152", "164", "XS", "S", "M", "L", "XL", "2XL", "3XL")
+CLUB_TSHIRT = (
+    "YXS",
+    "YS",
+    "YM",
+    "YL",
+    "YXL",
+    "Y2XL",
+    "Y3XL",
+    "XXS",
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "2XL",
+    "3XL",
+    "4XL",
+    "5XL",
+    "6XL",
+    "7XL",
+    "8XL",
+    "9XL",
+    "10XL",
+)
 
 GEAR_SCALES = {
     "daedo_sock": DAEDO_SOCK,
@@ -40,6 +64,7 @@ GEAR_SCALES = {
     "mouthguard": MOUTHGUARD,
     "dobok": DOBOK,
     "tshirt": TSHIRT,
+    "club_tshirt": CLUB_TSHIRT,
 }
 
 
@@ -65,6 +90,7 @@ class MemberGear(models.Model):
     mouthguard = models.CharField(max_length=8, blank=True)
     dobok = models.CharField(max_length=8, blank=True)
     tshirt = models.CharField(max_length=8, blank=True)
+    club_tshirt = models.CharField(max_length=8, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:

@@ -61,6 +61,7 @@ class TeamGearSheetTests(TestCase):
                 "mouthguard": "youth",
                 "dobok": "160",
                 "tshirt": "S",
+                "club_tshirt": "YXL",
             },
             format="json",
         )
@@ -70,6 +71,7 @@ class TeamGearSheetTests(TestCase):
         athlete = next(row for row in roster.data["members"] if row["id"] == self.athlete.id)
         self.assertEqual(athlete["gear"]["daedo_sock"], "M")
         self.assertEqual(athlete["gear"]["dobok"], "160")
+        self.assertEqual(athlete["gear"]["club_tshirt"], "YXL")
         self.assertEqual(athlete["gear"]["chest"], "XXL")
 
         sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en")
@@ -82,6 +84,8 @@ class TeamGearSheetTests(TestCase):
         self.assertIn("XXL", text)
         self.assertNotIn("Dobok", text)
         self.assertNotIn("T-shirt", text)
+        self.assertNotIn("YXL", text)
+        self.assertNotIn("Club T-shirt", text)
         self.assertIn("WEBER Lea", text)
 
         blank = self.client.patch(

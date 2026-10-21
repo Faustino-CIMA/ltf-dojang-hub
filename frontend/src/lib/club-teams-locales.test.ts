@@ -135,6 +135,11 @@ const KEYS = [
   "gearHead",
   "gearDobok",
   "gearTshirt",
+  "gearClubTshirt",
+  "gearClubYouth",
+  "gearClubAdult",
+  "gearClubYouthHint",
+  "gearClubAdultHint",
   "gearSockHint",
   "gearMouthYouth",
   "gearMouthAdult",
@@ -172,5 +177,10 @@ describe("Club team copy", () => {
     expect(club.teamHistoryCopied).toContain("{name}");
     expect(club.gearUpdated).toContain("{date}");
     expect(club.gearDobokCm).toContain("{size}");
+    expect(club.gearClubYouthHint).toContain("{age}");
+    expect(club.gearClubYouthHint).toContain("{chest}");
+    expect(club.gearClubYouthHint).toContain("{length}");
+    expect(club.gearClubAdultHint).toContain("{chest}");
+    expect(club.gearClubAdultHint).toContain("{length}");
   });
 });

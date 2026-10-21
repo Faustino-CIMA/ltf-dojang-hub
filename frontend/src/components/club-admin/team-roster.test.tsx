@@ -97,6 +97,7 @@ const kyorugi: ClubTeam = {
         mouthguard: "",
         dobok: "160",
         tshirt: "S",
+        club_tshirt: "YXL",
         updated_at: "2026-10-21",
       },
     },
@@ -159,6 +160,8 @@ describe("Team roster", () => {
     expect(screen.getByText("gearProtectors")).toBeInTheDocument();
     expect(screen.getByText("gearEgear")).toBeInTheDocument();
     expect(screen.getByText("gearClothingOther")).toBeInTheDocument();
+    expect(screen.getByText("YXL")).toBeInTheDocument();
+    expect(screen.getByText('gearClubYouthHint:{"age":"9-10","chest":38,"length":48}')).toBeInTheDocument();
     const section = document.getElementById("height-weight-title")?.closest("section");
     expect(section?.className ?? "").not.toContain("app-panel");
   });
