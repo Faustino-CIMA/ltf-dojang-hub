@@ -1527,6 +1527,7 @@
     "teamsNoMatches": "No matches",
     "teamsOnTeam": "On the team",
     "teamsFilter": "Teams",
+    "teamsFilterNone": "Not on a team",
     "teamsFilterEmpty": "No teams yet",
     "teamsColumn": "Teams",
     "teamsCardTitle": "Teams",

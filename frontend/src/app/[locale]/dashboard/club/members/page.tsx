@@ -136,7 +136,7 @@ export default function ClubAdminMembersPage() {
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [competitionOn, setCompetitionOn] = useState(false);
   const [clubTeams, setClubTeams] = useState<ClubTeam[]>([]);
-  const [teamFilter, setTeamFilter] = useState<number[]>([]);
+  const [teamFilter, setTeamFilter] = useState<number[] | "none">([]);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [actionsHintOpen, setActionsHintOpen] = useState(false);
@@ -193,7 +193,8 @@ export default function ClubAdminMembersPage() {
             isActive: isActiveFilter,
             issue: issue ?? undefined,
             ordering,
-            teamIds: teamFilter,
+            teamIds: teamFilter === "none" ? undefined : teamFilter,
+            teamNone: teamFilter === "none",
           }),
           getMembersPage({
             page: 1,
@@ -293,7 +294,7 @@ export default function ClubAdminMembersPage() {
       .then((rows) => {
         if (cancelled) return;
         setClubTeams(rows);
-        setTeamFilter((current) => current.filter((id) => rows.some((team) => team.id === id)));
+        setTeamFilter((current) => (current === "none" ? current : current.filter((id) => rows.some((team) => team.id === id))));
       })
       .catch(() => {
         if (!cancelled) setClubTeams([]);
@@ -849,7 +850,7 @@ export default function ClubAdminMembersPage() {
                 />
               </div>
               {showTeams ? (
-                <TeamFilter teams={clubTeams} selected={teamFilter} onChange={setTeamFilter} />
+                <TeamFilter teams={clubTeams} value={teamFilter} onChange={setTeamFilter} />
               ) : null}
               <div>
                 <Select value={pageSize} onValueChange={setPageSize}>

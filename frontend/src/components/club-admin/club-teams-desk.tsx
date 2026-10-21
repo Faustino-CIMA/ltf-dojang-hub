@@ -48,16 +48,17 @@ export function disciplineLabel(t: Translator, discipline: string) {
 
 export function TeamFilter({
   teams,
-  selected,
+  value,
   onChange,
 }: {
   teams: TeamTag[];
-  selected: number[];
-  onChange: (ids: number[]) => void;
+  value: number[] | "none";
+  onChange: (next: number[] | "none") => void;
 }) {
   const t = useTranslations("ClubAdmin");
   const [open, setOpen] = useState(false);
-  const label = selected.length ? `${t("teamsFilter")} (${selected.length})` : t("teamsFilter");
+  const selected = value === "none" ? [] : value;
+  const label = value === "none" ? t("teamsFilterNone") : selected.length ? `${t("teamsFilter")} (${selected.length})` : t("teamsFilter");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className={triggerClassName} aria-label={t("teamsFilter")} aria-haspopup="listbox">
@@ -66,6 +67,18 @@ export function TeamFilter({
       </PopoverTrigger>
       <PopoverContent aria-label={t("teamsFilter")}>
         <div role="listbox" aria-label={t("teamsFilter")} aria-multiselectable="true" className="max-h-64 overflow-y-auto">
+          <button
+            type="button"
+            role="option"
+            aria-selected={value === "none"}
+            className={cn(
+              "flex min-h-[var(--control-height)] w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground",
+              value === "none" && "bg-accent text-accent-foreground"
+            )}
+            onClick={() => onChange(value === "none" ? [] : "none")}
+          >
+            {t("teamsFilterNone")}
+          </button>
           {teams.length === 0 ? <p className="px-3 py-2 text-sm text-muted">{t("teamsFilterEmpty")}</p> : null}
           {teams.map((team) => {
             const active = selected.includes(team.id);

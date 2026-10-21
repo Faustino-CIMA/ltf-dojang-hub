@@ -357,6 +357,7 @@ type MemberListQueryParams = {
   issue?: MemberIssueFilter;
   ordering?: string;
   teamIds?: number[];
+  teamNone?: boolean;
 };
 
 type MemberPageParams = MemberListQueryParams & {
@@ -384,7 +385,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   if (params?.ordering) {
     search.set("ordering", params.ordering);
   }
-  if (params?.teamIds && params.teamIds.length > 0) {
+  if (params?.teamNone) {
+    search.set("teams", "none");
+  } else if (params?.teamIds && params.teamIds.length > 0) {
     search.set("teams", params.teamIds.join(","));
   }
   return search;
