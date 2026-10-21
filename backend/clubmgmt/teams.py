@@ -17,9 +17,14 @@ class ClubTeam(models.Model):
         KYORUGI = "kyorugi", "Kyorugi"
         POOMSAE = "poomsae", "Poomsae"
 
+    class Pss(models.TextChoices):
+        DAEDO = "daedo", "Daedo"
+        KPNP = "kpnp", "KPNP"
+
     club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="teams")
     name = models.CharField(max_length=120)
     discipline = models.CharField(max_length=20, choices=Discipline.choices)
+    pss_system = models.CharField(max_length=8, choices=Pss.choices, blank=True)
     note = models.CharField(max_length=240, blank=True)
     competition_on = models.DateField(null=True, blank=True)
     competition_name = models.CharField(max_length=120, blank=True)

@@ -80,6 +80,7 @@ describe("Club teams desk", () => {
     const panel = screen.getByRole("dialog");
     expect(within(panel).getByText("teamsName").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
     expect(within(panel).getByText("teamsDiscipline").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
+    expect(within(panel).getByText("teamPss").closest("label")?.querySelector("[data-required='true']")).toBeNull();
     fireEvent.click(within(panel).getByRole("button", { name: "teamsSave" }));
     expect(screen.getByText("teamsRequired")).toBeInTheDocument();
     fireEvent.change(within(panel).getByLabelText(/teamsName/), { target: { value: "Cadets" } });
@@ -89,6 +90,7 @@ describe("Club teams desk", () => {
       name: "Cadets",
       discipline: "kyorugi",
       note: "",
+      pss_system: "",
     }));
   });
 

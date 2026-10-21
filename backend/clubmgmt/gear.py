@@ -71,6 +71,18 @@ class MemberGear(models.Model):
         return f"gear:{self.member_id}"
 
 
+def roster_gear(member) -> dict:
+    try:
+        row = member.gear
+    except MemberGear.DoesNotExist:
+        payload = {key: "" for key in GEAR_SCALES}
+        payload["updated_at"] = None
+        return payload
+    payload = {key: getattr(row, key) or "" for key in GEAR_SCALES}
+    payload["updated_at"] = timezone.localtime(row.updated_at).date().isoformat()
+    return payload
+
+
 def blank_gear_payload(member_id: int) -> dict:
     payload = {key: "" for key in GEAR_SCALES}
     payload["member"] = member_id

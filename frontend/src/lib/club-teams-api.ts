@@ -1,5 +1,6 @@
 import { apiRequest, API_URL } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import type { RosterGear } from "@/lib/member-gear-api";
 
 export type TeamDiscipline = "kyorugi" | "poomsae";
 
@@ -24,6 +25,7 @@ export type TeamMember = {
   licence_status?: string;
   licence_warning?: "" | "expires" | "missing" | string;
   role?: "athlete" | "coach";
+  gear?: RosterGear;
 };
 
 export type TeamGroup = {
@@ -64,6 +66,7 @@ export type ClubTeam = {
   competition_name?: string;
   weight_margin_kg?: string;
   category_set?: CategorySetCode;
+  pss_system?: "" | "daedo" | "kpnp";
   archived?: boolean;
   custom_bands?: CustomBand[];
   category_sets?: CategorySetOption[];
@@ -79,6 +82,7 @@ export type ClubTeamInput = {
   competition_on?: string | null;
   competition_name?: string;
   weight_margin_kg?: string;
+  pss_system?: "" | "daedo" | "kpnp";
 };
 
 export function getClubTeams(clubId: number, options?: { includeArchived?: boolean }) {
@@ -99,6 +103,7 @@ export function saveClubTeam(id: number | null, input: ClubTeamInput) {
   if (input.competition_on !== undefined) shared.competition_on = input.competition_on;
   if (input.competition_name !== undefined) shared.competition_name = input.competition_name;
   if (input.weight_margin_kg !== undefined) shared.weight_margin_kg = input.weight_margin_kg;
+  if (input.pss_system !== undefined) shared.pss_system = input.pss_system;
   const body = id ? shared : { ...shared, club: input.club };
   return apiRequest<ClubTeam>(`/api/club-management/teams/${id ? `${id}/` : ""}`, {
     method: id ? "PATCH" : "POST",

@@ -55,6 +55,18 @@ export const GEAR_KEYS = [
 
 export type GearKey = (typeof GEAR_KEYS)[number];
 
+export type RosterGear = Omit<MemberGear, "member">;
+
+export function gearSockSortRank(pss: string, gear: Partial<MemberGear> | null | undefined, role?: string): number | null {
+  if (role === "coach" || !gear) return null;
+  const daedo = (DAEDO_SOCK as readonly string[]).indexOf(gear.daedo_sock || "");
+  const kpnp = (KPNP_SOCK as readonly string[]).indexOf(gear.kpnp_sock || "");
+  if (pss === "kpnp") return kpnp < 0 ? null : kpnp;
+  if (pss === "daedo") return daedo < 0 ? null : daedo;
+  if (daedo < 0 && kpnp < 0) return null;
+  return (daedo < 0 ? DAEDO_SOCK.length : daedo) * 100 + (kpnp < 0 ? 99 : kpnp);
+}
+
 export function blankGear(memberId: number): MemberGear {
   const gear = { member: memberId, updated_at: null } as MemberGear;
   for (const key of GEAR_KEYS) gear[key] = "";

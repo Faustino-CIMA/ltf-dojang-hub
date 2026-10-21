@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { TeamRoster } from "@/components/club-admin/team-roster";
+import { gearSockSortRank } from "@/lib/member-gear-api";
 import { getBodyMeasurements, type MeasurementList } from "@/lib/body-measurements-api";
 import { bulkTeamMembers, getClubTeam, removeTeamMember, type ClubTeam } from "@/lib/club-teams-api";
 
@@ -74,8 +75,32 @@ const kyorugi: ClubTeam = {
   name: "Cadets",
   discipline: "kyorugi",
   note: "",
+  pss_system: "daedo",
   member_count: 1,
-  members: [lea],
+  members: [
+    {
+      ...lea,
+      gear: {
+        daedo_sock: "M",
+        daedo_glove: "S",
+        daedo_hogu: "",
+        daedo_head: "",
+        kpnp_sock: "10",
+        kpnp_glove: "",
+        kpnp_hogu: "",
+        kpnp_head: "",
+        chest: "",
+        headgear: "",
+        shin: "",
+        forearm: "",
+        groin: "",
+        mouthguard: "",
+        dobok: "160",
+        tshirt: "S",
+        updated_at: "2026-10-21",
+      },
+    },
+  ],
 };
 
 const poomsae: ClubTeam = {
@@ -84,6 +109,18 @@ const poomsae: ClubTeam = {
   name: "Poomsae A",
   discipline: "poomsae",
 };
+
+describe("Gear sock order", () => {
+  it("sorts manufacturer sizes in size order, not alphabetical order", () => {
+    expect(gearSockSortRank("daedo", { daedo_sock: "S" }, "athlete")).toBeLessThan(
+      gearSockSortRank("daedo", { daedo_sock: "XL" }, "athlete") ?? 0,
+    );
+    expect(gearSockSortRank("kpnp", { kpnp_sock: "2" }, "athlete")).toBeLessThan(
+      gearSockSortRank("kpnp", { kpnp_sock: "10" }, "athlete") ?? 0,
+    );
+    expect(gearSockSortRank("daedo", { daedo_sock: "M" }, "coach")).toBeNull();
+  });
+});
 
 describe("Team roster", () => {
   beforeEach(() => {
@@ -103,6 +140,8 @@ describe("Team roster", () => {
     expect(screen.getByText('heightWeightKg:{"value":"-0.6"}')).toBeInTheDocument();
     expect(screen.getByText("4th Kup")).toBeInTheDocument();
     expect(screen.getByText("statusActive")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "gearColumn" })).toBeInTheDocument();
+    expect(screen.getByText("gearSock M")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("WEBER Lea"));
     expect(await screen.findByRole("button", { name: "heightWeightAdd" })).toBeInTheDocument();
@@ -115,6 +154,11 @@ describe("Team roster", () => {
       "heightWeightDeleteAction",
     ]);
     expect(getBodyMeasurements).toHaveBeenCalledWith(4);
+    expect(screen.getByRole("heading", { name: "gearTitle" })).toBeInTheDocument();
+    expect(screen.getByText('gearDobokCm:{"size":"160"}')).toBeInTheDocument();
+    expect(screen.getByText("gearProtectors")).toBeInTheDocument();
+    expect(screen.getByText("gearEgear")).toBeInTheDocument();
+    expect(screen.getByText("gearClothingOther")).toBeInTheDocument();
     const section = document.getElementById("height-weight-title")?.closest("section");
     expect(section?.className ?? "").not.toContain("app-panel");
   });
@@ -129,6 +173,7 @@ describe("Team roster", () => {
     expect(screen.queryByRole("columnheader", { name: "heightWeightLatestWeight" })).not.toBeInTheDocument();
     expect(screen.getByText("teamPoomsaeJunior")).toBeInTheDocument();
     expect(screen.getByText("teamPoomsaeSource")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "gearColumn" })).not.toBeInTheDocument();
     expect(screen.getByText("4th Kup")).toBeInTheDocument();
   });
 
