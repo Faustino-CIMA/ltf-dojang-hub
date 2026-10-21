@@ -315,7 +315,7 @@ export default function ClubMemberDetailPage() {
     cancelLabel: t("cancelEdit"),
     previousPageLabel: commonT("paginationPrevious"),
     nextPageLabel: commonT("paginationNext"),
-    pageLabel: commonT("paginationPage"),
+    pageLabel: (current: number, total: number) => commonT("paginationPage", { current, total }),
     licenseHistory: history?.license_history ?? [],
     gradeHistory: history?.grade_history ?? [],
   };
