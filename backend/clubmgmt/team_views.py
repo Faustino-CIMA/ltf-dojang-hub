@@ -15,6 +15,7 @@ from licenses.models import License
 from members.models import Member
 
 from .access import CompetitionModulePermission
+from .clothing import ClubClothingItem, clothing_choices
 from .gear import roster_gear
 from .body_measurements import (
     BodyMeasurement,
@@ -167,10 +168,15 @@ def _roster_members(team: ClubTeam) -> list[dict]:
     margin = team.weight_margin_kg if team.weight_margin_kg is not None else Decimal("1.0")
     set_code, age_basis, bands = bands_for(team)
     role_rows = ClubTeamMembership.objects.filter(team=team, member_id=OuterRef("pk")).values("role")[:1]
+    catalog = list(
+        ClubClothingItem.objects.filter(club_id=team.club_id).prefetch_related("sizes").order_by("position", "id")
+    )
     queryset = annotate_latest_measurements(
         Member.objects.filter(team_memberships__team=team),
         {team.club_id},
-    ).annotate(team_role=Subquery(role_rows)).prefetch_related("licenses", "gear").order_by("last_name", "first_name", "id")
+    ).annotate(team_role=Subquery(role_rows)).prefetch_related("licenses", "gear", "clothing_values__item").order_by(
+        "last_name", "first_name", "id"
+    )
     rows = []
     for member in queryset:
         role = member.team_role or ClubTeamMembership.Role.ATHLETE
@@ -214,6 +220,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
                 "licence_status": _licence_status(member),
                 "licence_warning": _licence_covers(member, team.competition_on),
                 "gear": roster_gear(member),
+                "clothing": clothing_choices(member, catalog),
             }
         )
     return rows

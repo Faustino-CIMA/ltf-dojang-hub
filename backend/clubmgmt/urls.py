@@ -42,6 +42,7 @@ from .promotion_views import (
     PromotionRuleDetailView,
     PromotionRuleView,
 )
+from .clothing_views import ClubClothingDetailView, ClubClothingListView, ClubClothingReorderView
 from .gear_views import MemberGearView
 from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
 from .team_views import (
@@ -146,6 +147,9 @@ urlpatterns = [
         name="clubmgmt-team-member",
     ),
     path("gear/", MemberGearView.as_view(), name="clubmgmt-gear"),
+    path("clothing/", ClubClothingListView.as_view(), name="clubmgmt-clothing"),
+    path("clothing/reorder/", ClubClothingReorderView.as_view(), name="clubmgmt-clothing-reorder"),
+    path("clothing/<int:item_id>/", ClubClothingDetailView.as_view(), name="clubmgmt-clothing-detail"),
     path("measurements/", BodyMeasurementListView.as_view(), name="clubmgmt-measurements"),
     path("measurements/<int:measurement_id>/", BodyMeasurementDetailView.as_view(), name="clubmgmt-measurement"),
     path("training/series/", TrainingSeriesView.as_view(), name="clubmgmt-training-series"),

@@ -37,8 +37,28 @@ const recorded: MemberGear = {
   forearm: "",
   groin: "",
   mouthguard: "youth",
-  dobok: "160",
-  tshirt: "104",
+  clothing: [
+    {
+      item: 1,
+      value: 11,
+      name: "Dobok",
+      note: "",
+      label: "160",
+      offered: true,
+      retired: false,
+      sizes: [{ label: "160", age: "", chest_cm: null, length_cm: null, height_min_cm: 160, height_max_cm: 160 }],
+    },
+    {
+      item: 2,
+      value: 12,
+      name: "T-shirt",
+      note: "",
+      label: "104",
+      offered: true,
+      retired: false,
+      sizes: [{ label: "104", age: "", chest_cm: null, length_cm: null, height_min_cm: null, height_max_cm: null }],
+    },
+  ],
   updated_at: "2026-10-21",
 };
 
@@ -53,7 +73,7 @@ describe("Member gear card", () => {
     expect(within(card).getByText("gearMouthYouth")).toBeInTheDocument();
     expect(within(card).getByText("L")).toBeInTheDocument();
     expect(within(card).queryByRole("heading", { name: "gearDaedo" })).not.toBeInTheDocument();
-    expect(within(card).queryByText('gearDobokCm:{"size":"160"}')).not.toBeInTheDocument();
+    expect(within(card).queryByText("Dobok")).not.toBeInTheDocument();
 
     fireEvent.click(within(card).getByRole("tab", { name: "gearEgear 3" }));
     expect(within(card).getByRole("heading", { name: "gearDaedo" })).toBeInTheDocument();
@@ -62,13 +82,18 @@ describe("Member gear card", () => {
     expect(within(card).queryByText("gearMouthYouth")).not.toBeInTheDocument();
 
     fireEvent.click(within(card).getByRole("tab", { name: "gearClothingOther 2" }));
-    expect(within(card).getByText('gearDobokCm:{"size":"160"}')).toBeInTheDocument();
+    expect(within(card).getByText("Dobok")).toBeInTheDocument();
+    expect(within(card).getByText('clothingHeight:{"min":160}')).toBeInTheDocument();
     expect(within(card).getByText("104")).toBeInTheDocument();
     expect(within(card).getByText('gearUpdated:{"date":"21 Oct 2026"}')).toBeInTheDocument();
   });
 
   it("opens the editor on the active tab and saves every tab", async () => {
-    jest.mocked(saveMemberGear).mockResolvedValue({ ...recorded, daedo_sock: "L", tshirt: "XS" });
+    jest.mocked(saveMemberGear).mockResolvedValue({
+      ...recorded,
+      daedo_sock: "L",
+      clothing: recorded.clothing.map((row) => (row.name === "T-shirt" ? { ...row, label: "XS" } : row)),
+    });
     render(<MemberGearCard memberId={9} preview={recorded} />);
     fireEvent.click(screen.getByRole("tab", { name: "gearEgear 3" }));
     fireEvent.click(screen.getByRole("button", { name: "gearEdit" }));
@@ -81,7 +106,8 @@ describe("Member gear card", () => {
     expect(sock).toBeTruthy();
 
     fireEvent.click(within(panel).getByRole("tab", { name: "gearClothingOther 2" }));
-    const dobok = within(panel).getByText("gearDobok").closest("label");
+    expect(within(panel).getByText('clothingHeight:{"min":160}')).toBeInTheDocument();
+    const dobok = within(panel).getByText("Dobok").closest("label");
     expect(dobok?.querySelector("[data-required='true']")).toBeNull();
     const chestTab = within(panel).getByRole("tab", { name: "gearProtectors 3" });
     fireEvent.click(chestTab);
@@ -90,7 +116,15 @@ describe("Member gear card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "gearSave" }));
     expect(saveMemberGear).toHaveBeenCalledWith(
-      expect.objectContaining({ daedo_sock: "M", dobok: "160", tshirt: "104", chest: "M", headgear: "" }),
+      expect.objectContaining({
+        daedo_sock: "M",
+        chest: "M",
+        headgear: "",
+        clothing: expect.arrayContaining([
+          expect.objectContaining({ name: "Dobok", label: "160" }),
+          expect.objectContaining({ name: "T-shirt", label: "104" }),
+        ]),
+      }),
     );
   });
 });

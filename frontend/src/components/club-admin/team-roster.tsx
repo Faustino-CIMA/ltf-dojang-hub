@@ -491,7 +491,9 @@ export function TeamRoster({
       current
         ? {
             ...current,
-            members: current.members?.map((member) => (member.id === memberId ? { ...member, gear: saved } : member)),
+            members: current.members?.map((member) =>
+              member.id === memberId ? { ...member, gear: saved, clothing: saved.clothing } : member,
+            ),
           }
         : current,
     );
@@ -500,7 +502,11 @@ export function TeamRoster({
     expandedId === row.id ? (
       <div className="space-y-3">
         <HeightWeightSection key={`${row.id}-${reloadToken}`} memberId={row.id} embedded onChanged={reloadTeam} />
-        <MemberGearSummary memberId={row.id} gear={row.gear} onSaved={(saved) => saveGear(row.id, saved)} />
+        <MemberGearSummary
+          memberId={row.id}
+          gear={{ ...(row.gear ?? {}), clothing: row.clothing ?? [] }}
+          onSaved={(saved) => saveGear(row.id, saved)}
+        />
       </div>
     ) : null;
 

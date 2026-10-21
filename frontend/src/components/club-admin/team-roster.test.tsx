@@ -95,10 +95,30 @@ const kyorugi: ClubTeam = {
         forearm: "",
         groin: "",
         mouthguard: "",
-        dobok: "160",
-        tshirt: "S",
         updated_at: "2026-10-21",
       },
+      clothing: [
+        {
+          item: 1,
+          value: 1,
+          name: "Dobok",
+          note: "",
+          label: "160",
+          offered: true,
+          retired: false,
+          sizes: [{ label: "160", age: "", chest_cm: null, length_cm: null, height_min_cm: 160, height_max_cm: 160 }],
+        },
+        {
+          item: 2,
+          value: 2,
+          name: "T-shirt",
+          note: "",
+          label: "S",
+          offered: true,
+          retired: false,
+          sizes: [{ label: "S", age: "", chest_cm: null, length_cm: null, height_min_cm: null, height_max_cm: null }],
+        },
+      ],
     },
   ],
 };
@@ -155,7 +175,10 @@ describe("Team roster", () => {
     ]);
     expect(getBodyMeasurements).toHaveBeenCalledWith(4);
     expect(screen.getByRole("heading", { name: "gearTitle" })).toBeInTheDocument();
-    expect(screen.getByText('gearDobokCm:{"size":"160"}')).toBeInTheDocument();
+    expect(screen.getByText("Dobok")).toBeInTheDocument();
+    expect(screen.getByText('clothingHeight:{"min":160}')).toBeInTheDocument();
+    expect(screen.getByText("T-shirt")).toBeInTheDocument();
+    expect(screen.queryByText('gearDobokCm:{"size":"160"}')).not.toBeInTheDocument();
     expect(screen.getByText("gearProtectors")).toBeInTheDocument();
     expect(screen.getByText("gearEgear")).toBeInTheDocument();
     expect(screen.getByText("gearClothingOther")).toBeInTheDocument();

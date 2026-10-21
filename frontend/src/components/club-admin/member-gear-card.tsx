@@ -13,7 +13,6 @@ import {
   DAEDO_HEAD,
   DAEDO_HOGU,
   DAEDO_SOCK,
-  DOBOK,
   GENERIC_SIZE,
   KPNP_GLOVE,
   KPNP_HEAD,
@@ -21,10 +20,10 @@ import {
   KPNP_SOCK,
   MOUTHGUARD,
   REGULAR_SIZE,
-  TSHIRT,
   blankGear,
   getMemberGear,
   saveMemberGear,
+  type ClothingChoice,
   type GearKey,
   type MemberGear,
 } from "@/lib/member-gear-api";
@@ -90,22 +89,15 @@ export const GEAR_TABS: Array<{ id: GearTabId; label: string; sections: GearSect
       },
     ],
   },
-  {
-    id: "clothing",
-    label: "gearClothingOther",
-    sections: [
-      {
-        id: "clothing",
-        fields: [
-          { key: "dobok", label: "gearDobok", scale: DOBOK },
-          { key: "tshirt", label: "gearTshirt", scale: TSHIRT },
-        ],
-      },
-    ],
-  },
+];
+
+const GEAR_TAB_OPTIONS: Array<{ id: GearTabId; label: string }> = [
+  ...GEAR_TABS.map((tab) => ({ id: tab.id, label: tab.label })),
+  { id: "clothing", label: "gearClothingOther" },
 ];
 
 export function gearTabCount(gear: MemberGear, tabId: GearTabId) {
+  if (tabId === "clothing") return (gear.clothing ?? []).filter((row) => Boolean(row.label)).length;
   const tab = GEAR_TABS.find((item) => item.id === tabId);
   if (!tab) return 0;
   return tab.sections.reduce(
@@ -116,9 +108,62 @@ export function gearTabCount(gear: MemberGear, tabId: GearTabId) {
 
 export function gearLabel(t: Translator, key: GearKey, value: string) {
   if (!value) return t("gearNone");
-  if (key === "dobok") return t("gearDobokCm", { size: value });
   if (key === "mouthguard") return value === "adult" ? t("gearMouthAdult") : t("gearMouthYouth");
   return value;
+}
+
+export function clothingValueText(t: Translator, row: ClothingChoice) {
+  if (!row.label) return t("gearNone");
+  if (!row.offered) return t("clothingRetired", { label: row.label });
+  return row.label;
+}
+
+export function clothingHint(t: Translator, row: ClothingChoice) {
+  if (!row.label || !row.offered) return "";
+  const size = row.sizes.find((item) => item.label === row.label);
+  if (!size) return "";
+  const parts: string[] = [];
+  if (size.age) parts.push(t("clothingAge", { age: size.age }));
+  if (size.chest_cm) parts.push(t("clothingChest", { chest: size.chest_cm }));
+  if (size.length_cm) parts.push(t("clothingLength", { length: size.length_cm }));
+  if (size.height_min_cm && size.height_max_cm && size.height_min_cm !== size.height_max_cm) {
+    parts.push(t("clothingHeightRange", { min: size.height_min_cm, max: size.height_max_cm }));
+  } else if (size.height_min_cm || size.height_max_cm) {
+    parts.push(t("clothingHeight", { min: (size.height_min_cm || size.height_max_cm) as number }));
+  }
+  return parts.join(" · ");
+}
+
+function clothingOptions(t: Translator, row: ClothingChoice) {
+  const options = [
+    { value: "", label: t("gearNone") },
+    ...row.sizes.map((size) => ({ value: size.label, label: size.label })),
+  ];
+  if (row.label && !row.sizes.some((size) => size.label === row.label)) {
+    options.push({ value: row.label, label: t("clothingRetired", { label: row.label }) });
+  }
+  return options;
+}
+
+function ClothingList({ rows, idPrefix }: { rows: ClothingChoice[]; idPrefix: string }) {
+  const t = useTranslations("ClubAdmin");
+  return (
+    <div id={`${idPrefix}-panel`} role="tabpanel" aria-labelledby={`${idPrefix}-clothing`}>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+        {rows.map((row) => {
+          const hint = clothingHint(t, row);
+          return (
+            <div key={row.item ?? `retired-${row.value}`}>
+              <dt className="text-xs text-muted">{row.name}</dt>
+              {row.note ? <p className="text-xs text-muted">{row.note}</p> : null}
+              <dd className="text-sm text-foreground">{clothingValueText(t, row)}</dd>
+              {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+            </div>
+          );
+        })}
+      </dl>
+    </div>
+  );
 }
 
 function optionLabel(t: Translator, key: GearKey, value: string) {
@@ -135,6 +180,7 @@ function GearReadout({
   idPrefix: string;
 }) {
   const t = useTranslations("ClubAdmin");
+  if (tabId === "clothing") return <ClothingList rows={gear.clothing ?? []} idPrefix={idPrefix} />;
   const tab = GEAR_TABS.find((item) => item.id === tabId) ?? GEAR_TABS[0];
   return (
     <div id={`${idPrefix}-panel`} role="tabpanel" aria-labelledby={`${idPrefix}-${tab.id}`} className="space-y-4">
@@ -173,7 +219,17 @@ export function GearSizePanel({
   const [tab, setTab] = useState<GearTabId>(initialTab);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const current = GEAR_TABS.find((item) => item.id === tab) ?? GEAR_TABS[0];
+  const current = GEAR_TABS.find((item) => item.id === tab);
+
+  function setClothingLabel(index: number, label: string) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      clothing: (currentDraft.clothing ?? []).map((row, rowIndex) => {
+        if (rowIndex !== index) return row;
+        return { ...row, label, offered: label === "" || row.sizes.some((size) => size.label === label) };
+      }),
+    }));
+  }
 
   return (
     <SidePanel open wide title={t("gearEdit")} description={t("gearHint")} closeLabel={t("teamsClose")} onClose={onClose}>
@@ -194,12 +250,34 @@ export function GearSizePanel({
           ariaLabel={t("gearTitle")}
           value={tab}
           onChange={setTab}
-          options={GEAR_TABS.map((item) => ({
+          options={GEAR_TAB_OPTIONS.map((item) => ({
             value: item.id,
             label: t(item.label),
             count: gearTabCount(draft, item.id),
           }))}
         />
+        {tab === "clothing" ? (
+          <div id="gear-edit-panel" role="tabpanel" aria-labelledby="gear-edit-clothing" className="space-y-4">
+            {(draft.clothing ?? []).map((row, index) => {
+              const hint = clothingHint(t, row);
+              return (
+                <div key={row.item ?? `retired-${row.value}`} className="space-y-2">
+                  <Label>{row.name}</Label>
+                  {row.note ? <p className="text-xs text-muted">{row.note}</p> : null}
+                  <PopoverSelect
+                    className="w-full"
+                    ariaLabel={row.name}
+                    value={row.label}
+                    onValueChange={(value) => setClothingLabel(index, value)}
+                    options={clothingOptions(t, row)}
+                  />
+                  {hint ? <p className="text-sm text-muted">{hint}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        {current ? (
         <div id="gear-edit-panel" role="tabpanel" aria-labelledby={`gear-edit-${current.id}`} className="space-y-4">
           {current.sections.map((section) => (
             <section key={section.id} className="space-y-3" aria-labelledby={section.title ? `gear-edit-${section.id}` : undefined}>
@@ -225,6 +303,7 @@ export function GearSizePanel({
             </section>
           ))}
         </div>
+        ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button type="submit" disabled={busy}>{busy ? t("gearSaving") : t("gearSave")}</Button>
       </form>
@@ -281,7 +360,7 @@ export function MemberGearCard({ memberId, preview }: { memberId: number; previe
           ariaLabel={t("gearTitle")}
           value={tab}
           onChange={setTab}
-          options={GEAR_TABS.map((item) => ({
+          options={GEAR_TAB_OPTIONS.map((item) => ({
             value: item.id,
             label: t(item.label),
             count: gearTabCount(shown, item.id),
@@ -314,7 +393,7 @@ export function MemberGearSummary({
   onSaved?: (gear: MemberGear) => void;
 }) {
   const t = useTranslations("ClubAdmin");
-  const shown: MemberGear = { ...blankGear(memberId), ...gear, member: memberId };
+  const shown: MemberGear = { ...blankGear(memberId), ...gear, member: memberId, clothing: gear?.clothing ?? [] };
   const [open, setOpen] = useState(false);
   return (
     <section className="min-w-0 space-y-2" aria-labelledby={`gear-summary-${memberId}`}>
@@ -340,6 +419,21 @@ export function MemberGearSummary({
           ))}
         </div>
       ))}
+      <div className="space-y-1">
+        <p className="text-xs text-muted">{t("gearClothingOther")}</p>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+          {shown.clothing.map((row) => {
+            const hint = clothingHint(t, row);
+            return (
+              <div key={row.item ?? `retired-${row.value}`}>
+                <dt className="text-xs text-muted">{row.name}</dt>
+                <dd className="text-sm text-foreground">{clothingValueText(t, row)}</dd>
+                {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+              </div>
+            );
+          })}
+        </dl>
+      </div>
       {open ? (
         <GearSizePanel
           gear={shown}

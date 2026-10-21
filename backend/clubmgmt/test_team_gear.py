@@ -48,6 +48,9 @@ class TeamGearSheetTests(TestCase):
             format="json",
         )
         self.assertEqual(added.status_code, 200, added.data)
+        catalog = self.client.get(f"/api/club-management/clothing/?club={self.club.id}")
+        dobok = next(item for item in catalog.data["items"] if item["name"] == "Dobok")
+        shirt = next(item for item in catalog.data["items"] if item["name"] == "T-shirt")
         sized = self.client.put(
             "/api/club-management/gear/",
             {
@@ -59,8 +62,10 @@ class TeamGearSheetTests(TestCase):
                 "headgear": "S",
                 "shin": "L",
                 "mouthguard": "youth",
-                "dobok": "160",
-                "tshirt": "S",
+                "clothing": [
+                    {"item": dobok["id"], "label": "160"},
+                    {"item": shirt["id"], "label": "S"},
+                ],
             },
             format="json",
         )
@@ -69,7 +74,9 @@ class TeamGearSheetTests(TestCase):
         roster = self.client.get(f"/api/club-management/teams/{team_id}/")
         athlete = next(row for row in roster.data["members"] if row["id"] == self.athlete.id)
         self.assertEqual(athlete["gear"]["daedo_sock"], "M")
-        self.assertEqual(athlete["gear"]["dobok"], "160")
+        self.assertNotIn("dobok", athlete["gear"])
+        self.assertNotIn("tshirt", athlete["gear"])
+        self.assertEqual(next(row["label"] for row in athlete["clothing"] if row["name"] == "Dobok"), "160")
         self.assertEqual(athlete["gear"]["chest"], "XXL")
 
         sheet = self.client.get(f"/api/club-management/teams/{team_id}/sheet.csv?lang=en")
