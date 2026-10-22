@@ -48,28 +48,28 @@ export function WelcomeOverview({
   return (
     <div className="space-y-4">
       <ActionNotices error={errorMessage} onDismiss={onDismissError} />
-      <section className="brand-canvas-quiet relative overflow-hidden rounded-[var(--radius-card)] border border-border px-5 py-7 sm:px-8">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-[min(46%,28rem)] opacity-80">
-          <div className="brand-art relative h-full min-h-48">
-            <Image
-              src="/brand/kick-roundhouse.jpg"
-              alt=""
-              fill
-              priority
-              sizes="480px"
-              className="object-cover object-right"
-            />
-          </div>
-        </div>
-        <div className="relative max-w-3xl">
+      <section className="grid items-end gap-2 bg-transparent sm:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0">
           {eyebrow ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand-text-blue)]">{eyebrow}</p>
+            <p className="brand-eyebrow">
+              <span>{eyebrow}</span>
+            </p>
           ) : null}
-          <h1 className="brand-headline mt-3 max-w-[18ch] text-[clamp(2.4rem,5vw,4.6rem)] text-[var(--brand-on-ink)]">
+          <h1 className="brand-headline brand-slogan mt-4 text-[var(--brand-on-ink)]">
             {t("welcomeLead")}{" "}
             <span className="text-[var(--brand-text-blue)]">{firstName}.</span>
           </h1>
           {dateLabel ? <p className="mt-4 text-sm text-[var(--muted)]">{dateLabel}</p> : null}
+        </div>
+        <div className="brand-art relative h-52 w-full sm:h-56">
+          <Image
+            src="/brand/kick-roundhouse.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 640px) 100vw, 18rem"
+            className="object-contain object-right"
+          />
         </div>
       </section>
 

@@ -54,9 +54,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border/80 bg-surface/90 backdrop-blur-md">
         <div className="flex min-h-[var(--topbar-height)] w-full items-center justify-between gap-3 px-[var(--page-padding-x)]">
           <Link href={`/${locale}`} className="flex min-w-0 items-center gap-2">
-            <div className="flex size-8 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--logo-tile)]">
-              <Image src="/ltf-logo.svg" alt="LTF" width={80} height={24} className="h-5 w-auto" />
-            </div>
+            <Image src="/brand/ltf-logo-transparent.png" alt="LTF" width={113} height={34} className="brand-logo" />
             <span className="truncate text-sm font-semibold tracking-tight">{t("appTitle")}</span>
           </Link>
           <div className="flex items-center gap-3">

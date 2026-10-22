@@ -46,9 +46,7 @@ export default function ForgotPasswordPage() {
     <main data-tone="brand" className="brand-canvas flex min-h-screen flex-col overflow-x-hidden">
       <header className="flex items-center justify-between gap-4 px-5 py-5 sm:px-10">
         <Link href={`/${locale}`} className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--brand-ltf-red)]">
-            <Image src="/ltf-logo.svg" alt="" width={80} height={24} className="h-5 w-auto" />
-          </span>
+          <Image src="/brand/ltf-logo-transparent.png" alt="LTF" width={113} height={34} priority className="brand-logo" />
           <span className="truncate text-sm font-semibold">{t("brandTitle")}</span>
         </Link>
         <Link href={`/${locale}/login`} className="text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_75%,transparent)]">
@@ -64,6 +62,9 @@ export default function ForgotPasswordPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-text-blue)]">{t("memberArea")}</p>
               <LanguageSwitcher compact />
             </div>
+            <p className="brand-eyebrow mt-5">
+              <span>{home("kicker")}</span>
+            </p>
             <h1 className="mt-4 text-3xl font-semibold text-[var(--brand-on-ink)]">{t("forgotTitle")}</h1>
             <p className="mt-3 text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_72%,var(--brand-ink))]">
               {t("forgotHint")}
@@ -101,7 +102,6 @@ export default function ForgotPasswordPage() {
                 </RequiredForm>
               </form>
             )}
-            <p className="mt-5 text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_55%,transparent)]">{home("kicker")}</p>
           </div>
         </div>
       </div>

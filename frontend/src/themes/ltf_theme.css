@@ -184,26 +184,65 @@
   color-scheme: dark;
 }
 
-.brand-scrim {
-  background: linear-gradient(90deg, color-mix(in oklab, var(--brand-ink) 72%, transparent), color-mix(in oklab, var(--brand-ink) 28%, transparent) 68%, transparent);
+.brand-logo {
+  height: 2.125rem;
+  width: auto;
+  max-width: 100%;
+  background: transparent;
 }
 
-.brand-scrim-mobile {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--brand-ink) 10%, transparent),
-    color-mix(in oklab, var(--brand-ink) 82%, transparent) 38%,
-    var(--brand-ink) 72%
-  );
+.brand-logo-compact {
+  height: 2rem;
+  width: auto;
+  max-width: 2.5rem;
+  background: transparent;
+  object-fit: contain;
+  object-position: left center;
 }
 
-.brand-scrim-bottom {
-  background: linear-gradient(
-    to top,
-    var(--brand-ink) 0%,
-    color-mix(in oklab, var(--brand-ink) 72%, transparent) 46%,
-    transparent 100%
-  );
+.brand-eyebrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  max-width: 100%;
+  font-family: var(--font-anton), Impact, sans-serif;
+  font-weight: 400;
+  font-size: 1.3125rem;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: var(--brand-on-ink);
+}
+
+.brand-eyebrow > span {
+  min-width: 0;
+}
+
+.brand-eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 4px;
+  margin-top: 0.4rem;
+  flex: none;
+  background: var(--brand-ltf-red);
+}
+
+.brand-slogan {
+  font-size: clamp(2.75rem, 4.6vw, 4.125rem);
+}
+
+@media (min-width: 640px) {
+  .brand-eyebrow {
+    gap: 1.125rem;
+    font-size: 2.125rem;
+    letter-spacing: 0.08em;
+  }
+
+  .brand-eyebrow::before {
+    width: 3.5rem;
+    height: 5px;
+    margin-top: 0.7rem;
+  }
 }
 
 .brand-art {
@@ -228,7 +267,7 @@
 
 .brand-headline-outline {
   color: transparent;
-  -webkit-text-stroke: 2px var(--brand-on-ink);
+  -webkit-text-stroke: 1.5px var(--brand-on-ink);
 }
 
 .brand-headline-blue {
@@ -240,11 +279,6 @@
   background: linear-gradient(90deg, var(--brand-ltf-red), var(--brand-ltf-blue));
 }
 
-@media (max-width: 640px) {
-  .brand-headline-outline {
-    -webkit-text-stroke-width: 1px;
-  }
-}
 
 @keyframes brand-brush {
   from {

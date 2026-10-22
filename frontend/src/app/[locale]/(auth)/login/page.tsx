@@ -82,12 +82,10 @@ export default function LoginPage() {
     <main data-tone="brand" className="brand-canvas flex min-h-screen flex-col overflow-x-hidden">
       <header className="flex items-center justify-between gap-4 px-5 py-5 sm:px-10">
         <Link href={`/${locale}`} className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--brand-ltf-red)]">
-            <Image src="/ltf-logo.svg" alt="" width={80} height={24} className="h-5 w-auto" />
-          </span>
+          <Image src="/brand/ltf-logo-transparent.png" alt="LTF" width={113} height={34} priority className="brand-logo" />
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold">{t("brandTitle")}</span>
-            <span className="block truncate text-[11px] uppercase tracking-[0.14em] text-[color-mix(in_oklab,var(--brand-on-ink)_62%,transparent)]">
+            <span className="hidden truncate text-[11px] uppercase tracking-[0.14em] text-[color-mix(in_oklab,var(--brand-on-ink)_62%,transparent)] sm:block">
               {home("kicker")}
             </span>
           </span>
@@ -98,30 +96,28 @@ export default function LoginPage() {
       </header>
 
       <div className="mx-auto grid w-full max-w-[1440px] flex-1 items-center gap-8 px-5 pb-8 sm:px-10 lg:grid-cols-2 lg:px-14">
-        <section className="relative min-h-[16rem] overflow-hidden lg:min-h-[32rem]">
-          <div className="brand-art brand-art-reveal absolute inset-0">
+        <section className="flex flex-col">
+          <div>
+            <p className="brand-eyebrow">
+              <span>{home("kicker")}</span>
+            </p>
+            <h1 className="brand-headline brand-slogan mt-6">
+              <span className="block text-[var(--brand-on-ink)]">{t("headlineWelcome")}</span>
+              <span className="mt-1 block text-[var(--brand-text-red)]">{t("headlineDojang")}</span>
+            </h1>
+            <p className="mt-6 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_78%,var(--brand-ink))] sm:text-base">
+              {t("loginSubline")}
+            </p>
+          </div>
+          <div className="brand-art brand-art-reveal relative mt-6 h-64 w-full lg:h-80">
             <Image
               src="/brand/kick-roundhouse.jpg"
               alt=""
               fill
               priority
               sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-contain object-left-bottom"
+              className="object-contain object-left"
             />
-          </div>
-          <div className="brand-scrim-bottom pointer-events-none absolute inset-x-0 bottom-0 h-3/4" />
-          <div className="relative z-10 flex h-full flex-col justify-end pb-4 pt-40 lg:pt-64">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color-mix(in_oklab,var(--brand-on-ink)_70%,transparent)]">
-              <span className="mr-3 inline-block h-px w-8 align-middle bg-[var(--brand-ltf-red)]" />
-              {home("kicker")}
-            </p>
-            <h1 className="brand-headline mt-4 text-[clamp(2.6rem,5vw,4.8rem)]">
-              <span className="block text-[var(--brand-on-ink)]">{t("headlineWelcome")}</span>
-              <span className="mt-1 block text-[var(--brand-text-red)]">{t("headlineDojang")}</span>
-            </h1>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_78%,var(--brand-ink))] sm:text-base">
-              {t("loginSubline")}
-            </p>
           </div>
         </section>
 

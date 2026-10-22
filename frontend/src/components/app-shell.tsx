@@ -225,9 +225,13 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className={cn("flex items-center gap-2 py-3", iconOnly ? "justify-center px-2" : "px-3")}>
-          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--logo-tile)]">
-            <Image src="/ltf-logo.svg" alt="LTF" width={88} height={28} className="h-6 w-auto" />
-          </div>
+          <Image
+            src="/brand/ltf-logo-transparent.png"
+            alt="LTF"
+            width={113}
+            height={34}
+            className={iconOnly ? "brand-logo-compact" : "brand-logo"}
+          />
           {iconOnly ? null : (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
