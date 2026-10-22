@@ -24,9 +24,13 @@ The fictional logins, after seeding, are:
 | `demo_ltf_admin` | Federation desk, all demo clubs |
 | `demo_ltf_finance` | Federation finance desk |
 | `demo_club_admin` | Demo Nordlicht Dojang |
-| `demo_club_finance` | The same club’s finance desk (this is a club admin; there is no separate club-finance role) |
-| `demo_coach` | That club, as a verified coach |
-| `demo_member` | That club, as a member |
+| `demo_club_admin_moselle` | Demo Moselle Pavilion |
+| `demo_club_admin_red_lion` | Demo Red Lion Club |
+| `demo_club_admin_three_acorns` | Demo Three Acorns |
+| `demo_club_admin_valley` | Demo Valley Poomsae |
+| `demo_club_finance` | Nordlicht’s finance desk (this is a club admin; there is no separate club-finance role) |
+| `demo_coach` | Nordlicht, as a verified coach |
+| `demo_member` | Nordlicht, as a member |
 
 Passwords are the ones you set in the environment variables below. If you leave a variable empty, the seed prints a random password **once** in the terminal. Store it in a password manager. Do not put it in git, in a screenshot, or in a chat.
 
@@ -89,7 +93,8 @@ Generate a new `DJANGO_SECRET_KEY` (a long random string). Do not copy the produ
 | `DJANGO_CSRF_COOKIE_SECURE` | `True` |
 | `DEMO_LTF_ADMIN_PASSWORD` | a password you choose |
 | `DEMO_LTF_FINANCE_PASSWORD` | a password you choose |
-| `DEMO_CLUB_ADMIN_PASSWORD` | a password you choose |
+| `DEMO_CLUB_ADMIN_PASSWORD` | a password you choose, for `demo_club_admin` |
+| `DEMO_CLUB_ADMIN_<SLUG>_PASSWORD` | a password for each other club admin. `<SLUG>` is the username after `demo_club_admin_`, in capitals. For example `DEMO_CLUB_ADMIN_MOSELLE_PASSWORD` for `demo_club_admin_moselle`, and the same pattern for `RED_LION`, `THREE_ACORNS`, and `VALLEY`. |
 | `DEMO_CLUB_FINANCE_PASSWORD` | a password you choose |
 | `DEMO_COACH_PASSWORD` | a password you choose |
 | `DEMO_MEMBER_PASSWORD` | a password you choose |

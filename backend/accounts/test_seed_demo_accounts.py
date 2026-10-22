@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db.models import Count
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
@@ -131,6 +132,10 @@ class SeedDemoDataTests(TestCase):
             "DEMO_LTF_ADMIN_PASSWORD": "ltf-admin-pass-12345",
             "DEMO_LTF_FINANCE_PASSWORD": "ltf-finance-pass-12345",
             "DEMO_CLUB_ADMIN_PASSWORD": "club-admin-pass-12345",
+            "DEMO_CLUB_ADMIN_MOSELLE_PASSWORD": "moselle-admin-pass-12345",
+            "DEMO_CLUB_ADMIN_RED_LION_PASSWORD": "red-lion-admin-pass-12345",
+            "DEMO_CLUB_ADMIN_THREE_ACORNS_PASSWORD": "acorns-admin-pass-12345",
+            "DEMO_CLUB_ADMIN_VALLEY_PASSWORD": "valley-admin-pass-12345",
             "DEMO_CLUB_FINANCE_PASSWORD": "finance-pass-12345",
             "DEMO_COACH_PASSWORD": "coach-pass-12345",
             "DEMO_MEMBER_PASSWORD": "member-pass-12345",
@@ -146,6 +151,7 @@ class SeedDemoDataTests(TestCase):
         for secret in env.values():
             self.assertNotIn(secret, output)
         self.assertIn("set from DEMO_MEMBER_PASSWORD", output)
+        self.assertIn("set from DEMO_CLUB_ADMIN_MOSELLE_PASSWORD", output)
         self.assertEqual(after_first, _counts())
 
         clubs = Club.objects.filter(is_demo=True)
@@ -203,6 +209,25 @@ class SeedDemoDataTests(TestCase):
         self.assertEqual(club_finance.role, User.Roles.CLUB_ADMIN)
         self.assertTrue(home.admins.filter(pk=club_finance.pk).exists())
         self.assertTrue(home.admins.filter(username="demo_club_admin").exists())
+        satellite_admins = {
+            "Demo Moselle Pavilion": "demo_club_admin_moselle",
+            "Demo Red Lion Club": "demo_club_admin_red_lion",
+            "Demo Three Acorns": "demo_club_admin_three_acorns",
+            "Demo Valley Poomsae": "demo_club_admin_valley",
+        }
+        for club_name, username in satellite_admins.items():
+            club = Club.objects.get(name=club_name, is_demo=True)
+            admin = User.objects.get(username=username)
+            self.assertEqual(User.objects.filter(username=username).count(), 1)
+            self.assertEqual(admin.role, User.Roles.CLUB_ADMIN)
+            self.assertTrue(admin.is_email_verified)
+            self.assertTrue(admin.email.endswith("@example.lu"))
+            self.assertTrue(admin.emailaddress_set.filter(verified=True, primary=True).exists())
+            self.assertTrue(club.admins.filter(pk=admin.pk).exists())
+        self.assertTrue(User.objects.get(username="demo_club_admin_moselle").check_password("moselle-admin-pass-12345"))
+        self.assertFalse(
+            Club.objects.filter(is_demo=True).annotate(admin_count=Count("admins")).filter(admin_count=0).exists()
+        )
         coach = User.objects.get(username="demo_coach")
         self.assertTrue(coach.is_email_verified)
         self.assertTrue(home.trainers.filter(pk=coach.pk).exists())

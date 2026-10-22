@@ -122,6 +122,9 @@ CLUB_SPECS = (
         "address_line1": "4 Quai des Lanternes",
         "email": "club-moselle@example.lu",
         "website": "https://moselle-pavilion.example.lu",
+        "slug": "moselle",
+        "admin_first_name": "David",
+        "admin_last_name": "Poplar",
     },
     {
         "name": "Demo Red Lion Club",
@@ -131,6 +134,9 @@ CLUB_SPECS = (
         "address_line1": "18 Rue du Lion Rouge",
         "email": "club-redlion@example.lu",
         "website": "https://red-lion.example.lu",
+        "slug": "red_lion",
+        "admin_first_name": "Klara",
+        "admin_last_name": "Fern",
     },
     {
         "name": "Demo Three Acorns",
@@ -140,6 +146,9 @@ CLUB_SPECS = (
         "address_line1": "7 Allée des Glands",
         "email": "club-acorns@example.lu",
         "website": "https://three-acorns.example.lu",
+        "slug": "three_acorns",
+        "admin_first_name": "Leo",
+        "admin_last_name": "Harbour",
     },
     {
         "name": "Demo Valley Poomsae",
@@ -149,6 +158,9 @@ CLUB_SPECS = (
         "address_line1": "21 Chemin de la Vallée",
         "email": "club-valley@example.lu",
         "website": "https://valley-poomsae.example.lu",
+        "slug": "valley",
+        "admin_first_name": "Mia",
+        "admin_last_name": "Lark",
     },
 )
 
@@ -184,6 +196,7 @@ def seed_demo_world(command: BaseCommand) -> None:
         home = clubs[0]
         home.admins.add(users["club_admin"], users["club_finance"])
         home.trainers.add(users["coach"])
+        _ensure_satellite_admins(command, clubs)
         members = _ensure_roster(clubs, users)
         _ensure_licenses(members)
         _ensure_teams(home, members)
@@ -221,11 +234,42 @@ def ensure_demo_accounts(command: BaseCommand) -> None:
         for spec in ACCOUNT_SPECS:
             if spec.get("license_id"):
                 _ensure_login_member(users[spec["key"]], home, spec)
+        _ensure_satellite_admins(command)
         command.stdout.write(f"Demo club: {home.name} (id {home.id})")
         command.stdout.write(
             "Club finance uses the club admin role. There is no separate club-finance role."
         )
         command.stdout.write(command.style.SUCCESS("Demo accounts are ready."))
+
+
+def _satellite_admin_spec(club_spec: dict) -> dict:
+    slug = club_spec["slug"]
+    return {
+        "key": f"club_admin_{slug}",
+        "username": f"demo_club_admin_{slug}",
+        "role": User.Roles.CLUB_ADMIN,
+        "first_name": club_spec["admin_first_name"],
+        "last_name": club_spec["admin_last_name"],
+        "env_name": f"DEMO_CLUB_ADMIN_{slug.upper()}_PASSWORD",
+        "label": f"Club admin {club_spec['name']}",
+    }
+
+
+def _ensure_satellite_admins(command: BaseCommand, clubs: list[Club] | None = None) -> None:
+    """Give every demo club besides the home club its own fictional administrator."""
+
+    by_name = {club.name: club for club in clubs} if clubs is not None else {}
+    for spec in CLUB_SPECS:
+        if not spec.get("slug"):
+            continue
+        club = by_name.get(spec["name"]) if clubs is not None else Club.objects.filter(name=spec["name"]).first()
+        if club is None:
+            continue
+        if not club.is_demo:
+            raise CommandError(
+                f"Refusing to attach a demo admin to {club.name}: it is not marked as demo data."
+            )
+        club.admins.add(_ensure_user(command, _satellite_admin_spec(spec)))
 
 
 def _demo_email(username: str) -> str:

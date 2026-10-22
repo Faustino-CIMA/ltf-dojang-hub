@@ -104,7 +104,7 @@ The demo is a second app with its own empty Postgres database and only fictional
 
 `seed_demo_data` and `seed_demo_accounts` both refuse to run unless `DEMO_MODE=true`. They also refuse when the database already contains a club or member that is not marked as demo data, unless you pass `--force-demo` together with `DEMO_MODE`. Even then they do not modify those rows. They are not part of container startup, so a redeploy does not change passwords.
 
-The fictional logins are `demo_ltf_admin`, `demo_ltf_finance`, `demo_club_admin`, `demo_club_finance`, `demo_coach`, and `demo_member`. Club finance is a club admin: the app has no separate club-finance role. Passwords come from `DEMO_LTF_ADMIN_PASSWORD`, `DEMO_LTF_FINANCE_PASSWORD`, `DEMO_CLUB_ADMIN_PASSWORD`, `DEMO_CLUB_FINANCE_PASSWORD`, `DEMO_COACH_PASSWORD`, and `DEMO_MEMBER_PASSWORD`, or are printed once when an account is created. Do not commit the values.
+The fictional logins are `demo_ltf_admin`, `demo_ltf_finance`, `demo_club_admin`, `demo_club_finance`, `demo_coach`, and `demo_member`. Each other demo club also gets `demo_club_admin_<slug>` (`moselle`, `red_lion`, `three_acorns`, `valley`). Club finance is a club admin: the app has no separate club-finance role. Passwords come from `DEMO_LTF_ADMIN_PASSWORD`, `DEMO_LTF_FINANCE_PASSWORD`, `DEMO_CLUB_ADMIN_PASSWORD`, `DEMO_CLUB_FINANCE_PASSWORD`, `DEMO_COACH_PASSWORD`, `DEMO_MEMBER_PASSWORD`, and `DEMO_CLUB_ADMIN_<SLUG>_PASSWORD` for the extra club admins, or are printed once when an account is created. Do not commit the values.
 
 ## Verify Install
 
