@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Anton, Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 
@@ -18,9 +18,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const anton = Anton({
+  variable: "--font-anton",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
   title: "LTF Dojang Hub",
-  description: "The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, and a shared calendar.",
+  description: "The digital home of Luxembourg Taekwondo: clubs, members, licences and competitions in one place.",
 };
 
 type LocaleLayoutProps = Readonly<{
@@ -41,7 +47,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} antialiased`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ClubSelectionProvider>
             <AppChrome>{children}</AppChrome>

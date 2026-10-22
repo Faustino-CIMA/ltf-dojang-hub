@@ -170,6 +170,7 @@ function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) 
 
   const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
   const titleText = pageHeader.title || activeLabel;
+  const isWelcome = pathname === `/${locale}/dashboard/ltf`;
 
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>
@@ -178,6 +179,7 @@ function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) 
         subtitle={pageHeader.subtitle}
         navItems={navItems}
         variant={isDesignerWorkspace ? "workspace" : "default"}
+        tone={isWelcome ? "overview" : "default"}
       >
         {isPrinting ? (
           <div className="space-y-3">

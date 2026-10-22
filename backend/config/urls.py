@@ -27,6 +27,7 @@ from imports.views import (
     MemberImportConfirmView,
     MemberImportPreviewView,
 )
+from clubs.public_stats import PublicStatsView
 from clubs.views import (
     ClubViewSet,
     FederationProfileLogoContentView,
@@ -215,6 +216,7 @@ urlpatterns = [
         name="federation-profile-logo-content",
     ),
     path("api/health/", health_check, name="health-check"),
+    path("api/public/stats/", PublicStatsView.as_view(), name="public-stats"),
     path("api/i18n/<str:locale>/", PublicI18nView.as_view(), name="public-i18n"),
     path("api/ops/", include("ops.urls")),
     path("api/modules/", include("modules.urls")),

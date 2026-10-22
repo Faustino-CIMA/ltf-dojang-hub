@@ -1,50 +1,62 @@
 /*
  * LTF visual system.
- * Accent for both modes — change only the next declaration.
- * Light uses it directly. Dark keeps its hue and chroma and lifts lightness.
+ * Neutrals have no blue tint. Primary actions are LTF red.
+ * Links and info use the blue secondary accent.
+ * Marketing pages keep the brand tokens below.
  */
 :root {
-  --accent-base: oklch(45% 0.13 258);
+  --brand-ltf-blue: #0099ff;
+  --brand-ltf-red: #e30613;
+  --brand-red-pressed: #98040d;
+  --brand-navy: #273b73;
+  --brand-text-blue: #4db8ff;
+  --brand-link-on-light: #0265b2;
+  --brand-text-red: #ff3b47;
+  --brand-ink: #000000;
+  --brand-ink-raised: #0b0d10;
+  --brand-on-ink: #ffffff;
+  --primary-hover: var(--brand-red-pressed);
 }
 
 :root,
 .light,
 [data-theme="light"] {
-  --accent: var(--accent-base);
+  --accent: var(--brand-ltf-red);
   --accent-foreground: #ffffff;
-  --accent-soft: oklch(from var(--accent-base) 95% 0.02 h);
-  --brand-red: oklch(48% 0.16 25);
-  --logo-tile: oklch(22% 0.04 258);
-  --scrim: oklch(12% 0.02 258);
+  --accent-soft: color-mix(in oklab, var(--brand-ltf-red) 12%, #ffffff);
+  --link: var(--brand-link-on-light);
+  --brand-red: var(--brand-ltf-red);
+  --logo-tile: var(--brand-ltf-red);
+  --scrim: #121314;
   --scrim-foreground: #ffffff;
 
-  --background: oklch(97.2% 0.006 258);
-  --foreground: oklch(22% 0.02 258);
-  --border: oklch(86% 0.012 258);
-  --checkbox-border: oklch(62% 0.03 258);
+  --background: #f5f6f7;
+  --foreground: #181a1b;
+  --border: #d5d6d8;
+  --checkbox-border: #6b7074;
   --danger: oklch(46% 0.17 25);
   --danger-foreground: #ffffff;
-  --default: oklch(94% 0.008 258);
-  --default-foreground: oklch(22% 0.02 258);
+  --default: #f0f1f2;
+  --default-foreground: #181a1b;
   --field-background: #ffffff;
-  --field-foreground: oklch(22% 0.02 258);
-  --field-placeholder: oklch(48% 0.02 258);
-  --focus: var(--accent);
-  --muted: oklch(40% 0.02 258);
+  --field-foreground: #181a1b;
+  --field-placeholder: #5c6368;
+  --focus: var(--brand-ltf-red);
+  --muted: #4e5458;
   --overlay: #ffffff;
-  --overlay-foreground: oklch(22% 0.02 258);
-  --scrollbar: oklch(82% 0.012 258);
-  --segment: oklch(99% 0.004 258);
-  --segment-foreground: oklch(22% 0.02 258);
-  --separator: oklch(88% 0.01 258);
+  --overlay-foreground: #181a1b;
+  --scrollbar: #c8c9cb;
+  --segment: #ffffff;
+  --segment-foreground: #181a1b;
+  --separator: #e4e5e7;
   --success: oklch(42% 0.11 155);
   --success-foreground: #ffffff;
   --surface: #ffffff;
-  --surface-foreground: oklch(22% 0.02 258);
-  --surface-secondary: oklch(95.4% 0.008 258);
-  --surface-secondary-foreground: oklch(22% 0.02 258);
-  --surface-tertiary: oklch(93% 0.01 258);
-  --surface-tertiary-foreground: oklch(22% 0.02 258);
+  --surface-foreground: #181a1b;
+  --surface-secondary: #f0f1f2;
+  --surface-secondary-foreground: #181a1b;
+  --surface-tertiary: #e6e7e9;
+  --surface-tertiary-foreground: #181a1b;
   --warning: oklch(48% 0.11 70);
   --warning-foreground: #ffffff;
 
@@ -57,9 +69,15 @@
   --badge-danger-bg: oklch(95% 0.02 25);
   --badge-danger-fg: oklch(38% 0.12 25);
   --badge-danger-border: oklch(70% 0.09 25);
-  --badge-info-bg: oklch(from var(--accent-base) 94% 0.025 h);
-  --badge-info-fg: oklch(from var(--accent-base) 32% 0.09 h);
-  --badge-info-border: oklch(from var(--accent-base) 72% 0.06 h);
+  --badge-info-bg: #e7f3fc;
+  --badge-info-fg: var(--brand-link-on-light);
+  --badge-info-border: #7eafd4;
+
+  --chart-1: var(--brand-ltf-red);
+  --chart-2: var(--brand-link-on-light);
+  --chart-3: #0f7a4a;
+  --chart-4: #8a5a00;
+  --chart-5: #4e5458;
 
   --modal-backdrop: color-mix(in oklab, var(--foreground) 36%, transparent);
 
@@ -71,7 +89,7 @@
   --field-radius: var(--radius-control);
 
   --shadow-card: none;
-  --shadow-float: 0 8px 24px oklch(22% 0.02 258 / 0.14);
+  --shadow-float: 0 8px 24px oklch(0% 0 0 / 0.12);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --text-display: 1.375rem;
@@ -100,41 +118,42 @@
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  --accent: oklch(from var(--accent-base) 75% c h);
-  --accent-foreground: oklch(from var(--accent-base) 22% 0.04 h);
-  --accent-soft: oklch(from var(--accent-base) 30% 0.04 h);
-  --brand-red: oklch(70% 0.14 25);
-  --logo-tile: oklch(16% 0.03 258);
-  --scrim: oklch(8% 0.02 258);
+  --accent: var(--brand-ltf-red);
+  --accent-foreground: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--brand-ltf-red) 22%, #222426);
+  --link: var(--brand-text-blue);
+  --brand-red: var(--brand-ltf-red);
+  --logo-tile: var(--brand-ltf-red);
+  --scrim: #000000;
   --scrim-foreground: #ffffff;
 
-  --background: oklch(18% 0.015 258);
-  --foreground: oklch(96% 0.008 258);
-  --border: oklch(34% 0.02 258);
-  --checkbox-border: oklch(58% 0.03 258);
+  --background: #181a1b;
+  --foreground: #f7f7f8;
+  --border: #3a3d40;
+  --checkbox-border: #8b9196;
   --danger: oklch(68% 0.15 25);
   --danger-foreground: oklch(16% 0.04 25);
-  --default: oklch(28% 0.02 258);
-  --default-foreground: oklch(96% 0.008 258);
-  --field-background: oklch(24% 0.018 258);
-  --field-foreground: oklch(96% 0.008 258);
-  --field-placeholder: oklch(74% 0.015 258);
-  --focus: var(--accent);
-  --muted: oklch(78% 0.015 258);
-  --overlay: oklch(24% 0.018 258);
-  --overlay-foreground: oklch(96% 0.008 258);
-  --scrollbar: oklch(42% 0.02 258);
-  --segment: oklch(28% 0.02 258);
-  --segment-foreground: oklch(96% 0.008 258);
-  --separator: oklch(32% 0.02 258);
+  --default: #2a2c2e;
+  --default-foreground: #f7f7f8;
+  --field-background: #181a1b;
+  --field-foreground: #f7f7f8;
+  --field-placeholder: #a8adb1;
+  --focus: var(--brand-ltf-red);
+  --muted: #c4c7ca;
+  --overlay: #2a2c2e;
+  --overlay-foreground: #f7f7f8;
+  --scrollbar: #4a4e52;
+  --segment: #2a2c2e;
+  --segment-foreground: #f7f7f8;
+  --separator: #34373a;
   --success: oklch(74% 0.12 155);
   --success-foreground: oklch(18% 0.04 155);
-  --surface: oklch(22% 0.016 258);
-  --surface-foreground: oklch(96% 0.008 258);
-  --surface-secondary: oklch(26% 0.018 258);
-  --surface-secondary-foreground: oklch(96% 0.008 258);
-  --surface-tertiary: oklch(30% 0.02 258);
-  --surface-tertiary-foreground: oklch(96% 0.008 258);
+  --surface: #222426;
+  --surface-foreground: #f7f7f8;
+  --surface-secondary: #2a2c2e;
+  --surface-secondary-foreground: #f7f7f8;
+  --surface-tertiary: #323538;
+  --surface-tertiary-foreground: #f7f7f8;
   --warning: oklch(80% 0.12 85);
   --warning-foreground: oklch(24% 0.05 70);
 
@@ -147,12 +166,246 @@
   --badge-danger-bg: oklch(34% 0.07 25);
   --badge-danger-fg: oklch(90% 0.05 25);
   --badge-danger-border: oklch(50% 0.1 25);
-  --badge-info-bg: oklch(from var(--accent-base) 30% 0.045 h);
-  --badge-info-fg: oklch(from var(--accent-base) 90% 0.045 h);
-  --badge-info-border: oklch(from var(--accent-base) 55% 0.08 h);
+  --badge-info-bg: #0e2a3a;
+  --badge-info-fg: var(--brand-text-blue);
+  --badge-info-border: #1f6fa8;
+
+  --chart-1: var(--brand-ltf-red);
+  --chart-2: var(--brand-text-blue);
+  --chart-3: #3dd68c;
+  --chart-4: #e6b325;
+  --chart-5: #c4c7ca;
 
   --modal-backdrop: color-mix(in oklab, var(--background) 40%, black);
   --shadow-card: none;
   --shadow-float: 0 10px 28px oklch(0% 0 0 / 0.4);
+}
+
+/* Marketing and welcome surfaces. Colours come from the brand tokens above. */
+.brand-canvas {
+  background:
+    radial-gradient(760px 620px at 8% 72%, color-mix(in oklab, var(--brand-ltf-red) 16%, transparent), transparent 70%),
+    radial-gradient(900px 700px at 88% 42%, color-mix(in oklab, var(--brand-ltf-blue) 16%, transparent), transparent 70%),
+    radial-gradient(1100px 520px at 36% 120%, color-mix(in oklab, var(--brand-navy) 40%, transparent), transparent 70%),
+    var(--brand-ink);
+  color: var(--brand-on-ink);
+  color-scheme: dark;
+}
+
+.brand-canvas-quiet {
+  background:
+    radial-gradient(700px 520px at 18% 110%, color-mix(in oklab, var(--brand-ltf-red) 7%, transparent), transparent 70%),
+    radial-gradient(640px 420px at 90% 0%, color-mix(in oklab, var(--brand-ltf-blue) 8%, transparent), transparent 70%),
+    var(--brand-ink);
+  color: var(--brand-on-ink);
+  color-scheme: dark;
+}
+
+.brand-logo {
+  height: 2.125rem;
+  width: auto;
+  max-width: 100%;
+  background: transparent;
+}
+
+.brand-logo-compact {
+  height: 2rem;
+  width: auto;
+  max-width: 2.5rem;
+  background: transparent;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.brand-logo-sidebar {
+  height: 1.375rem;
+  width: auto;
+  max-width: 4.5rem;
+  flex: none;
+  background: transparent;
+}
+
+.auth-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  width: min(100%, 90rem);
+  margin-inline: auto;
+  margin-block: auto;
+  gap: 2.5rem;
+  padding: 0 1.25rem 2rem;
+}
+
+.auth-split-art {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .auth-split {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+    padding-inline: 3.5rem;
+  }
+
+  .auth-split-art {
+    display: block;
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    align-self: stretch;
+  }
+}
+
+.brand-eyebrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  max-width: 100%;
+  font-family: var(--font-anton), Impact, sans-serif;
+  font-weight: 400;
+  font-size: 1.3125rem;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: var(--brand-on-ink);
+}
+
+.brand-eyebrow > span {
+  min-width: 0;
+}
+
+.brand-eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 4px;
+  margin-top: 0.4rem;
+  flex: none;
+  background: var(--brand-ltf-red);
+}
+
+.brand-slogan {
+  font-size: clamp(2.75rem, 4.6vw, 4.125rem);
+}
+
+@media (min-width: 640px) {
+  .brand-eyebrow {
+    gap: 1.125rem;
+    font-size: 2.125rem;
+    letter-spacing: 0.08em;
+  }
+
+  .brand-eyebrow::before {
+    width: 3.5rem;
+    height: 5px;
+    margin-top: 0.7rem;
+  }
+}
+
+.brand-art {
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(ellipse 72% 72% at 52% 46%, #000 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 72% at 52% 46%, #000 62%, transparent 100%);
+}
+
+/* In-app welcome follows the selected theme. Public pages keep .brand-art. */
+.welcome-hero .brand-eyebrow {
+  color: var(--foreground);
+}
+
+.welcome-art-on-dark,
+.welcome-art-on-light {
+  -webkit-mask-image: radial-gradient(ellipse 78% 80% at 70% 52%, #000 52%, transparent 100%);
+  mask-image: radial-gradient(ellipse 78% 80% at 70% 52%, #000 52%, transparent 100%);
+}
+
+.welcome-art-on-dark {
+  mix-blend-mode: screen;
+}
+
+.welcome-art-on-light {
+  display: none;
+  mix-blend-mode: multiply;
+}
+
+[data-theme="light"] .welcome-art-on-dark {
+  display: none;
+}
+
+[data-theme="light"] .welcome-art-on-light {
+  display: block;
+}
+
+.brand-art-reveal {
+  animation: brand-brush 800ms ease-out both;
+}
+
+.brand-headline {
+  font-family: var(--font-anton), Impact, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 0.9;
+  text-transform: uppercase;
+  transform: skewX(-7deg);
+  transform-origin: left bottom;
+}
+
+.brand-headline-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--brand-on-ink);
+}
+
+.brand-headline-blue {
+  color: var(--brand-text-blue);
+  text-shadow: 0 0 28px color-mix(in oklab, var(--brand-text-blue) 55%, transparent);
+}
+
+.brand-card-edge {
+  background: linear-gradient(90deg, var(--brand-ltf-red), var(--brand-ltf-blue));
+}
+
+
+@keyframes brand-brush {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-art-reveal {
+    animation: none;
+  }
+}
+
+[data-tone="brand"] {
+  color-scheme: dark;
+  --background: var(--brand-ink);
+  --foreground: var(--brand-on-ink);
+  --surface: var(--brand-ink-raised);
+  --surface-foreground: var(--brand-on-ink);
+  --surface-secondary: color-mix(in oklab, var(--brand-on-ink) 8%, var(--brand-ink-raised));
+  --surface-secondary-foreground: var(--brand-on-ink);
+  --border: color-mix(in oklab, var(--brand-on-ink) 14%, transparent);
+  --muted: color-mix(in oklab, var(--brand-on-ink) 68%, var(--brand-ink));
+  --primary: var(--brand-ltf-red);
+  --primary-foreground: var(--brand-on-ink);
+  --primary-hover: var(--brand-red-pressed);
+  --link: var(--brand-ltf-blue);
+  --accent: var(--brand-ltf-blue);
+  --accent-foreground: var(--brand-ink);
+  --accent-soft: color-mix(in oklab, var(--brand-ltf-blue) 18%, var(--brand-ink-raised));
+  --danger: var(--brand-ltf-red);
+  --danger-foreground: var(--brand-on-ink);
+  --card: var(--brand-ink-raised);
+  --card-foreground: var(--brand-on-ink);
+  --popover: var(--brand-ink-raised);
+  --popover-foreground: var(--brand-on-ink);
+  --field-background: color-mix(in oklab, var(--brand-on-ink) 6%, var(--brand-ink));
+  --field-foreground: var(--brand-on-ink);
+  --field-placeholder: color-mix(in oklab, var(--brand-on-ink) 46%, var(--brand-ink));
+  --logo-tile: var(--brand-ltf-red);
+  --ring: var(--brand-ltf-blue);
 }
 

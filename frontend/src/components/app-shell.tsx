@@ -59,6 +59,7 @@ type AppShellProps = {
   navItems: AppNavItem[];
   children: React.ReactNode;
   variant?: "default" | "workspace";
+  tone?: "default" | "brand" | "overview";
 };
 
 type AuthMeResponse = {
@@ -102,7 +103,7 @@ export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   return best?.id ?? null;
 }
 
-export function AppShell({ title, subtitle, navItems, children, variant = "default" }: AppShellProps) {
+export function AppShell({ title, subtitle, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
   const t = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
@@ -224,13 +225,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className={cn("flex items-center gap-2 py-3", iconOnly ? "justify-center px-2" : "px-3")}>
-          <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--logo-tile)]">
-            <Image src="/ltf-logo.svg" alt="LTF" width={88} height={28} className="h-6 w-auto" />
-          </div>
+          <Image
+            src="/brand/ltf-logo-transparent.png"
+            alt="LTF"
+            width={113}
+            height={34}
+            className={iconOnly ? "brand-logo-compact" : "brand-logo-sidebar"}
+          />
           {iconOnly ? null : (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
-              <p className="truncate text-meta">{t("appTagline")}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-tight text-foreground">{t("appTitle")}</p>
+              <p className="text-meta leading-tight">{t("appTagline")}</p>
             </div>
           )}
         </div>
@@ -318,7 +323,10 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const isWorkspace = variant === "workspace";
 
   return (
-    <div className={cn("bg-background", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}>
+    <div
+      data-tone={tone === "brand" ? "brand" : undefined}
+      className={cn("bg-background text-foreground", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}
+    >
       {isWorkspace ? null : (
         <aside
           className={cn(
@@ -374,8 +382,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 </Button>
               )}
               <div className="min-w-0">
-                <h1 className="text-title truncate text-foreground">{title}</h1>
-                {subtitle && !isWorkspace ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {tone === "brand" || tone === "overview" ? (
+                  <h1 className="sr-only">{title}</h1>
+                ) : (
+                  <h1 className="text-title truncate text-foreground">{title}</h1>
+                )}
+                {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
               </div>
             </div>
 

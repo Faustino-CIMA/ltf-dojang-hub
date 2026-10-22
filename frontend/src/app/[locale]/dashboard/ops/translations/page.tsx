@@ -354,7 +354,7 @@ export default function OpsTranslationsPage() {
                           <div className="min-w-0">
                             <p className="break-all text-sm font-medium text-foreground">{row.local_key}</p>
                             {dirty ? (
-                              <p className="mt-1 text-xs font-medium text-accent">{t("translationsDirty")}</p>
+                              <p className="mt-1 text-xs font-medium text-link">{t("translationsDirty")}</p>
                             ) : null}
                             {row.placeholders.length > 0 ? (
                               <p className="mt-1 text-xs text-muted">
@@ -362,7 +362,7 @@ export default function OpsTranslationsPage() {
                               </p>
                             ) : null}
                             {row.en_overridden || row.lb_overridden ? (
-                              <p className="mt-1 text-xs text-accent">{t("overridden")}</p>
+                              <p className="mt-1 text-xs text-link">{t("overridden")}</p>
                             ) : null}
                           </div>
                           <label className="block min-w-0 text-sm md:text-inherit">

@@ -4,20 +4,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { persistSelectedClubId } from "@/components/club-selection-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { login } from "@/lib/auth-api";
 import { setToken } from "@/lib/auth";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
-import { AppVersionLink } from "@/components/app-version-link";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
 
+const PASSWORD_MIN = 8;
+
 export default function LoginPage() {
   const t = useTranslations("Auth");
-  const common = useTranslations("Common");
+  const home = useTranslations("Home");
   const router = useRouter();
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -26,6 +28,8 @@ export default function LoginPage() {
   const [showVerifyLink, setShowVerifyLink] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const year = new Date().getFullYear();
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,12 +44,12 @@ export default function LoginPage() {
 
     const nextErrors: { username?: string; password?: string } = {};
     if (!username) {
-      nextErrors.username = "Username is required";
+      nextErrors.username = t("emailRequired");
     }
     if (!password) {
-      nextErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      nextErrors.password = "Password must be at least 6 characters";
+      nextErrors.password = t("passwordRequired");
+    } else if (password.length < PASSWORD_MIN) {
+      nextErrors.password = t("passwordTooShort", { min: PASSWORD_MIN });
     }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
@@ -59,12 +63,15 @@ export default function LoginPage() {
       persistSelectedClubId(null);
       router.push(`/${locale}/dashboard`);
     } catch (error) {
-      const rawMessage = error instanceof Error ? error.message : "Login failed";
-      const isNotVerified = rawMessage.toLowerCase().includes("not verified");
-      const message = isNotVerified ? t("emailNotVerified") : rawMessage;
-      setErrorMessage(message);
-      if (isNotVerified) {
+      const rawMessage = error instanceof Error ? error.message : "";
+      const normalized = rawMessage.toLowerCase();
+      if (normalized.includes("not verified")) {
+        setErrorMessage(t("emailNotVerified"));
         setShowVerifyLink(true);
+      } else if (normalized.includes("invalid credentials")) {
+        setErrorMessage(t("invalidCredentials"));
+      } else {
+        setErrorMessage(t("loginFailed"));
       }
     } finally {
       setIsSubmitting(false);
@@ -72,91 +79,133 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-2">
-      <section className="relative hidden overflow-hidden bg-[var(--logo-tile)] px-12 py-16 text-[var(--scrim-foreground)] lg:flex lg:flex-col lg:justify-between">
-        <div className="pointer-events-none absolute -right-16 top-16 size-72 rounded-full bg-primary/35 blur-3xl" />
-        <div className="pointer-events-none absolute -left-10 bottom-10 size-64 rounded-full bg-[color-mix(in_oklab,var(--brand-red)_40%,transparent)] blur-3xl" />
-        <div className="relative">
-          <div className="inline-flex items-center gap-3">
-            <div className="flex size-8 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-surface/10">
-              <Image src="/ltf-logo.svg" alt="LTF" width={120} height={36} className="h-7 w-auto" priority />
-            </div>
-            <p className="text-sm font-semibold tracking-wide">Luxembourg Taekwondo Federation</p>
-          </div>
-          <h1 className="mt-8 max-w-md text-display">{t("brandTitle")}</h1>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-[var(--scrim-foreground)]/75">{t("brandSubtitle")}</p>
+    <main data-tone="brand" className="brand-canvas flex min-h-screen flex-col overflow-x-hidden">
+      <header className="flex items-center justify-between gap-4 px-5 py-5 sm:px-10">
+        <Link href={`/${locale}`} className="flex min-w-0 items-center gap-3">
+          <Image src="/brand/ltf-logo-transparent.png" alt="LTF" width={113} height={34} priority className="brand-logo" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{t("brandTitle")}</span>
+            <span className="hidden truncate text-[11px] uppercase tracking-[0.14em] text-[color-mix(in_oklab,var(--brand-on-ink)_62%,transparent)] sm:block">
+              {home("kicker")}
+            </span>
+          </span>
+        </Link>
+        <Link href={`/${locale}`} className="text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_75%,transparent)]">
+          {t("backHome")}
+        </Link>
+      </header>
+
+      <div className="auth-split">
+        <div className="auth-split-art brand-art brand-art-reveal">
+          <Image
+            src="/brand/kick-roundhouse.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1024px) 0px, 50vw"
+            className="object-contain object-center"
+          />
         </div>
-        <p className="relative text-sm text-[var(--scrim-foreground)]/55">{t("brandFooter")}</p>
-      </section>
-
-      <section className="flex items-center justify-center bg-background px-6 py-16">
-        <div className="app-panel w-full max-w-md p-3">
-          <div className="lg:hidden">
-            <Image src="/ltf-logo.svg" alt="LTF" width={140} height={42} className="h-9 w-auto" priority />
-            <p className="mt-3 text-sm font-semibold tracking-tight text-foreground">{common("appTitle")}</p>
-          </div>
-          <h2 className="mt-2 text-title text-foreground lg:mt-0">{t("loginTitle")}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">{t("loginSubtitle")}</p>
-
-          <form className="mt-4 space-y-3" onSubmit={onSubmit} noValidate>
-            <RequiredForm>
-            <div className="space-y-2 text-left">
-              <Label className="text-foreground" htmlFor="login-username" required>
-                {t("username")}
-              </Label>
-              <Input
-                id="login-username"
-                name="username"
-                autoComplete="username"
-                defaultValue={prefillUsername}
-                placeholder="john.doe"
-                disabled={isSubmitting}
-                autoFocus={!prefillUsername}
-              />
-              {fieldErrors.username ? <p className="text-sm text-destructive">{fieldErrors.username}</p> : null}
-            </div>
-
-            <div className="space-y-2 text-left">
-              <Label className="text-foreground" htmlFor="login-password" required>
-                {t("password")}
-              </Label>
-              <Input
-                id="login-password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                disabled={isSubmitting}
-                autoFocus={Boolean(prefillUsername)}
-              />
-              {fieldErrors.password ? <p className="text-sm text-destructive">{fieldErrors.password}</p> : null}
-            </div>
-            </RequiredForm>
-
-            <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-            {showVerifyLink ? (
-              <p className="text-center text-sm text-muted">
-                {t("verifyPrompt")}{" "}
-                <Link
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                  href={`/${locale}/verify-email`}
-                >
-                  {t("verifyLink")}
-                </Link>
+        <section className="w-full">
+          <div className="overflow-hidden rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--brand-on-ink)_14%,transparent)] bg-[var(--brand-ink-raised)] shadow-[var(--shadow-float)]">
+            <div className="brand-card-edge h-1" />
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-text-blue)]">{t("memberArea")}</p>
+                <LanguageSwitcher compact />
+              </div>
+              <h1 className="brand-headline mt-4 text-5xl text-[var(--brand-on-ink)]">{t("loginTitle")}</h1>
+              <p className="mt-3 text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_72%,var(--brand-ink))]">
+                {t("loginHint")}
               </p>
-            ) : null}
 
-            <div className="flex justify-end">
-              <Button className="font-semibold" type="submit" variant="primary" disabled={isSubmitting}>
-                {isSubmitting ? t("loading") : t("submit")}
-              </Button>
+              <form className="mt-6" onSubmit={onSubmit} noValidate>
+                <RequiredForm className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-username" required>
+                      {t("email")}
+                    </Label>
+                    <Input
+                      id="login-username"
+                      name="username"
+                      autoComplete="username"
+                      defaultValue={prefillUsername}
+                      placeholder={t("emailPlaceholder")}
+                      disabled={isSubmitting}
+                      autoFocus={!prefillUsername}
+                      aria-invalid={fieldErrors.username ? true : undefined}
+                    />
+                    {fieldErrors.username ? <p className="text-sm text-[var(--brand-text-red)]">{fieldErrors.username}</p> : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="login-password" required>
+                        {t("password")}
+                      </Label>
+                      <Link href={`/${locale}/forgot-password`} className="text-sm text-[var(--brand-text-blue)]">
+                        {t("forgotPassword")}
+                      </Link>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        disabled={isSubmitting}
+                        autoFocus={Boolean(prefillUsername)}
+                        aria-invalid={fieldErrors.password ? true : undefined}
+                        className="pr-12"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted"
+                        aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+                        aria-pressed={showPassword}
+                        onClick={() => setShowPassword((current) => !current)}
+                      >
+                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                    {fieldErrors.password ? <p className="text-sm text-[var(--brand-text-red)]">{fieldErrors.password}</p> : null}
+                  </div>
+
+                  <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+                  {showVerifyLink ? (
+                    <p className="text-sm text-muted">
+                      {t("verifyPrompt")}{" "}
+                      <Link className="font-medium text-[var(--brand-text-blue)]" href={`/${locale}/verify-email`}>
+                        {t("verifyLink")}
+                      </Link>
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--brand-ltf-red)] text-sm font-semibold text-[var(--brand-on-ink)] disabled:opacity-60"
+                  >
+                    {isSubmitting ? t("loading") : t("signInAction")}
+                    <span aria-hidden="true" className="ml-2">→</span>
+                  </button>
+                </RequiredForm>
+              </form>
+
+              <p className="mt-5 text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_70%,var(--brand-ink))]">
+                {t("noAccount")}
+              </p>
             </div>
-          </form>
-          <div className="mt-3 flex justify-center">
-            <AppVersionLink />
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_55%,transparent)] sm:px-10 lg:px-14">
+        <p>{t("copyright", { year })}</p>
+        <Link href={`/${locale}/settings/privacy`} className="hover:text-[var(--brand-on-ink)]">
+          {t("privacy")}
+        </Link>
+      </footer>
     </main>
   );
 }

@@ -125,7 +125,7 @@ export default function LtfFinanceAuditLogDetailPage() {
               {log.order && log.order_number ? (
                 <Link
                   href={`/${locale}/dashboard/ltf-finance/orders/${log.order}`}
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="text-link underline-offset-4 hover:underline"
                 >
                   {log.order_number}
                 </Link>
@@ -140,7 +140,7 @@ export default function LtfFinanceAuditLogDetailPage() {
               {log.invoice && log.invoice_number ? (
                 <Link
                   href={`/${locale}/dashboard/ltf-finance/invoices/${log.invoice}`}
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="text-link underline-offset-4 hover:underline"
                 >
                   {log.invoice_number}
                 </Link>

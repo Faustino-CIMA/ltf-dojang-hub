@@ -48,6 +48,7 @@ import { MemberGearCard } from "@/components/club-admin/member-gear-card";
 import { MemberTeamsCard } from "@/components/club-admin/member-teams-card";
 import { MemberNationalTeamBadge } from "@/components/national-team/member-national-team-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { formatFullName } from "@/lib/person-name";
 import { downloadClubStatement } from "@/lib/club-finance-api";
 import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { apiRequest } from "@/lib/api";
@@ -282,7 +283,7 @@ export default function ClubMemberDetailPage() {
   const clubMovementCount = clubMoves?.completed_transfer_count ?? 0;
 
   const title = member
-    ? t("memberDetailTitle", { name: `${member.first_name} ${member.last_name}` })
+    ? t("memberDetailTitle", { name: formatFullName(member) })
     : t("memberDetailTitleFallback");
 
   const historyTimelineShared = {

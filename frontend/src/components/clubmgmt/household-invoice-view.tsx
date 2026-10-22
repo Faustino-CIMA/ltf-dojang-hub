@@ -257,7 +257,7 @@ export function HouseholdInvoiceView({ householdId }: { householdId: string }) {
                 </p>
                 {createdInvoice ? (
                   <Link
-                    className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    className="inline-flex text-sm font-medium text-link underline-offset-4 hover:underline"
                     href={`/${locale}/dashboard/club/invoices/${createdInvoice.id}`}
                   >
                     {t("familyInvoiceOpen", { number: createdInvoice.number })}

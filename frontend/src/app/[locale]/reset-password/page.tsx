@@ -59,7 +59,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-3 px-6 py-12">
       <div className="space-y-2 text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">{common("appTitle")}</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{common("appTitle")}</p>
         <h1 className="text-3xl font-semibold text-foreground">{t("title")}</h1>
         <p className="text-sm text-muted">{t("subtitle")}</p>
       </div>

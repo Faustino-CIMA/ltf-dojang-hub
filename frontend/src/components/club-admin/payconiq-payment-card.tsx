@@ -89,7 +89,7 @@ export function PayconiqPaymentCard({
             <div>
               <span className="font-medium">{t("payconiqLinkLabel")}</span>{" "}
               <a
-                className="text-primary underline"
+                className="text-link underline"
                 href={payment.payconiq_payment_url}
                 target="_blank"
                 rel="noopener noreferrer"
