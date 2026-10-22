@@ -92,6 +92,10 @@ class Member(models.Model):
         related_name="photo_consent_attestations",
     )
     is_active = models.BooleanField(default=True)  # type: ignore[call-arg]
+    is_demo = models.BooleanField(
+        default=False,
+        help_text="Marks a fictional member created for the separate demo app.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

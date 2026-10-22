@@ -67,6 +67,7 @@ type AuthMeResponse = {
   first_name: string;
   role: string;
   is_superuser?: boolean;
+  demo_mode?: boolean;
 };
 
 function pathMatches(pathname: string, href: string, matchMode: AppNavItem["matchMode"]) {
@@ -413,6 +414,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                     ))}
                   </SelectContent>
                 </Select>
+              ) : null}
+
+              {me?.demo_mode ? (
+                <p className="rounded-[var(--radius-control)] border border-border bg-secondary px-2.5 py-1 text-meta text-foreground">
+                  {t("demoBadge")}
+                </p>
               ) : null}
 
               {me ? (

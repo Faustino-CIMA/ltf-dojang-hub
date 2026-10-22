@@ -59,6 +59,7 @@
     "openFederationDashboard": "Open federation dashboard",
     "appTitle": "LTF Dojang Hub",
     "appTagline": "Clubs and the federation",
+    "demoBadge": "Demo environment, fictional data",
     "modalClose": "Close",
     "requiredMark": "required",
     "requiredLegend": "Required",
