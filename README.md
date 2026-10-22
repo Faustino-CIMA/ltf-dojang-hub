@@ -95,6 +95,32 @@ docker compose exec backend python manage.py mint_module_code --modules club_man
 
 Set `MODULE_CODE_PUBLIC_KEY` alone only when someone else signs codes for this server. Do not call a product code a license.
 
+## Demo accounts
+
+`seed_demo_accounts` creates or updates the logins a demo needs, on a club that already exists. It reuses an LTF admin and a club admin when those accounts are already there. It adds a member, a club finance user, and a verified coach. Club finance is a club admin: the app has no separate club-finance role, and only a club admin can open the club finance desk. Every account is marked email-verified so login accepts it.
+
+The command is safe to run again. It does not print a password that already works. A password is printed once when the account is new, or when an existing account could not log in because its email was unverified. Set these environment variables to choose the passwords yourself. Leave them unset to let the command generate them. Do not commit the values.
+
+- `DEMO_LTF_ADMIN_PASSWORD`
+- `DEMO_CLUB_ADMIN_PASSWORD`
+- `DEMO_CLUB_FINANCE_PASSWORD`
+- `DEMO_COACH_PASSWORD`
+- `DEMO_MEMBER_PASSWORD`
+
+Locally, from the backend directory, with the same environment the server uses:
+
+```
+python manage.py seed_demo_accounts
+```
+
+With Docker:
+
+```
+docker compose exec backend python manage.py seed_demo_accounts
+```
+
+On Coolify, open a terminal on the backend service and run `python manage.py seed_demo_accounts`. Put any chosen passwords in the service environment before that, not in the image and not in git. The command is not part of container startup, so a redeploy does not change passwords.
+
 ## Verify Install
 
 Check services:

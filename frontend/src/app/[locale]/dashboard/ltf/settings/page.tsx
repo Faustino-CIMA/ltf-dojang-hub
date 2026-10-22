@@ -258,45 +258,47 @@ export default function LtfAdminSettingsPage() {
             {t("federationSettingsFormSubtitle")}
           </p>
 
-          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+          <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
+            <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label required>{t("federationNameLabel")}</Label>
-              <Input placeholder="Luxembourg Taekwondo Federation" {...register("name")} />
-              {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+              <Label htmlFor="federation-name" required>{t("federationNameLabel")}</Label>
+              <Input id="federation-name" placeholder={t("federationNamePlaceholder")} {...register("name")} />
+              {errors.name ? <p className="text-sm text-destructive">{t("federationNameRequired")}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("addressLine1Label")}</label>
-              <Input placeholder="12 Rue de la Gare" {...register("address_line1")} />
+              <Label htmlFor="federation-address-1">{t("addressLine1Label")}</Label>
+              <Input id="federation-address-1" placeholder={t("addressLine1Placeholder")} {...register("address_line1")} />
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("addressLine2Label")}</label>
+              <Label htmlFor="federation-address-2">{t("addressLine2Label")}</Label>
               <Input
-                placeholder="Building, floor, unit (optional)"
+                id="federation-address-2"
+                placeholder={t("addressLine2Placeholder")}
                 {...register("address_line2")}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("postalCodeLabel")}</label>
-              <Input placeholder="1234" {...register("postal_code")} />
+              <Label htmlFor="federation-postal">{t("postalCodeLabel")}</Label>
+              <Input id="federation-postal" placeholder={t("postalCodePlaceholder")} {...register("postal_code")} />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("localityLabel")}</label>
-              <Input placeholder="Luxembourg" {...register("locality")} />
+              <Label htmlFor="federation-locality">{t("localityLabel")}</Label>
+              <Input id="federation-locality" placeholder={t("localityPlaceholder")} {...register("locality")} />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
-              <Input placeholder="LU28 0019 4006 4475 0000" {...register("iban")} />
+              <Label htmlFor="federation-iban">{t("ibanLabel")}</Label>
+              <Input id="federation-iban" placeholder={t("ibanPlaceholder")} {...register("iban")} />
               {errors.iban ? <p className="text-sm text-destructive">{errors.iban.message}</p> : null}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("bankNameLabel")}</label>
-              <Input value={derivedBankName || "-"} readOnly />
+              <Label htmlFor="federation-bank">{t("bankNameLabel")}</Label>
+              <Input id="federation-bank" value={derivedBankName || "-"} readOnly />
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -321,6 +323,7 @@ export default function LtfAdminSettingsPage() {
               <Button type="submit" disabled={isSubmitting}>
                 {t("saveFederationSettings")}
               </Button>
+            </div>
             </div>
           </form>
 

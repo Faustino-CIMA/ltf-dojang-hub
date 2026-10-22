@@ -2,11 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useContext, useMemo } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Medal, Scale, ScrollText, Wallet } from "lucide-react";
 
 import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { EmptyState } from "@/components/club-admin/empty-state";
 import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
+import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { apiRequest } from "@/lib/api";
 import { ltfFinanceSidebarGroup } from "@/lib/sidebar-groups";
 
 type LtfFinanceLayoutProps = {
@@ -117,6 +120,21 @@ function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutPro
   const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
+  const [access, setAccess] = useState<"loading" | "allowed" | "denied">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest<{ role: string }>("/api/auth/me/")
+      .then((me) => {
+        if (!cancelled) setAccess(me.role === "ltf_finance" ? "allowed" : "denied");
+      })
+      .catch(() => {
+        if (!cancelled) setAccess("denied");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
@@ -136,6 +154,18 @@ function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutPro
 
   const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
   const titleText = pageHeader.title || activeLabel;
+
+  if (access !== "allowed") {
+    return (
+      <LtfAdminLayout persistent title={access === "denied" ? t("roleDeniedTitle") : t("overviewTitle")}>
+        <EmptyState
+          title={access === "denied" ? t("roleDeniedTitle") : t("overviewTitle")}
+          description={access === "denied" ? t("roleDeniedBody") : undefined}
+          loading={access === "loading"}
+        />
+      </LtfAdminLayout>
+    );
+  }
 
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>

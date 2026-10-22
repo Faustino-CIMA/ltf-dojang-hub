@@ -461,7 +461,16 @@
     "teamArchived": "Archiviert",
     "teamArchivedHint": "Diese Mannschaft ist archiviert. Stellen Sie sie wieder her, um sie zu ändern.",
     "teamShowArchived": "Archivierte anzeigen",
-    "teamDisciplineWarning": "Ein Wechsel der Disziplin blendet Poomsae-Paare und Teams oder die Kyorugi-Gewichtsklassen aus. Die gespeicherten Einträge bleiben."
+    "teamDisciplineWarning": "Ein Wechsel der Disziplin blendet Poomsae-Paare und Teams oder die Kyorugi-Gewichtsklassen aus. Die gespeicherten Einträge bleiben.",
+    "clubNamePlaceholder": "LTF Zentralverein",
+    "clubNameRequired": "Der Vereinsname ist erforderlich",
+    "addressLine1Placeholder": "12 Bahnhofstraße",
+    "addressLine2Placeholder": "Gebäude, Etage, Einheit (optional)",
+    "postalCodePlaceholder": "1234",
+    "localityPlaceholder": "Luxemburg",
+    "clubEmailPlaceholder": "club@beispiel.lu",
+    "clubWebsitePlaceholder": "https://www.club.lu",
+    "ibanPlaceholder": "LU00 0000 0000 0000"
   },
   "LtfAdmin": {
     "memberCommitteeTab": "Vorstand",
@@ -633,7 +642,18 @@
     "nationalTeamSupportRequired": "Wählen Sie Sportlycée oder SSEA.",
     "nationalTeamStatusOverlap": "Für dieses Programm gibt es für diese Daten schon einen Status.",
     "nationalTeamStaffOverlap": "Diese Person hat diese Rolle für diese Daten schon.",
-    "nationalTeamWeightRequired": "Geben Sie eine Gewichtsklasse ein."
+    "nationalTeamWeightRequired": "Geben Sie eine Gewichtsklasse ein.",
+    "clubNamePlaceholder": "LTF Zentralverein",
+    "clubNameRequired": "Der Vereinsname ist erforderlich",
+    "addressLine1Placeholder": "12 Bahnhofstraße",
+    "addressLine2Placeholder": "Gebäude, Etage, Einheit (optional)",
+    "postalCodePlaceholder": "1234",
+    "localityPlaceholder": "Luxemburg",
+    "clubEmailPlaceholder": "club@beispiel.lu",
+    "clubWebsitePlaceholder": "https://www.club.lu",
+    "ibanPlaceholder": "LU00 0000 0000 0000",
+    "federationNamePlaceholder": "Luxemburger Taekwondo-Föderation",
+    "federationNameRequired": "Der Name des Verbandes ist erforderlich"
   },
   "ClubMgmt": {
     "committeeRemoveDescription": "Löschen Sie dieses Amt nur, wenn es versehentlich angelegt wurde. Wer ausgeschieden ist, bekommt ein Enddatum.",
@@ -732,6 +752,12 @@
     "moduleCompetition": "Wettkampf",
     "moduleEventCalendar": "Veranstaltungskalender",
     "clubFeeSwitchedOff": "Vereinsgebühr ausgeschaltet. Bereits versandte Rechnungen bleiben.",
-    "navNationalTeam": "Nationalmannschaft"
+    "navNationalTeam": "Nationalmannschaft",
+    "roleDeniedTitle": "Finanzen sind für diese Rolle nicht verfügbar",
+    "roleDeniedBody": "Die Verbandsfinanzen sind der Finanzrolle vorbehalten. Dieses Konto bleibt am LTF-Schreibtisch."
+  },
+  "Events": {
+    "calendarModuleOffTitle": "Modul nicht verfügbar",
+    "calendarModuleOffBody": "Das Kalendermodul ist ausgeschaltet, diese Seite bleibt geschlossen."
   }
 }

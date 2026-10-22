@@ -50,7 +50,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 
 const clubSchema = z.object({
-  name: z.string().min(1, "Club name is required"),
+  name: z.string().min(1),
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
@@ -395,51 +395,53 @@ export default function ClubAdminSettingsPage() {
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>
             <p className="mt-2 text-sm text-muted">{t("clubFormSubtitle")}</p>
 
-            <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-              <RequiredForm className="contents" legendClassName="md:col-span-2">
+            <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
+              <RequiredForm>
+                <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label required>{t("clubNameLabel")}</Label>
-                <Input placeholder="LTF Central Club" {...register("name")} />
-                {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+                <Label htmlFor="club-name" required>{t("clubNameLabel")}</Label>
+                <Input id="club-name" placeholder={t("clubNamePlaceholder")} {...register("name")} />
+                {errors.name ? <p className="text-sm text-destructive">{t("clubNameRequired")}</p> : null}
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("addressLine1Label")}</label>
-                <Input placeholder="12 Rue de la Gare" {...register("address_line1")} />
+                <Label htmlFor="club-address-1">{t("addressLine1Label")}</Label>
+                <Input id="club-address-1" placeholder={t("addressLine1Placeholder")} {...register("address_line1")} />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("addressLine2Label")}</label>
+                <Label htmlFor="club-address-2">{t("addressLine2Label")}</Label>
                 <Input
-                  placeholder="Building, floor, unit (optional)"
+                  id="club-address-2"
+                  placeholder={t("addressLine2Placeholder")}
                   {...register("address_line2")}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("postalCodeLabel")}</label>
-                <Input placeholder="1234" {...register("postal_code")} />
+                <Label htmlFor="club-postal">{t("postalCodeLabel")}</Label>
+                <Input id="club-postal" placeholder={t("postalCodePlaceholder")} {...register("postal_code")} />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("localityLabel")}</label>
-                <Input placeholder="Luxembourg" {...register("locality")} />
+                <Label htmlFor="club-locality">{t("localityLabel")}</Label>
+                <Input id="club-locality" placeholder={t("localityPlaceholder")} {...register("locality")} />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
-                <Input type="email" placeholder="club@example.com" {...register("email")} />
+                <Label htmlFor="club-email">{t("clubEmailLabel")}</Label>
+                <Input id="club-email" type="email" placeholder={t("clubEmailPlaceholder")} {...register("email")} />
                 <p className="text-xs text-muted">{t("clubEmailHint")}</p>
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
-                <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
+                <Label htmlFor="club-website">{t("clubWebsiteLabel")}</Label>
+                <Input id="club-website" type="url" placeholder={t("clubWebsitePlaceholder")} {...register("website")} />
                 <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubStatusLabel")}</label>
+                <Label>{t("clubStatusLabel")}</Label>
                 <StatusBadge
                   label={clubIsActive ? t("clubStatusActive") : t("clubStatusInactive")}
                   tone={clubIsActive ? "success" : "neutral"}
@@ -448,13 +450,13 @@ export default function ClubAdminSettingsPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubLanguageLabel")}</label>
+                <Label htmlFor="club-language">{t("clubLanguageLabel")}</Label>
                 <Controller
                   name="communication_language"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value || "en"} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger id="club-language">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -471,21 +473,22 @@ export default function ClubAdminSettingsPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
-                <Input placeholder="LU00 0000 0000 0000" {...register("iban")} />
+                <Label htmlFor="club-iban">{t("ibanLabel")}</Label>
+                <Input id="club-iban" placeholder={t("ibanPlaceholder")} {...register("iban")} />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("bankNameLabel")}</label>
-                <Input value={derivedBankName || "-"} readOnly disabled />
+                <Label htmlFor="club-bank">{t("bankNameLabel")}</Label>
+                <Input id="club-bank" value={derivedBankName || "-"} readOnly disabled />
               </div>
 
-              </RequiredForm>
               <div className="flex items-center gap-3">
                 <Button type="submit" disabled={isSubmitting}>
                   {t("saveClub")}
                 </Button>
               </div>
+                </div>
+              </RequiredForm>
             </form>
           </section>
 
