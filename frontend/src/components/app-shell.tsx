@@ -230,12 +230,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
             alt="LTF"
             width={113}
             height={34}
-            className={iconOnly ? "brand-logo-compact" : "brand-logo"}
+            className={iconOnly ? "brand-logo-compact" : "brand-logo-sidebar"}
           />
           {iconOnly ? null : (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
-              <p className="truncate text-meta">{t("appTagline")}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-tight text-foreground">{t("appTitle")}</p>
+              <p className="text-meta leading-tight">{t("appTagline")}</p>
             </div>
           )}
         </div>

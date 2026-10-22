@@ -95,33 +95,18 @@ export default function LoginPage() {
         </Link>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1440px] flex-1 items-center gap-8 px-5 pb-8 sm:px-10 lg:grid-cols-2 lg:px-14">
-        <section className="flex flex-col">
-          <div>
-            <p className="brand-eyebrow">
-              <span>{home("kicker")}</span>
-            </p>
-            <h1 className="brand-headline brand-slogan mt-6">
-              <span className="block text-[var(--brand-on-ink)]">{t("headlineWelcome")}</span>
-              <span className="mt-1 block text-[var(--brand-text-red)]">{t("headlineDojang")}</span>
-            </h1>
-            <p className="mt-6 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_78%,var(--brand-ink))] sm:text-base">
-              {t("loginSubline")}
-            </p>
-          </div>
-          <div className="brand-art brand-art-reveal relative mt-6 h-64 w-full lg:h-80">
-            <Image
-              src="/brand/kick-roundhouse.jpg"
-              alt=""
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-contain object-left"
-            />
-          </div>
-        </section>
-
-        <section className="mx-auto w-full max-w-md">
+      <div className="auth-split">
+        <div className="auth-split-art brand-art brand-art-reveal">
+          <Image
+            src="/brand/kick-roundhouse.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1024px) 0px, 50vw"
+            className="object-contain object-center"
+          />
+        </div>
+        <section className="w-full">
           <div className="overflow-hidden rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--brand-on-ink)_14%,transparent)] bg-[var(--brand-ink-raised)] shadow-[var(--shadow-float)]">
             <div className="brand-card-edge h-1" />
             <div className="p-6 sm:p-8">
@@ -129,7 +114,7 @@ export default function LoginPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-text-blue)]">{t("memberArea")}</p>
                 <LanguageSwitcher compact />
               </div>
-              <h2 className="brand-headline mt-4 text-5xl text-[var(--brand-on-ink)]">{t("loginTitle")}</h2>
+              <h1 className="brand-headline mt-4 text-5xl text-[var(--brand-on-ink)]">{t("loginTitle")}</h1>
               <p className="mt-3 text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_72%,var(--brand-ink))]">
                 {t("loginHint")}
               </p>

@@ -200,6 +200,45 @@
   object-position: left center;
 }
 
+.brand-logo-sidebar {
+  height: 1.375rem;
+  width: auto;
+  max-width: 4.5rem;
+  flex: none;
+  background: transparent;
+}
+
+.auth-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  width: min(100%, 90rem);
+  margin-inline: auto;
+  margin-block: auto;
+  gap: 2.5rem;
+  padding: 0 1.25rem 2rem;
+}
+
+.auth-split-art {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .auth-split {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+    padding-inline: 3.5rem;
+  }
+
+  .auth-split-art {
+    display: block;
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    align-self: stretch;
+  }
+}
+
 .brand-eyebrow {
   display: flex;
   align-items: flex-start;

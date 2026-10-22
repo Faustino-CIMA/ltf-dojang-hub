@@ -54,8 +54,19 @@ export default function ForgotPasswordPage() {
         </Link>
       </header>
 
-      <div className="mx-auto flex w-full max-w-md flex-1 items-center px-5 pb-10">
-        <div className="w-full overflow-hidden rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--brand-on-ink)_14%,transparent)] bg-[var(--brand-ink-raised)]">
+      <div className="auth-split">
+        <div className="auth-split-art brand-art brand-art-reveal">
+          <Image
+            src="/brand/kick-roundhouse.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1024px) 0px, 50vw"
+            className="object-contain object-center"
+          />
+        </div>
+        <section className="w-full">
+          <div className="w-full overflow-hidden rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--brand-on-ink)_14%,transparent)] bg-[var(--brand-ink-raised)]">
           <div className="brand-card-edge h-1" />
           <div className="p-6 sm:p-8">
             <div className="flex items-center justify-between gap-3">
@@ -104,6 +115,7 @@ export default function ForgotPasswordPage() {
             )}
           </div>
         </div>
+        </section>
       </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_55%,transparent)] sm:px-10">
