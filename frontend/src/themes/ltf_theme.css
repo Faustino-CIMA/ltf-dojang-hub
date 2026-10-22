@@ -1,58 +1,62 @@
 /*
  * LTF visual system.
- * Accent for both modes — change only the next declaration.
- * Light uses it directly. Dark keeps its hue and chroma and lifts lightness.
+ * Neutrals have no blue tint. Primary actions are LTF red.
+ * Links and info use the blue secondary accent.
+ * Marketing pages keep the brand tokens below.
  */
 :root {
-  --accent-base: oklch(45% 0.13 258);
   --brand-ltf-blue: #0099ff;
   --brand-ltf-red: #e30613;
+  --brand-red-pressed: #98040d;
   --brand-navy: #273b73;
   --brand-text-blue: #4db8ff;
+  --brand-link-on-light: #0265b2;
   --brand-text-red: #ff3b47;
   --brand-ink: #000000;
   --brand-ink-raised: #0b0d10;
   --brand-on-ink: #ffffff;
+  --primary-hover: var(--brand-red-pressed);
 }
 
 :root,
 .light,
 [data-theme="light"] {
-  --accent: var(--accent-base);
+  --accent: var(--brand-ltf-red);
   --accent-foreground: #ffffff;
-  --accent-soft: oklch(from var(--accent-base) 95% 0.02 h);
-  --brand-red: oklch(48% 0.16 25);
-  --logo-tile: oklch(22% 0.04 258);
-  --scrim: oklch(12% 0.02 258);
+  --accent-soft: color-mix(in oklab, var(--brand-ltf-red) 12%, #ffffff);
+  --link: var(--brand-link-on-light);
+  --brand-red: var(--brand-ltf-red);
+  --logo-tile: var(--brand-ltf-red);
+  --scrim: #121314;
   --scrim-foreground: #ffffff;
 
-  --background: oklch(97.2% 0.006 258);
-  --foreground: oklch(22% 0.02 258);
-  --border: oklch(86% 0.012 258);
-  --checkbox-border: oklch(62% 0.03 258);
+  --background: #f5f6f7;
+  --foreground: #181a1b;
+  --border: #d5d6d8;
+  --checkbox-border: #6b7074;
   --danger: oklch(46% 0.17 25);
   --danger-foreground: #ffffff;
-  --default: oklch(94% 0.008 258);
-  --default-foreground: oklch(22% 0.02 258);
+  --default: #f0f1f2;
+  --default-foreground: #181a1b;
   --field-background: #ffffff;
-  --field-foreground: oklch(22% 0.02 258);
-  --field-placeholder: oklch(48% 0.02 258);
-  --focus: var(--accent);
-  --muted: oklch(40% 0.02 258);
+  --field-foreground: #181a1b;
+  --field-placeholder: #5c6368;
+  --focus: var(--brand-ltf-red);
+  --muted: #4e5458;
   --overlay: #ffffff;
-  --overlay-foreground: oklch(22% 0.02 258);
-  --scrollbar: oklch(82% 0.012 258);
-  --segment: oklch(99% 0.004 258);
-  --segment-foreground: oklch(22% 0.02 258);
-  --separator: oklch(88% 0.01 258);
+  --overlay-foreground: #181a1b;
+  --scrollbar: #c8c9cb;
+  --segment: #ffffff;
+  --segment-foreground: #181a1b;
+  --separator: #e4e5e7;
   --success: oklch(42% 0.11 155);
   --success-foreground: #ffffff;
   --surface: #ffffff;
-  --surface-foreground: oklch(22% 0.02 258);
-  --surface-secondary: oklch(95.4% 0.008 258);
-  --surface-secondary-foreground: oklch(22% 0.02 258);
-  --surface-tertiary: oklch(93% 0.01 258);
-  --surface-tertiary-foreground: oklch(22% 0.02 258);
+  --surface-foreground: #181a1b;
+  --surface-secondary: #f0f1f2;
+  --surface-secondary-foreground: #181a1b;
+  --surface-tertiary: #e6e7e9;
+  --surface-tertiary-foreground: #181a1b;
   --warning: oklch(48% 0.11 70);
   --warning-foreground: #ffffff;
 
@@ -65,9 +69,15 @@
   --badge-danger-bg: oklch(95% 0.02 25);
   --badge-danger-fg: oklch(38% 0.12 25);
   --badge-danger-border: oklch(70% 0.09 25);
-  --badge-info-bg: oklch(from var(--accent-base) 94% 0.025 h);
-  --badge-info-fg: oklch(from var(--accent-base) 32% 0.09 h);
-  --badge-info-border: oklch(from var(--accent-base) 72% 0.06 h);
+  --badge-info-bg: #e7f3fc;
+  --badge-info-fg: var(--brand-link-on-light);
+  --badge-info-border: #7eafd4;
+
+  --chart-1: var(--brand-ltf-red);
+  --chart-2: var(--brand-link-on-light);
+  --chart-3: #0f7a4a;
+  --chart-4: #8a5a00;
+  --chart-5: #4e5458;
 
   --modal-backdrop: color-mix(in oklab, var(--foreground) 36%, transparent);
 
@@ -79,7 +89,7 @@
   --field-radius: var(--radius-control);
 
   --shadow-card: none;
-  --shadow-float: 0 8px 24px oklch(22% 0.02 258 / 0.14);
+  --shadow-float: 0 8px 24px oklch(0% 0 0 / 0.12);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --text-display: 1.375rem;
@@ -108,41 +118,42 @@
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  --accent: oklch(from var(--accent-base) 75% c h);
-  --accent-foreground: oklch(from var(--accent-base) 22% 0.04 h);
-  --accent-soft: oklch(from var(--accent-base) 30% 0.04 h);
-  --brand-red: oklch(70% 0.14 25);
-  --logo-tile: oklch(16% 0.03 258);
-  --scrim: oklch(8% 0.02 258);
+  --accent: var(--brand-ltf-red);
+  --accent-foreground: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--brand-ltf-red) 22%, #222426);
+  --link: var(--brand-text-blue);
+  --brand-red: var(--brand-ltf-red);
+  --logo-tile: var(--brand-ltf-red);
+  --scrim: #000000;
   --scrim-foreground: #ffffff;
 
-  --background: oklch(18% 0.015 258);
-  --foreground: oklch(96% 0.008 258);
-  --border: oklch(34% 0.02 258);
-  --checkbox-border: oklch(58% 0.03 258);
+  --background: #181a1b;
+  --foreground: #f7f7f8;
+  --border: #3a3d40;
+  --checkbox-border: #8b9196;
   --danger: oklch(68% 0.15 25);
   --danger-foreground: oklch(16% 0.04 25);
-  --default: oklch(28% 0.02 258);
-  --default-foreground: oklch(96% 0.008 258);
-  --field-background: oklch(24% 0.018 258);
-  --field-foreground: oklch(96% 0.008 258);
-  --field-placeholder: oklch(74% 0.015 258);
-  --focus: var(--accent);
-  --muted: oklch(78% 0.015 258);
-  --overlay: oklch(24% 0.018 258);
-  --overlay-foreground: oklch(96% 0.008 258);
-  --scrollbar: oklch(42% 0.02 258);
-  --segment: oklch(28% 0.02 258);
-  --segment-foreground: oklch(96% 0.008 258);
-  --separator: oklch(32% 0.02 258);
+  --default: #2a2c2e;
+  --default-foreground: #f7f7f8;
+  --field-background: #181a1b;
+  --field-foreground: #f7f7f8;
+  --field-placeholder: #a8adb1;
+  --focus: var(--brand-ltf-red);
+  --muted: #c4c7ca;
+  --overlay: #2a2c2e;
+  --overlay-foreground: #f7f7f8;
+  --scrollbar: #4a4e52;
+  --segment: #2a2c2e;
+  --segment-foreground: #f7f7f8;
+  --separator: #34373a;
   --success: oklch(74% 0.12 155);
   --success-foreground: oklch(18% 0.04 155);
-  --surface: oklch(22% 0.016 258);
-  --surface-foreground: oklch(96% 0.008 258);
-  --surface-secondary: oklch(26% 0.018 258);
-  --surface-secondary-foreground: oklch(96% 0.008 258);
-  --surface-tertiary: oklch(30% 0.02 258);
-  --surface-tertiary-foreground: oklch(96% 0.008 258);
+  --surface: #222426;
+  --surface-foreground: #f7f7f8;
+  --surface-secondary: #2a2c2e;
+  --surface-secondary-foreground: #f7f7f8;
+  --surface-tertiary: #323538;
+  --surface-tertiary-foreground: #f7f7f8;
   --warning: oklch(80% 0.12 85);
   --warning-foreground: oklch(24% 0.05 70);
 
@@ -155,9 +166,15 @@
   --badge-danger-bg: oklch(34% 0.07 25);
   --badge-danger-fg: oklch(90% 0.05 25);
   --badge-danger-border: oklch(50% 0.1 25);
-  --badge-info-bg: oklch(from var(--accent-base) 30% 0.045 h);
-  --badge-info-fg: oklch(from var(--accent-base) 90% 0.045 h);
-  --badge-info-border: oklch(from var(--accent-base) 55% 0.08 h);
+  --badge-info-bg: #0e2a3a;
+  --badge-info-fg: var(--brand-text-blue);
+  --badge-info-border: #1f6fa8;
+
+  --chart-1: var(--brand-ltf-red);
+  --chart-2: var(--brand-text-blue);
+  --chart-3: #3dd68c;
+  --chart-4: #e6b325;
+  --chart-5: #c4c7ca;
 
   --modal-backdrop: color-mix(in oklab, var(--background) 40%, black);
   --shadow-card: none;
@@ -346,6 +363,8 @@
   --muted: color-mix(in oklab, var(--brand-on-ink) 68%, var(--brand-ink));
   --primary: var(--brand-ltf-red);
   --primary-foreground: var(--brand-on-ink);
+  --primary-hover: var(--brand-red-pressed);
+  --link: var(--brand-ltf-blue);
   --accent: var(--brand-ltf-blue);
   --accent-foreground: var(--brand-ink);
   --accent-soft: color-mix(in oklab, var(--brand-ltf-blue) 18%, var(--brand-ink-raised));

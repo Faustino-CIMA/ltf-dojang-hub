@@ -325,7 +325,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   return (
     <div
       data-tone={tone === "brand" ? "brand" : undefined}
-      className={cn("bg-background", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}
+      className={cn("bg-background text-foreground", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}
     >
       {isWorkspace ? null : (
         <aside

@@ -21,7 +21,7 @@ type ActionQueueProps = {
 };
 
 const severityBar: Record<ActionQueueSeverity, string> = {
-  info: "bg-accent",
+  info: "bg-link",
   warning: "bg-warning",
   critical: "bg-destructive",
 };

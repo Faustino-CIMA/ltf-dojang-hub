@@ -92,7 +92,7 @@ export default function VerifyEmailPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-md rounded-[var(--radius-card)] bg-card p-3 border border-border">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">{common("appTitle")}</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{common("appTitle")}</p>
         <h1 className="mt-2 text-2xl font-semibold text-foreground">{t("title")}</h1>
         <p className="mt-2 text-sm text-muted">{t("subtitle")}</p>
 
