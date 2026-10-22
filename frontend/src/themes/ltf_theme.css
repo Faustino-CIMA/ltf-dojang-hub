@@ -307,6 +307,34 @@
   mask-image: radial-gradient(ellipse 72% 72% at 52% 46%, #000 62%, transparent 100%);
 }
 
+/* In-app welcome follows the selected theme. Public pages keep .brand-art. */
+.welcome-hero .brand-eyebrow {
+  color: var(--foreground);
+}
+
+.welcome-art-on-dark,
+.welcome-art-on-light {
+  -webkit-mask-image: radial-gradient(ellipse 78% 80% at 70% 52%, #000 52%, transparent 100%);
+  mask-image: radial-gradient(ellipse 78% 80% at 70% 52%, #000 52%, transparent 100%);
+}
+
+.welcome-art-on-dark {
+  mix-blend-mode: screen;
+}
+
+.welcome-art-on-light {
+  display: none;
+  mix-blend-mode: multiply;
+}
+
+[data-theme="light"] .welcome-art-on-dark {
+  display: none;
+}
+
+[data-theme="light"] .welcome-art-on-light {
+  display: block;
+}
+
 .brand-art-reveal {
   animation: brand-brush 800ms ease-out both;
 }

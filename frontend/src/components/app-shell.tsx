@@ -59,7 +59,7 @@ type AppShellProps = {
   navItems: AppNavItem[];
   children: React.ReactNode;
   variant?: "default" | "workspace";
-  tone?: "default" | "brand";
+  tone?: "default" | "brand" | "overview";
 };
 
 type AuthMeResponse = {
@@ -382,12 +382,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 </Button>
               )}
               <div className="min-w-0">
-                {tone === "brand" ? (
+                {tone === "brand" || tone === "overview" ? (
                   <h1 className="sr-only">{title}</h1>
                 ) : (
                   <h1 className="text-title truncate text-foreground">{title}</h1>
                 )}
-                {subtitle && !isWorkspace && tone !== "brand" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
               </div>
             </div>
 

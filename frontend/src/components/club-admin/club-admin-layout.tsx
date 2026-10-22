@@ -309,7 +309,7 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
 
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>
-      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems} tone={isWelcome ? "brand" : "default"}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems} tone={isWelcome ? "overview" : "default"}>
         <IncomingTransferNotice />
         {role === "club_admin" ? <EventReminderToasts /> : null}
         {isPrinting || isTraining ? (

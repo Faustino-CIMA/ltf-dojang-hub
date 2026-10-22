@@ -48,27 +48,34 @@ export function WelcomeOverview({
   return (
     <div className="space-y-4">
       <ActionNotices error={errorMessage} onDismiss={onDismissError} />
-      <section className="grid items-end gap-2 bg-transparent sm:grid-cols-[minmax(0,1fr)_18rem]">
+      <section className="welcome-hero grid items-end gap-2 bg-transparent sm:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0">
           {eyebrow ? (
             <p className="brand-eyebrow">
               <span>{eyebrow}</span>
             </p>
           ) : null}
-          <h1 className="brand-headline brand-slogan mt-4 text-[var(--brand-on-ink)]">
+          <h1 className="brand-headline brand-slogan mt-4 text-foreground">
             {t("welcomeLead")}{" "}
-            <span className="text-[var(--brand-text-blue)]">{firstName}.</span>
+            <span className="text-link">{firstName}.</span>
           </h1>
-          {dateLabel ? <p className="mt-4 text-sm text-[var(--muted)]">{dateLabel}</p> : null}
+          {dateLabel ? <p className="mt-4 text-sm text-muted">{dateLabel}</p> : null}
         </div>
-        <div className="brand-art relative h-52 w-full sm:h-56">
+        <div className="welcome-art relative h-52 w-full sm:h-56">
           <Image
             src="/brand/kick-roundhouse.jpg"
             alt=""
             fill
             priority
             sizes="(max-width: 640px) 100vw, 18rem"
-            className="object-contain object-right"
+            className="welcome-art-on-dark object-contain object-right"
+          />
+          <Image
+            src="/brand/kick-roundhouse-ink.webp"
+            alt=""
+            fill
+            sizes="(max-width: 640px) 100vw, 18rem"
+            className="welcome-art-on-light object-contain object-right"
           />
         </div>
       </section>

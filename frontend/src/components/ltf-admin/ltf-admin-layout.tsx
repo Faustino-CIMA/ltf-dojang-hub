@@ -179,7 +179,7 @@ function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) 
         subtitle={pageHeader.subtitle}
         navItems={navItems}
         variant={isDesignerWorkspace ? "workspace" : "default"}
-        tone={isWelcome ? "brand" : "default"}
+        tone={isWelcome ? "overview" : "default"}
       >
         {isPrinting ? (
           <div className="space-y-3">
