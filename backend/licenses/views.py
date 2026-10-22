@@ -1048,7 +1048,7 @@ class LtfAdminOverviewView(APIView):
     permission_classes = [IsLtfAdmin]
 
     def get(self, request):
-        cache_key = "dashboard:overview:ltf_admin:v5"
+        cache_key = "dashboard:overview:ltf_admin:v6"
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return Response(cached_payload, status=status.HTTP_200_OK)
@@ -1098,11 +1098,24 @@ class LtfAdminOverviewView(APIView):
             status=MemberTransfer.Status.PENDING,
             fee_amount__gt=0,
         ).count()
-        expiring_in_30_days = licenses_queryset.filter(
+        expiring_window = licenses_queryset.filter(
             status=License.Status.ACTIVE,
             end_date__gte=today,
             end_date__lte=today + timedelta(days=30),
-        ).count()
+        )
+        expiring_in_30_days = expiring_window.count()
+        next_expiring_row = (
+            expiring_window.select_related("member")
+            .order_by("end_date", "member__last_name", "member__first_name", "id")
+            .first()
+        )
+        next_expiring = None
+        if next_expiring_row is not None and next_expiring_row.member_id:
+            next_expiring = {
+                "end_date": next_expiring_row.end_date.isoformat(),
+                "last_name": next_expiring_row.member.last_name,
+                "first_name": next_expiring_row.member.first_name,
+            }
 
         active_members_by_club = {
             row["club_id"]: row["total"]
@@ -1195,6 +1208,7 @@ class LtfAdminOverviewView(APIView):
                     "revoked": revoked_licenses,
                 }
             },
+            "next_expiring": next_expiring,
             "top_clubs": top_clubs,
             "links": {
                 "clubs": _overview_link("LtfAdmin.navClubs", "/dashboard/ltf/clubs"),

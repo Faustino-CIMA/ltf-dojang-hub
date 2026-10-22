@@ -20,6 +20,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const [hasToken, setHasToken] = useState(false);
   const isDashboard = pathname.includes("/dashboard");
   const isAuthPage = /\/(login|register|verify-email|reset-password)(\/|$)/.test(pathname);
+  const isBrandPage = pathname === `/${locale}` || /\/(login|forgot-password)(\/|$)/.test(pathname);
 
   useEffect(() => {
     const refresh = () => setHasToken(Boolean(getToken()));
@@ -32,7 +33,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (isDashboard) {
+  if (isDashboard || isBrandPage) {
     return <>{children}</>;
   }
 

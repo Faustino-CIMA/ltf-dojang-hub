@@ -5,6 +5,14 @@
  */
 :root {
   --accent-base: oklch(45% 0.13 258);
+  --brand-ltf-blue: #0099ff;
+  --brand-ltf-red: #e30613;
+  --brand-navy: #273b73;
+  --brand-text-blue: #4db8ff;
+  --brand-text-red: #ff3b47;
+  --brand-ink: #000000;
+  --brand-ink-raised: #0b0d10;
+  --brand-on-ink: #ffffff;
 }
 
 :root,
@@ -154,5 +162,130 @@
   --modal-backdrop: color-mix(in oklab, var(--background) 40%, black);
   --shadow-card: none;
   --shadow-float: 0 10px 28px oklch(0% 0 0 / 0.4);
+}
+
+/* Marketing and welcome surfaces. Colours come from the brand tokens above. */
+.brand-canvas {
+  background:
+    radial-gradient(760px 620px at 8% 72%, color-mix(in oklab, var(--brand-ltf-red) 16%, transparent), transparent 70%),
+    radial-gradient(900px 700px at 88% 42%, color-mix(in oklab, var(--brand-ltf-blue) 16%, transparent), transparent 70%),
+    radial-gradient(1100px 520px at 36% 120%, color-mix(in oklab, var(--brand-navy) 40%, transparent), transparent 70%),
+    var(--brand-ink);
+  color: var(--brand-on-ink);
+  color-scheme: dark;
+}
+
+.brand-canvas-quiet {
+  background:
+    radial-gradient(700px 520px at 18% 110%, color-mix(in oklab, var(--brand-ltf-red) 7%, transparent), transparent 70%),
+    radial-gradient(640px 420px at 90% 0%, color-mix(in oklab, var(--brand-ltf-blue) 8%, transparent), transparent 70%),
+    var(--brand-ink);
+  color: var(--brand-on-ink);
+  color-scheme: dark;
+}
+
+.brand-scrim {
+  background: linear-gradient(90deg, color-mix(in oklab, var(--brand-ink) 72%, transparent), color-mix(in oklab, var(--brand-ink) 28%, transparent) 68%, transparent);
+}
+
+.brand-scrim-mobile {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--brand-ink) 10%, transparent),
+    color-mix(in oklab, var(--brand-ink) 82%, transparent) 38%,
+    var(--brand-ink) 72%
+  );
+}
+
+.brand-scrim-bottom {
+  background: linear-gradient(
+    to top,
+    var(--brand-ink) 0%,
+    color-mix(in oklab, var(--brand-ink) 72%, transparent) 46%,
+    transparent 100%
+  );
+}
+
+.brand-art {
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(ellipse 72% 72% at 52% 46%, #000 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 72% at 52% 46%, #000 62%, transparent 100%);
+}
+
+.brand-art-reveal {
+  animation: brand-brush 800ms ease-out both;
+}
+
+.brand-headline {
+  font-family: var(--font-anton), Impact, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 0.9;
+  text-transform: uppercase;
+  transform: skewX(-7deg);
+  transform-origin: left bottom;
+}
+
+.brand-headline-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--brand-on-ink);
+}
+
+.brand-headline-blue {
+  color: var(--brand-text-blue);
+  text-shadow: 0 0 28px color-mix(in oklab, var(--brand-text-blue) 55%, transparent);
+}
+
+.brand-card-edge {
+  background: linear-gradient(90deg, var(--brand-ltf-red), var(--brand-ltf-blue));
+}
+
+@media (max-width: 640px) {
+  .brand-headline-outline {
+    -webkit-text-stroke-width: 1px;
+  }
+}
+
+@keyframes brand-brush {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-art-reveal {
+    animation: none;
+  }
+}
+
+[data-tone="brand"] {
+  color-scheme: dark;
+  --background: var(--brand-ink);
+  --foreground: var(--brand-on-ink);
+  --surface: var(--brand-ink-raised);
+  --surface-foreground: var(--brand-on-ink);
+  --surface-secondary: color-mix(in oklab, var(--brand-on-ink) 8%, var(--brand-ink-raised));
+  --surface-secondary-foreground: var(--brand-on-ink);
+  --border: color-mix(in oklab, var(--brand-on-ink) 14%, transparent);
+  --muted: color-mix(in oklab, var(--brand-on-ink) 68%, var(--brand-ink));
+  --primary: var(--brand-ltf-red);
+  --primary-foreground: var(--brand-on-ink);
+  --accent: var(--brand-ltf-blue);
+  --accent-foreground: var(--brand-ink);
+  --accent-soft: color-mix(in oklab, var(--brand-ltf-blue) 18%, var(--brand-ink-raised));
+  --danger: var(--brand-ltf-red);
+  --danger-foreground: var(--brand-on-ink);
+  --card: var(--brand-ink-raised);
+  --card-foreground: var(--brand-on-ink);
+  --popover: var(--brand-ink-raised);
+  --popover-foreground: var(--brand-on-ink);
+  --field-background: color-mix(in oklab, var(--brand-on-ink) 6%, var(--brand-ink));
+  --field-foreground: var(--brand-on-ink);
+  --field-placeholder: color-mix(in oklab, var(--brand-on-ink) 46%, var(--brand-ink));
+  --logo-tile: var(--brand-ltf-red);
+  --ring: var(--brand-ltf-blue);
 }
 

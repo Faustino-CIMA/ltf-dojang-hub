@@ -96,11 +96,13 @@ class LoginSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         request = self.context.get("request")
-        user = authenticate(
-            request,
-            username=attrs.get("username"),
-            password=attrs.get("password"),
-        )
+        login_name = str(attrs.get("username") or "").strip()
+        password = attrs.get("password")
+        user = authenticate(request, username=login_name, password=password)
+        if user is None and "@" in login_name:
+            matched = User.objects.filter(email__iexact=login_name).only("username").first()
+            if matched is not None:
+                user = authenticate(request, username=matched.username, password=password)
         if not user:
             raise serializers.ValidationError("Invalid credentials")
         if not user.is_active:

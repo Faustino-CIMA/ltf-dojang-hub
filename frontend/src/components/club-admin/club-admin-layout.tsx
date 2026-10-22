@@ -305,10 +305,11 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
   const isTraining = pathname?.includes("/dashboard/club/training");
   const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
   const titleText = pageHeader.title || activeLabel;
+  const isWelcome = pathname === `/${locale}/dashboard/club`;
 
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>
-      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems} tone={isWelcome ? "brand" : "default"}>
         <IncomingTransferNotice />
         {role === "club_admin" ? <EventReminderToasts /> : null}
         {isPrinting || isTraining ? (

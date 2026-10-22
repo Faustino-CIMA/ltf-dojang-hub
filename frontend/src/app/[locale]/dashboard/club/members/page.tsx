@@ -781,7 +781,7 @@ export default function ClubAdminMembersPage() {
         description={
           pendingRowStatusMember
             ? t("memberRowStatusConfirmDescription", {
-                name: `${pendingRowStatusMember.first_name} ${pendingRowStatusMember.last_name}`.trim(),
+                name: formatFullName(pendingRowStatusMember),
                 nextStatus: pendingRowStatusMember.is_active ? t("inactiveLabel") : t("activeLabel"),
               })
             : undefined

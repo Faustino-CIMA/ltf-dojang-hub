@@ -325,6 +325,11 @@ export type LtfAdminOverviewResponse = {
     expiring_in_30_days: number;
     active_members_without_valid_license: number;
   };
+  next_expiring?: {
+    end_date: string;
+    last_name: string;
+    first_name: string;
+  } | null;
   action_queue: Array<{
     key:
       | "clubs_without_admin"

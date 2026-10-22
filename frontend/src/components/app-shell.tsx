@@ -59,6 +59,7 @@ type AppShellProps = {
   navItems: AppNavItem[];
   children: React.ReactNode;
   variant?: "default" | "workspace";
+  tone?: "default" | "brand";
 };
 
 type AuthMeResponse = {
@@ -102,7 +103,7 @@ export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   return best?.id ?? null;
 }
 
-export function AppShell({ title, subtitle, navItems, children, variant = "default" }: AppShellProps) {
+export function AppShell({ title, subtitle, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
   const t = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
@@ -318,7 +319,10 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const isWorkspace = variant === "workspace";
 
   return (
-    <div className={cn("bg-background", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}>
+    <div
+      data-tone={tone === "brand" ? "brand" : undefined}
+      className={cn("bg-background", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}
+    >
       {isWorkspace ? null : (
         <aside
           className={cn(
@@ -374,8 +378,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 </Button>
               )}
               <div className="min-w-0">
-                <h1 className="text-title truncate text-foreground">{title}</h1>
-                {subtitle && !isWorkspace ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {tone === "brand" ? (
+                  <h1 className="sr-only">{title}</h1>
+                ) : (
+                  <h1 className="text-title truncate text-foreground">{title}</h1>
+                )}
+                {subtitle && !isWorkspace && tone !== "brand" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
               </div>
             </div>
 

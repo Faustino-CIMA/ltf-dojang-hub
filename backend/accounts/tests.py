@@ -119,6 +119,18 @@ class AuthApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("token", response.data)
 
+    def test_login_accepts_the_registered_email(self):
+        EmailAddress.objects.create(
+            user=self.user, email=self.user.email, verified=True, primary=True
+        )
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "verify@example.com", "password": "pass12345"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("token", response.data)
+
     def test_resend_verification(self):
         EmailAddress.objects.create(
             user=self.user, email=self.user.email, verified=False, primary=True
