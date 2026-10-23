@@ -201,6 +201,18 @@ class MemberApiTests(TestCase):
         self.assertIn(self.member.id, ids)
         self.assertNotIn(self.inactive_member.id, ids)
 
+    def test_ltf_admin_inactive_filter_returns_inactive_members(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/members/", {"is_active": "false"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = {row["id"] for row in response.data}
+        self.assertEqual(ids, {self.inactive_member.id})
+
+        active = self.client.get("/api/members/", {"is_active": "true"})
+        active_ids = {row["id"] for row in active.data}
+        self.assertIn(self.member.id, active_ids)
+        self.assertNotIn(self.inactive_member.id, active_ids)
+
     def test_ltf_admin_cannot_access_inactive_member_detail(self):
         self.client.force_authenticate(user=self.ltf_admin)
         response = self.client.get(f"/api/members/{self.inactive_member.id}/")

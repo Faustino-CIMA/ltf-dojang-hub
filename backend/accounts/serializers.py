@@ -1,4 +1,5 @@
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ObjectDoesNotExist
@@ -9,6 +10,7 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     home_club_id = serializers.SerializerMethodField()
+    demo_mode = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -24,7 +26,11 @@ class UserSerializer(serializers.ModelSerializer):
             "consent_given",
             "consent_given_at",
             "home_club_id",
+            "demo_mode",
         ]
+
+    def get_demo_mode(self, obj):
+        return bool(getattr(settings, "DEMO_MODE", False))
 
     def get_home_club_id(self, obj):
         try:

@@ -118,8 +118,6 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if user.role in ["ltf_admin", "ltf_finance"]:
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
-            ).filter(
-                is_active=True
             )
         elif user.role == "club_admin":
             queryset = Member.objects.select_related(
@@ -191,6 +189,10 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(is_active=True)
         elif is_active_param in {"0", "false", "no"}:
             queryset = queryset.filter(is_active=False)
+        elif user.role in ["ltf_admin", "ltf_finance"]:
+            # The list defaults to active members. An explicit inactive
+            # filter must still be able to see the other rows.
+            queryset = queryset.filter(is_active=True)
 
         search_value = self.request.query_params.get("q", "").strip()
         if search_value:

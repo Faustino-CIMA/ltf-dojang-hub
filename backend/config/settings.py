@@ -15,6 +15,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config("DJANGO_SECRET_KEY", default="change-me")
 DEBUG = config("DJANGO_DEBUG", cast=bool, default=False)
+# Explicit opt-in for the separate demo app. Seed commands refuse to run when this is off.
+DEMO_MODE = config("DEMO_MODE", default="false").strip().lower() in {"1", "true", "yes"}
 FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:3000")
 FRONTEND_DEFAULT_LOCALE = config("FRONTEND_DEFAULT_LOCALE", default="en")
 def split_csv(value: str) -> list[str]:

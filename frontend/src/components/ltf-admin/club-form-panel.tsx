@@ -181,7 +181,7 @@ export function ClubFormPanel({
           <Input
             id="club-name"
             value={values.name}
-            placeholder="LTF Central Club"
+            placeholder={t("clubNamePlaceholder")}
             onChange={(event) => setField("name", event.target.value)}
           />
         </div>
@@ -190,7 +190,7 @@ export function ClubFormPanel({
           <Input
             id="club-address-1"
             value={values.address_line1}
-            placeholder="12 Rue de la Gare"
+            placeholder={t("addressLine1Placeholder")}
             onChange={(event) => setField("address_line1", event.target.value)}
           />
         </div>
@@ -199,7 +199,7 @@ export function ClubFormPanel({
           <Input
             id="club-address-2"
             value={values.address_line2}
-            placeholder="Building, floor, unit (optional)"
+            placeholder={t("addressLine2Placeholder")}
             onChange={(event) => setField("address_line2", event.target.value)}
           />
         </div>
@@ -208,7 +208,7 @@ export function ClubFormPanel({
           <Input
             id="club-postal"
             value={values.postal_code}
-            placeholder="1234"
+            placeholder={t("postalCodePlaceholder")}
             onChange={(event) => setField("postal_code", event.target.value)}
           />
         </div>
@@ -217,7 +217,7 @@ export function ClubFormPanel({
           <Input
             id="club-locality"
             value={values.locality}
-            placeholder="Luxembourg"
+            placeholder={t("localityPlaceholder")}
             onChange={(event) => setField("locality", event.target.value)}
           />
         </div>
@@ -227,7 +227,7 @@ export function ClubFormPanel({
             id="club-email"
             type="email"
             value={values.email}
-            placeholder="club@example.com"
+            placeholder={t("clubEmailPlaceholder")}
             onChange={(event) => setField("email", event.target.value)}
           />
           <p className="text-xs text-muted">{t("clubEmailHint")}</p>
@@ -238,7 +238,7 @@ export function ClubFormPanel({
             id="club-website"
             type="url"
             value={values.website}
-            placeholder="https://www.club.lu"
+            placeholder={t("clubWebsitePlaceholder")}
             onChange={(event) => setField("website", event.target.value)}
           />
           <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
@@ -272,7 +272,7 @@ export function ClubFormPanel({
           <Input
             id="club-iban"
             value={values.iban}
-            placeholder="LU28 0019 4006 4475 0000"
+            placeholder={t("ibanPlaceholder")}
             onChange={(event) => setField("iban", event.target.value)}
           />
         </div>

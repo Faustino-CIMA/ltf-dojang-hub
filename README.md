@@ -10,6 +10,7 @@ This working tree is **v0.12.0** on `main`: several membership billings a year, 
 - Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay, calendar, and rename work. No v0.12.0 tag has been created.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
 - User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`.
+- Demo environment (a second app, fictional data only): `docs/demo-environment.md`. Never seed the live server.
 
 ## CI (GitHub Actions)
 
@@ -94,6 +95,16 @@ docker compose exec backend python manage.py mint_module_code --modules club_man
 ```
 
 Set `MODULE_CODE_PUBLIC_KEY` alone only when someone else signs codes for this server. Do not call a product code a license.
+
+## Demo accounts
+
+The live server holds real clubs and members, including minors. Do not run the demo seed on it, and do not point a demo login at the production database.
+
+The demo is a second app with its own empty Postgres database and only fictional data. Step-by-step Coolify instructions, the environment variables, and how to wipe and reseed are in [`docs/demo-environment.md`](docs/demo-environment.md).
+
+`seed_demo_data` and `seed_demo_accounts` both refuse to run unless `DEMO_MODE=true`. They also refuse when the database already contains a club or member that is not marked as demo data, unless you pass `--force-demo` together with `DEMO_MODE`. Even then they do not modify those rows. They are not part of container startup, so a redeploy does not change passwords.
+
+The fictional logins are `demo_ltf_admin`, `demo_ltf_finance`, `demo_club_admin`, `demo_club_finance`, `demo_coach`, and `demo_member`. Each other demo club also gets `demo_club_admin_<slug>` (`moselle`, `red_lion`, `three_acorns`, `valley`). Club finance is a club admin: the app has no separate club-finance role. Passwords come from `DEMO_LTF_ADMIN_PASSWORD`, `DEMO_LTF_FINANCE_PASSWORD`, `DEMO_CLUB_ADMIN_PASSWORD`, `DEMO_CLUB_FINANCE_PASSWORD`, `DEMO_COACH_PASSWORD`, `DEMO_MEMBER_PASSWORD`, and `DEMO_CLUB_ADMIN_<SLUG>_PASSWORD` for the extra club admins, or are printed once when an account is created. Do not commit the values.
 
 ## Verify Install
 

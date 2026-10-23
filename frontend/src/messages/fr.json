@@ -83,6 +83,7 @@
     "themeLight": "Clair",
     "themeDark": "Sombre",
     "themeSystem": "Système",
+    "demoBadge": "Environnement de démonstration, données fictives",
     "navGroupCompetition": "Compétition"
   },
   "ClubAdmin": {
@@ -461,7 +462,16 @@
     "teamArchived": "Archivée",
     "teamArchivedHint": "Cette équipe est archivée. Désarchivez-la pour la modifier.",
     "teamShowArchived": "Afficher les archivées",
-    "teamDisciplineWarning": "Changer de discipline masque les paires et équipes de Poomsae, ou les catégories de poids Kyorugi. Les données enregistrées restent."
+    "teamDisciplineWarning": "Changer de discipline masque les paires et équipes de Poomsae, ou les catégories de poids Kyorugi. Les données enregistrées restent.",
+    "clubNamePlaceholder": "Club central LTF",
+    "clubNameRequired": "Le nom du club est obligatoire",
+    "addressLine1Placeholder": "12, rue de la Gare",
+    "addressLine2Placeholder": "Bâtiment, étage, unité (facultatif)",
+    "postalCodePlaceholder": "1234",
+    "localityPlaceholder": "Luxembourg",
+    "clubEmailPlaceholder": "club@exemple.lu",
+    "clubWebsitePlaceholder": "https://www.club.lu",
+    "ibanPlaceholder": "LU00 0000 0000 0000"
   },
   "LtfAdmin": {
     "memberCommitteeTab": "Comité",
@@ -633,7 +643,18 @@
     "nationalTeamSupportRequired": "Choisissez Sportlycée ou SSEA.",
     "nationalTeamStatusOverlap": "Ce dispositif a déjà un statut pour ces dates.",
     "nationalTeamStaffOverlap": "Cette personne a déjà ce rôle pour ces dates.",
-    "nationalTeamWeightRequired": "Indiquez une catégorie de poids."
+    "nationalTeamWeightRequired": "Indiquez une catégorie de poids.",
+    "clubNamePlaceholder": "Club central LTF",
+    "clubNameRequired": "Le nom du club est obligatoire",
+    "addressLine1Placeholder": "12, rue de la Gare",
+    "addressLine2Placeholder": "Bâtiment, étage, unité (facultatif)",
+    "postalCodePlaceholder": "1234",
+    "localityPlaceholder": "Luxembourg",
+    "clubEmailPlaceholder": "club@exemple.lu",
+    "clubWebsitePlaceholder": "https://www.club.lu",
+    "ibanPlaceholder": "LU00 0000 0000 0000",
+    "federationNamePlaceholder": "Fédération luxembourgeoise de taekwondo",
+    "federationNameRequired": "Le nom de la fédération est obligatoire"
   },
   "ClubMgmt": {
     "committeeRemoveDescription": "Supprimez cette fonction seulement si elle a été saisie par erreur. Pour noter qu'une personne a quitté le poste, mettez fin au mandat.",
@@ -732,6 +753,12 @@
     "moduleCompetition": "Compétition",
     "moduleEventCalendar": "Calendrier des événements",
     "clubFeeSwitchedOff": "Frais de club désactivé. Les factures déjà envoyées restent.",
-    "navNationalTeam": "Équipe nationale"
+    "navNationalTeam": "Équipe nationale",
+    "roleDeniedTitle": "La finance n'est pas disponible pour ce rôle",
+    "roleDeniedBody": "La finance de la fédération est réservée au rôle finance. Ce compte reste sur le bureau LTF."
+  },
+  "Events": {
+    "calendarModuleOffTitle": "Module non disponible",
+    "calendarModuleOffBody": "Le module calendrier est désactivé, cette page reste fermée."
   }
 }

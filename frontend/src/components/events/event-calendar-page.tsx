@@ -20,6 +20,12 @@ import { apiRequest } from "@/lib/api";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { deleteEvent, listEvents, markEventSeen, setEventReminder, type CalendarEvent } from "@/lib/events-api";
+import {
+  EVENT_CALENDAR_MODULE_ID,
+  getModuleStatus,
+  isClubModuleAssigned,
+  isInstallEntitled,
+} from "@/lib/modules-api";
 
 type CalendarVariant = "ltf" | "club" | "member";
 
@@ -76,6 +82,30 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   const [selectedDay, setSelectedDay] = useState<string>(isoDate(now));
   const [panel, setPanel] = useState<{ eventId?: number } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: number; title: string } | null>(null);
+  const [moduleOn, setModuleOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (variant === "club" && selectedClubId == null) {
+      setModuleOn(null);
+      return;
+    }
+    getModuleStatus()
+      .then((status) => {
+        if (cancelled) return;
+        const enabled =
+          variant === "club"
+            ? isClubModuleAssigned(status, EVENT_CALENDAR_MODULE_ID, selectedClubId)
+            : isInstallEntitled(status, EVENT_CALENDAR_MODULE_ID);
+        setModuleOn(enabled);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId, variant]);
 
   const range = useMemo(() => {
     const from = startOfMonth(year, month);
@@ -84,14 +114,18 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
     return { from: isoDate(from), to: isoDate(to) };
   }, [month, year]);
 
-  const canWrite = variant === "ltf" || variant === "club";
+  const canWrite = moduleOn === true && (variant === "ltf" || variant === "club");
   useConsumeSearchParam("create", () => setPanel({}), canWrite);
   useConsumeSearchParam("edit", (value) => {
     const id = Number(value);
     if (Number.isFinite(id) && id > 0) setPanel({ eventId: id });
-  });
+  }, moduleOn === true);
 
   const load = useCallback(async () => {
+    if (moduleOn !== true) {
+      setEvents([]);
+      return;
+    }
     setErrorMessage(null);
     if (variant === "club" && selectedClubId == null) {
       setEvents([]);
@@ -114,7 +148,7 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
       setErrorMessage(error instanceof Error ? error.message : t("calendarLoadError"));
       setEvents([]);
     }
-  }, [range.from, range.to, selectedClubId, t, variant]);
+  }, [moduleOn, range.from, range.to, selectedClubId, t, variant]);
 
   useEffect(() => {
     void load();
@@ -183,7 +217,14 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
     }),
   );
 
-  const content = (
+  const waitingForClub = variant === "club" && selectedClubId == null;
+  const content = moduleOn === false ? (
+    <EmptyState title={t("calendarModuleOffTitle")} description={t("calendarModuleOffBody")} />
+  ) : waitingForClub ? (
+    <EmptyState title={t("calendarNeedClub")} description={t("calendarSubtitle")} />
+  ) : moduleOn !== true ? (
+    <EmptyState title={t("calendarTitle")} description={t("calendarSubtitle")} loading />
+  ) : (
     <>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

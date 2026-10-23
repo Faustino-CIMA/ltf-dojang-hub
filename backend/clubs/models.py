@@ -44,6 +44,10 @@ class Club(models.Model):
     email = models.EmailField(blank=True)
     website = models.URLField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
+    is_demo = models.BooleanField(
+        default=False,
+        help_text="Marks a fictional club created for the separate demo app.",
+    )
     egear_daedo = models.BooleanField(default=True)
     egear_kpnp = models.BooleanField(default=True)
     communication_language = models.CharField(max_length=10, default=DEFAULT_CLUB_LANGUAGE)
