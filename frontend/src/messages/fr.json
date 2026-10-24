@@ -8,6 +8,7 @@
     "signIn": "Se connecter",
     "findClub": "Trouver un club",
     "openDashboard": "Ouvrir le tableau de bord",
+    "deskShortcuts": "Votre bureau",
     "navClubs": "Clubs",
     "navCompetitions": "Compétitions",
     "navLicences": "Licences",
@@ -87,6 +88,20 @@
     "navGroupCompetition": "Compétition"
   },
   "ClubAdmin": {
+    "printLicenceCardsAction": "Imprimer les cartes de licence",
+    "printLicenceCardsTitle": "Imprimer les cartes de licence",
+    "printLicenceCardsDescription": "Créer un travail d'impression pour {count} enregistrements sélectionnés.",
+    "printLicenceCardsTemplateLabel": "Modèle de carte",
+    "printLicenceCardsTemplatePlaceholder": "Choisir un modèle publié",
+    "printLicenceCardsNoTemplate": "Aucun modèle de carte de licence publié n'est disponible.",
+    "printLicenceCardsPrinterLabel": "Profil d'imprimante",
+    "printLicenceCardsPrinterNone": "Aucun profil d'imprimante",
+    "printLicenceCardsSubmit": "Créer le travail et ouvrir le PDF",
+    "printLicenceCardsWorking": "Création du travail d'impression...",
+    "printLicenceCardsSuccess": "Le travail d'impression {jobNumber} est prêt.",
+    "printLicenceCardsOpenList": "Ouvrir les travaux d'impression",
+    "printLicenceCardsOpenPdf": "Ouvrir le PDF",
+    "printLicenceCardsError": "Le travail d'impression n'a pas pu être créé.",
     "memberCommitteeTab": "Comité",
     "modulePricesTitle": "Modules et prix",
     "modulePricesSubtitle": "Ce que la fédération facture à ce club pour chaque partie de l'application. Vous pouvez lire cette liste même si rien n'est activé.",
@@ -657,6 +672,8 @@
     "federationNameRequired": "Le nom de la fédération est obligatoire"
   },
   "ClubMgmt": {
+    "shopQrAlt": "Code QR pour la taille {size}",
+    "shopQrPreviewEmpty": "Pas encore d'image QR pour cette taille.",
     "committeeRemoveDescription": "Supprimez cette fonction seulement si elle a été saisie par erreur. Pour noter qu'une personne a quitté le poste, mettez fin au mandat.",
     "committeeHistoryTitle": "Historique du comité",
     "committeeHistorySubtitle": "Qui a occupé chaque fonction, et de quand à quand.",

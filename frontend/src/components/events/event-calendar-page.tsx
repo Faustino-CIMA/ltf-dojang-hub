@@ -17,6 +17,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiRequest } from "@/lib/api";
+import { calendarModuleAvailable } from "@/lib/calendar-module";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { deleteEvent, listEvents, markEventSeen, setEventReminder, type CalendarEvent } from "@/lib/events-api";
@@ -97,10 +98,10 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
           variant === "club"
             ? isClubModuleAssigned(status, EVENT_CALENDAR_MODULE_ID, selectedClubId)
             : isInstallEntitled(status, EVENT_CALENDAR_MODULE_ID);
-        setModuleOn(enabled);
+        setModuleOn(calendarModuleAvailable({ ok: true, enabled }));
       })
       .catch(() => {
-        if (!cancelled) setModuleOn(false);
+        if (!cancelled) setModuleOn(calendarModuleAvailable({ ok: false }));
       });
     return () => {
       cancelled = true;

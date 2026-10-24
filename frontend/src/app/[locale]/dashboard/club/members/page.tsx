@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { TeamFilter } from "@/components/club-admin/club-teams-desk";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
+import { PrintLicenceCardsPanel } from "@/components/club-admin/print-licence-cards-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
@@ -139,6 +140,7 @@ export default function ClubAdminMembersPage() {
   const [teamFilter, setTeamFilter] = useState<number[] | "none">([]);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [printCardsOpen, setPrintCardsOpen] = useState(false);
   const [actionsHintOpen, setActionsHintOpen] = useState(false);
   const [bulkStatusBusy, setBulkStatusBusy] = useState(false);
   const issue = parseMemberIssue(searchParams.get("issue"), searchParams.get("filter"));
@@ -935,6 +937,15 @@ export default function ClubAdminMembersPage() {
                     { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete() },
                     { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
                     {
+                      key: "print-cards",
+                      label: t("printLicenceCardsAction"),
+                      onSelect: () => {
+                        if (selectedIds.length > 0) {
+                          setPrintCardsOpen(true);
+                        }
+                      },
+                    },
+                    {
                       key: "change-status",
                       label: t("actionChangeStatus"),
                       onSelect: () => {
@@ -1242,6 +1253,14 @@ export default function ClubAdminMembersPage() {
             await loadData();
           })().finally(() => setDeleteBusy(false));
         }}
+      />
+      <PrintLicenceCardsPanel
+        open={printCardsOpen}
+        onClose={() => setPrintCardsOpen(false)}
+        locale={locale}
+        clubId={selectedClubId}
+        source="members"
+        memberIds={selectedIds}
       />
     </ClubAdminLayout>
   );
