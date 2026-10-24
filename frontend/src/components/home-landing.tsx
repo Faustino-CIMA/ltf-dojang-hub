@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
 import { getPublicStats, type PublicStats } from "@/lib/public-stats";
+import { getRoleNavDefs, type RoleNavDef } from "@/lib/role-nav";
 
 const FIND_A_CLUB_URL = "https://www.luxembourgtaekwondo.lu/";
 
@@ -24,7 +25,13 @@ export function HomeLanding() {
   const locale = useLocale();
   const t = useTranslations("Home");
   const common = useTranslations("Common");
+  const tClub = useTranslations("ClubAdmin");
+  const tLtf = useTranslations("LtfAdmin");
+  const tFinance = useTranslations("LtfFinance");
+  const tOps = useTranslations("Ops");
+  const tMember = useTranslations("Member");
   const [dashboardHref, setDashboardHref] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState<MeResponse | null>(null);
   const [stats, setStats] = useState<PublicStats | null>(null);
 
   useEffect(() => {
@@ -39,6 +46,7 @@ export function HomeLanding() {
         if (cancelled) {
           return;
         }
+        setSignedIn(me);
         setDashboardHref(
           getDashboardRouteForRole(me.role, locale, { isSuperuser: Boolean(me.is_superuser) }) ??
             `/${locale}/dashboard`
@@ -46,6 +54,7 @@ export function HomeLanding() {
       } catch {
         clearToken();
         if (!cancelled) {
+          setSignedIn(null);
           setDashboardHref(null);
         }
       }
@@ -160,6 +169,20 @@ export function HomeLanding() {
               {t("findClub")}
             </a>
           </div>
+          {signedIn && dashboardHref ? (
+            <RoleShortcutGrid
+              locale={locale}
+              role={signedIn.role}
+              isSuperuser={Boolean(signedIn.is_superuser)}
+              labelFor={(def) => {
+                if (def.namespace === "ClubAdmin") return tClub(def.labelKey);
+                if (def.namespace === "LtfAdmin") return tLtf(def.labelKey);
+                if (def.namespace === "LtfFinance") return tFinance(def.labelKey);
+                if (def.namespace === "Ops") return tOps(def.labelKey);
+                return tMember(def.labelKey);
+              }}
+            />
+          ) : null}
           {stats ? <StatRow stats={stats} locale={locale} /> : null}
         </section>
 
@@ -174,6 +197,45 @@ export function HomeLanding() {
         </div>
       </div>
     </main>
+  );
+}
+
+function RoleShortcutGrid({
+  locale,
+  role,
+  isSuperuser,
+  labelFor,
+}: {
+  locale: string;
+  role: string;
+  isSuperuser: boolean;
+  labelFor: (def: RoleNavDef) => string;
+}) {
+  const t = useTranslations("Home");
+  const common = useTranslations("Common");
+  const navDefs = getRoleNavDefs(role, { isSuperuser });
+  if (navDefs.length === 0) {
+    return null;
+  }
+  return (
+    <nav aria-label={common("navigationLabel")} className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--brand-on-ink)] sm:col-span-2 lg:col-span-3">
+        {t("deskShortcuts")}
+      </h2>
+      {navDefs.map((def) => {
+        const Icon = def.icon;
+        return (
+          <Link
+            key={def.id}
+            href={def.href(locale)}
+            className="flex items-center gap-3 rounded-[var(--radius-card)] border border-border bg-surface px-3 py-3 text-sm font-semibold text-foreground"
+          >
+            <Icon className="size-4 shrink-0 text-muted" aria-hidden />
+            <span>{labelFor(def)}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 

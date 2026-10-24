@@ -283,6 +283,23 @@ export type PrintJobItem = {
   updated_at: string;
 };
 
+export type PrintJobInput = {
+  club: number;
+  template_version: number;
+  paper_profile?: number | null;
+  printer_profile?: number | null;
+  printer_profile_id?: number | null;
+  side?: PrintJobSide;
+  member_ids?: number[];
+  license_ids?: number[];
+  selected_slots?: number[];
+  include_bleed_guide?: boolean;
+  include_safe_area_guide?: boolean;
+  bleed_mm?: number | string;
+  safe_area_mm?: number | string;
+  metadata?: Record<string, unknown>;
+};
+
 export type PrintJob = {
   id: number;
   job_number: string;
@@ -869,6 +886,29 @@ export function getCardDesignerClubLookups(
       signal: options?.signal,
     }
   );
+}
+
+export function createPrintJob(input: PrintJobInput) {
+  const { printer_profile_id, ...restInput } = input;
+  const payload: Omit<PrintJobInput, "printer_profile_id"> = {
+    ...restInput,
+  };
+
+  if (
+    typeof printer_profile_id === "number" &&
+    Number.isInteger(printer_profile_id) &&
+    printer_profile_id > 0
+  ) {
+    payload.printer_profile = printer_profile_id;
+  }
+  if (payload.printer_profile === null) {
+    delete payload.printer_profile;
+  }
+
+  return apiRequest<PrintJob>("/api/print-jobs/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getPrintJobs(options?: ApiCallOptions) {

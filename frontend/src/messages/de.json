@@ -8,6 +8,7 @@
     "signIn": "Anmelden",
     "findClub": "Einen Verein finden",
     "openDashboard": "Übersicht öffnen",
+    "deskShortcuts": "Ihr Bereich",
     "navClubs": "Vereine",
     "navCompetitions": "Wettkämpfe",
     "navLicences": "Lizenzen",
@@ -87,6 +88,20 @@
     "navGroupCompetition": "Wettkampf"
   },
   "ClubAdmin": {
+    "printLicenceCardsAction": "Lizenzkarten drucken",
+    "printLicenceCardsTitle": "Lizenzkarten drucken",
+    "printLicenceCardsDescription": "Druckauftrag für {count} ausgewählte Einträge erstellen.",
+    "printLicenceCardsTemplateLabel": "Kartenvorlage",
+    "printLicenceCardsTemplatePlaceholder": "Veröffentlichte Vorlage wählen",
+    "printLicenceCardsNoTemplate": "Es gibt keine veröffentlichte Lizenzkartenvorlage.",
+    "printLicenceCardsPrinterLabel": "Druckerprofil",
+    "printLicenceCardsPrinterNone": "Kein Druckerprofil",
+    "printLicenceCardsSubmit": "Druckauftrag erstellen und PDF öffnen",
+    "printLicenceCardsWorking": "Druckauftrag wird erstellt...",
+    "printLicenceCardsSuccess": "Druckauftrag {jobNumber} ist bereit.",
+    "printLicenceCardsOpenList": "Druckaufträge öffnen",
+    "printLicenceCardsOpenPdf": "PDF öffnen",
+    "printLicenceCardsError": "Der Druckauftrag konnte nicht erstellt werden.",
     "memberCommitteeTab": "Vorstand",
     "modulePricesTitle": "Module und Preise",
     "modulePricesSubtitle": "Was der Verband diesem Verein für jeden Teil der App berechnet. Die Liste ist auch lesbar, wenn nichts eingeschaltet ist.",
@@ -657,6 +672,8 @@
     "federationNameRequired": "Der Name des Verbandes ist erforderlich"
   },
   "ClubMgmt": {
+    "shopQrAlt": "QR-Code für Größe {size}",
+    "shopQrPreviewEmpty": "Für diese Größe gibt es noch kein QR-Bild.",
     "committeeRemoveDescription": "Löschen Sie dieses Amt nur, wenn es versehentlich angelegt wurde. Wer ausgeschieden ist, bekommt ein Enddatum.",
     "committeeHistoryTitle": "Vorstandshistorie",
     "committeeHistorySubtitle": "Wer welches Amt hatte, und von wann bis wann.",

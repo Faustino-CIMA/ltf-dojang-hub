@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Trash2 }
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { ShopQrStickers } from "@/components/clubmgmt/shop-qr-stickers";
 import { ClubShopTabs } from "@/components/clubmgmt/shop-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
@@ -789,6 +790,7 @@ export default function ClubShopItemDetailPage() {
                   <div>
                     <Label>{t("shopStickers")}</Label>
                     <p className="mt-1 text-xs text-muted">{t("shopStickersHint")}</p>
+                    <ShopQrStickers variants={item.variants} />
                     <div className="mt-2 flex flex-wrap gap-2">
                       {activeVariants.length > 0 ? (
                         <Select value={stickerTarget} onValueChange={setStickerTarget}>

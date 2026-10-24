@@ -5,8 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { PrintLicenceCardsPanel } from "@/components/club-admin/print-licence-cards-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
 import {
@@ -18,6 +21,7 @@ import {
   getLicensesPage,
   getMembersList,
 } from "@/lib/club-admin-api";
+import { apiRequest } from "@/lib/api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
@@ -57,6 +61,9 @@ export default function ClubAdminLicensesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [selectedLicenseIds, setSelectedLicenseIds] = useState<number[]>([]);
+  const [printCardsOpen, setPrintCardsOpen] = useState(false);
   const ordering = toOrderingParam(tableSort);
   const [licenseFacetCounts, setLicenseFacetCounts] = useState({
     all: 0,
@@ -181,6 +188,44 @@ export default function ClubAdminLicensesPage() {
   }, [loadData]);
 
   useEffect(() => {
+    let isMounted = true;
+    apiRequest<{ role: string }>("/api/auth/me/")
+      .then((me) => {
+        if (isMounted) {
+          setCurrentRole(me.role);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setCurrentRole(null);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const canManageLicenses = currentRole === "club_admin";
+  const visibleLicenseIds = licenses.map((license) => license.id);
+  const allVisibleSelected =
+    visibleLicenseIds.length > 0 && visibleLicenseIds.every((id) => selectedLicenseIds.includes(id));
+
+  const toggleSelectAll = () => {
+    setSelectedLicenseIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter((id) => !visibleLicenseIds.includes(id));
+      }
+      return Array.from(new Set([...current, ...visibleLicenseIds]));
+    });
+  };
+
+  const toggleSelectRow = (licenseId: number) => {
+    setSelectedLicenseIds((current) =>
+      current.includes(licenseId) ? current.filter((id) => id !== licenseId) : [...current, licenseId]
+    );
+  };
+
+  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
     }, 250);
@@ -238,6 +283,29 @@ export default function ClubAdminLicensesPage() {
   };
 
   const columns = [
+    ...(canManageLicenses
+      ? [
+          {
+            key: "select",
+            header: (
+              <Checkbox
+                aria-label={common("selectAllLabel")}
+                checked={allVisibleSelected}
+                onCheckedChange={() => toggleSelectAll()}
+              />
+            ),
+            render: (license: License) => (
+              <span className="inline-flex" onClick={(event) => event.stopPropagation()}>
+                <Checkbox
+                  aria-label={common("selectRowLabel")}
+                  checked={selectedLicenseIds.includes(license.id)}
+                  onCheckedChange={() => toggleSelectRow(license.id)}
+                />
+              </span>
+            ),
+          },
+        ]
+      : []),
     {
       key: "member",
       header: common("fullNameLabel"),
@@ -319,7 +387,33 @@ export default function ClubAdminLicensesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {canManageLicenses ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <ActionMenu
+                  label={common("batchActionsLabel")}
+                  disabled={selectedLicenseIds.length === 0}
+                  actions={[
+                    {
+                      key: "print-cards",
+                      label: t("printLicenceCardsAction"),
+                      onSelect: () => {
+                        if (selectedLicenseIds.length > 0) {
+                          setPrintCardsOpen(true);
+                        }
+                      },
+                    },
+                  ]}
+                />
+                {selectedLicenseIds.length > 0 ? (
+                  <span className="text-sm font-medium text-foreground">
+                    {t("selectedMembersCountLabel", { count: selectedLicenseIds.length })}
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <span />
+            )}
             <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
               <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
               <Button
@@ -356,6 +450,14 @@ export default function ClubAdminLicensesPage() {
           />
         )}
       </div>
+      <PrintLicenceCardsPanel
+        open={printCardsOpen}
+        onClose={() => setPrintCardsOpen(false)}
+        locale={locale}
+        clubId={selectedClubId}
+        source="licenses"
+        licenseIds={selectedLicenseIds}
+      />
     </ClubAdminLayout>
   );
 }
