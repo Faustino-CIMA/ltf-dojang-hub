@@ -1,5 +1,6 @@
 import { getToken } from "./auth";
 import { API_URL, apiRequest } from "./api";
+import type { LtfLicensePrefixRewritePolicy } from "./import-api";
 
 export type SetupStatus = {
   available: boolean;
@@ -43,6 +44,8 @@ export type SetupClubPreview = {
 export type SetupMemberRow = {
   row_index: number;
   member_id: string;
+  wt_license_id?: string;
+  ltf_license_id?: string;
   first_name: string;
   last_name: string;
   club_name: string;
@@ -76,6 +79,8 @@ export type SetupMemberPreview = {
   can_confirm: boolean;
   email_ignored: boolean;
   clubs: Array<{ id: number; name: string; federation: string }>;
+  mapping?: Record<string, string>;
+  ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
 };
 
 export function getSetupStatus() {

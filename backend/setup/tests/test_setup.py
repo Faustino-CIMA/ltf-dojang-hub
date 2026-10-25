@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import AccountSetupInvite
 from accounts.setup_invites import NEUTRAL_DETAIL, hash_setup_token
-from clubs.models import Club
+from clubs.models import Club, FederationProfile
 from licenses.models import License
 from members.models import LtfStaffFunction, Member
 from ops.models import OpsAuditLog
@@ -156,6 +156,8 @@ class SetupMemberStepTests(TestCase):
             {
                 "mapping": {
                     "ltf_licenseid": "Member ID",
+                    "member_id": "Member ID",
+                    "id": "Member ID",
                     "first_name": "Preferred Last Name",
                     "last_name": "Preferred First Name",
                     "club_name": "Club Name",
@@ -166,12 +168,30 @@ class SetupMemberStepTests(TestCase):
         )
         self.assertEqual(preview.status_code, 200, preview.data)
         self.assertNotIn("email", preview.data["mapping"])
+        self.assertNotIn("member_id", preview.data["mapping"])
+        self.assertNotIn("id", preview.data["mapping"])
         self.assertNotIn("date_of_birth", preview.data["mapping"])
         self.assertEqual(preview.data["mapping"]["first_name"], "Preferred Last Name")
         erika = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-1001")
         self.assertEqual(erika["first_name"], "Musterfrau")
         self.assertEqual(erika["last_name"], "Erika")
         self.assertTrue(preview.data["email_ignored"])
+        self.assertNotIn("wt_licenseid", preview.data["mapping"])
+        self.assertEqual(erika["wt_license_id"], "")
+        self.assertEqual(erika["ltf_license_id"], "LUX-1001")
+
+    def test_member_id_column_maps_to_wt_and_ltf_ids(self):
+        preview = self._preview()
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data["mapping"]["wt_licenseid"], "Member ID")
+        self.assertEqual(preview.data["mapping"]["ltf_licenseid"], "Member ID")
+        self.assertNotIn("member_id", preview.data["mapping"])
+        self.assertNotIn("id", preview.data["mapping"])
+        self.assertFalse(preview.data["ltf_license_prefix_rewrite"]["enabled"])
+        erika = next(row for row in preview.data["rows"] if row["row_index"] == 2)
+        self.assertEqual(erika["wt_license_id"], "LUX-1001")
+        self.assertEqual(erika["ltf_license_id"], "LUX-1001")
+        self.assertEqual(erika["member_id"], "LUX-1001")
 
     def test_unresolved_gender_blocks_confirm(self):
         preview = self._preview()
@@ -203,6 +223,7 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(confirmed.status_code, 200, confirmed.data)
         self.assertEqual(License.objects.count(), 0)
         erika = Member.objects.get(ltf_licenseid="LUX-1001")
+        self.assertEqual(erika.wt_licenseid, "LUX-1001")
         self.assertEqual(erika.club.name, "Silver Crane Academy")
         self.assertEqual(erika.first_name, "Erika")
         self.assertEqual(erika.last_name, "MUSTERFRAU")
@@ -232,6 +253,80 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(again.status_code, 200, again.data)
         self.assertEqual(again.data["created"], 0)
         self.assertEqual(Member.objects.filter(ltf_licenseid="LUX-1001").count(), 1)
+
+
+@override_settings(DEMO_MODE=False)
+class SetupMemberIdPrefixTests(TestCase):
+    def test_snapshot_rewrites_ltf_only_rerun_does_not_duplicate_and_admin_links(self):
+        profile = FederationProfile.objects.create(rewrite_lux_prefix_on_member_import=True)
+        client = APIClient()
+        superuser = User.objects.create_superuser(username="setup-prefix", password="pass12345", email="")
+        client.force_authenticate(user=superuser)
+        started = client.post("/api/setup/start/")
+        self.assertEqual(started.status_code, 200, started.data)
+        self.assertTrue(started.data["ltf_prefix_rewrite"])
+        profile.rewrite_lux_prefix_on_member_import = False
+        profile.save(update_fields=["rewrite_lux_prefix_on_member_import"])
+        self.assertTrue(SetupState.objects.get(pk=1).ltf_prefix_rewrite)
+
+        client.post("/api/setup/clubs/confirm/", {"file": csv_file("fake_clubs.csv")}, format="multipart")
+        crane = Club.objects.get(name="Silver Crane Academy")
+        payload = {
+            "sex_overrides": {"6": "F", "7": "skip"},
+            "active_overrides": {"15": True},
+            "club_name_overrides": {
+                "tkd musterstadt": {"club_id": crane.id},
+                "luxembourg taekwondo federation": {"staff": True},
+            },
+            "club_choices": {"LTF-4001": crane.id},
+            "allow_missing_id": [13],
+        }
+        with patch("setup.members_step.timezone.localdate", return_value=date(2026, 10, 25)):
+            preview = client.post(
+                "/api/setup/members/preview/",
+                {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+                format="multipart",
+            )
+            self.assertEqual(preview.status_code, 200, preview.data)
+            self.assertTrue(preview.data["ltf_license_prefix_rewrite"]["enabled"])
+            self.assertGreater(preview.data["ltf_license_prefix_rewrite"]["rewritten_count"], 0)
+            erika_row = next(row for row in preview.data["rows"] if row["row_index"] == 2)
+            self.assertEqual(erika_row["wt_license_id"], "LUX-1001")
+            self.assertEqual(erika_row["ltf_license_id"], "LTF-1001")
+            self.assertTrue(preview.data["can_confirm"], preview.data)
+            confirmed = client.post(
+                "/api/setup/members/confirm/",
+                {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+                format="multipart",
+            )
+            self.assertEqual(confirmed.status_code, 200, confirmed.data)
+            again = client.post(
+                "/api/setup/members/confirm/",
+                {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+                format="multipart",
+            )
+        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(again.data["created"], 0)
+        erika = Member.objects.get(wt_licenseid="LUX-1001")
+        self.assertEqual(erika.ltf_licenseid, "LTF-1001")
+        self.assertEqual(Member.objects.filter(wt_licenseid="LUX-1001").count(), 1)
+        self.assertEqual(Member.objects.filter(ltf_licenseid="LTF-1001").count(), 1)
+        self.assertTrue(erika.ltf_staff_functions.filter(function=LtfStaffFunction.Function.MEDIA, ended_on=None).exists())
+        kim = Member.objects.get(ltf_licenseid="LTF-2001")
+        self.assertEqual(kim.wt_licenseid, "LUX-2001")
+        self.assertIsNone(kim.club_id)
+        self.assertTrue(kim.ltf_staff_functions.filter(function="coach", ended_on=None).exists())
+
+        admins = client.post("/api/setup/admins/preview/", {"file": csv_file("fake_admins.csv")}, format="multipart")
+        self.assertEqual(admins.status_code, 200, admins.data)
+        linked = next(row for row in admins.data["rows"] if row["admin_id"] == "LTF-1001" and row["organization"] == "Silver Crane Academy")
+        self.assertEqual(linked["status"], "ok")
+        self.assertEqual(linked["member_id"], erika.id)
+        saved = client.post("/api/setup/admins/confirm/", {"file": csv_file("fake_admins.csv")}, format="multipart")
+        self.assertEqual(saved.status_code, 200, saved.data)
+        erika.refresh_from_db()
+        self.assertIsNotNone(erika.user_id)
+        self.assertTrue(crane.admins.filter(id=erika.user_id).exists())
 
 
 def _member_import_payload():

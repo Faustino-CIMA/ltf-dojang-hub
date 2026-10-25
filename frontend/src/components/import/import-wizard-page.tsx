@@ -35,6 +35,7 @@ import {
 import {
   applySuggestedMapping,
   detectMembershipEndDateHeader,
+  omitGeneratedMemberIdFields,
   unusedSourceHeaders,
 } from "@/lib/import-mapping";
 import { importResultTone, type ImportResultTone } from "@/lib/import-result";
@@ -593,7 +594,7 @@ export function ImportWizardPage({
 
   const canSwitchType = allowedTypes.length > 1;
   const isMembersImport = importType === "members";
-  const currentFields = fieldsByType[importType];
+  const currentFields = omitGeneratedMemberIdFields(fieldsByType[importType] ?? []);
   const requiredFields = useMemo(
     () => currentFields.filter((field) => field.required),
     [currentFields]

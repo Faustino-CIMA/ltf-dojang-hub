@@ -3,6 +3,13 @@ export type ImportMappingField = {
   label: string;
 };
 
+/** Primary key assigned when a member is saved. Never a column target on a form. */
+export const GENERATED_MEMBER_ID_FIELD_KEYS = new Set(["id", "member_id"]);
+
+export function omitGeneratedMemberIdFields<T extends { key: string }>(fields: T[]): T[] {
+  return fields.filter((field) => !GENERATED_MEMBER_ID_FIELD_KEYS.has(field.key));
+}
+
 export const FIELD_HEADER_ALIASES: Record<string, string[]> = {
   first_name: [
     "first name",
