@@ -103,13 +103,36 @@ def _override_map(options: dict, key: str) -> dict:
     return {str(item_key): value for item_key, value in raw.items()}
 
 
-def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> dict:
-    options = options or {}
+def _mapping_for(headers, options: dict) -> dict:
+    """Use a caller-supplied column map when present.
+
+    A supplied map is not filled back in from the suggestion, so a cleared
+    column stays cleared. Email is never mapped. With no map, detection matches
+    the previous setup import.
+    """
+    supplied = options.get("mapping")
+    header_set = {str(header) for header in headers}
+    if isinstance(supplied, dict):
+        mapping = {}
+        for key, header in supplied.items():
+            if str(key) == "email":
+                continue
+            header = str(header or "").strip()
+            if header in header_set:
+                mapping[str(key)] = header
+        return mapping
     mapping = suggest_member_mapping(headers)
     mapping.pop("email", None)
-    end_header = detect_membership_end_date_header(headers, mapping)
-    if end_header:
-        mapping["membership_end_date"] = end_header
+    if "membership_end_date" not in mapping:
+        end_header = detect_membership_end_date_header(headers, mapping)
+        if end_header:
+            mapping["membership_end_date"] = end_header
+    return mapping
+
+
+def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> dict:
+    options = options or {}
+    mapping = _mapping_for(headers, options)
     blank = 0
     kept = []
     for index, row in enumerate(rows, start=1):

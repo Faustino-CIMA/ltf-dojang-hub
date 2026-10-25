@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
+import { ExplainedCount, ImportStatusBadge, StatusLegend, StepIntro } from "@/components/import/wizard-chrome";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { formatFullName } from "@/lib/person-name";
 import {
   confirmSetupAdmins,
@@ -27,6 +27,16 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral" |
   likely_swapped: "warning",
   club_admin_limit: "danger",
 };
+
+const SUMMARY_KEYS = [
+  ["ok", "adminsWillCreate", "adminsWillCreateHint", "success"],
+  ["already_admin", "adminsAlready", "adminsAlreadyHint", "info"],
+  ["member_not_found", "adminsMemberMissing", "adminsMemberMissingHint", "warning"],
+  ["club_not_found", "adminsClubMissing", "adminsClubMissingHint", "warning"],
+  ["club_admin_limit", "adminsLimit", "adminsLimitHint", "danger"],
+  ["name_mismatch", "adminsNameDiffers", "adminsNameDiffersHint", "warning"],
+  ["likely_swapped", "adminsSwapped", "adminsSwappedHint", "warning"],
+] as const;
 
 export function AdminStep({ onFinish }: { onFinish: () => void }) {
   const t = useTranslations("Setup");
@@ -86,10 +96,14 @@ export function AdminStep({ onFinish }: { onFinish: () => void }) {
     }
   };
 
+  const counts = Object.fromEntries(SUMMARY_KEYS.map(([status]) => [status, rows.filter((row) => row.status === status).length]));
+
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-4">
-      <h2 className="text-lg font-semibold">{t("step_admins")}</h2>
-      <p className="mt-2 text-sm text-muted">{t("adminsHelp")}</p>
+    <section className="space-y-3 rounded-[var(--radius-card)] border border-border bg-card p-4" data-setup-panel="admins">
+      <StepIntro title={t("step_admins")}>
+        <p>{t("adminsIntro")}</p>
+        <p>{t("adminsNotImported")}</p>
+      </StepIntro>
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
       {notice ? <p className="mt-3 text-sm text-muted">{notice}</p> : null}
       <label className="mt-4 block text-sm font-medium" htmlFor="setup-admins-file">
@@ -115,13 +129,44 @@ export function AdminStep({ onFinish }: { onFinish: () => void }) {
         }}
       />
       {preview ? (
-        <p className="mt-3 text-sm text-muted">
-          {t("adminIgnored", {
-            blank: preview.blank_rows_ignored,
-            ltf: preview.ltf_rows_ignored,
-            skipped: preview.skipped_admin_ids,
-          })}
-        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {SUMMARY_KEYS.map(([status, labelKey, hintKey, tone]) => (
+            <ExplainedCount
+              key={status}
+              label={t(labelKey, { count: counts[status] ?? 0 })}
+              hint={t(hintKey)}
+              hintLabel={t("hintLabel")}
+              tone={tone}
+            />
+          ))}
+          <ExplainedCount
+            label={t("adminsLtfIgnored", { count: preview.ltf_rows_ignored })}
+            hint={t("adminsLtfIgnoredHint")}
+            hintLabel={t("hintLabel")}
+          />
+          <ExplainedCount
+            label={t("adminsBlankIgnored", { count: preview.blank_rows_ignored })}
+            hint={t("adminsBlankIgnoredHint")}
+            hintLabel={t("hintLabel")}
+          />
+          <ExplainedCount
+            label={t("adminsSkippedIds", { count: preview.skipped_admin_ids })}
+            hint={t("adminsSkippedIdsHint")}
+            hintLabel={t("hintLabel")}
+          />
+        </div>
+      ) : null}
+      {rows.length ? (
+        <StatusLegend
+          title={t("adminsLegendTitle")}
+          items={(["ok", "already_admin", "member_not_found", "club_not_found", "name_mismatch", "likely_swapped", "club_admin_limit"] as const).map(
+            (status) => ({
+              label: t(`status_${status}`),
+              hint: t(`fix_${status}`),
+              tone: STATUS_TONE[status],
+            }),
+          )}
+        />
       ) : null}
       {rows.length ? (
         <div className="mt-4 overflow-x-auto">
@@ -153,7 +198,8 @@ export function AdminStep({ onFinish }: { onFinish: () => void }) {
                   <td className="py-2 pr-3">{formatFullName(row)}</td>
                   <td className="py-2 pr-3">{row.club_name}</td>
                   <td className="py-2">
-                    <StatusBadge label={t(`status_${row.status}`)} tone={STATUS_TONE[row.status] ?? "neutral"} />
+                    <ImportStatusBadge label={t(`status_${row.status}`)} tone={STATUS_TONE[row.status] ?? "neutral"} />
+                    <p className="mt-1 text-xs text-muted">{t(`fix_${row.status}`)}</p>
                   </td>
                 </tr>
               ))}

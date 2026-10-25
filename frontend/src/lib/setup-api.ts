@@ -61,6 +61,7 @@ export type SetupMemberRow = {
   is_active: boolean | null;
   end_unparseable: boolean;
   staff_function: string;
+  allow_missing_id?: boolean;
   group_conflict?: boolean;
   also_staff?: boolean;
 };
