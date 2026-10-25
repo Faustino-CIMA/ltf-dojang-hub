@@ -28,6 +28,13 @@ describe("club federation messages", () => {
       }
       expect(Object.keys(messages.TrainingVenues).sort()).toEqual(venueKeys);
       expect(Object.keys(messages.Setup).sort()).toEqual(Object.keys(en.Setup).sort());
+      expect(Object.keys(messages.AccountSetup).sort()).toEqual(Object.keys(en.AccountSetup).sort());
     }
+  });
+
+  it("keeps the confidential setup-link warning in English", () => {
+    expect(en.Setup.downloadWarning).toBe(
+      "This file contains live login links. Anyone who has it can take over these accounts until the links are used or expire (7 days). Don't email it as a whole, send each person only their own link, and delete the file afterwards."
+    );
   });
 });

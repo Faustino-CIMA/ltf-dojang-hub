@@ -8,6 +8,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import (
+    AccountSetupView,
     ConsentView,
     DataDeleteView,
     DataExportView,
@@ -30,6 +31,11 @@ from imports.views import (
 )
 from clubs.public_stats import PublicStatsView
 from setup.views import (
+    SetupAdminLinkView,
+    SetupAdminLinksCsvView,
+    SetupAdminsConfirmView,
+    SetupAdminsListView,
+    SetupAdminsPreviewView,
     SetupClubsConfirmView,
     SetupClubsPreviewView,
     SetupFinishView,
@@ -206,6 +212,7 @@ urlpatterns = [
     ),
     path("api/auth/verify-email/", VerifyEmailView.as_view(), name="verify-email"),
     path("api/auth/resend-status/", ResendStatusView.as_view(), name="resend-status"),
+    path("api/auth/account-setup/", AccountSetupView.as_view(), name="account-setup"),
     path("api/auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
     path(
         "api/auth/password-reset/confirm/",
@@ -219,6 +226,11 @@ urlpatterns = [
     path("api/setup/clubs/confirm/", SetupClubsConfirmView.as_view(), name="setup-clubs-confirm"),
     path("api/setup/members/preview/", SetupMembersPreviewView.as_view(), name="setup-members-preview"),
     path("api/setup/members/confirm/", SetupMembersConfirmView.as_view(), name="setup-members-confirm"),
+    path("api/setup/admins/preview/", SetupAdminsPreviewView.as_view(), name="setup-admins-preview"),
+    path("api/setup/admins/confirm/", SetupAdminsConfirmView.as_view(), name="setup-admins-confirm"),
+    path("api/setup/admins/setup-links.csv", SetupAdminLinksCsvView.as_view(), name="setup-admin-links-csv"),
+    path("api/setup/admins/<int:user_id>/setup-link/", SetupAdminLinkView.as_view(), name="setup-admin-link"),
+    path("api/setup/admins/", SetupAdminsListView.as_view(), name="setup-admins"),
     path("api/setup/finish/", SetupFinishView.as_view(), name="setup-finish"),
     path(
         "api/clubs/<int:club_id>/training-venues/",

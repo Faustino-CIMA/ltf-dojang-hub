@@ -17,6 +17,7 @@ SECRET_KEY = config("DJANGO_SECRET_KEY", default="change-me")
 DEBUG = config("DJANGO_DEBUG", cast=bool, default=False)
 # Explicit opt-in for the separate demo app. Seed commands refuse to run when this is off.
 DEMO_MODE = config("DEMO_MODE", default="false").strip().lower() in {"1", "true", "yes"}
+SETUP_SKIP_ADMIN_IDS = ["LUX-10"]
 FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:3000")
 FRONTEND_DEFAULT_LOCALE = config("FRONTEND_DEFAULT_LOCALE", default="en")
 def split_csv(value: str) -> list[str]:

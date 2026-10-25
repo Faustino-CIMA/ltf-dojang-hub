@@ -1,4 +1,5 @@
-import { apiRequest } from "./api";
+import { getToken } from "./auth";
+import { API_URL, apiRequest } from "./api";
 
 export type SetupStatus = {
   available: boolean;
@@ -12,6 +13,8 @@ export type SetupStatus = {
     club_members: number;
     ltf_staff: number;
     admins: number;
+    admins_not_imported?: number;
+    links_unused?: number;
   };
   step_results: Record<string, unknown>;
 };
@@ -86,15 +89,15 @@ export function finishSetup() {
   return apiRequest<SetupStatus>("/api/setup/finish/", { method: "POST" });
 }
 
-function upload(path: string, file: File, payload: Record<string, unknown>) {
+function upload<T>(path: string, file: File, payload: Record<string, unknown>) {
   const body = new FormData();
   body.append("file", file);
   body.append("payload", JSON.stringify(payload));
-  return apiRequest<SetupClubPreview & SetupMemberPreview>(path, { method: "POST", body });
+  return apiRequest<T>(path, { method: "POST", body });
 }
 
 export function previewSetupClubs(file: File, payload: Record<string, unknown> = {}) {
-  return upload("/api/setup/clubs/preview/", file, payload) as Promise<SetupClubPreview>;
+  return upload<SetupClubPreview>("/api/setup/clubs/preview/", file, payload);
 }
 
 export function confirmSetupClubs(file: File, payload: Record<string, unknown>) {
@@ -102,9 +105,114 @@ export function confirmSetupClubs(file: File, payload: Record<string, unknown>) 
 }
 
 export function previewSetupMembers(file: File, payload: Record<string, unknown>) {
-  return upload("/api/setup/members/preview/", file, payload) as Promise<SetupMemberPreview>;
+  return upload<SetupMemberPreview>("/api/setup/members/preview/", file, payload);
 }
 
 export function confirmSetupMembers(file: File, payload: Record<string, unknown>) {
   return upload("/api/setup/members/confirm/", file, payload);
+}
+
+export type SetupAdminRow = {
+  row_index: number;
+  organization: string;
+  admin_id: string;
+  display_name: string;
+  first_name: string;
+  last_name: string;
+  club_name: string;
+  status: string;
+  flags: string[];
+};
+
+export type SetupAdminPreview = {
+  rows: SetupAdminRow[];
+  not_imported: string[];
+  blank_rows_ignored: number;
+  ltf_rows_ignored: number;
+  skipped_admin_ids: number;
+  can_confirm: boolean;
+};
+
+export type SetupAdminRecord = {
+  user_id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  clubs: Array<{ id: number; name: string }>;
+  flags: string[];
+  link_status: string;
+};
+
+export type SetupAdminResult = {
+  admins: SetupAdminRecord[];
+  not_imported: string[];
+  blank_rows_ignored?: number;
+  ltf_rows_ignored?: number;
+  skipped_admin_ids?: number;
+};
+
+export function previewSetupAdmins(file: File) {
+  return upload<SetupAdminPreview>("/api/setup/admins/preview/", file, {});
+}
+
+export function confirmSetupAdmins(file: File) {
+  return upload<SetupAdminPreview & { confirmed: boolean; admins: SetupAdminRecord[] }>("/api/setup/admins/confirm/", file, {});
+}
+
+export function getSetupAdmins() {
+  return apiRequest<SetupAdminResult>("/api/setup/admins/");
+}
+
+export function issueSetupLink(userId: number, locale: string) {
+  return apiRequest<{ setup_link: string; expires_at: string; link_status: string }>(
+    `/api/setup/admins/${userId}/setup-link/`,
+    { method: "POST", body: JSON.stringify({ locale }) }
+  );
+}
+
+export async function downloadSetupLinks(locale: string) {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/api/setup/admins/setup-links.csv`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ locale }),
+  });
+  if (!response.ok) {
+    throw new Error("Download failed");
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const filename = match?.[1] || `setup-links-CONFIDENTIAL-${new Date().toISOString().slice(0, 10)}.csv`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export type AccountSetupAssignment = {
+  role: string;
+  organisation: string;
+};
+
+export type AccountSetupInfo = {
+  username: string;
+  first_name: string;
+  last_name: string;
+  assignments: AccountSetupAssignment[];
+};
+
+export function getAccountSetup(token: string) {
+  return apiRequest<AccountSetupInfo>(`/api/auth/account-setup/?token=${encodeURIComponent(token)}`);
+}
+
+export function completeAccountSetup(body: { token: string; email: string; password: string; password_confirm: string }) {
+  return apiRequest<{ detail: string }>("/api/auth/account-setup/", { method: "POST", body: JSON.stringify(body) });
 }

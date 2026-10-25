@@ -1,6 +1,8 @@
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.encoding import force_str
@@ -15,7 +17,8 @@ from members.services import clear_member_profile_picture
 from licenses.models import License, LicenseHistoryEvent
 
 from .email_utils import build_password_reset_url, send_password_reset_email
-from .models import User
+from .models import AccountSetupInvite, User
+from .setup_invites import NEUTRAL_DETAIL, account_setup_assignments, invite_for_token, invite_is_open
 from .serializers import (
     ConsentSerializer,
     DataDeleteResponseSerializer,
@@ -367,6 +370,74 @@ class PasswordResetConfirmView(views.APIView):
         user.is_email_verified = True
         user.save(update_fields=["password", "is_email_verified"])
         return response.Response({"detail": "Password reset successfully."})
+
+
+class AccountSetupView(views.APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        invite, user = _open_setup_invite(request.query_params.get("token"))
+        if invite is None or user is None:
+            return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
+        member = Member.objects.filter(user=user).first()
+        return response.Response(
+            {
+                "username": user.username,
+                "first_name": member.first_name if member else user.first_name,
+                "last_name": member.last_name if member else user.last_name,
+                "assignments": account_setup_assignments(user),
+            }
+        )
+
+    def post(self, request):
+        invite, user = _open_setup_invite(request.data.get("token"))
+        if invite is None or user is None:
+            return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
+        email = str(request.data.get("email") or "").strip()
+        password = str(request.data.get("password") or "")
+        confirmation = str(request.data.get("password_confirm") or "")
+        if not email or "@" not in email:
+            return response.Response({"email": ["Enter a valid email address."]}, status=status.HTTP_400_BAD_REQUEST)
+        if password != confirmation:
+            return response.Response({"password_confirm": ["Passwords do not match."]}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists() or EmailAddress.objects.filter(email__iexact=email).exclude(user=user).exists():
+            return response.Response({"email": ["That email is already used."]}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(password, user=user)
+        except DjangoValidationError as exc:
+            return response.Response({"password": exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            locked = AccountSetupInvite.objects.select_for_update().get(pk=invite.pk)
+            if not invite_is_open(locked):
+                return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
+            user.email = email
+            user.is_email_verified = True
+            user.set_password(password)
+            user.save(update_fields=["email", "is_email_verified", "password"])
+            address, _created = EmailAddress.objects.get_or_create(
+                user=user,
+                email=email,
+                defaults={"verified": True, "primary": True},
+            )
+            EmailAddress.objects.filter(user=user).exclude(pk=address.pk).update(primary=False)
+            if not address.verified or not address.primary:
+                address.verified = True
+                address.primary = True
+                address.save(update_fields=["verified", "primary"])
+            member = Member.objects.filter(user=user).first()
+            if member is not None:
+                member.email = email
+                member.save(update_fields=["email", "updated_at"])
+            locked.used_at = timezone.now()
+            locked.save(update_fields=["used_at"])
+        return response.Response({"detail": "Account ready."})
+
+
+def _open_setup_invite(raw):
+    invite = invite_for_token(str(raw or ""))
+    if not invite_is_open(invite):
+        return None, None
+    return invite, invite.user
 
 
 @extend_schema(
