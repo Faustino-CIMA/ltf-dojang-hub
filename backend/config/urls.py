@@ -21,6 +21,7 @@ from accounts.views import (
     VerifyEmailView,
 )
 from ops.views import PublicI18nView
+from config.views import root_entry
 from imports.views import (
     ClubImportConfirmView,
     ClubImportPreviewView,
@@ -171,7 +172,10 @@ schema_view = (
     else SpectacularAPIView.as_view()
 )
 
+handler404 = "config.views.not_found"
+
 urlpatterns = [
+    path("", root_entry, name="root"),
     path("favicon.ico", RedirectView.as_view(url="/static/favicon.ico", permanent=True)),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
