@@ -3,9 +3,19 @@ import re
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from rest_framework import serializers
 
+from django.utils.translation import gettext_lazy as _
+
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from .languages import normalize_club_language
-from .models import BrandingAsset, Club, FederationProfile, normalize_club_website
+from .models import (
+    BrandingAsset,
+    Club,
+    FederationProfile,
+    TrainingVenue,
+    RCS_NUMBER_RE,
+    normalize_club_website,
+    normalize_rcs_number,
+)
 
 
 class ClubSerializer(serializers.ModelSerializer):
@@ -28,6 +38,9 @@ class ClubSerializer(serializers.ModelSerializer):
             "email",
             "website",
             "is_active",
+            "federation",
+            "rcs_number",
+            "external_ref",
             "communication_language",
             "max_admins",
             "created_by",
@@ -76,6 +89,30 @@ class ClubSerializer(serializers.ModelSerializer):
 
     def validate_communication_language(self, value):
         return normalize_club_language(value)
+
+    def validate_rcs_number(self, value):
+        normalized = normalize_rcs_number(value)
+        if not normalized:
+            return ""
+        if not RCS_NUMBER_RE.fullmatch(normalized):
+            raise serializers.ValidationError(
+                _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")
+            )
+        clash = Club.objects.filter(rcs_number=normalized)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError(_("This RCS number is already used by another club."))
+        return normalized
+
+    def validate_external_ref(self, value):
+        return str(value or "").strip()
+
+    def validate_federation(self, value):
+        normalized = str(value or "").strip().upper()
+        if normalized not in {Club.Federation.WT, Club.Federation.ITF}:
+            raise serializers.ValidationError(_("Choose WT or ITF."))
+        return normalized
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -235,3 +272,50 @@ class BrandingAssetUpdateSerializer(serializers.Serializer):
     )
     label = serializers.CharField(max_length=120, required=False, allow_blank=True)
     is_selected = serializers.BooleanField(required=False)
+
+
+class TrainingVenueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainingVenue
+        fields = [
+            "id",
+            "club",
+            "name",
+            "street",
+            "house_number",
+            "line2",
+            "postal_code",
+            "locality",
+            "country",
+            "notes",
+            "is_active",
+            "sort_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["club", "created_at", "updated_at"]
+
+    def validate_name(self, value):
+        name = str(value or "").strip()
+        if not name:
+            raise serializers.ValidationError(_("Enter a name for this training venue."))
+        return name
+
+    def validate_postal_code(self, value):
+        return str(value or "").strip()
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        country = str(
+            attrs.get("country", getattr(self.instance, "country", "Luxembourg")) or "Luxembourg"
+        ).strip()
+        attrs["country"] = country
+        postal_code = str(
+            attrs.get("postal_code", getattr(self.instance, "postal_code", "")) or ""
+        ).strip()
+        if country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}:
+            if postal_code and not re.fullmatch(r"\d{4}", postal_code):
+                raise serializers.ValidationError(
+                    {"postal_code": _("Postal code must be 4 digits for Luxembourg.")}
+                )
+        return attrs

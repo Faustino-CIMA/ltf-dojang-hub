@@ -13,12 +13,15 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { getClubCommunicationLanguages, type ClubCommunicationLanguage } from "@/lib/club-admin-api";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
 import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
+import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
 import { Club, createClub, updateClub } from "@/lib/ltf-admin-api";
 
 const FORM_ID = "club-form";
 
 type ClubFormValues = {
   name: string;
+  federation: "WT" | "ITF";
+  rcs_number: string;
   address_line1: string;
   address_line2: string;
   postal_code: string;
@@ -32,6 +35,8 @@ type ClubFormValues = {
 
 const EMPTY_VALUES: ClubFormValues = {
   name: "",
+  federation: "WT",
+  rcs_number: "",
   address_line1: "",
   address_line2: "",
   postal_code: "",
@@ -46,6 +51,8 @@ const EMPTY_VALUES: ClubFormValues = {
 function valuesFromClub(club: Club): ClubFormValues {
   return {
     name: club.name ?? "",
+    federation: club.federation === "ITF" ? "ITF" : "WT",
+    rcs_number: club.rcs_number ?? "",
     address_line1: club.address_line1 || club.address || "",
     address_line2: club.address_line2 ?? "",
     postal_code: club.postal_code ?? "",
@@ -121,10 +128,17 @@ export function ClubFormPanel({
       setErrorMessage("Enter a valid IBAN.");
       return;
     }
+    const rcsNumber = normalizeRcsNumber(values.rcs_number);
+    if (!isValidRcsNumber(rcsNumber)) {
+      setErrorMessage(t("rcsNumberInvalid"));
+      return;
+    }
     setIsSaving(true);
     setErrorMessage(null);
     const payload = {
       name,
+      federation: values.federation,
+      rcs_number: rcsNumber,
       address_line1: values.address_line1.trim(),
       address_line2: values.address_line2.trim(),
       postal_code: postalCode,
@@ -187,7 +201,41 @@ export function ClubFormPanel({
             onChange={(event) => setField("name", event.target.value)}
           />
         </div>
-        <div className="md:col-span-2">
+        <div className="space-y-2">
+          <Label htmlFor="club-federation">{t("federationLabel")}</Label>
+          <PopoverSelect
+            className="w-full"
+            value={values.federation}
+            onValueChange={(value) => setField("federation", value === "ITF" ? "ITF" : "WT")}
+            ariaLabel={t("federationLabel")}
+            options={[
+              { value: "WT", label: t("federationWt") },
+              { value: "ITF", label: t("federationItf") },
+            ]}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="club-rcs">{t("rcsNumberLabel")}</Label>
+          <Input
+            id="club-rcs"
+            value={values.rcs_number}
+            placeholder={t("rcsNumberPlaceholder")}
+            onChange={(event) => setField("rcs_number", event.target.value)}
+          />
+          <a
+            href={LBR_SEARCH_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-primary underline-offset-2 hover:underline"
+          >
+            {t("openLbrSearch")}
+          </a>
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">{t("headOfficeLabel")}</h3>
+            <p className="text-xs text-muted">{t("headOfficeHint")}</p>
+          </div>
           <LuAddressFields
             idPrefix="club"
             showCountry={false}

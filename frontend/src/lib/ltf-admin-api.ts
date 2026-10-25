@@ -24,6 +24,9 @@ export type Club = {
   email: string;
   website: string;
   is_active: boolean;
+  federation: "WT" | "ITF";
+  rcs_number: string;
+  external_ref: string;
   communication_language: string;
   max_admins: number;
   created_by: number;
@@ -181,6 +184,9 @@ export type ClubInput = {
   email?: string;
   website?: string;
   is_active?: boolean;
+  federation?: "WT" | "ITF";
+  rcs_number?: string;
+  external_ref?: string;
   communication_language?: string;
 };
 

@@ -38,6 +38,9 @@ import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
 import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
 import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
+import { TrainingVenuesSection } from "@/components/clubs/training-venues-section";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
 import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
 import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
@@ -53,6 +56,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 
 const clubSchema = z.object({
   name: z.string().min(1),
+  federation: z.enum(["WT", "ITF"]),
+  rcs_number: z.string().optional(),
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
@@ -111,6 +116,8 @@ export default function ClubAdminSettingsPage() {
     resolver: zodResolver(clubSchema),
     defaultValues: {
       name: "",
+      federation: "WT",
+      rcs_number: "",
       address_line1: "",
       address_line2: "",
       postal_code: "",
@@ -134,6 +141,8 @@ export default function ClubAdminSettingsPage() {
   const resetToEmpty = useCallback(() => {
     reset({
       name: "",
+      federation: "WT",
+      rcs_number: "",
       address_line1: "",
       address_line2: "",
       postal_code: "",
@@ -168,6 +177,8 @@ export default function ClubAdminSettingsPage() {
       }
       reset({
         name: club.name,
+        federation: club.federation === "ITF" ? "ITF" : "WT",
+        rcs_number: club.rcs_number ?? "",
         address_line1: club.address_line1 ?? club.address ?? "",
         address_line2: club.address_line2 ?? "",
         postal_code: club.postal_code ?? "",
@@ -297,8 +308,13 @@ export default function ClubAdminSettingsPage() {
       return;
     }
     const normalizedIban = values.iban?.trim() ?? "";
+    const rcsNumber = normalizeRcsNumber(values.rcs_number ?? "");
     if (normalizedIban && !isValidIban(normalizedIban)) {
       setErrorMessage("Enter a valid IBAN.");
+      return;
+    }
+    if (!isValidRcsNumber(rcsNumber)) {
+      setErrorMessage(t("rcsNumberInvalid"));
       return;
     }
     setErrorMessage(null);
@@ -306,6 +322,7 @@ export default function ClubAdminSettingsPage() {
     try {
       await updateClub(selectedClubId, {
         ...values,
+        rcs_number: rcsNumber,
         iban: normalizedIban,
         address: values.address_line1 ?? "",
         city: values.locality ?? "",
@@ -411,7 +428,44 @@ export default function ClubAdminSettingsPage() {
                 {errors.name ? <p className="text-sm text-destructive">{t("clubNameRequired")}</p> : null}
               </div>
 
-              <div className="md:col-span-2">
+              <div className="space-y-2">
+                <Label htmlFor="club-federation">{t("federationLabel")}</Label>
+                <Controller
+                  name="federation"
+                  control={control}
+                  render={({ field }) => (
+                    <PopoverSelect
+                      className="w-full"
+                      value={field.value || "WT"}
+                      onValueChange={field.onChange}
+                      ariaLabel={t("federationLabel")}
+                      options={[
+                        { value: "WT", label: t("federationWt") },
+                        { value: "ITF", label: t("federationItf") },
+                      ]}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="club-rcs">{t("rcsNumberLabel")}</Label>
+                <Input id="club-rcs" placeholder={t("rcsNumberPlaceholder")} {...register("rcs_number")} />
+                <a
+                  href={LBR_SEARCH_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline-offset-2 hover:underline"
+                >
+                  {t("openLbrSearch")}
+                </a>
+              </div>
+
+              <div className="md:col-span-2 space-y-2">
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">{t("headOfficeLabel")}</h3>
+                  <p className="text-xs text-muted">{t("headOfficeHint")}</p>
+                </div>
                 <LuAddressFields
                   idPrefix="club"
                   showCountry={false}
@@ -495,6 +549,12 @@ export default function ClubAdminSettingsPage() {
               </RequiredForm>
             </form>
           </section>
+
+          <TrainingVenuesSection
+            clubId={selectedClubId}
+            onError={setErrorMessage}
+            onSuccess={setSuccessMessage}
+          />
 
           {moduleFees ? <ClubModulePrices quote={moduleFees} /> : null}
 

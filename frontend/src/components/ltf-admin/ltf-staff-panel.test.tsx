@@ -46,7 +46,7 @@ describe("LTF staff panel", () => {
       <LtfStaffPanel
         mode="create"
         member={null}
-        clubs={[{ id: 2, name: "TKD Esch", city: "", address: "", address_line1: "", address_line2: "", postal_code: "", locality: "", iban: "", bank_name: "", email: "", website: "", is_active: true, communication_language: "fr", max_admins: 2, created_by: 1, admins: [], created_at: "", updated_at: "" }]}
+        clubs={[{ id: 2, name: "Silver Crane Academy", city: "", address: "", address_line1: "", address_line2: "", postal_code: "", locality: "", iban: "", bank_name: "", email: "", website: "", is_active: true, federation: "WT", rcs_number: "", external_ref: "", communication_language: "fr", max_admins: 2, created_by: 1, admins: [], created_at: "", updated_at: "" }]}
         licenseTypes={[licenseType]}
         busy={false}
         onClose={jest.fn()}

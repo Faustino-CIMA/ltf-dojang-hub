@@ -29,6 +29,11 @@ from imports.views import (
     MemberImportPreviewView,
 )
 from clubs.public_stats import PublicStatsView
+from clubs.venue_views import (
+    LuxembourgAddressLookupView,
+    TrainingVenueDetailView,
+    TrainingVenueListCreateView,
+)
 from clubs.views import (
     ClubViewSet,
     FederationProfileLogoContentView,
@@ -197,6 +202,17 @@ urlpatterns = [
         "api/auth/password-reset/confirm/",
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
+    ),
+    path("api/addresses/lu/", LuxembourgAddressLookupView.as_view(), name="lu-address-lookup"),
+    path(
+        "api/clubs/<int:club_id>/training-venues/",
+        TrainingVenueListCreateView.as_view(),
+        name="club-training-venues",
+    ),
+    path(
+        "api/clubs/<int:club_id>/training-venues/<int:venue_id>/",
+        TrainingVenueDetailView.as_view(),
+        name="club-training-venue-detail",
     ),
     path("api/imports/clubs/preview/", ClubImportPreviewView.as_view(), name="import-clubs-preview"),
     path("api/imports/clubs/confirm/", ClubImportConfirmView.as_view(), name="import-clubs-confirm"),

@@ -59,7 +59,7 @@ export function saveMemberRecord(memberId: number, payload: Record<string, unkno
 export function lookupLuAddress(postalCode: string, street = "") {
   const q = new URLSearchParams({ postal_code: postalCode });
   if (street) q.set("street", street);
-  return apiRequest<AddressLookup>(`/api/club-management/addresses/?${q.toString()}`);
+  return apiRequest<AddressLookup>(`/api/addresses/lu/?${q.toString()}`);
 }
 
 export function listCheckups(memberId: number) {
