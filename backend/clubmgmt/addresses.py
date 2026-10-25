@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
+
+_LABEL_POSTAL = re.compile(r"L-(\d{4})\b", re.IGNORECASE)
 
 GEOPORTAIL = "https://apiv4.geoportail.lu/fulltextsearch"
 
@@ -40,7 +43,7 @@ def lookup_luxembourg(postal_code: str, street: str = "") -> dict:
                     "house_number": parsed["house_number"],
                     "street": parsed["street"],
                     "locality": parsed["locality"],
-                    "postal_code": code,
+                    "postal_code": parsed["postal_code"] or code,
                     "label": label,
                 }
             )
@@ -52,27 +55,29 @@ def lookup_luxembourg(postal_code: str, street: str = "") -> dict:
     }
 
 
-def _parse_label(label: str, postal_code: str) -> dict:
-    # "1, Rue Example, L-1234 Luxembourg"
+def _parse_label(label: str, postal_code: str = "") -> dict:
+    # "1, Rue Example, L-1234 Luxembourg" — the postcode in the label wins over the query.
     house_number = ""
-    street = ""
-    locality = ""
-    text = label.strip()
+    text = (label or "").strip()
     if "," in text:
         first, rest = text.split(",", 1)
-        if first.strip()[0:1].isdigit():
-            house_number = first.strip()
+        token = first.strip()
+        if token[:1].isdigit():
+            house_number = token
             text = rest.strip()
-        else:
-            text = label.strip()
-    if f"L-{postal_code}" in text:
-        street_part, loc_part = text.split(f"L-{postal_code}", 1)
-        street = street_part.strip(" ,")
-        locality = loc_part.strip(" ,")
-    elif postal_code in text:
-        street_part, loc_part = text.rsplit(postal_code, 1)
-        street = street_part.replace("L-", "").strip(" ,")
-        locality = loc_part.strip(" ,")
+    match = _LABEL_POSTAL.search(text)
+    if match:
+        street = text[: match.start()].strip(" ,")
+        locality = text[match.end() :].strip(" ,")
+        found_postal = match.group(1)
     else:
         street = text
-    return {"house_number": house_number, "street": street, "locality": locality}
+        locality = ""
+        found_postal = ""
+    queried = "".join(ch for ch in (postal_code or "") if ch.isdigit())
+    return {
+        "house_number": house_number,
+        "street": street,
+        "locality": locality,
+        "postal_code": found_postal or queried,
+    }

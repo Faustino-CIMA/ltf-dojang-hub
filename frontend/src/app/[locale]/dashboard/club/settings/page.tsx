@@ -37,8 +37,10 @@ import { EgearBrandsDesk } from "@/components/club-admin/egear-brands-desk";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
 import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
+import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
 import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
 import { getClubModuleFees, type ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
 import {
   Select,
@@ -102,6 +104,7 @@ export default function ClubAdminSettingsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<ClubFormValues>({
@@ -119,6 +122,10 @@ export default function ClubAdminSettingsPage() {
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
+  const addressLine1 = useWatch({ control, name: "address_line1", defaultValue: "" }) ?? "";
+  const addressLine2 = useWatch({ control, name: "address_line2", defaultValue: "" }) ?? "";
+  const postalCode = useWatch({ control, name: "postal_code", defaultValue: "" }) ?? "";
+  const localityValue = useWatch({ control, name: "locality", defaultValue: "" }) ?? "";
   const derivedBankName = useMemo(
     () => deriveBankNameFromIban(watchedIban),
     [watchedIban]
@@ -404,28 +411,25 @@ export default function ClubAdminSettingsPage() {
                 {errors.name ? <p className="text-sm text-destructive">{t("clubNameRequired")}</p> : null}
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="club-address-1">{t("addressLine1Label")}</Label>
-                <Input id="club-address-1" placeholder={t("addressLine1Placeholder")} {...register("address_line1")} />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="club-address-2">{t("addressLine2Label")}</Label>
-                <Input
-                  id="club-address-2"
-                  placeholder={t("addressLine2Placeholder")}
-                  {...register("address_line2")}
+              <div className="md:col-span-2">
+                <LuAddressFields
+                  idPrefix="club"
+                  showCountry={false}
+                  value={{
+                    ...splitStreetLine(addressLine1),
+                    line2: addressLine2,
+                    postal_code: postalCode,
+                    locality: localityValue,
+                    country: "Luxembourg",
+                    use_for_invoice: false,
+                  }}
+                  onChange={(next) => {
+                    setValue("address_line1", joinStreetLine(next.house_number, next.street), { shouldDirty: true });
+                    setValue("address_line2", next.line2, { shouldDirty: true });
+                    setValue("postal_code", next.postal_code, { shouldDirty: true });
+                    setValue("locality", next.locality, { shouldDirty: true });
+                  }}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="club-postal">{t("postalCodeLabel")}</Label>
-                <Input id="club-postal" placeholder={t("postalCodePlaceholder")} {...register("postal_code")} />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="club-locality">{t("localityLabel")}</Label>
-                <Input id="club-locality" placeholder={t("localityPlaceholder")} {...register("locality")} />
               </div>
 
               <div className="space-y-2 md:col-span-2">
