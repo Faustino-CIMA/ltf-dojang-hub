@@ -7,11 +7,15 @@ from datetime import date
 from django.utils import timezone
 
 from imports.csv_utils import to_row_dict
-from imports.mapping import detect_membership_end_date_header, suggest_member_mapping
+from imports.mapping import detect_membership_end_date_header, normalize_header, suggest_member_mapping
 from imports.member_match import MemberMatchIndex
+from imports.views import resolve_import_license_ids
 from members.ltf_staff import _apply_function
 from members.models import Member
-from members.services import apply_ltf_license_id_import_prefix
+from members.services import (
+    LTF_LICENSE_IMPORT_SOURCE_PREFIX,
+    LTF_LICENSE_IMPORT_TARGET_PREFIX,
+)
 
 from .dates import detect_column_format, parse_with_format, plausible_birth_date
 from .names import is_ltf_name, is_near_ltf_name, normalize_club_name
@@ -107,15 +111,16 @@ def _mapping_for(headers, options: dict) -> dict:
     """Use a caller-supplied column map when present.
 
     A supplied map is not filled back in from the suggestion, so a cleared
-    column stays cleared. Email is never mapped. With no map, detection matches
-    the previous setup import.
+    column stays cleared. Email is never mapped. The app-generated member id
+    (id, member_id) is never a target. With no map, detection matches the
+    previous setup import and also copies a Member ID column onto both licence ids.
     """
     supplied = options.get("mapping")
     header_set = {str(header) for header in headers}
     if isinstance(supplied, dict):
         mapping = {}
         for key, header in supplied.items():
-            if str(key) == "email":
+            if str(key) in {"email", "id", "member_id"}:
                 continue
             header = str(header or "").strip()
             if header in header_set:
@@ -123,11 +128,29 @@ def _mapping_for(headers, options: dict) -> dict:
         return mapping
     mapping = suggest_member_mapping(headers)
     mapping.pop("email", None)
+    mapping.pop("id", None)
+    mapping.pop("member_id", None)
     if "membership_end_date" not in mapping:
         end_header = detect_membership_end_date_header(headers, mapping)
         if end_header:
             mapping["membership_end_date"] = end_header
+    _share_member_id_column(mapping)
     return mapping
+
+
+def _share_member_id_column(mapping: dict) -> None:
+    """SimplyCompete's Member ID column is both the WT id and the LTF id.
+
+    Auto-detect fills both targets from that one column, matching a manual
+    mapping in the regular member import. A caller-supplied map is left as-is,
+    so clearing one of the two fields stays cleared. A dedicated WT column is
+    not overwritten.
+    """
+    if mapping.get("wt_licenseid") or not mapping.get("ltf_licenseid"):
+        return
+    compact = normalize_header(mapping["ltf_licenseid"]).replace(" ", "")
+    if compact == "memberid":
+        mapping["wt_licenseid"] = mapping["ltf_licenseid"]
 
 
 def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> dict:
@@ -174,10 +197,7 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
         primary_raw = _cell(data, mapping, "primary_license_role")
         secondary_raw = _cell(data, mapping, "secondary_license_role")
         raw_roles.extend([primary_raw, secondary_raw])
-        member_id, _rewritten = apply_ltf_license_id_import_prefix(
-            _cell(data, mapping, "ltf_licenseid"),
-            enabled=rewrite_enabled,
-        )
+        wt_license_id, member_id, ltf_rewritten = resolve_import_license_ids(data, mapping, rewrite_enabled)
         sex = parse_gender(sex_raw)
         sex_override = str(sex_overrides.get(str(index)) or "")
         skipped = sex_override == "skip"
@@ -224,6 +244,9 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
             {
                 "row_index": index,
                 "member_id": member_id,
+                "wt_license_id": wt_license_id,
+                "ltf_license_id": member_id,
+                "ltf_rewritten": ltf_rewritten,
                 "first_name": _cell(data, mapping, "first_name"),
                 "last_name": _cell(data, mapping, "last_name"),
                 "club_name": club_raw,
@@ -255,9 +278,16 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
             bucket["count"] += 1
             bucket["row_indexes"].append(row["row_index"])
     blocking = any(_row_blocking(row) for row in parsed_rows)
+    rewritten_count = sum(1 for row in parsed_rows if row["ltf_rewritten"])
     return {
         "mapping": {key: value for key, value in mapping.items() if key != "email"},
         "email_ignored": True,
+        "ltf_license_prefix_rewrite": {
+            "enabled": bool(rewrite_enabled),
+            "source_prefix": LTF_LICENSE_IMPORT_SOURCE_PREFIX,
+            "target_prefix": LTF_LICENSE_IMPORT_TARGET_PREFIX,
+            "rewritten_count": rewritten_count,
+        },
         "rows": parsed_rows,
         "blank_rows_ignored": blank,
         "gender_summary": [{"value": key, "count": count} for key, count in sorted(gender_counts.items())],
@@ -370,7 +400,7 @@ def apply_members(headers, rows, options: dict, *, rewrite_enabled: bool, actor)
         wants_staff = row["resolution"]["kind"] == "staff" or row.get("also_staff")
         member, match_by = index.match(
             ltf_licenseid=row["member_id"],
-            wt_licenseid="",
+            wt_licenseid=row.get("wt_license_id") or "",
             first_name=row["first_name"],
             last_name=row["last_name"],
             date_of_birth=date.fromisoformat(row["date_of_birth"]) if row["date_of_birth"] else None,
@@ -387,6 +417,7 @@ def apply_members(headers, rows, options: dict, *, rewrite_enabled: bool, actor)
                 sex=row["sex"],
                 club_id=target_club_id,
                 ltf_licenseid=row["member_id"],
+                wt_licenseid=row.get("wt_license_id") or "",
                 email="",
                 is_active=bool(row["is_active"]),
                 primary_license_role=row["primary_license_role"],
@@ -410,6 +441,8 @@ def apply_members(headers, rows, options: dict, *, rewrite_enabled: bool, actor)
                 member.date_of_birth = date.fromisoformat(row["date_of_birth"])
             if row["member_id"]:
                 member.ltf_licenseid = row["member_id"]
+            if row.get("wt_license_id"):
+                member.wt_licenseid = row["wt_license_id"]
             member.email = member.email or ""
             member.save()
             updated += 1

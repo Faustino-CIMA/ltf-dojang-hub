@@ -13,6 +13,7 @@ import {
 } from "@/components/import/wizard-chrome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PageNotice } from "@/components/ui/list-page-chrome";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { RequiredForm } from "@/components/ui/label";
 import {
@@ -23,6 +24,8 @@ import {
   type ImportDateFormat,
 } from "@/lib/import-date-format";
 import { applySuggestedMapping, detectMembershipEndDateHeader, unusedSourceHeaders } from "@/lib/import-mapping";
+import type { LtfLicensePrefixRewritePolicy } from "@/lib/import-api";
+import { SETUP_MEMBER_TARGET_FIELDS, shareMemberIdColumn } from "@/lib/setup-member-mapping";
 import { formatFullName } from "@/lib/person-name";
 import { confirmSetupMembers, previewSetupMembers, type SetupMemberPreview, type SetupMemberRow } from "@/lib/setup-api";
 import { setupPreviewSummary, setupRowIssues, setupRowStatus, type SetupRowStatus } from "@/lib/setup-member-preview";
@@ -31,17 +34,7 @@ type InnerStep = "source" | "mapping" | "preview" | "confirm" | "result";
 type PreviewFilter = "all" | "ready" | "staff" | "choice" | "skipped";
 type SortKey = "name" | "club" | "status";
 
-const FIELDS = [
-  { key: "ltf_licenseid", required: false },
-  { key: "first_name", required: true },
-  { key: "last_name", required: true },
-  { key: "club_name", required: true },
-  { key: "sex", required: false },
-  { key: "date_of_birth", required: false },
-  { key: "primary_license_role", required: false },
-  { key: "secondary_license_role", required: false },
-  { key: "membership_end_date", required: false },
-] as const;
+const FIELDS = SETUP_MEMBER_TARGET_FIELDS;
 
 const STAFF_FUNCTIONS = ["coach", "medic", "media", "other", "secretary"] as const;
 const EMPTY_DETECTION: DateFormatDetection = { status: "empty", format: null, candidates: [] };
@@ -76,7 +69,7 @@ function autoMap(headers: string[]): Record<string, string> {
     if (header) mapping.membership_end_date = header;
   }
   delete mapping.email;
-  return mapping;
+  return shareMemberIdColumn(mapping);
 }
 
 export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
@@ -467,8 +460,10 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
             <div className="space-y-3">
               <StepIntro title={shared("mappingStepTitle")}>
                 <p>{t("membersMapIntro")}</p>
+                <p>{t("membersSharedIdHint")}</p>
                 <p>{t("membersNotImported")}</p>
               </StepIntro>
+              <PrefixNotice policy={preview?.ltf_license_prefix_rewrite} />
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -569,6 +564,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
               <StepIntro title={shared("previewStepTitle")}>
                 <p>{t("membersPreviewIntro")}</p>
               </StepIntro>
+              <PrefixNotice policy={preview.ltf_license_prefix_rewrite} />
               {dirty ? <p className="banner-warning rounded-[var(--radius-form)] border px-3 py-2 text-sm">{shared("previewOutdated")}</p> : null}
               {counts}
               <StatusLegend
@@ -620,6 +616,8 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           {shared("dataLabel")}
                         </button>
                       </th>
+                      <th className="px-2 py-2 font-medium">{shared("wtLicenseLabel")}</th>
+                      <th className="px-2 py-2 font-medium">{shared("ltfLicenseLabel")}</th>
                       <th className="px-2 py-2 font-medium">
                         <button type="button" onClick={() => toggleSort("club")}>
                           {t("club")}
@@ -645,7 +643,6 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           </td>
                           <td className="px-2 py-2 text-xs">
                             <p className="font-medium">{formatFullName(row)}</p>
-                            <p className="text-muted">{row.member_id || t("missingId")}</p>
                             <p>
                               {row.primary_license_role || t("ignored")}
                               {row.secondary_license_role ? ` / ${row.secondary_license_role}` : ""}
@@ -672,6 +669,8 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                               </label>
                             ) : null}
                           </td>
+                          <td className="px-2 py-2 text-xs">{row.wt_license_id || "—"}</td>
+                          <td className="px-2 py-2 text-xs">{row.ltf_license_id || row.member_id || "—"}</td>
                           <td className="px-2 py-2 text-xs">
                             <p>{row.resolution.club_name || row.club_name || "—"}</p>
                             {row.resolution.kind === "unknown" || row.resolution.kind === "near_ltf" ? (
@@ -815,6 +814,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
               <StepIntro title={shared("confirmStepTitle")}>
                 <p>{t("membersConfirmIntro")}</p>
               </StepIntro>
+              <PrefixNotice policy={preview.ltf_license_prefix_rewrite} />
               {counts}
               {!preview.can_confirm ? (
                 <div className="banner-danger space-y-2 rounded-[var(--radius-form)] border px-3 py-2 text-sm">
@@ -900,5 +900,29 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function PrefixNotice({ policy }: { policy?: LtfLicensePrefixRewritePolicy }) {
+  const shared = useTranslations("Import");
+  if (!policy) {
+    return null;
+  }
+  return (
+    <PageNotice tone="info">
+      {policy.enabled
+        ? shared("ltfPrefixRewriteEnabledNotice", {
+            source: policy.source_prefix,
+            target: policy.target_prefix,
+          })
+        : shared("ltfPrefixRewriteDisabledNotice")}
+      {policy.enabled && policy.rewritten_count > 0
+        ? ` ${shared("ltfPrefixRewriteAppliedCount", {
+            count: policy.rewritten_count,
+            source: policy.source_prefix,
+            target: policy.target_prefix,
+          })}`
+        : null}
+    </PageNotice>
   );
 }
