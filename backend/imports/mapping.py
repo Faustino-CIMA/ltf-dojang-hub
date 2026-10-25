@@ -45,6 +45,7 @@ MEMBER_HEADER_ALIASES = {
     ],
     "secondary_license_role": ["secondary license role", "secondary role"],
     "is_active": ["is active", "active"],
+    "club_name": ["club name", "club", "organization name", "organisation name"],
 }
 
 MEMBERSHIP_END_DATE_ALIASES = [
@@ -69,6 +70,7 @@ MEMBER_MAPPING_FIELDS = [
     "primary_license_role",
     "secondary_license_role",
     "is_active",
+    "club_name",
 ]
 
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Boxes,
@@ -17,6 +18,7 @@ import {
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { apiRequest } from "@/lib/api";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import { getSetupStatus } from "@/lib/setup-api";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
 
 type OpsLayoutProps = {
@@ -60,7 +62,10 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
   const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
+  const pathname = usePathname();
+  const setupT = useTranslations("Setup");
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +93,25 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
     };
   }, [locale, router]);
 
+  useEffect(() => {
+    if (allowed !== true) {
+      return;
+    }
+    let cancelled = false;
+    getSetupStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setSetupOpen(status.available);
+        if (status.available && pathname === `/${locale}/dashboard/ops`) {
+          router.replace(`/${locale}/setup`);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [allowed, locale, pathname, router]);
+
   const navItems = useMemo<AppNavItem[]>(
     () =>
       OPS_NAV.map((def) => ({
@@ -113,7 +137,17 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
 
   return (
     <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-3">
+        {setupOpen ? (
+          <Link
+            href={`/${locale}/setup`}
+            className="block rounded-[var(--radius-form)] border border-border bg-card px-3 py-2 text-sm text-foreground"
+          >
+            {setupT("finishSetupBanner")}
+          </Link>
+        ) : null}
+        {children}
+      </div>
     </AppShell>
   );
 }

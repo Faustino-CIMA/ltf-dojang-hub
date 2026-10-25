@@ -27,6 +27,7 @@ describe("club federation messages", () => {
         expect(messages.ClubAdmin[key].length).toBeGreaterThan(0);
       }
       expect(Object.keys(messages.TrainingVenues).sort()).toEqual(venueKeys);
+      expect(Object.keys(messages.Setup).sort()).toEqual(Object.keys(en.Setup).sort());
     }
   });
 });
