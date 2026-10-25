@@ -29,6 +29,15 @@ from imports.views import (
     MemberImportPreviewView,
 )
 from clubs.public_stats import PublicStatsView
+from setup.views import (
+    SetupClubsConfirmView,
+    SetupClubsPreviewView,
+    SetupFinishView,
+    SetupMembersConfirmView,
+    SetupMembersPreviewView,
+    SetupStartView,
+    SetupStatusView,
+)
 from clubs.venue_views import (
     LuxembourgAddressLookupView,
     TrainingVenueDetailView,
@@ -204,6 +213,13 @@ urlpatterns = [
         name="password-reset-confirm",
     ),
     path("api/addresses/lu/", LuxembourgAddressLookupView.as_view(), name="lu-address-lookup"),
+    path("api/setup/status/", SetupStatusView.as_view(), name="setup-status"),
+    path("api/setup/start/", SetupStartView.as_view(), name="setup-start"),
+    path("api/setup/clubs/preview/", SetupClubsPreviewView.as_view(), name="setup-clubs-preview"),
+    path("api/setup/clubs/confirm/", SetupClubsConfirmView.as_view(), name="setup-clubs-confirm"),
+    path("api/setup/members/preview/", SetupMembersPreviewView.as_view(), name="setup-members-preview"),
+    path("api/setup/members/confirm/", SetupMembersConfirmView.as_view(), name="setup-members-confirm"),
+    path("api/setup/finish/", SetupFinishView.as_view(), name="setup-finish"),
     path(
         "api/clubs/<int:club_id>/training-venues/",
         TrainingVenueListCreateView.as_view(),

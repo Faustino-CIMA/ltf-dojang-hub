@@ -44,10 +44,17 @@ def field_is_mapped(mapping, field: str) -> bool:
     return bool(mapping_header(mapping, field))
 
 
-class MemberMatchIndex:
-    """In-memory index for one import pass. Created rows can be registered too."""
+_MISSING_CLUB = object()
 
-    def __init__(self, club_id: int):
+
+class MemberMatchIndex:
+    """In-memory index for one import pass. Created rows can be registered too.
+
+    Name and date-of-birth matching uses the import's club unless a row passes
+    its own club id (None for someone with no club).
+    """
+
+    def __init__(self, club_id: int | None):
         self.club_id = club_id
         self.by_ltf: dict[str, object] = {}
         self.by_wt: dict[str, object] = {}
@@ -104,15 +111,25 @@ class MemberMatchIndex:
         self.by_wt = {key: owner for key, owner in self.by_wt.items() if owner is not member}
         self.register(member)
 
-    def match(self, *, ltf_licenseid: str, wt_licenseid: str, first_name: str, last_name: str, date_of_birth):
+    def match(
+        self,
+        *,
+        ltf_licenseid: str,
+        wt_licenseid: str,
+        first_name: str,
+        last_name: str,
+        date_of_birth,
+        club_id=_MISSING_CLUB,
+    ):
         ltf = str(ltf_licenseid or "").strip().upper()
         wt = str(wt_licenseid or "").strip().upper()
         if ltf and ltf in self.by_ltf:
             return self.by_ltf[ltf], "ltf_licenseid"
         if wt and wt in self.by_wt:
             return self.by_wt[wt], "wt_licenseid"
+        resolved_club_id = self.club_id if club_id is _MISSING_CLUB else club_id
         if first_name and last_name and date_of_birth:
-            key = _name_dob_key(self.club_id, first_name, last_name, date_of_birth)
+            key = _name_dob_key(resolved_club_id, first_name, last_name, date_of_birth)
             member = self.by_name_dob.get(key)
             if member is not None:
                 return member, "name_dob"

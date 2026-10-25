@@ -1,0 +1,16 @@
+Member ID,Preferred First Name,Preferred Last Name,Club Name,Gender,Date of Birth,Primary Member Role,Secondary Role,Membership End Date
+,,,,,,,,
+LUX-1001,Erika,Musterfrau,Silver Crane Academy,Female,15/04/2002,Athlete,,31/12/2099
+LUX-1001,Erika,Musterfrau,LTF,Female,15/04/2002,Media,,31/12/2099
+LUX-1002,Max,Mustermann,Silver Crane Academy,Male,03/04/1990,Coach,Trainer,01/01/2020
+LUX-1003,Jan,Janssen,Taekwon-Do Beispielhausen,Homme,01.01.1985,Trainer,Athlete,25/10/2026
+LUX-1004,Alex,Beispiel,Silver Crane Academy,,02/02/1992,MNA President,,
+LUX-1005,Sam,Beispiel,Silver Crane Academy,Robot,01/01/1991,Athlete,,31/12/2099
+LUX-2001,Kim,Beispiel,LTF,Männlich,1980-01-01,Coach,,01/01/2099
+LUX-2002,Noa,Beispiel,LTF,Weiblich,01-01-1988,Doctor,,
+LUX-3001,Lea,Beispiel,TKD Musterstadt,F,04/05/1995,Athlete,Athlete,31/12/2099
+LUX-4001,Robin,Beispiel,Silver Crane Academy,Man,15/04/1993,Athlete,,01/01/2020
+LUX-4001,Robin,Beispiel,Taekwon-Do Beispielhausen,Man,15/04/1993,Referee,,31/12/2099
+,Ina,Beispiel,Silver Crane Academy,Femme,15/04/2001,Athlete,,
+LUX-5001,Otto,Beispiel,Luxembourg Taekwondo Federation,Male,15/04/1970,Physiotherapist,,31/12/2099
+LUX-6001,Ute,Beispiel,Silver Crane Academy,Female,40179,Athlete,,not-a-date

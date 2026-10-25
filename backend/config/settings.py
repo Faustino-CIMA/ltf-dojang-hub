@@ -114,6 +114,7 @@ INSTALLED_APPS = [
     "events.apps.EventsConfig",
     "clubmgmt.apps.ClubmgmtConfig",
     "nationalteam.apps.NationalteamConfig",
+    "setup.apps.SetupConfig",
 ]
 
 MIDDLEWARE = [
