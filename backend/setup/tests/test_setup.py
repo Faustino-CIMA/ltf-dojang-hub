@@ -151,6 +151,28 @@ class SetupMemberStepTests(TestCase):
             format="multipart",
         )
 
+    def test_supplied_mapping_is_honoured_and_email_stays_unmapped(self):
+        preview = self._preview(
+            {
+                "mapping": {
+                    "ltf_licenseid": "Member ID",
+                    "first_name": "Preferred Last Name",
+                    "last_name": "Preferred First Name",
+                    "club_name": "Club Name",
+                    "sex": "Gender",
+                    "email": "Preferred First Name",
+                }
+            }
+        )
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertNotIn("email", preview.data["mapping"])
+        self.assertNotIn("date_of_birth", preview.data["mapping"])
+        self.assertEqual(preview.data["mapping"]["first_name"], "Preferred Last Name")
+        erika = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-1001")
+        self.assertEqual(erika["first_name"], "Musterfrau")
+        self.assertEqual(erika["last_name"], "Erika")
+        self.assertTrue(preview.data["email_ignored"])
+
     def test_unresolved_gender_blocks_confirm(self):
         preview = self._preview()
         self.assertEqual(preview.status_code, 200, preview.data)

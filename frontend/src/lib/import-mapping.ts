@@ -48,6 +48,7 @@ export const FIELD_HEADER_ALIASES: Record<string, string[]> = {
   ],
   secondary_license_role: ["secondary license role", "secondary role"],
   is_active: ["is active", "active"],
+  club_name: ["club name", "club", "organization name", "organisation name"],
   membership_end_date: [
     "membership end date",
     "membershipenddate",

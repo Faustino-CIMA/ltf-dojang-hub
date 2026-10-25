@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ImportSuccessConfetti } from "@/components/import/import-success-confetti";
+import { ImportStatusBadge, WizardStepPills } from "@/components/import/wizard-chrome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1167,7 +1168,6 @@ export function ImportWizardPage({
     confirm: t("confirmStepTitle"),
     result: t("resultStepTitle"),
   };
-  const currentStepIndex = stepOrder.indexOf(step);
   const resultTone: ImportResultTone | null =
     step === "result" ? (importOutcome ?? importResultTone(result)) : null;
   const dateFormatLabel = (format: string) => (format === "EXCEL" ? t("dateFormatExcel") : format);
@@ -1355,40 +1355,11 @@ export function ImportWizardPage({
     <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
-        <div className="flex flex-wrap items-center gap-2">
-          {stepOrder.map((stepItem, index) => {
-            const isCurrent = stepItem === step;
-            const isDone = index < currentStepIndex;
-            const resultClass =
-              stepItem === "result" && resultTone === "success"
-                ? "badge-success"
-                : stepItem === "result" && resultTone === "warning"
-                ? "badge-warning"
-                : stepItem === "result" && resultTone === "error"
-                ? "badge-danger"
-                : null;
-            return (
-              <span
-                key={stepItem}
-                data-result-tone={stepItem === "result" ? resultTone ?? undefined : undefined}
-                className={`inline-flex items-center gap-2 rounded-[var(--radius-form)] border px-3 py-1 text-xs font-medium ${
-                  resultClass
-                    ? resultClass
-                    : isCurrent
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : isDone
-                    ? "badge-success"
-                    : "border-border bg-secondary text-muted"
-                }`}
-              >
-                <span>{index + 1}</span>
-                <span>{stepTitles[stepItem]}</span>
-              </span>
-            );
-          })}
-        </div>
-      </section>
+      <WizardStepPills
+        steps={stepOrder.map((stepItem) => ({ id: stepItem, label: stepTitles[stepItem] }))}
+        currentId={step}
+        resultTone={resultTone}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
@@ -1848,35 +1819,34 @@ export function ImportWizardPage({
                         >
                           <td className="px-2 py-2">{row.row_index}</td>
                           <td className="px-2 py-2">
-                            <span
-                              className={`inline-flex rounded-[var(--radius-form)] border px-2 py-0.5 text-xs font-medium ${
+                            <ImportStatusBadge
+                              tone={
                                 status === "ready" || status === "create"
-                                  ? "badge-success"
+                                  ? "success"
                                   : status === "update"
-                                  ? "badge-info"
-                                  : status === "duplicate"
-                                  ? "badge-warning"
+                                  ? "info"
+                                  : status === "duplicate" || status === "review"
+                                  ? "warning"
                                   : status === "invalid"
-                                  ? "badge-danger"
+                                  ? "danger"
+                                  : "neutral"
+                              }
+                              label={
+                                status === "ready"
+                                  ? t("statusReady")
+                                  : status === "create"
+                                  ? t("statusCreate")
+                                  : status === "update"
+                                  ? t("statusUpdate")
+                                  : status === "duplicate"
+                                  ? t("statusDuplicate")
+                                  : status === "invalid"
+                                  ? t("statusInvalid")
                                   : status === "review"
-                                  ? "badge-warning"
-                                  : "border-border bg-secondary text-foreground"
-                              }`}
-                            >
-                              {status === "ready"
-                                ? t("statusReady")
-                                : status === "create"
-                                ? t("statusCreate")
-                                : status === "update"
-                                ? t("statusUpdate")
-                                : status === "duplicate"
-                                ? t("statusDuplicate")
-                                : status === "invalid"
-                                ? t("statusInvalid")
-                                : status === "review"
-                                ? t("statusReview")
-                                : t("statusSkipped")}
-                            </span>
+                                  ? t("statusReview")
+                                  : t("statusSkipped")
+                              }
+                            />
                           </td>
                           <td className="px-2 py-2 text-xs">
                             {Object.entries(row.data)
