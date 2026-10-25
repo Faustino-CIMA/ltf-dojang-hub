@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { getClubCommunicationLanguages, type ClubCommunicationLanguage } from "@/lib/club-admin-api";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
+import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
 import { Club, createClub, updateClub } from "@/lib/ltf-admin-api";
 
 const FORM_ID = "club-form";
@@ -185,40 +187,27 @@ export function ClubFormPanel({
             onChange={(event) => setField("name", event.target.value)}
           />
         </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="club-address-1">{t("addressLine1Label")}</Label>
-          <Input
-            id="club-address-1"
-            value={values.address_line1}
-            placeholder={t("addressLine1Placeholder")}
-            onChange={(event) => setField("address_line1", event.target.value)}
-          />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="club-address-2">{t("addressLine2Label")}</Label>
-          <Input
-            id="club-address-2"
-            value={values.address_line2}
-            placeholder={t("addressLine2Placeholder")}
-            onChange={(event) => setField("address_line2", event.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="club-postal">{t("postalCodeLabel")}</Label>
-          <Input
-            id="club-postal"
-            value={values.postal_code}
-            placeholder={t("postalCodePlaceholder")}
-            onChange={(event) => setField("postal_code", event.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="club-locality">{t("localityLabel")}</Label>
-          <Input
-            id="club-locality"
-            value={values.locality}
-            placeholder={t("localityPlaceholder")}
-            onChange={(event) => setField("locality", event.target.value)}
+        <div className="md:col-span-2">
+          <LuAddressFields
+            idPrefix="club"
+            showCountry={false}
+            value={{
+              ...splitStreetLine(values.address_line1),
+              line2: values.address_line2,
+              postal_code: values.postal_code,
+              locality: values.locality,
+              country: "Luxembourg",
+              use_for_invoice: false,
+            }}
+            onChange={(next) => {
+              setValues((previous) => ({
+                ...previous,
+                address_line1: joinStreetLine(next.house_number, next.street),
+                address_line2: next.line2,
+                postal_code: next.postal_code,
+                locality: next.locality,
+              }));
+            }}
           />
         </div>
         <div className="space-y-2 md:col-span-2">
