@@ -44,9 +44,13 @@ def ltf_staff_count() -> int:
 
 
 def status_payload(user) -> dict:
+    from accounts.models import AccountSetupInvite, User
+
     state = get_state()
     available = setup_available_for(user)
     results = state.step_results if state else {}
+    admin_result = (results or {}).get("admins") or {}
+    now = timezone.now()
     return {
         "available": available,
         "current_step": state.current_step if state else SetupState.Step.CLUBS,
@@ -58,7 +62,11 @@ def status_payload(user) -> dict:
             "clubs": Club.objects.filter(is_demo=False).count(),
             "club_members": Member.objects.filter(is_demo=False, club__isnull=False).count(),
             "ltf_staff": ltf_staff_count(),
-            "admins": 0,
+            "admins": User.objects.filter(clubs_administered__is_demo=False).distinct().count(),
+            "admins_not_imported": len(admin_result.get("not_imported") or []),
+            "links_unused": AccountSetupInvite.objects.filter(
+                used_at__isnull=True, revoked_at__isnull=True, expires_at__gt=now
+            ).count(),
         },
         "step_results": results or {},
     }

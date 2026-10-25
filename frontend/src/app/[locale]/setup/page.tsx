@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
+import { AdminStep } from "@/components/setup/admin-step";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -501,15 +502,7 @@ export default function SetupPage() {
           </section>
         ) : null}
 
-        {step === "admins" ? (
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-4">
-            <h2 className="text-lg font-semibold">{t("step_admins")}</h2>
-            <p className="mt-2 text-sm text-muted">{t("adminsLater")}</p>
-            <Button className="mt-4" variant="outline" onClick={() => setFinishOpen(true)}>
-              {t("finish")}
-            </Button>
-          </section>
-        ) : null}
+        {step === "admins" ? <AdminStep onFinish={() => setFinishOpen(true)} /> : null}
 
         {step === "done" ? (
           <section className="rounded-[var(--radius-card)] border border-border bg-card p-4">
@@ -519,6 +512,9 @@ export default function SetupPage() {
               <li>{t("countClubs", { count: status.counts.clubs })}</li>
               <li>{t("countMembers", { count: status.counts.club_members })}</li>
               <li>{t("countStaff", { count: status.counts.ltf_staff })}</li>
+              <li>{t("countAdmins", { count: status.counts.admins })}</li>
+              <li>{t("countNotImported", { count: status.counts.admins_not_imported ?? 0 })}</li>
+              <li>{t("countLinksUnused", { count: status.counts.links_unused ?? 0 })}</li>
             </ul>
             <Button className="mt-4" asChild>
               <Link href={`/${locale}/dashboard/ops`}>{t("openOps")}</Link>
