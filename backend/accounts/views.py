@@ -18,7 +18,7 @@ from licenses.models import License, LicenseHistoryEvent
 
 from .email_utils import build_password_reset_url, send_password_reset_email
 from .models import AccountSetupInvite, User
-from .setup_invites import NEUTRAL_DETAIL, invite_for_token, invite_is_open
+from .setup_invites import NEUTRAL_DETAIL, account_setup_assignments, invite_for_token, invite_is_open
 from .serializers import (
     ConsentSerializer,
     DataDeleteResponseSerializer,
@@ -385,6 +385,7 @@ class AccountSetupView(views.APIView):
                 "username": user.username,
                 "first_name": member.first_name if member else user.first_name,
                 "last_name": member.last_name if member else user.last_name,
+                "assignments": account_setup_assignments(user),
             }
         )
 

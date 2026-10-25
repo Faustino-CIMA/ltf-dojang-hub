@@ -8,6 +8,24 @@ from django.utils import timezone
 from .models import AccountSetupInvite
 
 NEUTRAL_DETAIL = "Ask your federation administrator for a new link."
+DEFAULT_FEDERATION_NAME = "Luxembourg Taekwondo Federation"
+FEDERATION_ROLES = {"ltf_admin", "ltf_finance"}
+
+
+def account_setup_assignments(user) -> list[dict]:
+    """Role and organisation for a still-valid setup link. Empty organisation only when none applies."""
+    from clubs.models import FederationProfile
+
+    assignments = []
+    if user.role in FEDERATION_ROLES:
+        profile = FederationProfile.objects.filter(pk=1).only("name").first()
+        organisation = (profile.name or "").strip() if profile else ""
+        assignments.append({"role": user.role, "organisation": organisation or DEFAULT_FEDERATION_NAME})
+    for club in user.clubs_administered.order_by("name", "id"):
+        assignments.append({"role": "club_admin", "organisation": club.name})
+    if not assignments:
+        assignments.append({"role": user.role or "member", "organisation": ""})
+    return assignments
 
 
 def hash_setup_token(raw: str) -> str:

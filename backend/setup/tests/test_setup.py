@@ -314,6 +314,10 @@ class SetupAdminStepTests(TestCase):
         looked = public.get("/api/auth/account-setup/", {"token": raw})
         self.assertEqual(looked.status_code, 200, looked.data)
         self.assertEqual(looked.data["username"], "emusterfra")
+        self.assertEqual(
+            looked.data["assignments"],
+            [{"role": "club_admin", "organisation": "Silver Crane Academy"}],
+        )
         weak = public.post(
             "/api/auth/account-setup/",
             {"token": raw, "email": "erika@example.com", "password": "short", "password_confirm": "short"},
@@ -342,6 +346,7 @@ class SetupAdminStepTests(TestCase):
         reused = public.get("/api/auth/account-setup/", {"token": raw})
         self.assertEqual(reused.status_code, 400)
         self.assertEqual(reused.data["detail"], NEUTRAL_DETAIL)
+        self.assertEqual(set(reused.data.keys()), {"detail"})
         logged = public.post("/api/auth/login/", {"username": "emusterfra", "password": "Wizard-setup-pass-1"}, format="json")
         self.assertEqual(logged.status_code, 200, logged.data)
 
@@ -350,8 +355,18 @@ class SetupAdminStepTests(TestCase):
         second = self.client.post(f"/api/setup/admins/{max_member.user_id}/setup-link/", {"locale": "en"}, format="json")
         self.assertNotEqual(first.data["setup_link"], second.data["setup_link"])
         self.assertIsNotNone(AccountSetupInvite.objects.get(token_hash=hash_setup_token(first_raw)).revoked_at)
+        max_view = public.get("/api/auth/account-setup/", {"token": second.data["setup_link"].split("token=", 1)[1]})
+        self.assertEqual(
+            max_view.data["assignments"],
+            [
+                {"role": "club_admin", "organisation": "Silver Crane Academy"},
+                {"role": "club_admin", "organisation": "Taekwon-Do Beispielhausen"},
+            ],
+        )
         stale = public.get("/api/auth/account-setup/", {"token": first_raw})
         self.assertEqual(stale.data["detail"], NEUTRAL_DETAIL)
+        self.assertNotIn("assignments", stale.data)
+        self.assertNotIn("organisation", str(stale.data))
 
         csv_one = self.client.post("/api/setup/admins/setup-links.csv", {"locale": "en"}, format="json")
         self.assertEqual(csv_one.status_code, 200, csv_one.content)
@@ -388,6 +403,32 @@ class SetupAdminStepTests(TestCase):
         self.assertEqual(done.status_code, 200, done.data)
         jan.refresh_from_db()
         self.assertEqual(jan.email, "jan@example.com")
+
+    def test_ltf_admin_link_names_the_federation_and_a_bad_token_stays_neutral(self):
+        from accounts.setup_invites import issue_setup_invite
+        from clubs.models import FederationProfile
+
+        FederationProfile.objects.create(name="Luxembourg Taekwondo Federation")
+        admin = User.objects.create_superuser(username="ltf-grant", password="pass12345", email="")
+        admin.role = User.Roles.LTF_ADMIN
+        admin.set_unusable_password()
+        admin.save()
+        club = Club.objects.get(name="Silver Crane Academy")
+        club.admins.add(admin)
+        _invite, raw = issue_setup_invite(admin, self.superuser)
+        public = APIClient()
+        looked = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(looked.status_code, 200, looked.data)
+        self.assertEqual(
+            looked.data["assignments"],
+            [
+                {"role": "ltf_admin", "organisation": "Luxembourg Taekwondo Federation"},
+                {"role": "club_admin", "organisation": "Silver Crane Academy"},
+            ],
+        )
+        missing = public.get("/api/auth/account-setup/", {"token": "not-a-real-token"})
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(missing.data, {"detail": NEUTRAL_DETAIL})
 
 
 class SetupParsingTests(TestCase):

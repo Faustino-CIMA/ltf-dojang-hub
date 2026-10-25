@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
-import { completeAccountSetup, getAccountSetup } from "@/lib/setup-api";
+import { AccountSetupGrant } from "@/components/setup/account-setup-grant";
+import { completeAccountSetup, getAccountSetup, type AccountSetupAssignment } from "@/lib/setup-api";
 import { formatFullName } from "@/lib/person-name";
 
 export default function AccountSetupPage() {
@@ -20,6 +21,7 @@ export default function AccountSetupPage() {
   const token = params.get("token") || "";
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
+  const [assignments, setAssignments] = useState<AccountSetupAssignment[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -39,6 +41,7 @@ export default function AccountSetupPage() {
         if (cancelled) return;
         setUsername(info.username);
         setName(formatFullName(info));
+        setAssignments(info.assignments ?? []);
         setReady(true);
       })
       .catch(() => {
@@ -73,6 +76,7 @@ export default function AccountSetupPage() {
       <div className="space-y-2 text-center">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{common("appTitle")}</p>
         <h1 className="text-3xl font-semibold text-foreground">{t("title")}</h1>
+        {ready ? <AccountSetupGrant assignments={assignments} /> : null}
         <p className="text-sm text-muted">{t("subtitle")}</p>
       </div>
       <ActionNotices

@@ -197,10 +197,16 @@ export async function downloadSetupLinks(locale: string) {
   URL.revokeObjectURL(url);
 }
 
+export type AccountSetupAssignment = {
+  role: string;
+  organisation: string;
+};
+
 export type AccountSetupInfo = {
   username: string;
   first_name: string;
   last_name: string;
+  assignments: AccountSetupAssignment[];
 };
 
 export function getAccountSetup(token: string) {

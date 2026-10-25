@@ -4479,6 +4479,13 @@
     "neutral": "Frot d'Federatiounsverwaltung no engem neie Link.",
     "success": "Kont prett.",
     "continueToLogin": "Weider bei d'Umeldung",
-    "backToLogin": "Zréck bei d'Umeldung"
+    "backToLogin": "Zréck bei d'Umeldung",
+    "roleGrant": "Dir gëtt als {role} fir {organisation} ageriicht.",
+    "roleOnly": "Dir gëtt als {role} ageriicht.",
+    "role_ltf_admin": "LTF-Admin",
+    "role_ltf_finance": "LTF-Finanzen",
+    "role_club_admin": "Veräinsadmin",
+    "role_coach": "Trainer",
+    "role_member": "Member"
   }
 }

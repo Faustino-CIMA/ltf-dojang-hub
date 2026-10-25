@@ -4479,6 +4479,13 @@
     "neutral": "Ask your federation administrator for a new link.",
     "success": "Account ready.",
     "continueToLogin": "Continue to sign in",
-    "backToLogin": "Back to sign in"
+    "backToLogin": "Back to sign in",
+    "roleGrant": "You're being set up as {role} for {organisation}.",
+    "roleOnly": "You're being set up as {role}.",
+    "role_ltf_admin": "LTF Admin",
+    "role_ltf_finance": "LTF Finance",
+    "role_club_admin": "Club Admin",
+    "role_coach": "Coach",
+    "role_member": "Member"
   }
 }

@@ -946,6 +946,13 @@
     "neutral": "Bitten Sie die Verbandsverwaltung um einen neuen Link.",
     "success": "Konto bereit.",
     "continueToLogin": "Weiter zur Anmeldung",
-    "backToLogin": "Zurück zur Anmeldung"
+    "backToLogin": "Zurück zur Anmeldung",
+    "roleGrant": "Sie werden als {role} für {organisation} eingerichtet.",
+    "roleOnly": "Sie werden als {role} eingerichtet.",
+    "role_ltf_admin": "LTF-Admin",
+    "role_ltf_finance": "LTF-Finanzen",
+    "role_club_admin": "Vereinsadmin",
+    "role_coach": "Trainer",
+    "role_member": "Mitglied"
   }
 }

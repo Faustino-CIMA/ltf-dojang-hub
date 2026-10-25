@@ -946,6 +946,13 @@
     "neutral": "Demandez un nouveau lien à l'administrateur de votre fédération.",
     "success": "Compte prêt.",
     "continueToLogin": "Continuer vers la connexion",
-    "backToLogin": "Retour à la connexion"
+    "backToLogin": "Retour à la connexion",
+    "roleGrant": "Vous êtes configuré comme {role} pour {organisation}.",
+    "roleOnly": "Vous êtes configuré comme {role}.",
+    "role_ltf_admin": "admin LTF",
+    "role_ltf_finance": "finances LTF",
+    "role_club_admin": "admin de club",
+    "role_coach": "entraîneur",
+    "role_member": "membre"
   }
 }
