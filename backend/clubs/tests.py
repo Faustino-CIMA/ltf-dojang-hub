@@ -1346,3 +1346,180 @@ class ClubTrainerTests(TestCase):
         )
         self.assertEqual(minor_response.status_code, 400)
         self.assertEqual(minor_response.data["detail"], "This person cannot be a coach.")
+
+
+class ClubFederationVenueTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ltf_admin = User.objects.create_user(
+            username="ltf-fed",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club_admin = User.objects.create_user(
+            username="club-fed",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.other_admin = User.objects.create_user(
+            username="other-fed",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.member_user = User.objects.create_user(
+            username="member-fed",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        self.club = Club.objects.create(name="Silver Crane Academy", created_by=self.ltf_admin)
+        self.club.admins.add(self.club_admin)
+        self.other = Club.objects.create(name="Other Dojang", created_by=self.ltf_admin)
+        self.other.admins.add(self.other_admin)
+
+    def test_federation_defaults_to_wt_and_rcs_is_normalised(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        created = self.client.post(
+            "/api/clubs/",
+            {"name": "Taekwondo Club Musterstadt", "rcs_number": " b 123456 "},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["federation"], "WT")
+        self.assertEqual(created.data["rcs_number"], "B123456")
+
+    def test_itf_name_rule_and_data_migration(self):
+        import importlib
+
+        from django.apps import apps
+
+        from clubs.federation import infer_club_federation
+
+        mark_itf_clubs = importlib.import_module(
+            "clubs.migrations.0014_club_federation_rcs_venues"
+        ).mark_itf_clubs
+
+        self.assertEqual(infer_club_federation("Taekwon-Do Beispielhausen"), "ITF")
+        self.assertEqual(infer_club_federation("taekwon do club"), "ITF")
+        self.assertEqual(infer_club_federation("Taekwondo Club Musterstadt"), "WT")
+        self.assertEqual(infer_club_federation("Silver Crane Academy"), "WT")
+        itf = Club.objects.create(
+            name="Taekwon-Do Beispielhausen",
+            federation=Club.Federation.WT,
+            created_by=self.ltf_admin,
+        )
+        plain = Club.objects.create(name="Taekwondo Club Musterstadt", created_by=self.ltf_admin)
+        mark_itf_clubs(apps, None)
+        itf.refresh_from_db()
+        plain.refresh_from_db()
+        self.assertEqual(itf.federation, "ITF")
+        self.assertEqual(plain.federation, "WT")
+
+    def test_rcs_rejects_bad_values_and_duplicates(self):
+        self.client.force_authenticate(user=self.club_admin)
+        bad = self.client.patch(
+            f"/api/clubs/{self.club.id}/",
+            {"rcs_number": "12B"},
+            format="json",
+        )
+        self.assertEqual(bad.status_code, 400)
+        ok = self.client.patch(
+            f"/api/clubs/{self.club.id}/",
+            {"rcs_number": "F42", "federation": "ITF"},
+            format="json",
+        )
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.club.refresh_from_db()
+        self.assertEqual(self.club.rcs_number, "F42")
+        self.assertEqual(self.club.federation, "ITF")
+        duplicate = self.client.patch(
+            f"/api/clubs/{self.other.id}/",
+            {"rcs_number": "f42"},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, 403)
+        self.client.force_authenticate(user=self.ltf_admin)
+        duplicate = self.client.patch(
+            f"/api/clubs/{self.other.id}/",
+            {"rcs_number": "f42"},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, 400)
+        blank = self.client.patch(f"/api/clubs/{self.other.id}/", {"rcs_number": "  "}, format="json")
+        self.assertEqual(blank.status_code, 200, blank.data)
+        self.other.refresh_from_db()
+        self.assertEqual(self.other.rcs_number, "")
+
+    def test_federation_filter(self):
+        self.club.federation = Club.Federation.ITF
+        self.club.save(update_fields=["federation"])
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/clubs/?federation=ITF")
+        self.assertEqual(response.status_code, 200)
+        names = [row["name"] for row in response.data]
+        self.assertEqual(names, ["Silver Crane Academy"])
+
+    def test_training_venues_crud_and_permissions(self):
+        self.client.force_authenticate(user=self.member_user)
+        denied = self.client.get(f"/api/clubs/{self.club.id}/training-venues/")
+        self.assertEqual(denied.status_code, 403)
+        self.client.force_authenticate(user=self.other_admin)
+        foreign = self.client.post(
+            f"/api/clubs/{self.club.id}/training-venues/",
+            {"name": "Hall"},
+            format="json",
+        )
+        self.assertEqual(foreign.status_code, 403)
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(
+            f"/api/clubs/{self.club.id}/training-venues/",
+            {
+                "name": "Musterhalle",
+                "house_number": "4",
+                "street": "Rue de l'Exemple",
+                "postal_code": "1234",
+                "locality": "Musterstadt",
+                "notes": "Tuesday evenings",
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        venue_id = created.data["id"]
+        listed = self.client.get(f"/api/clubs/{self.club.id}/training-venues/")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.data[0]["name"], "Musterhalle")
+        patched = self.client.patch(
+            f"/api/clubs/{self.club.id}/training-venues/{venue_id}/",
+            {"is_active": False, "postal_code": "12"},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, 400)
+        patched = self.client.patch(
+            f"/api/clubs/{self.club.id}/training-venues/{venue_id}/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, 200)
+        self.assertFalse(patched.data["is_active"])
+        missing_name = self.client.post(
+            f"/api/clubs/{self.club.id}/training-venues/",
+            {"name": "  "},
+            format="json",
+        )
+        self.assertEqual(missing_name.status_code, 400)
+        deleted = self.client.delete(f"/api/clubs/{self.club.id}/training-venues/{venue_id}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(self.club.training_venues.count(), 0)
+
+    def test_core_address_lookup_is_not_module_gated(self):
+        from unittest.mock import patch
+
+        anonymous = self.client.get("/api/addresses/lu/?postal_code=1234")
+        self.assertIn(anonymous.status_code, {401, 403})
+        self.client.force_authenticate(user=self.member_user)
+        payload = {"postal_code": "1234", "localities": ["Musterstadt"], "streets": [], "houses": []}
+        with patch("clubmgmt.addresses.lookup_luxembourg", return_value=payload) as lookup:
+            response = self.client.get("/api/addresses/lu/?postal_code=1234&street=Rue")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["localities"], ["Musterstadt"])
+        lookup.assert_called_once_with("1234", "Rue")

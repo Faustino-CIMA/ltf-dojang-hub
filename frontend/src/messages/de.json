@@ -88,6 +88,17 @@
     "navGroupCompetition": "Wettkampf"
   },
   "ClubAdmin": {
+    "federationLabel": "Verband",
+    "federationWt": "WT",
+    "federationItf": "ITF",
+    "federationFilterLabel": "Verband",
+    "federationAll": "Alle Verbände",
+    "rcsNumberLabel": "RCS-Nummer",
+    "rcsNumberPlaceholder": "B123456",
+    "rcsNumberInvalid": "Geben Sie eine RCS-Nummer wie B123456 ein (ein Buchstabe, dann bis zu 6 Ziffern).",
+    "openLbrSearch": "LBR-Suche öffnen",
+    "headOfficeLabel": "Sitz (siège social)",
+    "headOfficeHint": "Eingetragener Sitz des Vereins. Trainingsorte stehen in einer eigenen Liste.",
     "printLicenceCardsAction": "Lizenzkarten drucken",
     "printLicenceCardsTitle": "Lizenzkarten drucken",
     "printLicenceCardsDescription": "Druckauftrag für {count} ausgewählte Einträge erstellen.",
@@ -489,6 +500,17 @@
     "ibanPlaceholder": "LU00 0000 0000 0000"
   },
   "LtfAdmin": {
+    "federationLabel": "Verband",
+    "federationWt": "WT",
+    "federationItf": "ITF",
+    "federationFilterLabel": "Verband",
+    "federationAll": "Alle Verbände",
+    "rcsNumberLabel": "RCS-Nummer",
+    "rcsNumberPlaceholder": "B123456",
+    "rcsNumberInvalid": "Geben Sie eine RCS-Nummer wie B123456 ein (ein Buchstabe, dann bis zu 6 Ziffern).",
+    "openLbrSearch": "LBR-Suche öffnen",
+    "headOfficeLabel": "Sitz (siège social)",
+    "headOfficeHint": "Eingetragener Sitz des Vereins. Trainingsorte stehen in einer eigenen Liste.",
     "memberCommitteeTab": "Vorstand",
     "staffFilterAriaLabel": "Bestand",
     "staffFilterAll": "Alle",
@@ -777,5 +799,32 @@
   "Events": {
     "calendarModuleOffTitle": "Modul nicht verfügbar",
     "calendarModuleOffBody": "Das Kalendermodul ist ausgeschaltet, diese Seite bleibt geschlossen."
+  },
+  "TrainingVenues": {
+    "title": "Trainingsorte",
+    "subtitle": "Orte, an denen dieser Verein trainiert. Das ist nicht der Sitz.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Musterhalle",
+    "nameRequired": "Geben Sie einen Namen für diesen Trainingsort ein.",
+    "notesLabel": "Notizen",
+    "notesPlaceholder": "Dienstagabends",
+    "activeLabel": "Aktiv",
+    "shortAddressLabel": "Adresse",
+    "emptyTitle": "Noch keine Trainingsorte",
+    "emptySubtitle": "Fügen Sie die Hallen hinzu, in denen dieser Verein trainiert.",
+    "addVenue": "Ort hinzufügen",
+    "editVenue": "Ort bearbeiten",
+    "deleteVenue": "Löschen",
+    "activeBadge": "Aktiv",
+    "inactiveBadge": "Inaktiv",
+    "saved": "Trainingsort gespeichert.",
+    "loadError": "Die Trainingsorte konnten nicht geladen werden.",
+    "saveError": "Der Trainingsort konnte nicht gespeichert werden.",
+    "deleteTitle": "Diesen Trainingsort löschen?",
+    "deleteDescription": "Damit wird {name} aus dem Verein entfernt.",
+    "actionsLabel": "Aktionen",
+    "save": "Speichern",
+    "saving": "Speichern…",
+    "cancel": "Abbrechen"
   }
 }

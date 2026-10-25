@@ -21,6 +21,7 @@ from django.http import FileResponse
 
 from members.models import Member
 
+from .access import user_can_edit_club
 from .admin_assignment import (
     AdminAssignmentError,
     assign_club_admin,
@@ -99,13 +100,7 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def _can_manage_club(self, user, club: Club) -> bool:
-        if not user or not user.is_authenticated:
-            return False
-        if user.role in {"ltf_admin", "ltf_finance"}:
-            return True
-        if user.role == "club_admin" and club.admins.filter(id=user.id).exists():
-            return True
-        return False
+        return user_can_edit_club(user, club)
 
     def _assignment_club_ids(self, user):
         if not user or not user.is_authenticated:
@@ -159,6 +154,9 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             issue = (self.request.query_params.get("issue") or "").strip()
             if issue == "no_admin":
                 queryset = queryset.annotate(admin_count=Count("admins")).filter(admin_count=0)
+            federation = (self.request.query_params.get("federation") or "").strip().upper()
+            if federation in {Club.Federation.WT, Club.Federation.ITF}:
+                queryset = queryset.filter(federation=federation)
         return queryset
 
     def perform_create(self, serializer):

@@ -88,6 +88,17 @@
     "navGroupCompetition": "Compétition"
   },
   "ClubAdmin": {
+    "federationLabel": "Fédération",
+    "federationWt": "WT",
+    "federationItf": "ITF",
+    "federationFilterLabel": "Fédération",
+    "federationAll": "Toutes les fédérations",
+    "rcsNumberLabel": "Numéro RCS",
+    "rcsNumberPlaceholder": "B123456",
+    "rcsNumberInvalid": "Saisissez un numéro RCS comme B123456 (une lettre, puis jusqu'à 6 chiffres).",
+    "openLbrSearch": "Ouvrir la recherche LBR",
+    "headOfficeLabel": "Siège social",
+    "headOfficeHint": "Adresse du siège. Les lieux d'entraînement sont listés à part.",
     "printLicenceCardsAction": "Imprimer les cartes de licence",
     "printLicenceCardsTitle": "Imprimer les cartes de licence",
     "printLicenceCardsDescription": "Créer un travail d'impression pour {count} enregistrements sélectionnés.",
@@ -489,6 +500,17 @@
     "ibanPlaceholder": "LU00 0000 0000 0000"
   },
   "LtfAdmin": {
+    "federationLabel": "Fédération",
+    "federationWt": "WT",
+    "federationItf": "ITF",
+    "federationFilterLabel": "Fédération",
+    "federationAll": "Toutes les fédérations",
+    "rcsNumberLabel": "Numéro RCS",
+    "rcsNumberPlaceholder": "B123456",
+    "rcsNumberInvalid": "Saisissez un numéro RCS comme B123456 (une lettre, puis jusqu'à 6 chiffres).",
+    "openLbrSearch": "Ouvrir la recherche LBR",
+    "headOfficeLabel": "Siège social",
+    "headOfficeHint": "Adresse du siège. Les lieux d'entraînement sont listés à part.",
     "memberCommitteeTab": "Comité",
     "staffFilterAriaLabel": "Effectif",
     "staffFilterAll": "Tous",
@@ -777,5 +799,32 @@
   "Events": {
     "calendarModuleOffTitle": "Module non disponible",
     "calendarModuleOffBody": "Le module calendrier est désactivé, cette page reste fermée."
+  },
+  "TrainingVenues": {
+    "title": "Lieux d'entraînement",
+    "subtitle": "Endroits où ce club s'entraîne. Ce n'est pas le siège social.",
+    "nameLabel": "Nom",
+    "namePlaceholder": "Musterhalle",
+    "nameRequired": "Indiquez un nom pour ce lieu d'entraînement.",
+    "notesLabel": "Notes",
+    "notesPlaceholder": "Les mardis soir",
+    "activeLabel": "Actif",
+    "shortAddressLabel": "Adresse",
+    "emptyTitle": "Aucun lieu d'entraînement",
+    "emptySubtitle": "Ajoutez les salles où ce club s'entraîne.",
+    "addVenue": "Ajouter un lieu",
+    "editVenue": "Modifier le lieu",
+    "deleteVenue": "Supprimer",
+    "activeBadge": "Actif",
+    "inactiveBadge": "Inactif",
+    "saved": "Lieu d'entraînement enregistré.",
+    "loadError": "Les lieux d'entraînement n'ont pas pu être chargés.",
+    "saveError": "Le lieu d'entraînement n'a pas pu être enregistré.",
+    "deleteTitle": "Supprimer ce lieu d'entraînement ?",
+    "deleteDescription": "Cela retire {name} du club.",
+    "actionsLabel": "Actions",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "cancel": "Annuler"
   }
 }

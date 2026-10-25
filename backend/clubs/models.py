@@ -12,6 +12,11 @@ from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from .languages import DEFAULT_CLUB_LANGUAGE, normalize_club_language
 
 _WEBSITE_VALIDATOR = URLValidator(schemes=["http", "https"])
+RCS_NUMBER_RE = re.compile(r"^[A-Z]\d{1,6}$")
+
+
+def normalize_rcs_number(value: str) -> str:
+    return re.sub(r"\s+", "", str(value or "")).upper()
 
 
 def normalize_club_website(value: str) -> str:
@@ -48,6 +53,18 @@ class Club(models.Model):
         default=False,
         help_text="Marks a fictional club created for the separate demo app.",
     )
+
+    class Federation(models.TextChoices):
+        WT = "WT", "WT"
+        ITF = "ITF", "ITF"
+
+    federation = models.CharField(
+        max_length=3,
+        choices=Federation.choices,
+        default=Federation.WT,
+    )
+    rcs_number = models.CharField(max_length=20, blank=True)
+    external_ref = models.CharField(max_length=255, blank=True, db_index=True)
     egear_daedo = models.BooleanField(default=True)
     egear_kpnp = models.BooleanField(default=True)
     communication_language = models.CharField(max_length=10, default=DEFAULT_CLUB_LANGUAGE)
@@ -70,8 +87,29 @@ class Club(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rcs_number"],
+                condition=~models.Q(rcs_number=""),
+                name="unique_club_rcs_number_when_set",
+            ),
+        ]
+
     def clean(self):
         _validate_luxembourg_postal_code(self.postal_code)
+        self.rcs_number = normalize_rcs_number(self.rcs_number)
+        if self.rcs_number and not RCS_NUMBER_RE.fullmatch(self.rcs_number):
+            raise ValidationError(
+                {"rcs_number": _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")}
+            )
+        if self.rcs_number:
+            clash = Club.objects.filter(rcs_number=self.rcs_number)
+            if self.pk:
+                clash = clash.exclude(pk=self.pk)
+            if clash.exists():
+                raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
+        self.external_ref = str(self.external_ref or "").strip()
         normalized_iban = normalize_iban(self.iban)
         if normalized_iban and not is_valid_iban(normalized_iban):
             raise ValidationError({"iban": _("Enter a valid IBAN.")})
@@ -106,6 +144,39 @@ class Club(models.Model):
             for email in self.admins.values_list("email", flat=True)
             if email and str(email).strip()
         ]
+
+    def __str__(self):
+        return self.name
+
+
+class TrainingVenue(models.Model):
+    """A place where a club trains. The head office stays on Club."""
+
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="training_venues")
+    name = models.CharField(max_length=255)
+    street = models.CharField(max_length=255, blank=True)
+    house_number = models.CharField(max_length=20, blank=True)
+    line2 = models.CharField(max_length=255, blank=True)
+    postal_code = models.CharField(max_length=10, blank=True)
+    locality = models.CharField(max_length=255, blank=True)
+    country = models.CharField(max_length=64, default="Luxembourg")
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name", "id"]
+
+    def clean(self):
+        country = str(self.country or "").strip() or "Luxembourg"
+        self.country = country
+        if country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}:
+            _validate_luxembourg_postal_code(self.postal_code)
+        self.name = str(self.name or "").strip()
+        if not self.name:
+            raise ValidationError({"name": _("Enter a name for this training venue.")})
 
     def __str__(self):
         return self.name

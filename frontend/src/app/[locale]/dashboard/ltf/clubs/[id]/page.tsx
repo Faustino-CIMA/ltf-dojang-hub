@@ -9,6 +9,7 @@ import {
   BrandingLogoUploadPayload,
   BrandingLogosManager,
   } from "@/components/branding/branding-logos-manager";
+import { TrainingVenuesSection } from "@/components/clubs/training-venues-section";
 import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -154,6 +155,14 @@ export default function LtfClubDetailPage() {
                     <span className="font-medium">{club.name}</span>
                   </div>
                   <div className="flex flex-col gap-1">
+                    <span className="text-xs text-muted">{t("federationLabel")}</span>
+                    <StatusBadge label={club.federation === "ITF" ? t("federationItf") : t("federationWt")} tone="neutral" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-muted">{t("rcsNumberLabel")}</span>
+                    <span className="font-medium">{club.rcs_number || "-"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("postalCodeLabel")}</span>
                     <span className="font-medium">{club.postal_code || "-"}</span>
                   </div>
@@ -162,7 +171,7 @@ export default function LtfClubDetailPage() {
                     <span className="font-medium">{club.locality || club.city || "-"}</span>
                   </div>
                   <div className="flex flex-col gap-1 md:col-span-2">
-                    <span className="text-xs text-muted">{t("addressLine1Label")}</span>
+                    <span className="text-xs text-muted">{t("headOfficeLabel")}</span>
                     <span className="font-medium">{club.address_line1 || club.address || "-"}</span>
                   </div>
                   <div className="flex flex-col gap-1 md:col-span-2">
@@ -206,6 +215,10 @@ export default function LtfClubDetailPage() {
                   </div>
                 </div>
             </FormPanel>
+
+            {Number.isFinite(clubId) ? (
+              <TrainingVenuesSection clubId={clubId} onError={setErrorMessage} />
+            ) : null}
 
             <BrandingLogosManager
               logos={clubLogos}
