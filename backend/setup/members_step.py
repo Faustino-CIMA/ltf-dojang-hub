@@ -167,6 +167,7 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
     function_overrides = _override_map(options, "staff_function_overrides")
     role_overrides = _override_map(options, "role_overrides")
     club_overrides = _override_map(options, "club_name_overrides")
+    club_row_overrides = _override_map(options, "club_row_overrides")
     club_choices = _override_map(options, "club_choices")
     allow_missing = {int(item) for item in options.get("allow_missing_id") or []}
     parked_rows = set()
@@ -180,7 +181,9 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
 
     exact_clubs: dict[str, list] = {}
     loose_clubs: dict[str, list] = {}
+    club_by_id = {}
     for club in Club.objects.filter(is_demo=False):
+        club_by_id[club.id] = club
         exact_clubs.setdefault(normalize_club_name(club.name), []).append(club)
         loose_clubs.setdefault(loose_club_key(club.name), []).append(club)
 
@@ -235,7 +238,14 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
                 secondary = ""
             role_note = "override"
         club_raw = _cell(data, mapping, "club_name")
-        resolution = _resolve_club(club_raw, exact_clubs, loose_clubs, club_overrides)
+        resolution = _resolve_club(
+            club_raw,
+            exact_clubs,
+            loose_clubs,
+            club_overrides,
+            club_by_id,
+            club_row_overrides.get(str(index)),
+        )
         function = staff_function_for(primary_raw, secondary_raw)
         if str(index) in function_overrides:
             function = str(function_overrides[str(index)] or function)
@@ -319,17 +329,34 @@ def _club_resolution(club_raw: str, matches: list) -> dict:
     return {"kind": "ambiguous", "club_id": None, "club_name": club_raw, "matches": labels}
 
 
-def _resolve_club(club_raw: str, exact_clubs: dict, loose_clubs: dict, overrides: dict) -> dict:
-    key = normalize_club_name(club_raw)
-    override = overrides.get(key) or overrides.get(club_raw) or overrides.get(club_raw.casefold())
-    if isinstance(override, dict):
-        if override.get("skip"):
-            return {"kind": "skip", "club_id": None, "club_name": "", "matches": []}
-        if override.get("staff"):
-            return {"kind": "staff", "club_id": None, "club_name": "LTF", "matches": []}
-        club_id = override.get("club_id")
-        if club_id:
-            return {"kind": "club", "club_id": int(club_id), "club_name": club_raw, "matches": []}
+def _decision_from_override(club_raw: str, override, club_by_id: dict) -> dict | None:
+    if not isinstance(override, dict) or not override:
+        return None
+    if override.get("none"):
+        return {"kind": "no_club", "club_id": None, "club_name": "", "matches": []}
+    if override.get("skip"):
+        return {"kind": "skip", "club_id": None, "club_name": "", "matches": []}
+    if override.get("staff"):
+        return {"kind": "staff", "club_id": None, "club_name": "LTF", "matches": []}
+    club_id = override.get("club_id")
+    if not club_id:
+        return None
+    club = club_by_id.get(int(club_id))
+    name = club.name if club is not None else str(club_raw or "")
+    return {"kind": "club", "club_id": int(club_id), "club_name": name, "matches": []}
+
+
+def _resolve_club(club_raw: str, exact_clubs: dict, loose_clubs: dict, overrides: dict, club_by_id: dict, row_override=None) -> dict:
+    # A row choice always wins, and a blank cell never inherits a choice stored under the club text.
+    chosen = _decision_from_override(club_raw, row_override, club_by_id)
+    if chosen is not None:
+        return chosen
+    if str(club_raw or "").strip():
+        key = normalize_club_name(club_raw)
+        named = overrides.get(key) or overrides.get(club_raw) or overrides.get(club_raw.casefold())
+        chosen = _decision_from_override(club_raw, named, club_by_id)
+        if chosen is not None:
+            return chosen
     if not str(club_raw or "").strip():
         return {"kind": "no_club", "club_id": None, "club_name": "", "matches": []}
     if is_ltf_name(club_raw):

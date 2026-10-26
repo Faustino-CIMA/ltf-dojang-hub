@@ -36,6 +36,14 @@ import {
   withLocalPark,
   type SetupRowStatus,
 } from "@/lib/setup-member-preview";
+import {
+  NO_CLUB_YET,
+  applyClubChoiceToSameText,
+  chooseClubForRow,
+  clubRowOverrides,
+  parkedAfterClubChoice,
+  rowsSharingClubText,
+} from "@/lib/setup-club-choice";
 
 type InnerStep = "source" | "mapping" | "preview" | "confirm" | "result";
 type PreviewFilter = "all" | "ready" | "staff" | "choice" | "parked" | "skipped";
@@ -100,7 +108,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
   const [endDetection, setEndDetection] = useState<DateFormatDetection>(EMPTY_DETECTION);
   const [sexChoice, setSexChoice] = useState<Record<number, string>>({});
   const [activeChoice, setActiveChoice] = useState<Record<number, string>>({});
-  const [clubChoice, setClubChoice] = useState<Record<string, string>>({});
+  const [clubChoice, setClubChoice] = useState<Record<number, string>>({});
   const [memberClubChoice, setMemberClubChoice] = useState<Record<string, string>>({});
   const [functionChoice, setFunctionChoice] = useState<Record<number, string>>({});
   const [allowMissing, setAllowMissing] = useState<Record<number, boolean>>({});
@@ -164,12 +172,6 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     for (const [key, value] of Object.entries(activeChoice)) {
       if (value === "active" || value === "inactive") active_overrides[key] = value === "active";
     }
-    const club_name_overrides: Record<string, { club_id?: number; staff?: boolean; skip?: boolean }> = {};
-    for (const [name, value] of Object.entries(clubChoice)) {
-      if (value === "staff") club_name_overrides[name] = { staff: true };
-      else if (value === "skip") club_name_overrides[name] = { skip: true };
-      else if (value && value !== "__unset__") club_name_overrides[name] = { club_id: Number(value) };
-    }
     const club_choices: Record<string, number> = {};
     for (const [memberId, value] of Object.entries(memberClubChoice)) {
       if (value) club_choices[memberId] = Number(value);
@@ -182,7 +184,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
       mapping,
       sex_overrides,
       active_overrides,
-      club_name_overrides,
+      club_row_overrides: clubRowOverrides(clubChoice),
       club_choices,
       staff_function_overrides,
       allow_missing_id: Object.entries(allowMissing)
@@ -280,36 +282,35 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
 
   const parkAllUnresolved = () => {
     if (!preview) return;
+    const targets = preview.rows.filter((row) => row.parkable && displayStatus(row) === "choice");
     setParkedRows((current) => {
       const next = { ...current };
-      for (const row of preview.rows) {
-        if (row.parkable && displayStatus(row) === "choice") next[row.row_index] = true;
+      for (const row of targets) next[row.row_index] = true;
+      return next;
+    });
+    setClubChoice((current) => {
+      const next = { ...current };
+      for (const row of targets) {
+        if (!row.club_name.trim() && row.resolution.kind === "no_club") next[row.row_index] = NO_CLUB_YET;
       }
       return next;
     });
   };
 
-  const chooseClub = (clubKey: string, value: string) => {
-    const clearing = value === "__unset__" || value === "";
-    const hadChoice = Boolean(clubChoice[clubKey]);
-    setClubChoice((current) => {
-      const next = { ...current };
-      if (clearing) delete next[clubKey];
-      else next[clubKey] = value;
-      return next;
-    });
-    if (!clearing) {
-      setParkedRows((current) => {
-        const next = { ...current };
-        for (const candidate of preview?.rows ?? []) {
-          if (candidate.club_name.toLowerCase() === clubKey) next[candidate.row_index] = false;
-        }
-        return next;
-      });
-      markDirty();
-      return;
-    }
-    if (hadChoice) markDirty();
+  const chooseClub = (rowIndex: number, value: string) => {
+    setClubChoice((current) => chooseClubForRow(current, rowIndex, value));
+    setParkedRows((current) => parkedAfterClubChoice(current, [rowIndex], value));
+    if (value !== NO_CLUB_YET) markDirty();
+  };
+
+  const applyClubToMatching = (row: SetupMemberRow) => {
+    if (!preview) return;
+    const value = clubChoice[row.row_index];
+    if (!value || !row.club_name.trim()) return;
+    const matches = rowsSharingClubText(preview.rows, row.club_name);
+    setClubChoice((current) => applyClubChoiceToSameText(current, preview.rows, row, value));
+    setParkedRows((current) => parkedAfterClubChoice(current, matches.map((match) => match.row_index), value));
+    if (value !== NO_CLUB_YET) markDirty();
   };
 
   const statusLabel = (status: SetupRowStatus) =>
@@ -709,7 +710,9 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                       const shown = withLocalPark(row, parkedRows);
                       const status = setupRowStatus(shown);
                       const issues = setupRowIssues(shown);
-                      const clubKey = row.club_name.toLowerCase();
+                      const clubValue = clubChoice[row.row_index] || "";
+                      const blankClub = !row.club_name.trim();
+                      const matchingClubRows = rowsSharingClubText(preview.rows, row.club_name);
                       return (
                         <tr key={row.row_index} className="border-t border-border align-top text-foreground" data-preview-outcome={status}>
                           <td className="px-2 py-2">{row.row_index}</td>
@@ -756,19 +759,31 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           <td className="px-2 py-2 text-xs">
                             <p>{row.resolution.club_name || row.club_name || "—"}</p>
                             {row.resolution.kind === "unknown" || row.resolution.kind === "no_club" || row.resolution.kind === "near_ltf" || row.resolution.kind === "ambiguous" ? (
-                              <PopoverSelect
-                                value={clubChoice[clubKey] || ""}
-                                ariaLabel={t("clubIfKnown")}
-                                placeholder={t("clubIfKnown")}
-                                onValueChange={(value) => chooseClub(clubKey, value)}
-                                options={[
-                                  { value: "__unset__", label: t("clubNotYet") },
-                                  { value: "staff", label: t("ltfStaff") },
-                                  { value: "skip", label: t("skipRows") },
-                                  ...preview.clubs.map((club) => ({ value: String(club.id), label: club.name })),
-                                ]}
-                                className="mt-1 w-56"
-                              />
+                              <>
+                                <PopoverSelect
+                                  value={clubValue}
+                                  ariaLabel={t("clubIfKnown")}
+                                  placeholder={t("clubIfKnown")}
+                                  onValueChange={(value) => chooseClub(row.row_index, value)}
+                                  options={[
+                                    ...(blankClub ? [{ value: NO_CLUB_YET, label: t("clubNotYet") }] : []),
+                                    { value: "staff", label: t("ltfStaff") },
+                                    { value: "skip", label: t("skipRows") },
+                                    ...preview.clubs.map((club) => ({ value: String(club.id), label: club.name })),
+                                  ]}
+                                  className="mt-1 w-56"
+                                />
+                                {!blankClub && matchingClubRows.length > 1 && clubValue ? (
+                                  <button
+                                    type="button"
+                                    className="mt-1 block max-w-56 text-left text-xs font-medium text-link underline-offset-4 hover:underline"
+                                    title={t("applyClubToMatchingHint")}
+                                    onClick={() => applyClubToMatching(row)}
+                                  >
+                                    {t("applyClubToMatching", { count: matchingClubRows.length, name: row.club_name })}
+                                  </button>
+                                ) : null}
+                              </>
                             ) : null}
                             {row.group_conflict ? (
                               <PopoverSelect
@@ -869,7 +884,16 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                                 variant={status === "parked" ? "secondary" : "outline"}
                                 className="mb-1"
                                 onClick={() => {
-                                  setParkedRows((current) => ({ ...current, [row.row_index]: status !== "parked" }));
+                                  const parking = status !== "parked";
+                                  setParkedRows((current) => ({ ...current, [row.row_index]: parking }));
+                                  if (blankClub && row.resolution.kind === "no_club") {
+                                    setClubChoice((current) => {
+                                      const next = { ...current };
+                                      if (parking) next[row.row_index] = NO_CLUB_YET;
+                                      else if (next[row.row_index] === NO_CLUB_YET) delete next[row.row_index];
+                                      return next;
+                                    });
+                                  }
                                 }}
                               >
                                 {t("parkRow")}
