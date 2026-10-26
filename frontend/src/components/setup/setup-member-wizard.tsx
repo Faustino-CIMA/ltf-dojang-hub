@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -31,7 +31,7 @@ import { confirmSetupMembers, previewSetupMembers, type SetupMemberPreview, type
 import { setupIssueMessage, setupPreviewSummary, setupRowIssues, setupRowStatus, type SetupRowStatus } from "@/lib/setup-member-preview";
 
 type InnerStep = "source" | "mapping" | "preview" | "confirm" | "result";
-type PreviewFilter = "all" | "ready" | "staff" | "choice" | "skipped";
+type PreviewFilter = "all" | "ready" | "staff" | "choice" | "parked" | "skipped";
 type SortKey = "name" | "club" | "status";
 
 const FIELDS = SETUP_MEMBER_TARGET_FIELDS;
@@ -43,6 +43,7 @@ type MemberResult = {
   created: number;
   updated: number;
   skipped: number;
+  parked?: number;
   ltf_staff: number;
 };
 
@@ -96,6 +97,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
   const [memberClubChoice, setMemberClubChoice] = useState<Record<string, string>>({});
   const [functionChoice, setFunctionChoice] = useState<Record<number, string>>({});
   const [allowMissing, setAllowMissing] = useState<Record<number, boolean>>({});
+  const [parkedRows, setParkedRows] = useState<Record<number, boolean>>({});
   const [filter, setFilter] = useState<PreviewFilter>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
   const [result, setResult] = useState<MemberResult | null>(null);
@@ -172,6 +174,9 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
       allow_missing_id: Object.entries(allowMissing)
         .filter(([, on]) => on)
         .map(([key]) => Number(key)),
+      parked_rows: Object.entries(parkedRows)
+        .filter(([, on]) => on)
+        .map(([key]) => Number(key)),
       ...(dateFormat ? { date_format: dateFormat } : {}),
       ...(endDateFormat ? { end_date_format: endDateFormat } : {}),
     };
@@ -204,6 +209,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
         created: body.created ?? 0,
         updated: body.updated ?? 0,
         skipped: body.skipped ?? 0,
+        parked: body.parked ?? 0,
         ltf_staff: body.ltf_staff ?? 0,
       });
       setStep("result");
@@ -214,17 +220,23 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     }
   };
 
+  const displayStatus = useCallback((row: SetupMemberRow): SetupRowStatus => {
+    if (parkedRows[row.row_index] === true && row.parkable) return "parked";
+    if (parkedRows[row.row_index] === false) return setupRowStatus({ ...row, parked: false });
+    return setupRowStatus(row);
+  }, [parkedRows]);
+
   const rows = useMemo(() => {
     const source = preview?.rows ?? [];
-    const visible = source.filter((row) => filter === "all" || setupRowStatus(row) === filter);
+    const visible = source.filter((row) => filter === "all" || displayStatus(row) === filter);
     const value = (row: SetupMemberRow) =>
       sort.key === "club"
         ? row.resolution.club_name || row.club_name
         : sort.key === "status"
-          ? setupRowStatus(row)
+          ? displayStatus(row)
           : formatFullName(row);
     return [...visible].sort((left, right) => value(left).localeCompare(value(right)) * (sort.dir === "asc" ? 1 : -1));
-  }, [filter, preview, sort]);
+  }, [displayStatus, filter, preview, sort]);
 
   const toggleSort = (key: SortKey) => {
     setSort((current) => ({ key, dir: current.key === key && current.dir === "asc" ? "desc" : "asc" }));
@@ -235,7 +247,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     setSexChoice((current) => {
       const next = { ...current };
       for (const row of preview.rows) {
-        if (setupRowStatus(row) === "choice") next[row.row_index] = "skip";
+        if (displayStatus(row) === "choice") next[row.row_index] = "skip";
       }
       return next;
     });
@@ -253,10 +265,30 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     { id: "result", label: shared("resultStepTitle") },
   ];
 
+  const parkAllUnresolved = () => {
+    if (!preview) return;
+    setParkedRows((current) => {
+      const next = { ...current };
+      for (const row of preview.rows) {
+        if (row.parkable && displayStatus(row) === "choice") next[row.row_index] = true;
+      }
+      return next;
+    });
+    markDirty();
+  };
+
   const statusLabel = (status: SetupRowStatus) =>
-    status === "ready" ? shared("statusReady") : status === "staff" ? t("statusStaff") : status === "choice" ? t("statusChoice") : shared("statusSkipped");
+    status === "ready"
+      ? shared("statusReady")
+      : status === "staff"
+        ? t("statusStaff")
+        : status === "choice"
+          ? t("statusChoice")
+          : status === "parked"
+            ? t("statusParked")
+            : shared("statusSkipped");
   const statusTone = (status: SetupRowStatus): ImportBadgeTone =>
-    status === "ready" ? "success" : status === "staff" ? "info" : status === "choice" ? "danger" : "neutral";
+    status === "ready" ? "success" : status === "staff" ? "info" : status === "parked" ? "warning" : status === "choice" ? "danger" : "neutral";
 
   const dateControl = (which: "dob" | "end") => {
     const detection = which === "dob" ? dateDetection : endDetection;
@@ -573,6 +605,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                   { label: shared("statusReady"), hint: t("statusReadyHint"), tone: "success" },
                   { label: t("statusStaff"), hint: t("statusStaffHint"), tone: "info" },
                   { label: t("statusChoice"), hint: t("statusChoiceHint"), tone: "danger" },
+                  { label: t("statusParked"), hint: t("statusParkedHint"), tone: "warning" },
                   { label: shared("statusSkipped"), hint: t("statusSkippedHint"), tone: "neutral" },
                 ]}
               />
@@ -583,6 +616,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                     ["ready", shared("statusReady"), summary.ready],
                     ["staff", t("statusStaff"), summary.staff],
                     ["choice", t("statusChoice"), summary.choice],
+                    ["parked", t("statusParked"), summary.parked],
                     ["skipped", shared("statusSkipped"), summary.skipped],
                   ] as const
                 ).map(([id, label, count]) => (
@@ -598,9 +632,14 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                   </button>
                 ))}
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={skipChoiceRows}>
-                {shared("skipInvalidRowsButton")}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={parkAllUnresolved}>
+                  {t("parkAllUnresolved")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={skipChoiceRows}>
+                  {shared("skipInvalidRowsButton")}
+                </Button>
+              </div>
               <div className="max-h-[520px] overflow-auto rounded-[var(--radius-form)] border border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-secondary text-left text-xs uppercase text-muted">
@@ -632,7 +671,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                   </thead>
                   <tbody>
                     {rows.map((row) => {
-                      const status = setupRowStatus(row);
+                      const status = displayStatus(row);
                       const issues = setupRowIssues(row);
                       const clubKey = row.club_name.toLowerCase();
                       return (
@@ -680,7 +719,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           <td className="px-2 py-2 text-xs">{row.ltf_license_id || row.member_id || "—"}</td>
                           <td className="px-2 py-2 text-xs">
                             <p>{row.resolution.club_name || row.club_name || "—"}</p>
-                            {row.resolution.kind === "unknown" || row.resolution.kind === "near_ltf" || row.resolution.kind === "ambiguous" ? (
+                            {row.resolution.kind === "unknown" || row.resolution.kind === "no_club" || row.resolution.kind === "near_ltf" || row.resolution.kind === "ambiguous" ? (
                               <PopoverSelect
                                 value={clubChoice[clubKey] || ""}
                                 ariaLabel={t("resolveClub")}
@@ -788,6 +827,20 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                             ))}
                           </td>
                           <td className="px-2 py-2">
+                            {row.parkable ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={status === "parked" ? "secondary" : "outline"}
+                                className="mb-1"
+                                onClick={() => {
+                                  setParkedRows((current) => ({ ...current, [row.row_index]: status !== "parked" }));
+                                  markDirty();
+                                }}
+                              >
+                                {t("parkRow")}
+                              </Button>
+                            ) : null}
                             <PopoverSelect
                               value={sexChoice[row.row_index] === "skip" || row.resolution.kind === "skip" ? "skip" : "import"}
                               ariaLabel={shared("actionLabel")}
@@ -849,6 +902,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                 <ExplainedCount label={t("resultUpdated", { count: result.updated })} hint={t("resultUpdatedHint")} hintLabel={t("hintLabel")} />
                 <ExplainedCount label={t("resultSkipped", { count: result.skipped })} hint={t("resultSkippedHint")} hintLabel={t("hintLabel")} />
                 <ExplainedCount label={t("resultStaff", { count: result.ltf_staff })} hint={t("resultStaffHint")} hintLabel={t("hintLabel")} tone="info" />
+                <ExplainedCount label={t("resultParked", { count: result.parked ?? 0 })} hint={t("resultParkedHint")} hintLabel={t("hintLabel")} tone="warning" />
               </div>
             </div>
           ) : null}
@@ -879,6 +933,9 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                 </p>
                 <p>
                   <span className="font-medium">{t("statusChoice")}:</span> {summary.choice}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusParked")}:</span> {summary.parked}
                 </p>
                 <p>
                   <span className="font-medium">{shared("statusSkipped")}:</span> {summary.skipped}

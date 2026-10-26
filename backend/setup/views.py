@@ -155,6 +155,7 @@ class SetupMembersConfirmView(_OpenSetupView):
                 "created": result["created"],
                 "updated": result["updated"],
                 "skipped": result["skipped"],
+                "parked": result["parked"],
                 "ltf_staff": result["ltf_staff"],
                 "blank_rows_ignored": result["blank_rows_ignored"],
                 "role_summary": result["role_summary"],

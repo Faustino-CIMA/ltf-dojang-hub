@@ -7,6 +7,12 @@ export function importIssueMessage(t: IssueTranslator, issue: ImportIssue): stri
     const value = (issue.value || "").trim();
     return value ? t("issueGender", { value }) : t("issueGenderBlank");
   }
+  if (issue.code === "no_club") {
+    return t("issueNoClub");
+  }
+  if (issue.code === "end_date") {
+    return t("issueEndDate", { value: issue.value || "—" });
+  }
   if (issue.code === "licence_taken") {
     return t("issueLicenceTaken", { name: issue.name || "—", id: issue.id || "—" });
   }

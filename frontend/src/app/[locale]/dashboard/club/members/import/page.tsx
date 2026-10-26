@@ -33,6 +33,7 @@ export default function ClubMembersImportPage() {
       members: [
         { key: "first_name", label: t("firstNameLabel"), required: true },
         { key: "last_name", label: t("lastNameLabel"), required: true },
+        { key: "club_name", label: t("clubNameLabel") },
         { key: "sex", label: t("sexLabel") },
         { key: "email", label: t("emailLabel") },
         { key: "date_of_birth", label: t("dobLabel") },

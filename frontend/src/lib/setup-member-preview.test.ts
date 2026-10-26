@@ -95,5 +95,26 @@ describe("setup member preview labels", () => {
     });
     expect(setupRowStatus(ambiguous)).toBe("choice");
     expect(setupRowIssues(ambiguous)).toEqual(["ambiguous"]);
+    const emptyClub = row({
+      resolution: { kind: "no_club", club_id: null, club_name: "" },
+      club_name: "",
+    });
+    expect(setupRowIssues(emptyClub)).toEqual(["no_club"]);
+    expect(setupIssueMessage((key) => key, emptyClub, "no_club")).toBe("issue_no_club");
+    expect(setupRowStatus({ ...emptyClub, parked: true })).toBe("parked");
+    const summary = setupPreviewSummary({
+      rows: [emptyClub, { ...emptyClub, row_index: 2, parked: true }],
+      blank_rows_ignored: 0,
+      gender_summary: [],
+      role_summary: [],
+      unknown_clubs: [],
+      date_of_birth_format: { format: "DD/MM/YYYY", ambiguous: false, example: "" },
+      can_confirm: true,
+      email_ignored: true,
+      clubs: [],
+    });
+    expect(summary.parked).toBe(1);
+    expect(summary.choice).toBe(1);
+    expect(summary.willImport).toBe(1);
   });
 });
