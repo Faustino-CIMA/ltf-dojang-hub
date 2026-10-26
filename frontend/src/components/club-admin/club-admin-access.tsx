@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Copy, Mail, Trash2 } from "lucide-react";
 
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -33,12 +34,113 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+export function accessIsReset(admin: { access_kind?: string; password_set?: boolean }) {
+  if (admin.access_kind === "reset") return true;
+  if (admin.access_kind === "setup") return false;
+  return Boolean(admin.password_set);
+}
+
+export type AccessCopy = {
+  addEmail: string;
+  sendInvite: string;
+  copyInvite: string;
+  sendReset: string;
+  copyReset: string;
+  hintInvite: string;
+  hintReset: string;
+  hintEmail: string;
+  email: string;
+  emailHint: string;
+  emailHintReady: string;
+  emailHintLocked: string;
+  emailRequired: string;
+  changeTitle: string;
+  changeBody: string;
+  changeConfirmSend: string;
+  changeConfirmCopy: string;
+  locale: string;
+  localeName: (code: string) => string;
+  kindSetup: string;
+  kindReset: string;
+  remove: (club: string) => string;
+};
+
+export type AccessBadgeLabels = {
+  noEmail: string;
+  linkSent: string;
+  linkExpired: string;
+  passwordSet: string;
+  meta: string;
+};
+
+export function useClubAdminAccessCopy() {
+  const t = useTranslations("ClubAdmin");
+  const copy: AccessCopy = {
+    addEmail: t("accessAddEmail"),
+    sendInvite: t("accessSendInvite"),
+    copyInvite: t("accessCopyInvite"),
+    sendReset: t("accessSendReset"),
+    copyReset: t("accessCopyReset"),
+    hintInvite: t("accessHintInvite"),
+    hintReset: t("accessHintReset"),
+    hintEmail: t("accessHintEmail"),
+    email: t("accessEmailLabel"),
+    emailHint: t("accessEmailHint"),
+    emailHintReady: t("accessEmailHintReady"),
+    emailHintLocked: t("accessEmailHintLocked"),
+    emailRequired: t("accessEmailRequired"),
+    changeTitle: t("accessChangeTitle"),
+    changeBody: t("accessChangeBody"),
+    changeConfirmSend: t("accessChangeConfirmSend"),
+    changeConfirmCopy: t("accessChangeConfirmCopy"),
+    locale: t("accessLocaleLabel"),
+    localeName: (code) =>
+      code === "fr"
+        ? t("accessLocale_fr")
+        : code === "de"
+          ? t("accessLocale_de")
+          : code === "lb"
+            ? t("accessLocale_lb")
+            : t("accessLocale_en"),
+    kindSetup: t("accessKindSetup"),
+    kindReset: t("accessKindReset"),
+    remove: (club) => t("accessRemove", { club }),
+  };
+  return {
+    copy,
+    menuLabel: (name: string) => t("accessMenu", { name }),
+    badges: {
+      noEmail: t("accessNoEmail"),
+      linkSent: t("accessLinkSent"),
+      linkExpired: t("accessLinkExpired"),
+      passwordSet: t("accessPasswordSet"),
+      meta: t("accessLinkMeta", { sent: "{sent}", expires: "{expires}" }),
+    } satisfies AccessBadgeLabels,
+    sent: (reset: boolean, email: string) =>
+      reset ? t("accessSentReset", { email }) : t("accessSentInvite", { email }),
+    copied: (reset: boolean) => (reset ? t("accessCopiedReset") : t("accessCopiedInvite")),
+    emailFailed: t("accessEmailFailed"),
+    emailInUse: t("accessEmailInUse"),
+    emailRequired: t("accessEmailRequired"),
+    emailChangeForbidden: t("accessEmailChangeForbidden"),
+    rateLimited: t("accessRateLimited"),
+    download: t("accessDownload"),
+    downloadTitle: t("accessDownloadTitle"),
+    downloadWarning: t("accessDownloadWarning"),
+    downloadAction: t("accessDownloadAction"),
+    downloadEmpty: t("accessDownloadEmpty"),
+    downloadSkipped: (count: number) => t("accessDownloadSkipped", { count }),
+    downloadDone: t("accessDownloadDone"),
+    select: (name: string) => t("accessSelect", { name }),
+  };
+}
+
 export function AccessBadges({
   admin,
   labels,
 }: {
   admin: AccessAdmin;
-  labels: { noEmail: string; linkSent: string; linkExpired: string; passwordSet: string; meta: string };
+  labels: AccessBadgeLabels;
 }) {
   const sent = admin.link_sent_at ? formatDisplayDateTime(admin.link_sent_at) : "";
   const expires = admin.link_expires_at ? formatDisplayDateTime(admin.link_expires_at) : "";
@@ -62,31 +164,46 @@ export function AccessBadges({
 export function ClubAdminAccessMenu({
   admin,
   menuLabel,
-  sendLabel,
-  copyLabel,
-  removeLabel,
-  onSend,
+  copy,
+  onOpen,
   onCopy,
   onRemove,
 }: {
   admin: AccessAdmin;
   menuLabel: string;
-  sendLabel: string;
-  copyLabel: string;
-  removeLabel: (club: string) => string;
-  onSend: () => void;
+  copy: AccessCopy;
+  onOpen: () => void;
   onCopy: () => void;
   onRemove: (club: { id: number; name: string }) => void;
 }) {
+  const reset = accessIsReset(admin);
+  const hasEmail = Boolean(admin.email.trim());
   return (
     <RowActionMenu
       label={menuLabel}
       actions={[
-        { key: "send", label: sendLabel, icon: <Mail aria-hidden="true" />, onSelect: onSend },
-        { key: "copy", label: copyLabel, icon: <Copy aria-hidden="true" />, onSelect: onCopy },
+        hasEmail
+          ? {
+              key: "send",
+              label: reset ? copy.sendReset : copy.sendInvite,
+              icon: <Mail aria-hidden="true" />,
+              onSelect: onOpen,
+            }
+          : {
+              key: "add-email",
+              label: copy.addEmail,
+              icon: <Mail aria-hidden="true" />,
+              onSelect: onOpen,
+            },
+        {
+          key: "copy",
+          label: reset ? copy.copyReset : copy.copyInvite,
+          icon: <Copy aria-hidden="true" />,
+          onSelect: onCopy,
+        },
         ...admin.clubs.map((club) => ({
           key: `remove-${club.id}`,
-          label: removeLabel(club.name),
+          label: copy.remove(club.name),
           icon: <Trash2 aria-hidden="true" />,
           destructive: true,
           onSelect: () => onRemove(club),
@@ -104,7 +221,7 @@ export function ClubAdminAccessPanel({
   busy,
   error,
   closeLabel,
-  labels,
+  copy,
   onClose,
   onSubmit,
 }: {
@@ -115,22 +232,7 @@ export function ClubAdminAccessPanel({
   busy: boolean;
   error: string | null;
   closeLabel: string;
-  labels: {
-    title: string;
-    hint: string;
-    email: string;
-    emailHint: string;
-    emailRequired: string;
-    send: string;
-    copy: string;
-    changeTitle: string;
-    changeBody: string;
-    changeConfirm: string;
-    locale: string;
-    localeName: (code: string) => string;
-    kindSetup: string;
-    kindReset: string;
-  };
+  copy: AccessCopy;
   onClose: () => void;
   onSubmit: (body: { delivery: "email" | "copy"; email: string; locale: string }) => void;
 }) {
@@ -151,16 +253,25 @@ export function ClubAdminAccessPanel({
   }
   const current = admin.email.trim();
   const next = email.trim();
+  const reset = accessIsReset(admin);
   const emailLocked = Boolean(current) && !allowEmailChange;
   const changing = Boolean(current) && next.toLowerCase() !== current.toLowerCase();
+  const emailOk = isValidEmail(next);
+  const canSend = emailOk && !busy;
+  const canCopy = (!next || emailOk) && !busy;
+  const sendLabel = reset ? copy.sendReset : copy.sendInvite;
+  const copyLabel = reset ? copy.copyReset : copy.copyInvite;
+  const title = current ? sendLabel : copy.addEmail;
+  const hint = current ? (reset ? copy.hintReset : copy.hintInvite) : copy.hintEmail;
+  const fieldHint = emailLocked ? copy.emailHintLocked : current ? copy.emailHintReady : copy.emailHint;
 
   const submit = (delivery: "email" | "copy") => {
-    if (delivery === "email" && !isValidEmail(next)) {
-      setEmailError(labels.emailRequired);
+    if (delivery === "email" && !emailOk) {
+      setEmailError(copy.emailRequired);
       return;
     }
-    if (delivery === "copy" && next && !isValidEmail(next)) {
-      setEmailError(labels.emailRequired);
+    if (delivery === "copy" && next && !emailOk) {
+      setEmailError(copy.emailRequired);
       return;
     }
     if (changing && confirmChange !== delivery) {
@@ -175,8 +286,8 @@ export function ClubAdminAccessPanel({
   return (
     <SidePanel
       open={open}
-      title={labels.title}
-      description={labels.hint}
+      title={title}
+      description={hint}
       closeLabel={closeLabel}
       onClose={onClose}
       footer={
@@ -184,21 +295,26 @@ export function ClubAdminAccessPanel({
           <Button type="button" variant="outline" onClick={onClose}>
             {closeLabel}
           </Button>
-          <Button type="button" variant="outline" disabled={busy} onClick={() => submit("copy")}>
-            {labels.copy}
+          <Button type="button" variant="outline" disabled={!canCopy} onClick={() => submit("copy")}>
+            {confirmChange === "copy" ? copy.changeConfirmCopy : copyLabel}
           </Button>
-          <Button type="button" disabled={busy} onClick={() => submit("email")}>
-            {confirmChange ? labels.changeConfirm : labels.send}
+          <Button
+            type="button"
+            disabled={!canSend}
+            title={canSend ? undefined : copy.emailRequired}
+            onClick={() => submit("email")}
+          >
+            {confirmChange === "email" ? copy.changeConfirmSend : sendLabel}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <p className="text-sm text-foreground">{formatFullName(admin)}</p>
-        <p className="text-sm text-muted">{admin.access_kind === "reset" ? labels.kindReset : labels.kindSetup}</p>
+        <p className="text-sm text-muted">{reset ? copy.kindReset : copy.kindSetup}</p>
         <div className="space-y-2">
           <Label htmlFor="club-admin-access-email" required={!current}>
-            {labels.email}
+            {copy.email}
           </Label>
           <Input
             id="club-admin-access-email"
@@ -208,23 +324,25 @@ export function ClubAdminAccessPanel({
             onChange={(event) => {
               setEmail(event.target.value);
               setConfirmChange(null);
+              setEmailError(null);
             }}
           />
-          <p className="text-xs text-muted">{labels.emailHint}</p>
+          <p className="text-xs text-muted">{fieldHint}</p>
+          {next && !emailOk ? <p className="text-sm text-destructive">{copy.emailRequired}</p> : null}
           {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="club-admin-access-locale">{labels.locale}</Label>
+          <Label htmlFor="club-admin-access-locale">{copy.locale}</Label>
           <PopoverSelect
-            ariaLabel={labels.locale}
+            ariaLabel={copy.locale}
             value={chosenLocale}
             onValueChange={setChosenLocale}
-            options={LOCALES.map((code) => ({ value: code, label: labels.localeName(code) }))}
+            options={LOCALES.map((code) => ({ value: code, label: copy.localeName(code) }))}
           />
         </div>
         {confirmChange ? (
           <p className="text-sm text-foreground">
-            {labels.changeTitle} {labels.changeBody.replace("{email}", next).replace("{previous}", current)}
+            {copy.changeTitle} {copy.changeBody.replace("{email}", next).replace("{previous}", current)}
           </p>
         ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}

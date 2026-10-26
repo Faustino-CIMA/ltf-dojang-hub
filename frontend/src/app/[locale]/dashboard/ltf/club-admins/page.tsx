@@ -11,7 +11,13 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
 
-import { AccessBadges, ClubAdminAccessMenu, ClubAdminAccessPanel } from "@/components/club-admin/club-admin-access";
+import {
+  AccessBadges,
+  ClubAdminAccessMenu,
+  ClubAdminAccessPanel,
+  accessIsReset,
+  useClubAdminAccessCopy,
+} from "@/components/club-admin/club-admin-access";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -134,6 +140,7 @@ function pinAndLimit<T extends { id: number }>(items: T[], limit: number, pinned
 
 export default function ClubAdminsBoardPage() {
   const t = useTranslations("LtfAdmin");
+  const access = useClubAdminAccessCopy();
   const common = useTranslations("Common");
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -447,17 +454,17 @@ export default function ClubAdminsBoardPage() {
       return t("actorHomeClubOnly");
     }
     if (message === "email_change_forbidden") {
-      return t("accessEmailChangeForbidden");
+      return access.emailChangeForbidden;
     }
     if (message === "rate_limited") {
-      return t("accessRateLimited");
+      return access.rateLimited;
     }
     return message;
   };
 
   const explainAccessError = (message: string) => {
-    if (message === "email_in_use") return t("accessEmailInUse");
-    if (message === "email_required") return t("accessEmailRequired");
+    if (message === "email_in_use") return access.emailInUse;
+    if (message === "email_required") return access.emailRequired;
     return mapAssignError(message);
   };
 
@@ -480,12 +487,13 @@ export default function ClubAdminsBoardPage() {
         }
         setInviteResetUrl(result.link);
       }
+      const reset = accessIsReset(admin);
       if (body.delivery !== "copy" && result.email_sent) {
-        setSuccessMessage(t("accessSent", { email: body.email || admin.email }));
+        setSuccessMessage(access.sent(reset, body.email || admin.email));
       } else if (body.delivery !== "copy" && !result.email_sent) {
-        setSuccessMessage(t("accessEmailFailed"));
+        setSuccessMessage(access.emailFailed);
       } else {
-        setSuccessMessage(t("accessCopied"));
+        setSuccessMessage(access.copied(reset));
       }
       setAccessAdmin(null);
       await loadBoard();
@@ -499,7 +507,7 @@ export default function ClubAdminsBoardPage() {
 
   const downloadLinks = async () => {
     if (selectedLinkIds.length === 0) {
-      setErrorMessage(t("accessDownloadEmpty"));
+      setErrorMessage(access.downloadEmpty);
       return;
     }
     setIsSaving(true);
@@ -508,9 +516,7 @@ export default function ClubAdminsBoardPage() {
       const result = await downloadClubAdminAccessLinks(selectedLinkIds, locale);
       setDownloadOpen(false);
       setSuccessMessage(
-        result.skipped > 0
-          ? t("accessDownloadSkipped", { count: result.skipped })
-          : t("accessDownloadDone"),
+        result.skipped > 0 ? access.downloadSkipped(result.skipped) : access.downloadDone,
       );
       await loadBoard();
     } catch (error) {
@@ -971,7 +977,7 @@ export default function ClubAdminsBoardPage() {
                   <p className="mt-1 text-sm text-muted">{t("rosterBoardSubtitle")}</p>
                 </div>
                 <Button type="button" variant="outline" onClick={() => setDownloadOpen(true)} disabled={selectedLinkIds.length === 0}>
-                  {t("accessDownload")}
+                  {access.download}
                 </Button>
               </div>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -1016,7 +1022,7 @@ export default function ClubAdminsBoardPage() {
                                 >
                                   <Checkbox
                                     checked={selectedLinkIds.includes(admin.id)}
-                                    aria-label={t("accessSelect", { name: displayAdminName(admin) })}
+                                    aria-label={access.select(displayAdminName(admin))}
                                     onCheckedChange={(checked) => {
                                       setSelectedLinkIds((current) =>
                                         checked ? [...current, admin.id] : current.filter((id) => id !== admin.id),
@@ -1035,11 +1041,9 @@ export default function ClubAdminsBoardPage() {
                               <span onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                                 <ClubAdminAccessMenu
                                   admin={admin}
-                                  menuLabel={t("accessMenu", { name: displayAdminName(admin) })}
-                                  sendLabel={t("accessSend")}
-                                  copyLabel={t("accessCopy")}
-                                  removeLabel={(club) => t("accessRemove", { club })}
-                                  onSend={() => {
+                                  menuLabel={access.menuLabel(displayAdminName(admin))}
+                                  copy={access.copy}
+                                  onOpen={() => {
                                     setAccessError(null);
                                     setAccessAdmin(admin);
                                   }}
@@ -1057,16 +1061,7 @@ export default function ClubAdminsBoardPage() {
                                   tone="info"
                                 />
                               ) : null}
-                              <AccessBadges
-                                admin={admin}
-                                labels={{
-                                  noEmail: t("accessNoEmail"),
-                                  linkSent: t("accessLinkSent"),
-                                  linkExpired: t("accessLinkExpired"),
-                                  passwordSet: t("accessPasswordSet"),
-                                  meta: t("accessLinkMeta", { sent: "{sent}", expires: "{expires}" }),
-                                }}
-                              />
+                              <AccessBadges admin={admin} labels={access.badges} />
                             </div>
                             <div className="mt-3 flex flex-wrap gap-1.5">
                               {admin.clubs.map((club) => (
@@ -1218,29 +1213,7 @@ export default function ClubAdminsBoardPage() {
         busy={isSaving}
         error={accessError}
         closeLabel={common("modalClose")}
-        labels={{
-          title: t("accessPanelTitle"),
-          hint: t("accessPanelHint"),
-          email: t("accessEmailLabel"),
-          emailHint: t("accessEmailHint"),
-          emailRequired: t("accessEmailRequired"),
-          send: t("accessSendAction"),
-          copy: t("accessCopyAction"),
-          changeTitle: t("accessChangeTitle"),
-          changeBody: t("accessChangeBody"),
-          changeConfirm: t("accessChangeConfirm"),
-          locale: t("accessLocaleLabel"),
-          localeName: (code) =>
-            code === "fr"
-              ? t("accessLocale_fr")
-              : code === "de"
-                ? t("accessLocale_de")
-                : code === "lb"
-                  ? t("accessLocale_lb")
-                  : t("accessLocale_en"),
-          kindSetup: t("accessKindSetup"),
-          kindReset: t("accessKindReset"),
-        }}
+        copy={access.copy}
         onClose={() => {
           setAccessAdmin(null);
           setAccessError(null);
@@ -1251,14 +1224,14 @@ export default function ClubAdminsBoardPage() {
         }}
       />
 
-      <Modal isOpen={downloadOpen} onClose={() => setDownloadOpen(false)} title={t("accessDownloadTitle")}>
-        <p className="text-sm text-foreground">{t("accessDownloadWarning")}</p>
+      <Modal isOpen={downloadOpen} onClose={() => setDownloadOpen(false)} title={access.downloadTitle}>
+        <p className="text-sm text-foreground">{access.downloadWarning}</p>
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => setDownloadOpen(false)}>
             {t("emailCancelAction")}
           </Button>
           <Button type="button" onClick={() => void downloadLinks()} disabled={isSaving}>
-            {t("accessDownloadAction")}
+            {access.downloadAction}
           </Button>
         </div>
       </Modal>

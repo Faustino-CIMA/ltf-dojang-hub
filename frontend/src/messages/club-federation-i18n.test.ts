@@ -20,12 +20,20 @@ const CLUB_KEYS = [
 const ACCESS_KEYS = [
   "actorHomeClubOnly",
   "accessMenu",
-  "accessSend",
-  "accessCopy",
-  "accessPanelTitle",
+  "accessAddEmail",
+  "accessSendInvite",
+  "accessCopyInvite",
+  "accessSendReset",
+  "accessCopyReset",
+  "accessRemove",
+  "accessHintInvite",
+  "accessHintReset",
+  "accessHintEmail",
   "accessDownloadWarning",
   "accessKindSetup",
   "accessKindReset",
+  "accessSentInvite",
+  "accessSentReset",
 ] as const;
 
 describe("club federation messages", () => {
@@ -44,6 +52,22 @@ describe("club federation messages", () => {
         expect(messages.ClubAdmin[key]).toEqual(expect.any(String));
         expect(messages.ClubAdmin[key].length).toBeGreaterThan(0);
       }
+      expect("accessSend" in messages.ClubAdmin).toBe(false);
+      expect("accessCopy" in messages.ClubAdmin).toBe(false);
+    }
+  });
+
+  it("names the club-admin actions in plain English", () => {
+    expect(en.ClubAdmin.accessAddEmail).toBe("Add email address");
+    expect(en.ClubAdmin.accessSendInvite).toBe("Send invitation to set password");
+    expect(en.ClubAdmin.accessCopyInvite).toBe("Copy invitation link");
+    expect(en.ClubAdmin.accessSendReset).toBe("Send password reset email");
+    expect(en.ClubAdmin.accessCopyReset).toBe("Copy password reset link");
+    expect(en.ClubAdmin.accessRemove).toBe("Remove as club admin of {club}");
+    expect(en.ClubAdmin.accessDownload).toBe("Download invitations");
+    for (const messages of [fr, de, lb]) {
+      expect(messages.ClubAdmin.accessSendInvite).not.toBe(en.ClubAdmin.accessSendInvite);
+      expect(messages.ClubAdmin.accessSendReset).not.toBe(en.ClubAdmin.accessSendReset);
     }
   });
 
