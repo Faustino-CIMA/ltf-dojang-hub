@@ -363,6 +363,109 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(created.club.name, "Silver Crane Academy")
         self.assertEqual(created.import_status, Member.ImportStatus.ACTIVE)
 
+    def test_club_choice_is_per_row_and_no_club_yet_can_confirm(self):
+        raw = "\n".join(
+            [
+                "Member ID,First,Last,Club,Gender",
+                "LUX-11,Erika,Musterfrau,,Female",
+                "LUX-12,Noa,Beispiel,,Female",
+                "LUX-13,Max,Mustermann,Silver Crane Academy,Male",
+                "LUX-14,Sam,Beispiel,Nowhere Dojang,Female",
+                "LUX-15,Kim,Beispiel,Nowhere Dojang,Male",
+            ]
+        )
+        mapping = {
+            "wt_licenseid": "Member ID",
+            "ltf_licenseid": "Member ID",
+            "first_name": "First",
+            "last_name": "Last",
+            "club_name": "Club",
+            "sex": "Gender",
+        }
+        crane = Club.objects.get(name="Silver Crane Academy")
+
+        def post(path, payload):
+            upload = SimpleUploadedFile("per-row-club.csv", raw.encode("utf-8"), content_type="text/csv")
+            return self.client.post(path, {"file": upload, "payload": json.dumps(payload)}, format="multipart")
+
+        def row_for(payload, license_id):
+            preview = post("/api/setup/members/preview/", payload)
+            self.assertEqual(preview.status_code, 200, preview.data)
+            return preview, next(row for row in preview.data["rows"] if row["member_id"] == license_id)
+
+        shared_blank = {"mapping": mapping, "club_name_overrides": {"": {"club_id": crane.id}}}
+        preview, erika = row_for(shared_blank, "LUX-11")
+        noa = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-12")
+        self.assertEqual(erika["resolution"]["kind"], "no_club")
+        self.assertEqual(noa["resolution"]["kind"], "no_club")
+
+        one_blank = {
+            "mapping": mapping,
+            "club_row_overrides": {"1": {"club_id": crane.id}, "2": {"none": True}},
+        }
+        preview, erika = row_for(one_blank, "LUX-11")
+        noa = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-12")
+        self.assertEqual(erika["resolution"]["kind"], "club")
+        self.assertEqual(erika["resolution"]["club_id"], crane.id)
+        self.assertEqual(erika["resolution"]["club_name"], "Silver Crane Academy")
+        self.assertEqual(noa["resolution"]["kind"], "no_club")
+        self.assertIsNone(noa["resolution"]["club_id"])
+
+        one_name = {"mapping": mapping, "club_row_overrides": {"4": {"club_id": crane.id}}}
+        preview, sam = row_for(one_name, "LUX-14")
+        kim = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-15")
+        blank = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-11")
+        self.assertEqual(sam["resolution"]["kind"], "club")
+        self.assertEqual(sam["resolution"]["club_id"], crane.id)
+        self.assertEqual(kim["resolution"]["kind"], "unknown")
+        self.assertEqual(blank["resolution"]["kind"], "no_club")
+
+        both_names = {
+            "mapping": mapping,
+            "club_row_overrides": {"4": {"club_id": crane.id}, "5": {"club_id": crane.id}},
+        }
+        preview, sam = row_for(both_names, "LUX-14")
+        kim = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-15")
+        blank = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-11")
+        self.assertEqual(sam["resolution"]["club_id"], crane.id)
+        self.assertEqual(kim["resolution"]["club_id"], crane.id)
+        self.assertEqual(blank["resolution"]["kind"], "no_club")
+
+        mixed = {
+            "mapping": mapping,
+            "club_row_overrides": {"1": {"club_id": crane.id}, "2": {"none": True}},
+            "parked_rows": [2],
+        }
+        preview, _erika = row_for(mixed, "LUX-11")
+        self.assertFalse(preview.data["can_confirm"])
+        parked = {
+            **mixed,
+            "club_row_overrides": {
+                "1": {"club_id": crane.id},
+                "2": {"none": True},
+                "4": {"club_id": crane.id},
+                "5": {"club_id": crane.id},
+            },
+        }
+        preview, noa = row_for(parked, "LUX-12")
+        self.assertTrue(noa["parked"])
+        self.assertEqual(noa["resolution"]["kind"], "no_club")
+        self.assertTrue(preview.data["can_confirm"], preview.data)
+        confirmed = post("/api/setup/members/confirm/", parked)
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(confirmed.data["created"], 4)
+        self.assertEqual(confirmed.data["parked"], 1)
+        assigned = Member.objects.get(ltf_licenseid="LUX-11")
+        self.assertEqual(assigned.club_id, crane.id)
+        left = Member.all_objects.get(ltf_licenseid="LUX-12")
+        self.assertEqual(left.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(left.club_id)
+        self.assertEqual(decode_reasons(left.park_reason), [NO_CLUB])
+        self.assertEqual(Member.objects.get(ltf_licenseid="LUX-13").club_id, crane.id)
+        self.assertEqual(Member.objects.get(ltf_licenseid="LUX-14").club_id, crane.id)
+        self.assertEqual(Member.objects.get(ltf_licenseid="LUX-15").club_id, crane.id)
+        self.assertFalse(Member.objects.filter(ltf_licenseid="LUX-12").exists())
+
 
 @override_settings(DEMO_MODE=False)
 class SetupMemberIdPrefixTests(TestCase):
