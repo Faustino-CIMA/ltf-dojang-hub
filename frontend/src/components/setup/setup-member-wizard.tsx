@@ -359,7 +359,11 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
   };
 
   const counts = summary ? (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="space-y-3">
+      <p className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
+        {t("membershipStatusNotice")}
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
       <ExplainedCount label={t("summaryWillImport", { count: summary.willImport })} hint={t("summaryWillImportHint")} hintLabel={t("hintLabel")} tone="success" />
       <ExplainedCount label={t("summaryStaff", { count: summary.staff })} hint={t("summaryStaffHint")} hintLabel={t("hintLabel")} tone="info" />
       <ExplainedCount
@@ -381,6 +385,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
       <ExplainedCount label={t("summaryInactive", { count: summary.inactive })} hint={t("summaryInactiveHint")} hintLabel={t("hintLabel")} />
       <ExplainedCount label={t("summaryBlank", { count: summary.blank })} hint={t("summaryBlankHint")} hintLabel={t("hintLabel")} />
       <ExplainedCount label={t("summaryEmail")} hint={t("summaryEmailHint")} hintLabel={t("hintLabel")} />
+      </div>
       {summary.unknownClubRows > 0 ? (
         <ExplainedCount
           label={t("summaryUnknownClubs", { count: summary.unknownClubRows })}
@@ -699,7 +704,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                         </button>
                       </th>
                       <th className="px-2 py-2 font-medium">{t("sex")}</th>
-                      <th className="px-2 py-2 font-medium">{t("active")}</th>
+                      <th className="px-2 py-2 font-medium">{t("membershipStatusColumn")}</th>
                       <th className="px-2 py-2 font-medium">{t("function")}</th>
                       <th className="px-2 py-2 font-medium">{shared("errorsLabel")}</th>
                       <th className="px-2 py-2 font-medium">{shared("actionLabel")}</th>
@@ -828,11 +833,12 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                             )}
                           </td>
                           <td className="px-2 py-2">
+                            <div className="flex flex-col items-start gap-1">
                             {row.end_unparseable ? (
                               <span className="inline-flex items-center gap-1">
                               <PopoverSelect
                                 value={activeChoice[row.row_index] || ""}
-                                ariaLabel={t("active")}
+                                ariaLabel={t("membershipStatusColumn")}
                                 onValueChange={(value) => {
                                   setActiveChoice((current) => ({ ...current, [row.row_index]: value }));
                                   markDirty();
@@ -848,10 +854,12 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                               </span>
                               </span>
                             ) : row.is_active == null ? (
-                              "—"
+                              <span className="text-muted">—</span>
                             ) : (
                               <ImportStatusBadge tone={row.is_active ? "success" : "neutral"} label={row.is_active ? t("active") : t("inactive")} />
                             )}
+                            <span className="text-xs text-muted">{row.end_raw || t("noEndDate")}</span>
+                            </div>
                           </td>
                           <td className="px-2 py-2">
                             {row.resolution.kind === "staff" || row.also_staff ? (
@@ -1000,6 +1008,12 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                 </p>
                 <p>
                   <span className="font-medium">{shared("statusSkipped")}:</span> {summary.skipped}
+                </p>
+                <p>
+                  <span className="font-medium">{t("active")}:</span> {summary.active}
+                </p>
+                <p>
+                  <span className="font-medium">{t("inactive")}:</span> {summary.inactive}
                 </p>
               </>
             ) : null}

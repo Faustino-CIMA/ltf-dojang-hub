@@ -171,6 +171,7 @@ function membershipEndYearFromRow(row: ImportRow): number | null {
   return Number.isInteger(year) ? year : null;
 }
 
+// Keep in step with default_membership_year_policy in backend/imports/views.py.
 function defaultMembershipYearPolicy(year: number | null, currentYear: number): MembershipYearPolicy {
   if (year == null) {
     return "skip";

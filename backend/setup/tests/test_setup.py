@@ -255,6 +255,61 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(again.data["created"], 0)
         self.assertEqual(Member.objects.filter(ltf_licenseid="LUX-1001").count(), 1)
 
+    def test_membership_end_date_sets_status_like_the_regular_import(self):
+        content = (
+            "Member ID,Preferred First Name,Preferred Last Name,Club Name,Gender,Date of Birth,Primary Member Role,Membership End Date\n"
+            "LUX-9101,Ada,Past,Silver Crane Academy,Female,01/01/1990,Athlete,31/12/2025\n"
+            "LUX-9102,Ben,Future,Silver Crane Academy,Male,02/02/1991,Athlete,31/12/2027\n"
+            "LUX-9103,Cia,Empty,Silver Crane Academy,Female,03/03/1992,Athlete,\n"
+            "LUX-9104,Dan,Unread,Silver Crane Academy,Male,04/04/1993,Athlete,not-a-date\n"
+            "LUX-9105,Eve,Thisyear,Silver Crane Academy,Female,05/05/1994,Athlete,01/01/2026\n"
+            "LUX-9106,Fay,Iso,Silver Crane Academy,Female,06/06/1995,Athlete,2026-12-31\n"
+        )
+        payload = {"end_date_format": "DD/MM/YYYY"}
+
+        def upload():
+            return SimpleUploadedFile("status-members.csv", content.encode(), content_type="text/csv")
+
+        preview = self.client.post(
+            "/api/setup/members/preview/",
+            {"file": upload(), "payload": json.dumps(payload)},
+            format="multipart",
+        )
+        self.assertEqual(preview.status_code, 200, preview.data)
+        by_id = {row["member_id"]: row for row in preview.data["rows"]}
+        self.assertFalse(by_id["LUX-9101"]["is_active"])
+        self.assertEqual(by_id["LUX-9101"]["end_raw"], "31/12/2025")
+        self.assertTrue(by_id["LUX-9102"]["is_active"])
+        self.assertTrue(by_id["LUX-9103"]["is_active"])
+        self.assertEqual(by_id["LUX-9103"]["end_raw"], "")
+        self.assertIsNone(by_id["LUX-9104"]["is_active"])
+        self.assertTrue(by_id["LUX-9104"]["end_unparseable"])
+        self.assertIn("end_date", by_id["LUX-9104"]["park_reasons"])
+        self.assertTrue(by_id["LUX-9105"]["is_active"])
+        self.assertTrue(by_id["LUX-9106"]["is_active"])
+        self.assertFalse(preview.data["can_confirm"])
+
+        parked = {**payload, "parked_rows": [by_id["LUX-9104"]["row_index"]]}
+        confirmed = self.client.post(
+            "/api/setup/members/confirm/",
+            {"file": upload(), "payload": json.dumps(parked)},
+            format="multipart",
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertFalse(Member.objects.get(ltf_licenseid="LUX-9101").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9102").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9103").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9105").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9106").is_active)
+        for licence in ("LUX-9101", "LUX-9102", "LUX-9103", "LUX-9105", "LUX-9106"):
+            self.assertEqual(Member.objects.get(ltf_licenseid=licence).email, "")
+        unread = Member.all_objects.get(ltf_licenseid="LUX-9104")
+        self.assertEqual(unread.import_status, Member.ImportStatus.PARKED)
+        self.assertFalse(unread.is_active)
+        self.assertEqual(decode_reasons(unread.park_reason), ["end_date"])
+        self.assertEqual(unread.email, "")
+        self.assertFalse(User.objects.filter(username__in=["LUX-9101", "LUX-9104"]).exists())
+
     def test_a_resolved_club_is_not_a_choice_and_other_flags_name_their_cause(self):
         esch = Club.objects.create(
             name="Luxembourg Taekwondo Club Esch",

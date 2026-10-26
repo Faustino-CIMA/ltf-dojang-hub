@@ -10,7 +10,11 @@ from imports.csv_utils import to_row_dict
 from imports.gender import parse_import_gender as parse_gender
 from imports.mapping import detect_membership_end_date_header, normalize_header, suggest_member_mapping
 from imports.member_match import MemberMatchIndex
-from imports.views import resolve_import_license_ids
+from imports.views import (
+    default_membership_year_policy,
+    parse_membership_end_date,
+    resolve_import_license_ids,
+)
 from members.ltf_staff import _apply_function
 from members.models import Member
 from members.parking import (
@@ -216,17 +220,22 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
         elif not plausible_birth_date(dob, today):
             dob_flag = "implausible"
         end_raw = _cell(data, mapping, "membership_end_date")
-        end_date = parse_with_format(end_raw, end_format) if end_raw else None
+        end_date = parse_membership_end_date(end_raw, end_format) if end_raw else None
         end_unparseable = bool(end_raw) and end_date is None
         if str(index) in active_overrides:
             is_active = bool(active_overrides[str(index)])
             end_unparseable = False
         elif end_unparseable:
             is_active = None
-        elif end_date is None or end_date >= today:
+        elif end_date is None:
+            # A blank end date means the membership has not ended.
             is_active = True
         else:
-            is_active = False
+            # Same year rule as the regular import: this year or later is Active.
+            # A past year is "do not import" there; setup still imports the person
+            # and stores Inactive so every member gets a status.
+            policy = default_membership_year_policy(end_date.year, today.year)
+            is_active = policy == "active"
         primary, secondary, role_note = licence_roles(primary_raw, secondary_raw)
         role_override = role_overrides.get(str(index)) or {}
         if isinstance(role_override, dict) and role_override:
