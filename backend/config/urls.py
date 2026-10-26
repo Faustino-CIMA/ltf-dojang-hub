@@ -36,6 +36,7 @@ from members.parked_views import (
     ParkedMemberListView,
     ParkedMemberResolveView,
 )
+from clubs.access_links import ClubAdminAccessLinkView, ClubAdminAccessLinksCsvView
 from clubs.public_stats import PublicStatsView
 from setup.views import (
     SetupAdminLinkView,
@@ -343,6 +344,8 @@ urlpatterns = [
         AthleteNationalTeamView.as_view(),
         name="national-team-athlete",
     ),
+    path("api/clubs/admins/<int:user_id>/access-link/", ClubAdminAccessLinkView.as_view(), name="club-admin-access-link"),
+    path("api/clubs/admins/access-links/", ClubAdminAccessLinksCsvView.as_view(), name="club-admin-access-links-csv"),
     path("api/", include(router.urls)),
     path("api/schema/", schema_view, name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

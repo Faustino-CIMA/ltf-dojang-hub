@@ -535,6 +535,11 @@ export type AssignmentAdmin = {
   home_club_id: number | null;
   home_club_name: string;
   clubs: AssignmentAdminClub[];
+  password_set?: boolean;
+  link_status?: string;
+  link_sent_at?: string | null;
+  link_expires_at?: string | null;
+  access_kind?: "setup" | "reset";
 };
 
 export type ClubAdminAssignmentBoard = {

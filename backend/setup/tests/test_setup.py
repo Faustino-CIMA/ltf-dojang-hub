@@ -808,6 +808,16 @@ class SetupAdminStepTests(TestCase):
         jan.refresh_from_db()
         self.assertEqual(jan.email, "jan@example.com")
 
+    def test_ltf_staff_rows_do_not_create_user_accounts(self):
+        confirmed = self._admins("/api/setup/admins/confirm/")
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        kim = Member.objects.get(ltf_licenseid="LUX-2001")
+        self.assertIsNone(kim.club_id)
+        self.assertTrue(kim.ltf_staff_functions.filter(function=LtfStaffFunction.Function.COACH, ended_on=None).exists())
+        self.assertIsNone(kim.user_id)
+        self.assertFalse(User.objects.filter(first_name="Kim", last_name="Beispiel").exists())
+        self.assertFalse(AccountSetupInvite.objects.filter(user__first_name="Kim").exists())
+
     def test_ltf_admin_link_names_the_federation_and_a_bad_token_stays_neutral(self):
         from accounts.setup_invites import issue_setup_invite
         from clubs.models import FederationProfile
