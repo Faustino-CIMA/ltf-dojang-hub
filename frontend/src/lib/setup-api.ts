@@ -226,6 +226,27 @@ export function getAccountSetup(token: string) {
   return apiRequest<AccountSetupInfo>(`/api/auth/account-setup/?token=${encodeURIComponent(token)}`);
 }
 
+export type AccountSetupLinkReason = "used" | "expired" | "revoked" | "invalid";
+
+export type AccountSetupLoad =
+  | { status: "open"; info: AccountSetupInfo }
+  | { status: AccountSetupLinkReason };
+
+export async function loadAccountSetup(token: string): Promise<AccountSetupLoad> {
+  const response = await fetch(`${API_URL}/api/auth/account-setup/?token=${encodeURIComponent(token)}`, {
+    headers: { Accept: "application/json" },
+  });
+  const body = (await response.json().catch(() => null)) as { reason?: string; username?: string } | null;
+  if (response.ok && body && typeof body.username === "string") {
+    return { status: "open", info: body as AccountSetupInfo };
+  }
+  const reason = body?.reason;
+  if (reason === "used" || reason === "expired" || reason === "revoked" || reason === "invalid") {
+    return { status: reason };
+  }
+  return { status: "invalid" };
+}
+
 export function completeAccountSetup(body: { token: string; email: string; password: string; password_confirm: string }) {
   return apiRequest<{ detail: string }>("/api/auth/account-setup/", { method: "POST", body: JSON.stringify(body) });
 }

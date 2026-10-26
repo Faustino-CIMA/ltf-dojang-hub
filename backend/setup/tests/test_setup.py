@@ -750,7 +750,10 @@ class SetupAdminStepTests(TestCase):
         reused = public.get("/api/auth/account-setup/", {"token": raw})
         self.assertEqual(reused.status_code, 400)
         self.assertEqual(reused.data["detail"], NEUTRAL_DETAIL)
-        self.assertEqual(set(reused.data.keys()), {"detail"})
+        self.assertEqual(reused.data["reason"], "used")
+        self.assertEqual(set(reused.data.keys()), {"detail", "reason"})
+        self.assertNotIn("username", reused.data)
+        self.assertNotIn("email", reused.data)
         logged = public.post("/api/auth/login/", {"username": "emusterfra", "password": "Wizard-setup-pass-1"}, format="json")
         self.assertEqual(logged.status_code, 200, logged.data)
 
@@ -769,6 +772,7 @@ class SetupAdminStepTests(TestCase):
         )
         stale = public.get("/api/auth/account-setup/", {"token": first_raw})
         self.assertEqual(stale.data["detail"], NEUTRAL_DETAIL)
+        self.assertEqual(stale.data["reason"], "revoked")
         self.assertNotIn("assignments", stale.data)
         self.assertNotIn("organisation", str(stale.data))
 
@@ -842,7 +846,7 @@ class SetupAdminStepTests(TestCase):
         )
         missing = public.get("/api/auth/account-setup/", {"token": "not-a-real-token"})
         self.assertEqual(missing.status_code, 400)
-        self.assertEqual(missing.data, {"detail": NEUTRAL_DETAIL})
+        self.assertEqual(missing.data, {"detail": NEUTRAL_DETAIL, "reason": "invalid"})
 
 
 class SetupParsingTests(TestCase):
