@@ -424,7 +424,7 @@ CORS_ALLOWED_ORIGINS = split_csv(
         default="http://localhost:3000,http://127.0.0.1:3000",
     )
 )
-CORS_EXPOSE_HEADERS = ["Content-Disposition"]
+CORS_EXPOSE_HEADERS = ["Content-Disposition", "X-Access-Links-Skipped"]
 CORS_ALLOWED_ORIGIN_REGEXES = split_regex_list(
     config(
         "CORS_ALLOWED_ORIGIN_REGEXES",

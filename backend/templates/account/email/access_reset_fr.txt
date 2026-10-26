@@ -1,0 +1,13 @@
+Bonjour {{ name }},
+
+Nous avons reçu une demande de réinitialisation de votre mot de passe LTF Dojang Hub.
+
+Nom d'utilisateur : {{ username }}
+Clubs : {{ clubs }}
+
+Choisissez un nouveau mot de passe :
+{{ url }}
+
+Si vous n'avez pas demandé ceci, vous pouvez ignorer cet e-mail.
+
+LTF Dojang Hub

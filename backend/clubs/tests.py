@@ -812,6 +812,8 @@ class ClubAdminManagementTests(TestCase):
         self.club.max_admins = 5
         self.club.save(update_fields=["max_admins"])
         self.club.admins.add(club_admin)
+        other.admins.add(club_admin)
+        Member.objects.create(user=club_admin, club=self.club, first_name="Board", last_name="Admin")
         self.client.force_authenticate(user=club_admin)
         response = self.client.get("/api/clubs/admin_assignment/")
         self.assertEqual(response.status_code, 200)
@@ -828,6 +830,7 @@ class ClubAdminManagementTests(TestCase):
         self.club.max_admins = 5
         self.club.save(update_fields=["max_admins"])
         self.club.admins.add(club_admin)
+        Member.objects.create(user=club_admin, club=self.club, first_name="Club", last_name="Admin")
         candidate = Member.objects.create(
             club=self.club,
             first_name="Pat",
@@ -854,6 +857,7 @@ class ClubAdminManagementTests(TestCase):
         self.club.max_admins = 5
         self.club.save(update_fields=["max_admins"])
         self.club.admins.add(club_admin)
+        Member.objects.create(user=club_admin, club=self.club, first_name="Cross", last_name="Admin")
         visitor = Member.objects.create(
             club=self.club,
             first_name="Visitor",
@@ -866,8 +870,8 @@ class ClubAdminManagementTests(TestCase):
             {"member_id": visitor.id},
             format="json",
         )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["detail"], "home_club_only")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["detail"], "actor_home_club")
         self.assertFalse(other.admins.filter(id=visitor.user_id).exists())
 
     def test_club_admin_cannot_remove_last_admin(self):
@@ -877,6 +881,7 @@ class ClubAdminManagementTests(TestCase):
             role=User.Roles.CLUB_ADMIN,
         )
         self.club.admins.add(club_admin)
+        Member.objects.create(user=club_admin, club=self.club, first_name="Last", last_name="Admin")
         self.client.force_authenticate(user=club_admin)
         response = self.client.post(
             f"/api/clubs/{self.club.id}/remove_admin/",

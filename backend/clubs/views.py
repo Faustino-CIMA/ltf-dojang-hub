@@ -24,8 +24,10 @@ from members.models import Member
 from .access import user_can_edit_club
 from .admin_assignment import (
     AdminAssignmentError,
+    actor_may_assign_club,
     assign_club_admin,
     build_assignment_board,
+    home_club_id,
     remove_club_admin,
     search_assignment_members,
 )
@@ -105,10 +107,13 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     def _assignment_club_ids(self, user):
         if not user or not user.is_authenticated:
             return False
-        if user.role == "ltf_admin":
+        if user.is_superuser or user.role == "ltf_admin":
             return None
         if user.role == "club_admin":
-            return list(Club.objects.filter(admins=user).values_list("id", flat=True))
+            home_id = home_club_id(user)
+            if home_id and Club.objects.filter(pk=home_id, admins=user).exists():
+                return [home_id]
+            return []
         return False
 
     def get_permissions(self):
@@ -210,8 +215,7 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         scope = self._assignment_club_ids(request.user)
         if scope is False:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        actor = request.user if request.user.role == "club_admin" else None
-        return Response(build_assignment_board(actor=actor))
+        return Response(build_assignment_board(club_ids=scope))
 
     @action(
         detail=False,
@@ -280,12 +284,10 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def add_admin(self, request, pk=None):
         club = self.get_object()
-        is_ltf = request.user.role == "ltf_admin"
-        is_club_admin = (
-            request.user.role == "club_admin" and club.admins.filter(id=request.user.id).exists()
-        )
-        if not is_ltf and not is_club_admin:
-            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        allowed, detail = actor_may_assign_club(request.user, club)
+        if not allowed:
+            return Response({"detail": detail}, status=status.HTTP_403_FORBIDDEN)
+        privileged = request.user.is_superuser or request.user.role == "ltf_admin"
         try:
             payload = assign_club_admin(
                 club,
@@ -293,7 +295,7 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 user_id=request.data.get("user_id"),
                 email=request.data.get("email"),
                 locale=request.data.get("locale"),
-                require_home_club=is_club_admin,
+                require_home_club=not privileged,
             )
         except AdminAssignmentError as error:
             return Response(error.payload, status=error.status_code)
@@ -302,17 +304,15 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def remove_admin(self, request, pk=None):
         club = self.get_object()
-        is_ltf = request.user.role == "ltf_admin"
-        is_club_admin = (
-            request.user.role == "club_admin" and club.admins.filter(id=request.user.id).exists()
-        )
-        if not is_ltf and not is_club_admin:
-            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        allowed, detail = actor_may_assign_club(request.user, club)
+        if not allowed:
+            return Response({"detail": detail}, status=status.HTTP_403_FORBIDDEN)
+        privileged = request.user.is_superuser or request.user.role == "ltf_admin"
         try:
             payload = remove_club_admin(
                 club,
                 request.data.get("user_id"),
-                prevent_last_admin=is_club_admin,
+                prevent_last_admin=not privileged,
             )
         except AdminAssignmentError as error:
             return Response(error.payload, status=error.status_code)

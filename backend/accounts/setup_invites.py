@@ -32,7 +32,7 @@ def hash_setup_token(raw: str) -> str:
     return hashlib.sha256(str(raw or "").encode()).hexdigest()
 
 
-def issue_setup_invite(user, created_by):
+def issue_setup_invite(user, created_by, expires_in: timedelta | None = None):
     now = timezone.now()
     AccountSetupInvite.objects.filter(user=user, used_at__isnull=True, revoked_at__isnull=True).update(revoked_at=now)
     raw = secrets.token_urlsafe(32)
@@ -40,7 +40,7 @@ def issue_setup_invite(user, created_by):
         user=user,
         token_hash=hash_setup_token(raw),
         created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
-        expires_at=now + timedelta(days=7),
+        expires_at=now + (expires_in or timedelta(days=7)),
     )
     return invite, raw
 

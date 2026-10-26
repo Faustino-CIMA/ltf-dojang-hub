@@ -17,6 +17,17 @@ const CLUB_KEYS = [
   "headOfficeHint",
 ] as const;
 
+const ACCESS_KEYS = [
+  "actorHomeClubOnly",
+  "accessMenu",
+  "accessSend",
+  "accessCopy",
+  "accessPanelTitle",
+  "accessDownloadWarning",
+  "accessKindSetup",
+  "accessKindReset",
+] as const;
+
 describe("club federation messages", () => {
   it("keeps the new club and venue keys in en, fr, de and lb", () => {
     const venueKeys = Object.keys(en.TrainingVenues).sort();
@@ -29,6 +40,10 @@ describe("club federation messages", () => {
       expect(Object.keys(messages.TrainingVenues).sort()).toEqual(venueKeys);
       expect(Object.keys(messages.Setup).sort()).toEqual(Object.keys(en.Setup).sort());
       expect(Object.keys(messages.AccountSetup).sort()).toEqual(Object.keys(en.AccountSetup).sort());
+      for (const key of ACCESS_KEYS) {
+        expect(messages.ClubAdmin[key]).toEqual(expect.any(String));
+        expect(messages.ClubAdmin[key].length).toBeGreaterThan(0);
+      }
     }
   });
 

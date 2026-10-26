@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { AccessBadges, ClubAdminAccessMenu, ClubAdminAccessPanel } from "@/components/club-admin/club-admin-access";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { formatFullName } from "@/lib/person-name";
+import { sendClubAdminAccessLink } from "@/lib/club-access-links";
 import { cn } from "@/lib/utils";
 import {
   AddClubAdminResponse,
@@ -119,6 +121,8 @@ export default function ClubAdminsPage() {
     admin: ClubAdminAssignmentAdmin;
     club: ClubAdminAssignmentClub;
   } | null>(null);
+  const [accessAdmin, setAccessAdmin] = useState<ClubAdminAssignmentAdmin | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   const connecting = Boolean(selectedMember);
 
@@ -252,9 +256,54 @@ export default function ClubAdminsPage() {
     if (message === "already_admin") return t("adminAlreadyError");
     if (message === "email_in_use") return t("adminEmailInUse");
     if (message === "home_club_only") return t("adminHomeClubOnly");
+    if (message === "actor_home_club" || message === "Not allowed.") return t("actorHomeClubOnly");
+    if (message === "email_change_forbidden") return t("accessEmailChangeForbidden");
+    if (message === "rate_limited") return t("accessRateLimited");
     if (message === "last_admin") return t("adminLastAdminError");
     if (message === "Club admin limit reached.") return t("adminLimitReached");
     return message;
+  };
+
+  const explainAccessError = (message: string) => {
+    if (message === "email_in_use") return t("accessEmailInUse");
+    if (message === "email_required") return t("accessEmailRequired");
+    return mapAssignError(message);
+  };
+
+  const issueAccess = async (
+    admin: ClubAdminAssignmentAdmin,
+    body: { delivery: "email" | "copy" | "both"; email?: string; locale: string },
+  ) => {
+    setIsSaving(true);
+    setAccessError(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setInviteResetUrl(null);
+    try {
+      const result = await sendClubAdminAccessLink(admin.id, body);
+      if (result.link) {
+        try {
+          await navigator.clipboard.writeText(result.link);
+        } catch {
+          // The notice still shows the link when the clipboard is unavailable.
+        }
+        setInviteResetUrl(result.link);
+      }
+      if (body.delivery !== "copy" && result.email_sent) {
+        setSuccessMessage(t("accessSent", { email: body.email || admin.email }));
+      } else if (body.delivery !== "copy" && !result.email_sent) {
+        setSuccessMessage(t("accessEmailFailed"));
+      } else {
+        setSuccessMessage(t("accessCopied"));
+      }
+      setAccessAdmin(null);
+      await loadBoard();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      setAccessError(explainAccessError(message));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const completeAssign = async (
@@ -556,26 +605,36 @@ export default function ClubAdminsPage() {
                           {admin.username}
                           {admin.email ? ` · ${admin.email}` : ""}
                         </p>
-                        <p className="mt-1 text-xs text-muted">
-                          {admin.clubs.map((club) => club.name).join(", ")}
-                        </p>
+                        <p className="mt-1 text-xs text-muted">{admin.clubs.map((club) => club.name).join(", ")}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <AccessBadges
+                            admin={admin}
+                            labels={{
+                              noEmail: t("accessNoEmail"),
+                              linkSent: t("accessLinkSent"),
+                              linkExpired: t("accessLinkExpired"),
+                              passwordSet: t("accessPasswordSet"),
+                              meta: t("accessLinkMeta", { sent: "{sent}", expires: "{expires}" }),
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {admin.clubs.map((club) => {
+                      <ClubAdminAccessMenu
+                        admin={admin}
+                        menuLabel={t("accessMenu", { name: displayAdminName(admin) })}
+                        sendLabel={t("accessSend")}
+                        copyLabel={t("accessCopy")}
+                        removeLabel={(club) => t("accessRemove", { club })}
+                        onSend={() => {
+                          setAccessError(null);
+                          setAccessAdmin(admin);
+                        }}
+                        onCopy={() => void issueAccess(admin, { delivery: "copy", locale })}
+                        onRemove={(club) => {
                           const full = clubs.find((item) => item.id === club.id);
-                          if (!full) return null;
-                          return (
-                            <Button
-                              key={club.id}
-                              type="button"
-                              variant="outline"
-                              onClick={() => setPendingRemove({ admin, club: full })}
-                            >
-                              {t("adminsRemoveFrom", { club: club.name })}
-                            </Button>
-                          );
-                        })}
-                      </div>
+                          if (full) setPendingRemove({ admin, club: full });
+                        }}
+                      />
                     </div>
                   ))
                 )}
@@ -646,6 +705,47 @@ export default function ClubAdminsPage() {
           {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
         </div>
       </SidePanel>
+
+      <ClubAdminAccessPanel
+        admin={accessAdmin}
+        open={Boolean(accessAdmin)}
+        allowEmailChange={false}
+        locale={locale}
+        busy={isSaving}
+        error={accessError}
+        closeLabel={common("modalClose")}
+        labels={{
+          title: t("accessPanelTitle"),
+          hint: t("accessPanelHint"),
+          email: t("accessEmailLabel"),
+          emailHint: t("accessEmailHint"),
+          emailRequired: t("accessEmailRequired"),
+          send: t("accessSendAction"),
+          copy: t("accessCopyAction"),
+          changeTitle: t("accessChangeTitle"),
+          changeBody: t("accessChangeBody"),
+          changeConfirm: t("accessChangeConfirm"),
+          locale: t("accessLocaleLabel"),
+          localeName: (code) =>
+            code === "fr"
+              ? t("accessLocale_fr")
+              : code === "de"
+                ? t("accessLocale_de")
+                : code === "lb"
+                  ? t("accessLocale_lb")
+                  : t("accessLocale_en"),
+          kindSetup: t("accessKindSetup"),
+          kindReset: t("accessKindReset"),
+        }}
+        onClose={() => {
+          setAccessAdmin(null);
+          setAccessError(null);
+        }}
+        onSubmit={(body) => {
+          if (!accessAdmin) return;
+          void issueAccess(accessAdmin, body);
+        }}
+      />
 
       <DeleteConfirmModal
         isOpen={Boolean(pendingRemove)}

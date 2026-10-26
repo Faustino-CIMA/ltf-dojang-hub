@@ -1,0 +1,13 @@
+Moien {{ name }},
+
+E Club-Admin-Kont ass fir Iech am LTF Dojang Hub prett.
+
+Benotzernumm: {{ username }}
+Clubs: {{ clubs }}
+
+Dëse Link funktionéiert eng Kéier a leeft den {{ expires }} of. Maacht en op fir Är E-Mail an Äert Passwuert ze wielen:
+{{ url }}
+
+Wann Dir dës Noriicht net erwaart hutt, kënnt Dir se ignoréieren.
+
+LTF Dojang Hub
