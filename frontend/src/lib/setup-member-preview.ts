@@ -66,7 +66,21 @@ export function setupRowIssues(row: SetupMemberRow): SetupRowIssue[] {
   if (row.dob_flag === "unparseable" || row.dob_flag === "implausible") {
     issues.push("dob");
   }
+  if (row.parked) {
+    return issues.filter((issue) => !BLOCKING.has(issue));
+  }
   return issues;
+}
+
+export function withLocalPark(row: SetupMemberRow, parkedRows: Record<number, boolean>): SetupMemberRow {
+  const choice = parkedRows[row.row_index];
+  if (choice === true && row.parkable) {
+    return { ...row, parked: true };
+  }
+  if (choice === false) {
+    return { ...row, parked: false };
+  }
+  return row;
 }
 
 export function setupRowStatus(row: SetupMemberRow): SetupRowStatus {
@@ -102,7 +116,7 @@ export function setupPreviewSummary(preview: SetupMemberPreview) {
     if (status === "choice") choice += 1;
     if (status === "parked") parked += 1;
     if (status === "skipped") skipped += 1;
-    if (row.sex_blocking) gender += 1;
+    if (status === "choice" && row.sex_blocking) gender += 1;
     if (status === "ready" || status === "staff") {
       if (row.is_active === false) inactive += 1;
       if (row.is_active === true) active += 1;
@@ -137,7 +151,20 @@ export function setupPreviewSummary(preview: SetupMemberPreview) {
     active,
     inactive,
     blank: preview.blank_rows_ignored,
-    unknownClubRows: preview.unknown_clubs.reduce((sum, club) => sum + club.count, 0),
+    unknownClubRows: unresolvedUnknownClubRows(preview),
     issueKinds: [...issueKinds],
   };
+}
+
+function unresolvedUnknownClubRows(preview: SetupMemberPreview): number {
+  const parked = new Set(
+    preview.rows.filter((row) => setupRowStatus(row) === "parked").map((row) => row.row_index),
+  );
+  return preview.unknown_clubs.reduce((sum, club) => {
+    const indexes = club.row_indexes ?? [];
+    if (indexes.length === 0) {
+      return sum + club.count;
+    }
+    return sum + indexes.filter((index) => !parked.has(index)).length;
+  }, 0);
 }

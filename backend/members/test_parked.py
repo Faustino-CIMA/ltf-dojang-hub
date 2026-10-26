@@ -378,6 +378,62 @@ class RegularImportParkingTests(TestCase):
             OpsAuditLog.objects.filter(action="member_park_resolved", target_id=str(parked.pk), metadata__source="import").exists()
         )
 
+    def test_an_empty_club_row_parks_while_the_other_row_uses_the_target_club(self):
+        """Both LTF import pages call this API. The selected club is only the destination for rows that are created."""
+
+        def run(empty_id, matched_id):
+            csv_data = (
+                "Member ID,First,Last,Club,Gender\n"
+                f"{empty_id},Erika,Musterfrau,,Female\n"
+                f"{matched_id},Max,Mustermann,North Club,Male\n"
+            )
+            mapping = {
+                "first_name": "First",
+                "last_name": "Last",
+                "sex": "Gender",
+                "ltf_licenseid": "Member ID",
+                "wt_licenseid": "Member ID",
+                "club_name": "Club",
+            }
+            preview = self._post("/api/imports/members/preview/", csv_data, mapping)
+            self.assertEqual(preview.status_code, 200, preview.data)
+            empty, matched = preview.data["rows"]
+            self.assertEqual(empty["park_reasons"], [NO_CLUB])
+            self.assertTrue(empty["parkable"])
+            self.assertIn("club is empty", empty["errors"])
+            self.assertEqual(matched["errors"], [])
+            self.assertEqual(matched["park_reasons"], [])
+            confirmed = self._post(
+                "/api/imports/members/confirm/",
+                csv_data,
+                mapping,
+                actions=json.dumps(
+                    [
+                        {"row_index": empty["row_index"], "action": "park"},
+                        {"row_index": matched["row_index"], "action": "create"},
+                    ]
+                ),
+            )
+            self.assertEqual(confirmed.status_code, 200, confirmed.data)
+            self.assertEqual(confirmed.data["parked"], 1)
+            self.assertEqual(confirmed.data["created"], 1)
+            stored = Member.all_objects.get(ltf_licenseid=empty_id)
+            self.assertEqual(stored.import_status, Member.ImportStatus.PARKED)
+            self.assertIsNone(stored.club_id)
+            self.assertEqual(decode_reasons(stored.park_reason), [NO_CLUB])
+            created = Member.objects.get(ltf_licenseid=matched_id)
+            self.assertEqual(created.club_id, self.club.id)
+
+        run("LUX-71", "LUX-72")
+        root = User.objects.create_superuser(
+            username="park-root-ltf",
+            password="pass12345",
+            email="root-ltf@example.lu",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.client.force_authenticate(user=root)
+        run("LUX-81", "LUX-82")
+
     def test_an_unmapped_sex_column_still_defaults_and_an_empty_unmapped_club_does_not_park(self):
         csv_data = "first_name,last_name,ltf_id\nAna,Ng,LUX-3\n"
         mapping = {"first_name": "first_name", "last_name": "last_name", "ltf_licenseid": "ltf_id"}

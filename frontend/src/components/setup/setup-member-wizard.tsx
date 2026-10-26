@@ -28,7 +28,14 @@ import type { LtfLicensePrefixRewritePolicy } from "@/lib/import-api";
 import { SETUP_MEMBER_TARGET_FIELDS, shareMemberIdColumn } from "@/lib/setup-member-mapping";
 import { formatFullName } from "@/lib/person-name";
 import { confirmSetupMembers, previewSetupMembers, type SetupMemberPreview, type SetupMemberRow } from "@/lib/setup-api";
-import { setupIssueMessage, setupPreviewSummary, setupRowIssues, setupRowStatus, type SetupRowStatus } from "@/lib/setup-member-preview";
+import {
+  setupIssueMessage,
+  setupPreviewSummary,
+  setupRowIssues,
+  setupRowStatus,
+  withLocalPark,
+  type SetupRowStatus,
+} from "@/lib/setup-member-preview";
 
 type InnerStep = "source" | "mapping" | "preview" | "confirm" | "result";
 type PreviewFilter = "all" | "ready" | "staff" | "choice" | "parked" | "skipped";
@@ -109,7 +116,14 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     () => unusedSourceHeaders(headers, mapping, [mapping.membership_end_date]),
     [headers, mapping],
   );
-  const summary = useMemo(() => (preview ? setupPreviewSummary(preview) : null), [preview]);
+  const summary = useMemo(() => {
+    if (!preview) return null;
+    return setupPreviewSummary({
+      ...preview,
+      rows: preview.rows.map((row) => withLocalPark(row, parkedRows)),
+    });
+  }, [parkedRows, preview]);
+  const choicesClear = summary !== null && summary.choice === 0;
 
   const markDirty = () => setDirty(true);
 
@@ -154,7 +168,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     for (const [name, value] of Object.entries(clubChoice)) {
       if (value === "staff") club_name_overrides[name] = { staff: true };
       else if (value === "skip") club_name_overrides[name] = { skip: true };
-      else if (value) club_name_overrides[name] = { club_id: Number(value) };
+      else if (value && value !== "__unset__") club_name_overrides[name] = { club_id: Number(value) };
     }
     const club_choices: Record<string, number> = {};
     for (const [memberId, value] of Object.entries(memberClubChoice)) {
@@ -199,7 +213,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
   };
 
   const runConfirm = async () => {
-    if (!file || !preview?.can_confirm) return;
+    if (!file || !preview || !choicesClear || dirty) return;
     setBusy(true);
     setError(null);
     try {
@@ -220,11 +234,10 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     }
   };
 
-  const displayStatus = useCallback((row: SetupMemberRow): SetupRowStatus => {
-    if (parkedRows[row.row_index] === true && row.parkable) return "parked";
-    if (parkedRows[row.row_index] === false) return setupRowStatus({ ...row, parked: false });
-    return setupRowStatus(row);
-  }, [parkedRows]);
+  const displayStatus = useCallback(
+    (row: SetupMemberRow): SetupRowStatus => setupRowStatus(withLocalPark(row, parkedRows)),
+    [parkedRows],
+  );
 
   const rows = useMemo(() => {
     const source = preview?.rows ?? [];
@@ -274,7 +287,29 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
       }
       return next;
     });
-    markDirty();
+  };
+
+  const chooseClub = (clubKey: string, value: string) => {
+    const clearing = value === "__unset__" || value === "";
+    const hadChoice = Boolean(clubChoice[clubKey]);
+    setClubChoice((current) => {
+      const next = { ...current };
+      if (clearing) delete next[clubKey];
+      else next[clubKey] = value;
+      return next;
+    });
+    if (!clearing) {
+      setParkedRows((current) => {
+        const next = { ...current };
+        for (const candidate of preview?.rows ?? []) {
+          if (candidate.club_name.toLowerCase() === clubKey) next[candidate.row_index] = false;
+        }
+        return next;
+      });
+      markDirty();
+      return;
+    }
+    if (hadChoice) markDirty();
   };
 
   const statusLabel = (status: SetupRowStatus) =>
@@ -374,7 +409,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
     (step === "source" && (!file || headers.length === 0)) ||
     (step === "mapping" && !mappingComplete) ||
     (step === "preview" && (!preview || (dirty ? false : preview.rows.length === 0))) ||
-    (step === "confirm" && (!preview?.can_confirm || dirty));
+    (step === "confirm" && (!preview || !choicesClear || dirty));
 
   const handlePrimary = () => {
     if (step === "source" && file && headers.length > 0) {
@@ -671,8 +706,9 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                   </thead>
                   <tbody>
                     {rows.map((row) => {
-                      const status = displayStatus(row);
-                      const issues = setupRowIssues(row);
+                      const shown = withLocalPark(row, parkedRows);
+                      const status = setupRowStatus(shown);
+                      const issues = setupRowIssues(shown);
                       const clubKey = row.club_name.toLowerCase();
                       return (
                         <tr key={row.row_index} className="border-t border-border align-top text-foreground" data-preview-outcome={status}>
@@ -722,12 +758,11 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                             {row.resolution.kind === "unknown" || row.resolution.kind === "no_club" || row.resolution.kind === "near_ltf" || row.resolution.kind === "ambiguous" ? (
                               <PopoverSelect
                                 value={clubChoice[clubKey] || ""}
-                                ariaLabel={t("resolveClub")}
-                                onValueChange={(value) => {
-                                  setClubChoice((current) => ({ ...current, [clubKey]: value }));
-                                  markDirty();
-                                }}
+                                ariaLabel={t("clubIfKnown")}
+                                placeholder={t("clubIfKnown")}
+                                onValueChange={(value) => chooseClub(clubKey, value)}
                                 options={[
+                                  { value: "__unset__", label: t("clubNotYet") },
                                   { value: "staff", label: t("ltfStaff") },
                                   { value: "skip", label: t("skipRows") },
                                   ...preview.clubs.map((club) => ({ value: String(club.id), label: club.name })),
@@ -835,7 +870,6 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                                 className="mb-1"
                                 onClick={() => {
                                   setParkedRows((current) => ({ ...current, [row.row_index]: status !== "parked" }));
-                                  markDirty();
                                 }}
                               >
                                 {t("parkRow")}
@@ -876,7 +910,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
               </StepIntro>
               <PrefixNotice policy={preview.ltf_license_prefix_rewrite} />
               {counts}
-              {!preview.can_confirm ? (
+              {summary.choice > 0 ? (
                 <div className="banner-danger space-y-2 rounded-[var(--radius-form)] border px-3 py-2 text-sm">
                   <p className="font-medium">{t("blockingTitle")}</p>
                   <ul className="list-disc space-y-1 pl-5">

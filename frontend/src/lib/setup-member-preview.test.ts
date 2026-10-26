@@ -1,4 +1,10 @@
-import { setupIssueMessage, setupPreviewSummary, setupRowIssues, setupRowStatus } from "@/lib/setup-member-preview";
+import {
+  setupIssueMessage,
+  setupPreviewSummary,
+  setupRowIssues,
+  setupRowStatus,
+  withLocalPark,
+} from "@/lib/setup-member-preview";
 import type { SetupMemberPreview, SetupMemberRow } from "@/lib/setup-api";
 
 function row(patch: Partial<SetupMemberRow> = {}): SetupMemberRow {
@@ -116,5 +122,54 @@ describe("setup member preview labels", () => {
     expect(summary.parked).toBe(1);
     expect(summary.choice).toBe(1);
     expect(summary.willImport).toBe(1);
+    expect(summary.issueKinds).toEqual(["no_club"]);
+  });
+
+  it("clears the empty-club block when the row is parked, including a local park", () => {
+    const emptyClub = row({
+      resolution: { kind: "no_club", club_id: null, club_name: "" },
+      club_name: "",
+      parkable: true,
+      dob_flag: "unparseable",
+      dob_raw: "not-a-date",
+    });
+    const parked = { ...emptyClub, parked: true };
+    expect(setupRowStatus(parked)).toBe("parked");
+    expect(setupRowIssues(parked)).toEqual(["dob"]);
+    const local = withLocalPark(emptyClub, { 1: true });
+    expect(local.parked).toBe(true);
+    expect(setupRowStatus(local)).toBe("parked");
+    expect(setupRowIssues(local)).toEqual(["dob"]);
+    expect(withLocalPark(parked, { 1: false }).parked).toBe(false);
+    expect(withLocalPark(emptyClub, {}).parked).toBeUndefined();
+    const preview: SetupMemberPreview = {
+      rows: [local, row({ row_index: 2, parkable: true, resolution: { kind: "no_club", club_id: null, club_name: "" }, club_name: "" })],
+      blank_rows_ignored: 0,
+      gender_summary: [],
+      role_summary: [],
+      unknown_clubs: [
+        { name: "", count: 2, row_indexes: [1, 2] },
+        { name: "Nowhere", count: 3, row_indexes: [] },
+      ],
+      date_of_birth_format: { format: "DD/MM/YYYY", ambiguous: false, example: "" },
+      can_confirm: false,
+      email_ignored: true,
+      clubs: [],
+    };
+    const summary = setupPreviewSummary(preview);
+    expect(summary.parked).toBe(1);
+    expect(summary.choice).toBe(1);
+    expect(summary.willImport).toBe(1);
+    expect(summary.issueKinds).toEqual(["no_club"]);
+    expect(summary.unknownClubRows).toBe(4);
+    const bothParked = setupPreviewSummary({
+      ...preview,
+      rows: preview.rows.map((item) => ({ ...item, parked: true, parkable: true })),
+    });
+    expect(bothParked.choice).toBe(0);
+    expect(bothParked.parked).toBe(2);
+    expect(bothParked.willImport).toBe(2);
+    expect(bothParked.issueKinds).toEqual([]);
+    expect(bothParked.unknownClubRows).toBe(3);
   });
 });

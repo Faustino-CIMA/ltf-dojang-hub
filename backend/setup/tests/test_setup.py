@@ -17,6 +17,7 @@ from accounts.setup_invites import NEUTRAL_DETAIL, hash_setup_token
 from clubs.models import Club, FederationProfile
 from licenses.models import License
 from members.models import LtfStaffFunction, Member
+from members.parking import NO_CLUB, decode_reasons
 from ops.models import OpsAuditLog
 from setup.dates import detect_column_format, parse_with_format
 from setup.models import SetupState
@@ -309,6 +310,58 @@ class SetupMemberStepTests(TestCase):
         self.assertIn("Silver Crane Academy", duplicate_rows[0]["conflict_clubs"])
         self.assertIn("Taekwon-Do Beispielhausen", duplicate_rows[0]["conflict_clubs"])
         self.assertTrue(rows)
+
+    def test_empty_club_rows_park_through_preview_and_confirm_without_a_club(self):
+        raw = "\n".join(
+            [
+                "Member ID,First,Last,Club,Gender",
+                "LUX-1,Erika,Musterfrau,,Female",
+                "LUX-2,Max,Mustermann,Silver Crane Academy,Male",
+            ]
+        )
+        mapping = {
+            "wt_licenseid": "Member ID",
+            "ltf_licenseid": "Member ID",
+            "first_name": "First",
+            "last_name": "Last",
+            "club_name": "Club",
+            "sex": "Gender",
+        }
+
+        def post(path, payload):
+            upload = SimpleUploadedFile("empty-club.csv", raw.encode("utf-8"), content_type="text/csv")
+            return self.client.post(path, {"file": upload, "payload": json.dumps(payload)}, format="multipart")
+
+        preview = post("/api/setup/members/preview/", {"mapping": mapping})
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertFalse(preview.data["can_confirm"])
+        empty = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-1")
+        matched = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-2")
+        self.assertEqual(empty["resolution"]["kind"], "no_club")
+        self.assertTrue(empty["parkable"])
+        self.assertEqual(empty["park_reasons"], [NO_CLUB])
+        self.assertFalse(empty["parked"])
+        self.assertEqual(matched["resolution"]["kind"], "club")
+        self.assertEqual(matched["resolution"]["club_name"], "Silver Crane Academy")
+
+        parked_preview = post("/api/setup/members/preview/", {"mapping": mapping, "parked_rows": [empty["row_index"]]})
+        self.assertTrue(parked_preview.data["can_confirm"], parked_preview.data)
+        parked_row = next(row for row in parked_preview.data["rows"] if row["member_id"] == "LUX-1")
+        self.assertTrue(parked_row["parked"])
+
+        confirmed = post("/api/setup/members/confirm/", {"mapping": mapping, "parked_rows": [empty["row_index"]]})
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertTrue(confirmed.data["confirmed"])
+        self.assertEqual(confirmed.data["parked"], 1)
+        self.assertEqual(confirmed.data["created"], 1)
+        stored = Member.all_objects.get(ltf_licenseid="LUX-1")
+        self.assertEqual(stored.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(stored.club_id)
+        self.assertEqual(decode_reasons(stored.park_reason), [NO_CLUB])
+        self.assertFalse(Member.objects.filter(ltf_licenseid="LUX-1").exists())
+        created = Member.objects.get(ltf_licenseid="LUX-2")
+        self.assertEqual(created.club.name, "Silver Crane Academy")
+        self.assertEqual(created.import_status, Member.ImportStatus.ACTIVE)
 
 
 @override_settings(DEMO_MODE=False)
