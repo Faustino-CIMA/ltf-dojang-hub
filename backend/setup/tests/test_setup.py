@@ -466,6 +466,81 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(Member.objects.get(ltf_licenseid="LUX-15").club_id, crane.id)
         self.assertFalse(Member.objects.filter(ltf_licenseid="LUX-12").exists())
 
+    def test_park_then_confirm_covers_unknown_club_and_unreadable_end_date(self):
+        raw = "\n".join(
+            [
+                "Member ID,First,Last,Club,Gender,End",
+                "LUX-21,Erika,Musterfrau,Nowhere Dojang,Female,31/12/2099",
+                "LUX-22,Max,Mustermann,Silver Crane Academy,Male,not-a-date",
+                "LUX-23,Noa,Beispiel,Missing Dojang,Female,not-a-date",
+                "LUX-24,Sam,Beispiel,Silver Crane Academy,Male,31/12/2099",
+            ]
+        )
+        mapping = {
+            "wt_licenseid": "Member ID",
+            "ltf_licenseid": "Member ID",
+            "first_name": "First",
+            "last_name": "Last",
+            "club_name": "Club",
+            "sex": "Gender",
+            "membership_end_date": "End",
+        }
+        base = {"mapping": mapping, "end_date_format": "DD/MM/YYYY"}
+
+        def post(path, payload):
+            upload = SimpleUploadedFile("park-reasons.csv", raw.encode("utf-8"), content_type="text/csv")
+            return self.client.post(path, {"file": upload, "payload": json.dumps(payload)}, format="multipart")
+
+        preview = post("/api/setup/members/preview/", base)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertFalse(preview.data["can_confirm"])
+        by_id = {row["member_id"]: row for row in preview.data["rows"]}
+        self.assertEqual(by_id["LUX-21"]["resolution"]["kind"], "unknown")
+        self.assertEqual(by_id["LUX-21"]["park_reasons"], ["club_not_found"])
+        self.assertTrue(by_id["LUX-21"]["parkable"])
+        self.assertFalse(by_id["LUX-21"]["end_unparseable"])
+        self.assertEqual(by_id["LUX-22"]["resolution"]["kind"], "club")
+        self.assertEqual(by_id["LUX-22"]["park_reasons"], ["end_date"])
+        self.assertTrue(by_id["LUX-22"]["parkable"])
+        self.assertTrue(by_id["LUX-22"]["end_unparseable"])
+        self.assertEqual(by_id["LUX-23"]["park_reasons"], ["club_not_found", "end_date"])
+        self.assertTrue(by_id["LUX-23"]["parkable"])
+        self.assertEqual(by_id["LUX-23"]["resolution"]["kind"], "unknown")
+        self.assertEqual(by_id["LUX-24"]["resolution"]["kind"], "club")
+        self.assertEqual(by_id["LUX-24"]["park_reasons"], [])
+        self.assertFalse(by_id["LUX-24"]["parkable"])
+
+        parked_indexes = [by_id["LUX-21"]["row_index"], by_id["LUX-22"]["row_index"], by_id["LUX-23"]["row_index"]]
+        parked_preview = post("/api/setup/members/preview/", {**base, "parked_rows": parked_indexes})
+        self.assertTrue(parked_preview.data["can_confirm"], parked_preview.data)
+        parked_by_id = {row["member_id"]: row for row in parked_preview.data["rows"]}
+        self.assertTrue(parked_by_id["LUX-21"]["parked"])
+        self.assertTrue(parked_by_id["LUX-22"]["parked"])
+        self.assertTrue(parked_by_id["LUX-23"]["parked"])
+        self.assertFalse(parked_by_id["LUX-24"]["parked"])
+
+        confirmed = post("/api/setup/members/confirm/", {**base, "parked_rows": parked_indexes})
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(confirmed.data["created"], 1)
+        self.assertEqual(confirmed.data["parked"], 3)
+        crane = Club.objects.get(name="Silver Crane Academy")
+        unknown = Member.all_objects.get(ltf_licenseid="LUX-21")
+        self.assertEqual(unknown.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(unknown.club_id)
+        self.assertEqual(decode_reasons(unknown.park_reason), ["club_not_found"])
+        bad_end = Member.all_objects.get(ltf_licenseid="LUX-22")
+        self.assertEqual(bad_end.import_status, Member.ImportStatus.PARKED)
+        self.assertEqual(bad_end.club_id, crane.id)
+        self.assertEqual(decode_reasons(bad_end.park_reason), ["end_date"])
+        both = Member.all_objects.get(ltf_licenseid="LUX-23")
+        self.assertEqual(both.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(both.club_id)
+        self.assertEqual(decode_reasons(both.park_reason), ["club_not_found", "end_date"])
+        created = Member.objects.get(ltf_licenseid="LUX-24")
+        self.assertEqual(created.club_id, crane.id)
+        self.assertEqual(created.import_status, Member.ImportStatus.ACTIVE)
+        self.assertFalse(Member.objects.filter(ltf_licenseid__in=["LUX-21", "LUX-22", "LUX-23"]).exists())
+
 
 @override_settings(DEMO_MODE=False)
 class SetupMemberIdPrefixTests(TestCase):

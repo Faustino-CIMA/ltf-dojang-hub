@@ -942,6 +942,9 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                       <li key={issue}>{t(`fix_${issue}`)}</li>
                     ))}
                   </ul>
+                  <Button type="button" variant="outline" size="sm" onClick={parkAllUnresolved}>
+                    {t("parkAllUnresolved")}
+                  </Button>
                 </div>
               ) : (
                 <p className="banner-notice rounded-[var(--radius-form)] border px-3 py-2 text-sm">{t("membersConfirmReady")}</p>
