@@ -156,7 +156,7 @@ def _link_login(member: Member, payload: dict) -> dict:
         raise LtfStaffError("user_not_found")
     if user.role not in LOGIN_ROLES:
         raise LtfStaffError("user_role_not_ltf")
-    if Member.objects.filter(user=user).exclude(pk=member.pk).exists():
+    if Member.all_objects.filter(user=user).exclude(pk=member.pk).exists():
         raise LtfStaffError("user_already_linked")
     member.user = user
     member.save(update_fields=["user", "updated_at"])

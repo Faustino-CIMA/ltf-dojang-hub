@@ -8,10 +8,26 @@ from typing import TYPE_CHECKING, cast
 from clubs.models import Club
 
 
+class MemberQuerySet(models.QuerySet):
+    def parked(self):
+        return self.filter(import_status="parked")
+
+
+class ActiveMemberManager(models.Manager.from_queryset(MemberQuerySet)):
+    """Hide parked imports from clubs, licences, counts, and every other list."""
+
+    def get_queryset(self):
+        return super().get_queryset().exclude(import_status="parked")
+
+
 class Member(models.Model):
     class Sex(models.TextChoices):
         MALE = "M", _("Male")
         FEMALE = "F", _("Female")
+
+    class ImportStatus(models.TextChoices):
+        ACTIVE = "active", _("Active")
+        PARKED = "parked", _("Parked")
 
     class LicenseRole(models.TextChoices):
         ATHLETE = "Athlete", _("Athlete")
@@ -51,7 +67,17 @@ class Member(models.Model):
     )
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
-    sex = models.CharField(max_length=1, choices=Sex.choices, default=Sex.MALE)
+    # Blank only while the import is parked. A resolved member is male or female.
+    sex = models.CharField(max_length=1, choices=Sex.choices, blank=True, default=Sex.MALE)
+    import_status = models.CharField(
+        max_length=16,
+        choices=ImportStatus.choices,
+        default=ImportStatus.ACTIVE,
+    )
+    # Comma-wrapped reason codes, for example ",no_club,gender_blank,".
+    park_reason = models.CharField(max_length=160, blank=True)
+    park_club_text = models.CharField(max_length=255, blank=True)
+    park_detail = models.JSONField(default=dict, blank=True)
     email = models.EmailField(blank=True)
     wt_licenseid = models.CharField(max_length=20, blank=True)
     ltf_licenseid = models.CharField(max_length=20, blank=True)
@@ -99,15 +125,35 @@ class Member(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = ActiveMemberManager()
+    all_objects = models.Manager.from_queryset(MemberQuerySet)()
+
     class Meta:
+        # The filtered manager is the default, so lists and counts skip parked
+        # people. The base manager stays unfiltered: Django uses it to update
+        # and delete a row, and a filtered base manager cannot see a parked one.
+        default_manager_name = "objects"
+        base_manager_name = "all_objects"
         indexes = [
             models.Index(fields=["club", "is_active"], name="member_club_active_idx"),
             models.Index(
                 fields=["club", "last_name", "first_name"],
                 name="member_club_name_idx",
             ),
+            models.Index(
+                fields=["import_status", "last_name", "first_name"],
+                name="member_park_name_idx",
+            ),
         ]
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(import_status="parked") | models.Q(sex__in=["M", "F"]),
+                name="member_sex_required_unless_parked",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(import_status="parked") | models.Q(is_active=False),
+                name="member_parked_stays_inactive",
+            ),
             models.CheckConstraint(
                 condition=models.Q(secondary_license_role="")
                 | ~models.Q(primary_license_role=""),

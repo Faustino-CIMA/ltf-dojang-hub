@@ -36,12 +36,16 @@ export type ImportRow = {
   disposition?: "create" | "update" | "skip";
   changed_fields?: string[];
   match_by?: "ltf_licenseid" | "wt_licenseid" | "name_dob" | null;
+  parkable?: boolean;
+  park_reasons?: string[];
+  park_club_text?: string;
 };
 
 type ConfirmResponse = {
   created: number;
   updated?: number;
   skipped: number;
+  parked?: number;
   errors: Array<{ row_index: number; errors: string[] }>;
   club_id?: number;
   ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
@@ -94,7 +98,7 @@ export async function confirmImport(
   type: ImportType,
   file: File,
   mapping: Record<string, string>,
-  actions: Array<{ row_index: number; action: "create" | "update" | "skip" }>,
+  actions: Array<{ row_index: number; action: "create" | "update" | "skip" | "park" }>,
   clubId?: number,
   dateFormat?: string,
   rowOverrides?: ConfirmRowOverridePayload[],
@@ -140,4 +144,4 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
   return (await response.json()) as T;
 }
 
-export type { ConfirmResponse, ImportRow, PreviewResponse };
+export type { ConfirmResponse, PreviewResponse };

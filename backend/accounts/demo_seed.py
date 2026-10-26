@@ -456,8 +456,8 @@ def _ensure_member_row(
 ) -> Member:
     if not club.is_demo:
         raise CommandError(f"Refusing to attach demo members to {club.name}: it is not demo data.")
-    by_user = Member.objects.filter(user=user).first() if user is not None else None
-    by_id = Member.objects.filter(ltf_licenseid=license_id).first()
+    by_user = Member.all_objects.filter(user=user).first() if user is not None else None
+    by_id = Member.all_objects.filter(ltf_licenseid=license_id).first()
     for existing in (by_user, by_id):
         if existing is not None and not existing.is_demo:
             raise CommandError(

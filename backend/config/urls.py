@@ -29,6 +29,13 @@ from imports.views import (
     MemberImportConfirmView,
     MemberImportPreviewView,
 )
+from members.parked_views import (
+    ParkedMemberBulkAssignView,
+    ParkedMemberBulkDeleteView,
+    ParkedMemberDeleteView,
+    ParkedMemberListView,
+    ParkedMemberResolveView,
+)
 from clubs.public_stats import PublicStatsView
 from setup.views import (
     SetupAdminLinkView,
@@ -246,6 +253,11 @@ urlpatterns = [
     path("api/imports/clubs/confirm/", ClubImportConfirmView.as_view(), name="import-clubs-confirm"),
     path("api/imports/members/preview/", MemberImportPreviewView.as_view(), name="import-members-preview"),
     path("api/imports/members/confirm/", MemberImportConfirmView.as_view(), name="import-members-confirm"),
+    path("api/parked-members/", ParkedMemberListView.as_view(), name="parked-members"),
+    path("api/parked-members/bulk-assign/", ParkedMemberBulkAssignView.as_view(), name="parked-members-bulk-assign"),
+    path("api/parked-members/bulk-delete/", ParkedMemberBulkDeleteView.as_view(), name="parked-members-bulk-delete"),
+    path("api/parked-members/<int:pk>/", ParkedMemberDeleteView.as_view(), name="parked-member-delete"),
+    path("api/parked-members/<int:pk>/resolve/", ParkedMemberResolveView.as_view(), name="parked-member-resolve"),
     path("api/federation-profile/", FederationProfileView.as_view(), name="federation-profile"),
     path("api/club-fee-billings/", ClubFeeBillingView.as_view(), name="club-fee-billings"),
     path(

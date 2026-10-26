@@ -71,6 +71,9 @@ export type SetupMemberRow = {
   allow_missing_id?: boolean;
   group_conflict?: boolean;
   also_staff?: boolean;
+  parkable?: boolean;
+  parked?: boolean;
+  park_reasons?: string[];
 };
 
 export type SetupMemberPreview = {

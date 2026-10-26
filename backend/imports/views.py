@@ -11,6 +11,7 @@ from accounts.permissions import IsClubAdmin, IsLtfAdmin, IsLtfAdminOrClubAdmin
 from clubs.banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from clubs.models import Club
 from members.models import Member
+from members.parking import regular_row_parkable
 from members.services import apply_ltf_license_id_import_prefix, ltf_license_prefix_rewrite_policy
 
 from .gender import parse_import_gender
@@ -279,6 +280,15 @@ def parse_club_address_fields(row_data, mapping, errors):
     }
 
 
+def user_may_park_members(user) -> bool:
+    """Parked rows are visible only to LTF admins and superusers."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return getattr(user, "role", "") == "ltf_admin"
+
+
 def get_member_club_id(request):
     club_id_raw = request.data.get("club_id")
     if not club_id_raw:
@@ -340,7 +350,11 @@ def parse_member_import_row(
     sex_raw = row_data.get(sex_header, "").strip() if sex_header else ""
     sex_value = normalize_sex(sex_raw, errors)
     issues = []
-    if sex_raw and not sex_value:
+    if sex_header and not sex_value:
+        if "sex must be Male or Female" not in errors:
+            errors.append("sex must be Male or Female")
+        issues.append({"code": "gender", "value": sex_raw})
+    elif sex_raw and not sex_value:
         issues.append({"code": "gender", "value": sex_raw})
     is_active_header = str(mapping.get("is_active") or "").strip()
     is_active_mapped = bool(is_active_header)
@@ -401,6 +415,8 @@ def parse_member_import_row(
         "ltf_licenseid": ltf_licenseid,
         "ltf_rewritten": ltf_rewritten,
         "sex": sex_value,
+        "sex_raw": sex_raw,
+        "sex_mapped": bool(sex_header),
         "is_active": is_active_value,
         "is_active_mapped": is_active_mapped,
         "primary_license_role": primary_license_role,
@@ -430,6 +446,93 @@ def _preview_issues(parsed, plan) -> list[dict]:
         }
     )
     return issues
+
+
+def _with_park_signals(parsed, row_data, mapping, headers, date_format):
+    from members.parking import extend_regular_import_row
+
+    club_header = str(mapping.get("club_name") or "").strip()
+    club_text = str(row_data.get(club_header) or "").strip() if club_header else ""
+    end_header = detect_membership_end_date_header(headers, mapping)
+    end_raw = str(row_data.get(end_header) or "").strip() if end_header else ""
+    end_year = membership_end_year_for_row(row_data, mapping, date_format, headers) if end_raw else None
+    extend_regular_import_row(
+        parsed,
+        club_mapped=bool(club_header),
+        club_text=club_text,
+        end_unparseable=bool(end_raw) and end_year is None,
+        end_raw=end_raw,
+    )
+    return parsed
+
+
+def _park_import_row(request, match_index, parsed, club_id, audited: set):
+    from members.parking import NO_CLUB, record_park_audit, regular_row_parkable, upsert_parked_member
+
+    member, match_by = match_index.match(
+        ltf_licenseid=parsed.get("ltf_licenseid") or "",
+        wt_licenseid=parsed.get("wt_licenseid") or "",
+        first_name=parsed.get("first_name") or "",
+        last_name=parsed.get("last_name") or "",
+        date_of_birth=parsed.get("date_of_birth"),
+    )
+    if not regular_row_parkable(parsed, member, match_by):
+        return None
+    reasons = list(parsed.get("park_reasons") or [])
+    detail = {
+        "gender_value": str(parsed.get("sex_raw") or ""),
+        "end_value": str(parsed.get("end_raw") or ""),
+    }
+    existing_member = member if member is not None and getattr(member, "pk", 0) > 0 else None
+    saved, _created = upsert_parked_member(
+        existing=existing_member,
+        merge_reasons=bool(existing_member is not None and existing_member.pk in audited),
+        first_name=parsed.get("first_name") or "",
+        last_name=parsed.get("last_name") or "",
+        sex=parsed.get("sex") or "",
+        ltf_licenseid=parsed.get("ltf_licenseid") or "",
+        wt_licenseid=parsed.get("wt_licenseid") or "",
+        reasons=reasons,
+        club_text=parsed.get("club_text") or "",
+        detail=detail,
+        primary_role=parsed.get("primary_license_role") or "",
+        secondary_role=parsed.get("secondary_license_role") or "",
+        date_of_birth=parsed.get("date_of_birth"),
+        club_id=None if NO_CLUB in reasons else club_id,
+    )
+    match_index.register(saved)
+    if saved.pk not in audited:
+        record_park_audit(request.user, saved, source="import")
+        audited.add(saved.pk)
+    return saved
+
+
+def _release_parked_update(request, member, parsed, changes, club_id):
+    """A clean re-import of a parked person updates that row and clears the flag."""
+    from members.parking import clear_parked_state, is_parked, record_resolve_audit
+
+    if not is_parked(member):
+        return False
+    if parsed.get("sex") in {Member.Sex.MALE, Member.Sex.FEMALE}:
+        member.sex = parsed["sex"]
+    if member.sex not in {Member.Sex.MALE, Member.Sex.FEMALE}:
+        member.is_active = False
+        member.import_status = Member.ImportStatus.PARKED
+        member.save()
+        return False
+    for field, value in changes.items():
+        setattr(member, field, value)
+    clear_parked_state(member)
+    if not member.club_id:
+        member.club_id = club_id
+    if "is_active" not in changes:
+        if isinstance(parsed.get("is_active"), bool):
+            member.is_active = parsed["is_active"]
+        else:
+            member.is_active = True
+    member.save()
+    record_resolve_audit(request.user, member, source="import")
+    return True
 
 
 def _preview_payload(parsed):
@@ -667,6 +770,7 @@ class MemberImportPreviewView(views.APIView):
                 headers,
                 rewrite_enabled=rewrite_enabled,
             )
+            _with_park_signals(parsed, row_data, mapping, headers, date_format)
             if parsed["ltf_rewritten"]:
                 rewritten_count += 1
             plan = plan_member_row(
@@ -694,6 +798,9 @@ class MemberImportPreviewView(views.APIView):
                     "disposition": plan["disposition"],
                     "changed_fields": plan["changed_fields"],
                     "match_by": plan["match_by"],
+                    "parkable": regular_row_parkable(parsed, plan.get("member"), plan.get("match_by")),
+                    "park_reasons": list(parsed.get("park_reasons") or []),
+                    "park_club_text": parsed.get("club_text") or "",
                 }
             )
 
@@ -754,11 +861,18 @@ class MemberImportConfirmView(views.APIView):
                 {"detail": "Mapping for first_name and last_name is required."},
                 status=400,
             )
+        if any(action == "park" for action in actions.values()) and not user_may_park_members(request.user):
+            return response.Response(
+                {"detail": "Only LTF staff can park members."},
+                status=403,
+            )
 
         created = 0
         updated = 0
         skipped = 0
+        parked = 0
         row_errors = []
+        audited_parks: set[int] = set()
         update_mode = parse_update_mode(request.data.get("update_mode"))
         match_index = MemberMatchIndex(club_id)
         rewrite_enabled = ltf_license_prefix_rewrite_policy()["enabled"]
@@ -791,6 +905,16 @@ class MemberImportConfirmView(views.APIView):
                     has_row_override=has_row_override,
                     override=override,
                 )
+                _with_park_signals(parsed, row_data, mapping, headers, date_format)
+                if action == "park":
+                    saved = _park_import_row(request, match_index, parsed, club_id, audited_parks)
+                    if saved is None:
+                        row_errors.append({"row_index": index, "errors": ["This row cannot be parked."]})
+                        continue
+                    if parsed["ltf_rewritten"]:
+                        rewritten_count += 1
+                    parked += 1
+                    continue
                 plan = plan_member_row(
                     user=request.user,
                     club_id=club_id,
@@ -808,10 +932,17 @@ class MemberImportConfirmView(views.APIView):
                 if plan["disposition"] == "update":
                     member = plan["member"]
                     changes = plan["changes"]
-                    _record_member_import_update(request, member, changes)
-                    for field, value in changes.items():
-                        setattr(member, field, value)
-                    member.save(update_fields=[*changes.keys(), "updated_at"])
+                    if plan.get("clear_park"):
+                        released = _release_parked_update(request, member, parsed, changes, club_id)
+                        if not released:
+                            match_index.reindex(member)
+                            updated += 1
+                            continue
+                    else:
+                        _record_member_import_update(request, member, changes)
+                        for field, value in changes.items():
+                            setattr(member, field, value)
+                        member.save(update_fields=[*changes.keys(), "updated_at"])
                     match_index.reindex(member)
                     if parsed["ltf_rewritten"]:
                         rewritten_count += 1
@@ -854,6 +985,7 @@ class MemberImportConfirmView(views.APIView):
                 "created": created,
                 "updated": updated,
                 "skipped": skipped,
+                "parked": parked,
                 "errors": row_errors,
                 "club_id": club_id,
                 "update_mode": update_mode,

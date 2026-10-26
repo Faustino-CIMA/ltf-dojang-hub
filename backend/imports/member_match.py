@@ -64,7 +64,7 @@ class MemberMatchIndex:
         self._load()
 
     def _load(self):
-        queryset = Member.objects.all().only(
+        queryset = Member.all_objects.all().only(
             "id",
             "club_id",
             "first_name",
@@ -76,6 +76,7 @@ class MemberMatchIndex:
             "ltf_licenseid",
             "sex",
             "is_active",
+            "import_status",
             "primary_license_role",
             "secondary_license_role",
         )
@@ -252,8 +253,14 @@ def plan_member_row(*, user, club_id: int, update_mode: str, mapping, match_inde
         date_of_birth=parsed.get("date_of_birth"),
     )
     real_existing_id = member.pk if member is not None and getattr(member, "pk", 0) and member.pk > 0 else None
+    parked_licence = (
+        member is not None
+        and match_by in {"ltf_licenseid", "wt_licenseid"}
+        and getattr(member, "pk", 0) > 0
+        and getattr(member, "import_status", Member.ImportStatus.ACTIVE) == Member.ImportStatus.PARKED
+    )
 
-    if member is not None and update_mode != CREATE_AND_UPDATE:
+    if member is not None and update_mode != CREATE_AND_UPDATE and not parked_licence:
         return {
             "disposition": "skip",
             "changed_fields": [],
@@ -299,7 +306,7 @@ def plan_member_row(*, user, club_id: int, update_mode: str, mapping, match_inde
                 "errors": merged_errors,
                 "member": member,
             }
-        if not changes:
+        if not changes and not parked_licence:
             return {
                 "disposition": "skip",
                 "changed_fields": [],
@@ -310,6 +317,18 @@ def plan_member_row(*, user, club_id: int, update_mode: str, mapping, match_inde
                 "errors": [],
                 "member": member,
             }
+        if not changes and parked_licence:
+            return {
+                "disposition": "update",
+                "changed_fields": [],
+                "changes": {},
+                "existing_id": real_existing_id,
+                "match_by": match_by,
+                "duplicate": False,
+                "errors": [],
+                "member": member,
+                "clear_park": True,
+            }
         return {
             "disposition": "update",
             "changed_fields": list(changes.keys()),
@@ -319,6 +338,7 @@ def plan_member_row(*, user, club_id: int, update_mode: str, mapping, match_inde
             "duplicate": False,
             "errors": [],
             "member": member,
+            "clear_park": parked_licence,
         }
 
     create_errors = list(errors)
@@ -374,6 +394,7 @@ def remember_planned_member(match_index: MemberMatchIndex, *, club_id: int, pars
             ltf_licenseid=str(parsed.get("ltf_licenseid") or "").strip().upper(),
             sex=sex,
             is_active=True if is_active is None else is_active,
+            import_status=Member.ImportStatus.ACTIVE,
             primary_license_role=str(parsed.get("primary_license_role") or ""),
             secondary_license_role=str(parsed.get("secondary_license_role") or ""),
         )

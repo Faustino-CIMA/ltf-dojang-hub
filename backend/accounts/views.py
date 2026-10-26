@@ -147,7 +147,7 @@ class DataExportView(views.APIView):
     serializer_class = EmptySerializer
 
     def get(self, request):
-        member = Member.objects.filter(user=request.user).first()
+        member = Member.all_objects.filter(user=request.user).first()
         licenses = License.objects.filter(member=member).values(
             "id",
             "year",
@@ -246,7 +246,7 @@ class DataDeleteView(views.APIView):
 
     def delete(self, request):
         user_id = request.user.id
-        member = Member.objects.filter(user=request.user).first()
+        member = Member.all_objects.filter(user=request.user).first()
         with transaction.atomic():
             if member:
                 clear_member_profile_picture(member, clear_consent_attestation=True)
@@ -379,7 +379,7 @@ class AccountSetupView(views.APIView):
         invite, user = _open_setup_invite(request.query_params.get("token"))
         if invite is None or user is None:
             return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
-        member = Member.objects.filter(user=user).first()
+        member = Member.all_objects.filter(user=user).first()
         return response.Response(
             {
                 "username": user.username,
@@ -424,7 +424,7 @@ class AccountSetupView(views.APIView):
                 address.verified = True
                 address.primary = True
                 address.save(update_fields=["verified", "primary"])
-            member = Member.objects.filter(user=user).first()
+            member = Member.all_objects.filter(user=user).first()
             if member is not None:
                 member.email = email
                 member.save(update_fields=["email", "updated_at"])

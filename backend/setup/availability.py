@@ -10,7 +10,7 @@ from .models import SetupState
 
 
 def app_is_empty() -> bool:
-    return not Club.objects.filter(is_demo=False).exists() and not Member.objects.filter(is_demo=False).exists()
+    return not Club.objects.filter(is_demo=False).exists() and not Member.all_objects.filter(is_demo=False).exists()
 
 
 def get_state() -> SetupState | None:

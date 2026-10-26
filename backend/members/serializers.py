@@ -159,7 +159,7 @@ class MemberSerializer(serializers.ModelSerializer):
         normalized_value = str(value or "").strip().upper()
         if not normalized_value:
             return ""
-        queryset = Member.objects.filter(wt_licenseid=normalized_value)
+        queryset = Member.all_objects.filter(wt_licenseid=normalized_value)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
@@ -170,7 +170,7 @@ class MemberSerializer(serializers.ModelSerializer):
         normalized_value = str(value or "").strip().upper()
         if not normalized_value:
             return ""
-        queryset = Member.objects.filter(ltf_licenseid=normalized_value)
+        queryset = Member.all_objects.filter(ltf_licenseid=normalized_value)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():

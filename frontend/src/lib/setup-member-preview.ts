@@ -1,11 +1,11 @@
 import type { SetupMemberPreview, SetupMemberRow } from "@/lib/setup-api";
 import { formatFullName } from "@/lib/person-name";
 
-export type SetupRowStatus = "ready" | "staff" | "choice" | "skipped";
+export type SetupRowStatus = "ready" | "staff" | "choice" | "parked" | "skipped";
 
-export type SetupRowIssue = "sex" | "club" | "near_ltf" | "ambiguous" | "group" | "end" | "missing_id" | "dob";
+export type SetupRowIssue = "sex" | "club" | "no_club" | "near_ltf" | "ambiguous" | "group" | "end" | "missing_id" | "dob";
 
-const BLOCKING: ReadonlySet<SetupRowIssue> = new Set(["sex", "club", "near_ltf", "ambiguous", "group", "end", "missing_id"]);
+const BLOCKING: ReadonlySet<SetupRowIssue> = new Set(["sex", "club", "no_club", "near_ltf", "ambiguous", "group", "end", "missing_id"]);
 
 type IssueTranslator = (key: string, values?: Record<string, string>) => string;
 
@@ -16,6 +16,9 @@ export function setupIssueMessage(t: IssueTranslator, row: SetupMemberRow, issue
   }
   if (issue === "club") {
     return t("issue_club_not_found", { club: row.club_name || "—" });
+  }
+  if (issue === "no_club") {
+    return t("issue_no_club");
   }
   if (issue === "near_ltf") {
     return t("issue_near_ltf", { club: row.club_name || "—" });
@@ -45,6 +48,8 @@ export function setupRowIssues(row: SetupMemberRow): SetupRowIssue[] {
   }
   if (row.group_conflict) {
     issues.push("group");
+  } else if (row.resolution.kind === "no_club") {
+    issues.push("no_club");
   } else if (row.resolution.kind === "near_ltf") {
     issues.push("near_ltf");
   } else if (row.resolution.kind === "ambiguous") {
@@ -68,6 +73,9 @@ export function setupRowStatus(row: SetupMemberRow): SetupRowStatus {
   if (row.skipped || row.resolution.kind === "skip") {
     return "skipped";
   }
+  if (row.parked) {
+    return "parked";
+  }
   if (setupRowIssues(row).some((issue) => BLOCKING.has(issue))) {
     return "choice";
   }
@@ -81,6 +89,7 @@ export function setupPreviewSummary(preview: SetupMemberPreview) {
   let ready = 0;
   let staff = 0;
   let choice = 0;
+  let parked = 0;
   let skipped = 0;
   let gender = 0;
   let active = 0;
@@ -91,6 +100,7 @@ export function setupPreviewSummary(preview: SetupMemberPreview) {
     if (status === "ready") ready += 1;
     if (status === "staff") staff += 1;
     if (status === "choice") choice += 1;
+    if (status === "parked") parked += 1;
     if (status === "skipped") skipped += 1;
     if (row.sex_blocking) gender += 1;
     if (status === "ready" || status === "staff") {
@@ -117,8 +127,9 @@ export function setupPreviewSummary(preview: SetupMemberPreview) {
     ready,
     staff,
     choice,
+    parked,
     skipped,
-    willImport: ready + staff,
+    willImport: ready + staff + parked,
     gender,
     trainer,
     otherRoles,

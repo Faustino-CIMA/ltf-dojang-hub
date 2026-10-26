@@ -23,7 +23,7 @@ def assert_demo_seed_allowed(*, force: bool) -> None:
     from clubs.models import Club
     from members.models import Member
 
-    if Club.objects.filter(is_demo=False).exists() or Member.objects.filter(is_demo=False).exists():
+    if Club.objects.filter(is_demo=False).exists() or Member.all_objects.filter(is_demo=False).exists():
         raise CommandError(
             "Refusing to seed: this database already has clubs or members that "
             "are not demo data. Use an empty database for the demo app. "

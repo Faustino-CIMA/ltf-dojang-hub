@@ -412,7 +412,7 @@ def _used_ltf_license_serials(prefix: str) -> set[int]:
     pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$")
     used: set[int] = set()
     for existing_value in (
-        Member.objects.filter(ltf_licenseid__startswith=f"{prefix}-")
+        Member.all_objects.filter(ltf_licenseid__startswith=f"{prefix}-")
         .values_list("ltf_licenseid", flat=True)
         .iterator()
     ):
@@ -434,7 +434,7 @@ def _next_available_ltf_license_id(*, prefix: str, start_value: int) -> tuple[st
 def ensure_ltf_license_id(member: Member, *, prefix: str = "LTF") -> str:
     """Assign a national LTF license ID when the member does not have one yet."""
     with transaction.atomic():
-        locked = Member.objects.select_for_update().get(pk=member.pk)
+        locked = Member.all_objects.select_for_update().get(pk=member.pk)
         current = str(locked.ltf_licenseid or "").strip()
         if current:
             member.ltf_licenseid = current
@@ -453,7 +453,7 @@ def assign_ltf_license_ids_for_licensed_members() -> int:
 
     member_ids = License.objects.filter(status=License.Status.ACTIVE).values_list("member_id", flat=True)
     assigned = 0
-    missing = Member.objects.filter(pk__in=member_ids).filter(Q(ltf_licenseid="") | Q(ltf_licenseid__isnull=True))
+    missing = Member.all_objects.filter(pk__in=member_ids).filter(Q(ltf_licenseid="") | Q(ltf_licenseid__isnull=True))
     for member in missing.iterator():
         ensure_ltf_license_id(member)
         assigned += 1
@@ -552,7 +552,7 @@ def _bump_ltf_counter_after_prefix_rewrite(rewritten_ids: list[str]) -> None:
 def rewrite_existing_lux_ltf_license_ids(*, apply: bool) -> dict[str, Any]:
     occupied: dict[str, int] = {}
     for member_id, raw_value in (
-        Member.objects.exclude(ltf_licenseid="")
+        Member.all_objects.exclude(ltf_licenseid="")
         .values_list("id", "ltf_licenseid")
         .iterator()
     ):
@@ -563,7 +563,7 @@ def rewrite_existing_lux_ltf_license_ids(*, apply: bool) -> dict[str, Any]:
     candidates: list[tuple[int, str, str]] = []
     conflicts: list[dict[str, Any]] = []
     for member_id, raw_value in (
-        Member.objects.exclude(ltf_licenseid="")
+        Member.all_objects.exclude(ltf_licenseid="")
         .values_list("id", "ltf_licenseid")
         .iterator()
     ):
@@ -591,7 +591,7 @@ def rewrite_existing_lux_ltf_license_ids(*, apply: bool) -> dict[str, Any]:
         with transaction.atomic():
             member_by_id = {
                 member.id: member
-                for member in Member.objects.filter(id__in=[item[0] for item in candidates])
+                for member in Member.all_objects.filter(id__in=[item[0] for item in candidates])
             }
             rewritten_ids: list[str] = []
             for member_id, _current, target in candidates:

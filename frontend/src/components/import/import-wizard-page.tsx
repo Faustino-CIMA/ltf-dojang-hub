@@ -57,8 +57,8 @@ import {
 
 type ImportType = "clubs" | "members";
 type WizardStep = "source" | "mapping" | "preview" | "confirm" | "result";
-type RowAction = "create" | "update" | "skip";
-type PreviewFilter = "all" | "ready" | "duplicate" | "invalid" | "skipped" | "create" | "update";
+type RowAction = "create" | "update" | "skip" | "park";
+type PreviewFilter = "all" | "ready" | "duplicate" | "invalid" | "skipped" | "create" | "update" | "parked";
 
 // Role override for a single row
 type RowRoleOverride = {
@@ -119,7 +119,7 @@ function buildConfirmRowOverrides(
 }
 
 // Display status includes "review" for role-related issues
-type RowDisplayStatus = "ready" | "duplicate" | "invalid" | "skipped" | "review" | "create" | "update";
+type RowDisplayStatus = "ready" | "duplicate" | "invalid" | "skipped" | "review" | "create" | "update" | "parked";
 
 type FieldOption = {
   key: string;
@@ -141,6 +141,8 @@ type ImportWizardPageProps = {
   fieldsByType: Record<ImportType, FieldOption[]>;
   backHrefByType: Record<ImportType, string>;
   successHrefByType: Record<ImportType, string>;
+  /** Club admins must not park rows they cannot see afterwards. */
+  allowPark?: boolean;
 };
 
 type SummaryCounts = {
@@ -151,6 +153,7 @@ type SummaryCounts = {
   skipped: number;
   create: number;
   update: number;
+  parked: number;
 };
 
 const EMPTY_DATE_DETECTION: DateFormatDetection = {
@@ -254,7 +257,7 @@ const SECONDARY_MISSING_VALUES = new Set([
 
 function isEmptyRoleValue(value: string | number | boolean | null | undefined): boolean {
   if (value === null || value === undefined || typeof value === "boolean" || typeof value === "number") {
-    return value == null || value === "";
+    return value == null;
   }
   const trimmed = String(value).trim().toLowerCase();
   return SECONDARY_MISSING_VALUES.has(trimmed);
@@ -464,8 +467,12 @@ function hasRealErrors(row: ImportRow, isMembersImport: boolean): boolean {
 function getRowDisplayStatus(
   row: ImportRow,
   action: RowAction,
-  isMembersImport: boolean
+  isMembersImport: boolean,
+  canPark: boolean = isMembersImport
 ): RowDisplayStatus {
+  if (canPark && action === "park" && row.parkable) {
+    return "parked";
+  }
   if (action === "skip") {
     return "skipped";
   }
@@ -491,7 +498,8 @@ function getRowDisplayStatus(
     return "invalid";
   }
   if (isMembersImport) {
-    const outcome = memberPreviewOutcome({ ...row, errors: [] }, action);
+    const previewAction = action === "update" ? action : "create";
+    const outcome = memberPreviewOutcome({ ...row, errors: [] }, previewAction);
     if (outcome === "update") {
       return "update";
     }
@@ -507,18 +515,20 @@ function getRowDisplayStatus(
 }
 
 // Map display status to filter category for counts/buttons
-function getFilterCategory(status: RowDisplayStatus): PreviewFilter {
+function getFilterCategory(status: RowDisplayStatus): Exclude<PreviewFilter, "all"> {
   // Review rows are counted as invalid for filter buttons
   if (status === "review") return "invalid";
   if (status === "create") return "create";
   if (status === "update") return "update";
+  if (status === "parked") return "parked";
   return status;
 }
 
 function buildSummary(
   rows: ImportRow[],
   actions: Record<number, RowAction>,
-  isMembersImport: boolean
+  isMembersImport: boolean,
+  canPark: boolean = isMembersImport
 ): SummaryCounts {
   const summary: SummaryCounts = {
     total: rows.length,
@@ -528,10 +538,11 @@ function buildSummary(
     skipped: 0,
     create: 0,
     update: 0,
+    parked: 0,
   };
   for (const row of rows) {
     const action = actions[row.row_index] ?? "create";
-    const status = getRowDisplayStatus(row, action, isMembersImport);
+    const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
     const filterCategory = getFilterCategory(status);
     summary[filterCategory] += 1;
   }
@@ -547,6 +558,7 @@ export function ImportWizardPage({
   fieldsByType,
   backHrefByType,
   successHrefByType,
+  allowPark = true,
 }: ImportWizardPageProps) {
   const t = useTranslations("Import");
   const common = useTranslations("Common");
@@ -595,6 +607,7 @@ export function ImportWizardPage({
 
   const canSwitchType = allowedTypes.length > 1;
   const isMembersImport = importType === "members";
+  const canPark = isMembersImport && allowPark;
   const currentFields = omitGeneratedMemberIdFields(fieldsByType[importType] ?? []);
   const requiredFields = useMemo(
     () => currentFields.filter((field) => field.required),
@@ -716,8 +729,8 @@ export function ImportWizardPage({
   }, [previewRows, roleOverrides, isMembersImport]);
 
   const summary = useMemo(
-    () => buildSummary(effectivePreviewRows, actions, isMembersImport),
-    [actions, effectivePreviewRows, isMembersImport]
+    () => buildSummary(effectivePreviewRows, actions, isMembersImport, canPark),
+    [actions, canPark, effectivePreviewRows, isMembersImport]
   );
 
   const filteredPreviewRows = useMemo(() => {
@@ -726,11 +739,11 @@ export function ImportWizardPage({
     }
     return effectivePreviewRows.filter((row) => {
       const action = actions[row.row_index] ?? "create";
-      const status = getRowDisplayStatus(row, action, isMembersImport);
+      const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
       const filterCategory = getFilterCategory(status);
       return filterCategory === previewFilter;
     });
-  }, [actions, previewFilter, effectivePreviewRows, isMembersImport]);
+  }, [actions, canPark, previewFilter, effectivePreviewRows, isMembersImport]);
 
   useEffect(() => {
     if (fixedClubId && fixedClubId !== selectedClubId) {
@@ -1082,7 +1095,7 @@ export function ImportWizardPage({
   };
 
   const setRowAction = (rowIndex: number, value: string) => {
-    if (value !== "create" && value !== "update" && value !== "skip") {
+    if (value !== "create" && value !== "update" && value !== "skip" && value !== "park") {
       return;
     }
     setActions((previous) => ({ ...previous, [rowIndex]: value }));
@@ -1119,10 +1132,26 @@ export function ImportWizardPage({
       const next = { ...previous };
       for (const row of effectivePreviewRows) {
         const action = next[row.row_index] ?? "create";
-        const status = getRowDisplayStatus(row, action, isMembersImport);
+        const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
         // Skip rows that are invalid (including review status mapped to invalid)
         if (status === "invalid" || status === "review") {
           next[row.row_index] = "skip";
+        }
+      }
+      return next;
+    });
+  };
+
+  const runParkAllUnresolved = () => {
+    setActions((previous) => {
+      const next = { ...previous };
+      if (!canPark) return next;
+      for (const row of effectivePreviewRows) {
+        if (!row.parkable) continue;
+        const action = next[row.row_index] ?? "create";
+        const status = getRowDisplayStatus(row, action, true, true);
+        if (status === "invalid" || status === "review") {
+          next[row.row_index] = "park";
         }
       }
       return next;
@@ -1134,7 +1163,7 @@ export function ImportWizardPage({
       const next = { ...previous };
       for (const row of effectivePreviewRows) {
         const currentAction = next[row.row_index] ?? "create";
-        const status = getRowDisplayStatus(row, currentAction, isMembersImport);
+        const status = getRowDisplayStatus(row, currentAction, isMembersImport, canPark);
         if (status === "ready" || status === "create") {
           next[row.row_index] = "create";
         }
@@ -1716,6 +1745,9 @@ export function ImportWizardPage({
                         { id: "update" as const, label: t("statusUpdate"), count: summary.update },
                         { id: "skipped" as const, label: t("statusSkipped"), count: summary.skipped },
                         { id: "invalid" as const, label: t("statusInvalid"), count: summary.invalid },
+                        ...(canPark
+                          ? [{ id: "parked" as const, label: t("statusParked"), count: summary.parked }]
+                          : []),
                       ]
                     : [
                         { id: "all" as const, label: t("filterAll"), count: summary.total },
@@ -1744,6 +1776,11 @@ export function ImportWizardPage({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {canPark ? (
+                  <Button variant="outline" size="sm" onClick={runParkAllUnresolved}>
+                    {t("parkAllUnresolved")}
+                  </Button>
+                ) : null}
                 <Button variant="outline" size="sm" onClick={runBulkSkipInvalid}>
                   {t("skipInvalidRowsButton")}
                 </Button>
@@ -1766,7 +1803,7 @@ export function ImportWizardPage({
                   <tbody>
                     {filteredPreviewRows.map((row) => {
                       const action = actions[row.row_index] ?? "create";
-                      const status = getRowDisplayStatus(row, action, isMembersImport);
+                      const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
                       const isReview = status === "review";
                       const override = roleOverrides[row.row_index];
 
@@ -1827,7 +1864,7 @@ export function ImportWizardPage({
                                   ? "success"
                                   : status === "update"
                                   ? "info"
-                                  : status === "duplicate" || status === "review"
+                                  : status === "parked" || status === "duplicate" || status === "review"
                                   ? "warning"
                                   : status === "invalid"
                                   ? "danger"
@@ -1846,6 +1883,8 @@ export function ImportWizardPage({
                                   ? t("statusInvalid")
                                   : status === "review"
                                   ? t("statusReview")
+                                  : status === "parked"
+                                  ? t("statusParked")
                                   : t("statusSkipped")
                               }
                             />
@@ -1972,6 +2011,8 @@ export function ImportWizardPage({
                                 value={
                                   hasSameRoles
                                     ? "skip"
+                                    : action === "park" && canPark
+                                    ? "park"
                                     : row.disposition === "update"
                                     ? action === "skip"
                                       ? "skip"
@@ -1990,10 +2031,12 @@ export function ImportWizardPage({
                                   isMembersImport && row.disposition === "update"
                                     ? [
                                         { value: "update", label: t("updateAction") },
+                                        ...(canPark && row.parkable ? [{ value: "park", label: t("parkAction") }] : []),
                                         { value: "skip", label: t("skipAction") },
                                       ]
                                     : [
                                         { value: "create", label: t("createAction") },
+                                        ...(canPark && row.parkable ? [{ value: "park", label: t("parkAction") }] : []),
                                         { value: "skip", label: t("skipAction") },
                                       ]
                                 }
@@ -2149,6 +2192,11 @@ export function ImportWizardPage({
                     })}
               </p>
 
+              {canPark && (result?.parked ?? 0) > 0 ? (
+                <p className="banner-warning rounded-[var(--radius-form)] border px-3 py-2 text-sm">
+                  <span className="font-medium">{t("statusParked")}:</span> {result?.parked}
+                </p>
+              ) : null}
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-success">
                   <span className="font-medium">{t("resultCreated")}:</span> {createdCount}

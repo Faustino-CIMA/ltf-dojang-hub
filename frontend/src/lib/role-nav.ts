@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   ShoppingCart,
   Sparkles,
+  Archive,
   ArrowLeftRight,
   UserCog,
   Users,
@@ -151,6 +152,14 @@ const LTF_ADMIN_NAV: RoleNavDef[] = [
     labelKey: "navMembers",
     namespace: "LtfAdmin",
     icon: Users,
+    matchMode: "prefix",
+  },
+  {
+    id: "parked-members",
+    href: (locale) => `/${locale}/dashboard/ltf/parked-members`,
+    labelKey: "navParkedMembers",
+    namespace: "LtfAdmin",
+    icon: Archive,
     matchMode: "prefix",
   },
   {
