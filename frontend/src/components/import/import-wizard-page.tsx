@@ -38,6 +38,7 @@ import {
   omitGeneratedMemberIdFields,
   unusedSourceHeaders,
 } from "@/lib/import-mapping";
+import { importIssueMessage } from "@/lib/import-issue";
 import { importResultTone, type ImportResultTone } from "@/lib/import-result";
 import { showImportWizardPrevious } from "@/lib/import-wizard-nav";
 import {
@@ -1867,7 +1868,11 @@ export function ImportWizardPage({
                             ) : null}
                           </td>
                           <td className="px-2 py-2 text-xs text-destructive">
-                            {row.errors.join(", ")}
+                            {(row.issues?.length ?? 0) > 0
+                              ? row.issues?.map((issue) => (
+                                  <p key={`${issue.code}-${issue.value || ""}-${issue.id || ""}`}>{importIssueMessage(t, issue)}</p>
+                                ))
+                              : row.errors.join(", ")}
                             {!isMembersImport && row.duplicate ? ` ${t("duplicateHint")}` : ""}
                             {hasSameRoles && (
                               <span>

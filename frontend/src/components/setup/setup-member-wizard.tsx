@@ -28,7 +28,7 @@ import type { LtfLicensePrefixRewritePolicy } from "@/lib/import-api";
 import { SETUP_MEMBER_TARGET_FIELDS, shareMemberIdColumn } from "@/lib/setup-member-mapping";
 import { formatFullName } from "@/lib/person-name";
 import { confirmSetupMembers, previewSetupMembers, type SetupMemberPreview, type SetupMemberRow } from "@/lib/setup-api";
-import { setupPreviewSummary, setupRowIssues, setupRowStatus, type SetupRowStatus } from "@/lib/setup-member-preview";
+import { setupIssueMessage, setupPreviewSummary, setupRowIssues, setupRowStatus, type SetupRowStatus } from "@/lib/setup-member-preview";
 
 type InnerStep = "source" | "mapping" | "preview" | "confirm" | "result";
 type PreviewFilter = "all" | "ready" | "staff" | "choice" | "skipped";
@@ -640,6 +640,13 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           <td className="px-2 py-2">{row.row_index}</td>
                           <td className="px-2 py-2">
                             <ImportStatusBadge tone={statusTone(status)} label={statusLabel(status)} />
+                            {issues
+                              .filter((issue) => issue !== "dob")
+                              .map((issue) => (
+                                <p key={issue} className="mt-1 max-w-xs text-xs text-destructive">
+                                  {setupIssueMessage(t, row, issue)}
+                                </p>
+                              ))}
                           </td>
                           <td className="px-2 py-2 text-xs">
                             <p className="font-medium">{formatFullName(row)}</p>
@@ -673,7 +680,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           <td className="px-2 py-2 text-xs">{row.ltf_license_id || row.member_id || "—"}</td>
                           <td className="px-2 py-2 text-xs">
                             <p>{row.resolution.club_name || row.club_name || "—"}</p>
-                            {row.resolution.kind === "unknown" || row.resolution.kind === "near_ltf" ? (
+                            {row.resolution.kind === "unknown" || row.resolution.kind === "near_ltf" || row.resolution.kind === "ambiguous" ? (
                               <PopoverSelect
                                 value={clubChoice[clubKey] || ""}
                                 ariaLabel={t("resolveClub")}
@@ -776,7 +783,7 @@ export function SetupMemberWizard({ onDone }: { onDone: () => void }) {
                           <td className="px-2 py-2 text-xs text-destructive">
                             {issues.map((issue) => (
                               <p key={issue} className={issue === "dob" ? "text-muted" : undefined}>
-                                {t(`fix_${issue}`)}
+                                {setupIssueMessage(t, row, issue)}
                               </p>
                             ))}
                           </td>

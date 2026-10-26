@@ -1,4 +1,4 @@
-import { setupPreviewSummary, setupRowIssues, setupRowStatus } from "@/lib/setup-member-preview";
+import { setupIssueMessage, setupPreviewSummary, setupRowIssues, setupRowStatus } from "@/lib/setup-member-preview";
 import type { SetupMemberPreview, SetupMemberRow } from "@/lib/setup-api";
 
 function row(patch: Partial<SetupMemberRow> = {}): SetupMemberRow {
@@ -60,5 +60,40 @@ describe("setup member preview labels", () => {
     expect(summary.otherRoles).toBe(1);
     expect(summary.staff).toBe(1);
     expect(summary.issueKinds).toEqual(["sex"]);
+  });
+
+  it("names the real reason and does not flag a resolved club", () => {
+    const ready = row({
+      club_name: "Luxembourg Taekwondo Club Esch",
+      resolution: { kind: "club", club_id: 4, club_name: "Luxembourg Taekwondo Club Esch" },
+    });
+    expect(setupRowStatus(ready)).toBe("ready");
+    expect(setupRowIssues(ready)).toEqual([]);
+    const gender = row({
+      sex: "",
+      sex_blocking: true,
+      sex_raw: "Robot",
+      resolution: { kind: "club", club_id: 2, club_name: "Taekwon-Do Beispielhausen" },
+      club_name: "Taekwon-Do Beispielhausen",
+    });
+    expect(setupRowStatus(gender)).toBe("choice");
+    expect(setupRowIssues(gender)).toEqual(["sex"]);
+    expect(setupIssueMessage((key, values) => `${key}:${values?.value ?? ""}`, gender, "sex")).toBe("issue_gender:Robot");
+    const blank = row({ sex: "", sex_blocking: true, sex_raw: "  " });
+    expect(setupIssueMessage((key) => key, blank, "sex")).toBe("issue_gender_blank");
+    const missing = row({
+      resolution: { kind: "unknown", club_id: null, club_name: "Nowhere Dojang" },
+      club_name: "Nowhere Dojang",
+    });
+    expect(setupIssueMessage((key, values) => `${key}:${values?.club ?? ""}`, missing, "club")).toBe(
+      "issue_club_not_found:Nowhere Dojang"
+    );
+    const ambiguous = row({
+      resolution: { kind: "ambiguous", club_id: null, club_name: "Dualtown Dojang" },
+      club_name: "Dualtown Dojang",
+      club_matches: "Dualtown Dojang (WT), Dualtown Dojang a.s.b.l. (ITF)",
+    });
+    expect(setupRowStatus(ambiguous)).toBe("choice");
+    expect(setupRowIssues(ambiguous)).toEqual(["ambiguous"]);
   });
 });

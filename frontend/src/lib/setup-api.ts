@@ -49,7 +49,11 @@ export type SetupMemberRow = {
   first_name: string;
   last_name: string;
   club_name: string;
-  resolution: { kind: string; club_id: number | null; club_name: string };
+  resolution: { kind: string; club_id: number | null; club_name: string; matches?: string[] };
+  club_matches?: string;
+  conflict_clubs?: string;
+  dob_raw?: string;
+  end_raw?: string;
   sex: string;
   sex_raw: string;
   sex_blocking: boolean;

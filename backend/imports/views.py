@@ -12,6 +12,8 @@ from clubs.banking import derive_bank_name_from_iban, is_valid_iban, normalize_i
 from clubs.models import Club
 from members.models import Member
 from members.services import apply_ltf_license_id_import_prefix, ltf_license_prefix_rewrite_policy
+
+from .gender import parse_import_gender
 from ops.request_utils import write_ops_audit
 
 from .csv_utils import read_csv, to_row_dict
@@ -216,15 +218,12 @@ def parse_date(value, errors, field_name, date_format):
 
 
 def normalize_sex(value, errors):
-    if not value:
+    raw = str(value or "").strip()
+    parsed = parse_import_gender(raw)
+    if raw and not parsed:
+        errors.append("sex must be Male or Female")
         return None
-    normalized = value.strip().lower()
-    if normalized in {"m", "male"}:
-        return "M"
-    if normalized in {"f", "female"}:
-        return "F"
-    errors.append("sex must be Male or Female")
-    return None
+    return parsed or None
 
 
 def parse_boolean(value, errors, field_name):
@@ -240,17 +239,15 @@ def parse_boolean(value, errors, field_name):
 
 
 def normalize_license_role(value, errors, field_name):
-    # Accept any casing from CSV/overrides ("athlete", "ATHLETE", "Athlete")
-    # and persist the capitalized canonical value used in the member table.
+    """Return a licence role, or empty when the CSV value is not one.
+
+    Trainer and other non-roles are ignored. They are not a choice. errors and
+    field_name stay in the signature for callers that still pass them.
+    """
+    del errors, field_name
     if value is None or value == "":
         return ""
-    canonical = Member.canonicalize_license_role(value)
-    if canonical:
-        return canonical
-    errors.append(
-        f"{field_name} must be one of: Athlete, Coach, Referee, Official, Doctor, Physiotherapist, Volunteer, Staff, Media, Fan"
-    )
-    return ""
+    return Member.canonicalize_license_role(value)
 
 
 def parse_club_address_fields(row_data, mapping, errors):
@@ -340,10 +337,11 @@ def parse_member_import_row(
         date_format,
     )
     sex_header = str(mapping.get("sex") or "").strip()
-    sex_value = normalize_sex(
-        row_data.get(sex_header, "").strip() if sex_header else "",
-        errors,
-    )
+    sex_raw = row_data.get(sex_header, "").strip() if sex_header else ""
+    sex_value = normalize_sex(sex_raw, errors)
+    issues = []
+    if sex_raw and not sex_value:
+        issues.append({"code": "gender", "value": sex_raw})
     is_active_header = str(mapping.get("is_active") or "").strip()
     is_active_mapped = bool(is_active_header)
     is_active_value = parse_boolean(
@@ -370,6 +368,14 @@ def parse_member_import_row(
         row_data.get(mapping.get("secondary_license_role", ""), "").strip(),
         errors,
     )
+    # A non-role such as Trainer is already empty. Promote a real secondary
+    # role, and drop a repeated role, so neither becomes a preview choice.
+    if not has_row_override:
+        if not primary_license_role and secondary_license_role:
+            primary_license_role = secondary_license_role
+            secondary_license_role = ""
+        elif primary_license_role and secondary_license_role == primary_license_role:
+            secondary_license_role = ""
     if secondary_license_role and not primary_license_role:
         errors.append("secondary_license_role requires primary_license_role")
     if (
@@ -402,7 +408,28 @@ def parse_member_import_row(
         "membership_end_year": membership_end_year_for_row(
             row_data, mapping, date_format, headers
         ),
+        "issues": issues,
     }
+
+
+def _preview_issues(parsed, plan) -> list[dict]:
+    issues = [dict(item) for item in parsed.get("issues") or []]
+    member = plan.get("member")
+    if member is None:
+        return issues
+    if not plan.get("duplicate") and not plan.get("errors"):
+        return issues
+    name = f"{getattr(member, 'last_name', '')} {getattr(member, 'first_name', '')}".strip()
+    ident = str(getattr(member, "ltf_licenseid", "") or getattr(member, "wt_licenseid", "") or "")
+    taken = any("unique" in error for error in plan.get("errors") or [])
+    issues.append(
+        {
+            "code": "licence_taken" if taken else "duplicate",
+            "name": name,
+            "id": ident,
+        }
+    )
+    return issues
 
 
 def _preview_payload(parsed):
@@ -661,6 +688,7 @@ class MemberImportPreviewView(views.APIView):
                     "row_index": index,
                     "data": _preview_payload(parsed),
                     "errors": plan["errors"],
+                    "issues": _preview_issues(parsed, plan),
                     "duplicate": plan["duplicate"],
                     "existing_id": plan["existing_id"],
                     "disposition": plan["disposition"],
