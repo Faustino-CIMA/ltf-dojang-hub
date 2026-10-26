@@ -378,7 +378,7 @@ class AccountSetupView(views.APIView):
     def get(self, request):
         invite, user = _open_setup_invite(request.query_params.get("token"))
         if invite is None or user is None:
-            return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
+            return _closed_setup_response(request.query_params.get("token"))
         member = Member.all_objects.filter(user=user).first()
         return response.Response(
             {
@@ -392,7 +392,7 @@ class AccountSetupView(views.APIView):
     def post(self, request):
         invite, user = _open_setup_invite(request.data.get("token"))
         if invite is None or user is None:
-            return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
+            return _closed_setup_response(request.data.get("token"))
         email = str(request.data.get("email") or "").strip()
         password = str(request.data.get("password") or "")
         confirmation = str(request.data.get("password_confirm") or "")
@@ -409,7 +409,7 @@ class AccountSetupView(views.APIView):
         with transaction.atomic():
             locked = AccountSetupInvite.objects.select_for_update().get(pk=invite.pk)
             if not invite_is_open(locked):
-                return response.Response({"detail": NEUTRAL_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
+                return _closed_setup_response(request.data.get("token"))
             user.email = email
             user.is_email_verified = True
             user.set_password(password)
@@ -438,6 +438,20 @@ def _open_setup_invite(raw):
     if not invite_is_open(invite):
         return None, None
     return invite, invite.user
+
+
+def _closed_setup_response(raw):
+    """Why a link cannot be used, without the person's name, email, or clubs."""
+    invite = invite_for_token(str(raw or ""))
+    if invite is None:
+        reason = "invalid"
+    elif invite.used_at:
+        reason = "used"
+    elif invite.revoked_at:
+        reason = "revoked"
+    else:
+        reason = "expired"
+    return response.Response({"detail": NEUTRAL_DETAIL, "reason": reason}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(

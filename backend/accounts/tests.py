@@ -273,3 +273,43 @@ class CustomAccountAdapterTests(TestCase):
     def test_signup_is_closed(self):
         adapter = CustomAccountAdapter()
         self.assertFalse(adapter.is_open_for_signup(request=None))
+
+
+class AccountSetupClosedLinkTests(TestCase):
+    def test_closed_links_name_the_reason_and_not_the_person(self):
+        from datetime import timedelta
+
+        from accounts.setup_invites import NEUTRAL_DETAIL, issue_setup_invite
+
+        user = User.objects.create_user(username="ada-ng", password="temp-pass-123")
+        user.set_unusable_password()
+        user.email = "ada@example.com"
+        user.first_name = "Ada"
+        user.save()
+        actor = User.objects.create_user(username="issuer", password="pass12345")
+        invite, raw = issue_setup_invite(user, actor)
+        public = APIClient()
+
+        invite.expires_at = timezone.now() - timedelta(minutes=1)
+        invite.save(update_fields=["expires_at"])
+        expired = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(expired.status_code, 400)
+        self.assertEqual(expired.data, {"detail": NEUTRAL_DETAIL, "reason": "expired"})
+
+        invite.expires_at = timezone.now() + timedelta(days=1)
+        invite.revoked_at = timezone.now()
+        invite.save(update_fields=["expires_at", "revoked_at"])
+        revoked = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(revoked.data["reason"], "revoked")
+        self.assertNotIn("ada-ng", str(revoked.data))
+        self.assertNotIn("ada@example.com", str(revoked.data))
+
+        invite.revoked_at = None
+        invite.used_at = timezone.now()
+        invite.save(update_fields=["revoked_at", "used_at"])
+        used = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(used.data["reason"], "used")
+        self.assertNotIn("username", used.data)
+
+        missing = public.get("/api/auth/account-setup/", {"token": "not-a-real-token"})
+        self.assertEqual(missing.data["reason"], "invalid")
