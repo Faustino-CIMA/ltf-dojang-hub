@@ -13,7 +13,7 @@ from modules.codes import build_payload, sign_payload
 from modules.entitlements import install_id_str, redeem_product_code, set_club_assignment
 from modules.registry import COMPETITION_MODULE_ID
 
-from .body_measurements import BodyMeasurement, kyorugi_margin, poomsae_division
+from .body_measurements import BodyMeasurement, category_reason, kyorugi_margin, poomsae_division
 from .teams import ClubTeam, ClubTeamCategoryBand, ClubTeamGroup, ClubTeamMembership, ClubTeamMembershipEvent, WeightCategoryBand
 
 
@@ -678,13 +678,6 @@ class ClubTeamApiTests(TestCase):
             date_of_birth=date(year - 10, 5, 5),
         )
         no_birth = Member.objects.create(club=self.club, first_name="Kim", last_name="Blank", sex=Member.Sex.FEMALE)
-        no_sex = Member.objects.create(
-            club=self.club,
-            first_name="Sam",
-            last_name="Unset",
-            sex="",
-            date_of_birth=date(year - 16, 1, 1),
-        )
         height_only = Member.objects.create(
             club=self.club,
             first_name="Eva",
@@ -701,7 +694,6 @@ class ClubTeamApiTests(TestCase):
         )
         BodyMeasurement.objects.create(member=minimes, measured_on=date(year, 6, 1), weight_kg=Decimal("32.5"))
         BodyMeasurement.objects.create(member=no_birth, measured_on=date(year, 6, 1), weight_kg=Decimal("55.0"))
-        BodyMeasurement.objects.create(member=no_sex, measured_on=date(year, 6, 1), weight_kg=Decimal("62.4"))
         BodyMeasurement.objects.create(member=height_only, measured_on=date(year, 5, 1), weight_kg=Decimal("54.0"))
         BodyMeasurement.objects.create(member=height_only, measured_on=date(year, 8, 1), height_cm=170)
         BodyMeasurement.objects.create(member=older, measured_on=date(year, 6, 1), weight_kg=Decimal("54.1"))
@@ -713,7 +705,7 @@ class ClubTeamApiTests(TestCase):
         )
         team_id = created.data["id"]
         self.assertIn(coach_member.id, created.data["suggested_coach_ids"])
-        for member in (minimes, no_birth, no_sex, height_only, older, coach_member):
+        for member in (minimes, no_birth, height_only, older, coach_member):
             self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": member.id}, format="json")
         promoted = self.client.patch(
             f"/api/club-management/teams/{team_id}/members/{coach_member.id}/",
@@ -721,12 +713,12 @@ class ClubTeamApiTests(TestCase):
             format="json",
         )
         self.assertEqual(promoted.status_code, 200, promoted.data)
-        self.assertEqual(promoted.data["athlete_count"], 5)
+        self.assertEqual(promoted.data["athlete_count"], 4)
         self.assertEqual(promoted.data["coach_count"], 1)
-        self.assertEqual(promoted.data["member_count"], 6)
+        self.assertEqual(promoted.data["member_count"], 5)
         listed = self.client.get(f"/api/club-management/teams/?club={self.club.id}")
         listed_row = next(row for row in listed.data if row["id"] == team_id)
-        self.assertEqual(listed_row["athlete_count"], 5)
+        self.assertEqual(listed_row["athlete_count"], 4)
         self.assertEqual(listed_row["coach_count"], 1)
         by_id = {row["id"]: row for row in promoted.data["members"]}
         self.assertEqual(by_id[minimes.id]["weight_category"], "")
@@ -734,7 +726,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(by_id[minimes.id]["latest_weight_kg"], "32.5")
         self.assertFalse(by_id[minimes.id]["weight_warning"])
         self.assertEqual(by_id[no_birth.id]["weight_category_reason"], "no_birth_date")
-        self.assertEqual(by_id[no_sex.id]["weight_category_reason"], "no_sex")
+        self.assertEqual(category_reason(date(year - 16, 1, 1), "cadet", "", Decimal("62.4")), "no_sex")
         self.assertEqual(by_id[height_only.id]["weight_category"], "-55 kg")
         self.assertEqual(by_id[height_only.id]["latest_weight_kg"], "54.0")
         self.assertEqual(by_id[height_only.id]["weight_category_reason"], "")

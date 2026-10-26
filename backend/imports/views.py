@@ -280,6 +280,15 @@ def parse_club_address_fields(row_data, mapping, errors):
     }
 
 
+def user_may_park_members(user) -> bool:
+    """Parked rows are visible only to LTF admins and superusers."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return getattr(user, "role", "") == "ltf_admin"
+
+
 def get_member_club_id(request):
     club_id_raw = request.data.get("club_id")
     if not club_id_raw:
@@ -851,6 +860,11 @@ class MemberImportConfirmView(views.APIView):
             return response.Response(
                 {"detail": "Mapping for first_name and last_name is required."},
                 status=400,
+            )
+        if any(action == "park" for action in actions.values()) and not user_may_park_members(request.user):
+            return response.Response(
+                {"detail": "Only LTF staff can park members."},
+                status=403,
             )
 
         created = 0

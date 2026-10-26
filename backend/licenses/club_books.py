@@ -429,7 +429,7 @@ class ClubStatementView(APIView):
                 member_ids.append(family.invoice_member_id)
             title = f"{family.name} — {year}"
         elif member_id:
-            member = Member.objects.filter(id=member_id, club_id=club_id).first()
+            member = Member.all_objects.filter(id=member_id, club_id=club_id).first()
             if member is None:
                 return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
             member_ids = [member.id]

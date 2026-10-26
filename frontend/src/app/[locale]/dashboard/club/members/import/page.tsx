@@ -81,6 +81,7 @@ export default function ClubMembersImportPage() {
           clubs: `/${locale}/dashboard/club/members`,
           members: `/${locale}/dashboard/club/members`,
         }}
+        allowPark={false}
       />
     </ClubAdminLayout>
   );

@@ -144,4 +144,4 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
   return (await response.json()) as T;
 }
 
-export type { ConfirmResponse, ImportRow, PreviewResponse };
+export type { ConfirmResponse, PreviewResponse };

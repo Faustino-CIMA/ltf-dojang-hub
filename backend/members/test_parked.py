@@ -387,6 +387,97 @@ class RegularImportParkingTests(TestCase):
         self.assertEqual(member.sex, Member.Sex.MALE)
         self.assertEqual(member.club_id, self.club.id)
 
+    def test_club_admins_and_finance_cannot_park_but_a_superuser_can(self):
+        club_admin = User.objects.create_user(
+            username="park-club", password="pass12345", role=User.Roles.CLUB_ADMIN
+        )
+        self.club.admins.add(club_admin)
+        finance = User.objects.create_user(
+            username="park-fin", password="pass12345", role=User.Roles.LTF_FINANCE
+        )
+        parked_csv = "first_name,last_name,sex,ltf_id\nErika,Musterfrau,,LUX-44\n"
+        parked_map = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "sex": "sex",
+            "ltf_licenseid": "ltf_id",
+            "wt_licenseid": "ltf_id",
+        }
+        actions = json.dumps([{"row_index": 1, "action": "park"}])
+
+        self.client.force_authenticate(user=club_admin)
+        refused = self._post("/api/imports/members/confirm/", parked_csv, parked_map, actions=actions)
+        self.assertEqual(refused.status_code, 403, refused.data)
+        self.assertFalse(Member.all_objects.filter(ltf_licenseid="LUX-44").exists())
+
+        created = self._post(
+            "/api/imports/members/confirm/",
+            "first_name,last_name,ltf_id\nLea,Beispiel,LUX-45\n",
+            {"first_name": "first_name", "last_name": "last_name", "ltf_licenseid": "ltf_id"},
+        )
+        self.assertEqual(created.status_code, 200, created.data)
+        self.assertEqual(created.data["created"], 1)
+        self.assertEqual(created.data["parked"], 0)
+
+        self.client.force_authenticate(user=finance)
+        finance_refused = self._post("/api/imports/members/confirm/", parked_csv, parked_map, actions=actions)
+        self.assertEqual(finance_refused.status_code, 403, finance_refused.data)
+        self.assertFalse(Member.all_objects.filter(ltf_licenseid="LUX-44").exists())
+
+        root = User.objects.create_superuser(
+            username="park-root",
+            password="pass12345",
+            email="root@example.lu",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club.admins.add(root)
+        self.client.force_authenticate(user=root)
+        allowed = self._post("/api/imports/members/confirm/", parked_csv, parked_map, actions=actions)
+        self.assertEqual(allowed.status_code, 200, allowed.data)
+        self.assertEqual(allowed.data["parked"], 1)
+        stored = Member.all_objects.get(ltf_licenseid="LUX-44")
+        self.assertEqual(stored.import_status, Member.ImportStatus.PARKED)
+        self.assertEqual(stored.sex, "")
+
+    def test_a_parked_licence_id_still_blocks_a_second_member(self):
+        from members.serializers import MemberSerializer
+        from members.services import _used_ltf_license_serials, generate_next_ltf_license_id
+
+        Member.all_objects.create(
+            first_name="Erika",
+            last_name="Musterfrau",
+            sex="",
+            import_status=Member.ImportStatus.PARKED,
+            is_active=False,
+            ltf_licenseid="LTF-0001",
+            wt_licenseid="LUX-77",
+            park_reason=",gender_blank,",
+        )
+        duplicate_ltf = MemberSerializer(
+            data={
+                "club": self.club.id,
+                "first_name": "Other",
+                "last_name": "Person",
+                "sex": Member.Sex.MALE,
+                "ltf_licenseid": "LTF-0001",
+            }
+        )
+        self.assertFalse(duplicate_ltf.is_valid())
+        self.assertIn("ltf_licenseid", duplicate_ltf.errors)
+        duplicate_wt = MemberSerializer(
+            data={
+                "club": self.club.id,
+                "first_name": "Other",
+                "last_name": "Person",
+                "sex": Member.Sex.FEMALE,
+                "wt_licenseid": "LUX-77",
+            }
+        )
+        self.assertFalse(duplicate_wt.is_valid())
+        self.assertIn("wt_licenseid", duplicate_wt.errors)
+        self.assertIn(1, _used_ltf_license_serials("LTF"))
+        self.assertNotEqual(generate_next_ltf_license_id(prefix="LTF"), "LTF-0001")
+
 
 @override_settings(DEMO_MODE=False)
 class ParkedReviewApiTests(TestCase):
