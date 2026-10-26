@@ -172,4 +172,64 @@ describe("setup member preview labels", () => {
     expect(bothParked.issueKinds).toEqual([]);
     expect(bothParked.unknownClubRows).toBe(3);
   });
+
+  it("clears club-not-found and unreadable end dates once those rows are parked", () => {
+    const unknown = row({
+      row_index: 1,
+      member_id: "LUX-21",
+      club_name: "Nowhere Dojang",
+      resolution: { kind: "unknown", club_id: null, club_name: "Nowhere Dojang" },
+      parkable: true,
+    });
+    const badEnd = row({
+      row_index: 2,
+      member_id: "LUX-22",
+      end_unparseable: true,
+      end_raw: "not-a-date",
+      is_active: null,
+      parkable: true,
+    });
+    const both = row({
+      row_index: 3,
+      member_id: "LUX-23",
+      club_name: "Missing Dojang",
+      resolution: { kind: "unknown", club_id: null, club_name: "Missing Dojang" },
+      end_unparseable: true,
+      end_raw: "not-a-date",
+      is_active: null,
+      parkable: true,
+    });
+    const ready = row({ row_index: 4, member_id: "LUX-24" });
+    const preview: SetupMemberPreview = {
+      rows: [unknown, badEnd, both, ready],
+      blank_rows_ignored: 0,
+      gender_summary: [],
+      role_summary: [],
+      unknown_clubs: [
+        { name: "Nowhere Dojang", count: 1, row_indexes: [1] },
+        { name: "Missing Dojang", count: 1, row_indexes: [3] },
+      ],
+      date_of_birth_format: { format: "DD/MM/YYYY", ambiguous: false, example: "" },
+      can_confirm: false,
+      email_ignored: true,
+      clubs: [],
+    };
+    const blocked = setupPreviewSummary(preview);
+    expect(blocked.choice).toBe(3);
+    expect(blocked.ready).toBe(1);
+    expect(blocked.issueKinds).toEqual(["club", "end"]);
+    expect(setupRowIssues(both)).toEqual(["club", "end"]);
+    const parked = setupPreviewSummary({
+      ...preview,
+      rows: preview.rows.map((item) => withLocalPark(item, { 1: true, 2: true, 3: true })),
+    });
+    expect(parked.choice).toBe(0);
+    expect(parked.parked).toBe(3);
+    expect(parked.ready).toBe(1);
+    expect(parked.willImport).toBe(4);
+    expect(parked.issueKinds).toEqual([]);
+    expect(parked.unknownClubRows).toBe(0);
+    expect(setupRowStatus(withLocalPark(both, { 3: true }))).toBe("parked");
+    expect(setupRowIssues(withLocalPark(both, { 3: true }))).toEqual([]);
+  });
 });
