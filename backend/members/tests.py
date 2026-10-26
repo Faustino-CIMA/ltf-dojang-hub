@@ -1182,7 +1182,47 @@ class MemberImportTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["rows"]), 1)
-        self.assertTrue(response.data["rows"][0]["errors"])
+        row = response.data["rows"][0]
+        self.assertEqual(row["errors"], [])
+        self.assertEqual(row["data"]["primary_license_role"], "")
+        self.assertEqual(row["issues"], [])
+
+    def test_preview_names_gender_and_duplicate_and_ignores_trainer(self):
+        Member.objects.create(
+            club=self.club,
+            first_name="Existing",
+            last_name="Member",
+            ltf_licenseid="LTF-000777",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = "first_name,last_name,primary_role,secondary_role,sex,ltf_id\nAna,Ng,Trainer,Athlete,Homme,\nBen,Kay,Coach,,Robot,\nCara,Ng,Athlete,,Female,LTF-000777\n"
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_reasons.csv"
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "primary_license_role": "primary_role",
+            "secondary_license_role": "secondary_role",
+            "sex": "sex",
+            "ltf_licenseid": "ltf_id",
+        }
+        response = self.client.post(
+            "/api/imports/members/preview/",
+            {"file": file_obj, "mapping": json.dumps(mapping), "club_id": self.club.id},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        ana, ben, cara = response.data["rows"]
+        self.assertEqual(ana["data"]["primary_license_role"], "Athlete")
+        self.assertEqual(ana["data"]["secondary_license_role"], "")
+        self.assertEqual(ana["data"]["sex"], "M")
+        self.assertEqual(ana["errors"], [])
+        self.assertEqual(ben["errors"], ["sex must be Male or Female"])
+        self.assertEqual(ben["issues"], [{"code": "gender", "value": "Robot"}])
+        self.assertEqual(cara["errors"], [])
+        duplicate = next(item for item in cara["issues"] if item["code"] == "duplicate")
+        self.assertIn("MEMBER", duplicate["name"])
+        self.assertEqual(duplicate["id"], "LTF-000777")
 
     def test_preview_canonicalizes_lowercase_license_roles(self):
         self.client.force_authenticate(user=self.ltf_admin)

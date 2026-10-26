@@ -7,6 +7,7 @@ from datetime import date
 from django.utils import timezone
 
 from imports.csv_utils import to_row_dict
+from imports.gender import parse_import_gender as parse_gender
 from imports.mapping import detect_membership_end_date_header, normalize_header, suggest_member_mapping
 from imports.member_match import MemberMatchIndex
 from imports.views import resolve_import_license_ids
@@ -18,24 +19,7 @@ from members.services import (
 )
 
 from .dates import detect_column_format, parse_with_format, plausible_birth_date
-from .names import is_ltf_name, is_near_ltf_name, normalize_club_name
-
-_SEX = {
-    "m": "M",
-    "male": "M",
-    "man": "M",
-    "masculin": "M",
-    "homme": "M",
-    "mannlich": "M",
-    "männlich": "M",
-    "f": "F",
-    "female": "F",
-    "woman": "F",
-    "feminin": "F",
-    "féminin": "F",
-    "femme": "F",
-    "weiblich": "F",
-}
+from .names import is_ltf_name, is_near_ltf_name, loose_club_key, normalize_club_name
 
 
 def _blank(row) -> bool:
@@ -47,14 +31,6 @@ def _cell(data, mapping, field) -> str:
     if not header:
         return ""
     return str(data.get(header) or "").strip()
-
-
-def parse_gender(value: str) -> str:
-    key = str(value or "").strip().casefold()
-    key = key.replace("ä", "a").replace("é", "e")
-    if not key:
-        return ""
-    return _SEX.get(key, "")
 
 
 def licence_roles(primary_raw: str, secondary_raw: str) -> tuple[str, str, str]:
@@ -181,9 +157,11 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
 
     from clubs.models import Club
 
-    clubs_by_key = {}
+    exact_clubs: dict[str, list] = {}
+    loose_clubs: dict[str, list] = {}
     for club in Club.objects.filter(is_demo=False):
-        clubs_by_key.setdefault(normalize_club_name(club.name), club)
+        exact_clubs.setdefault(normalize_club_name(club.name), []).append(club)
+        loose_clubs.setdefault(loose_club_key(club.name), []).append(club)
 
     parsed_rows = []
     gender_counts: dict[str, int] = {}
@@ -236,7 +214,7 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
                 secondary = ""
             role_note = "override"
         club_raw = _cell(data, mapping, "club_name")
-        resolution = _resolve_club(club_raw, clubs_by_key, club_overrides)
+        resolution = _resolve_club(club_raw, exact_clubs, loose_clubs, club_overrides)
         function = staff_function_for(primary_raw, secondary_raw)
         if str(index) in function_overrides:
             function = str(function_overrides[str(index)] or function)
@@ -251,6 +229,10 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
                 "last_name": _cell(data, mapping, "last_name"),
                 "club_name": club_raw,
                 "resolution": resolution,
+                "club_matches": ", ".join(resolution.get("matches") or []),
+                "conflict_clubs": "",
+                "dob_raw": dob_raw,
+                "end_raw": end_raw,
                 "sex": sex,
                 "sex_raw": sex_raw,
                 "sex_blocking": sex_blocking,
@@ -272,7 +254,7 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
     _mark_groups(parsed_rows, club_choices)
     unknown = {}
     for row in parsed_rows:
-        if row["resolution"]["kind"] in {"unknown", "near_ltf"} and not row["skipped"]:
+        if row["resolution"]["kind"] in {"unknown", "near_ltf", "ambiguous"} and not row["skipped"]:
             label = row["club_name"]
             bucket = unknown.setdefault(label, {"name": label, "count": 0, "row_indexes": []})
             bucket["count"] += 1
@@ -305,25 +287,37 @@ def preview_members(headers, rows, options: dict, *, rewrite_enabled: bool) -> d
     }
 
 
-def _resolve_club(club_raw: str, clubs_by_key: dict, overrides: dict) -> dict:
+def _club_resolution(club_raw: str, matches: list) -> dict:
+    if len(matches) == 1:
+        club = matches[0]
+        return {"kind": "club", "club_id": club.id, "club_name": club.name, "matches": []}
+    labels = [f"{club.name} ({club.federation})" for club in matches]
+    return {"kind": "ambiguous", "club_id": None, "club_name": club_raw, "matches": labels}
+
+
+def _resolve_club(club_raw: str, exact_clubs: dict, loose_clubs: dict, overrides: dict) -> dict:
     key = normalize_club_name(club_raw)
     override = overrides.get(key) or overrides.get(club_raw) or overrides.get(club_raw.casefold())
     if isinstance(override, dict):
         if override.get("skip"):
-            return {"kind": "skip", "club_id": None, "club_name": ""}
+            return {"kind": "skip", "club_id": None, "club_name": "", "matches": []}
         if override.get("staff"):
-            return {"kind": "staff", "club_id": None, "club_name": "LTF"}
+            return {"kind": "staff", "club_id": None, "club_name": "LTF", "matches": []}
         club_id = override.get("club_id")
         if club_id:
-            return {"kind": "club", "club_id": int(club_id), "club_name": club_raw}
+            return {"kind": "club", "club_id": int(club_id), "club_name": club_raw, "matches": []}
     if is_ltf_name(club_raw):
-        return {"kind": "staff", "club_id": None, "club_name": "LTF"}
+        return {"kind": "staff", "club_id": None, "club_name": "LTF", "matches": []}
+    # A real club wins, even when the name also contains "Luxembourg" and "Taekwondo".
+    exact = exact_clubs.get(key) or []
+    if exact:
+        return _club_resolution(club_raw, exact)
+    loose = loose_clubs.get(loose_club_key(club_raw)) or []
+    if loose:
+        return _club_resolution(club_raw, loose)
     if is_near_ltf_name(club_raw):
-        return {"kind": "near_ltf", "club_id": None, "club_name": club_raw}
-    match = clubs_by_key.get(key)
-    if match is not None:
-        return {"kind": "club", "club_id": match.id, "club_name": match.name}
-    return {"kind": "unknown", "club_id": None, "club_name": club_raw}
+        return {"kind": "near_ltf", "club_id": None, "club_name": club_raw, "matches": []}
+    return {"kind": "unknown", "club_id": None, "club_name": club_raw, "matches": []}
 
 
 def _mark_groups(rows: list[dict], club_choices: dict) -> None:
@@ -337,8 +331,15 @@ def _mark_groups(rows: list[dict], club_choices: dict) -> None:
         club_ids = {row["resolution"]["club_id"] for row in group if row["resolution"]["kind"] == "club"}
         choice = club_choices.get(member_id)
         if len(club_ids) > 1 and not choice:
+            names = []
+            for row in group:
+                label = row["resolution"].get("club_name") or row["club_name"]
+                if label and label not in names:
+                    names.append(label)
+            joined = ", ".join(names)
             for row in group:
                 row["group_conflict"] = True
+                row["conflict_clubs"] = joined
             continue
         if choice:
             chosen = int(choice)
@@ -370,7 +371,7 @@ def _row_blocking(row: dict) -> bool:
     if not row["member_id"] and not row["allow_missing_id"]:
         return True
     kind = row["resolution"]["kind"]
-    if kind in {"unknown", "near_ltf"}:
+    if kind in {"unknown", "near_ltf", "ambiguous"}:
         return True
     return False
 

@@ -19,10 +19,18 @@ type PreviewResponse = {
   ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
 };
 
-type ImportRow = {
+export type ImportIssue = {
+  code: "gender" | "duplicate" | "licence_taken" | string;
+  value?: string;
+  name?: string;
+  id?: string;
+};
+
+export type ImportRow = {
   row_index: number;
   data: Record<string, string | null>;
   errors: string[];
+  issues?: ImportIssue[];
   duplicate: boolean;
   existing_id: number | null;
   disposition?: "create" | "update" | "skip";

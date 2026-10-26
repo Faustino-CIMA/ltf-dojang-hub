@@ -1,10 +1,39 @@
 import type { SetupMemberPreview, SetupMemberRow } from "@/lib/setup-api";
+import { formatFullName } from "@/lib/person-name";
 
 export type SetupRowStatus = "ready" | "staff" | "choice" | "skipped";
 
-export type SetupRowIssue = "sex" | "club" | "near_ltf" | "group" | "end" | "missing_id" | "dob";
+export type SetupRowIssue = "sex" | "club" | "near_ltf" | "ambiguous" | "group" | "end" | "missing_id" | "dob";
 
-const BLOCKING: ReadonlySet<SetupRowIssue> = new Set(["sex", "club", "near_ltf", "group", "end", "missing_id"]);
+const BLOCKING: ReadonlySet<SetupRowIssue> = new Set(["sex", "club", "near_ltf", "ambiguous", "group", "end", "missing_id"]);
+
+type IssueTranslator = (key: string, values?: Record<string, string>) => string;
+
+export function setupIssueMessage(t: IssueTranslator, row: SetupMemberRow, issue: SetupRowIssue): string {
+  if (issue === "sex") {
+    const value = row.sex_raw.trim();
+    return value ? t("issue_gender", { value }) : t("issue_gender_blank");
+  }
+  if (issue === "club") {
+    return t("issue_club_not_found", { club: row.club_name || "—" });
+  }
+  if (issue === "near_ltf") {
+    return t("issue_near_ltf", { club: row.club_name || "—" });
+  }
+  if (issue === "ambiguous") {
+    return t("issue_ambiguous_club", { club: row.club_name || "—", matches: row.club_matches || "—" });
+  }
+  if (issue === "group") {
+    return t("issue_duplicate_clubs", { name: formatFullName(row), clubs: row.conflict_clubs || "—" });
+  }
+  if (issue === "end") {
+    return t("issue_end", { value: row.end_raw || "—" });
+  }
+  if (issue === "missing_id") {
+    return t("issue_missing_id");
+  }
+  return t("issue_dob", { value: row.dob_raw || "—" });
+}
 
 export function setupRowIssues(row: SetupMemberRow): SetupRowIssue[] {
   if (row.skipped || row.resolution.kind === "skip") {
@@ -18,6 +47,8 @@ export function setupRowIssues(row: SetupMemberRow): SetupRowIssue[] {
     issues.push("group");
   } else if (row.resolution.kind === "near_ltf") {
     issues.push("near_ltf");
+  } else if (row.resolution.kind === "ambiguous") {
+    issues.push("ambiguous");
   } else if (row.resolution.kind === "unknown") {
     issues.push("club");
   }

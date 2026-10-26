@@ -254,6 +254,62 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(again.data["created"], 0)
         self.assertEqual(Member.objects.filter(ltf_licenseid="LUX-1001").count(), 1)
 
+    def test_a_resolved_club_is_not_a_choice_and_other_flags_name_their_cause(self):
+        esch = Club.objects.create(
+            name="Luxembourg Taekwondo Club Esch",
+            federation=Club.Federation.WT,
+            created_by=self.superuser,
+        )
+        Club.objects.create(name="Dualtown Dojang", federation=Club.Federation.WT, created_by=self.superuser)
+        Club.objects.create(
+            name="Dualtown Dojang a.s.b.l.",
+            federation=Club.Federation.ITF,
+            created_by=self.superuser,
+        )
+        raw = "\n".join(
+            [
+                "Member ID,Preferred First Name,Preferred Last Name,Club Name,Gender",
+                "LUX-9001,Erika,Musterfrau,Luxembourg Taekwondo Club Esch,Female",
+                "LUX-9002,Max,Mustermann,Luxembourg Taekwon-Do Club Esch,H",
+                "LUX-9003,Sam,Beispiel,Taekwondo Beispielhausen,Robot",
+                "LUX-9004,Noa,Beispiel,Nowhere Dojang,Female",
+                "LUX-9005,Kim,Beispiel,Dualtown Dojang,Female",
+                "LUX-9006,Jan,Janssen,Taekwon-Do Beispielhausen,Male",
+                "LUX-9006,Jan,Janssen,Silver Crane Academy,Male",
+            ]
+        )
+        upload = SimpleUploadedFile("choice.csv", raw.encode("utf-8"), content_type="text/csv")
+        preview = self.client.post("/api/setup/members/preview/", {"file": upload}, format="multipart")
+        self.assertEqual(preview.status_code, 200, preview.data)
+        rows = {row["member_id"] + str(row["row_index"]): row for row in preview.data["rows"]}
+        exact = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9001")
+        self.assertEqual(exact["resolution"]["kind"], "club")
+        self.assertEqual(exact["resolution"]["club_id"], esch.id)
+        self.assertFalse(exact["sex_blocking"])
+        self.assertFalse(exact["group_conflict"])
+        spelling = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9002")
+        self.assertEqual(spelling["resolution"]["kind"], "club")
+        self.assertEqual(spelling["resolution"]["club_id"], esch.id)
+        self.assertEqual(spelling["sex"], "M")
+        self.assertFalse(spelling["sex_blocking"])
+        robot = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9003")
+        self.assertEqual(robot["resolution"]["kind"], "club")
+        self.assertEqual(robot["resolution"]["club_name"], "Taekwon-Do Beispielhausen")
+        self.assertTrue(robot["sex_blocking"])
+        self.assertEqual(robot["sex_raw"], "Robot")
+        missing = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9004")
+        self.assertEqual(missing["resolution"]["kind"], "unknown")
+        self.assertEqual(missing["club_name"], "Nowhere Dojang")
+        ambiguous = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9005")
+        self.assertEqual(ambiguous["resolution"]["kind"], "ambiguous")
+        self.assertIn("Dualtown Dojang (WT)", ambiguous["club_matches"])
+        self.assertIn("Dualtown Dojang a.s.b.l. (ITF)", ambiguous["club_matches"])
+        duplicate_rows = [row for row in preview.data["rows"] if row["member_id"] == "LUX-9006"]
+        self.assertTrue(all(row["group_conflict"] for row in duplicate_rows))
+        self.assertIn("Silver Crane Academy", duplicate_rows[0]["conflict_clubs"])
+        self.assertIn("Taekwon-Do Beispielhausen", duplicate_rows[0]["conflict_clubs"])
+        self.assertTrue(rows)
+
 
 @override_settings(DEMO_MODE=False)
 class SetupMemberIdPrefixTests(TestCase):

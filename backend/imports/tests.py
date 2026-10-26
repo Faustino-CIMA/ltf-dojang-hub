@@ -2,6 +2,7 @@ from datetime import date
 
 from django.test import SimpleTestCase
 
+from imports.gender import parse_import_gender
 from imports.mapping import suggest_member_mapping
 from imports.views import excel_serial_to_date, parse_date
 
@@ -17,6 +18,17 @@ class SuggestMemberMappingTests(SimpleTestCase):
         mapping = suggest_member_mapping(["Member ID", "WT-Lizenz-ID"])
         self.assertEqual(mapping["ltf_licenseid"], "Member ID")
         self.assertEqual(mapping["wt_licenseid"], "WT-Lizenz-ID")
+
+
+class ParseImportGenderTests(SimpleTestCase):
+    def test_luxembourg_values_map_and_unknown_stays_blank(self):
+        self.assertEqual(parse_import_gender("H"), "M")
+        self.assertEqual(parse_import_gender("Homme"), "M")
+        self.assertEqual(parse_import_gender("Männlich"), "M")
+        self.assertEqual(parse_import_gender("Femme"), "F")
+        self.assertEqual(parse_import_gender("W"), "F")
+        self.assertEqual(parse_import_gender(""), "")
+        self.assertEqual(parse_import_gender("Robot"), "")
 
 
 class ParseDateTests(SimpleTestCase):
