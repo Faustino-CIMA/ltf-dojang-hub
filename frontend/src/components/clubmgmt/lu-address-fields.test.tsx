@@ -90,6 +90,50 @@ describe("LuAddressFields lookup", () => {
     expect(screen.getByLabelText("street")).toHaveValue("Rue des Roses");
     expect(screen.getByLabelText("postalCode")).toHaveValue("2445");
   });
+
+  it("lists every street of the postcode and narrows them to the chosen locality", async () => {
+    const streets = Array.from({ length: 10 }, (_, index) => `Street ${String(index + 1).padStart(2, "0")}`);
+    lookup.mockResolvedValue({
+      postal_code: "1000",
+      localities: ["Musterstadt", "Otherdorf"],
+      streets: [...streets, "Rue du Parc"],
+      street_rows: [
+        ...streets.map((street) => ({ street, locality: "Musterstadt" })),
+        { street: "Rue du Parc", locality: "Otherdorf" },
+      ],
+      houses: [
+        {
+          house_number: "2",
+          street: "Street 01",
+          locality: "Musterstadt",
+          postal_code: "1000",
+          label: "2, Street 01, L-1000 Musterstadt",
+        },
+        {
+          house_number: "4",
+          street: "Street 01",
+          locality: "Otherdorf",
+          postal_code: "1000",
+          label: "4, Street 01, L-1000 Otherdorf",
+        },
+      ],
+    });
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText("postalCode"), { target: { value: "1000" } });
+    fireEvent.focus(screen.getByLabelText("street"));
+
+    expect(await screen.findByRole("button", { name: "Street 10" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Street 01" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rue du Parc" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("locality"), { target: { value: "Musterstadt" } });
+    expect(screen.queryByRole("button", { name: "Rue du Parc" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Street 10" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "street" }), { target: { value: "Street 01" } });
+    await waitFor(() => expect(document.querySelector('option[value="2"]')).toBeTruthy());
+    expect(document.querySelector('option[value="4"]')).toBeNull();
+  });
 });
 
 function JoinedHarness({

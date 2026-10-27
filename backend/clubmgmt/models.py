@@ -882,6 +882,45 @@ class ExtraordinarySubsidy(models.Model):
         ordering = ["-starts_on", "-id"]
 
 
+class LuxembourgRegisteredStreet(models.Model):
+    """One current street in the public CACLR register, for one postcode and locality."""
+
+    postal_code = models.CharField(max_length=4)
+    locality = models.CharField(max_length=80)
+    street = models.CharField(max_length=80)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["postal_code", "locality", "street"],
+                name="lu_registered_street_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["postal_code"], name="lu_registered_street_postal"),
+        ]
+
+
+class LuxembourgRegisteredHouse(models.Model):
+    """One current house number on a registered Luxembourg street."""
+
+    postal_code = models.CharField(max_length=4)
+    locality = models.CharField(max_length=80)
+    street = models.CharField(max_length=80)
+    house_number = models.CharField(max_length=16)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["postal_code", "locality", "street", "house_number"],
+                name="lu_registered_house_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["postal_code", "street"], name="lu_registered_house_street"),
+        ]
+
+
 from . import body_measurements as _body_measurements  # noqa: E402,F401
 from . import clothing as _clothing  # noqa: E402,F401
 from . import gear as _gear  # noqa: E402,F401

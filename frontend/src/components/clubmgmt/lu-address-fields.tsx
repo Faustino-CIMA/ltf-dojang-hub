@@ -40,6 +40,7 @@ type Props = {
 };
 
 type HouseSuggestion = AddressLookup["houses"][number];
+type StreetRow = { street: string; locality: string };
 
 export function LuAddressFields({ value, onChange, idPrefix = "address", showCountry = true }: Props) {
   const t = useTranslations("ClubMgmt");
@@ -50,6 +51,7 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     valueRef.current = value;
   }, [value]);
   const [streets, setStreets] = useState<string[]>([]);
+  const [streetRows, setStreetRows] = useState<StreetRow[]>([]);
   const [houses, setHouses] = useState<HouseSuggestion[]>([]);
   const [streetHouses, setStreetHouses] = useState<HouseSuggestion[]>([]);
   const [streetHouseQuery, setStreetHouseQuery] = useState("");
@@ -67,10 +69,28 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
   }, [country]);
 
   const streetNames = useMemo(() => lookupStreetNames(streets, houses), [houses, streets]);
+  const knownLocalities = useMemo(() => {
+    const names = new Set<string>();
+    streetRows.forEach((row) => {
+      const locality = row.locality.trim().toLowerCase();
+      if (locality) names.add(locality);
+    });
+    return names;
+  }, [streetRows]);
   const suggestions = useMemo(() => {
     const needle = value.street.trim().toLowerCase();
-    return streetNames.filter((name) => !needle || name.toLowerCase().includes(needle)).slice(0, 8);
-  }, [streetNames, value.street]);
+    const locality = value.locality.trim().toLowerCase();
+    const matches = (name: string) => !needle || name.toLowerCase().includes(needle);
+    if (streetRows.length > 0) {
+      const limitToLocality = Boolean(locality) && knownLocalities.has(locality);
+      const names = streetRows
+        .filter((row) => !limitToLocality || row.locality.trim().toLowerCase() === locality)
+        .map((row) => row.street.trim())
+        .filter(matches);
+      return [...new Set(names)];
+    }
+    return streetNames.filter(matches);
+  }, [knownLocalities, streetNames, streetRows, value.locality, value.street]);
 
   const lookup = async (postal: string) => {
     if (!countryConfig.lookup) return;
@@ -79,6 +99,7 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
       const result = await lookupLuAddress(postal);
       setLocalities(result.localities);
       setStreets(result.streets);
+      setStreetRows(result.street_rows ?? []);
       setHouses(result.houses);
       const current = valueRef.current;
       if (result.localities.length === 1) {
@@ -91,6 +112,7 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
       }
     } catch {
       setStreets([]);
+      setStreetRows([]);
       setHouses([]);
       setStreetHouses([]);
       setStreetHouseQuery("");
@@ -137,6 +159,7 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     const nextConfig = addressCountryConfig(next);
     setLocalities([]);
     setStreets([]);
+    setStreetRows([]);
     setHouses([]);
     setStreetHouses([]);
     setStreetHouseQuery("");
@@ -151,7 +174,15 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     streetHouseQuery.trim().toLowerCase() === value.street.trim().toLowerCase() && streetHouses.length > 0
       ? streetHouses
       : houses;
-  const houseNumbers = houseNumberOptions(numberSource, value.street);
+  const localityKey = value.locality.trim().toLowerCase();
+  const scopedNumbers =
+    localityKey && knownLocalities.has(localityKey)
+      ? numberSource.filter((row) => {
+          const rowLocality = (row.locality || "").trim().toLowerCase();
+          return !rowLocality || rowLocality === localityKey;
+        })
+      : numberSource;
+  const houseNumbers = houseNumberOptions(scopedNumbers, value.street);
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -187,6 +218,7 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
               void lookup(postal_code);
             } else {
               setStreets([]);
+              setStreetRows([]);
               setHouses([]);
               setStreetHouses([]);
               setStreetHouseQuery("");
