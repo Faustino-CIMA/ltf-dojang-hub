@@ -1,6 +1,7 @@
 import {
   applyAddressSuggestion,
   applyPostalLookup,
+  houseNumberOptions,
   joinStreetLine,
   lookupStreetNames,
   splitAddressSuggestion,
@@ -98,6 +99,28 @@ describe("address suggestion splitting", () => {
     });
     expect(splitStreetLine("12 99")).toEqual({ house_number: "", street: "12 99" });
     expect(joinStreetLine("10", "Boulevard Royal")).toBe("10 Boulevard Royal");
+    expect(splitStreetLine("17B Rue des Lilas", { postal_code: "1000", locality: "Luxembourg" })).toEqual({
+      house_number: "17B",
+      street: "Rue des Lilas",
+    });
+    expect(splitAddressSuggestion("17bis, Rue des Lilas, L-1000 Luxembourg").house_number).toBe("17bis");
+    expect(splitStreetLine("3rd floor")).toEqual({ house_number: "", street: "3rd floor" });
+  });
+
+  it("offers letter suffixes in numeric order and does not invent numbers", () => {
+    expect(
+      houseNumberOptions(
+        [
+          { house_number: "10", street: "Rue des Lilas" },
+          { house_number: "2", street: "Rue des Lilas" },
+          { house_number: "17B", street: "Rue des Lilas" },
+          { house_number: "17", street: "Rue des Lilas" },
+          { house_number: "17b", street: "Rue des Lilas" },
+          { house_number: "4", street: "Other Street" },
+        ],
+        "rue des lilas",
+      ),
+    ).toEqual(["2", "10", "17", "17B"]);
   });
 
   it("street then postcode: the lookup fills locality and leaves the typed street alone", () => {

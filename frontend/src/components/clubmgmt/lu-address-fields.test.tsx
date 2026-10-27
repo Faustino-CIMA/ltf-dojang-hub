@@ -193,4 +193,58 @@ describe("joined address line round trip", () => {
     expect(screen.getByTestId("stored-line")).toHaveTextContent("10 Boulevard Royal");
     expect(screen.getByTestId("stored-line").textContent).not.toMatch(/L-2449|,/);
   });
+
+  it("offers a letter suffix from the street lookup and keeps a typed number that is not listed", async () => {
+    lookup.mockImplementation(async (postal: string, street?: string) => {
+      if (street) {
+        return {
+          postal_code: postal,
+          localities: ["Luxembourg"],
+          streets: ["Rue des Lilas"],
+          houses: [
+            {
+              house_number: "17",
+              street: "Rue des Lilas",
+              locality: "Luxembourg",
+              postal_code: postal,
+              label: "17, Rue des Lilas, L-1000 Luxembourg",
+            },
+            {
+              house_number: "17B",
+              street: "Rue des Lilas",
+              locality: "Luxembourg",
+              postal_code: postal,
+              label: "17B, Rue des Lilas, L-1000 Luxembourg",
+            },
+          ],
+        };
+      }
+      return {
+        postal_code: postal,
+        localities: ["Luxembourg"],
+        streets: ["Rue des Lilas"],
+        houses: [
+          {
+            house_number: "1",
+            street: "Rue des Lilas",
+            locality: "Luxembourg",
+            postal_code: postal,
+            label: "1, Rue des Lilas, L-1000 Luxembourg",
+          },
+        ],
+      };
+    });
+    render(<JoinedHarness initialLine="" />);
+    fireEvent.change(screen.getByLabelText("postalCode"), { target: { value: "1000" } });
+    fireEvent.focus(screen.getByLabelText("street"));
+    fireEvent.click(await screen.findByRole("button", { name: "Rue des Lilas" }));
+
+    await waitFor(() => expect(document.querySelector('option[value="17B"]')).toBeTruthy());
+    expect(document.querySelector('option[value="1"]')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("houseNumber"), { target: { value: "17C" } });
+    expect(screen.getByLabelText("houseNumber")).toHaveValue("17C");
+    expect(screen.getByLabelText("street")).toHaveValue("Rue des Lilas");
+    expect(screen.getByTestId("stored-line")).toHaveTextContent("17C Rue des Lilas");
+  });
 });

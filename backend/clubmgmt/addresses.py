@@ -10,6 +10,8 @@ import urllib.request
 _LABEL_POSTAL = re.compile(r"L-(\d{4})\b", re.IGNORECASE)
 
 GEOPORTAIL = "https://apiv4.geoportail.lu/fulltextsearch"
+# The public fulltext search stops returning features at 200, even when asked for more.
+GEOPORTAIL_LIMIT = 200
 
 
 def lookup_luxembourg(postal_code: str, street: str = "") -> dict:
@@ -17,7 +19,7 @@ def lookup_luxembourg(postal_code: str, street: str = "") -> dict:
     if len(code) != 4:
         return {"postal_code": code, "localities": [], "streets": [], "houses": []}
     query = f"{code} {street}".strip()
-    url = f"{GEOPORTAIL}?{urllib.parse.urlencode({'query': query, 'limit': 80, 'layer': 'Adresse,nom_de_rue,Localite'})}"
+    url = f"{GEOPORTAIL}?{urllib.parse.urlencode({'query': query, 'limit': GEOPORTAIL_LIMIT, 'layer': 'Adresse,nom_de_rue,Localite'})}"
     req = urllib.request.Request(url, headers={"User-Agent": "LTF-License-Manager/0.10"})
     try:
         with urllib.request.urlopen(req, timeout=8) as response:
@@ -51,7 +53,7 @@ def lookup_luxembourg(postal_code: str, street: str = "") -> dict:
         "postal_code": code,
         "localities": sorted(localities),
         "streets": sorted(streets),
-        "houses": houses[:60],
+        "houses": houses,
     }
 
 
