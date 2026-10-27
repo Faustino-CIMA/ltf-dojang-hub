@@ -258,6 +258,7 @@ export type ConfirmStripeCheckoutResult = {
   invoice_id: number | null;
   order_status?: string | null;
   invoice_status?: string | null;
+  return_area?: "club" | "ltf" | "ltf-finance" | "member" | "ops" | "";
 };
 
 export function confirmStripeCheckout(sessionId: string) {

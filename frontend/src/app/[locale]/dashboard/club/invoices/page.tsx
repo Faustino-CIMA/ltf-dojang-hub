@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -32,6 +32,7 @@ import {
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { openInvoicePdf } from "@/lib/invoice-pdf";
+import { rememberCheckoutReturn } from "@/lib/checkout-return";
 import { isClubLedger } from "@/lib/ltf-finance-api";
 
 const AUTO_REFRESH_INTERVAL_MS = 30000;
@@ -45,6 +46,7 @@ export default function ClubAdminInvoicesPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const locale = useLocale();
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const overdueIssue = searchParams.get("issue") === "overdue_7d";
@@ -222,6 +224,7 @@ export default function ClubAdminInvoicesPage() {
     try {
       const response = await createClubCheckoutSession(invoice.order);
       if (response.url) {
+        rememberCheckoutReturn(pathname ?? "", locale);
         window.location.href = response.url;
       }
     } catch (error) {

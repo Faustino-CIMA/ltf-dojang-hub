@@ -1273,6 +1273,14 @@
     "invalidBody": "Wenn Sie schon ein neues Passwort gewählt haben, melden Sie sich an. Sonst bitten Sie Ihre LTF-Administration oder die Administration Ihres Vereins um eine neue E-Mail.",
     "invalidLive": "Dieser Link zum Zurücksetzen funktioniert nicht mehr."
   },
+  "Checkout": {
+    "returnClub": "Zurück zum Vereins-Dashboard",
+    "returnLtf": "Zurück zum LTF-Dashboard",
+    "returnFinance": "Zurück zum Finanz-Dashboard",
+    "returnMember": "Zurück zu Ihrem Bereich",
+    "returnOps": "Zurück zu Ops",
+    "returnDashboard": "Zurück zum Dashboard"
+  },
   "Import": {
     "issueNoClub": "Kein Verein in der Datei.",
     "issueEndDate": "Mitgliedschaftsende konnte nicht gelesen werden: {value}.",

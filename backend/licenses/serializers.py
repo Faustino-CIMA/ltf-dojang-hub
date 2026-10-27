@@ -494,6 +494,11 @@ class ConfirmCheckoutResultSerializer(serializers.Serializer):
     invoice_id = serializers.IntegerField(allow_null=True)
     order_status = serializers.CharField(allow_null=True, required=False)
     invoice_status = serializers.CharField(allow_null=True, required=False)
+    return_area = serializers.ChoiceField(
+        choices=["club", "ltf", "ltf-finance", "member", "ops"],
+        allow_blank=True,
+        required=False,
+    )
 
 
 class ActivateLicensesSerializer(serializers.Serializer):

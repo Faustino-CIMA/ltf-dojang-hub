@@ -1273,6 +1273,14 @@
     "invalidBody": "Si vous avez déjà choisi un nouveau mot de passe, connectez-vous. Sinon, demandez un nouvel e-mail à votre admin LTF ou à l'admin de votre club.",
     "invalidLive": "Ce lien de réinitialisation ne fonctionne plus."
   },
+  "Checkout": {
+    "returnClub": "Retour au tableau de bord du club",
+    "returnLtf": "Retour au tableau de bord LTF",
+    "returnFinance": "Retour au tableau de bord finances",
+    "returnMember": "Retour à votre espace",
+    "returnOps": "Retour à Ops",
+    "returnDashboard": "Retour au tableau de bord"
+  },
   "Import": {
     "issueNoClub": "Aucun club dans le fichier.",
     "issueEndDate": "La date de fin d'affiliation n'a pas pu être lue : {value}.",

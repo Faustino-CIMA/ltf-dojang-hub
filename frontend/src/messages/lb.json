@@ -453,6 +453,12 @@
     "confirmTimeoutSubtitle": "Stripe huet d'Bezuelung. D'Lizenzen kënnen e Moment brauchen, wann Dir elo op d'Dashboard gitt.",
     "confirmError": "D'Bezuelung konnt nach net confirméiert ginn. Gëtt nach eng Kéier probéiert…",
     "successAction": "Zréck op d'Dashboard",
+    "returnClub": "Zréck op de Veräins-Dashboard",
+    "returnLtf": "Zréck op den LTF-Dashboard",
+    "returnFinance": "Zréck op de Finanz-Dashboard",
+    "returnMember": "Zréck op Äre Beräich",
+    "returnOps": "Zréck op Ops",
+    "returnDashboard": "Zréck op d'Dashboard",
     "cancelTitle": "Bezuelung ofgebrach",
     "cancelSubtitle": "Är Bezuelung gouf ofgebrach. Dir kënnt ëmmer op d'Dashboard zréckgoen.",
     "cancelAction": "Zréck op d'Dashboard"

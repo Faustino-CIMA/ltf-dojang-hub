@@ -40,6 +40,7 @@ from .models import (
 )
 from .pdf_utils import build_invoice_context, invoice_item_label, license_product_label, render_invoice_pdf
 from .services import apply_payment_and_activate
+from .stripe_checkout import checkout_return_area
 from .tasks import (
     activate_eligible_paid_licenses,
     reconcile_expired_licenses,
@@ -2110,6 +2111,82 @@ class ClubOrderCheckoutTests(TestCase):
         self.assertIn("session_id={CHECKOUT_SESSION_ID}", success_url)
 
 
+class CheckoutReturnAreaTests(TestCase):
+    def setUp(self):
+        self.ltf_admin = User.objects.create_user(
+            username="return-ltf-admin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.ltf_finance = User.objects.create_user(
+            username="return-ltf-finance",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.club_admin = User.objects.create_user(
+            username="return-club-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+            is_superuser=True,
+        )
+        self.member_user = User.objects.create_user(
+            username="return-member",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        self.club = Club.objects.create(name="Return Club", created_by=self.ltf_admin)
+        self.club.admins.add(self.club_admin)
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Nora",
+            last_name="Klein",
+            user=self.member_user,
+        )
+        self.order = Order.objects.create(
+            club=self.club,
+            member=self.member,
+            ledger=Order.Ledger.FEDERATION,
+            status=Order.Status.PENDING,
+            subtotal=Decimal("10.00"),
+            tax_total=Decimal("0.00"),
+            total=Decimal("10.00"),
+        )
+
+    def test_superuser_club_admin_returns_to_the_club_area(self):
+        self.assertTrue(self.club_admin.is_superuser)
+        self.assertEqual(checkout_return_area(self.club_admin, self.order), "club")
+
+    def test_ltf_finance_returns_to_finance_area(self):
+        self.assertEqual(checkout_return_area(self.ltf_finance, self.order), "ltf-finance")
+
+    def test_ltf_admin_returns_to_ltf_area_even_when_superuser(self):
+        self.ltf_admin.is_superuser = True
+        self.ltf_admin.save(update_fields=["is_superuser"])
+        self.assertEqual(checkout_return_area(self.ltf_admin, self.order), "ltf")
+
+    def test_member_on_the_order_returns_to_the_member_area(self):
+        self.assertEqual(checkout_return_area(self.member_user, self.order), "member")
+
+    def test_club_ledger_order_returns_to_the_club_area(self):
+        coach = User.objects.create_user(
+            username="return-coach",
+            password="pass12345",
+            role=User.Roles.COACH,
+        )
+        self.order.ledger = Order.Ledger.CLUB
+        self.order.save(update_fields=["ledger", "updated_at"])
+        self.assertEqual(checkout_return_area(coach, self.order), "club")
+
+    def test_superuser_without_a_dashboard_role_falls_back_to_ops(self):
+        operator = User.objects.create_user(
+            username="return-ops",
+            password="pass12345",
+            role="operator",
+            is_superuser=True,
+        )
+        self.assertEqual(checkout_return_area(operator, self.order), "ops")
+
+
 class StripeConfirmCheckoutTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -2193,6 +2270,7 @@ class StripeConfirmCheckoutTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], "paid")
         self.assertEqual(response.data["order_id"], self.order.id)
+        self.assertEqual(response.data["return_area"], "club")
         self.order.refresh_from_db()
         self.invoice.refresh_from_db()
         self.license_record.refresh_from_db()
