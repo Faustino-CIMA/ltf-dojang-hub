@@ -573,6 +573,7 @@
     "openLbrSearch": "Ouvrir la recherche LBR",
     "headOfficeLabel": "Siège social",
     "headOfficeHint": "Adresse du siège. Les lieux d'entraînement sont listés à part.",
+    "federationOfficeHint": "Siège de la fédération. La recherche complète les rues au Luxembourg. Les autres adresses restent manuelles.",
     "removeAdminAction": "Retirer comme admin de club",
     "removeAdminConfirmTitle": "Retirer comme admin de club",
     "removeAdminConfirmDescription": "Retirer {name} comme admin de {club} ? Si c'est son dernier club, cette personne n'est plus admin de club. La fiche du membre n'est pas supprimée.",

@@ -995,6 +995,62 @@ class FederationProfileApiTests(TestCase):
         self.assertEqual(profile.name, "LTF Federation")
         self.assertEqual(profile.postal_code, "1111")
 
+    def test_ltf_admin_can_set_federation_rcs_number(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        saved = self.client.patch(
+            "/api/federation-profile/",
+            {"rcs_number": " b 123456 "},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        self.assertEqual(saved.data["rcs_number"], "B123456")
+        self.assertEqual(FederationProfile.objects.get(pk=1).rcs_number, "B123456")
+
+        invalid = self.client.patch(
+            "/api/federation-profile/",
+            {"rcs_number": "12B"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("rcs_number", invalid.data)
+
+        blank = self.client.patch("/api/federation-profile/", {"rcs_number": "  "}, format="json")
+        self.assertEqual(blank.status_code, status.HTTP_200_OK)
+        self.assertEqual(blank.data["rcs_number"], "")
+
+    def test_federation_rcs_number_cannot_match_a_club(self):
+        club = Club.objects.create(
+            name="Musterstadt Taekwondo",
+            created_by=self.ltf_admin,
+            rcs_number="B123456",
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.patch(
+            "/api/federation-profile/",
+            {"rcs_number": "b123456"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("rcs_number", response.data)
+
+        FederationProfile.objects.update_or_create(pk=1, defaults={"rcs_number": "F42"})
+        clash = self.client.patch(
+            f"/api/clubs/{club.id}/",
+            {"rcs_number": "f42"},
+            format="json",
+        )
+        self.assertEqual(clash.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("rcs_number", clash.data)
+
+    def test_ltf_finance_cannot_change_federation_rcs_number(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        response = self.client.patch(
+            "/api/federation-profile/",
+            {"rcs_number": "B1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_ltf_admin_can_patch_club_tourist_threshold(self):
         self.client.force_authenticate(user=self.ltf_admin)
         response = self.client.patch(

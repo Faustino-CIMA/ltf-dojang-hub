@@ -28,6 +28,17 @@ def normalize_club_website(value: str) -> str:
     _WEBSITE_VALIDATOR(text)
     return text
 
+def _rcs_number_taken(normalized: str, *, club_id=None, ignore_federation: bool = False) -> bool:
+    clubs = Club.objects.filter(rcs_number=normalized)
+    if club_id:
+        clubs = clubs.exclude(pk=club_id)
+    if clubs.exists():
+        return True
+    if ignore_federation:
+        return False
+    return FederationProfile.objects.filter(rcs_number=normalized).exists()
+
+
 def _validate_luxembourg_postal_code(postal_code: str) -> None:
     normalized_postal_code = str(postal_code or "").strip()
     if normalized_postal_code and not re.fullmatch(r"\d{4}", normalized_postal_code):
@@ -103,12 +114,8 @@ class Club(models.Model):
             raise ValidationError(
                 {"rcs_number": _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")}
             )
-        if self.rcs_number:
-            clash = Club.objects.filter(rcs_number=self.rcs_number)
-            if self.pk:
-                clash = clash.exclude(pk=self.pk)
-            if clash.exists():
-                raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
+        if self.rcs_number and _rcs_number_taken(self.rcs_number, club_id=self.pk):
+            raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
         self.external_ref = str(self.external_ref or "").strip()
         normalized_iban = normalize_iban(self.iban)
         if normalized_iban and not is_valid_iban(normalized_iban):
@@ -188,6 +195,7 @@ class FederationProfile(models.Model):
     address_line2 = models.CharField(max_length=255, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
+    rcs_number = models.CharField(max_length=20, blank=True)
     iban = models.CharField(max_length=34, blank=True)
     bank_name = models.CharField(max_length=255, blank=True)
     rewrite_lux_prefix_on_member_import = models.BooleanField(default=False)
@@ -204,6 +212,13 @@ class FederationProfile(models.Model):
 
     def clean(self):
         _validate_luxembourg_postal_code(self.postal_code)
+        self.rcs_number = normalize_rcs_number(self.rcs_number)
+        if self.rcs_number and not RCS_NUMBER_RE.fullmatch(self.rcs_number):
+            raise ValidationError(
+                {"rcs_number": _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")}
+            )
+        if self.rcs_number and _rcs_number_taken(self.rcs_number, ignore_federation=True):
+            raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
         normalized_iban = normalize_iban(self.iban)
         if normalized_iban and not is_valid_iban(normalized_iban):
             raise ValidationError({"iban": _("Enter a valid IBAN.")})

@@ -41,6 +41,7 @@ class TrainingVenueAdmin(admin.ModelAdmin):
 class FederationProfileAdmin(admin.ModelAdmin):
     list_display = (
         "name",
+        "rcs_number",
         "locality",
         "postal_code",
         "iban",
@@ -48,7 +49,7 @@ class FederationProfileAdmin(admin.ModelAdmin):
         "club_tourist_transfer_threshold",
         "updated_at",
     )
-    search_fields = ("name", "locality", "postal_code", "address_line1", "iban", "bank_name")
+    search_fields = ("name", "rcs_number", "locality", "postal_code", "address_line1", "iban", "bank_name")
 
 
 @admin.register(BrandingAsset)
