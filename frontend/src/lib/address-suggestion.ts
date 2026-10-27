@@ -64,16 +64,76 @@ export function applyPostalLookup<T extends AddressParts>(
   };
 }
 
-export function splitStreetLine(line: string): { house_number: string; street: string } {
-  const parsed = splitAddressSuggestion(line);
+const HAS_LETTER = /[A-Za-zÀ-ÖØ-öø-ÿ]/;
+
+function digits(value?: string): string {
+  return (value || "").replace(/\D/g, "");
+}
+
+/** "12 Rue de Test" → number + street. "12 99" and "3rd floor" stay intact. */
+function peelLeadingNumber(text: string): { house_number: string; street: string } | null {
+  const match = text.trim().match(LEADING_NUMBER);
+  if (!match) return null;
+  const street = match[2].trim();
+  if (!HAS_LETTER.test(street)) return null;
+  return { house_number: match[1], street };
+}
+
+/**
+ * Split a stored address line into the street and house-number fields.
+ * A line that also contains a postcode or locality is only split when those
+ * parts are already stored in their own fields. Otherwise the line stays as
+ * typed, so a reload cannot hide part of it inside a field the form does not show.
+ */
+export function splitStreetLine(
+  line: string,
+  stored?: { postal_code?: string; locality?: string },
+): { house_number: string; street: string } {
+  const original = line.trim().replace(/\s+/g, " ");
+  if (!original) return { house_number: "", street: "" };
+
+  const parsed = splitAddressSuggestion(original);
   if (parsed.postal_code || parsed.locality) {
+    const storedPostal = digits(stored?.postal_code);
+    const storedLocality = (stored?.locality || "").trim().toLowerCase();
+    const postalOk = !parsed.postal_code || storedPostal === parsed.postal_code;
+    const localityOk = !parsed.locality || storedLocality === parsed.locality.toLowerCase();
+    const storedHasPlace = Boolean(storedPostal || storedLocality);
+    if (stored && storedHasPlace && postalOk && localityOk) {
+      const peeled = peelLeadingNumber(parsed.street);
+      return {
+        house_number: parsed.house_number || peeled?.house_number || "",
+        street: (peeled?.street || parsed.street).trim(),
+      };
+    }
+    return { house_number: "", street: original };
+  }
+
+  if (parsed.house_number && parsed.street && HAS_LETTER.test(parsed.street)) {
     return { house_number: parsed.house_number, street: parsed.street };
   }
-  const match = line.trim().match(LEADING_NUMBER);
-  if (match) {
-    return { house_number: match[1], street: match[2].trim() };
-  }
-  return { house_number: "", street: line.trim() };
+
+  const peeled = peelLeadingNumber(original);
+  if (peeled) return peeled;
+  return { house_number: "", street: original };
+}
+
+/** Names for the street field. A full Geoportail label contributes its street name only. */
+export function lookupStreetNames(
+  streets: string[],
+  houses: Array<{ street?: string; label?: string }> = [],
+): string[] {
+  const names: string[] = [];
+  const add = (raw: string | undefined) => {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return;
+    const name = splitAddressSuggestion(trimmed).street.trim();
+    if (!name) return;
+    names.push(name);
+  };
+  streets.forEach(add);
+  houses.forEach((house) => add(house.street || house.label));
+  return [...new Set(names)];
 }
 
 export function joinStreetLine(houseNumber: string, street: string): string {

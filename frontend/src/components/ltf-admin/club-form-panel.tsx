@@ -240,7 +240,10 @@ export function ClubFormPanel({
             idPrefix="club"
             showCountry={false}
             value={{
-              ...splitStreetLine(values.address_line1),
+              ...splitStreetLine(values.address_line1, {
+                postal_code: values.postal_code,
+                locality: values.locality,
+              }),
               line2: values.address_line2,
               postal_code: values.postal_code,
               locality: values.locality,

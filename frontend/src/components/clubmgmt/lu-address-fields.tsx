@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { lookupLuAddress, type AddressLookup } from "@/lib/clubmgmt-api";
-import { applyAddressSuggestion, applyPostalLookup, splitAddressSuggestion } from "@/lib/address-suggestion";
+import {
+  applyAddressSuggestion,
+  applyPostalLookup,
+  lookupStreetNames,
+  splitAddressSuggestion,
+} from "@/lib/address-suggestion";
 import {
   ADDRESS_COUNTRIES,
   addressCountryConfig,
@@ -35,15 +40,6 @@ type Props = {
 
 type HouseSuggestion = AddressLookup["houses"][number];
 
-function suggestionText(row: HouseSuggestion): string {
-  if (row.label.trim()) {
-    return row.label.trim();
-  }
-  return [row.house_number, row.street, row.postal_code ? `L-${row.postal_code}` : "", row.locality]
-    .filter(Boolean)
-    .join(", ");
-}
-
 export function LuAddressFields({ value, onChange, idPrefix = "address", showCountry = true }: Props) {
   const t = useTranslations("ClubMgmt");
   const locale = useLocale();
@@ -67,14 +63,11 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     return listed;
   }, [country]);
 
+  const streetNames = useMemo(() => lookupStreetNames(streets, houses), [houses, streets]);
   const suggestions = useMemo(() => {
     const needle = value.street.trim().toLowerCase();
-    const fromHouses = houses
-      .map(suggestionText)
-      .filter((label) => !needle || label.toLowerCase().includes(needle));
-    const fromStreets = streets.filter((name) => !needle || name.toLowerCase().includes(needle));
-    return [...new Set([...fromHouses, ...fromStreets])].slice(0, 8);
-  }, [houses, streets, value.street]);
+    return streetNames.filter((name) => !needle || name.toLowerCase().includes(needle)).slice(0, 8);
+  }, [streetNames, value.street]);
 
   const lookup = async (postal: string) => {
     if (!countryConfig.lookup) return;
