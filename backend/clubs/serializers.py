@@ -101,7 +101,7 @@ class ClubSerializer(serializers.ModelSerializer):
         clash = Club.objects.filter(rcs_number=normalized)
         if self.instance is not None:
             clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
+        if clash.exists() or FederationProfile.objects.filter(rcs_number=normalized).exists():
             raise serializers.ValidationError(_("This RCS number is already used by another club."))
         return normalized
 
@@ -163,6 +163,7 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             "address_line2",
             "postal_code",
             "locality",
+            "rcs_number",
             "iban",
             "bank_name",
             "rewrite_lux_prefix_on_member_import",
@@ -183,6 +184,18 @@ class FederationProfileSerializer(serializers.ModelSerializer):
 
     def validate_postal_code(self, value):
         return str(value or "").strip()
+
+    def validate_rcs_number(self, value):
+        normalized = normalize_rcs_number(value)
+        if not normalized:
+            return ""
+        if not RCS_NUMBER_RE.fullmatch(normalized):
+            raise serializers.ValidationError(
+                _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")
+            )
+        if Club.objects.filter(rcs_number=normalized).exists():
+            raise serializers.ValidationError(_("This RCS number is already used by another club."))
+        return normalized
 
     def validate_iban(self, value):
         normalized = normalize_iban(value)

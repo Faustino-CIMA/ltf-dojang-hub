@@ -10,6 +10,7 @@ import {
   BrandingLogoUploadPayload,
   BrandingLogosManager,
 } from "@/components/branding/branding-logos-manager";
+import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { LoadingCard } from "@/components/ui/loading-card";
@@ -19,7 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
+import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
+import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
 import {
   BrandingLogo,
   LtfLicensePrefixRewritePreview,
@@ -35,6 +38,10 @@ import {
 
 const federationSchema = z.object({
   name: z.string().min(1, "Federation name is required"),
+  rcs_number: z
+    .string()
+    .optional()
+    .refine((value) => isValidRcsNumber(value ?? ""), "invalid"),
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
@@ -70,12 +77,14 @@ export default function LtfAdminSettingsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<FederationFormValues>({
     resolver: zodResolver(federationSchema),
     defaultValues: {
       name: "",
+      rcs_number: "",
       address_line1: "",
       address_line2: "",
       postal_code: "",
@@ -85,6 +94,10 @@ export default function LtfAdminSettingsPage() {
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
+  const addressLine1 = useWatch({ control, name: "address_line1", defaultValue: "" }) ?? "";
+  const addressLine2 = useWatch({ control, name: "address_line2", defaultValue: "" }) ?? "";
+  const postalCode = useWatch({ control, name: "postal_code", defaultValue: "" }) ?? "";
+  const localityValue = useWatch({ control, name: "locality", defaultValue: "" }) ?? "";
   const derivedBankName = deriveBankNameFromIban(watchedIban);
 
   const loadProfile = useCallback(async () => {
@@ -94,6 +107,7 @@ export default function LtfAdminSettingsPage() {
       const profile = await getFederationProfile();
       reset({
         name: profile.name,
+        rcs_number: profile.rcs_number ?? "",
         address_line1: profile.address_line1 ?? "",
         address_line2: profile.address_line2 ?? "",
         postal_code: profile.postal_code ?? "",
@@ -198,9 +212,13 @@ export default function LtfAdminSettingsPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const saved = await updateFederationProfile(values);
+      const saved = await updateFederationProfile({
+        ...values,
+        rcs_number: normalizeRcsNumber(values.rcs_number ?? ""),
+      });
       reset({
         name: saved.name,
+        rcs_number: saved.rcs_number ?? "",
         address_line1: saved.address_line1 ?? "",
         address_line2: saved.address_line2 ?? "",
         postal_code: saved.postal_code ?? "",
@@ -266,28 +284,41 @@ export default function LtfAdminSettingsPage() {
               {errors.name ? <p className="text-sm text-destructive">{t("federationNameRequired")}</p> : null}
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="federation-address-1">{t("addressLine1Label")}</Label>
-              <Input id="federation-address-1" placeholder={t("addressLine1Placeholder")} {...register("address_line1")} />
+            <div className="space-y-2">
+              <Label htmlFor="federation-rcs">{t("rcsNumberLabel")}</Label>
+              <Input id="federation-rcs" placeholder={t("rcsNumberPlaceholder")} {...register("rcs_number")} />
+              <a
+                href={LBR_SEARCH_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-primary underline-offset-2 hover:underline"
+              >
+                {t("openLbrSearch")}
+              </a>
+              {errors.rcs_number ? <p className="text-sm text-destructive">{t("rcsNumberInvalid")}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="federation-address-2">{t("addressLine2Label")}</Label>
-              <Input
-                id="federation-address-2"
-                placeholder={t("addressLine2Placeholder")}
-                {...register("address_line2")}
+              <h3 className="text-sm font-medium text-foreground">{t("headOfficeLabel")}</h3>
+              <p className="text-xs text-muted">{t("federationOfficeHint")}</p>
+              <LuAddressFields
+                idPrefix="federation"
+                showCountry={false}
+                value={{
+                  ...splitStreetLine(addressLine1),
+                  line2: addressLine2,
+                  postal_code: postalCode,
+                  locality: localityValue,
+                  country: "Luxembourg",
+                  use_for_invoice: false,
+                }}
+                onChange={(next) => {
+                  setValue("address_line1", joinStreetLine(next.house_number, next.street), { shouldDirty: true });
+                  setValue("address_line2", next.line2, { shouldDirty: true });
+                  setValue("postal_code", next.postal_code, { shouldDirty: true });
+                  setValue("locality", next.locality, { shouldDirty: true });
+                }}
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="federation-postal">{t("postalCodeLabel")}</Label>
-              <Input id="federation-postal" placeholder={t("postalCodePlaceholder")} {...register("postal_code")} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="federation-locality">{t("localityLabel")}</Label>
-              <Input id="federation-locality" placeholder={t("localityPlaceholder")} {...register("locality")} />
             </div>
 
             <div className="space-y-2">

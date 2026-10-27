@@ -2488,6 +2488,7 @@
     "openLbrSearch": "Open LBR search",
     "headOfficeLabel": "Head office (siège social)",
     "headOfficeHint": "The club's registered office. Training venues are listed separately.",
+    "federationOfficeHint": "Registered office of the federation. Lookup fills streets in Luxembourg. Other addresses stay manual.",
     "navOverview": "Overview",
     "navClubs": "Clubs",
     "navClubAdmins": "Club admins",

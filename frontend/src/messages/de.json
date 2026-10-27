@@ -573,6 +573,7 @@
     "openLbrSearch": "LBR-Suche öffnen",
     "headOfficeLabel": "Sitz (siège social)",
     "headOfficeHint": "Eingetragener Sitz des Vereins. Trainingsorte stehen in einer eigenen Liste.",
+    "federationOfficeHint": "Sitz der Föderation. Die Suche ergänzt Straßen in Luxemburg. Andere Adressen bleiben manuell.",
     "removeAdminAction": "Als Club-Admin entfernen",
     "removeAdminConfirmTitle": "Als Club-Admin entfernen",
     "removeAdminConfirmDescription": "{name} als Club-Admin von {club} entfernen? Wenn das der letzte Verein ist, ist diese Person kein Club-Admin mehr. Der Mitgliedsdatensatz wird nicht gelöscht.",
