@@ -52,6 +52,11 @@ def euro_amount(amount) -> str:
     return f"{sign}{abs(value):.2f}".replace(".", ",") + " €"
 
 
+def invoice_balance_due_text(invoice: Invoice) -> str:
+    """Remainder after credit notes and payments, in the same format as the PDF total."""
+    return euro_amount(invoice.outstanding())
+
+
 def _short_date(value) -> str:
     if not value:
         return ""
