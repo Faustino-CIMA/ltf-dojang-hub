@@ -240,10 +240,18 @@ class ClubApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         logo_id = create_response.data["id"]
+        self.assertEqual(
+            create_response.data["content_url"],
+            f"/api/clubs/{self.club.id}/logos/{logo_id}/content/",
+        )
 
         list_response = self.client.get(f"/api/clubs/{self.club.id}/logos/")
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data["logos"]), 1)
+        self.assertEqual(
+            list_response.data["logos"][0]["content_url"],
+            f"/api/clubs/{self.club.id}/logos/{logo_id}/content/",
+        )
 
         patch_response = self.client.patch(
             f"/api/clubs/{self.club.id}/logos/{logo_id}/",
@@ -265,6 +273,33 @@ class ClubApiTests(TestCase):
             f"/api/clubs/{self.club.id}/logos/{logo_id}/"
         )
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_logo_content_url_ignores_proxy_host_and_serves_the_file(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        create_response = self.client.post(
+            f"/api/clubs/{self.club.id}/logos/",
+            {
+                "file": self._logo_file("proxy-logo.png"),
+                "usage_type": "print",
+                "label": "Proxy logo",
+            },
+            format="multipart",
+            HTTP_HOST="web",
+            HTTP_X_FORWARDED_PROTO="http",
+            HTTP_X_FORWARDED_HOST="api.ltkdf.org",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        content_url = create_response.data["content_url"]
+        self.assertTrue(content_url.startswith("/api/"))
+        self.assertNotIn("http://", content_url)
+        self.assertNotIn("web", content_url)
+
+        self.client.force_authenticate(user=None)
+        content_response = self.client.get(content_url)
+        self.assertEqual(content_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(str(content_response["Content-Type"]).startswith("image/"))
+        body = b"".join(content_response.streaming_content)
+        self.assertTrue(body.startswith(b"\x89PNG"))
 
     def test_club_admin_can_manage_own_club_logos(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -1045,10 +1080,22 @@ class FederationProfileApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         logo_id = create_response.data["id"]
+        self.assertEqual(
+            create_response.data["content_url"],
+            f"/api/federation-profile/logos/{logo_id}/content/",
+        )
 
-        list_response = self.client.get("/api/federation-profile/logos/")
+        list_response = self.client.get(
+            "/api/federation-profile/logos/",
+            HTTP_HOST="web",
+            HTTP_X_FORWARDED_PROTO="http",
+        )
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data["logos"]), 1)
+        self.assertEqual(
+            list_response.data["logos"][0]["content_url"],
+            f"/api/federation-profile/logos/{logo_id}/content/",
+        )
 
         patch_response = self.client.patch(
             f"/api/federation-profile/logos/{logo_id}/",
