@@ -808,6 +808,9 @@
     "reason_end_date": "Mitgliedschaftsende konnte nicht gelesen werden: {value}"
   },
   "ClubMgmt": {
+    "useForInvoice": "Rechnungen hierhin schicken",
+    "oneInvoiceAddress": "Nur eine Adresse darf für Rechnungen verwendet werden.",
+    "oneInvoiceAddressHint": "Nur eine Adresse erhält Rechnungen. Diese Wahl hebt die Markierung der anderen auf.",
     "shopQrAlt": "QR-Code für Größe {size}",
     "shopQrPreviewEmpty": "Für diese Größe gibt es noch kein QR-Bild.",
     "committeeRemoveDescription": "Löschen Sie dieses Amt nur, wenn es versehentlich angelegt wurde. Wer ausgeschieden ist, bekommt ein Enddatum.",

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from members.models import Member
@@ -30,6 +31,19 @@ from .models import (
     ShopSnapshotLine,
     ShopVariant,
 )
+
+
+def assert_single_invoice_address(rows):
+    if not isinstance(rows, list):
+        return
+    flagged = 0
+    for row in rows:
+        if isinstance(row, dict) and bool(row.get("use_for_invoice")):
+            flagged += 1
+    if flagged > 1:
+        raise serializers.ValidationError(
+            {"addresses": _("Only one address can be used for invoices.")}
+        )
 
 
 class PersonEmailSerializer(serializers.ModelSerializer):
@@ -68,6 +82,11 @@ class PersonSerializer(serializers.ModelSerializer):
             "phones",
             "addresses",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        assert_single_invoice_address(getattr(self, "initial_data", {}).get("addresses"))
+        return attrs
 
 
 class MemberEmailSerializer(serializers.ModelSerializer):
@@ -168,6 +187,11 @@ class MemberRecordSerializer(serializers.ModelSerializer):
         if member is not None and value.club_id != member.club_id:
             raise serializers.ValidationError("Choose a membership fee from this club.")
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        assert_single_invoice_address(getattr(self, "initial_data", {}).get("addresses"))
+        return attrs
 
 
 class FamilyMemberSerializer(serializers.ModelSerializer):

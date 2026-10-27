@@ -3962,6 +3962,8 @@
     "phones": "Telefonsnummeren",
     "addresses": "Adressen",
     "useForInvoice": "Rechnungen heihi schécken",
+    "oneInvoiceAddress": "Nëmmen eng Adress däerf fir Rechnungen benotzt ginn.",
+    "oneInvoiceAddressHint": "Nëmmen eng Adress kritt Rechnungen. Dës Wiel hëlt d'Mark vun deenen aneren ewech.",
     "addEmail": "E-Mail derbäisetzen",
     "addPhone": "Telefon derbäisetzen",
     "addAddress": "Adress derbäisetzen",

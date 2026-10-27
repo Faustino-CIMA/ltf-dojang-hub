@@ -245,16 +245,24 @@ class DataDeleteView(views.APIView):
     serializer_class = EmptySerializer
 
     def delete(self, request):
+        from clubmgmt.models import MemberAddress, PersonAddress
+
         user_id = request.user.id
-        member = Member.all_objects.filter(user=request.user).first()
+        members = list(Member.all_objects.filter(user=request.user))
         with transaction.atomic():
-            if member:
+            for member in members:
                 clear_member_profile_picture(member, clear_consent_attestation=True)
                 GradePromotionHistory.objects.filter(member=member).update(
                     notes="",
                     proof_ref="",
                     metadata={"anonymized": True},
                 )
+                MemberAddress.objects.filter(member=member).delete()
+            if members:
+                # Person has no user column. The only link is the member this
+                # person was converted into. Guardian contacts of other people
+                # stay untouched.
+                PersonAddress.objects.filter(person__converted_member__in=members).delete()
             request.user.delete()
         return response.Response({"deleted_user_id": user_id}, status=status.HTTP_200_OK)
 

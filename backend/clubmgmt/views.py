@@ -53,6 +53,7 @@ from .models import (
     PersonPhone,
 )
 from .serializers import (
+    assert_single_invoice_address,
     CommitteeMandateSerializer,
     CommitteeSerializer,
     FamilyRebateRuleSerializer,
@@ -205,6 +206,7 @@ def _sync_member_contacts_lists(member, data):
                     label=row.get("label") or "",
                 )
     if "addresses" in data:
+        assert_single_invoice_address(data.get("addresses"))
         MemberAddress.objects.filter(member=member).delete()
         for row in data.get("addresses") or []:
             MemberAddress.objects.create(
@@ -328,6 +330,7 @@ def _sync_person_lists(person, data):
             if row.get("number"):
                 PersonPhone.objects.create(person=person, number=row["number"], label=row.get("label") or "")
     if "addresses" in data:
+        assert_single_invoice_address(data.get("addresses"))
         PersonAddress.objects.filter(person=person).delete()
         for row in data.get("addresses") or []:
             PersonAddress.objects.create(
