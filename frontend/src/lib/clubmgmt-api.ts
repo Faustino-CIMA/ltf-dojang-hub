@@ -42,6 +42,7 @@ export type AddressLookup = {
   postal_code: string;
   localities: string[];
   streets: string[];
+  street_rows?: Array<{ street: string; locality: string }>;
   houses: Array<{ house_number: string; street: string; locality: string; postal_code: string; label: string }>;
 };
 
