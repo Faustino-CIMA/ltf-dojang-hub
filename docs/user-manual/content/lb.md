@@ -174,6 +174,8 @@ Eng nei Invitatioun mécht [[AccountSetup.title]] op. D'Säit nennt Är Roll an 
 3. Gitt e Passwuert an [[AccountSetup.password]] an, an nach eng Kéier an [[AccountSetup.confirmPassword]].
 4. Klickt op [[AccountSetup.submit]].
 
+![Neie Kont: E-Mail a Passwuert](fig:account-setup)
+
 D'Säit weist [[AccountSetup.successTitle]]. Klickt op [[AccountSetup.signInNow]].
 {: .result}
 
@@ -362,6 +364,8 @@ Trainer gesinn d'ëffentlech Evenementer vum Veräin an och déi mat [[calendarV
 6. [[Common.rowActionsLabel]] – [[editAction]] oder [[deleteAction]] fir dës Zeil. [[editAction]] mécht e Säitepanneau op.
 </div>
 
+![De Memberemenü: uleeën oder importéieren](fig:members-menu)
+
 D'Kolonn [[sexLabel]] ass e klengt ♂ oder ♀, keen grousst Badge. E Klick op e Kolonnentitel sortéiert. [[membersMenuLabel]] an d'Zeilemenü ginn als kleng Panneaue op.
 
 Wann de Competitiounsmodul un ass, gehéiert [[teamsFilterNone]] bei d'Filter.
@@ -523,6 +527,8 @@ Esou schéckt Dir e Member an en anere Veräin:
 
 ![De Member an den neie Veräin wielen](fig:transfers)
 
+![D'Ablöse, ier d'Ufro geschéckt gëtt](fig:transfer-request)
+
 Esou äntwert Dir op eng Ufro vun engem anere Veräin:
 {: .proc}
 
@@ -597,7 +603,6 @@ Wann d'Cotisatiounen an d'Familljen agestallt sinn, ass de ganze Veräin mat e p
 4. [[reviewIssueAction]]
 5. [[selectReady]]
 6. Statusfilter.
-7. E Stot mam Status [[billingBlocked]] – maacht en op, fir de Grond ze gesinn.
 </div>
 
 1. Maacht [[navFinance]] › [[navBilling]] op a wielt d'[[billingYear]].
@@ -657,7 +662,11 @@ Bezuelt per Iwwerweisung a setzt d'Rechnungsnummer an d'Kommunikatioun. D'LTF-Fi
 
 Oder bezuelt mat der Kaart. Bei enger ausgestallter LTF-Rechnung, op där nach e Montant op ass, maacht d'Zeilemenü oder d'Rechnung op a klickt op [[Common.payNow]]. Et geet eng Kaartebezuelung op (Stripe). Wann d'Bezuelung bestätegt ass, ginn d'Lizenze aktivéiert an d'Säit weist [[Checkout.successTitle]].
 
+![Elo bezuelen, am Zeilemenü vun enger LTF-Rechnung](fig:pay-now)
+
 Wann Dir ofbriecht, weist d'Säit [[Checkout.cancelTitle]]. Et gëtt näischt belaascht, an d'Lizenze bleiwen, wéi se waren.
+
+![Bezuelung ofgebrach, mam Wee zréck op de Veräin](fig:checkout-return)
 
 Nom Bezuelen oder Ofbriechen nennt de Knäppchen de Schreifdësch, deen Dir verlooss hutt:
 
@@ -812,6 +821,8 @@ Wie besteet, kritt den neie Grad am Onglet [[memberGradesTab]] agedroen.
 
 ## Ekippen {#teams}
 
+![D'Ekippelëscht](fig:teams)
+
 1. Maacht [[navTeams]] op a klickt op [[teamsAdd]]. De Formulaire geet an engem Säitepanneau op.
 2. Gitt [[teamsName]] an. Wielt [[teamsDisciplineKyorugi]] oder [[teamsDisciplinePoomsae]]. Klickt op [[teamsSave]].
 3. Maacht d'Ekipp op. [[teamsManageAction]] setzt Leit derbäi an hëlt se ewech. All Persoun ass [[teamRoleAthlete]] oder [[teamRoleCoach]]. D'Trainer stinn als éischt.
@@ -823,9 +834,15 @@ Wie besteet, kritt den neie Grad am Onglet [[memberGradesTab]] agedroen.
 
 Ënner [[navMembers]] weist [[teamsFilterNone]] d'Memberen, déi a kenger Ekipp sinn.
 
+![D'Ekippeblat](fig:team-roster)
+
+![Séiert Weien fir d'Ekipp](fig:team-weigh-in)
+
 ## Gréisst a Gewiicht {#height-weight}
 
 Um Ekippeblat klappt Dir eng Persoun op a maacht [[heightWeightTitle]] op. [[heightWeightHint]] Klickt op [[heightWeightAdd]] an notéiert e Gewiicht mat Datum, eng Gréisst, oder béides. Nëmmen dëse Veräin gesäit d'Moossen. Si ginn net op d'Lizenzkaart gedréckt.
+
+![Gréisst a Gewiicht um Ekippeblat](fig:height-weight)
 
 ## Ekipementsgréissten {#equipment}
 
@@ -834,6 +851,8 @@ D'Gréisste stinn an dräi Gruppen: [[gearProtectors]], [[gearEgear]] an [[gearC
 De Veräin entscheet, wéi eng Kleeder e bestellt. Maacht [[navSettings]] › [[clubSettingsEquipmentTab]] op. Klickt ënner [[clothingSizesTitle]] op [[clothingAdd]] a gitt d'Gréissten an, déi Dir wierklech kaaft. [[clothingSizesHint]]
 
 Ënner [[egearBrandsTitle]] schalt Dir [[gearDaedo]] oder [[gearKpnp]] aus, wann de Veräin déi Mark net benotzt. [[egearBrandsHint]] Gréissten, déi scho bei de Memberen gespäichert sinn, bleiwen, och wann d'Mark ausgeschalt ass.
+
+![Kleedergréissten a Marken vun der elektronescher Ausrüstung](fig:equipment)
 
 # Club-Admin: de Buttek vum Veräin {#shop}
 
@@ -1038,6 +1057,8 @@ D'Iwwersiicht zielt Veräiner, Memberen a Lizenzen. Hir Lëscht vun Aktiounen we
 
 [[LtfAdmin.navClubs]] weist all Veräiner. Maacht e Veräin op, fir seng Donnéeën z'änneren, seng Logoen eropzelueden (fir Rechnungen, Drock an Ecran) a seng Memberen ze gesinn.
 
+![All Veräiner](fig:ltf-clubs)
+
 ![E Veräin aus der Siicht vun der LTF](fig:ltf-club)
 
 Setzt op der Säit vum Veräin [[LtfAdmin.federationLabel]] op [[LtfAdmin.federationWt]] oder [[LtfAdmin.federationItf]], an d'[[LtfAdmin.rcsNumberLabel]], wann Dir eng hutt (zum Beispill B123456). [[LtfAdmin.headOfficeLabel]] benotzt déi lëtzebuergesch Adresssich. [[TrainingVenues.title]] weist d'Trainingssäll a ass net de Sëtz. Déi selwecht Felder stinn am eegene [Profil](#profile-tab) vum Veräin.
@@ -1046,12 +1067,16 @@ Nodeems Dir e Logo eropgelueden hutt, weist d'Säit eng Virschau. Wärend se lue
 
 [[LtfAdmin.navClubAdmins]] funktionéiert wéi d'Säit vum Veräin ënner [Club-Admins](#club-admins), mä fir all Veräiner. D'Zeilemenü schéckt e Link nach eng Kéier: [[accessSendInvite]] oder [[accessCopyInvite]], wann d'Persoun nach kee Passwuert gewielt huet, an [[accessSendReset]] oder [[accessCopyReset]], wann se schonn eent huet. Fir ze kopéieren brauch et keng E-Mail-Adress. Fir ze schécken schonn. All Invitéierungslink funktionéiert eng Kéier. Kuckt [Äert éischt Passwuert](#first-password).
 
+![Club-Admins fir all Veräiner](fig:ltf-club-admins)
+
 ## Memberen, Lizenzen an Transferten {#ltf-licences}
 
 - [[LtfAdmin.navMembers]] an [[LtfAdmin.navLicenses]] weisen all Veräiner zur selwechter Zäit; mat dem Veräinsfeld uewen kënnt Dir agrenzen. E Klick op e Kolonnentitel sortéiert. An der Lizenzlëscht stinn [[editAction]] an [[deleteAction]] ënner [[Common.rowActionsLabel]], an Änneren mécht e Säitepanneau op.
 - Filtert Memberen mat [[LtfAdmin.staffFilterStaff]], fir de Personal vun der Federatioun ze gesinn. Eng Persoun ouni Veräin gëtt als [[LtfAdmin.noClub]] gewisen. [[LtfAdmin.staffAddAction]] mécht e Säitepanneau op. Loosst de Veräin op [[LtfAdmin.staffNoClubOption]], fir se als LTF-Personal ze lizenzéieren, ouni Veräinsbestellung an ouni Veräinsrechnung. [[LtfAdmin.staffIssueAction]] stellt d'Lizenz fir dat gewielt Joer aus. Dat lafend Joer ass direkt aktiv. Eng fréier Personallizenz leeft wéi eng Veräinslizenz of a steet duerno als ofgelaf.
 - [[LtfAdmin.navParkedMembers]] weist Persounen, déi bei engem Import op d'Säit gestallt goufen, bis Dir e Veräin an e Geschlecht zouweist oder d'Zeil läscht. [[LtfAdmin.parkedSubtitle]] Si stinn net an enger Veräinslëscht, enger Lizenz, enger Kaart, enger Ekipp oder enger Zuelung. Kuckt [Éischt Ariichtung](#setup).
 - [[LtfAdmin.navMemberTransfers]] weist déi lescht Clubwiesselen, Transferte mat engem Montant a méiglech Clubtouristen – Memberen, déi ongewéinlech dacks de Veräin gewiesselt hunn.
+
+![Bäigesate Memberen, déi nach e Veräin brauchen](fig:parked-members)
 
 ![Transferten aus der Siicht vun der Federatioun](fig:ltf-transfers)
 
@@ -1061,11 +1086,15 @@ Nodeems Dir e Logo eropgelueden hutt, weist d'Säit eng Virschau. Wärend se lue
 
 ![De Kaarten-Designer](fig:designer)
 
+![Drockopträg vun alle Veräiner](fig:ltf-print-jobs)
+
 ## Nationalequipe {#national-team}
 
 [[LtfAdmin.navNationalTeam]] ass de Selektiounsdesk vun der Federatioun. Den LTF-Admin kann en änneren. D'LTF-Finanzen kënnen dee selwechten Desk opmaachen an nëmme liesen. Veräiner gesinn dës Säit net. Bei engem Veräinsmember gesinn si nëmmen [[nationalTeamBadge]], mat Selektioun a Saison, an net dëse Staff-Dossier.
 
 D'Säit huet dräi Deeler: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] an [[LtfAdmin.nationalTeamTabLevels]]. D'Filter benotzen [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] an [[LtfAdmin.nationalTeamClub]]. Formulairë ginn an engem Säitepanneau op.
+
+![De Schreifdësch vun der Nationalequipe](fig:national-team)
 
 **Selektiounen.** [[LtfAdmin.nationalTeamAddSquad]] leet eng Selektioun un. [[LtfAdmin.nationalTeamAddSquadHint]] [[LtfAdmin.nationalTeamAddSelection]] hëlt e Sportler aus engem Veräin fir d'Saison op. Setzt [[LtfAdmin.nationalTeamAgeClass]]. D'Klassen ëmfaassen [[LtfAdmin.nationalTeamAgePupils]] an [[LtfAdmin.nationalTeamAgeMinimes]], déi regional sinn an net World-Taekwondo-Klassen, dozou [[LtfAdmin.nationalTeamAgeCadet]], [[LtfAdmin.nationalTeamAgeJunior]] an [[LtfAdmin.nationalTeamAgeSenior]]. [[LtfAdmin.nationalTeamWeight]] däerf eidel bleiwen. De Status gëtt als [[LtfAdmin.nationalTeamLevel]], [[LtfAdmin.nationalTeamCosl]] an [[LtfAdmin.nationalTeamSupport]] (Sportlycée oder SSEA) gefouert.
 
@@ -1131,6 +1160,8 @@ Den techneschen Administrateur mécht d'[[Common.openOpsConsole]] op. Ënner Mod
 [[Setup.title]] ass fir e Superuser, eng Kéier, ier d'Federatioun an der App schafft. Et ass net den Assistent vum Veräin ënner [Memberen aus enger Tabell importéieren](#import). Op der Demonstratiounsinstallatioun ass d'Säit verstoppt, a si spärt sech, wann Dir fäerdeg sidd.
 
 Maacht d'Ops-Konsol op. Wann d'Ariichtung nach op ass, schéckt d'Iwwersiicht Iech op dës Säit, an e Banner bitt [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
+
+![Éischt Ariichtung](fig:setup)
 
 Dir bréngt dräi Dateien, der Rei no. Op dëser Säit gëtt keng E-Mail geschéckt, an E-Mail-Adressen an de Dateie ginn ignoréiert. [[Setup.summaryEmail]]
 

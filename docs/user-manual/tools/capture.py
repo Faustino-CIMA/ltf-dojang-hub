@@ -4,6 +4,8 @@ Usage:  python capture.py LOCALE [figure_id ...]
   LOCALE = en | lb   (the two UI languages the app ships)
 Writes  ../figures/<LOCALE>/<id>.png  and  ../figures/<LOCALE>/_report.json
 Requires the demo backend on :8000 and frontend on :3000 (see README).
+Every capture forces the light theme. If LTF_TOKENS (default /tmp/manual-tokens.json)
+maps a username to a DRF token, that token is used and the login endpoint is not called.
 """
 import json, sys, os, urllib.request
 from playwright.sync_api import sync_playwright
@@ -13,22 +15,34 @@ from figures import FIGS
 
 API = "http://localhost:8000"; WEB = "http://localhost:3000"; PWD = "Demo-Manual-2026!"
 HERE = os.path.dirname(os.path.abspath(__file__))
-MSG = os.path.join(HERE, "..", "..", "repo", "frontend", "src", "messages")
+MSG = os.environ.get("LTF_MESSAGES", os.path.join(HERE, "..", "..", "..", "frontend", "src", "messages"))
 DPR = 1.5
 RED = (200, 16, 46)
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
+def _preset_tokens():
+    path = os.environ.get("LTF_TOKENS", "/tmp/manual-tokens.json")
+    if os.path.exists(path):
+        return json.load(open(path))
+    return {}
+
+PRESET_TOKENS = _preset_tokens()
+
 def token(user, cache={}):
-    if user not in cache:
-        req = urllib.request.Request(API + "/api/auth/login/", data=json.dumps({"username": user, "password": PWD}).encode(),
-                                     headers={"Content-Type": "application/json"})
-        import time
-        for attempt in range(5):
-            try:
-                cache[user] = json.load(urllib.request.urlopen(req))["token"]; break
-            except Exception:
-                if attempt == 4: raise
-                time.sleep(3)
+    if user in cache:
+        return cache[user]
+    if user in PRESET_TOKENS:
+        cache[user] = PRESET_TOKENS[user]
+        return cache[user]
+    req = urllib.request.Request(API + "/api/auth/login/", data=json.dumps({"username": user, "password": PWD}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    import time
+    for attempt in range(5):
+        try:
+            cache[user] = json.load(urllib.request.urlopen(req))["token"]; break
+        except Exception:
+            if attempt == 4: raise
+            time.sleep(3)
     return cache[user]
 
 def msg(cat, key):
@@ -112,6 +126,10 @@ def trim_bottom(png, keep=20):
     if cut < H - int(8 * DPR):
         im.crop((0, 0, W, cut)).save(png, optimize=True)
 
+def expand_path(path, locale):
+    return (path.replace("{SETUP_TOKEN}", os.environ.get("SETUP_TOKEN", ""))
+                .replace("{LOCALE}", locale))
+
 def main():
     locale = sys.argv[1]
     only = set(sys.argv[2:])
@@ -126,13 +144,17 @@ def main():
                 continue
             w, h = fig.get("w", 1600), fig.get("h", 900)
             ctx = b.new_context(viewport={"width": w, "height": h}, device_scale_factor=DPR,
-                                locale="en-GB" if locale == "en" else "lb-LU", timezone_id="Europe/Luxembourg")
+                                locale="en-GB" if locale == "en" else "lb-LU", timezone_id="Europe/Luxembourg",
+                                color_scheme="light")
             page = ctx.new_page()
+            page.add_init_script('try{localStorage.setItem("ltf-theme","light")}catch(e){}')
             page.goto(f"{WEB}/{locale}/login")
-            page.evaluate("localStorage.clear()")
+            page.evaluate("localStorage.setItem('ltf-theme','light')")
             if fig["user"] != "-":
-                page.evaluate(f"localStorage.setItem('ltf_token', '{token(fig['user'])}')")
-            page.goto(f"{WEB}/{locale}/{fig['path']}")
+                page.evaluate("(t) => localStorage.setItem('ltf_token', t)", token(fig["user"]))
+            for key, value in fig.get("session", {}).items():
+                page.evaluate("(kv) => sessionStorage.setItem(kv[0], kv[1])", [key, expand_path(value, locale)])
+            page.goto(f"{WEB}/{locale}/{expand_path(fig['path'], locale)}")
             try:
                 page.wait_for_load_state("networkidle", timeout=15000)
             except Exception:
@@ -142,13 +164,15 @@ def main():
             for st in fig.get("steps", []):
                 try:
                     if st[0] == "goto":
-                        page.goto(f"{WEB}/{locale}/{st[1]}"); page.wait_for_load_state("networkidle"); page.wait_for_timeout(1200)
+                        page.goto(f"{WEB}/{locale}/{expand_path(st[1], locale)}"); page.wait_for_load_state("networkidle"); page.wait_for_timeout(1200)
                     elif st[0] == "click":
                         locate(page, cat, st[1]).click(timeout=5000); page.wait_for_timeout(400)
                     elif st[0] == "fill":
                         locate(page, cat, st[1]).fill(st[2]); page.wait_for_timeout(150)
                     elif st[0] == "press":
                         page.keyboard.press(st[1]); page.wait_for_timeout(300)
+                    elif st[0] == "scroll":
+                        locate(page, cat, st[1]).scroll_into_view_if_needed(timeout=5000); page.wait_for_timeout(300)
                     elif st[0] == "wait":
                         page.wait_for_timeout(st[1])
                 except Exception as e:
@@ -179,7 +203,7 @@ def main():
                     problems.append(f"crop_sel: {str(e).splitlines()[0][:80]}")
             if fig.get("modal"):
                 try:
-                    bb = page.locator("div.fixed.inset-0 div.max-w-xl").filter(visible=True).first.bounding_box(timeout=4000)
+                    bb = page.locator("aside[role=dialog], div.fixed.inset-0 div.max-w-xl").filter(visible=True).first.bounding_box(timeout=4000)
                 except Exception as e:
                     bb = None; problems.append("modal not found")
                 if bb:
@@ -200,6 +224,7 @@ def main():
             if fig.get("trim", True):
                 trim_bottom(path)
             report[fig["id"]] = {"found": [n for n, _ in boxes], "problems": problems}
+            json.dump(report, open(rep_path, "w"), indent=1)
             print(fig["id"], "OK" if not problems else problems, flush=True)
             ctx.close()
         b.close()

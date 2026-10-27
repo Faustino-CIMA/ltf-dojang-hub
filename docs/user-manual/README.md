@@ -136,13 +136,13 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
 
 ## Quality checks done for this edition
 
-Text only. The 50 figures are still the 0.12.0 captures.
+Screenshots were recaptured from this branch in the light theme, with the fictional demo seed only. English and Luxembourgish each have their own set. German and French keep using the English set. The public sign-in page stays black and red; that is the brand, including when the rest of the app is light.
 
-- `python build.py --check`: all languages in sync (78 headings, 50 figures, same UI-key sequence), and no unknown UI keys.
-- The four PDFs rebuild without errors. The contents include teams and competition (`#club-teams`, `#teams`, `#height-weight`, `#equipment`), the national team (`#national-team`) and first-run setup (`#setup`).
+- `python build.py --check`: all languages in sync (78 headings, 66 figures, same UI-key sequence), and no unknown UI keys.
+- The four PDFs rebuild without errors.
 - Every `#anchor` used in a cross-reference exists in all four sources.
 
-Figures whose screens no longer match the text: `signin` (`#sign-in`), `shell` (`#screen`), `members-list`, `members-menu`, `members-actions` (`#members-list`), `import` (`#import`), `member-new` (`#add-member`), `member-detail` (`#member-record`), `member-record` (`#club-record`), `licences` (`#licences`), `print-jobs` (`#print-cards`), `ltf-print-jobs` (`#ltf-cards`), `committee` (`#committee`), `club-admins` (`#club-admins`), `club-profile` (`#profile-tab`), `club-overview` (`#club-overview`), `ltf-settings` (`#ltf-settings`), `ltf-club` and `ltf-clubs` (`#ltf-clubs`), `ltf-club-admins` (`#ltf-clubs`), `fin-settings` (`#club-fees`). There is no figure yet for first-run setup, account setup, teams, height and weight, equipment sizes, the national team, parked members, or the card checkout. The in-app chrome in every capture is the older theme.
+New figures: `account-setup`, `setup`, `members-menu`, `teams`, `team-roster`, `team-weigh-in`, `height-weight`, `equipment`, `national-team`, `parked-members`, `pay-now`, `checkout-return`, `transfer-request`, `ltf-clubs`, `ltf-club-admins`, `ltf-print-jobs`. The previously unembedded shots are now in the text. `checkout-return` is the in-app cancel page with **Back to club dashboard**, not the card provider's page. `pay-now` is the row menu on an LTF invoice. The billing figure does not number a blocked household: this demo list has none, and the steps under the figure still explain that state. Print-job lists are empty because the demo seed has no card jobs. The sidebar in these shots shows the version string shipped in the app on this branch.
 
 ## Open questions
 

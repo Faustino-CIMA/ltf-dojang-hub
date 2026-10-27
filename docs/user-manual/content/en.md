@@ -174,6 +174,8 @@ A new invitation opens [[AccountSetup.title]]. The page names your role and orga
 3. Type a password in [[AccountSetup.password]] and again in [[AccountSetup.confirmPassword]].
 4. Click [[AccountSetup.submit]].
 
+![A new account: email and password](fig:account-setup)
+
 The page shows [[AccountSetup.successTitle]]. Click [[AccountSetup.signInNow]].
 {: .result}
 
@@ -362,6 +364,8 @@ Coaches see public club events and also [[calendarVisibility_internal]] ones, so
 6. [[Common.rowActionsLabel]] – [[editAction]] or [[deleteAction]] for this row. [[editAction]] opens a side panel.
 </div>
 
+![The members menu: create or import](fig:members-menu)
+
 The [[sexLabel]] column is a small ♂ or ♀, not a large badge. Click a column heading to sort. [[membersMenuLabel]] and the row menu open as small panels.
 
 When the competition module is on, the filters include [[teamsFilterNone]].
@@ -523,6 +527,8 @@ To send a member to another club:
 
 ![Choosing a member and the new club](fig:transfers)
 
+![The transfer fee, before the request is sent](fig:transfer-request)
+
 To answer a request from another club:
 {: .proc}
 
@@ -597,7 +603,6 @@ Once fees and families are ready, billing the whole club takes a few clicks.
 4. [[reviewIssueAction]]
 5. [[selectReady]]
 6. Status filter.
-7. A household marked [[billingBlocked]] – open it to see why.
 </div>
 
 1. Open [[navFinance]] › [[navBilling]] and choose the [[billingYear]].
@@ -657,7 +662,11 @@ Pay by bank transfer and put the invoice number in the communication. LTF Financ
 
 Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. A card checkout opens (Stripe). When the payment is confirmed, the licences are activated and the page reads [[Checkout.successTitle]].
 
+![Pay now, in the row menu of an LTF invoice](fig:pay-now)
+
 If you cancel, the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licences stay as they were.
+
+![Payment cancelled, with the way back to the club](fig:checkout-return)
 
 After paying or cancelling, the button names the desk you left:
 
@@ -812,6 +821,8 @@ A pass records the new grade on the member's [[memberGradesTab]] tab.
 
 ## Teams {#teams}
 
+![The teams list](fig:teams)
+
 1. Open [[navTeams]] and click [[teamsAdd]]. The form opens in a side panel.
 2. Enter [[teamsName]]. Choose [[teamsDisciplineKyorugi]] or [[teamsDisciplinePoomsae]]. Click [[teamsSave]].
 3. Open the team. [[teamsManageAction]] adds and removes people. Each person is [[teamRoleAthlete]] or [[teamRoleCoach]]. Coaches are listed first.
@@ -823,9 +834,15 @@ A pass records the new grade on the member's [[memberGradesTab]] tab.
 
 On [[navMembers]], [[teamsFilterNone]] lists members who are not on a team.
 
+![The team sheet](fig:team-roster)
+
+![Quick weigh-in for the squad](fig:team-weigh-in)
+
 ## Height and weight {#height-weight}
 
 On the team sheet, expand a person and open [[heightWeightTitle]]. [[heightWeightHint]] Click [[heightWeightAdd]] and record a dated weight, a height, or both. Only this club can see the measurements. They are not printed on the licence card.
+
+![Height and weight on the team sheet](fig:height-weight)
 
 ## Equipment sizes {#equipment}
 
@@ -834,6 +851,8 @@ Sizes are kept in three groups: [[gearProtectors]], [[gearEgear]] and [[gearClot
 The club decides which clothes it orders. Open [[navSettings]] › [[clubSettingsEquipmentTab]]. Under [[clothingSizesTitle]], click [[clothingAdd]] and enter the sizes you actually buy. [[clothingSizesHint]]
 
 Under [[egearBrandsTitle]], switch [[gearDaedo]] or [[gearKpnp]] off if the club does not use that brand. [[egearBrandsHint]] Sizes already stored on members stay, including when the brand is switched off.
+
+![Clothing sizes and electronic-gear brands](fig:equipment)
 
 # Club admin: the club shop {#shop}
 
@@ -1038,6 +1057,8 @@ The overview counts clubs, members and licences, and its action queue lists club
 
 [[LtfAdmin.navClubs]] lists all clubs. Open a club to edit its details, upload its logos (for invoices, printing and screens) and see its members.
 
+![All clubs](fig:ltf-clubs)
+
 ![A club seen by the LTF](fig:ltf-club)
 
 On the club's page, set [[LtfAdmin.federationLabel]] to [[LtfAdmin.federationWt]] or [[LtfAdmin.federationItf]], and the [[LtfAdmin.rcsNumberLabel]] when you have one (for example B123456). [[LtfAdmin.headOfficeLabel]] uses the Luxembourg address lookup. [[TrainingVenues.title]] lists training halls and is not the head office. The same fields are on the club's own [Profile](#profile-tab).
@@ -1046,12 +1067,16 @@ After you upload a logo, the page shows a preview. While it loads, it says [[Com
 
 [[LtfAdmin.navClubAdmins]] works like the club page described in [Club admins](#club-admins), but for every club. The row menu sends a link again: [[accessSendInvite]] or [[accessCopyInvite]] when the person has not chosen a password yet, and [[accessSendReset]] or [[accessCopyReset]] when they have. Copying does not need an email address. Sending does. Each invitation link works once. See [Your first password](#first-password).
 
+![Club admins for every club](fig:ltf-club-admins)
+
 ## Members, licences and transfers {#ltf-licences}
 
 - [[LtfAdmin.navMembers]] and [[LtfAdmin.navLicenses]] show all clubs at once; use the club panel at the top to narrow down. Click a column heading to sort. On the licence list, [[editAction]] and [[deleteAction]] are in [[Common.rowActionsLabel]], and edit opens a side panel.
 - Filter members with [[LtfAdmin.staffFilterStaff]] to see federation staff. A person with no club is shown as [[LtfAdmin.noClub]]. [[LtfAdmin.staffAddAction]] opens a side panel. Leave the club on [[LtfAdmin.staffNoClubOption]] to licence them as LTF staff, with no club order and no club invoice. [[LtfAdmin.staffIssueAction]] issues the licence for the year you choose. The current year is active at once. A past staff licence expires like a club licence and then shows as expired.
 - [[LtfAdmin.navParkedMembers]] lists people saved during an import until you assign a club and a sex, or delete the row. [[LtfAdmin.parkedSubtitle]] They are not in a club list, a licence, a card, a team or a count. See [First-run setup](#setup).
 - [[LtfAdmin.navMemberTransfers]] lists recent club changes, transfers with a fee and possible {{club tourists}} – members who changed club unusually often.
+
+![Parked members waiting for a club](fig:parked-members)
 
 ![Federation transfers](fig:ltf-transfers)
 
@@ -1061,11 +1086,15 @@ After you upload a logo, the page shows a preview. While it loads, it says [[Com
 
 ![The card designer](fig:designer)
 
+![Print jobs from every club](fig:ltf-print-jobs)
+
 ## National team {#national-team}
 
 [[LtfAdmin.navNationalTeam]] is the federation's squad desk. LTF Admin can change it. LTF Finance can open the same desk and only read it. Clubs do not see this page. On a club member they only see [[nationalTeamBadge]], with the squad and the season, and not this staff file.
 
 The page has three parts: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] and [[LtfAdmin.nationalTeamTabLevels]]. Filters use [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] and [[LtfAdmin.nationalTeamClub]]. Forms open in a side panel.
+
+![The national team desk](fig:national-team)
 
 **Selections.** [[LtfAdmin.nationalTeamAddSquad]] adds a squad. [[LtfAdmin.nationalTeamAddSquadHint]] [[LtfAdmin.nationalTeamAddSelection]] adds an athlete from a club for the season. Set [[LtfAdmin.nationalTeamAgeClass]]. The classes include [[LtfAdmin.nationalTeamAgePupils]] and [[LtfAdmin.nationalTeamAgeMinimes]], which are regional and not World Taekwondo divisions, plus [[LtfAdmin.nationalTeamAgeCadet]], [[LtfAdmin.nationalTeamAgeJunior]] and [[LtfAdmin.nationalTeamAgeSenior]]. [[LtfAdmin.nationalTeamWeight]] may be left empty. Status is recorded as [[LtfAdmin.nationalTeamLevel]], [[LtfAdmin.nationalTeamCosl]] and [[LtfAdmin.nationalTeamSupport]] (Sportlycée or SSEA).
 
@@ -1131,6 +1160,8 @@ The technical administrator opens the [[Common.openOpsConsole]]. Under Modules, 
 [[Setup.title]] is for a superuser, once, before the federation works in the app. It is not the club wizard in [Importing members](#import). It is hidden on the demonstration installation, and it locks when you finish.
 
 Open the ops console. If setup is still open, the overview sends you to this page, and a banner offers [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
+
+![First-run setup](fig:setup)
 
 You bring in three files, in order. Nothing on this page sends an email, and email addresses in the files are ignored. [[Setup.summaryEmail]]
 
