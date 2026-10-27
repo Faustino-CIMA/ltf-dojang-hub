@@ -138,20 +138,36 @@ def parse_membership_year_policies(raw):
     return {"years": years, "unknown": unknown}
 
 
-def parse_membership_end_year(value, date_format):
+_MEMBERSHIP_END_FALLBACKS = ("%d/%m/%Y", "%d.%m.%Y", "%d-%m-%Y", "%Y-%m-%d")
+
+
+def parse_membership_end_date(value, date_format):
+    """Read a Membership End Date the way the regular member import does.
+
+    The chosen format is tried first. The same four fallbacks follow. An empty
+    cell and an unreadable cell both return None; callers tell them apart by
+    whether the raw text was blank.
+    """
     raw = str(value or "").strip()
     if not raw:
         return None
     local_errors: list[str] = []
     parsed = parse_date(raw, local_errors, "membership_end_date", date_format)
     if parsed:
-        return parsed.year
-    for pattern in ("%d/%m/%Y", "%d.%m.%Y", "%d-%m-%Y", "%Y-%m-%d"):
+        return parsed
+    for pattern in _MEMBERSHIP_END_FALLBACKS:
         try:
-            return datetime.strptime(raw, pattern).date().year
+            return datetime.strptime(raw, pattern).date()
         except Exception:
             continue
     return None
+
+
+def parse_membership_end_year(value, date_format):
+    parsed = parse_membership_end_date(value, date_format)
+    if parsed is None:
+        return None
+    return parsed.year
 
 
 def membership_end_year_for_row(row_data, mapping, date_format, headers=None):
@@ -170,6 +186,20 @@ def membership_year_policy_for(year, policies):
     if year is None:
         return policies["unknown"]
     return policies["years"].get(year, policies["unknown"])
+
+
+def default_membership_year_policy(year, current_year):
+    """Default the regular member import uses when Membership End Date is present.
+
+    Current and future years are imported as Active. Past years are not imported.
+    A missing or unreadable year is not imported. The setup wizard calls this
+    same rule, then stores Inactive for a past year so the person is still imported.
+    """
+    if year is None:
+        return "skip"
+    if year >= current_year:
+        return "active"
+    return "skip"
 
 
 def resolve_license_role_value(has_row_override, override, field_name, csv_value, errors):

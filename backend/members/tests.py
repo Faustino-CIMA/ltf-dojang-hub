@@ -1564,6 +1564,65 @@ class MemberImportTests(TestCase):
         member = Member.objects.get(first_name="Ana", last_name="NG")
         self.assertTrue(member.is_active)
 
+    def test_regular_import_year_policy_defaults_are_unchanged(self):
+        from imports.views import default_membership_year_policy, parse_membership_end_date, parse_membership_end_year
+
+        self.assertIsNone(parse_membership_end_date("", "DD/MM/YYYY"))
+        self.assertIsNone(parse_membership_end_date("not-a-date", "DD/MM/YYYY"))
+        self.assertEqual(parse_membership_end_date("31/12/2025", "DD/MM/YYYY"), date(2025, 12, 31))
+        self.assertEqual(parse_membership_end_date("31/12/2026", "YYYY-MM-DD"), date(2026, 12, 31))
+        self.assertEqual(parse_membership_end_date("31.12.2026", "YYYY-MM-DD"), date(2026, 12, 31))
+        self.assertEqual(parse_membership_end_date("31-12-2026", "YYYY-MM-DD"), date(2026, 12, 31))
+        self.assertEqual(parse_membership_end_date("2026-12-31", "DD/MM/YYYY"), date(2026, 12, 31))
+        self.assertEqual(parse_membership_end_year("01/01/2026", "DD/MM/YYYY"), 2026)
+        current = 2026
+        self.assertEqual(default_membership_year_policy(None, current), "skip")
+        self.assertEqual(default_membership_year_policy(2025, current), "skip")
+        self.assertEqual(default_membership_year_policy(2026, current), "active")
+        self.assertEqual(default_membership_year_policy(2027, current), "active")
+
+        self.client.force_authenticate(user=self.ltf_admin)
+        csv_data = (
+            "first_name,last_name,Membership End Date\n"
+            "Pia,Past,31/12/2025\n"
+            "Noe,Early,01/01/2026\n"
+            "Lea,Later,31/12/2027\n"
+            "Gus,Blank,\n"
+            "Ida,Unread,not-a-date\n"
+        )
+        file_obj = BytesIO(csv_data.encode("utf-8"))
+        file_obj.name = "members_default_year_policy.csv"
+        policies = {
+            "enabled": True,
+            "years": {
+                "2025": default_membership_year_policy(2025, current),
+                "2026": default_membership_year_policy(2026, current),
+                "2027": default_membership_year_policy(2027, current),
+            },
+            "unknown": default_membership_year_policy(None, current),
+        }
+        response = self.client.post(
+            "/api/imports/members/confirm/",
+            {
+                "file": file_obj,
+                "mapping": json.dumps({"first_name": "first_name", "last_name": "last_name"}),
+                "club_id": self.club.id,
+                "date_format": "DD/MM/YYYY",
+                "membership_year_policies": json.dumps(policies),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["created"], 2)
+        self.assertEqual(response.data["skipped"], 3)
+        early = Member.objects.get(first_name="Noe", last_name="EARLY")
+        later = Member.objects.get(first_name="Lea", last_name="LATER")
+        self.assertTrue(early.is_active)
+        self.assertTrue(later.is_active)
+        self.assertFalse(Member.objects.filter(first_name="Pia").exists())
+        self.assertFalse(Member.objects.filter(first_name="Gus").exists())
+        self.assertFalse(Member.objects.filter(first_name="Ida").exists())
+
     def _member_file(self, csv_data, name="members.csv"):
         file_obj = BytesIO(csv_data.encode("utf-8"))
         file_obj.name = name
