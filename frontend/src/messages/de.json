@@ -90,7 +90,13 @@
     "selectedClubPlaceholder": "Verein wählen",
     "allClubsOption": "Alle Vereine",
     "clubSearchPlaceholder": "Verein suchen",
-    "clubSearchEmpty": "Kein Verein passt"
+    "clubSearchEmpty": "Kein Verein passt",
+    "logoReplaceAction": "Ersetzen",
+    "logoReplaceFileLabel": "Datei für das neue Logo",
+    "logoRemoveAction": "Entfernen",
+    "logoReplaceSuccess": "Logo ersetzt.",
+    "logoReplaceKeepPrevious": "Das neue Logo ist gespeichert. Das bisherige Logo ist noch in der Bibliothek.",
+    "logoPreviewLoading": "Logovorschau wird geladen"
   },
   "ClubAdmin": {
     "federationLabel": "Verband",

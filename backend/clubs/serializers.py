@@ -241,17 +241,18 @@ class BrandingAssetSerializer(serializers.ModelSerializer):
             return 0
 
     def get_content_url(self, obj: BrandingAsset) -> str | None:
-        request = self.context.get("request")
+        # Root-relative on purpose. build_absolute_uri follows the socket the
+        # proxy opened, so live responses become http:// or an internal host.
+        # The browser then cannot load the preview. The client resolves this
+        # path against the public API origin.
         if obj.scope_type == BrandingAsset.ScopeType.CLUB and obj.club_id:
-            path = f"/api/clubs/{obj.club_id}/logos/{obj.id}/content/"
-        elif (
+            return f"/api/clubs/{obj.club_id}/logos/{obj.id}/content/"
+        if (
             obj.scope_type == BrandingAsset.ScopeType.FEDERATION
             and obj.federation_profile_id
         ):
-            path = f"/api/federation-profile/logos/{obj.id}/content/"
-        else:
-            return None
-        return request.build_absolute_uri(path) if request else path
+            return f"/api/federation-profile/logos/{obj.id}/content/"
+        return None
 
 
 class BrandingAssetCreateSerializer(serializers.Serializer):
