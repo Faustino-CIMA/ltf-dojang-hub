@@ -305,7 +305,7 @@ export default function LtfAdminSettingsPage() {
                 idPrefix="federation"
                 showCountry={false}
                 value={{
-                  ...splitStreetLine(addressLine1),
+                  ...splitStreetLine(addressLine1, { postal_code: postalCode, locality: localityValue }),
                   line2: addressLine2,
                   postal_code: postalCode,
                   locality: localityValue,

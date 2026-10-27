@@ -1,4 +1,11 @@
-import { applyAddressSuggestion, applyPostalLookup, splitAddressSuggestion } from "@/lib/address-suggestion";
+import {
+  applyAddressSuggestion,
+  applyPostalLookup,
+  joinStreetLine,
+  lookupStreetNames,
+  splitAddressSuggestion,
+  splitStreetLine,
+} from "@/lib/address-suggestion";
 
 const empty = { street: "", house_number: "", postal_code: "", locality: "" };
 
@@ -44,6 +51,53 @@ describe("address suggestion splitting", () => {
       postal_code: "2449",
       locality: "Luxembourg",
     });
+  });
+
+  it("street suggestions are street names, even when the lookup label is a whole address", () => {
+    expect(
+      lookupStreetNames(
+        ["Boulevard Royal", "Rue des Roses, L-2445 Luxembourg"],
+        [
+          {
+            street: "Boulevard Royal",
+            label: "10, Boulevard Royal, L-2449 Luxembourg",
+          },
+          { label: "4, Rue des Roses, L-2445 Luxembourg" },
+        ],
+      ),
+    ).toEqual(["Boulevard Royal", "Rue des Roses"]);
+  });
+
+  it("reloads a joined number and street, and keeps a line that cannot be split safely", () => {
+    expect(splitStreetLine("12 Rue de Test", { postal_code: "1234", locality: "Musterstadt" })).toEqual({
+      house_number: "12",
+      street: "Rue de Test",
+    });
+    expect(splitStreetLine("12, Rue de la Gare")).toEqual({
+      house_number: "12",
+      street: "Rue de la Gare",
+    });
+    expect(
+      splitStreetLine("10, Boulevard Royal, L-2449 Luxembourg", {
+        postal_code: "2449",
+        locality: "Luxembourg",
+      }),
+    ).toEqual({ house_number: "10", street: "Boulevard Royal" });
+    expect(
+      splitStreetLine("10 Boulevard Royal, L-2449 Luxembourg", {
+        postal_code: "L-2449",
+        locality: "Luxembourg",
+      }),
+    ).toEqual({ house_number: "10", street: "Boulevard Royal" });
+
+    const unsplittable = "10, Boulevard Royal, L-2449 Luxembourg";
+    expect(splitStreetLine(unsplittable)).toEqual({ house_number: "", street: unsplittable });
+    expect(splitStreetLine("Secretariat, building C")).toEqual({
+      house_number: "",
+      street: "Secretariat, building C",
+    });
+    expect(splitStreetLine("12 99")).toEqual({ house_number: "", street: "12 99" });
+    expect(joinStreetLine("10", "Boulevard Royal")).toBe("10 Boulevard Royal");
   });
 
   it("street then postcode: the lookup fills locality and leaves the typed street alone", () => {
