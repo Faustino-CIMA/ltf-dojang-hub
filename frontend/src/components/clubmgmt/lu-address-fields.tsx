@@ -11,6 +11,7 @@ import { lookupLuAddress, type AddressLookup } from "@/lib/clubmgmt-api";
 import {
   applyAddressSuggestion,
   applyPostalLookup,
+  houseNumberOptions,
   lookupStreetNames,
   splitAddressSuggestion,
 } from "@/lib/address-suggestion";
@@ -50,6 +51,8 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
   }, [value]);
   const [streets, setStreets] = useState<string[]>([]);
   const [houses, setHouses] = useState<HouseSuggestion[]>([]);
+  const [streetHouses, setStreetHouses] = useState<HouseSuggestion[]>([]);
+  const [streetHouseQuery, setStreetHouseQuery] = useState("");
   const [localities, setLocalities] = useState<string[]>([]);
   const [streetFocused, setStreetFocused] = useState(false);
 
@@ -89,8 +92,39 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     } catch {
       setStreets([]);
       setHouses([]);
+      setStreetHouses([]);
+      setStreetHouseQuery("");
     }
   };
+
+  const lookupEnabled = countryConfig.lookup;
+  const postalDigits = countryConfig.postalDigits;
+  useEffect(() => {
+    if (!lookupEnabled) return;
+    const postal = value.postal_code.replace(/\D/g, "");
+    const street = value.street.trim();
+    setStreetHouses([]);
+    setStreetHouseQuery("");
+    if (postal.length !== postalDigits || street.length < 2) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void lookupLuAddress(postal, street)
+        .then((result) => {
+          if (cancelled) return;
+          setStreetHouses(result.houses);
+          setStreetHouseQuery(street);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setStreetHouses([]);
+          setStreetHouseQuery("");
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [lookupEnabled, postalDigits, value.postal_code, value.street]);
 
   const pickSuggestion = (suggestion: string) => {
     const current = valueRef.current;
@@ -104,6 +138,8 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     setLocalities([]);
     setStreets([]);
     setHouses([]);
+    setStreetHouses([]);
+    setStreetHouseQuery("");
     onChange({
       ...value,
       country: next,
@@ -111,7 +147,11 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     });
   };
 
-  const houseNumbers = houses.filter((row) => !value.street || row.street === value.street);
+  const numberSource =
+    streetHouseQuery.trim().toLowerCase() === value.street.trim().toLowerCase() && streetHouses.length > 0
+      ? streetHouses
+      : houses;
+  const houseNumbers = houseNumberOptions(numberSource, value.street);
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -148,6 +188,8 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
             } else {
               setStreets([]);
               setHouses([]);
+              setStreetHouses([]);
+              setStreetHouseQuery("");
               setLocalities([]);
             }
           }}
@@ -219,12 +261,13 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
           id={`${idPrefix}-number`}
           className="mt-1"
           list={`${listId}-houses`}
+          autoComplete="off"
           value={value.house_number}
           onChange={(event) => onChange({ ...valueRef.current, country, house_number: event.target.value })}
         />
         <datalist id={`${listId}-houses`}>
-          {houseNumbers.map((row) => (
-            <option key={`${row.street}-${row.house_number}-${row.postal_code}`} value={row.house_number} />
+          {houseNumbers.map((number) => (
+            <option key={number} value={number} />
           ))}
         </datalist>
       </div>

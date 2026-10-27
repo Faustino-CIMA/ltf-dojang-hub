@@ -5,9 +5,11 @@ export type AddressParts = {
   locality: string;
 };
 
-const HOUSE_PREFIX = /^(\d+[A-Za-z]?)\s*,\s*(.+)$/;
+// One trailing letter, or bis/ter/quater. "3rd floor" does not match: the extra letters block the split.
+const HOUSE_TOKEN = String.raw`\d+\s*(?:bis|ter|quater|[A-Za-z])?`;
+const HOUSE_PREFIX = new RegExp(`^(${HOUSE_TOKEN})\\s*,\\s*(.+)$`, "i");
 const POSTAL_IN_REST = /^(.*?)(?:,\s*)?L-(\d{4})\s+(.+)$/i;
-const LEADING_NUMBER = /^(\d+[A-Za-z]?)\s+(.+)$/;
+const LEADING_NUMBER = new RegExp(`^(${HOUSE_TOKEN})\\s+(.+)$`, "i");
 
 export function splitAddressSuggestion(label: string): AddressParts {
   const original = label.trim().replace(/\s+/g, " ");
@@ -138,4 +140,33 @@ export function lookupStreetNames(
 
 export function joinStreetLine(houseNumber: string, street: string): string {
   return [houseNumber.trim(), street.trim()].filter(Boolean).join(" ");
+}
+
+function houseNumberRank(value: string): [number, string, string] {
+  const match = value.trim().match(/^(\d+)\s*([A-Za-z]*)$/);
+  if (!match) return [Number.MAX_SAFE_INTEGER, value.toLowerCase(), value.toLowerCase()];
+  return [Number(match[1]), match[2].toLowerCase(), value.toLowerCase()];
+}
+
+/** House numbers for one street, in numeric order, keeping letter suffixes such as 17B. */
+export function houseNumberOptions(
+  rows: Array<{ house_number?: string; street?: string }>,
+  street = "",
+): string[] {
+  const wanted = street.trim().toLowerCase();
+  const seen = new Map<string, string>();
+  for (const row of rows) {
+    if (wanted && (row.street || "").trim().toLowerCase() !== wanted) continue;
+    const number = (row.house_number || "").trim();
+    if (!number) continue;
+    const key = number.toLowerCase().replace(/\s+/g, "");
+    if (!seen.has(key)) seen.set(key, number);
+  }
+  return [...seen.values()].sort((a, b) => {
+    const left = houseNumberRank(a);
+    const right = houseNumberRank(b);
+    if (left[0] !== right[0]) return left[0] - right[0];
+    if (left[1] !== right[1]) return left[1] < right[1] ? -1 : 1;
+    return left[2] < right[2] ? -1 : left[2] > right[2] ? 1 : 0;
+  });
 }
