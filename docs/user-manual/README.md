@@ -9,7 +9,7 @@ One source tree builds four print-ready PDFs:
 | Français | `LTF-Dojang-Hub-Manuel-utilisateur-FR.pdf` | English UI (the app has no French UI) | `figures/en/` |
 | Lëtzebuergesch | `LTF-Dojang-Hub-Benotzerhandbuch-LB.pdf` | Luxembourgish UI | `figures/lb/` |
 
-The manual describes app version **0.12.0** (repo commit `e6c68c8`). All people, clubs and numbers in the
+The manual describes app version **0.13.0** (develop commit `0a2093e`). Screenshots were not recaptured for this edition; where a screen differs from the text, the screen is right. All people, clubs and numbers in the
 screenshots come from an invented demo data set. There is no real personal data.
 
 ## Layout
@@ -135,9 +135,14 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
   - `keys.py`: lists the EN | LB strings used by a frontend source file. Useful for checking wording.
 
 ## Quality checks done for this edition
-- All 50 figures were checked by eye in both sets (EN and LB). None shows an error, a loading state, an empty list where content is expected, the wrong role or the wrong language.
-- `python build.py --check`: all languages in sync (72 headings, 50 figures, same UI-key sequence), and no unknown UI keys.
-- Every page of all four PDFs was rendered to PNG (`pdftoppm`) and checked by eye: cover, TOC page numbers, figures and legends, call-outs, glossary, index (no duplicate page numbers) and cross-reference page numbers.
+
+Text only. The 50 figures are still the 0.12.0 captures.
+
+- `python build.py --check`: all languages in sync (78 headings, 50 figures, same UI-key sequence), and no unknown UI keys.
+- The four PDFs rebuild without errors. The contents include teams and competition (`#club-teams`, `#teams`, `#height-weight`, `#equipment`), the national team (`#national-team`) and first-run setup (`#setup`).
+- Every `#anchor` used in a cross-reference exists in all four sources.
+
+Figures whose screens no longer match the text: `signin` (`#sign-in`), `shell` (`#screen`), `members-list`, `members-menu`, `members-actions` (`#members-list`), `import` (`#import`), `member-new` (`#add-member`), `member-detail` (`#member-record`), `member-record` (`#club-record`), `licences` (`#licences`), `print-jobs` (`#print-cards`), `ltf-print-jobs` (`#ltf-cards`), `committee` (`#committee`), `club-admins` (`#club-admins`), `club-profile` (`#profile-tab`), `club-overview` (`#club-overview`), `ltf-settings` (`#ltf-settings`), `ltf-club` and `ltf-clubs` (`#ltf-clubs`), `ltf-club-admins` (`#ltf-clubs`), `fin-settings` (`#club-fees`). There is no figure yet for first-run setup, account setup, teams, height and weight, equipment sizes, the national team, parked members, or the card checkout. The in-app chrome in every capture is the older theme.
 
 ## Open questions
 
@@ -152,7 +157,7 @@ Status after Faustino's answers (6 October 2026):
 | 5 | Privacy page `/settings/privacy` | **Resolved.** Own section in Getting started, checked against the code. The page is reached by URL only, its text is English only, and it is marked as being reviewed. |
 | 6 | Subsidies hint says "Trainers" while the tab is "Coaches" | Open |
 | 7 | Inconsistent LB UI strings | Open |
-| 8 | Pay now | **Resolved.** Test payments only, and the provider is not decided. The manual says so and names no provider. |
+| 8 | Pay now | **Resolved.** Live card checkout (Stripe) on an LTF invoice the club still has to pay, when the server is configured. The manual names the return buttons (`Checkout.returnClub` and the other desks) and does not name hosts, keys or return addresses. If the card page does not open, the invoice is unchanged and the club pays by transfer. |
 | 9 | Date inputs follow the browser locale | For information; covered in the FAQ |
 | 10 | Printer profiles can only be edited by LTF Admin | Open |
 | 11 | Federation inventory and tournaments are not shipped | Open (not documented) |

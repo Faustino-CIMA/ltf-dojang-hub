@@ -15,10 +15,10 @@
   fr: {term: Membre, text: "Sportif d'un club. Les membres et les parents n'ont pas d'identifiant ; le club gère leurs données."}
   lb: {term: Member, text: "Sportler vun engem Veräin. Memberen an Elteren hu kee Login; de Veräin këmmert sech ëm hir Donnéeën."}
 - key: Common.roleLtfAdmin
-  en: {term: LTF Admin, text: "Federation office. Manages clubs, licences, cards and the federation calendar."}
-  de: {term: LTF-Admin, text: "Verbandsbüro. Verwaltet Vereine, Lizenzen, Karten und den Verbandskalender."}
-  fr: {term: Admin LTF, text: "Secrétariat de la fédération. Gère les clubs, les licences, les cartes et le calendrier fédéral."}
-  lb: {term: LTF-Admin, text: "Büro vun der Federatioun. Geréiert Veräiner, Lizenzen, Kaarten an de Kalenner vun der Federatioun."}
+  en: {term: LTF Admin, text: "Federation office. Manages clubs, licences, cards, the national team and the federation calendar."}
+  de: {term: LTF-Admin, text: "Verbandsbüro. Verwaltet Vereine, Lizenzen, Karten, die Nationalmannschaft und den Verbandskalender."}
+  fr: {term: Admin LTF, text: "Secrétariat de la fédération. Gère les clubs, les licences, les cartes, l'équipe nationale et le calendrier fédéral."}
+  lb: {term: LTF-Admin, text: "Büro vun der Federatioun. Geréiert Veräiner, Lizenzen, Kaarten, d'Nationalequipe an de Kalenner vun der Federatioun."}
 - key: Common.roleLtfFinance
   en: {term: LTF Finance, text: "Federation treasurer. Prices, invoices to clubs, payments and federation books."}
   de: {term: LTF-Finanzen, text: "Verbandsschatzmeister. Preise, Rechnungen an Vereine, Zahlungen und Verbandsbuchhaltung."}
@@ -145,12 +145,32 @@
   fr: {term: Touriste de club, text: "Membre signalé après de nombreux changements de club ; les transferts restent possibles."}
   lb: {term: Clubtourist, text: "Member, deen no ville Clubwiesselen markéiert gëtt; Transferte bleiwe méiglech."}
 - key: Import.importMembers
-  en: {term: Import, text: "Creating many members at once from a CSV file, in five steps."}
-  de: {term: Import, text: "Viele Mitglieder auf einmal aus einer CSV-Datei anlegen, in fünf Schritten."}
-  fr: {term: Import, text: "Créer de nombreux membres d'un coup à partir d'un fichier CSV, en cinq étapes."}
-  lb: {term: Import, text: "Vill Memberen op eemol aus enger CSV-Datei uleeën, a fënnef Schrëtt."}
+  en: {term: Import, text: "Creating or updating many members at once from a CSV file. Empty cells do not clear values already stored. Not the federation's first-run setup."}
+  de: {term: Import, text: "Viele Mitglieder auf einmal aus einer CSV-Datei anlegen oder aktualisieren. Leere Zellen löschen keine gespeicherten Werte. Nicht die Ersteinrichtung des Verbands."}
+  fr: {term: Import, text: "Créer ou mettre à jour de nombreux membres d'un coup à partir d'un fichier CSV. Les cellules vides n'effacent pas les valeurs déjà enregistrées. Ce n'est pas la première installation de la fédération."}
+  lb: {term: Import, text: "Vill Memberen op eemol aus enger CSV-Datei uleeën oder aktualiséieren. Eidel Zellen läschen keng gespäichert Wäerter. Net déi éischt Ariichtung vun der Federatioun."}
 - key: ""
-  en: {term: Module, text: "Part of the app switched on per club by the LTF, such as club management or the event calendar."}
-  de: {term: Modul, text: "Teil der App, den die LTF pro Verein freischaltet, z. B. Vereinsverwaltung oder Veranstaltungskalender."}
-  fr: {term: Module, text: "Partie de l'application activée par club par la LTF, par ex. gestion du club ou calendrier."}
-  lb: {term: Modul, text: "Deel vun der App, deen d'LTF pro Veräin fräischalt, z. B. Clubverwaltung oder Evenementskalenner."}
+  en: {term: Module, text: "Part of the app switched on per club by the LTF, such as club management, the event calendar or competition. An unpaid module invoice does not switch it off."}
+  de: {term: Modul, text: "Teil der App, den die LTF pro Verein freischaltet, z. B. Vereinsverwaltung, Veranstaltungskalender oder Wettkampf. Eine unbezahlte Modulrechnung schaltet das Modul nicht aus."}
+  fr: {term: Module, text: "Partie de l'application activée par club par la LTF, par ex. gestion du club, calendrier ou compétition. Une facture de module impayée ne le désactive pas."}
+  lb: {term: Modul, text: "Deel vun der App, deen d'LTF pro Veräin fräischalt, z. B. Clubverwaltung, Evenementskalenner oder Competitioun. Eng onbezuelt Modulrechnung schalt de Modul net aus."}
+- key: LtfFinance.moduleFeesTitle
+  en: {term: Module fee, text: "Yearly price LTF Finance sets for club management and the event calendar, as a flat amount or per active member. Club admins can read the estimate."}
+  de: {term: Modulgebühr, text: "Jahrespreis, den LTF-Finanzen für Vereinsverwaltung und Veranstaltungskalender festlegen, als Pauschale oder je aktivem Mitglied. Club-Admins können die Schätzung lesen."}
+  fr: {term: Frais de module, text: "Prix annuel fixé par les finances LTF pour la gestion du club et le calendrier, forfaitaire ou par membre actif. Les administrateurs de club peuvent lire l'estimation."}
+  lb: {term: Modulkäscht, text: "Jorespräis, deen d'LTF-Finanzen fir d'Clubverwaltung an de Kalenner festleeën, als Pauschal oder pro aktivem Member. Club-Admins kënnen d'Schätzung liesen."}
+- key: LtfAdmin.navNationalTeam
+  en: {term: National team, text: "Federation desk for squads, age class, weight and staff. Clubs see only a read-only badge with the squad and the season."}
+  de: {term: Nationalmannschaft, text: "Verbandsseite für Kader, Altersklasse, Gewicht und Betreuer. Vereine sehen nur ein Lesekennzeichen mit Kader und Saison."}
+  fr: {term: Équipe nationale, text: "Bureau fédéral pour les sélections, la classe d'âge, le poids et le staff. Les clubs ne voient qu'un badge en lecture seule avec la sélection et la saison."}
+  lb: {term: Nationalequipe, text: "Verbandsdesk fir Selektiounen, Altersklass, Gewiicht a Staff. Veräiner gesinn nëmmen e Lies-Badge mat Selektioun a Saison."}
+- key: navTeams
+  en: {term: Team, text: "Club squad for Kyorugi or Poomsae, under the competition module. Roster, weigh-in, poomsae groups and history."}
+  de: {term: Mannschaft, text: "Vereinskader für Kyorugi oder Poomsae, im Wettkampfmodul. Aufgebot, Wiegen, Poomsae-Gruppen und Verlauf."}
+  fr: {term: Équipe, text: "Sélection du club en kyorugi ou poomsae, dans le module compétition. Effectif, pesée, groupes de poomsae et historique."}
+  lb: {term: Ekipp, text: "Veräinskader fir Kyorugi oder Poomsae, am Competitiounsmodul. Opstellung, Weien, Poomsae-Gruppen a Verlaf."}
+- key: Setup.title
+  en: {term: First-run setup, text: "Superuser import of clubs, members and club admins before daily use. Nothing is emailed. Not the club import wizard."}
+  de: {term: Ersteinrichtung, text: "Import von Vereinen, Mitgliedern und Club-Admins durch den Superuser, vor dem Alltag. Es wird nichts per E-Mail verschickt. Nicht der Importassistent des Vereins."}
+  fr: {term: Première installation, text: "Import des clubs, des membres et des administrateurs par le superutilisateur, avant l'usage courant. Aucun e-mail n'est envoyé. Ce n'est pas l'assistant d'import du club."}
+  lb: {term: Éischt Ariichtung, text: "Import vu Veräiner, Memberen a Club-Admins duerch de Superuser, virum Alldag. Et gëtt näischt per E-Mail geschéckt. Net den Import-Assistent vum Veräin."}
