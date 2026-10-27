@@ -80,6 +80,8 @@
     "selectedClubLabel": "Ausgewielte Club",
     "selectedClubPlaceholder": "Club auswielen",
     "allClubsOption": "All Clubben",
+    "clubSearchPlaceholder": "Club sichen",
+    "clubSearchEmpty": "Kee Club passt",
     "rowsPerPageLabel": "Reien pro Säit",
     "rowsPerPageAll": "All",
     "qtyLabel": "Quantitéit",

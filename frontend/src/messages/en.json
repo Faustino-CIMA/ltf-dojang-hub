@@ -80,6 +80,8 @@
     "selectedClubLabel": "Selected club",
     "selectedClubPlaceholder": "Choose a club",
     "allClubsOption": "All clubs",
+    "clubSearchPlaceholder": "Search clubs",
+    "clubSearchEmpty": "No clubs match",
     "rowsPerPageLabel": "Rows per page",
     "rowsPerPageAll": "All",
     "qtyLabel": "Qty",

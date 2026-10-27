@@ -85,7 +85,12 @@
     "themeDark": "Dunkel",
     "themeSystem": "System",
     "demoBadge": "Demo-Umgebung, erfundene Daten",
-    "navGroupCompetition": "Wettkampf"
+    "navGroupCompetition": "Wettkampf",
+    "selectedClubLabel": "Ausgewählter Verein",
+    "selectedClubPlaceholder": "Verein wählen",
+    "allClubsOption": "Alle Vereine",
+    "clubSearchPlaceholder": "Verein suchen",
+    "clubSearchEmpty": "Kein Verein passt"
   },
   "ClubAdmin": {
     "federationLabel": "Verband",

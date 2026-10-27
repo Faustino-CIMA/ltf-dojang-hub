@@ -85,7 +85,12 @@
     "themeDark": "Sombre",
     "themeSystem": "Système",
     "demoBadge": "Environnement de démonstration, données fictives",
-    "navGroupCompetition": "Compétition"
+    "navGroupCompetition": "Compétition",
+    "selectedClubLabel": "Club sélectionné",
+    "selectedClubPlaceholder": "Choisir un club",
+    "allClubsOption": "Tous les clubs",
+    "clubSearchPlaceholder": "Chercher un club",
+    "clubSearchEmpty": "Aucun club ne correspond"
   },
   "ClubAdmin": {
     "federationLabel": "Fédération",
