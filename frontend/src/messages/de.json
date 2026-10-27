@@ -85,7 +85,13 @@
     "themeDark": "Dunkel",
     "themeSystem": "System",
     "demoBadge": "Demo-Umgebung, erfundene Daten",
-    "navGroupCompetition": "Wettkampf"
+    "navGroupCompetition": "Wettkampf",
+    "logoReplaceAction": "Ersetzen",
+    "logoReplaceFileLabel": "Datei für das neue Logo",
+    "logoRemoveAction": "Entfernen",
+    "logoReplaceSuccess": "Logo ersetzt.",
+    "logoReplaceKeepPrevious": "Das neue Logo ist gespeichert. Das bisherige Logo ist noch in der Bibliothek.",
+    "logoPreviewLoading": "Logovorschau wird geladen"
   },
   "ClubAdmin": {
     "federationLabel": "Verband",

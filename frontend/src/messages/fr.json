@@ -85,7 +85,13 @@
     "themeDark": "Sombre",
     "themeSystem": "Système",
     "demoBadge": "Environnement de démonstration, données fictives",
-    "navGroupCompetition": "Compétition"
+    "navGroupCompetition": "Compétition",
+    "logoReplaceAction": "Remplacer",
+    "logoReplaceFileLabel": "Fichier du nouveau logo",
+    "logoRemoveAction": "Retirer",
+    "logoReplaceSuccess": "Logo remplacé.",
+    "logoReplaceKeepPrevious": "Le nouveau logo est enregistré. L'ancien logo est encore dans la bibliothèque.",
+    "logoPreviewLoading": "Chargement de l'aperçu"
   },
   "ClubAdmin": {
     "federationLabel": "Fédération",

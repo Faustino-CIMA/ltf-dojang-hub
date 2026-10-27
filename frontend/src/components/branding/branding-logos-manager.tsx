@@ -86,12 +86,22 @@ function logoDisplayName(logo: BrandingLogoItem, untitled: string): string {
   return untitled;
 }
 
-function resolveImageRequestUrl(rawUrl: string): string {
+export function resolveLogoContentUrl(rawUrl: string, apiUrl: string = API_URL): string {
   try {
-    return new URL(rawUrl, API_URL).toString();
+    const api = new URL(apiUrl);
+    const parsed = new URL(rawUrl, api);
+    return new URL(`${parsed.pathname}${parsed.search}`, api.origin).toString();
   } catch {
     return rawUrl;
   }
+}
+
+function previewContentType(response: Response): boolean {
+  const contentType = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  if (!contentType) {
+    return true;
+  }
+  return contentType.startsWith("image/") || contentType === "application/octet-stream";
 }
 
 function AuthenticatedLogoPreview({
@@ -102,63 +112,91 @@ function AuthenticatedLogoPreview({
   alt: string;
 }) {
   const t = useTranslations("Common");
+  const objectUrlRef = useRef("");
   const [blobUrl, setBlobUrl] = useState("");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let objectUrl = "";
     const controller = new AbortController();
+    let cancelled = false;
     setBlobUrl("");
     setFailed(false);
 
     const load = async () => {
       const token = getToken();
-      const response = await fetch(resolveImageRequestUrl(src), {
+      const response = await fetch(resolveLogoContentUrl(src), {
         method: "GET",
+        cache: "no-store",
         signal: controller.signal,
         headers: token ? { Authorization: `Token ${token}` } : undefined,
       });
-      if (!response.ok) {
+      if (cancelled) {
+        return;
+      }
+      if (!response.ok || !previewContentType(response)) {
         setFailed(true);
         return;
       }
       const blob = await response.blob();
-      objectUrl = URL.createObjectURL(blob);
+      if (cancelled) {
+        return;
+      }
+      if (!blob.size) {
+        setFailed(true);
+        return;
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      if (cancelled) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = objectUrl;
       setBlobUrl(objectUrl);
     };
 
-    void load().catch(() => {
-      if (!controller.signal.aborted) {
-        setFailed(true);
+    void load().catch((error: unknown) => {
+      if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
+        return;
       }
+      setFailed(true);
     });
 
     return () => {
+      cancelled = true;
       controller.abort();
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
     };
   }, [src]);
 
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = "";
+      }
+    };
+  }, []);
+
   if (failed) {
     return (
-      <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted">
+      <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-muted">
         {t("noPreviewAvailable")}
       </div>
     );
   }
   if (!blobUrl) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Spinner />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Spinner label={t("logoPreviewLoading")} />
       </div>
     );
   }
   return (
     // Authenticated logo bytes are loaded as a blob URL.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={blobUrl} alt={alt} className="h-full w-full object-contain p-3" />
+    <img src={blobUrl} alt={alt} className="absolute inset-0 h-full w-full object-contain p-3" />
   );
 }
 
@@ -172,9 +210,14 @@ export function BrandingLogosManager({
 }: BrandingLogosManagerProps) {
   const t = useTranslations("Common");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceTargetRef = useRef<BrandingLogoItem | null>(null);
+  const previewUrlRef = useRef("");
+  const replacementUrlRef = useRef("");
   const dragDepthRef = useRef(0);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [replacement, setReplacement] = useState<{ logoId: number; previewUrl: string } | null>(null);
   const [logoUsage, setLogoUsage] = useState<LogoUsageType>("general");
   const [logoLabel, setLogoLabel] = useState("");
   const [markUploadedAsSelected, setMarkUploadedAsSelected] = useState(true);
@@ -217,13 +260,31 @@ export function BrandingLogosManager({
 
   useEffect(() => {
     if (!logoFile) {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = "";
+      }
       setPreviewUrl("");
       return;
     }
     const objectUrl = URL.createObjectURL(logoFile);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    previewUrlRef.current = objectUrl;
     setPreviewUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
   }, [logoFile]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+      if (replacementUrlRef.current) {
+        URL.revokeObjectURL(replacementUrlRef.current);
+      }
+    };
+  }, []);
 
   const chooseFile = () => {
     fileInputRef.current?.click();
@@ -274,6 +335,62 @@ export function BrandingLogosManager({
     setIsDragging(false);
     const file = event.dataTransfer.files?.[0] ?? null;
     assignFile(file);
+  };
+
+  const clearReplacementPreview = () => {
+    if (replacementUrlRef.current) {
+      URL.revokeObjectURL(replacementUrlRef.current);
+      replacementUrlRef.current = "";
+    }
+    setReplacement(null);
+  };
+
+  const beginReplace = (logo: BrandingLogoItem) => {
+    replaceTargetRef.current = logo;
+    replaceInputRef.current?.click();
+  };
+
+  const handleReplaceFile = async (file: File | null) => {
+    const logo = replaceTargetRef.current;
+    replaceTargetRef.current = null;
+    if (replaceInputRef.current) {
+      replaceInputRef.current.value = "";
+    }
+    if (!file || !logo) {
+      return;
+    }
+    if (!isImageFile(file)) {
+      setErrorMessage(t("logoInvalidFileError"));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    if (replacementUrlRef.current) {
+      URL.revokeObjectURL(replacementUrlRef.current);
+    }
+    replacementUrlRef.current = objectUrl;
+    setReplacement({ logoId: logo.id, previewUrl: objectUrl });
+    setBusyLogoId(logo.id);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await onUpload({
+        file,
+        usage_type: logo.usage_type,
+        label: logo.label,
+        is_selected: true,
+      });
+      try {
+        await onDelete(logo.id);
+        setSuccessMessage(t("logoReplaceSuccess"));
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : t("logoReplaceKeepPrevious"));
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("logoUploadError"));
+    } finally {
+      setBusyLogoId(null);
+      clearReplacementPreview();
+    }
   };
 
   const handleUpload = async () => {
@@ -352,7 +469,16 @@ export function BrandingLogosManager({
         type="file"
         accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
         className="sr-only"
+        aria-label={t("chooseLogoFileAction")}
         onChange={(event) => assignFile(event.target.files?.[0] ?? null)}
+      />
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+        className="sr-only"
+        aria-label={t("logoReplaceFileLabel")}
+        onChange={(event) => void handleReplaceFile(event.target.files?.[0] ?? null)}
       />
 
       <div
@@ -367,24 +493,36 @@ export function BrandingLogosManager({
       >
         {logoFile ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="flex h-28 w-full items-center justify-center overflow-hidden rounded-[var(--radius-form)] bg-card sm:w-40">
+            <div
+              className="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-[var(--radius-form)] bg-secondary sm:w-40"
+              aria-busy={isUploading}
+            >
               {previewUrl ? (
                 // Local object URLs are not valid next/image sources.
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt={logoFile.name} className="h-full w-full object-contain" />
+                <img
+                  src={previewUrl}
+                  alt={logoFile.name}
+                  className="absolute inset-0 h-full w-full object-contain p-2"
+                />
               ) : (
-                <span className="text-xs text-muted">{t("noPreviewAvailable")}</span>
+                <span className="px-3 text-center text-xs text-muted">{t("noPreviewAvailable")}</span>
               )}
+              {isUploading ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-card/80">
+                  <Spinner label={t("logoPreviewLoading")} />
+                </div>
+              ) : null}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground">{logoFile.name}</p>
               <p className="mt-1 text-xs text-muted">{formatFileSize(logoFile.size)}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={chooseFile}>
-                  {t("logoChangeFileAction")}
+                <Button type="button" variant="outline" size="sm" onClick={chooseFile} disabled={isUploading}>
+                  {t("logoReplaceAction")}
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => assignFile(null)}>
-                  {t("logoClearFileAction")}
+                <Button type="button" variant="ghost" size="sm" onClick={() => assignFile(null)} disabled={isUploading}>
+                  {t("logoRemoveAction")}
                 </Button>
               </div>
             </div>
@@ -496,17 +634,39 @@ export function BrandingLogosManager({
                           logo.is_selected ? "border-primary" : null
                         )}
                       >
-                        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[var(--radius-form)] bg-secondary">
-                          {logo.content_url ? (
+                        <div
+                          className="relative aspect-[16/9] w-full overflow-hidden rounded-[var(--radius-form)] bg-secondary"
+                          aria-busy={busyLogoId === logo.id}
+                        >
+                          {replacement?.logoId === logo.id ? (
+                            // The replacement file is shown before the saved bytes are reloaded.
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={replacement.previewUrl}
+                              alt={logoDisplayName(
+                                logo,
+                                t("logoUntitled", { usage: usageLabelMap[logo.usage_type] })
+                              )}
+                              className="absolute inset-0 h-full w-full object-contain p-3"
+                            />
+                          ) : logo.content_url ? (
                             <AuthenticatedLogoPreview
                               src={logo.content_url}
-                              alt={logo.label || logo.file_name}
+                              alt={logoDisplayName(
+                                logo,
+                                t("logoUntitled", { usage: usageLabelMap[logo.usage_type] })
+                              )}
                             />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-xs text-muted">
+                            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-muted">
                               {t("noPreviewAvailable")}
                             </div>
                           )}
+                          {busyLogoId === logo.id ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-card/80">
+                              <Spinner label={t("logoPreviewLoading")} />
+                            </div>
+                          ) : null}
                           {logo.is_selected ? (
                             <span className="absolute right-2 top-2">
                               <StatusBadge label={t("logoSelectedBadge")} tone="success" />
@@ -537,11 +697,20 @@ export function BrandingLogosManager({
                           <Button
                             type="button"
                             size="sm"
+                            variant="outline"
+                            disabled={busyLogoId === logo.id || isUploading}
+                            onClick={() => beginReplace(logo)}
+                          >
+                            {t("logoReplaceAction")}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
                             variant="destructive"
                             disabled={busyLogoId === logo.id}
                             onClick={() => setPendingDelete(logo)}
                           >
-                            {t("deleteConfirmButton")}
+                            {t("logoRemoveAction")}
                           </Button>
                         </div>
                       </article>
