@@ -42,6 +42,40 @@ def user_can_confirm_order(user: User | None, order: Order) -> bool:
     return False
 
 
+def checkout_return_area(user: User, order: Order) -> str:
+    """Dashboard area that matches this order and the person confirming it.
+
+    A superuser who is also the club admin for the order stays in the club
+    area. Ops is only the fallback when no order area applies.
+    """
+    role = getattr(user, "role", "") or ""
+    member = getattr(order, "member", None)
+    club = getattr(order, "club", None)
+    if role == User.Roles.CLUB_ADMIN and club is not None and club.admins.filter(id=user.id).exists():
+        return "club"
+    if getattr(order, "ledger", "") == Order.Ledger.CLUB and role in {
+        User.Roles.CLUB_ADMIN,
+        User.Roles.COACH,
+    }:
+        return "club"
+    if member is not None and getattr(member, "user_id", None) == getattr(user, "id", None):
+        if role == User.Roles.MEMBER:
+            return "member"
+        if role == User.Roles.COACH:
+            return "club"
+    if role == User.Roles.LTF_FINANCE:
+        return "ltf-finance"
+    if role == User.Roles.LTF_ADMIN:
+        return "ltf"
+    if role == User.Roles.MEMBER:
+        return "member"
+    if role in {User.Roles.CLUB_ADMIN, User.Roles.COACH}:
+        return "club"
+    if getattr(user, "is_superuser", False):
+        return "ops"
+    return ""
+
+
 def _order_queryset():
     return Order.objects.select_related("club", "member", "member__user", "invoice").prefetch_related(
         "items__license"

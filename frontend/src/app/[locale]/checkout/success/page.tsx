@@ -8,15 +8,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { LoadingCard } from "@/components/ui/loading-card";
-import { apiRequest } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { checkoutReturnLabelKey } from "@/lib/checkout-return";
 import { confirmStripeCheckout } from "@/lib/club-finance-api";
-import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
-
-type MeResponse = {
-  role: string;
-  is_superuser?: boolean;
-};
+import { useCheckoutDashboardHref } from "@/lib/use-checkout-dashboard-href";
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_CONFIRM_ATTEMPTS = 15;
@@ -26,39 +20,14 @@ function CheckoutSuccessContent() {
   const locale = useLocale();
   const searchParams = useSearchParams();
   const sessionId = (searchParams.get("session_id") ?? "").trim();
-  const [dashboardHref, setDashboardHref] = useState(`/${locale}/dashboard`);
+  const [orderArea, setOrderArea] = useState<string | null>(null);
+  const dashboardHref = useCheckoutDashboardHref(locale, orderArea);
   const [phase, setPhase] = useState<"confirming" | "ready" | "timeout">(
     sessionId ? "confirming" : "ready"
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const attemptsRef = useRef(0);
   const confirmInFlight = useRef<Promise<boolean> | null>(null);
-
-  useEffect(() => {
-    if (!getToken()) {
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const me = await apiRequest<MeResponse>("/api/auth/me/");
-        const target = getDashboardRouteForRole(me.role, locale, {
-          isSuperuser: Boolean(me.is_superuser),
-        });
-        if (!cancelled && target) {
-          setDashboardHref(target);
-        }
-      } catch {
-        if (!cancelled) {
-          setDashboardHref(`/${locale}/dashboard`);
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [locale]);
 
   const runConfirm = useCallback(async (): Promise<boolean> => {
     if (!sessionId) {
@@ -69,6 +38,9 @@ function CheckoutSuccessContent() {
     }
     const pending = (async () => {
       const result = await confirmStripeCheckout(sessionId);
+      if (result.return_area) {
+        setOrderArea(result.return_area);
+      }
       return result.status === "paid";
     })();
     confirmInFlight.current = pending;
@@ -169,7 +141,7 @@ function CheckoutSuccessContent() {
           ) : (
             <Button asChild variant="primary">
               <Link href={dashboardHref} onClick={handleGoToDashboard}>
-                {t("successAction")}
+                {t(checkoutReturnLabelKey(dashboardHref, locale))}
               </Link>
             </Button>
           )}

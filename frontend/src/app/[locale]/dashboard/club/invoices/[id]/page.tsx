@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -30,6 +30,7 @@ import {
   getPayconiqPaymentStatus,
   sendClubInvoiceReminder,
 } from "@/lib/club-finance-api";
+import { rememberCheckoutReturn } from "@/lib/checkout-return";
 import { isClubLedger, orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
@@ -45,6 +46,7 @@ export default function ClubInvoiceDetailPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const locale = useLocale();
+  const pathname = usePathname();
   const params = useParams();
   const [invoice, setInvoice] = useState<FinanceInvoice | null>(null);
   const [order, setOrder] = useState<FinanceOrder | null>(null);
@@ -204,6 +206,7 @@ export default function ClubInvoiceDetailPage() {
     try {
       const response = await createClubCheckoutSession(linkedOrderId);
       if (response.url) {
+        rememberCheckoutReturn(pathname ?? "", locale);
         window.location.href = response.url;
         return;
       }

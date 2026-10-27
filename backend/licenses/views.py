@@ -98,7 +98,7 @@ from .policy import (
     validate_member_license_order,
 )
 from .services import apply_payment_and_activate
-from .stripe_checkout import checkout_success_url, fulfill_checkout_session
+from .stripe_checkout import checkout_return_area, checkout_success_url, fulfill_checkout_session
 from .tasks import process_stripe_webhook_event
 from .payconiq import PayconiqServiceError, create_payment, get_status
 
@@ -2949,5 +2949,6 @@ class StripeConfirmCheckoutView(APIView):
             "invoice_id": invoice.id if invoice else None,
             "order_status": order.status,
             "invoice_status": invoice.status if invoice else None,
+            "return_area": checkout_return_area(request.user, order),
         }
         return Response(ConfirmCheckoutResultSerializer(payload).data, status=status.HTTP_200_OK)
