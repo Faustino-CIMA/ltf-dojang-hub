@@ -15,7 +15,7 @@ from accounts.email_utils import send_resend_email
 
 from .history import expire_outdated_licenses, log_license_status_change
 from .models import FinanceAuditLog, Invoice, License, Order, PrintJob
-from .pdf_utils import build_invoice_context, render_invoice_pdf
+from .pdf_utils import build_invoice_context, invoice_balance_due_text, render_invoice_pdf
 from .print_jobs import execute_print_job_now
 from .services import apply_payment_and_activate
 
@@ -285,7 +285,8 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
             )
         )
     collected: list[str] = []
-    ledger = invoice.order.ledger if invoice.order_id else Order.Ledger.FEDERATION
+    order_id = getattr(invoice, "order_id", None)
+    ledger = invoice.order.ledger if order_id else Order.Ledger.FEDERATION
     if ledger == Order.Ledger.CLUB:
         if invoice.delivery_method and invoice.delivery_method != Invoice.DeliveryMethod.EMAIL:
             return []
@@ -310,7 +311,13 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
     return list(dict.fromkeys(email for email in collected if email))
 
 
-def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] | None = None) -> None:
+def _dispatch_invoice_email(
+    invoice: Invoice,
+    copy: dict,
+    recipients: list[str] | None = None,
+    *,
+    balance: bool = False,
+) -> None:
     recipient_list = invoice_recipient_emails(invoice, recipients)
     if not recipient_list:
         FinanceAuditLog.objects.create(
@@ -340,11 +347,13 @@ def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] 
         return
 
     context = build_invoice_context(invoice)
-    outstanding = invoice.outstanding()
+    # The invoice PDF prints total_amount. outstanding() is already 0 when a
+    # licence invoice is mailed in the same step that records the payment.
+    amount = invoice_balance_due_text(invoice) if balance else context["total_amount"]
     context["copy"] = {
         "hello": copy["hello"],
         "ready": copy["ready"].format(number=invoice.invoice_number),
-        "total": copy["total"].format(total=outstanding, currency=invoice.currency),
+        "total": copy["total"].format(total=amount),
         "pdf": copy["pdf"],
         "thanks": copy["thanks"],
     }
@@ -405,7 +414,7 @@ def send_invoice_reminder_email(invoice_id: int, recipients: list[str] | None = 
         return
     from clubs.communications import reminder_copy_for_club
 
-    _dispatch_invoice_email(invoice, reminder_copy_for_club(invoice.club), recipients)
+    _dispatch_invoice_email(invoice, reminder_copy_for_club(invoice.club), recipients, balance=True)
 
 
 @shared_task
