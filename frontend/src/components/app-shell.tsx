@@ -21,17 +21,11 @@ import {
   useClubSelection,
 } from "@/components/club-selection-provider";
 import { AppVersionLink } from "@/components/app-version-link";
+import { ClubSwitcher } from "@/components/club-switcher";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type AppNavGroup = {
@@ -394,26 +388,19 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
               {showClubSelector ? (
-                <Select
+                <ClubSwitcher
+                  clubs={clubs}
                   value={clubSelectValue}
                   onValueChange={(value) =>
                     setSelectedClubId(value === ALL_CLUBS_SELECT_VALUE ? null : Number(value))
                   }
-                >
-                  <SelectTrigger className="min-w-60" aria-label={t("selectedClubLabel")}>
-                    <SelectValue placeholder={t("selectedClubPlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowAllClubs ? (
-                      <SelectItem value={ALL_CLUBS_SELECT_VALUE}>{t("allClubsOption")}</SelectItem>
-                    ) : null}
-                    {clubs.map((club) => (
-                      <SelectItem key={club.id} value={String(club.id)}>
-                        {club.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  allowAllClubs={allowAllClubs}
+                  allClubsLabel={t("allClubsOption")}
+                  placeholder={t("selectedClubPlaceholder")}
+                  ariaLabel={t("selectedClubLabel")}
+                  searchPlaceholder={t("clubSearchPlaceholder")}
+                  emptyMessage={t("clubSearchEmpty")}
+                />
               ) : null}
 
               {me?.demo_mode ? (
