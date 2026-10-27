@@ -809,6 +809,9 @@
     "reason_end_date": "La date de fin d'affiliation n'a pas pu être lue : {value}"
   },
   "ClubMgmt": {
+    "useForInvoice": "Envoyer les factures ici",
+    "oneInvoiceAddress": "Une seule adresse peut être utilisée pour les factures.",
+    "oneInvoiceAddressHint": "Une seule adresse reçoit les factures. Ce choix retire la marque des autres.",
     "shopQrAlt": "Code QR pour la taille {size}",
     "shopQrPreviewEmpty": "Pas encore d'image QR pour cette taille.",
     "committeeRemoveDescription": "Supprimez cette fonction seulement si elle a été saisie par erreur. Pour noter qu'une personne a quitté le poste, mettez fin au mandat.",

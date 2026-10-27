@@ -107,6 +107,13 @@ class PersonAddress(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person"],
+                condition=Q(use_for_invoice=True),
+                name="clubmgmt_person_one_invoice_address",
+            ),
+        ]
 
 
 class MemberRecord(models.Model):
@@ -189,6 +196,13 @@ class MemberAddress(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member"],
+                condition=Q(use_for_invoice=True),
+                name="clubmgmt_member_one_invoice_address",
+            ),
+        ]
 
 
 class MemberContact(models.Model):

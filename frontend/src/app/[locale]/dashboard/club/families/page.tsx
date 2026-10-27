@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getMembers } from "@/lib/club-admin-api";
 import { formatFullName } from "@/lib/person-name";
 import { downloadClubStatement } from "@/lib/club-finance-api";
+import { InvoiceAddressMark } from "@/components/clubmgmt/invoice-address-mark";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -163,6 +164,7 @@ export default function ClubFamiliesPage() {
         postal_code: parentAddress.postal_code,
         locality: parentAddress.locality,
         country: parentAddress.country,
+        use_for_invoice: parentAddress.use_for_invoice,
       });
       setParentFamily(null);
       setSuccessMessage(t("parentSaved"));
@@ -559,6 +561,13 @@ export default function ClubFamiliesPage() {
             {t("emergency")}
           </label>
           <LuAddressFields value={parentAddress} onChange={setParentAddress} />
+          <InvoiceAddressMark
+            checked={parentAddress.use_for_invoice}
+            label={t("useForInvoice")}
+            hint={t("oneInvoiceAddressHint")}
+            hintId="parent-address-invoice-hint"
+            onCheckedChange={(checked) => setParentAddress({ ...parentAddress, use_for_invoice: checked })}
+          />
           {parentMatches.length > 0 && !differentParent ? (
             <div className="space-y-2 rounded-[var(--radius-form)] border border-border bg-secondary/50 p-3 text-sm">
               <p className="font-medium">{t("contactMatchesTitle")}</p>

@@ -32,6 +32,12 @@ import {
   type MemberContactRow,
   type MemberRecord,
 } from "@/lib/clubmgmt-api";
+import {
+  InvoiceAddressChoices,
+  InvoiceAddressMark,
+  invoiceAddressSaveMessage,
+  markSingleInvoiceAddress,
+} from "@/components/clubmgmt/invoice-address-mark";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
 import {
   nationalityCodeFromStored,
@@ -211,6 +217,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     also_family: false,
   });
   const [contactAddress, setContactAddress] = useState<AddressValue>(emptyAddress());
+  const [guardianAddresses, setGuardianAddresses] = useState<AddressValue[]>([]);
   const [memberMatches, setMemberMatches] = useState<ContactMemberMatch[]>([]);
   const [differentPerson, setDifferentPerson] = useState(false);
   const [chosenMemberId, setChosenMemberId] = useState<number | null>(null);
@@ -300,6 +307,20 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     return cleaned;
   };
 
+  const chooseInvoiceAddress = async (index: number, checked: boolean) => {
+    if (!record) return;
+    const previous = record;
+    const addresses = markSingleInvoiceAddress(record.addresses, index, checked);
+    setRecord({ ...record, addresses });
+    setErrorMessage(null);
+    try {
+      await persist({ ...record, addresses });
+    } catch (error) {
+      setRecord(previous);
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
+    }
+  };
+
   if (!record) {
     return <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />;
   }
@@ -309,7 +330,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     try {
       await persist(record);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
     }
   };
 
@@ -367,7 +388,8 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         phone: "",
         also_family: Boolean(record.family_name),
       });
-      setContactAddress(emptyAddress());
+      setContactAddress({ ...emptyAddress(), use_for_invoice: true });
+      setGuardianAddresses([]);
     }
     setAdding(kind);
     setEditingIndex(null);
@@ -408,7 +430,17 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     setEditingIndex(index);
     const email = row.person_detail.emails?.find((item) => item.use_for_invoice)?.email || row.person_detail.emails?.[0]?.email || "";
     const phone = row.person_detail.phones?.[0]?.number || "";
-    const address = row.person_detail.addresses?.find((item) => item.use_for_invoice) || row.person_detail.addresses?.[0];
+    const storedAddresses = (row.person_detail.addresses || []).map((item) => ({
+      street: item.street,
+      house_number: item.house_number,
+      line2: item.line2,
+      postal_code: item.postal_code,
+      locality: item.locality,
+      country: item.country || "Luxembourg",
+      use_for_invoice: item.use_for_invoice,
+    }));
+    setGuardianAddresses(storedAddresses);
+    const address = storedAddresses.find((item) => item.use_for_invoice) || storedAddresses[0];
     setContactDraft({
       first_name: row.person_detail.first_name,
       last_name: row.person_detail.last_name,
@@ -427,9 +459,9 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
             postal_code: address.postal_code,
             locality: address.locality,
             country: address.country || "Luxembourg",
-            use_for_invoice: true,
+            use_for_invoice: address.use_for_invoice,
           }
-        : emptyAddress(),
+        : { ...emptyAddress(), use_for_invoice: true },
     );
   };
 
@@ -520,7 +552,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       });
       closeDraft();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
     } finally {
       setSavingDraft(false);
     }
@@ -534,16 +566,22 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       return;
     }
     const parentDetails = record.is_underage || PARENT_RELATIONS.has(contactDraft.relation);
+    const severalGuardianAddresses = guardianAddresses.length > 1;
     const detailPayload = parentDetails
       ? {
           email: contactDraft.email.trim(),
           phone: contactDraft.phone.trim(),
-          street: contactAddress.street,
-          house_number: contactAddress.house_number,
-          line2: contactAddress.line2,
-          postal_code: contactAddress.postal_code,
-          locality: contactAddress.locality,
-          country: contactAddress.country,
+          ...(severalGuardianAddresses
+            ? {}
+            : {
+                street: contactAddress.street,
+                house_number: contactAddress.house_number,
+                line2: contactAddress.line2,
+                postal_code: contactAddress.postal_code,
+                locality: contactAddress.locality,
+                country: contactAddress.country,
+                use_for_invoice: contactAddress.use_for_invoice,
+              }),
         }
       : {};
     setSavingDraft(true);
@@ -551,7 +589,27 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     try {
       if (editingIndex !== null) {
         const row = contacts[editingIndex];
-        await updatePerson(row.person, { first_name: firstName, last_name: lastName });
+        const personPayload: Record<string, unknown> = { first_name: firstName, last_name: lastName };
+        if (severalGuardianAddresses) {
+          const target = Math.max(
+            guardianAddresses.findIndex((item) => item.use_for_invoice),
+            0,
+          );
+          personPayload.addresses = guardianAddresses.map((item, index) =>
+            index === target
+              ? {
+                  street: contactAddress.street,
+                  house_number: contactAddress.house_number,
+                  line2: contactAddress.line2,
+                  postal_code: contactAddress.postal_code,
+                  locality: contactAddress.locality,
+                  country: contactAddress.country,
+                  use_for_invoice: contactAddress.use_for_invoice,
+                }
+              : { ...item, use_for_invoice: false },
+          );
+        }
+        await updatePerson(row.person, personPayload);
         await updateContact(row.id, {
           relation: contactDraft.relation,
           is_emergency: contactDraft.is_emergency,
@@ -584,7 +642,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       setSuccessMessage(t("saved"));
       await load();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
     } finally {
       setSavingDraft(false);
     }
@@ -647,13 +705,13 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
   const addressEditor = (
     <div className="space-y-3">
       <LuAddressFields value={addressDraft} onChange={setAddressDraft} />
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={addressDraft.use_for_invoice}
-          onCheckedChange={(checked) => setAddressDraft({ ...addressDraft, use_for_invoice: Boolean(checked) })}
-        />
-        {t("useForInvoice")}
-      </label>
+      <InvoiceAddressMark
+        checked={addressDraft.use_for_invoice}
+        label={t("useForInvoice")}
+        hint={t("oneInvoiceAddressHint")}
+        hintId="member-address-invoice-hint"
+        onCheckedChange={(checked) => setAddressDraft({ ...addressDraft, use_for_invoice: checked })}
+      />
     </div>
   );
 
@@ -727,6 +785,33 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
               onChange={(event) => setContactDraft({ ...contactDraft, phone: event.target.value })}
             />
           </div>
+          {guardianAddresses.length > 1 ? (
+            <InvoiceAddressChoices
+              rows={guardianAddresses}
+              hint={t("oneInvoiceAddressHint")}
+              hintId="guardian-address-invoice-hint"
+              labelFor={(row) =>
+                [row.street, row.house_number, row.postal_code, row.locality].filter(Boolean).join(" ") || t("addresses")
+              }
+              onChange={(next) => {
+                setGuardianAddresses(next);
+                const chosen = next.find((row) => row.use_for_invoice);
+                if (chosen) {
+                  setContactAddress(chosen);
+                } else {
+                  setContactAddress((current) => ({ ...current, use_for_invoice: false }));
+                }
+              }}
+            />
+          ) : (
+            <InvoiceAddressMark
+              checked={contactAddress.use_for_invoice}
+              label={t("useForInvoice")}
+              hint={t("oneInvoiceAddressHint")}
+              hintId="guardian-address-invoice-hint"
+              onCheckedChange={(checked) => setContactAddress({ ...contactAddress, use_for_invoice: checked })}
+            />
+          )}
           <LuAddressFields value={contactAddress} onChange={setContactAddress} />
           {record.family_name && editingIndex === null ? (
             <label className="flex items-center gap-2 text-sm">
@@ -976,18 +1061,26 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
 
       <FormPanel>
         <h3 className="text-section text-foreground">{t("addresses")}</h3>
+        <p className="mt-1 text-sm text-muted">{t("oneInvoiceAddressHint")}</p>
         {record.addresses.length === 0 && adding !== "address" ? (
           <p className="mt-2 text-sm text-muted">{t("noAddressesYet")}</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {record.addresses.map((row, index) => (
               <li key={`${row.id}-${row.postal_code}-${row.street}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                <span>
-                  {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
-                    .filter(Boolean)
-                    .join(" ")}
-                  {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
-                </span>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p>
+                    {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </p>
+                  <InvoiceAddressMark
+                    checked={row.use_for_invoice}
+                    label={t("useForInvoice")}
+                    ariaLabel={`${t("useForInvoice")}: ${[row.street, row.house_number, row.postal_code, row.locality].filter(Boolean).join(" ")}`}
+                    onCheckedChange={(checked) => void chooseInvoiceAddress(index, checked)}
+                  />
+                </div>
                 <RowActionMenu
                   label={common("rowActionsLabel")}
                   actions={[

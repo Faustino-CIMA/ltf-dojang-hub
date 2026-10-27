@@ -3963,6 +3963,8 @@
     "phones": "Phone numbers",
     "addresses": "Addresses",
     "useForInvoice": "Send invoices here",
+    "oneInvoiceAddress": "Only one address can be used for invoices.",
+    "oneInvoiceAddressHint": "Only one address receives invoices. Choosing this one clears the others.",
     "addEmail": "Add email",
     "addPhone": "Add phone",
     "addAddress": "Add address",
