@@ -1,3 +1,5 @@
+> Historical note (March 2026). This file records licence-card work from v0.3.x. It is not a description of the current app.
+
 I’ll do a read-only deep review pass, starting with PROJECT_CONTEXT.md, then trace the frontend designer flow into backend payload normalization/validation and summarize findings with severity and repro steps. I’ll gather concrete file/symbol evidence and provide the Step 6 backlog inline since Ask mode prevents writing the report file directly.
 
 I’ve loaded project continuity context. Next I’m inspecting the designer page and its local state/update helpers in chunks, then I’ll map those flows to license-card-api.ts and backend payload handlers.

@@ -1281,6 +1281,14 @@
     "returnOps": "Zurück zu Ops",
     "returnDashboard": "Zurück zum Dashboard"
   },
+  "About": {
+    "release0130Title": "Einrichtung, Teams und Adressen",
+    "release0130Setup": "Die Ersteinrichtung importiert Vereine, Mitglieder und Vereinsadmins. Zeilen ohne Verein können zurückgestellt werden. Eingeladene Admins setzen ihre eigene E-Mail und ihr Passwort.",
+    "release0130Addresses": "Luxemburgische Adressen nutzen das amtliche Straßenregister. Ein Verein kann seinen Verband, die RCS-Nummer und die Hallen speichern. Eine Adresse kann für Rechnungen markiert werden.",
+    "release0130Teams": "Vereine können Teams, Größe und Gewicht sowie Ausrüstungsgrößen führen. Der Nationalteam-Bereich ist für den Verband; Vereine sehen ein kurzes Abzeichen.",
+    "release0130Desk": "Listen und Änderungen nutzen Seitenleisten und Zeilenmenüs. Der Vereinswechsel in der Kopfzeile ist ein kleines Feld. Drucken ist ein Menü am Druckauftrag.",
+    "release0130Payments": "Jetzt bezahlen öffnet die Kartenzahlung. Danach führt die Schaltfläche zum Bereich zurück, den Sie verlassen haben. Rechnungs-E-Mails zeigen dieselbe Summe wie das PDF."
+  },
   "Import": {
     "issueNoClub": "Kein Verein in der Datei.",
     "issueEndDate": "Mitgliedschaftsende konnte nicht gelesen werden: {value}.",

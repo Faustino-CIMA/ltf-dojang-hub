@@ -2,14 +2,18 @@
 
 The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, the shop, and a shared calendar.
 
+## Branches
+
+Day-to-day work happens on `develop`. `main` receives a release when that release is merged there. The live app deploys `develop`. GitHub Actions runs on push and pull requests to `main` (`.github/workflows/ci.yml`).
+
 ## Release Notes
 
-This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. The calendar can keep a date inside a club, share it with every club and the LTF, or limit a presidents meeting to the invited presidents. The Calendar link counts the next two months and shows new until those events are opened. A club admin can set a reminder. The application is called LTF Dojang Hub. A club print from the members list includes that member’s current license year. A club admin can delete a finished print job from the club print-jobs table. Members, Clubs, and Licenses menus open as popovers, and those lists use the outline trash button. Coach pay, the calendar audiences, the Calendar link, reminders, the name, license-card printing, and these list controls are recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
+The displayed version is **0.13.0** (2026-10-27): first-run setup, Luxembourg addresses, club teams and the national team desk, invoice emails that match the PDF, and a return to the desk you left after card checkout. Notes to paste into a GitHub release later are in `docs/releases/v0.13.0.md`.
 
-- See `CHANGELOG.md` **Unreleased** for coach pay, calendar audiences, the Calendar link, reminders, the LTF Dojang Hub name, license-card printing, and the list menus, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay, calendar, and rename work. No v0.12.0 tag has been created.
+- See `CHANGELOG.md` **0.13.0** for this version, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- The last published GitHub release tag is `v0.11.0` (2026-09-27). Version 0.12.0 was recorded on 2026-10-02 and was not tagged. Version 0.13.0 is prepared on `develop`; merging it to `main` and creating the tag are separate steps.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
-- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`.
+- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`. Those manuals describe the 0.12.0 edition and are updated separately.
 - Demo environment (a second app, fictional data only): `docs/demo-environment.md`. Never seed the live server.
 
 ## CI (GitHub Actions)
@@ -220,6 +224,8 @@ docker compose up -d --build --force-recreate backend frontend worker beat
 ```
 - After rollback, rerun the health verification commands above.
 
+6. After a production deploy, run `python manage.py refresh_lu_addresses` once on the backend. The monthly job on the morning of the 6th does the same refresh. Card-checkout return URLs follow the production rules in Environment Variables (`FRONTEND_BASE_URL`, `STRIPE_CHECKOUT_SUCCESS_URL`, `STRIPE_CHECKOUT_CANCEL_URL`).
+
 ## Screenshots
 
 Docker services (containers running):
@@ -262,6 +268,15 @@ Stripe + payments:
 - `STRIPE_API_VERSION` (default `2026-01-28.clover`)
 - `STRIPE_CHECKOUT_SUCCESS_URL` (session id is appended automatically if missing)
 - `STRIPE_CHECKOUT_CANCEL_URL`
+
+Production Stripe return URLs, using `https://app.ltkdf.org` as the live example:
+- `FRONTEND_BASE_URL` is the site origin only: `https`, no trailing slash, and no `/en` or `/lb`. Example: `https://app.ltkdf.org`.
+- `STRIPE_CHECKOUT_SUCCESS_URL` is `https://app.ltkdf.org/checkout/success?session_id={CHECKOUT_SESSION_ID}`.
+- `STRIPE_CHECKOUT_CANCEL_URL` is `https://app.ltkdf.org/checkout/cancel`.
+- `{CHECKOUT_SESSION_ID}` stays as those characters, braces included. Stripe replaces that token. Do not percent-encode the braces, and do not put a locale segment in the path.
+
+Luxembourg addresses after deploy:
+- Run `python manage.py refresh_lu_addresses` once on the backend so street lookup uses the official register. A monthly job also runs on the morning of the 6th. Until the table is filled, lookup falls back to the previous search.
 
 Payconiq (mock + aggregator):
 - `PAYCONIQ_MODE` (`mock` or `aggregator`, default `mock`)
@@ -334,7 +349,7 @@ Product codes (not member licenses):
 Stripe configuration:
 - Set `STRIPE_SECRET_KEY` and `STRIPE_API_VERSION` in `.env`.
 - Set `STRIPE_WEBHOOK_SECRET` to the signing secret for your Stripe webhook endpoint.
-- Ensure `STRIPE_CHECKOUT_SUCCESS_URL` and `STRIPE_CHECKOUT_CANCEL_URL` match your frontend URLs.
+- Set `STRIPE_CHECKOUT_SUCCESS_URL` and `STRIPE_CHECKOUT_CANCEL_URL` to the frontend origin: `https`, no trailing slash, and no `/en` or `/lb`. On the live site that origin is `https://app.ltkdf.org`. Keep `{CHECKOUT_SESSION_ID}` as literal braces in the success URL. The same rules are under Environment Variables above.
 - Club Admin checkout flow does not require an extra consent prompt; consent enforcement is handled in backend policy and user consent state.
 - Finance access: LTF Finance has full access to orders/invoices/audit logs; LTF Admin can only perform fallback actions (confirm payment or activate licenses).
 
