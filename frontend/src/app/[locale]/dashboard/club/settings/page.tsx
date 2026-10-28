@@ -550,11 +550,13 @@ export default function ClubAdminSettingsPage() {
             </form>
           </section>
 
-          <TrainingVenuesSection
-            clubId={selectedClubId}
-            onError={setErrorMessage}
-            onSuccess={setSuccessMessage}
-          />
+          <div id="training-venues">
+            <TrainingVenuesSection
+              clubId={selectedClubId}
+              onError={setErrorMessage}
+              onSuccess={setSuccessMessage}
+            />
+          </div>
 
           {moduleFees ? <ClubModulePrices quote={moduleFees} /> : null}
 

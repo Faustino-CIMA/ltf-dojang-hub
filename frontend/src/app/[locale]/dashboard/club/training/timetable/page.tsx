@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { StudentMultiPicker, type StudentPick } from "@/components/club-admin/student-multi-picker";
+import { TrainingVenuePicker, timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { getClubTrainers, getMembersList, type Member } from "@/lib/club-admin-api";
 import { formatFullName } from "@/lib/person-name";
 import { getTrainingSeries, saveTrainingSeries, type TrainingAudience, type TrainingSeries } from "@/lib/training-api";
+import { listTrainingVenues, type TrainingVenue } from "@/lib/training-venues";
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6];
 const AUDIENCES: TrainingAudience[] = ["kids", "adults", "belt_test", "competition", "other"];
@@ -45,6 +47,7 @@ function ageToday(iso: string | null) {
 export default function TrainingTimetablePage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
+  const locale = useLocale();
   const canManage = useCanManageTraining();
   const { selectedClubId } = useClubSelection();
   const [rows, setRows] = useState<TrainingSeries[] | null>(null);
@@ -62,6 +65,10 @@ export default function TrainingTimetablePage() {
   const [skipSchool, setSkipSchool] = useState(true);
   const [countsUnder16, setCountsUnder16] = useState(true);
   const [place, setPlace] = useState("");
+  const [venueId, setVenueId] = useState<number | null>(null);
+  const [venueName, setVenueName] = useState("");
+  const [venues, setVenues] = useState<TrainingVenue[] | null>(null);
+  const [venueLoadFailed, setVenueLoadFailed] = useState(false);
   const [coachIds, setCoachIds] = useState<number[]>([]);
   const [regularIds, setRegularIds] = useState<number[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -73,6 +80,8 @@ export default function TrainingTimetablePage() {
 
   const load = useCallback(async () => {
     if (!selectedClubId) return;
+    setVenues(null);
+    setVenueLoadFailed(false);
     try {
       const series = await getTrainingSeries(selectedClubId);
       setRows(series);
@@ -83,8 +92,17 @@ export default function TrainingTimetablePage() {
         ]);
         setCoaches(trainerRows.trainers);
         setMembers(people.filter((row) => row.club === selectedClubId && row.is_active));
+        try {
+          setVenues(await listTrainingVenues(selectedClubId));
+          setErrorMessage(null);
+        } catch (error) {
+          setVenues(null);
+          setVenueLoadFailed(true);
+          setErrorMessage(error instanceof Error ? error.message : t("trainingVenueLoadError"));
+        }
+      } else {
+        setErrorMessage(null);
       }
-      setErrorMessage(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("loadError"));
       setRows([]);
@@ -115,6 +133,8 @@ export default function TrainingTimetablePage() {
     setSkipSchool(true);
     setCountsUnder16(true);
     setPlace("");
+    setVenueId(null);
+    setVenueName("");
     setCoachIds([]);
     setRegularIds([]);
   };
@@ -136,7 +156,8 @@ export default function TrainingTimetablePage() {
         skip_public_holidays: skipPublic,
         skip_school_holidays: skipSchool,
         counts_for_under_16: countsUnder16,
-        place,
+        place: venueId == null ? place : "",
+        venue_id: venueId,
         coach_ids: coachIds,
         regular_ids: regularIds,
       }, editingClassId ?? undefined);
@@ -165,7 +186,9 @@ export default function TrainingTimetablePage() {
     setSkipPublic(row.skip_public_holidays);
     setSkipSchool(row.skip_school_holidays);
     setCountsUnder16(row.counts_for_under_16);
-    setPlace(row.place || "");
+    setPlace(row.venue_id ? "" : row.place || "");
+    setVenueId(row.venue_id);
+    setVenueName(row.venue_name || "");
     setCoachIds(row.coach_ids);
     setRegularIds(row.regular_ids);
     setClassOpen(true);
@@ -177,7 +200,8 @@ export default function TrainingTimetablePage() {
       if (audienceFilter !== "all" && row.audience !== audienceFilter) return false;
       if (!needle) return true;
       const coachesText = (row.coach_names ?? []).join(" ").toLowerCase();
-      return row.name.toLowerCase().includes(needle) || coachesText.includes(needle);
+      const placeText = timetablePlaceText(row).toLowerCase();
+      return row.name.toLowerCase().includes(needle) || coachesText.includes(needle) || placeText.includes(needle);
     });
   }, [audienceFilter, rows, search]);
 
@@ -296,7 +320,7 @@ export default function TrainingTimetablePage() {
                     {
                       key: "place",
                       header: t("trainingPlace"),
-                      render: (row) => row.place || "—",
+                      render: (row) => timetablePlaceText(row) || "—",
                     },
                     {
                       key: "skips",
@@ -412,8 +436,34 @@ export default function TrainingTimetablePage() {
                 </span>
               </label>
               <div className="md:col-span-2">
-                <Label htmlFor="class-place">{t("trainingPlace")}</Label>
-                <Input id="class-place" className="mt-1" value={place} onChange={(event) => setPlace(event.target.value)} placeholder={t("trainingPlaceHint")} />
+                <Label>{t("trainingPlace")}</Label>
+                <p className="mt-1 text-xs text-muted">{t("trainingPlaceHint")}</p>
+                <div className="mt-2">
+                  <TrainingVenuePicker
+                    venues={venues}
+                    venueId={venueId}
+                    place={place}
+                    knownName={venueName}
+                    loadFailed={venueLoadFailed}
+                    settingsHref={`/${locale}/dashboard/club/settings#training-venues`}
+                    onChange={(choice) => {
+                      setVenueId(choice.venueId);
+                      setVenueName(choice.venueId == null ? "" : choice.place);
+                      setPlace(choice.venueId == null ? choice.place : "");
+                    }}
+                    ariaLabel={t("trainingVenueAria")}
+                    searchPlaceholder={t("trainingVenueSearch")}
+                    emptySearch={t("trainingVenueSearchEmpty")}
+                    noneLabel={t("trainingVenueNone")}
+                    legacyHint={t("trainingVenueLegacyHint")}
+                    inactiveLabel={t("trainingVenueInactive")}
+                    emptyTitle={t("trainingVenueEmptyTitle")}
+                    emptyBody={t("trainingVenueEmptyBody")}
+                    emptyLink={t("trainingVenueEmptyLink")}
+                    loadError={t("trainingVenueLoadError")}
+                    loadingLabel={t("trainingVenueLoading")}
+                  />
+                </div>
               </div>
               <div className="md:col-span-2">
                 <p className="text-sm font-medium">{t("trainingUsualCoaches")}</p>

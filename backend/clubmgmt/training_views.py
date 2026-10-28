@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from clubs.models import Club
+from clubs.models import Club, TrainingVenue
 from events.access import is_club_coach
 
 from .access import can_manage_club_records, club_mgmt_entitled, is_ltf_manager
@@ -78,7 +78,7 @@ class TrainingSeriesView(APIView):
 
     def get(self, request):
         club = _club(request)
-        rows = TrainingSeries.objects.filter(club=club).prefetch_related("coaches", "regulars")
+        rows = TrainingSeries.objects.filter(club=club).select_related("venue").prefetch_related("coaches", "regulars")
         return Response([serialize_series(row) for row in rows])
 
     def post(self, request):
@@ -423,6 +423,25 @@ def _session(request, session_id: int, *, admin: bool = False) -> TrainingSessio
     return session
 
 
+def _apply_series_venue(series: TrainingSeries, data) -> None:
+    """Link a class to one of its club's venues, or keep a legacy place string."""
+    raw = data.get("venue_id")
+    if raw in (None, ""):
+        series.venue = None
+        if "place" in data:
+            series.place = str(data.get("place") or "").strip()[:120]
+        return
+    try:
+        venue_id = int(raw)
+    except (TypeError, ValueError) as error:
+        raise ValidationError({"venue_id": "Choose a training venue for this club."}) from error
+    venue = TrainingVenue.objects.filter(pk=venue_id, club_id=series.club_id).first()
+    if venue is None:
+        raise ValidationError({"venue_id": "Choose a training venue for this club."})
+    series.venue = venue
+    series.place = str(venue.name or "").strip()[:120]
+
+
 def _apply_series(series: TrainingSeries, data, *, partial: bool = False) -> None:
     if not partial or "name" in data:
         name = str(data.get("name") or "").strip()
@@ -455,7 +474,9 @@ def _apply_series(series: TrainingSeries, data, *, partial: bool = False) -> Non
         series.counts_for_under_16 = bool(data.get("counts_for_under_16"))
     elif not partial:
         series.counts_for_under_16 = series.audience == TrainingSeries.Audience.KIDS
-    if "place" in data:
+    if "venue_id" in data:
+        _apply_series_venue(series, data)
+    elif "place" in data:
         series.place = str(data.get("place") or "").strip()[:120]
     if "active" in data:
         series.active = bool(data.get("active"))

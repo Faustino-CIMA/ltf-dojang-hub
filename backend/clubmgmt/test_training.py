@@ -517,3 +517,75 @@ class TrainingTests(TestCase):
             format="json",
         )
         self.assertEqual(forbidden.status_code, 403, forbidden.data)
+
+    def _class_payload(self, **extra):
+        return {
+            "name": "Kids",
+            "audience": "kids",
+            "weekday": 0,
+            "start_time": "17:00",
+            "end_time": "18:30",
+            "valid_from": "2026-09-07",
+            "valid_until": "2026-09-07",
+            "skip_public_holidays": False,
+            "skip_school_holidays": False,
+            **extra,
+        }
+
+    def test_timetable_place_keeps_legacy_text_and_only_links_this_clubs_venue(self):
+        from clubs.models import TrainingVenue
+
+        legacy = self.client.post(
+            f"/api/club-management/training/series/?club={self.club.id}",
+            self._class_payload(place="Old hall text"),
+            format="json",
+        )
+        self.assertEqual(legacy.status_code, 201, legacy.data)
+        self.assertEqual(legacy.data["place"], "Old hall text")
+        self.assertIsNone(legacy.data["venue_id"])
+        self.assertEqual(legacy.data["venue_name"], "")
+        kept = self.client.patch(
+            f"/api/club-management/training/series/{legacy.data['id']}/?club={self.club.id}",
+            {"name": "Kids evening"},
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 200, kept.data)
+        self.assertEqual(kept.data["place"], "Old hall text")
+        self.assertIsNone(kept.data["venue_id"])
+
+        other = Club.objects.create(name="Other Club", created_by=self.admin)
+        foreign = TrainingVenue.objects.create(club=other, name="Other Hall")
+        rejected = self.client.post(
+            f"/api/club-management/training/series/?club={self.club.id}",
+            self._class_payload(name="Adults", audience="adults", venue_id=foreign.id),
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        self.assertIn("venue_id", rejected.data)
+
+        home = TrainingVenue.objects.create(club=self.club, name="North Hall", is_active=True)
+        linked = self.client.post(
+            f"/api/club-management/training/series/?club={self.club.id}",
+            self._class_payload(name="Poomsae", audience="other", venue_id=home.id, place="ignored"),
+            format="json",
+        )
+        self.assertEqual(linked.status_code, 201, linked.data)
+        self.assertEqual(linked.data["venue_id"], home.id)
+        self.assertEqual(linked.data["venue_name"], "North Hall")
+        self.assertEqual(linked.data["place"], "North Hall")
+
+        home.name = "North Hall Annex"
+        home.save()
+        listed = self.client.get(f"/api/club-management/training/series/?club={self.club.id}")
+        row = next(item for item in listed.data if item["id"] == linked.data["id"])
+        self.assertEqual(row["venue_name"], "North Hall Annex")
+        self.assertEqual(row["place"], "North Hall Annex")
+        legacy_row = next(item for item in listed.data if item["id"] == legacy.data["id"])
+        self.assertEqual(legacy_row["place"], "Old hall text")
+
+        home.delete()
+        listed = self.client.get(f"/api/club-management/training/series/?club={self.club.id}")
+        row = next(item for item in listed.data if item["id"] == linked.data["id"])
+        self.assertIsNone(row["venue_id"])
+        self.assertEqual(row["venue_name"], "")
+        self.assertEqual(row["place"], "North Hall Annex")

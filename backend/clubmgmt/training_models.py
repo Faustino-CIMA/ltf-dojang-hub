@@ -67,6 +67,13 @@ class TrainingSeries(models.Model):
     skip_school_holidays = models.BooleanField(default=True)
     counts_for_under_16 = models.BooleanField(default=False)
     place = models.CharField(max_length=120, blank=True)
+    venue = models.ForeignKey(
+        "clubs.TrainingVenue",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="training_series",
+    )
     coaches = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="training_series_coached")
     regulars = models.ManyToManyField("members.Member", blank=True, related_name="training_series")
     active = models.BooleanField(default=True)

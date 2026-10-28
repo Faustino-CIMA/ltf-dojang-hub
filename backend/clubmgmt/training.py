@@ -349,7 +349,16 @@ def member_training_hours(member: Member, *, since: date | None = None) -> dict:
     }
 
 
+def remember_series_place_for_venue(sender, instance, **kwargs) -> None:
+    """Keep the stored place text aligned with a linked venue, including after it is removed."""
+    from .training_models import TrainingSeries
+
+    name = str(instance.name or "").strip()[:120]
+    TrainingSeries.objects.filter(venue_id=instance.pk).exclude(place=name).update(place=name)
+
+
 def serialize_series(series: TrainingSeries) -> dict:
+    venue = series.venue if series.venue_id else None
     return {
         "id": series.id,
         "name": series.name,
@@ -363,6 +372,8 @@ def serialize_series(series: TrainingSeries) -> dict:
         "skip_school_holidays": series.skip_school_holidays,
         "counts_for_under_16": series.counts_for_under_16,
         "place": series.place,
+        "venue_id": series.venue_id,
+        "venue_name": venue.name if venue else "",
         "active": series.active,
         "coach_ids": list(series.coaches.values_list("id", flat=True)),
         "coach_names": [
