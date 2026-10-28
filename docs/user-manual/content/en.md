@@ -660,15 +660,15 @@ LTF invoices for your licence orders are in [[navInvoices]] with the [[financeLe
 
 Pay by bank transfer and put the invoice number in the communication. LTF Finance records the payment and activates the licences.
 
-Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. A card checkout opens (Stripe). When the payment is confirmed, the licences are activated and the page reads [[Checkout.successTitle]].
+Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. You leave the app for the card provider's page (Stripe). That page shows one line for this LTF invoice, with the invoice number and the amount still open, and the fields for the card. Confirm the payment there. The provider sends you back to this app, the licences are activated, and the page reads [[Checkout.successTitle]].
 
 ![Pay now, in the row menu of an LTF invoice](fig:pay-now)
 
-If you cancel, the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licences stay as they were.
+If you use the provider's back link and do not pay, you return here and the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licences stay as they were. Members and parents never see this card page: they have no login, and a club invoice sent to them is not paid here.
 
 ![Payment cancelled, with the way back to the club](fig:checkout-return)
 
-After paying or cancelling, the button names the desk you left:
+On both pages, the button under the title is the way back. It names the desk you left:
 
 - [[Checkout.returnClub]] – the usual label when a club admin started from the club's invoices
 - [[Checkout.returnLtf]]
@@ -1218,4 +1218,4 @@ It is the number of upcoming events you can see. The word [[Events.calendarNavNe
 If you have a login, use the page described in [Privacy and your data](#privacy). Members and parents ask their club or the LTF, who can export or correct their data.
 
 ### Can we pay online?
-Yes. On an LTF invoice that the club still has to pay, [[Common.payNow]] opens a card checkout. When the payment succeeds, the licences are activated. If you cancel, nothing is charged. Afterwards the button names the desk you left, for example [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] or [[Checkout.returnOps]]. You can still pay by bank transfer. See [Paying the LTF](#pay-ltf).
+Yes. On an LTF invoice that the club still has to pay, [[Common.payNow]] opens the card provider's page. It shows the invoice number and the amount still open. You enter the card and confirm, and the app then says the payment succeeded and the licences are activated. If you go back without paying, nothing is charged. Afterwards the button names the desk you left, for example [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] or [[Checkout.returnOps]]. Members and parents do not see this page. You can still pay by bank transfer. See [Paying the LTF](#pay-ltf).

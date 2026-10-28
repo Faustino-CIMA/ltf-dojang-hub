@@ -9,7 +9,7 @@ One source tree builds four print-ready PDFs:
 | Français | `LTF-Dojang-Hub-Manuel-utilisateur-FR.pdf` | English UI (the app has no French UI) | `figures/en/` |
 | Lëtzebuergesch | `LTF-Dojang-Hub-Benotzerhandbuch-LB.pdf` | Luxembourgish UI | `figures/lb/` |
 
-The manual describes app version **0.13.0** (develop commit `0a2093e`). Screenshots were not recaptured for this edition; where a screen differs from the text, the screen is right. All people, clubs and numbers in the
+The manual describes app version **0.13.0** (develop commit `0a2093e`). Figures that show the sidebar version, and the print-job lists, were recaptured for this edition in the light theme. Where another screen differs from the text, the screen is right. All people, clubs and numbers in the
 screenshots come from an invented demo data set. There is no real personal data.
 
 ## Layout
@@ -142,7 +142,7 @@ Screenshots were recaptured from this branch in the light theme, with the fictio
 - The four PDFs rebuild without errors.
 - Every `#anchor` used in a cross-reference exists in all four sources.
 
-New figures: `account-setup`, `setup`, `members-menu`, `teams`, `team-roster`, `team-weigh-in`, `height-weight`, `equipment`, `national-team`, `parked-members`, `pay-now`, `checkout-return`, `transfer-request`, `ltf-clubs`, `ltf-club-admins`, `ltf-print-jobs`. The previously unembedded shots are now in the text. `checkout-return` is the in-app cancel page with **Back to club dashboard**, not the card provider's page. `pay-now` is the row menu on an LTF invoice. The billing figure does not number a blocked household: this demo list has none, and the steps under the figure still explain that state. Print-job lists are empty because the demo seed has no card jobs. The sidebar in these shots shows the version string shipped in the app on this branch.
+New figures: `account-setup`, `setup`, `members-menu`, `teams`, `team-roster`, `team-weigh-in`, `height-weight`, `equipment`, `national-team`, `parked-members`, `pay-now`, `checkout-return`, `transfer-request`, `ltf-clubs`, `ltf-club-admins`, `ltf-print-jobs`. The previously unembedded shots are now in the text. `checkout-return` is the in-app cancel page with **Back to club dashboard**. The card provider's own page is described in "Paying the LTF" in all four languages: the invoice line, the card fields, paying, and the way back. `pay-now` is the row menu on an LTF invoice. The billing figure does not number a blocked household: this demo list has none, and the steps under the figure still explain that state. `print-jobs`, `print-history` and `ltf-print-jobs` show fictional jobs (the app has one print-job list, so the first two figures are that list). Sidebar figures that include the version read 0.13.0.
 
 ## Open questions
 

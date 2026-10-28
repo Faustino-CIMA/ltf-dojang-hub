@@ -660,15 +660,15 @@ Les factures LTF de vos commandes de licences se trouvent dans [[navInvoices]] a
 
 Payez par virement et mettez le numéro de facture en communication. LTF Finance enregistre le paiement et active les licences.
 
-Ou payez par carte. Sur une facture LTF émise qui a encore un montant ouvert, ouvrez le menu de la ligne ou la facture et cliquez sur [[Common.payNow]]. Un paiement par carte s'ouvre (Stripe). Quand le paiement est confirmé, les licences sont activées et la page affiche [[Checkout.successTitle]].
+Ou payez par carte. Sur une facture LTF émise qui a encore un montant ouvert, ouvrez le menu de la ligne ou la facture et cliquez sur [[Common.payNow]]. Vous quittez l'application pour la page du prestataire de carte (Stripe). Cette page montre une ligne pour cette facture LTF, avec le numéro de facture et le montant encore ouvert, puis les champs de la carte. Confirmez le paiement là. Le prestataire vous renvoie dans cette application, les licences sont activées et la page affiche [[Checkout.successTitle]].
 
 ![Payer maintenant, dans le menu de ligne d'une facture LTF](fig:pay-now)
 
-Si vous annulez, la page affiche [[Checkout.cancelTitle]]. Rien n'est débité et les licences restent comme elles étaient.
+Si vous utilisez le lien retour du prestataire sans payer, vous revenez ici et la page affiche [[Checkout.cancelTitle]]. Rien n'est débité et les licences restent comme elles étaient. Les membres et les parents ne voient jamais cette page de carte : ils n'ont pas d'identifiant, et une facture du club qui leur est envoyée ne se paie pas ici.
 
 ![Paiement annulé, avec le retour vers le club](fig:checkout-return)
 
-Après le paiement ou l'annulation, le bouton nomme le bureau que vous avez quitté :
+Sur les deux pages, le bouton sous le titre est le chemin de retour. Il nomme le bureau que vous avez quitté :
 
 - [[Checkout.returnClub]] – l'intitulé habituel quand un administrateur de club est parti des factures du club
 - [[Checkout.returnLtf]]
@@ -1218,4 +1218,4 @@ C'est le nombre d'événements à venir que vous pouvez voir. Le mot [[Events.ca
 Si vous avez un identifiant, utilisez la page décrite dans [Confidentialité et vos données](#privacy). Les membres et les parents s'adressent à leur club ou à la LTF, qui peuvent exporter ou corriger leurs données.
 
 ### Peut-on payer en ligne ?
-Oui. Sur une facture LTF que le club doit encore payer, [[Common.payNow]] ouvre un paiement par carte. Quand le paiement réussit, les licences sont activées. Si vous annulez, rien n'est débité. Ensuite, le bouton nomme le bureau que vous avez quitté, par exemple [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] ou [[Checkout.returnOps]]. Vous pouvez toujours payer par virement. Voir [Payer la LTF](#pay-ltf).
+Oui. Sur une facture LTF que le club doit encore payer, [[Common.payNow]] ouvre la page du prestataire de carte. Elle montre le numéro de facture et le montant encore ouvert. Vous saisissez la carte et confirmez, puis l'application indique que le paiement a réussi et que les licences sont activées. Si vous revenez sans payer, rien n'est débité. Ensuite, le bouton nomme le bureau que vous avez quitté, par exemple [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] ou [[Checkout.returnOps]]. Les membres et les parents ne voient pas cette page. Vous pouvez toujours payer par virement. Voir [Payer la LTF](#pay-ltf).

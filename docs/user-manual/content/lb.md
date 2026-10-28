@@ -660,15 +660,15 @@ D'LTF-Rechnunge fir Är Lizenzbestellunge fannt Dir ënner [[navInvoices]], wann
 
 Bezuelt per Iwwerweisung a setzt d'Rechnungsnummer an d'Kommunikatioun. D'LTF-Finanzen erfaassen d'Bezuelung an aktivéieren d'Lizenzen.
 
-Oder bezuelt mat der Kaart. Bei enger ausgestallter LTF-Rechnung, op där nach e Montant op ass, maacht d'Zeilemenü oder d'Rechnung op a klickt op [[Common.payNow]]. Et geet eng Kaartebezuelung op (Stripe). Wann d'Bezuelung bestätegt ass, ginn d'Lizenze aktivéiert an d'Säit weist [[Checkout.successTitle]].
+Oder bezuelt mat der Kaart. Bei enger ausgestallter LTF-Rechnung, op där nach e Montant op ass, maacht d'Zeilemenü oder d'Rechnung op a klickt op [[Common.payNow]]. Dir verloosst d'App an gesitt d'Säit vum Kaartenubidder (Stripe). Do steet eng Zeil fir dës LTF-Rechnung, mat der Rechnungsnummer an dem nach oppe Montant, an d'Felder fir d'Kaart. Bestätegt d'Bezuelung do. Den Ubiddder schéckt Iech an dës App zréck, d'Lizenze ginn aktivéiert an d'Säit weist [[Checkout.successTitle]].
 
 ![Elo bezuelen, am Zeilemenü vun enger LTF-Rechnung](fig:pay-now)
 
-Wann Dir ofbriecht, weist d'Säit [[Checkout.cancelTitle]]. Et gëtt näischt belaascht, an d'Lizenze bleiwen, wéi se waren.
+Wann Dir de Zréck-Link vum Ubiddder benotzt an net bezuelt, kommt Dir hei zréck an d'Säit weist [[Checkout.cancelTitle]]. Et gëtt näischt belaascht, an d'Lizenze bleiwe, wéi se waren. Memberen an Eltere gesinn dës Kaartesäit ni: si hunn kee Login, an eng Veräinsrechnung un si gëtt hei net bezuelt.
 
 ![Bezuelung ofgebrach, mam Wee zréck op de Veräin](fig:checkout-return)
 
-Nom Bezuelen oder Ofbriechen nennt de Knäppchen de Schreifdësch, deen Dir verlooss hutt:
+Op béide Säiten ass de Knäppchen ënner dem Titel de Wee zréck. E nennt de Schreifdësch, deen Dir verlooss hutt:
 
 - [[Checkout.returnClub]] – déi üblech Bezeechnung, wann e Club-Admin vun de Rechnunge vum Veräin koum
 - [[Checkout.returnLtf]]
@@ -1218,4 +1218,4 @@ Dat ass d'Zuel vun den Evenementer, déi ukommen an déi Dir gesitt. D'Wuert [[E
 Mat engem Login benotzt Dir d'Säit aus [Dateschutz an Är Donnéeën](#privacy). Memberen an Elteren wenden sech un hire Veräin oder un d'LTF; déi kënnen hir Donnéeën exportéieren oder verbesseren.
 
 ### Kënne mir online bezuelen?
-Jo. Bei enger LTF-Rechnung, déi de Veräin nach bezuele muss, mécht [[Common.payNow]] eng Kaartebezuelung op. Wann d'Bezuelung geléngt, ginn d'Lizenze aktivéiert. Wann Dir ofbriecht, gëtt näischt belaascht. Duerno nennt de Knäppchen de Schreifdësch, deen Dir verlooss hutt, zum Beispill [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Dir kënnt weider per Iwwerweisung bezuelen. Kuckt [D'LTF bezuelen](#pay-ltf).
+Jo. Bei enger LTF-Rechnung, déi de Veräin nach bezuele muss, mécht [[Common.payNow]] d'Säit vum Kaartenubidder op. Si weist d'Rechnungsnummer an de nach oppe Montant. Dir gitt d'Kaart an a bestätegt, an d'App seet duerno, datt d'Bezuelung gelongen ass an d'Lizenze aktivéiert sinn. Geet Dir zréck, ouni ze bezuelen, gëtt näischt belaascht. Duerno nennt de Knäppchen de Schreifdësch, deen Dir verlooss hutt, zum Beispill [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Memberen an Eltere gesinn dës Säit net. Dir kënnt weider per Iwwerweisung bezuelen. Kuckt [D'LTF bezuelen](#pay-ltf).
