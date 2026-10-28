@@ -1,3 +1,5 @@
+> Historical note (March 2026). This file records licence-card work from v0.3.x. It is not a description of the current app.
+
 Executive Summary
 Static deep review of the backend render/print pipeline found 4 P1 and 4 P2 issues.
 No clear P0 (immediate hotfix) was identified.

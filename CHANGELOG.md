@@ -2,34 +2,52 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.13.0] - 2026-10-27
 
-### User-facing
+### Added
+- **First-run setup:** A superuser imports clubs, then members and LTF staff, then club admins, from CSV. Nothing is emailed during the import. A row with an empty club, an unknown club, or an unreadable membership end date can be parked and still confirmed. “No club yet” is a choice on a member row. The Member ID column maps to both licence ids. Active or inactive follows the membership end year.
+- **Account setup:** An invited admin sees the role and the organisation, chooses an email and a password, and then sees “Your account is ready.” LTF can send the set-password link again. The club-admin menu uses plain labels for those actions.
+- **Club record:** A club stores World Taekwondo or ITF, an RCS number, and its training venues. LTF settings stores the federation RCS number and looks up a Luxembourg address.
+- **Luxembourg addresses:** Street, number, postcode, and locality are separate fields. The street field is the street name only, and a house number may include a letter. Suggestions come from the official street register.
+- **Invoice address:** One saved address can be marked for invoices. Deleting an account clears that person’s private addresses.
+- **National team:** The federation desk keeps squads, Pupils and Minimes, an optional weight, coaches, a medic, and media. A club sees a short badge, not the staff file.
+- **LTF staff licences:** Staff can hold a licence with a club or with no club. Lists say when there is no club.
+- **Club teams:** With the competition module on, a club keeps a roster, coach roles, a weigh-in, a sheet, Poomsae groups, a duplicate, and a history of who joined or left. A team’s competition can be removed. The members list can show who is not on a team. Height and weight stay with that club.
+- **Equipment:** Sizes are grouped as Protectors, e-gear, and clothing. Each club defines the clothing sizes it orders. Daedo or KPNP can be switched off without deleting the sizes.
 - **Module fees:** LTF Finance can set a yearly price for Club management and the event calendar. A price is either a flat amount or an amount times the club's active members, with an optional minimum. Billing uses the existing Billing tab and skips a club already invoiced for that year. Only an active club with the module switched on is billed. An unpaid invoice leaves the module on. Club admins can read Modules and prices on the club profile, including when no module is switched on. The yearly figure there is an estimate.
-
-### Technical
-- `ClubFeeType.module_id` and module price rows (`pricing_type`, `minimum_amount`) are migration `licenses.0048_module_fees`. An active member is a member of the club with an active or pending licence for the billing year (`licenses.module_fees.active_member_count`). A per-member invoice line stores that count and says when the minimum fee applied. `GET /api/clubs/{id}/module-fees/` is readable by that club's admin without any module switched on. Only LTF Finance can change the prices.
-
-### Documentation
-
-- Replace the previous user manuals with the multilingual EN/DE/FR/LB set in `docs/user-manual/` (sources, rebuild tooling, and PDFs).
-- Clarify club expense list and form subtitles so they refer to the club ledger, not federation accounts (`clubExpensesSubtitle`, `clubExpenseFormSubtitle`).
-
-### User-facing
+- **Committee:** Offices are recorded as terms and hand over on election day.
+- **Header:** The club switcher opens as a small panel. After a logo upload, the preview shows the file that was saved.
 - **Subsidies:** The headcount is the January snapshot. A member who holds a licence for the year stays in it when the club marks them inactive later. Every licensed member is counted in the age row for 31 December. A coach or official aged 35 or over is included in Veterans / masters, and is still listed again under other licences.
-- **Members menu:** Members and Actions on the club members list, Clubs and Actions on the LTF clubs list, and Licenses and Actions on the LTF licenses list open as popovers. Those labels use the normal field text color. The print-job, LTF clubs, and LTF licenses trash buttons match the outline trash button on the members list.
-- **Print jobs:** The club print jobs table has a trash button. Confirming it removes that job and its PDF. A job that is queued or still running has to be cancelled first.
-- **License cards:** A club print started from the members list uses that member’s current license, so the license year is printed. An active license is used when the member has one. Printing a chosen row from the licenses list still prints that license.
-- **LTF Dojang Hub:** The application is now called LTF Dojang Hub. The front page, sign-in, welcome back, and the club, federation, and member overviews describe the desk: members, licenses, training, billing, the shop, and the shared calendar, with room for more of the dojang.
 - **Coach pay:** On Coach pay, a club admin sets each coach to an hourly rate or to one amount per held class. A held class counts in full for every coach on it. The period shows hours, units, training pay, tournament coaching, fuel, hotel, and the total. A tournament, fuel, or hotel row uses its date to pick the period. Leave the coaching fee empty to use the coach's rate. Enter a fee, including 0, when that day is not paid at the rate. Coaches still see hours and units. Only a club admin sees and edits the amounts. A new rate recalculates the open periods. Membership invoices already issued stay as they are.
 - **Calendar audiences:** A club date can stay inside the club. Private is that club’s admins only. Internal is that club’s admins and coaches, for a staff outing such as Europapark. Public stays with that club’s members and with LTF Admin. All clubs and the LTF puts the date on the LTF calendar and on every club calendar, with the kind and the club name, so another club can see a Kyorugi or Poomsae day. A Club presidents meeting is an LTF event. Tick the clubs. Only LTF Admins and the current president of each ticked club can see it. The president needs a login on their member record. The calendar does not block a second event on the same day.
 - **Calendar link:** The Calendar link shows how many events fall in the next two months. It also shows “new” until each of those events has been opened. A club admin can set a reminder on an event, including the day it should appear. On that day a reminder shows Snooze for a day and Got it. Snooze hides it until the next day. Got it does not show that reminder again.
 
+### Changed
+- **Name:** The application is called LTF Dojang Hub. The front page, sign-in, welcome back, and the club, federation, and member overviews describe the desk: members, licenses, training, billing, the shop, and the shared calendar.
+- **Theme:** The public home, sign-in, and the in-app welcome use the black-and-red theme, and the light counterpart when that theme is selected.
+- **Desk:** Edit forms open in side panels. Lists sort. Row actions sit in a menu. The sex mark is a small plain mark. The sidebar stays mounted while you move between pages. Federation links are grouped under LTF management.
+- **Printing:** Printing is its own section. Preview, download, and delete are on the print-job row menu. A job that is queued or still running has to be cancelled before it can be deleted. A club print started from the members list uses that member’s current license, so the license year is printed. An active license is used when the member has one. Printing a chosen row from the licenses list still prints that license.
+- **List menus:** Members and Actions on the club members list, Clubs and Actions on the LTF clubs list, and Licenses and Actions on the LTF licenses list open as popovers. Those labels use the normal field text color. The print-job, LTF clubs, and LTF licenses trash buttons match the outline trash button on the members list.
+- **Member import:** Import from the members list can update a matched person. An empty cell does not wipe a value already stored. This is separate from first-run setup.
+- **Club expenses:** The club expense list and form subtitles refer to the club ledger (`clubExpensesSubtitle`, `clubExpenseFormSubtitle`).
+
+### Fixed
+- **Invoice emails:** The amount in the email is the same total as on the PDF, including a licence invoice that is mailed in the same step that records the payment.
+- **After card checkout:** Pay now opens card checkout. On the success page and the cancel page, the button returns to the desk you left: club, LTF, finance, or member.
+
 ### Technical
+- `ClubFeeType.module_id` and module price rows (`pricing_type`, `minimum_amount`) are migration `licenses.0048_module_fees`. An active member is a member of the club with an active or pending licence for the billing year (`licenses.module_fees.active_member_count`). A per-member invoice line stores that count and says when the minimum fee applied. `GET /api/clubs/{id}/module-fees/` is readable by that club's admin without any module switched on. Only LTF Finance can change the prices.
 - `DELETE /api/print-jobs/{id}/` removes a draft, succeeded, failed, or cancelled print job, its items, and its PDF. A queued or running job stays until it is cancelled. A club admin can delete only that club’s jobs. Members, Clubs, and Licenses list menus are popovers (`@radix-ui/react-popover`).
 - `CoachPayRate` and `CoachOuting` are migration `clubmgmt.0023_coach_pay`. `GET /api/club-management/training/coach-hours/` adds units for everyone and euro amounts for a club admin. Rates are saved and removed at `training/coach-pay-rates/`. Tournament, fuel, and hotel rows are created, updated, and removed at `training/coach-outings/`.
 - Event visibility adds `shared` and `presidents`. `Event.audience_clubs` is migration `events.0002_event_audiences`. Kind `calendar`, `kyorugi`, and `poomsae` can be saved. A federation or club calendar includes shared dates, and a club calendar includes presidents meetings for that club. Each row is then hidden unless that person may see it.
 - `EventAttention` is migration `events.0003_event_attention`. `GET /api/events/summary/` returns the next two months. Opening an event marks it seen. A club admin saves, snoozes, and dismisses a reminder at `/api/events/{id}/reminder/`, `reminder-snooze/`, and `reminder-dismiss/`. Due reminders are `GET /api/events/reminders/`.
+- The API root redirects to the frontend. Demo seeding gives each demo club its own admin, starts only when `DEMO_MODE` is set, and leaves non-demo rows alone.
+- Luxembourg street lookup reads the CACLR cache. `python manage.py refresh_lu_addresses` fills it. The monthly task `clubmgmt.tasks.refresh_luxembourg_addresses` runs on the morning of the 6th. An empty cache falls back to the previous lookup.
+- Card checkout stores a same-origin dashboard path before the redirect. The confirm response also returns `return_area` (`club`, `ltf`, `ltf-finance`, `member`, or `ops`). The button uses the stored path first.
+
+### Documentation
+- The multilingual EN/DE/FR/LB set in `docs/user-manual/` replaces the previous manuals. That set describes the 0.12.0 edition. It is maintained separately from these 0.13.0 notes.
+- Public notes for this version, suitable to paste into a GitHub release later: `docs/releases/v0.13.0.md`.
 
 ## [0.12.0] - 2026-10-02
 

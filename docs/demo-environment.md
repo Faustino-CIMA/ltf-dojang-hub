@@ -86,6 +86,8 @@ Generate a new `DJANGO_SECRET_KEY` (a long random string). Do not copy the produ
 | `CSRF_TRUSTED_ORIGINS` | `https://app.demo.example.com,https://api.demo.example.com` |
 | `CORS_ALLOWED_ORIGINS` | `https://app.demo.example.com` |
 | `FRONTEND_BASE_URL` | `https://app.demo.example.com` |
+| `STRIPE_CHECKOUT_SUCCESS_URL` | `https://app.demo.example.com/checkout/success?session_id={CHECKOUT_SESSION_ID}` |
+| `STRIPE_CHECKOUT_CANCEL_URL` | `https://app.demo.example.com/checkout/cancel` |
 | `NEXT_PUBLIC_API_URL` | `https://api.demo.example.com` |
 | `DJANGO_SECURE_USE_X_FORWARDED_PROTO` | `True` |
 | `DJANGO_SECURE_SSL_REDIRECT` | `True` |
@@ -101,6 +103,8 @@ Generate a new `DJANGO_SECRET_KEY` (a long random string). Do not copy the produ
 
 Use your real demo domain in place of `demo.example.com`. The frontend calls `NEXT_PUBLIC_API_URL`. When that URL is left as localhost and the site is opened on a host that starts with `app.`, the browser instead calls `api.` plus the rest of the domain. Setting `NEXT_PUBLIC_API_URL` explicitly avoids that guess.
 
+`FRONTEND_BASE_URL` is `https`, with no trailing slash and no `/en` or `/lb`. The success and cancel URLs use that same origin and no locale segment. `{CHECKOUT_SESSION_ID}` stays as those characters, braces included. Stripe replaces the token. Do not percent-encode the braces. Do not copy the live app’s Stripe secret or webhook secret into the demo; use the demo account’s own values if card checkout should work there.
+
 `DEMO_MODE=true` also shows a small “Demo environment, fictional data” badge in the header (English, French, German, and Luxembourgish), so the demo is not mistaken for the live app.
 
 ## 4. Domain
@@ -110,6 +114,13 @@ Use your real demo domain in place of `demo.example.com`. The frontend calls `NE
 3. Point DNS at Coolify the same way the live domains are pointed, for these new names only.
 4. Wait until Coolify shows the certificates as ready.
 5. Deploy the demo app. The backend runs migrations on startup. It does **not** seed demo data on startup.
+6. On the **demo backend**, load the Luxembourg street register once:
+
+```
+python manage.py refresh_lu_addresses
+```
+
+Until that table is filled, address search falls back to the previous lookup. A monthly job also runs on the morning of the 6th. Run this on the demo backend only.
 
 Open the demo site. It should be an empty federation desk, not the live clubs.
 

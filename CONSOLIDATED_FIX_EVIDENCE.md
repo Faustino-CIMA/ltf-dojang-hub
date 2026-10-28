@@ -1,3 +1,5 @@
+> Historical note (March 2026). This file records licence-card work from v0.3.x. It is not a description of the current app.
+
 # Consolidated Final Fix Evidence
 
 Date: 2026-03-07

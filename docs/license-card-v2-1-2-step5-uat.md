@@ -1,3 +1,5 @@
+> Historical note (March 2026). This file records licence-card work from v0.3.x. It is not a description of the current app.
+
 # License Card v2.1.2 - Step 5 Final Recovery Gate + Release UAT
 
 Date: 2026-03-13 (rerun validated on latest `main`)  
