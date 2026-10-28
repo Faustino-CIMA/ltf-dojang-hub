@@ -9,13 +9,24 @@ class ClubmgmtConfig(AppConfig):
     def ready(self):
         from django.db.models.signals import post_save, pre_delete
 
-        from clubs.models import Club
+        from clubs.models import Club, TrainingVenue
         from members.models import Member
 
         from .teams import log_memberships_before_member_delete
+        from .training import remember_series_place_for_venue
 
         pre_delete.connect(log_memberships_before_member_delete, sender=Member, dispatch_uid="club_team_member_delete")
         post_save.connect(_seed_club_clothing, sender=Club, dispatch_uid="club_clothing_defaults")
+        post_save.connect(
+            remember_series_place_for_venue,
+            sender=TrainingVenue,
+            dispatch_uid="training_series_venue_rename",
+        )
+        pre_delete.connect(
+            remember_series_place_for_venue,
+            sender=TrainingVenue,
+            dispatch_uid="training_series_venue_delete",
+        )
 
 
 def _seed_club_clothing(sender, instance, created, **kwargs):

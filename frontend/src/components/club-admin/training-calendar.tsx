@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
@@ -234,6 +235,7 @@ export function TrainingMonthView() {
                         <span className="block text-sm text-muted">
                           {t(`trainingAudience_${session.audience}`)}
                           {session.coach_names.length > 0 ? ` · ${session.coach_names.join(", ")}` : ""}
+                          {timetablePlaceText(session) ? ` · ${timetablePlaceText(session)}` : ""}
                         </span>
                       </span>
                       <StatusBadge label={t(`trainingStatus_${session.status}`)} tone={sessionTone(session.status)} />

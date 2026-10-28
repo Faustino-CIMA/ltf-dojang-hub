@@ -15,6 +15,8 @@ export type TrainingSeries = {
   skip_school_holidays: boolean;
   counts_for_under_16: boolean;
   place: string;
+  venue_id: number | null;
+  venue_name: string;
   active: boolean;
   coach_ids: number[];
   coach_names: string[];
@@ -31,6 +33,9 @@ export type TrainingSession = {
   end_time: string;
   status: "scheduled" | "held" | "cancelled";
   hours: string;
+  place: string;
+  venue_id: number | null;
+  venue_name: string;
   coach_ids: number[];
   coach_names: string[];
   present_ids: number[];

@@ -7,6 +7,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { StudentMultiPicker } from "@/components/club-admin/student-multi-picker";
+import { TrainingVenueField, useClubTrainingVenues } from "@/components/club-admin/training-venue-field";
+import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,10 @@ export default function TrainingRollPage() {
   const [present, setPresent] = useState<number[]>([]);
   const [pinned, setPinned] = useState<number[]>([]);
   const [coachIds, setCoachIds] = useState<number[]>([]);
+  const [venueId, setVenueId] = useState<number | null>(null);
+  const [place, setPlace] = useState("");
+  const [venueName, setVenueName] = useState("");
+  const { venues, loadFailed } = useClubTrainingVenues(selectedClubId, canManage);
   const [ageFilter, setAgeFilter] = useState<AgeFilter>("all");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -50,6 +56,9 @@ export default function TrainingRollPage() {
     setPresent(starting);
     setPinned(starting);
     setCoachIds(next.session.coach_ids);
+    setVenueId(next.session.venue_id);
+    setPlace(next.session.venue_id ? "" : next.session.place || "");
+    setVenueName(next.session.venue_name || "");
   }, [params.id, selectedClubId]);
 
   useEffect(() => {
@@ -99,6 +108,28 @@ export default function TrainingRollPage() {
     }
   };
 
+  const saveVenue = async (choice: { venueId: number | null; place: string }) => {
+    if (!selectedClubId || !roll) return;
+    const previous = { venueId, place, venueName };
+    setVenueId(choice.venueId);
+    setPlace(choice.venueId == null ? choice.place : "");
+    setVenueName(choice.venueId == null ? "" : choice.place);
+    try {
+      const saved = await updateTrainingSession(selectedClubId, roll.session.id, {
+        venue_id: choice.venueId,
+        place: choice.venueId == null ? choice.place : "",
+      });
+      setRoll((current) => (current ? { ...current, session: { ...current.session, ...saved } } : current));
+      setVenueName(saved.venue_name || "");
+      setErrorMessage(null);
+    } catch (error) {
+      setVenueId(previous.venueId);
+      setPlace(previous.place);
+      setVenueName(previous.venueName);
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    }
+  };
+
   const setStatus = async (status: "cancelled" | "scheduled") => {
     if (!selectedClubId || !roll) return;
     try {
@@ -112,7 +143,13 @@ export default function TrainingRollPage() {
   return (
     <ClubAdminLayout
       title={roll?.session.name || t("trainingOpenRoll")}
-      subtitle={roll ? `${roll.session.held_on} · ${roll.session.start_time}–${roll.session.end_time}` : ""}
+      subtitle={
+        roll
+          ? `${roll.session.held_on} · ${roll.session.start_time}–${roll.session.end_time}${
+              timetablePlaceText(roll.session) ? ` · ${timetablePlaceText(roll.session)}` : ""
+            }`
+          : ""
+      }
     >
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
@@ -153,6 +190,20 @@ export default function TrainingRollPage() {
               ) : null}
             </div>
           </div>
+          {canManage ? (
+            <FormPanel>
+              <TrainingVenueField
+                venues={venues}
+                loadFailed={loadFailed}
+                venueId={venueId}
+                place={place}
+                knownName={venueName}
+                onChange={(choice) => void saveVenue(choice)}
+              />
+            </FormPanel>
+          ) : timetablePlaceText(roll.session) ? (
+            <p className="text-sm text-muted">{timetablePlaceText(roll.session)}</p>
+          ) : null}
           <FormPanel>
             <h2 className="text-section text-foreground">{t("trainingSessionCoaches")}</h2>
             <div className="mt-3 flex flex-wrap gap-2">
