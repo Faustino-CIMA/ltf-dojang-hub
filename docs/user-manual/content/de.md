@@ -660,15 +660,15 @@ LTF-Rechnungen für Ihre Lizenzbestellungen finden Sie unter [[navInvoices]], we
 
 Bezahlen Sie per Überweisung und setzen Sie die Rechnungsnummer in den Verwendungszweck. LTF Finance erfasst die Zahlung und aktiviert die Lizenzen.
 
-Oder bezahlen Sie mit Karte. Öffnen Sie bei einer ausgestellten LTF-Rechnung mit offenem Betrag das Zeilenmenü oder die Rechnung und klicken Sie auf [[Common.payNow]]. Es öffnet sich eine Kartenzahlung (Stripe). Ist die Zahlung bestätigt, werden die Lizenzen aktiviert und die Seite zeigt [[Checkout.successTitle]].
+Oder bezahlen Sie mit Karte. Öffnen Sie bei einer ausgestellten LTF-Rechnung mit offenem Betrag das Zeilenmenü oder die Rechnung und klicken Sie auf [[Common.payNow]]. Sie verlassen die App und sehen die Seite des Kartenanbieters (Stripe). Dort steht eine Zeile für diese LTF-Rechnung, mit der Rechnungsnummer und dem noch offenen Betrag, und die Felder für die Karte. Bestätigen Sie die Zahlung dort. Der Anbieter schickt Sie in diese App zurück, die Lizenzen werden aktiviert und die Seite zeigt [[Checkout.successTitle]].
 
 ![Jetzt bezahlen, im Zeilenmenü einer LTF-Rechnung](fig:pay-now)
 
-Brechen Sie ab, zeigt die Seite [[Checkout.cancelTitle]]. Es wird nichts belastet, und die Lizenzen bleiben, wie sie waren.
+Wenn Sie den Zurück-Link des Anbieters benutzen, ohne zu zahlen, kommen Sie hierher zurück und die Seite zeigt [[Checkout.cancelTitle]]. Es wird nichts belastet, und die Lizenzen bleiben, wie sie waren. Mitglieder und Eltern sehen diese Kartenseite nie: sie haben kein Login, und eine Vereinsrechnung an sie wird hier nicht bezahlt.
 
 ![Zahlung abgebrochen, mit dem Weg zurück zum Verein](fig:checkout-return)
 
-Nach dem Bezahlen oder Abbrechen nennt die Schaltfläche den Schreibtisch, den Sie verlassen haben:
+Auf beiden Seiten ist die Schaltfläche unter der Überschrift der Weg zurück. Sie nennt den Schreibtisch, den Sie verlassen haben:
 
 - [[Checkout.returnClub]] – die übliche Beschriftung, wenn ein Club-Admin von den Rechnungen des Vereins kam
 - [[Checkout.returnLtf]]
@@ -1218,4 +1218,4 @@ Sie gibt an, wie viele kommende Termine Sie sehen können. Das Wort [[Events.cal
 Mit einem Login nutzen Sie die Seite aus [Datenschutz und Ihre Daten](#privacy). Mitglieder und Eltern wenden sich an ihren Verein oder an die LTF; diese können ihre Daten exportieren oder berichtigen.
 
 ### Können wir online bezahlen?
-Ja. Bei einer LTF-Rechnung, die der Verein noch zahlen muss, öffnet [[Common.payNow]] eine Kartenzahlung. Ist die Zahlung erfolgreich, werden die Lizenzen aktiviert. Brechen Sie ab, wird nichts belastet. Danach nennt die Schaltfläche den Schreibtisch, den Sie verlassen haben, zum Beispiel [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Sie können weiter per Überweisung zahlen. Siehe [Die LTF bezahlen](#pay-ltf).
+Ja. Bei einer LTF-Rechnung, die der Verein noch zahlen muss, öffnet [[Common.payNow]] die Seite des Kartenanbieters. Sie zeigt die Rechnungsnummer und den noch offenen Betrag. Sie geben die Karte ein und bestätigen, und die App meldet danach, dass die Zahlung gelungen ist und die Lizenzen aktiviert sind. Gehen Sie zurück, ohne zu zahlen, wird nichts belastet. Danach nennt die Schaltfläche den Schreibtisch, den Sie verlassen haben, zum Beispiel [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Mitglieder und Eltern sehen diese Seite nicht. Sie können weiter per Überweisung zahlen. Siehe [Die LTF bezahlen](#pay-ltf).
