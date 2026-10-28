@@ -5,8 +5,7 @@ import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { TrainingVenue } from "@/lib/training-venues";
-import { venueShortAddress } from "@/lib/training-venues";
+import { venueShortAddress, type TrainingVenue } from "@/lib/training-venues";
 import { cn } from "@/lib/utils";
 
 export const VENUE_SEARCH_THRESHOLD = 8;
@@ -16,7 +15,7 @@ export type VenueChoice = {
   place: string;
 };
 
-export function timetablePlaceText(row: { place: string; venue_name?: string | null }): string {
+export function timetablePlaceText(row: { place?: string; venue_name?: string | null }): string {
   return row.venue_name || row.place || "";
 }
 

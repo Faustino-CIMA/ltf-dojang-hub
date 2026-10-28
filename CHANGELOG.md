@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 - **Training timetable:** The class form picks a training venue from club settings instead of a free-text place. The place stays optional. A class saved earlier with its own place text still shows that text. Renaming a linked venue updates the class. Deleting the venue leaves the last name on the class.
+- **Extra classes:** Adding a one-off class, and the session page opened from the week, month, or year view, use the same venue picker. Older sessions have no place stored, so they keep showing without one until a venue is chosen. A new class generated from the timetable copies that class’s venue.
 
 ## [0.13.0] - 2026-10-27
 

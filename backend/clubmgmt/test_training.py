@@ -589,3 +589,89 @@ class TrainingTests(TestCase):
         self.assertIsNone(row["venue_id"])
         self.assertEqual(row["venue_name"], "")
         self.assertEqual(row["place"], "North Hall Annex")
+
+    def test_extra_session_uses_this_clubs_venue_and_keeps_an_empty_place(self):
+        from clubs.models import TrainingVenue
+
+        plain = self.client.post(
+            f"/api/club-management/training/sessions/?club={self.club.id}",
+            {
+                "name": "Extra",
+                "audience": "adults",
+                "held_on": "2026-09-08",
+                "start_time": "19:00",
+                "end_time": "20:00",
+            },
+            format="json",
+        )
+        self.assertEqual(plain.status_code, 201, plain.data)
+        self.assertEqual(plain.data["place"], "")
+        self.assertIsNone(plain.data["venue_id"])
+        self.assertEqual(plain.data["venue_name"], "")
+        status = self.client.patch(
+            f"/api/club-management/training/sessions/{plain.data['id']}/?club={self.club.id}",
+            {"status": "cancelled"},
+            format="json",
+        )
+        self.assertEqual(status.status_code, 200, status.data)
+        self.assertEqual(status.data["place"], "")
+        self.assertIsNone(status.data["venue_id"])
+
+        other = Club.objects.create(name="Elsewhere", created_by=self.admin)
+        foreign = TrainingVenue.objects.create(club=other, name="Other Hall")
+        rejected = self.client.post(
+            f"/api/club-management/training/sessions/?club={self.club.id}",
+            {
+                "name": "Wrong hall",
+                "audience": "kids",
+                "held_on": "2026-09-09",
+                "start_time": "17:00",
+                "end_time": "18:00",
+                "venue_id": foreign.id,
+            },
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+
+        home = TrainingVenue.objects.create(club=self.club, name="North Hall")
+        linked = self.client.post(
+            f"/api/club-management/training/sessions/?club={self.club.id}",
+            {
+                "name": "Extra hall",
+                "audience": "kids",
+                "held_on": "2026-09-10",
+                "start_time": "17:00",
+                "end_time": "18:00",
+                "venue_id": home.id,
+                "place": "ignored",
+            },
+            format="json",
+        )
+        self.assertEqual(linked.status_code, 201, linked.data)
+        self.assertEqual(linked.data["venue_id"], home.id)
+        self.assertEqual(linked.data["place"], "North Hall")
+
+        series = self.client.post(
+            f"/api/club-management/training/series/?club={self.club.id}",
+            self._class_payload(
+                name="Copied",
+                weekday=date(2026, 9, 14).weekday(),
+                venue_id=home.id,
+                valid_from="2026-09-14",
+                valid_until="2026-09-14",
+            ),
+            format="json",
+        )
+        self.assertEqual(series.status_code, 201, series.data)
+        generated = TrainingSession.objects.get(series_id=series.data["id"])
+        self.assertEqual(generated.venue_id, home.id)
+        self.assertEqual(generated.place, "North Hall")
+
+        home.name = "North Hall Annex"
+        home.save()
+        generated.refresh_from_db()
+        self.assertEqual(generated.place, "North Hall Annex")
+        home.delete()
+        generated.refresh_from_db()
+        self.assertIsNone(generated.venue_id)
+        self.assertEqual(generated.place, "North Hall Annex")

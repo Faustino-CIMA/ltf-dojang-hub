@@ -7,6 +7,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { TrainingVenueField, useClubTrainingVenues } from "@/components/club-admin/training-venue-field";
+import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
@@ -55,6 +57,9 @@ export default function TrainingWeekPage() {
   const [startTime, setStartTime] = useState("17:00");
   const [endTime, setEndTime] = useState("18:30");
   const [coachIds, setCoachIds] = useState<number[]>([]);
+  const [venueId, setVenueId] = useState<number | null>(null);
+  const [place, setPlace] = useState("");
+  const { venues, loadFailed } = useClubTrainingVenues(selectedClubId, canManage);
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | TrainingSession["status"]>("all");
@@ -93,6 +98,8 @@ export default function TrainingWeekPage() {
         start_time: startTime,
         end_time: endTime,
         coach_ids: coachIds,
+        venue_id: venueId,
+        place: venueId == null ? place : "",
       });
       router.push(`/${locale}/dashboard/club/training/sessions/${created.id}`);
     } catch (error) {
@@ -110,6 +117,7 @@ export default function TrainingWeekPage() {
       return (
         row.name.toLowerCase().includes(needle) ||
         row.coach_names.join(" ").toLowerCase().includes(needle) ||
+        timetablePlaceText(row).toLowerCase().includes(needle) ||
         t(`trainingAudience_${row.audience}`).toLowerCase().includes(needle)
       );
     });
@@ -171,6 +179,18 @@ export default function TrainingWeekPage() {
                     <Label required>{t("trainingEnds")}</Label>
                     <Input className="mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
                   </div>
+                </div>
+                <div className="md:col-span-2">
+                  <TrainingVenueField
+                    venues={venues}
+                    loadFailed={loadFailed}
+                    venueId={venueId}
+                    place={place}
+                    onChange={(choice) => {
+                      setVenueId(choice.venueId);
+                      setPlace(choice.venueId == null ? choice.place : "");
+                    }}
+                  />
                 </div>
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium">{t("trainingSessionCoaches")}</p>
@@ -246,7 +266,21 @@ export default function TrainingWeekPage() {
                       header: t("trainingTime"),
                       render: (row) => `${row.start_time}–${row.end_time}`,
                     },
-                    { key: "name", header: t("trainingClassName") },
+                    {
+                      key: "name",
+                      header: t("trainingClassName"),
+                      render: (row) => {
+                        const venue = timetablePlaceText(row);
+                        return venue ? (
+                          <span>
+                            <span className="block">{row.name}</span>
+                            <span className="block text-xs text-muted">{venue}</span>
+                          </span>
+                        ) : (
+                          row.name
+                        );
+                      },
+                    },
                     {
                       key: "audience",
                       header: t("trainingAudience"),

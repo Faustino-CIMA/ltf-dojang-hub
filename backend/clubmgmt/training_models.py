@@ -107,6 +107,14 @@ class TrainingSession(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    place = models.CharField(max_length=120, blank=True)
+    venue = models.ForeignKey(
+        "clubs.TrainingVenue",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="training_sessions",
+    )
     coaches = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="training_sessions_coached")
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

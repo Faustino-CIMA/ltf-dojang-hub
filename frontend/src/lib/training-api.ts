@@ -33,6 +33,9 @@ export type TrainingSession = {
   end_time: string;
   status: "scheduled" | "held" | "cancelled";
   hours: string;
+  place: string;
+  venue_id: number | null;
+  venue_name: string;
   coach_ids: number[];
   coach_names: string[];
   present_ids: number[];

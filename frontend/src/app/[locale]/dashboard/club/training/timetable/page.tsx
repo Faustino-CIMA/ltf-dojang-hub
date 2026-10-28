@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { StudentMultiPicker, type StudentPick } from "@/components/club-admin/student-multi-picker";
-import { TrainingVenuePicker, timetablePlaceText } from "@/components/club-admin/training-venue-picker";
+import { TrainingVenueField } from "@/components/club-admin/training-venue-field";
+import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,6 @@ function ageToday(iso: string | null) {
 export default function TrainingTimetablePage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
-  const locale = useLocale();
   const canManage = useCanManageTraining();
   const { selectedClubId } = useClubSelection();
   const [rows, setRows] = useState<TrainingSeries[] | null>(null);
@@ -436,34 +436,18 @@ export default function TrainingTimetablePage() {
                 </span>
               </label>
               <div className="md:col-span-2">
-                <Label>{t("trainingPlace")}</Label>
-                <p className="mt-1 text-xs text-muted">{t("trainingPlaceHint")}</p>
-                <div className="mt-2">
-                  <TrainingVenuePicker
-                    venues={venues}
-                    venueId={venueId}
-                    place={place}
-                    knownName={venueName}
-                    loadFailed={venueLoadFailed}
-                    settingsHref={`/${locale}/dashboard/club/settings#training-venues`}
-                    onChange={(choice) => {
-                      setVenueId(choice.venueId);
-                      setVenueName(choice.venueId == null ? "" : choice.place);
-                      setPlace(choice.venueId == null ? choice.place : "");
-                    }}
-                    ariaLabel={t("trainingVenueAria")}
-                    searchPlaceholder={t("trainingVenueSearch")}
-                    emptySearch={t("trainingVenueSearchEmpty")}
-                    noneLabel={t("trainingVenueNone")}
-                    legacyHint={t("trainingVenueLegacyHint")}
-                    inactiveLabel={t("trainingVenueInactive")}
-                    emptyTitle={t("trainingVenueEmptyTitle")}
-                    emptyBody={t("trainingVenueEmptyBody")}
-                    emptyLink={t("trainingVenueEmptyLink")}
-                    loadError={t("trainingVenueLoadError")}
-                    loadingLabel={t("trainingVenueLoading")}
-                  />
-                </div>
+                <TrainingVenueField
+                  venues={venues}
+                  loadFailed={venueLoadFailed}
+                  venueId={venueId}
+                  place={place}
+                  knownName={venueName}
+                  onChange={(choice) => {
+                    setVenueId(choice.venueId);
+                    setVenueName(choice.venueId == null ? "" : choice.place);
+                    setPlace(choice.venueId == null ? choice.place : "");
+                  }}
+                />
               </div>
               <div className="md:col-span-2">
                 <p className="text-sm font-medium">{t("trainingUsualCoaches")}</p>
