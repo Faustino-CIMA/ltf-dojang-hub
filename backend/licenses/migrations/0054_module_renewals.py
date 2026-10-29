@@ -4,12 +4,6 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
-def create_legacy_purchases(apps, schema_editor):
-    from licenses.module_renewals import ensure_legacy_purchases
-
-    ensure_legacy_purchases()
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -62,5 +56,4 @@ class Migration(migrations.Migration):
             model_name='modulerenewaljournal',
             constraint=models.UniqueConstraint(fields=('purchase', 'period_end', 'stage'), name='uniq_module_renewal_stage'),
         ),
-        migrations.RunPython(create_legacy_purchases, migrations.RunPython.noop),
     ]
