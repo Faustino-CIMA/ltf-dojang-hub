@@ -349,6 +349,14 @@ class ModulePurchase(models.Model):
         null=True,
         blank=True,
     )
+    renewal_order_item = models.ForeignKey(
+        "OrderItem",
+        on_delete=models.PROTECT,
+        related_name="renewal_purchases",
+        null=True,
+        blank=True,
+    )
+    switched_off_at = models.DateTimeField(null=True, blank=True)
     source = models.CharField(max_length=20, choices=Source.choices, default=Source.ORDER)
     automation_hold = models.CharField(max_length=255, blank=True)
     activation_error = models.CharField(max_length=255, blank=True)
@@ -359,12 +367,14 @@ class ModulePurchase(models.Model):
         ordering = ["-created_at", "id"]
         indexes = [
             models.Index(fields=["club", "status"], name="mod_purchase_club_status_idx"),
+            models.Index(fields=["status", "ends_at"], name="mod_purchase_status_end_idx"),
         ]
         constraints = [
             models.CheckConstraint(
                 condition=(
                     Q(fee_type__isnull=False, bundle__isnull=True)
                     | Q(fee_type__isnull=True, bundle__isnull=False)
+                    | Q(source="legacy", fee_type__isnull=True, bundle__isnull=True)
                 ),
                 name="module_purchase_one_product",
             ),
@@ -372,6 +382,39 @@ class ModulePurchase(models.Model):
 
     def __str__(self) -> str:
         return f"{self.club_id} {self.description}"
+
+
+class ModuleRenewalJournal(models.Model):
+    """One successful stage for one purchase period. A second run finds the row and stops."""
+
+    class Stage(models.TextChoices):
+        RENEWAL_NOTICE = "renewal_notice", "Renewal notice"
+        NOTICE_REMINDER = "notice_reminder", "Notice reminder"
+        RENEWAL_INVOICE = "renewal_invoice", "Renewal invoice"
+        PAYMENT_WARNING = "payment_warning", "Payment warning"
+        SWITCHED_OFF = "switched_off", "Switched off"
+        STOPPED_AT_END = "stopped_at_end", "Stopped at end"
+        STOP_CONFIRMED = "stop_confirmed", "Stop confirmed"
+        LATE_REACTIVATED = "late_reactivated", "Late reactivated"
+
+    purchase = models.ForeignKey(ModulePurchase, on_delete=models.CASCADE, related_name="journal")
+    period_end = models.DateField()
+    stage = models.CharField(max_length=32, choices=Stage.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["purchase", "period_end", "stage"],
+                name="uniq_module_renewal_stage",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["purchase", "period_end"], name="mod_renewal_period_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purchase_id} {self.period_end} {self.stage}"
 
 
 def generate_order_number() -> str:

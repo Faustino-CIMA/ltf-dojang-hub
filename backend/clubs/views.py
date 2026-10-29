@@ -241,6 +241,35 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result, status=status.HTTP_201_CREATED)
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"module-purchases/(?P<purchase_id>[0-9]+)/choice",
+    )
+    def module_purchase_choice(self, request, pk=None, purchase_id=None):
+        user = request.user
+        club = self.get_object()
+        if user.role == "club_admin":
+            if not club.admins.filter(id=user.id).exists():
+                return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        elif user.role != "ltf_finance":
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        from licenses.models import ModulePurchase
+        from licenses.module_renewals import RenewalLinkError, record_renewal_choice
+
+        purchase = ModulePurchase.objects.filter(pk=purchase_id, club=club).first()
+        if purchase is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        choice = str(request.data.get("choice") or "")
+        try:
+            changed = record_renewal_choice(purchase, choice)
+        except RenewalLinkError:
+            return Response({"detail": "Choose continue or stop."}, status=status.HTTP_400_BAD_REQUEST)
+        if not changed:
+            return Response({"detail": "This choice can no longer be changed."}, status=status.HTTP_400_BAD_REQUEST)
+        purchase.refresh_from_db()
+        return Response({"purchase_id": purchase.id, "choice": purchase.renewal_choice})
+
     @action(detail=False, methods=["get"], url_path="communication-languages")
     def communication_languages(self, request):
         return Response(

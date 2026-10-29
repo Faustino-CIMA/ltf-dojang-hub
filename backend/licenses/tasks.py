@@ -419,6 +419,13 @@ def send_invoice_reminder_email(invoice_id: int, recipients: list[str] | None = 
 
 
 @shared_task
+def run_module_renewals() -> int:
+    from .module_renewals import run_module_renewal_job
+
+    return run_module_renewal_job()
+
+
+@shared_task
 def run_club_fee_billing_schedules() -> int:
     from .club_fee_billing import run_due_schedules
 
