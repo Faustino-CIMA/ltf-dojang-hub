@@ -1033,6 +1033,7 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
         max_length=3, required=False, write_only=True, default="EUR"
     )
     initial_price_effective_from = serializers.DateField(required=False, write_only=True)
+    policy = serializers.JSONField(required=False, write_only=True)
 
     class Meta:
         model = LicenseType
@@ -1046,6 +1047,7 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             "initial_price_amount",
             "initial_price_currency",
             "initial_price_effective_from",
+            "policy",
         ]
         read_only_fields = ["code", "created_at", "updated_at"]
 
@@ -1055,37 +1057,60 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name is required.")
         return normalized
 
+    def _save_policy(self, license_type, policy_data):
+        policy = get_or_create_license_type_policy(license_type)
+        if not policy_data:
+            return policy
+        serializer = LicenseTypePolicySerializer(
+            policy,
+            data=policy_data,
+            partial=True,
+            context=self.context,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return serializer.instance
+
     def create(self, validated_data):
         initial_price_amount = validated_data.pop("initial_price_amount", None)
         initial_price_currency = validated_data.pop("initial_price_currency", "EUR")
         initial_price_effective_from = validated_data.pop("initial_price_effective_from", None)
+        policy_data = validated_data.pop("policy", None)
         name = validated_data["name"]
         code = slugify(name)
         if LicenseType.objects.filter(code=code).exists():
             raise serializers.ValidationError({"name": "A license type with this name already exists."})
-        license_type = LicenseType.objects.create(name=name, code=code)
-        get_or_create_license_type_policy(license_type)
-        if initial_price_amount is not None:
-            request = self.context.get("request")
-            actor = request.user if request and request.user.is_authenticated else None
-            LicensePrice.objects.create(
-                license_type=license_type,
-                amount=initial_price_amount,
-                currency=initial_price_currency,
-                effective_from=initial_price_effective_from or timezone.localdate(),
-                created_by=actor,
-            )
+        with transaction.atomic():
+            license_type = LicenseType.objects.create(name=name, code=code)
+            get_or_create_license_type_policy(license_type)
+            if policy_data:
+                self._save_policy(license_type, policy_data)
+            if initial_price_amount is not None:
+                request = self.context.get("request")
+                actor = request.user if request and request.user.is_authenticated else None
+                LicensePrice.objects.create(
+                    license_type=license_type,
+                    amount=initial_price_amount,
+                    currency=initial_price_currency,
+                    effective_from=initial_price_effective_from or timezone.localdate(),
+                    created_by=actor,
+                )
         return license_type
 
     def update(self, instance, validated_data):
+        policy_data = validated_data.pop("policy", None)
         name = validated_data.get("name", instance.name)
         code = slugify(name)
         if LicenseType.objects.exclude(id=instance.id).filter(code=code).exists():
             raise serializers.ValidationError({"name": "A license type with this name already exists."})
-        instance.name = name
-        instance.code = code
-        instance.save()
-        get_or_create_license_type_policy(instance)
+        with transaction.atomic():
+            instance.name = name
+            instance.code = code
+            instance.save()
+            if policy_data is not None:
+                self._save_policy(instance, policy_data)
+            else:
+                get_or_create_license_type_policy(instance)
         return instance
 
     def get_policy(self, obj):
@@ -1116,6 +1141,11 @@ class LicenseTypePolicySerializer(serializers.ModelSerializer):
             "next_start_day",
             "next_end_month",
             "next_end_day",
+            "validity_mode",
+            "duration_years",
+            "duration_days",
+            "reminders_enabled",
+            "reminder_offsets",
             "created_at",
             "updated_at",
         ]
@@ -1161,7 +1191,64 @@ class LicenseTypePolicySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"next_window": "Next-year preorder window start must be before end."}
             )
+
+        mode = resolved("validity_mode") or LicenseTypePolicy.ValidityMode.CALENDAR_YEAR
+        years = int(resolved("duration_years") or 0)
+        days = int(resolved("duration_days") or 0)
+        if mode == LicenseTypePolicy.ValidityMode.DURATION and years == 0 and days == 0:
+            raise serializers.ValidationError(
+                {"duration_days": "Enter a duration in years, days, or both."}
+            )
+        if years < 0 or days < 0 or days > 366:
+            raise serializers.ValidationError(
+                {"duration_days": "Days must be between 0 and 366."}
+            )
+        offsets = resolved("reminder_offsets")
+        if offsets is None:
+            offsets = []
+        if not isinstance(offsets, list):
+            raise serializers.ValidationError({"reminder_offsets": "Enter a list of days."})
+        if len(offsets) > 5:
+            raise serializers.ValidationError({"reminder_offsets": "Use at most five reminders."})
+        seen = set()
+        for offset in offsets:
+            try:
+                value = int(offset)
+            except (TypeError, ValueError) as exc:
+                raise serializers.ValidationError(
+                    {"reminder_offsets": "Each reminder must be a whole number of days."}
+                ) from exc
+            if value < 1 or value > 365 or value in seen:
+                raise serializers.ValidationError(
+                    {"reminder_offsets": "Use each offset once, between 1 and 365 days."}
+                )
+            seen.add(value)
+        if "reminder_offsets" in attrs:
+            attrs["reminder_offsets"] = [int(offset) for offset in offsets]
+        if resolved("reminders_enabled") and len(offsets) == 0:
+            raise serializers.ValidationError(
+                {"reminder_offsets": "Add at least one reminder, or turn reminders off."}
+            )
         return attrs
+
+    def update(self, instance, validated_data):
+        policy = super().update(instance, validated_data)
+        request = self.context.get("request")
+        actor = request.user if request and getattr(request.user, "is_authenticated", False) else None
+        FinanceAuditLog.objects.create(
+            action="license_type.policy_saved",
+            message=f"Saved validity and ordering for {policy.license_type.name}.",
+            actor=actor,
+            metadata={
+                "license_type_id": policy.license_type_id,
+                "validity_mode": policy.validity_mode,
+                "duration_years": policy.duration_years,
+                "duration_days": policy.duration_days,
+                "reminders_enabled": policy.reminders_enabled,
+                "reminder_offsets": policy.reminder_offsets,
+            },
+        )
+        return policy
 
 
 class PaymentSerializer(serializers.ModelSerializer):

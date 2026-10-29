@@ -736,13 +736,22 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             activated_license_ids = []
             deferred_license_ids = []
             conflict_license_ids = []
-            for item in order.items.select_related("license").all():
+            items = list(order.items.select_related("license").all())
+            from .history import expire_outdated_licenses
+            from .validity import placeholder_activation_block
+
+            expire_outdated_licenses(
+                actor=request.user if request.user.is_authenticated else None,
+                member_ids=[item.license.member_id for item in items if item.license_id and item.license],
+            )
+            for item in items:
                 license_record = item.license
                 if not license_record:
                     continue
                 license_status_before[license_record.id] = license_record.status
                 if license_record.status != License.Status.ACTIVE:
-                    if license_record.start_date > today or license_record.end_date < today:
+                    blocked = placeholder_activation_block(license_record, today)
+                    if blocked:
                         deferred_license_ids.append(license_record.id)
                         continue
                     has_conflict = License.objects.filter(

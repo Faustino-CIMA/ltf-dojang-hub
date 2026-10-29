@@ -320,6 +320,179 @@ class LicenseTypeApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class LicenseValidityTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.finance = User.objects.create_user(
+            username="validity-finance",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.admin = User.objects.create_user(
+            username="validity-admin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club_admin = User.objects.create_user(
+            username="validity-club",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Validity Club", created_by=self.finance)
+        self.member = Member.objects.create(club=self.club, first_name="Noa", last_name="Keller")
+        self.client.force_authenticate(user=self.finance)
+
+    def _duration_type(self, years=1, days=0, name="Season pass"):
+        created = self.client.post(
+            "/api/license-types/",
+            {
+                "name": name,
+                "initial_price_amount": "10.00",
+                "policy": {
+                    "validity_mode": "duration",
+                    "duration_years": years,
+                    "duration_days": days,
+                    "reminders_enabled": False,
+                    "reminder_offsets": [60, 30, 7],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        return LicenseType.objects.get(pk=created.data["id"])
+
+    def test_calendar_year_stays_31_december_when_the_type_changes(self):
+        created = self.client.post("/api/license-types/", {"name": "Annual"}, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        license_type = LicenseType.objects.get(pk=created.data["id"])
+        self.assertEqual(license_type.policy.validity_mode, "calendar_year")
+        licence = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=license_type,
+            year=2026,
+        )
+        self.assertEqual(licence.start_date, date(2026, 1, 1))
+        self.assertEqual(licence.end_date, date(2026, 12, 31))
+        self.assertTrue(licence.expiry_locked)
+        saved = self.client.patch(
+            f"/api/license-types/{license_type.id}/",
+            {
+                "name": "Annual",
+                "policy": {
+                    "validity_mode": "duration",
+                    "duration_years": 2,
+                    "duration_days": 10,
+                    "reminders_enabled": True,
+                    "reminder_offsets": [60, 30, 7],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.data)
+        licence.refresh_from_db()
+        self.assertEqual(licence.start_date, date(2026, 1, 1))
+        self.assertEqual(licence.end_date, date(2026, 12, 31))
+        self.assertTrue(
+            FinanceAuditLog.objects.filter(action="license_type.policy_saved").exists()
+        )
+
+    def test_duration_from_29_february_locks_on_first_activation(self):
+        license_type = self._duration_type(years=1, days=0, name="Leap pass")
+        pending = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=license_type,
+            year=2024,
+        )
+        self.assertEqual(pending.start_date, date(2024, 1, 1))
+        self.assertEqual(pending.end_date, date(2024, 12, 31))
+        self.assertFalse(pending.expiry_locked)
+        pending.status = License.Status.ACTIVE
+        pending.issued_at = timezone.make_aware(datetime(2024, 2, 29, 9, 0))
+        pending.save()
+        pending.refresh_from_db()
+        self.assertTrue(pending.expiry_locked)
+        self.assertEqual(pending.start_date, date(2024, 2, 29))
+        self.assertEqual(pending.end_date, date(2025, 2, 28))
+        license_type.policy.duration_years = 4
+        license_type.policy.save()
+        pending.save()
+        pending.refresh_from_db()
+        self.assertEqual(pending.end_date, date(2025, 2, 28))
+
+    def test_zero_duration_is_rejected_and_does_not_leave_a_type(self):
+        before = LicenseType.objects.count()
+        response = self.client.post(
+            "/api/license-types/",
+            {
+                "name": "Empty duration",
+                "initial_price_amount": "12.00",
+                "policy": {
+                    "validity_mode": "duration",
+                    "duration_years": 0,
+                    "duration_days": 0,
+                    "reminders_enabled": False,
+                    "reminder_offsets": [30],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+        self.assertEqual(LicenseType.objects.count(), before)
+        self.assertFalse(LicensePrice.objects.filter(amount=Decimal("12.00")).exists())
+
+    def test_club_admin_and_ltf_admin_cannot_save_validity(self):
+        license_type = LicenseType.objects.create(name="Guarded", code="guarded")
+        payload = {
+            "validity_mode": "duration",
+            "duration_years": 1,
+            "duration_days": 0,
+        }
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(
+            self.client.patch(f"/api/license-types/{license_type.id}/policy/", payload, format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        self.assertEqual(
+            self.client.patch(f"/api/license-types/{license_type.id}/policy/", payload, format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_activation_expires_a_finished_licence_before_the_renewal_starts(self):
+        license_type = self._duration_type(years=1, days=0, name="Renewal pass")
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+        current = License.objects.create(
+            member=self.member,
+            club=None,
+            license_type=license_type,
+            year=yesterday.year,
+            status=License.Status.ACTIVE,
+        )
+        current.end_date = yesterday
+        current.expiry_locked = True
+        current.save(update_fields=["end_date", "expiry_locked", "updated_at"])
+        renewal = License.objects.create(
+            member=self.member,
+            club=None,
+            license_type=license_type,
+            year=today.year,
+        )
+        self.assertFalse(renewal.expiry_locked)
+        activated = activate_eligible_paid_licenses()
+        current.refresh_from_db()
+        renewal.refresh_from_db()
+        self.assertGreaterEqual(activated, 1)
+        self.assertEqual(current.status, License.Status.EXPIRED)
+        self.assertEqual(renewal.status, License.Status.ACTIVE)
+        self.assertEqual(renewal.start_date, today)
+        self.assertEqual(renewal.start_date, current.end_date + timedelta(days=1))
+        self.assertTrue(renewal.expiry_locked)
+        self.assertEqual(renewal.end_date, date(today.year + 1, today.month, today.day) if not (today.month == 2 and today.day == 29) else date(today.year + 1, 2, 28))
+
+
 class ClubFeeApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
