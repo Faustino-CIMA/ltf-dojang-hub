@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { ModuleBundlesPanel } from "@/components/ltf-finance/module-bundles-panel";
+import { ModuleBundlesPanel, ModuleSubscriptionSettingsCard } from "@/components/ltf-finance/module-bundles-panel";
 import type { ClubFeeType, ModuleBundle, ModuleSubscriptionSettings } from "@/lib/ltf-finance-api";
 
 jest.mock("next-intl", () => ({
@@ -126,19 +126,36 @@ describe("Module bundles panel", () => {
     expect(screen.getByText("moduleBundleComparisonLower 20.00")).toBeInTheDocument();
   });
 
-  it("opens the pencil editor and keeps Delete last until the bundle is invoiced", () => {
+  it("puts Edit first and Delete last, inside the bundles card", () => {
     renderPanel([bundle()]);
-    fireEvent.click(screen.getByRole("button", { name: "moduleBundleEditAction" }));
-    expect(screen.getByRole("dialog", { name: "moduleBundleEditTitle" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/moduleBundleNameLabel/)).toHaveValue("Competition pack");
+    const card = screen.getByRole("heading", { name: "moduleBundleTitle" }).closest("section");
+    expect(card?.className).toContain("app-panel");
+    expect(card).toContainElement(screen.getByRole("button", { name: "moduleBundleAdd" }));
 
     fireEvent.click(screen.getByRole("button", { name: "moduleBundleRowActions" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["moduleBundleDelete"]);
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["moduleBundleEdit", "moduleBundleDelete"]);
+    fireEvent.click(items[0]);
+    expect(screen.getByRole("dialog", { name: "moduleBundleEditTitle" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/moduleBundleNameLabel/)).toHaveValue("Competition pack");
   });
 
   it("offers switch off instead of delete after a bundle has been invoiced", () => {
     renderPanel([bundle({ has_invoices: true })]);
     fireEvent.click(screen.getByRole("button", { name: "moduleBundleRowActions" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["moduleBundleSwitchOff"]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "moduleBundleEdit",
+      "moduleBundleSwitchOff",
+    ]);
+  });
+
+  it("puts subscription settings in their own card", () => {
+    const onOpen = jest.fn();
+    render(<ModuleSubscriptionSettingsCard settings={settings} onOpen={onOpen} />);
+    const card = screen.getByRole("heading", { name: "moduleBundleSettingsTitle" }).closest("section");
+    expect(card?.className).toContain("app-panel");
+    expect(card).toContainElement(screen.getByRole("button", { name: "moduleBundleSettings" }));
+    fireEvent.click(screen.getByRole("button", { name: "moduleBundleSettings" }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

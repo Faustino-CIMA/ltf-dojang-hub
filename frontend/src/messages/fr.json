@@ -947,7 +947,7 @@
     "moduleBundleEmptyTitle": "Pas encore de lot",
     "moduleBundleEmptySubtitle": "Ajoutez un lot lorsque les clubs doivent pouvoir acheter plusieurs modules à un seul prix.",
     "moduleBundleAdd": "Ajouter un lot",
-    "moduleBundleEditAction": "Modifier le lot",
+    "moduleBundleEdit": "Modifier",
     "moduleBundleEditTitle": "Modifier le lot",
     "moduleBundleRowActions": "Actions du lot",
     "moduleBundleNameLabel": "Nom",

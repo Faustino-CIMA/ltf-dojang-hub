@@ -78,7 +78,7 @@ import {
   updateModuleSubscriptionSettings,
   updateClubFeeBillingSchedule,
 } from "@/lib/ltf-finance-api";
-import { ModuleBundlesPanel } from "@/components/ltf-finance/module-bundles-panel";
+import { ModuleBundlesPanel, ModuleSubscriptionSettingsCard } from "@/components/ltf-finance/module-bundles-panel";
 import { ModuleFeesPanel, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Club, getClubs, updateClub } from "@/lib/club-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
@@ -978,17 +978,11 @@ export default function LtfFinanceLicenseSettingsPage() {
       ) : null}
 
       {activeTab === "module-fees" ? (
-        <div className="space-y-6">
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setBundleSettingsOpen(true)}
-            disabled={!subscriptionSettings}
-          >
-            {t("moduleBundleSettings")}
-          </Button>
-        </div>
+        <div className="space-y-3">
+        <ModuleSubscriptionSettingsCard
+          settings={subscriptionSettings}
+          onOpen={() => setBundleSettingsOpen(true)}
+        />
         <ModuleFeesPanel
           fees={moduleFees}
           prices={clubFeePrices}
@@ -1041,7 +1035,6 @@ export default function LtfFinanceLicenseSettingsPage() {
           bundles={moduleBundles}
           moduleFees={moduleFees}
           settings={subscriptionSettings}
-          showSettingsButton={false}
           settingsOpen={bundleSettingsOpen}
           onSettingsOpenChange={setBundleSettingsOpen}
           onNotice={(kind, message) => {

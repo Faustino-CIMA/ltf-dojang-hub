@@ -2515,7 +2515,7 @@
     "moduleBundleEmptyTitle": "No bundles yet",
     "moduleBundleEmptySubtitle": "Add a bundle when clubs should be able to buy several modules at one price.",
     "moduleBundleAdd": "Add bundle",
-    "moduleBundleEditAction": "Edit bundle",
+    "moduleBundleEdit": "Edit",
     "moduleBundleEditTitle": "Edit bundle",
     "moduleBundleRowActions": "Bundle actions",
     "moduleBundleNameLabel": "Name",

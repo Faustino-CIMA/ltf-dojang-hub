@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Pencil, Power, Trash2 } from "lucide-react";
 
-import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { BILLABLE_MODULE_IDS, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormPanel } from "@/components/ui/list-page-chrome";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
@@ -81,7 +81,6 @@ export function ModuleBundlesPanel({
   onRemove,
   onSaveSettings,
   onNotice,
-  showSettingsButton = true,
   settingsOpen: settingsOpenProp,
   onSettingsOpenChange,
 }: {
@@ -93,7 +92,6 @@ export function ModuleBundlesPanel({
   onRemove: (bundle: ModuleBundle) => Promise<"deleted" | "switched_off">;
   onSaveSettings: (draft: ModuleSubscriptionDraft) => Promise<void>;
   onNotice: (kind: "error" | "success", message: string) => void;
-  showSettingsButton?: boolean;
   settingsOpen?: boolean;
   onSettingsOpenChange?: (open: boolean) => void;
 }) {
@@ -223,38 +221,27 @@ export function ModuleBundlesPanel({
 
   const editing = editor && editor !== "new" ? editor : null;
   const displayedSettings = settingsForm ?? (settings ? settingsDraft(settings) : null);
-  const openSettings = () => {
-    setSettingsForm(settings ? settingsDraft(settings) : null);
-    setSettingsOpen(true);
-  };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <>
+      <FormPanel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-section text-foreground">{t("moduleBundleTitle")}</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted">{t("moduleBundleSubtitle")}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted">{t("moduleBundleSubtitle")}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {showSettingsButton ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openSettings}
-              disabled={!settings}
-            >
-              {t("moduleBundleSettings")}
-            </Button>
-          ) : null}
-          <Button type="button" onClick={openCreate}>
-            {t("moduleBundleAdd")}
-          </Button>
-        </div>
+        <Button type="button" variant="primary" onClick={openCreate}>
+          {t("moduleBundleAdd")}
+        </Button>
       </div>
 
       {bundles.length === 0 ? (
-        <EmptyState title={t("moduleBundleEmptyTitle")} description={t("moduleBundleEmptySubtitle")} />
+        <div className="mt-6">
+          <p className="text-sm font-medium text-foreground">{t("moduleBundleEmptyTitle")}</p>
+          <p className="mt-1 text-sm text-muted">{t("moduleBundleEmptySubtitle")}</p>
+        </div>
       ) : (
+        <div className="mt-6">
         <EntityTable
           clientSort
           sort={sort}
@@ -309,42 +296,39 @@ export function ModuleBundlesPanel({
               key: "actions",
               header: <span className="sr-only">{t("moduleBundleRowActions")}</span>,
               render: (bundle) => (
-                <div className="flex items-center justify-end gap-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={t("moduleBundleEditAction")}
-                    onClick={() => openEdit(bundle)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <RowActionMenu
-                    label={t("moduleBundleRowActions")}
-                    actions={[
-                      bundle.has_invoices
-                        ? {
-                            key: "switch-off",
-                            label: t("moduleBundleSwitchOff"),
-                            icon: <Power aria-hidden="true" />,
-                            disabled: !bundle.is_active,
-                            onSelect: () => setConfirmBundle(bundle),
-                          }
-                        : {
-                            key: "delete",
-                            label: t("moduleBundleDelete"),
-                            icon: <Trash2 aria-hidden="true" />,
-                            destructive: true,
-                            onSelect: () => setConfirmBundle(bundle),
-                          },
-                    ]}
-                  />
-                </div>
+                <RowActionMenu
+                  label={t("moduleBundleRowActions")}
+                  actions={[
+                    {
+                      key: "edit",
+                      label: t("moduleBundleEdit"),
+                      icon: <Pencil aria-hidden="true" />,
+                      onSelect: () => openEdit(bundle),
+                    },
+                    bundle.has_invoices
+                      ? {
+                          key: "switch-off",
+                          label: t("moduleBundleSwitchOff"),
+                          icon: <Power aria-hidden="true" />,
+                          disabled: !bundle.is_active,
+                          onSelect: () => setConfirmBundle(bundle),
+                        }
+                      : {
+                          key: "delete",
+                          label: t("moduleBundleDelete"),
+                          icon: <Trash2 aria-hidden="true" />,
+                          destructive: true,
+                          onSelect: () => setConfirmBundle(bundle),
+                        },
+                  ]}
+                />
               ),
             },
           ]}
         />
+        </div>
       )}
+      </FormPanel>
 
       <SidePanel
         open={editor !== null}
@@ -627,6 +611,29 @@ export function ModuleBundlesPanel({
           </div>
         ) : null}
       </SidePanel>
-    </div>
+    </>
+  );
+}
+
+export function ModuleSubscriptionSettingsCard({
+  settings,
+  onOpen,
+}: {
+  settings: ModuleSubscriptionSettings | null;
+  onOpen: () => void;
+}) {
+  const t = useTranslations("LtfFinance");
+  return (
+    <FormPanel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-section text-foreground">{t("moduleBundleSettingsTitle")}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted">{t("moduleBundleSettingsHint")}</p>
+        </div>
+        <Button type="button" variant="primary" onClick={onOpen} disabled={!settings}>
+          {t("moduleBundleSettings")}
+        </Button>
+      </div>
+    </FormPanel>
   );
 }

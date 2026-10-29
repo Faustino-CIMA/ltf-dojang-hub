@@ -947,7 +947,7 @@
     "moduleBundleEmptyTitle": "Noch keine Pakete",
     "moduleBundleEmptySubtitle": "Legen Sie ein Paket an, wenn Vereine mehrere Module zu einem Preis kaufen sollen.",
     "moduleBundleAdd": "Paket hinzufügen",
-    "moduleBundleEditAction": "Paket bearbeiten",
+    "moduleBundleEdit": "Bearbeiten",
     "moduleBundleEditTitle": "Paket bearbeiten",
     "moduleBundleRowActions": "Paketaktionen",
     "moduleBundleNameLabel": "Name",
