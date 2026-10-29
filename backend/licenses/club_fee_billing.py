@@ -208,8 +208,25 @@ def bill_club_fees(
                 with transaction.atomic():
                     planned: dict[int, PlannedLine] = {}
                     to_void: dict[int, Invoice] = {}
+                    from .module_orders import active_purchase_module_ids
+
+                    covered_modules = (
+                        active_purchase_module_ids(club)
+                        if any(fee_type.module_id for fee_type in fee_types)
+                        else set()
+                    )
                     for fee_type in fee_types:
                         if not fee_type.is_active:
+                            continue
+                        if fee_type.module_id and fee_type.module_id in covered_modules:
+                            skipped.append(
+                                _skip_row(
+                                    club=club,
+                                    fee_type=fee_type,
+                                    reason="covered",
+                                    invoice_number="",
+                                )
+                            )
                             continue
                         month = (
                             None

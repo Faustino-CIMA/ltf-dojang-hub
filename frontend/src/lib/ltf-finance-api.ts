@@ -942,6 +942,65 @@ export function getClubModuleFees(clubId: number) {
   return apiRequest<ClubModuleFeeQuote>(`/api/clubs/${clubId}/module-fees/`);
 }
 
+export type ModuleOrderComparisonLine = {
+  module_id: string;
+  name: string;
+  kind: "flat" | "per_member" | "missing";
+  amount: string | null;
+};
+
+export type ModuleOrderOffer = {
+  kind: "module" | "bundle";
+  key: string;
+  module_id: string | null;
+  bundle_id: number | null;
+  name: string;
+  module_ids: string[];
+  module_names: string[];
+  amount: string | null;
+  estimated_amount: string | null;
+  currency: string;
+  pricing_type: "flat" | "per_active_member" | null;
+  active_member_count: number | null;
+  state: "available" | "on" | "open_invoice" | "not_entitled" | "no_price" | "blocked";
+  ends_at: string | null;
+  invoice_id: number | null;
+  invoice_number: string | null;
+  comparison: {
+    lines: ModuleOrderComparisonLine[];
+    sum: string | null;
+    difference: string | null;
+  } | null;
+};
+
+export type ModuleOrderCatalog = {
+  club_id: number;
+  active_member_count: number;
+  subscription_months: number;
+  offers: ModuleOrderOffer[];
+};
+
+export type ModuleOrderResult = {
+  invoice_id: number;
+  invoice_number: string;
+  order_id: number;
+  total: string;
+  currency: string;
+  lines: { purchase_id: number; description: string; amount: string }[];
+  notices: { code: string; module_id: string; bundle_name: string }[];
+};
+
+export function getModuleOrderCatalog(clubId: number) {
+  return apiRequest<ModuleOrderCatalog>(`/api/clubs/${clubId}/module-order-catalog/`);
+}
+
+export function createModuleOrder(clubId: number, input: { modules: string[]; bundles: number[] }) {
+  return apiRequest<ModuleOrderResult>(`/api/clubs/${clubId}/module-orders/`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function getClubFeePrices(params?: { feeTypeId?: number }, options?: ApiCallOptions) {
   const search = new URLSearchParams();
   if (params?.feeTypeId) {

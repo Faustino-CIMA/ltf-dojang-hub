@@ -36,6 +36,7 @@ import { ClothingSizesDesk } from "@/components/club-admin/clothing-sizes-desk";
 import { EgearBrandsDesk } from "@/components/club-admin/egear-brands-desk";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
+import { ClubModuleOrder } from "@/components/club-admin/club-module-order";
 import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
 import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { TrainingVenuesSection } from "@/components/clubs/training-venues-section";
@@ -559,6 +560,10 @@ export default function ClubAdminSettingsPage() {
           </div>
 
           {moduleFees ? <ClubModulePrices quote={moduleFees} /> : null}
+          <ClubModuleOrder
+            clubId={selectedClubId}
+            invoicePath={(invoiceId) => `/${locale}/dashboard/club/invoices/${invoiceId}`}
+          />
 
           <BrandingLogosManager
             logos={clubLogos}

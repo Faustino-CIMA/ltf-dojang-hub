@@ -287,6 +287,11 @@ def apply_payment_and_activate(
                     metadata={"source": "apply_payment_and_activate"},
                 )
 
+        if invoice and invoice.status == Invoice.Status.PAID:
+            from .module_orders import activate_module_purchases
+
+            activate_module_purchases(order, actor=actor)
+
         if updated_order or updated_invoice or activated_any:
             has_license_items = any(item.license_id for item in order_items)
             FinanceAuditLog.objects.create(

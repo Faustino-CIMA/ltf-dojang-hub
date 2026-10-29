@@ -231,8 +231,7 @@ class ModuleBundle(models.Model):
         return str(self.name)
 
     def has_been_invoiced(self) -> bool:
-        # Invoices arrive in a later phase. Nothing in this catalog is billed yet.
-        return False
+        return self.order_items.exists()
 
 
 class ModuleBundleModule(models.Model):
@@ -295,6 +294,84 @@ class ModuleSubscriptionSettings(models.Model):
 
     def __str__(self) -> str:
         return "Module subscription settings"
+
+
+class ModulePurchase(models.Model):
+    """One module or bundle a club bought. Phase 2 creates these when an invoice is issued."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACTIVE = "active", "Active"
+        STOPPED = "stopped", "Stopped"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class Source(models.TextChoices):
+        ORDER = "order", "Order"
+        RENEWAL = "renewal", "Renewal"
+        LEGACY = "legacy", "Legacy"
+
+    class RenewalChoice(models.TextChoices):
+        UNANSWERED = "unanswered", "Unanswered"
+        CONTINUE = "continue", "Continue"
+        STOP = "stop", "Stop"
+
+    club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="module_purchases")
+    fee_type = models.ForeignKey(
+        "ClubFeeType",
+        on_delete=models.PROTECT,
+        related_name="module_purchases",
+        null=True,
+        blank=True,
+    )
+    bundle = models.ForeignKey(
+        ModuleBundle,
+        on_delete=models.PROTECT,
+        related_name="purchases",
+        null=True,
+        blank=True,
+    )
+    module_ids = models.JSONField(default=list)
+    description = models.CharField(max_length=255)
+    price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="EUR")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    renewal_choice = models.CharField(
+        max_length=20,
+        choices=RenewalChoice.choices,
+        default=RenewalChoice.UNANSWERED,
+    )
+    activated_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateField(null=True, blank=True)
+    order_item = models.OneToOneField(
+        "OrderItem",
+        on_delete=models.PROTECT,
+        related_name="module_purchase",
+        null=True,
+        blank=True,
+    )
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.ORDER)
+    automation_hold = models.CharField(max_length=255, blank=True)
+    activation_error = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        indexes = [
+            models.Index(fields=["club", "status"], name="mod_purchase_club_status_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(fee_type__isnull=False, bundle__isnull=True)
+                    | Q(fee_type__isnull=True, bundle__isnull=False)
+                ),
+                name="module_purchase_one_product",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.club_id} {self.description}"
 
 
 def generate_order_number() -> str:
@@ -515,6 +592,13 @@ class OrderItem(models.Model):
     )
     fee_type = models.ForeignKey(
         "ClubFeeType",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
+    bundle = models.ForeignKey(
+        "ModuleBundle",
         on_delete=models.PROTECT,
         related_name="order_items",
         null=True,
