@@ -973,11 +973,23 @@ export type ModuleOrderOffer = {
   } | null;
 };
 
+export type ModuleRenewalRow = {
+  purchase_id: number;
+  name: string;
+  ends_at: string;
+  choice: "unanswered" | "continue" | "stop";
+  can_choose: boolean;
+  invoice_id: number | null;
+  invoice_number: string | null;
+  pay_until: string | null;
+};
+
 export type ModuleOrderCatalog = {
   club_id: number;
   active_member_count: number;
   subscription_months: number;
   offers: ModuleOrderOffer[];
+  renewals?: ModuleRenewalRow[];
 };
 
 export type ModuleOrderResult = {
@@ -992,6 +1004,37 @@ export type ModuleOrderResult = {
 
 export function getModuleOrderCatalog(clubId: number) {
   return apiRequest<ModuleOrderCatalog>(`/api/clubs/${clubId}/module-order-catalog/`);
+}
+
+export function chooseModuleRenewal(clubId: number, purchaseId: number, choice: "continue" | "stop") {
+  return apiRequest<{ purchase_id: number; choice: string }>(
+    `/api/clubs/${clubId}/module-purchases/${purchaseId}/choice/`,
+    { method: "POST", body: JSON.stringify({ choice }) },
+  );
+}
+
+export function previewModuleRenewal(token: string) {
+  const search = new URLSearchParams({ token });
+  return apiRequest<{
+    ok: boolean;
+    title: string;
+    body: string;
+    confirm: string;
+    done: boolean;
+    closed: boolean;
+    choice?: string;
+  }>(`/api/module-renewals/?${search.toString()}`);
+}
+
+export function confirmModuleRenewal(token: string) {
+  return apiRequest<{
+    ok: boolean;
+    title: string;
+    body: string;
+    confirm: string;
+    done: boolean;
+    closed: boolean;
+  }>("/api/module-renewals/", { method: "POST", body: JSON.stringify({ token }) });
 }
 
 export function createModuleOrder(clubId: number, input: { modules: string[]; bundles: number[] }) {

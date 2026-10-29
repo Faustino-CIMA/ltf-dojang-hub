@@ -536,6 +536,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "licenses.tasks.run_club_fee_billing_schedules",
         "schedule": crontab(hour=6, minute=15),
     },
+    "run-module-renewals-daily": {
+        "task": "licenses.tasks.run_module_renewals",
+        "schedule": crontab(hour=6, minute=10),
+    },
     # The public register is republished on the 5th. Refresh the next morning.
     "refresh-luxembourg-address-register-monthly": {
         "task": "clubmgmt.tasks.refresh_luxembourg_addresses",

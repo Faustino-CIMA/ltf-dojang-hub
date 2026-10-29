@@ -21,6 +21,7 @@ from accounts.views import (
     ResendVerificationView,
     VerifyEmailView,
 )
+from licenses.module_renewals import ModuleRenewalLinkView
 from ops.views import PublicI18nView
 from config.views import root_entry
 from imports.views import (
@@ -222,6 +223,7 @@ urlpatterns = [
     ),
     path("api/auth/verify-email/", VerifyEmailView.as_view(), name="verify-email"),
     path("api/auth/resend-status/", ResendStatusView.as_view(), name="resend-status"),
+    path("api/module-renewals/", ModuleRenewalLinkView.as_view(), name="module-renewals"),
     path("api/auth/account-setup/", AccountSetupView.as_view(), name="account-setup"),
     path("api/auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"),
     path(

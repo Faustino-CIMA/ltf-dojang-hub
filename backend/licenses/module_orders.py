@@ -1,7 +1,4 @@
-"""Club module and bundle orders. One invoice, activated when that invoice is paid.
-
-Renewal mail, the daily job, and admin overrides are later phases.
-"""
+"""Club module and bundle orders. One invoice, activated when that invoice is paid."""
 
 from __future__ import annotations
 
@@ -10,6 +7,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from modules.entitlements import is_install_entitled
@@ -61,6 +59,15 @@ def _bundle_description(bundle: ModuleBundle, module_ids: list[str]) -> str:
     return text[:255]
 
 
+def _invoice_of(order_item) -> Invoice | None:
+    if order_item is None or not getattr(order_item, "order_id", None):
+        return None
+    try:
+        return order_item.order.invoice
+    except Invoice.DoesNotExist:
+        return None
+
+
 def _coverage(club) -> dict:
     today = timezone.localdate()
     assigned = set(
@@ -73,17 +80,18 @@ def _coverage(club) -> dict:
     purchases = (
         ModulePurchase.objects.filter(club=club)
         .exclude(status=ModulePurchase.Status.CANCELLED)
-        .select_related("order_item__order__invoice", "bundle")
+        .select_related("order_item__order__invoice", "renewal_order_item__order__invoice", "bundle")
     )
     for purchase in purchases:
         module_ids = [str(module_id) for module_id in (purchase.module_ids or [])]
         ever_purchased.update(module_ids)
-        invoice = None
-        if purchase.order_item_id and purchase.order_item.order_id:
-            try:
-                invoice = purchase.order_item.order.invoice
-            except Invoice.DoesNotExist:
-                invoice = None
+        renewal_invoice = _invoice_of(getattr(purchase, "renewal_order_item", None))
+        if renewal_invoice is not None and renewal_invoice.status == Invoice.Status.ISSUED:
+            for module_id in module_ids:
+                open_for_module.setdefault(module_id, renewal_invoice)
+            if purchase.bundle_id:
+                open_for_bundle.setdefault(purchase.bundle_id, renewal_invoice)
+        invoice = _invoice_of(purchase.order_item)
         if purchase.status == ModulePurchase.Status.PENDING and invoice is not None:
             if invoice.status == Invoice.Status.ISSUED:
                 for module_id in module_ids:
@@ -289,11 +297,14 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
             }
         )
     settings_row = ModuleSubscriptionSettings.load()
+    from .module_renewals import renewal_rows_for_club
+
     return {
         "club_id": club.id,
         "active_member_count": count,
         "subscription_months": settings_row.subscription_months,
         "offers": offers,
+        "renewals": renewal_rows_for_club(club, as_of),
     }
 
 
@@ -528,6 +539,80 @@ def create_module_order(club, *, module_ids: list[str], bundle_ids: list[int], a
     }
 
 
+def build_renewal_line(purchase, as_of: date) -> dict | None:
+    """Catalog price for the next period. None when the catalog has no price."""
+    module_ids = [str(module_id) for module_id in (purchase.module_ids or [])]
+    year = as_of.year
+    count = active_member_count(purchase.club_id, year)
+    if purchase.bundle_id:
+        bundle = purchase.bundle
+        price = ModuleBundlePrice.get_active_price(bundle=bundle, as_of=as_of) if bundle else None
+        if price is None or price.currency != "EUR" or price.amount < 0:
+            return None
+        ordered = [module_id for module_id in BILLABLE_MODULE_IDS if module_id in module_ids]
+        return {
+            "fee_type": None,
+            "bundle": bundle,
+            "module_ids": ordered or module_ids,
+            "description": _bundle_description(bundle, ordered or module_ids),
+            "price_snapshot": price.amount,
+            "quantity": 1,
+            "charged_amount": price.amount,
+            "active_member_count": None,
+            "minimum_applied": False,
+        }
+    module_id = module_ids[0] if module_ids else None
+    fee = purchase.fee_type
+    if fee is None or not fee.is_active or fee.module_id != module_id:
+        fee = ClubFeeType.objects.filter(module_id=module_id, is_active=True).first() if module_id else None
+    price = ClubFeePrice.get_active_price(fee_type=fee, as_of=as_of) if fee else None
+    if price is None or module_id is None:
+        return None
+    quoted = quote_price(
+        amount=price.amount,
+        pricing_type=price.pricing_type,
+        minimum_amount=price.minimum_amount,
+        active_members=count,
+    )
+    if quoted["charged_amount"] <= 0:
+        return None
+    per_member = price.pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER
+    if per_member:
+        description = module_fee_line_description(
+            name=module_label(module_id),
+            year=year,
+            pricing_type=price.pricing_type,
+            amount=price.amount,
+            active_members=count,
+            minimum_applied=quoted["minimum_applied"],
+        )
+        quantity = count if count > 0 else 1
+    else:
+        description = module_label(module_id)
+        quantity = 1
+    return {
+        "fee_type": fee,
+        "bundle": None,
+        "module_ids": [module_id],
+        "description": description[:255],
+        "price_snapshot": price.amount,
+        "quantity": quantity,
+        "charged_amount": quoted["charged_amount"],
+        "active_member_count": quoted["active_member_count"],
+        "minimum_applied": quoted["minimum_applied"],
+    }
+
+
+def _grant_modules(purchase, actor) -> None:
+    assigned_by = actor if getattr(actor, "is_authenticated", False) else None
+    for module_id in [str(module_id) for module_id in (purchase.module_ids or [])]:
+        ClubModuleAssignment.objects.update_or_create(
+            club=purchase.club,
+            module_id=module_id,
+            defaults={"enabled": True, "assigned_by": assigned_by},
+        )
+
+
 def activate_module_purchases(order, *, actor=None) -> list[int]:
     """Switch on modules for purchases on a paid invoice. A second call changes nothing."""
     try:
@@ -540,32 +625,64 @@ def activate_module_purchases(order, *, actor=None) -> list[int]:
     paid_on = timezone.localtime(paid_at).date()
     months = ModuleSubscriptionSettings.load().subscription_months
     activated: list[int] = []
-    purchases = (
-        ModulePurchase.objects.select_for_update()
-        .filter(order_item__order=order)
-        .exclude(status__in=[ModulePurchase.Status.CANCELLED, ModulePurchase.Status.STOPPED])
+    purchase_ids = list(
+        ModulePurchase.objects.filter(Q(order_item__order=order) | Q(renewal_order_item__order=order))
+        .exclude(status=ModulePurchase.Status.CANCELLED)
+        .values_list("id", flat=True)
     )
+    purchases = ModulePurchase.objects.select_for_update().filter(id__in=purchase_ids)
     for purchase in purchases:
-        if purchase.status == ModulePurchase.Status.ACTIVE and purchase.activated_at:
+        is_renewal = bool(
+            purchase.renewal_order_item_id and purchase.renewal_order_item.order_id == order.id
+        )
+        if not is_renewal and purchase.status == ModulePurchase.Status.ACTIVE and purchase.activated_at:
+            continue
+        if is_renewal and purchase.renewal_order_item_id is None:
             continue
         module_ids = [str(module_id) for module_id in (purchase.module_ids or [])]
         if not module_ids or any(not is_install_entitled(module_id) for module_id in module_ids):
             purchase.activation_error = "The installation is not entitled to every module on this line."
             purchase.save(update_fields=["activation_error", "updated_at"])
             continue
-        for module_id in module_ids:
-            ClubModuleAssignment.objects.update_or_create(
-                club=purchase.club,
-                module_id=module_id,
-                defaults={"enabled": True, "assigned_by": actor if getattr(actor, "is_authenticated", False) else None},
+        if purchase.automation_hold:
+            continue
+        _grant_modules(purchase, actor)
+        if is_renewal:
+            was_off = purchase.switched_off_at is not None
+            old_end = purchase.ends_at or paid_on
+            purchase.ends_at = add_subscription_months(paid_on if was_off else old_end, months)
+            purchase.renewal_choice = ModulePurchase.RenewalChoice.UNANSWERED
+            purchase.renewal_order_item = None
+            purchase.switched_off_at = None
+            purchase.status = ModulePurchase.Status.ACTIVE
+            purchase.activation_error = ""
+            purchase.save(
+                update_fields=[
+                    "ends_at",
+                    "renewal_choice",
+                    "renewal_order_item",
+                    "switched_off_at",
+                    "status",
+                    "activation_error",
+                    "updated_at",
+                ]
             )
-        purchase.status = ModulePurchase.Status.ACTIVE
-        purchase.activated_at = paid_at
-        purchase.ends_at = add_subscription_months(paid_on, months)
-        purchase.activation_error = ""
-        purchase.save(
-            update_fields=["status", "activated_at", "ends_at", "activation_error", "updated_at"]
-        )
+            if was_off:
+                from .models import ModuleRenewalJournal
+
+                ModuleRenewalJournal.objects.get_or_create(
+                    purchase=purchase,
+                    period_end=old_end,
+                    stage=ModuleRenewalJournal.Stage.LATE_REACTIVATED,
+                )
+        else:
+            purchase.status = ModulePurchase.Status.ACTIVE
+            purchase.activated_at = paid_at
+            purchase.ends_at = add_subscription_months(paid_on, months)
+            purchase.activation_error = ""
+            purchase.save(
+                update_fields=["status", "activated_at", "ends_at", "activation_error", "updated_at"]
+            )
         activated.append(purchase.id)
     return activated
 

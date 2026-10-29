@@ -13,6 +13,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { formatDisplayDate } from "@/lib/date-display";
 import {
   createModuleOrder,
+  chooseModuleRenewal,
   getModuleOrderCatalog,
   type ModuleOrderCatalog,
   type ModuleOrderOffer,
@@ -54,6 +55,7 @@ export function ClubModuleOrderPanel({
   title,
   subtitle,
   onOrder,
+  onChoose,
 }: {
   catalog: ModuleOrderCatalog;
   invoicePath: (invoiceId: number) => string;
@@ -61,6 +63,7 @@ export function ClubModuleOrderPanel({
   title?: string;
   subtitle?: string;
   onOrder: (input: { modules: string[]; bundles: number[] }) => Promise<ModuleOrderResult>;
+  onChoose?: (purchaseId: number, choice: "continue" | "stop") => Promise<void>;
 }) {
   const t = useTranslations("ClubAdmin");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -70,6 +73,7 @@ export function ClubModuleOrderPanel({
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [created, setCreated] = useState<ModuleOrderResult | null>(null);
 
+  const renewals = catalog.renewals ?? [];
   const held = catalog.offers.filter((offer) => ["on", "blocked", "open_invoice"].includes(offer.state));
   const unpriced = catalog.offers.filter((offer) => offer.state === "no_price");
   const choices = catalog.offers.filter((offer) => selectable(offer, allowUnentitled));
@@ -126,6 +130,42 @@ export function ClubModuleOrderPanel({
             </>
           ) : null}
         </p>
+      ) : null}
+
+      {renewals.length > 0 ? (
+        <div className="mt-6 space-y-3">
+          <h3 className="text-sm font-medium text-foreground">{t("moduleRenewalTitle")}</h3>
+          {renewals.map((renewal) => (
+            <div key={renewal.purchase_id} className="rounded-[var(--radius-card)] border border-border bg-secondary p-3">
+              <p className="text-sm font-medium text-foreground">{renewal.name}</p>
+              <p className="mt-1 text-sm text-muted">{t("moduleOrderUntil", { date: formatDisplayDate(renewal.ends_at) })}</p>
+              {renewal.invoice_id ? (
+                <a className="mt-2 inline-block text-sm text-link underline-offset-4 hover:underline" href={invoicePath(renewal.invoice_id)}>
+                  {t("moduleOrderOpenInvoice", { number: renewal.invoice_number ?? "" })}
+                  {renewal.pay_until ? ` · ${t("moduleRenewalPayUntil", { date: formatDisplayDate(renewal.pay_until) })}` : ""}
+                </a>
+              ) : null}
+              {renewal.can_choose && onChoose ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" size="sm" onClick={() => void onChoose(renewal.purchase_id, "continue")}>
+                    {t("moduleRenewalContinue")}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void onChoose(renewal.purchase_id, "stop")}>
+                    {t("moduleRenewalStop")}
+                  </Button>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted">
+                  {renewal.choice === "continue"
+                    ? t("moduleRenewalChoice_continue")
+                    : renewal.choice === "stop"
+                      ? t("moduleRenewalChoice_stop")
+                      : t("moduleRenewalChoice_unanswered")}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
       ) : null}
 
       <div className="mt-6 space-y-2">
@@ -387,6 +427,14 @@ export function ClubModuleOrder({
           allowUnentitled={allowUnentitled}
           title={title ?? (clubs ? t("moduleOrderFinanceTitle") : undefined)}
           subtitle={subtitle ?? (clubs ? t("moduleOrderFinanceHint") : undefined)}
+          onChoose={
+            clubs
+              ? undefined
+              : async (purchaseId, choice) => {
+                  await chooseModuleRenewal(activeClubId, purchaseId, choice);
+                  setCatalog(await getModuleOrderCatalog(activeClubId));
+                }
+          }
           onOrder={async (input) => {
             const result = await createModuleOrder(activeClubId, input);
             setCatalog(await getModuleOrderCatalog(activeClubId));

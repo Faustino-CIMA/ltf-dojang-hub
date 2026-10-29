@@ -136,6 +136,36 @@ describe("Club module order", () => {
     await waitFor(() => expect(onOrder).toHaveBeenCalledWith({ modules: [], bundles: [1] }));
   });
 
+  it("lets the club continue a purchase that is inside the notice window", async () => {
+    const onChoose = jest.fn().mockResolvedValue(undefined);
+    render(
+      <ClubModuleOrderPanel
+        catalog={{
+          ...catalog([offer({ state: "on", ends_at: "2026-12-01" })]),
+          renewals: [
+            {
+              purchase_id: 9,
+              name: "Club management",
+              ends_at: "2026-12-01",
+              choice: "unanswered",
+              can_choose: true,
+              invoice_id: null,
+              invoice_number: null,
+              pay_until: null,
+            },
+          ],
+        }}
+        invoicePath={(id) => `/en/dashboard/club/invoices/${id}`}
+        onOrder={jest.fn()}
+        onChoose={onChoose}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "moduleRenewalContinue" }));
+    await waitFor(() => expect(onChoose).toHaveBeenCalledWith(9, "continue"));
+    fireEvent.click(screen.getByRole("button", { name: "moduleRenewalStop" }));
+    await waitFor(() => expect(onChoose).toHaveBeenCalledWith(9, "stop"));
+  });
+
   it("asks the club to untick one when two bundles share a module", () => {
     render(
       <ClubModuleOrderPanel
