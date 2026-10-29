@@ -348,7 +348,7 @@ def _dispatch_invoice_email(
 
     context = build_invoice_context(invoice)
     # The invoice PDF prints total_amount. outstanding() is already 0 when a
-    # licence invoice is mailed in the same step that records the payment.
+    # license invoice is mailed in the same step that records the payment.
     amount = invoice_balance_due_text(invoice) if balance else context["total_amount"]
     context["copy"] = {
         "hello": copy["hello"],
@@ -450,7 +450,7 @@ def activate_eligible_paid_licenses() -> int:
             end_date__gte=today,
         )
         .filter(
-            # A club licence waits for a paid order. A staff licence has no
+            # A club license waits for a paid order. A staff license has no
             # order; issuing it is the authorisation, and club may be empty.
             Q(order_items__order__status=Order.Status.PAID) | Q(club__isnull=True)
         )

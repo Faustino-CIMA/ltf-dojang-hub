@@ -14,7 +14,7 @@ class MemberQuerySet(models.QuerySet):
 
 
 class ActiveMemberManager(models.Manager.from_queryset(MemberQuerySet)):
-    """Hide parked imports from clubs, licences, counts, and every other list."""
+    """Hide parked imports from clubs, licenses, counts, and every other list."""
 
     def get_queryset(self):
         return super().get_queryset().exclude(import_status="parked")

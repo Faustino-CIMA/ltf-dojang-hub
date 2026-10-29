@@ -1,8 +1,8 @@
-"""LTF staff functions and federation-issued licences.
+"""LTF staff functions and federation-issued licenses.
 
 A staff function is not exclusive with club membership. Someone with no club
-can hold a licence that the LTF issues directly, with no club order or invoice.
-Someone who also belongs to a club keeps the normal club licence.
+can hold a license that the LTF issues directly, with no club order or invoice.
+Someone who also belongs to a club keeps the normal club license.
 """
 
 from __future__ import annotations
@@ -284,8 +284,8 @@ def issue_staff_license(member: Member, *, license_type: LicenseType, year, acto
         raise LtfStaffError("invalid_year") from exc
     today = timezone.localdate()
     # Same years a club can order: this year, or next year. A past year is
-    # refused. Club payment leaves a past-year licence unactivated, and an
-    # LTF admin must not create a backdated active licence.
+    # refused. Club payment leaves a past-year license unactivated, and an
+    # LTF admin must not create a backdated active license.
     if year_value < today.year:
         raise LtfStaffError("past_year")
     if year_value > today.year + 1:
@@ -296,7 +296,7 @@ def issue_staff_license(member: Member, *, license_type: LicenseType, year, acto
     ).exists():
         raise LtfStaffError("licence_exists_for_year")
     # This year is inside its start/end dates, so it is active at once, the
-    # same as a paid club licence. Next year starts in the future, so it stays
+    # same as a paid club license. Next year starts in the future, so it stays
     # pending until the activation task reaches 1 January.
     status_value = (
         License.Status.ACTIVE if year_value == today.year else License.Status.PENDING
@@ -315,7 +315,7 @@ def issue_staff_license(member: Member, *, license_type: LicenseType, year, acto
     log_license_created(
         license_record,
         actor=actor,
-        reason="LTF staff licence issued without an invoice.",
+        reason="LTF staff license issued without an invoice.",
         metadata={"source": "ltf_staff.issue", "priced": False},
     )
     return license_record
@@ -338,7 +338,7 @@ def revoke_staff_license(member: Member, *, actor, reason: str = "") -> License:
         license_record,
         status_before=previous,
         actor=actor,
-        reason=reason or "LTF staff licence revoked.",
+        reason=reason or "LTF staff license revoked.",
         metadata={"source": "ltf_staff.revoke"},
     )
     return license_record

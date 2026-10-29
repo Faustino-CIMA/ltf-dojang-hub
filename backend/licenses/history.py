@@ -112,7 +112,7 @@ def log_license_status_change(
 
 def expire_outdated_licenses(actor=None) -> int:
     today = timezone.localdate()
-    # club is empty for an LTF staff licence. The filter does not require a club.
+    # club is empty for an LTF staff license. The filter does not require a club.
     outdated_licenses = License.objects.filter(
         status=License.Status.ACTIVE,
         end_date__lt=today,

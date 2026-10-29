@@ -270,7 +270,7 @@ def parse_boolean(value, errors, field_name):
 
 
 def normalize_license_role(value, errors, field_name):
-    """Return a licence role, or empty when the CSV value is not one.
+    """Return a license role, or empty when the CSV value is not one.
 
     Trainer and other non-roles are ignored. They are not a choice. errors and
     field_name stay in the signature for callers that still pass them.

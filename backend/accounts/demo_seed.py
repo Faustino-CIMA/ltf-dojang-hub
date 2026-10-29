@@ -510,7 +510,7 @@ def _license_dates(kind: str) -> tuple[str, int, date, date]:
 def _ensure_licenses(members: list[Member]) -> None:
     license_type, _created = LicenseType.objects.get_or_create(
         code=LICENSE_TYPE_CODE,
-        defaults={"name": "Demo annual licence"},
+        defaults={"name": "Demo annual license"},
     )
     kinds = {row["license_id"]: row["license_kind"] for row in _roster_rows()}
     for member in members:

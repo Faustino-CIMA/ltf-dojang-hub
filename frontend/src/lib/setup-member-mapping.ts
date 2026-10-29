@@ -14,7 +14,7 @@ export const SETUP_MEMBER_TARGET_FIELDS = [
   { key: "membership_end_date", required: false },
 ] as const;
 
-/** Copy a SimplyCompete Member ID column onto the WT licence field when it is empty. */
+/** Copy a SimplyCompete Member ID column onto the WT license field when it is empty. */
 export function shareMemberIdColumn(mapping: Record<string, string>): Record<string, string> {
   const next = { ...mapping };
   for (const key of GENERATED_MEMBER_ID_FIELD_KEYS) {
