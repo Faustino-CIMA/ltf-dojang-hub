@@ -872,6 +872,12 @@
     "committeeOfficeActions": "Actions pour {role}"
   },
   "LtfFinance": {
+    "clubFeeEditAction": "Modifier le frais de club",
+    "clubFeeEditTitle": "Modifier le frais de club",
+    "clubFeeEditSubtitle": "Modifiez ce frais. Un nouveau montant est enregistré comme prix suivant. Les factures déjà envoyées restent telles quelles.",
+    "clubFeeSaveAction": "Enregistrer",
+    "clubFeeUpdatedMessage": "Frais de club enregistré.",
+    "clubFeeUpdateError": "Le frais de club n'a pas pu être enregistré.",
     "validitySectionLabel": "Durée de cette licence",
     "validityModeLabel": "Validité",
     "validityCalendarYear": "Expire le 31 décembre de l'année où elle est délivrée",

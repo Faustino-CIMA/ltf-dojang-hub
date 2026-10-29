@@ -932,7 +932,10 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
         from modules.registry import get_spec
 
         module_id = attrs.get("module_id", getattr(self.instance, "module_id", None))
-        if not module_id and not (attrs.get("name") or getattr(self.instance, "name", "")):
+        if "name" in attrs and isinstance(attrs.get("name"), str):
+            attrs["name"] = attrs["name"].strip()
+        name = attrs.get("name", getattr(self.instance, "name", ""))
+        if not module_id and not str(name or "").strip():
             raise serializers.ValidationError({"name": "Name is required."})
         if module_id:
             clash = ClubFeeType.objects.filter(module_id=module_id)
@@ -957,36 +960,42 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
-    def create(self, validated_data):
-        initial_amount = validated_data.pop("initial_amount", None)
-        initial_currency = validated_data.pop("initial_currency", "EUR")
-        initial_effective_from = validated_data.pop("initial_effective_from", None)
-        initial_pricing_type = validated_data.pop("initial_pricing_type", ClubFeePrice.PricingType.FLAT)
-        initial_minimum_amount = validated_data.pop("initial_minimum_amount", None)
-        fee_type = super().create(validated_data)
-        if initial_amount is not None:
-            request = self.context.get("request")
-            created_by = getattr(request, "user", None) if request else None
-            if created_by is not None and not getattr(created_by, "is_authenticated", False):
-                created_by = None
-            ClubFeePrice.objects.create(
-                fee_type=fee_type,
-                amount=initial_amount,
-                pricing_type=initial_pricing_type,
-                minimum_amount=initial_minimum_amount,
-                currency=initial_currency or "EUR",
-                effective_from=initial_effective_from or timezone.localdate(),
-                created_by=created_by,
-            )
+    def _take_initial_price(self, validated_data):
+        return {
+            "amount": validated_data.pop("initial_amount", None),
+            "currency": validated_data.pop("initial_currency", "EUR"),
+            "effective_from": validated_data.pop("initial_effective_from", None),
+            "pricing_type": validated_data.pop("initial_pricing_type", ClubFeePrice.PricingType.FLAT),
+            "minimum_amount": validated_data.pop("initial_minimum_amount", None),
+        }
+
+    def _store_initial_price(self, fee_type, price):
+        if price["amount"] is None:
+            return fee_type
+        request = self.context.get("request")
+        created_by = getattr(request, "user", None) if request else None
+        if created_by is not None and not getattr(created_by, "is_authenticated", False):
+            created_by = None
+        ClubFeePrice.objects.create(
+            fee_type=fee_type,
+            amount=price["amount"],
+            pricing_type=price["pricing_type"],
+            minimum_amount=price["minimum_amount"],
+            currency=price["currency"] or "EUR",
+            effective_from=price["effective_from"] or timezone.localdate(),
+            created_by=created_by,
+        )
         return fee_type
 
+    def create(self, validated_data):
+        price = self._take_initial_price(validated_data)
+        fee_type = super().create(validated_data)
+        return self._store_initial_price(fee_type, price)
+
     def update(self, instance, validated_data):
-        validated_data.pop("initial_amount", None)
-        validated_data.pop("initial_currency", None)
-        validated_data.pop("initial_effective_from", None)
-        validated_data.pop("initial_pricing_type", None)
-        validated_data.pop("initial_minimum_amount", None)
-        return super().update(instance, validated_data)
+        price = self._take_initial_price(validated_data)
+        fee_type = super().update(instance, validated_data)
+        return self._store_initial_price(fee_type, price)
 
 
 class ClubFeeBillingScheduleSerializer(serializers.ModelSerializer):

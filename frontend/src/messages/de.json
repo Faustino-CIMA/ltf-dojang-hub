@@ -872,6 +872,12 @@
     "committeeOfficeActions": "Aktionen für {role}"
   },
   "LtfFinance": {
+    "clubFeeEditAction": "Vereinsgebühr bearbeiten",
+    "clubFeeEditTitle": "Vereinsgebühr bearbeiten",
+    "clubFeeEditSubtitle": "Ändern Sie diese Gebühr. Ein neuer Betrag wird als nächster Preis gespeichert. Bereits versandte Rechnungen bleiben unverändert.",
+    "clubFeeSaveAction": "Änderungen speichern",
+    "clubFeeUpdatedMessage": "Vereinsgebühr gespeichert.",
+    "clubFeeUpdateError": "Die Vereinsgebühr konnte nicht gespeichert werden.",
     "validitySectionLabel": "Wie lange diese Lizenz gilt",
     "validityModeLabel": "Gültigkeit",
     "validityCalendarYear": "Läuft am 31. Dezember des Ausgabejahres ab",
