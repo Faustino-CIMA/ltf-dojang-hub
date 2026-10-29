@@ -17,7 +17,7 @@ describe("setup member id mapping", () => {
     ]);
   });
 
-  it("fills both licence ids from the Member ID column", () => {
+  it("fills both license ids from the Member ID column", () => {
     const mapping = shareMemberIdColumn({
       ltf_licenseid: "Member ID",
       first_name: "Preferred First Name",
@@ -26,7 +26,7 @@ describe("setup member id mapping", () => {
     expect(mapping.ltf_licenseid).toBe("Member ID");
   });
 
-  it("drops a generated member id even when the same column fills both licences", () => {
+  it("drops a generated member id even when the same column fills both licenses", () => {
     const mapping = shareMemberIdColumn({
       member_id: "Member ID",
       id: "Member ID",

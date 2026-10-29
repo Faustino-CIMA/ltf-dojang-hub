@@ -229,7 +229,7 @@ class License(models.Model):
         REVOKED = "revoked", "Revoked"
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="licenses")
-    # Empty when the LTF issues a licence for staff who are not in a club. No order is created.
+    # Empty when the LTF issues a license for staff who are not in a club. No order is created.
     club = models.ForeignKey(
         Club,
         on_delete=models.PROTECT,

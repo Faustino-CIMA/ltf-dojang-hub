@@ -108,7 +108,7 @@ def _mapping_for(headers, options: dict) -> dict:
     A supplied map is not filled back in from the suggestion, so a cleared
     column stays cleared. Email is never mapped. The app-generated member id
     (id, member_id) is never a target. With no map, detection matches the
-    previous setup import and also copies a Member ID column onto both licence ids.
+    previous setup import and also copies a Member ID column onto both license ids.
     """
     supplied = options.get("mapping")
     header_set = {str(header) for header in headers}

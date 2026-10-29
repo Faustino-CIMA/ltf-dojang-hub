@@ -1,6 +1,6 @@
 export type ValidityMode = "calendar_year" | "duration";
 
-/** Example expiry for the licence-type form. Years are added first; 29 February becomes 28 February in a non-leap year. */
+/** Example expiry for the license-type form. Years are added first; 29 February becomes 28 February in a non-leap year. */
 export function exampleExpiryDate(
   mode: ValidityMode,
   years: number,

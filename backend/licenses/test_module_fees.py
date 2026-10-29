@@ -48,7 +48,7 @@ class ActiveMemberCountTests(APITestCase):
             status=status,
         )
 
-    def test_counts_only_this_clubs_valid_licences_for_the_year(self):
+    def test_counts_only_this_clubs_valid_licenses_for_the_year(self):
         counted = self._member(self.club, "Anne", "Reding")
         pending = self._member(self.club, "Jeff", "Lorang")
         inactive_record = self._member(self.club, "Mia", "Hoffmann", active=False)

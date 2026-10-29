@@ -495,7 +495,7 @@ class RegularImportParkingTests(TestCase):
         self.assertEqual(stored.import_status, Member.ImportStatus.PARKED)
         self.assertEqual(stored.sex, "")
 
-    def test_a_parked_licence_id_still_blocks_a_second_member(self):
+    def test_a_parked_license_id_still_blocks_a_second_member(self):
         from members.serializers import MemberSerializer
         from members.services import _used_ltf_license_serials, generate_next_ltf_license_id
 

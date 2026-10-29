@@ -51,9 +51,9 @@ index_terms:
   - Income = income
   - Invoice = invoices?
   - Language = language
-  - Licence = licen[cs]es?
-  - Licence card = cards?
-  - Licence fee = licen[cs]e fee
+  - License = licen[cs]es?
+  - License card = cards?
+  - License fee = licen[cs]e fee
   - Membership fee = membership fees?
   - MyGuichet
   - Ordering window = (ordering )?windows?
@@ -98,7 +98,7 @@ imprint: |
 
 # Welcome {#welcome}
 
-LTF Dojang Hub is the shared online desk of the Luxembourg Taekwondo Federation and its clubs. Clubs keep their member list, order licences, take the roll in training, bill membership fees and run their shop. The federation checks licences, prints licence cards and keeps its books. Everyone shares one calendar. It is a management tool for the staff of the clubs and the federation; members and parents do not sign in.
+LTF Dojang Hub is the shared online desk of the Luxembourg Taekwondo Federation and its clubs. Clubs keep their member list, order licenses, take the roll in training, bill membership fees and run their shop. The federation checks licenses, prints license cards and keeps its books. Everyone shares one calendar. It is a management tool for the staff of the clubs and the federation; members and parents do not sign in.
 
 The public page is black and red. It reads [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] opens the sign-in page. Someone who is already signed in sees [[Home.openDashboard]] in that place. Inside the app, [[Home.welcomeLead]] follows the light or dark theme.
 
@@ -212,11 +212,11 @@ The app has a page where you manage your own consent and data rights. It is not 
 The page <span class="ui">Privacy &amp; GDPR</span> has three controls:
 
 - <span class="ui">I consent to data processing.</span> – tick or clear the box. The change is saved at once.
-- <span class="ui">Export my data</span> – shows your data on the page, under <span class="ui">Export preview</span>: your login details and, if your login is linked to a member record, that member's name, grade and club, the licences, the licence and grade history and the photo details. The data is only shown on screen, not downloaded as a file.
+- <span class="ui">Export my data</span> – shows your data on the page, under <span class="ui">Export preview</span>: your login details and, if your login is linked to a member record, that member's name, grade and club, the licenses, the license and grade history and the photo details. The data is only shown on screen, not downloaded as a file.
 - <span class="ui">Delete my data</span> – deletes your login.
 
 > [!WARNING]
-> <span class="ui">Delete my data</span> does not ask for confirmation. It deletes your login at once and signs you out. If the login is linked to a member record, the profile photo is removed, the notes on the grade history are cleared, and the private addresses on that member record are removed. Addresses that belong to someone else, such as a parent stored as a contact, stay. Invoices already issued keep the address that was printed on them. The member record and its licences stay with the club.
+> <span class="ui">Delete my data</span> does not ask for confirmation. It deletes your login at once and signs you out. If the login is linked to a member record, the profile photo is removed, the notes on the grade history are cleared, and the private addresses on that member record are removed. Addresses that belong to someone else, such as a parent stored as a contact, stay. Invoices already issued keep the address that was printed on them. The member record and its licenses stay with the club.
 
 > [!NOTE]
 > This page is being reviewed. For now its text is in English only, also when you use the app in Luxembourgish.
@@ -250,8 +250,8 @@ Your {{role}} decides which menu you see. One person can have only one role per 
 | Role badge | Typical person | Main work |
 |---|---|---|
 | [[Common.roleCoach]] | coach | sees the training week, takes the roll, sees the calendar |
-| [[Common.roleClubAdmin]] | president, secretary, treasurer, volunteer | runs the club: members, licences, money, training, shop |
-| [[Common.roleLtfAdmin]] | federation office | clubs, licences, cards, transfers, national team, federation calendar |
+| [[Common.roleClubAdmin]] | president, secretary, treasurer, volunteer | runs the club: members, licenses, money, training, shop |
+| [[Common.roleLtfAdmin]] | federation office | clubs, licenses, cards, transfers, national team, federation calendar |
 | [[Common.roleLtfFinance]] | federation treasurer | federation orders, invoices, payments, books |
 | [[Common.roleSuperuser]] | technical administrator | modules, users, system health |
 
@@ -283,7 +283,7 @@ Parts of the app are switched on per club by the LTF as {{modules}}:
 - **Event calendar** adds [[Events.calendarTitle]] under [[Common.navGroupCalendar]].
 - **Competition** ([[moduleCompetition]]) adds [[navTeams]] under [[Common.navGroupCompetition]]. See [Teams and competition](#club-teams).
 
-If your club has no module, you still have the [[Common.navGroupClub]] pages: members, licences, printing and transfers. Ask the LTF if you are missing a module you need.
+If your club has no module, you still have the [[Common.navGroupClub]] pages: members, licenses, printing and transfers. Ask the LTF if you are missing a module you need.
 
 The LTF sets a yearly price for club management and the calendar. An unpaid invoice does not switch a module off. Club admins can read the estimate on the club profile. See [Club fees](#club-fees) and [Profile](#profile-tab).
 
@@ -334,13 +334,13 @@ The class now shows as [[trainingStatus_held]] and its hours count towards each 
 
 Coaches see public club events and also [[calendarVisibility_internal]] ones, so the club can share coach meetings with its coaches and admins only. See [Calendar](#calendar).
 
-# Club admin: members and licences {#club-members}
+# Club admin: members and licenses {#club-members}
 
 <p class="roles"><span class="chip">Club admin</span></p>
 
 ## Club overview {#club-overview}
 
-[[navOverview]] is your dashboard. It opens with [[Home.welcomeLead]] and your first name. [[Home.welcomeAttention]] lists what needs you, or [[Home.welcomeAllClear]] when nothing does. The page also counts members, licences and open invoices, and its [[actionQueueTitle]] lists things that need you, each with a button that opens the right page.
+[[navOverview]] is your dashboard. It opens with [[Home.welcomeLead]] and your first name. [[Home.welcomeAttention]] lists what needs you, or [[Home.welcomeAllClear]] when nothing does. The page also counts members, licenses and open invoices, and its [[actionQueueTitle]] lists things that need you, each with a button that opens the right page.
 
 ![The club overview](fig:club-overview)
 
@@ -375,18 +375,18 @@ Click a name to open the member. The [[Common.batchActionsLabel]] menu works on 
 ![Actions for selected members](fig:members-actions)
 
 <div class="legend" markdown="1">
-1. [[actionOrderLicense]] – see [Ordering licences](#order-licences).
+1. [[actionOrderLicense]] – see [Ordering licenses](#order-licences).
 2. [[actionChangeStatus]] – make members active or inactive.
 </div>
 
 > [!WARNING]
-> Prefer making a member **inactive** to deleting. Deleting also deletes the member's licences; an inactive member keeps their history.
+> Prefer making a member **inactive** to deleting. Deleting also deletes the member's licenses; an inactive member keeps their history.
 
 ## Adding a member {#add-member}
 
 1. In [[navMembers]], open [[membersMenuLabel]] and click [[createMember]]. The form opens in a side panel. The list stays behind it.
 2. Fill in [[firstNameLabel]], [[lastNameLabel]], [[sexLabel]] and [[dobLabel]].
-3. Choose the [[ltfLicensePrefixLabel]]. The LTF licence number itself is created automatically when you save. Fill in [[Import.wtLicenseLabel]] only if the athlete already has a World Taekwondo licence.
+3. Choose the [[ltfLicensePrefixLabel]]. The LTF license number itself is created automatically when you save. Fill in [[Import.wtLicenseLabel]] only if the athlete already has a World Taekwondo license.
 4. Set the belt grade after saving, on the [[memberGradesTab]] tab.
 5. Click [[createMember]].
 
@@ -420,9 +420,9 @@ A member's page has six tabs.
 ![A member's page](fig:member-detail)
 
 <div class="legend" markdown="1">
-1. [[memberOverviewTab]] – name, birth date, licence numbers, belt.
+1. [[memberOverviewTab]] – name, birth date, license numbers, belt.
 2. [[memberClubRecordTab]] – what only the club needs (below).
-3. [[memberCurrentLicensesTab]] – this year's licence and its card preview.
+3. [[memberCurrentLicensesTab]] – this year's license and its card preview.
 4. [[memberLicenseHistoryTab]]
 5. [[memberGradesTab]]
 6. [[memberClubMovementsTab]] – transfers between clubs.
@@ -442,7 +442,7 @@ When the competition module is on, the overview also shows [[teamsCardTitle]] an
 ![The club record](fig:member-record)
 
 <div class="legend" markdown="1">
-1. [[ClubMgmt.paysLicenseFee]] – clear this for a member who should not pay the club's licence fee.
+1. [[ClubMgmt.paysLicenseFee]] – clear this for a member who should not pay the club's license fee.
 2. [[ClubMgmt.memberFeeLabel]] – which membership fee is charged; [[ClubMgmt.memberFeeDefault]] if left alone.
 3. [[ClubMgmt.deliveryLabel]] – [[ClubMgmt.deliveryEmail]], [[ClubMgmt.deliveryPost]] or [[ClubMgmt.deliveryHand]].
 4. [[ClubMgmt.contacts]] – parents, guardians, emergency contacts.
@@ -459,7 +459,7 @@ Tick [[ClubMgmt.useForInvoice]] on the address that should receive invoices. [[C
 
 ### A member's photo {#member-photo}
 
-The photo is printed on the licence card, so a good photo saves a reprint.
+The photo is printed on the license card, so a good photo saves a reprint.
 
 1. Open the member and click [[photoChangeButton]].
 2. Drop a picture into the box, click [[photoSelectFileButton]], or click [[photoCameraButton]] and then [[photoCameraCaptureButton]].
@@ -471,35 +471,35 @@ The photo is printed on the licence card, so a good photo saves a reprint.
 > [!TIP]
 > A plain wall, good light and a straight look into the camera give the best result. JPEG, PNG and HEIC photos up to 10 MB are accepted.
 
-## Ordering licences {#order-licences}
+## Ordering licenses {#order-licences}
 
-Every athlete needs a yearly LTF {{licence}}. You order licences for several members at once; the LTF then invoices your club.
+Every athlete needs a yearly LTF {{license}}. You order licenses for several members at once; the LTF then invoices your club.
 {: .lead}
 
-1. In [[navMembers]], tick the members who need a licence.
+1. In [[navMembers]], tick the members who need a license.
 2. Open [[Common.batchActionsLabel]] and click [[actionOrderLicense]].
 3. Choose the [[yearLabel]]. Depending on federation policy you can order for this year or pre-order for next year.
-4. Under [[orderLicenseAvailableTypesTitle]], click a licence type marked [[orderLicenseStatusAvailable]].
-5. Check [[orderLicenseReviewTitle]]. Members who already have this licence are listed under [[orderLicenseAlreadyLicensedTitle]]; click [[orderLicenseResolveDuplicatesAction]] or [[orderLicenseResolveBlockedAction]] if needed.
+4. Under [[orderLicenseAvailableTypesTitle]], click a license type marked [[orderLicenseStatusAvailable]].
+5. Check [[orderLicenseReviewTitle]]. Members who already have this license are listed under [[orderLicenseAlreadyLicensedTitle]]; click [[orderLicenseResolveDuplicatesAction]] or [[orderLicenseResolveBlockedAction]] if needed.
 6. Click [[orderLicenseButton|year=2026]].
 
-The page shows [[orderLicenseSuccessTitle]]. The licences are [[statusPending]] until the LTF has received your payment and activated them.
+The page shows [[orderLicenseSuccessTitle]]. The licenses are [[statusPending]] until the LTF has received your payment and activated them.
 {: .result}
 
-![Ordering licences for two members](fig:order-licenses)
+![Ordering licenses for two members](fig:order-licenses)
 
 > [!NOTE]
-> A licence type you cannot choose shows why, for example [[orderLicenseUnavailableReasonWindow]] or [[orderLicenseUnavailableReasonNoPrice]]. Ordering windows and prices are set by the LTF.
+> A license type you cannot choose shows why, for example [[orderLicenseUnavailableReasonWindow]] or [[orderLicenseUnavailableReasonNoPrice]]. Ordering windows and prices are set by the LTF.
 
 The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navInvoices]]. Pay the federation invoice as explained in [Paying the LTF](#pay-ltf).
 
-## The licences list {#licences}
+## The licenses list {#licences}
 
-[[navLicenses]] shows every licence of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Click a column heading to sort. On the federation's own licence list, edit and delete sit in the row menu and the form opens in a side panel. See [Members, licences and transfers](#ltf-licences).
+[[navLicenses]] shows every license of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Click a column heading to sort. On the federation's own license list, edit and delete sit in the row menu and the form opens in a side panel. See [Members, licenses and transfers](#ltf-licences).
 
-![The licences list](fig:licences)
+![The licenses list](fig:licences)
 
-## Printing licence cards {#print-cards}
+## Printing license cards {#print-cards}
 
 [[navPrinting]] lists the club's card print jobs. The same section also opens [[navPrinterProfiles]], where a printer's X/Y offset is stored.
 
@@ -514,7 +514,7 @@ The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navIn
 
 ## Transfers between clubs {#transfers}
 
-A member who moves to another club is **sent** by the old club and **accepted** by the new one. The licence and history move with the member.
+A member who moves to another club is **sent** by the old club and **accepted** by the new one. The license and history move with the member.
 {: .lead}
 
 To send a member to another club:
@@ -555,7 +555,7 @@ To answer a request from another club:
 Under [[navFinance]] you find the club's books. The tabs across the top are: [[navOrders]], [[navInvoices]], [[navPayments]], [[navBilling]], [[navMembershipFees]], [[navIncome]], [[navExpenses]], [[navBank]], [[navReports]] and [[navSubsidies]].
 
 > [!NOTE]
-> The club's books contain two kinds of invoices: **LTF invoices** (licences your club buys from the federation) and **club invoices** (membership fees and shop sales you bill to your members). The [[financeLedgerLabel]] filter on [[navInvoices]] switches between them.
+> The club's books contain two kinds of invoices: **LTF invoices** (licenses your club buys from the federation) and **club invoices** (membership fees and shop sales you bill to your members). The [[financeLedgerLabel]] filter on [[navInvoices]] switches between them.
 
 ## Who may record payments {#payment-permission}
 
@@ -580,14 +580,14 @@ Use [[familyInvoicePreview]] to check the amounts before you bill.
 
 1. Under [[membershipFee]], type a [[feeName]] (for example “Adults”) and an [[feeAmount]], then click [[saveFee]]. Add one fee per kind of dues, such as children, adults, family.
 2. When a price changes, do **not** create a new fee: open the fee, enter the new amount and [[priceFrom]] date and click [[saveNewPrice]].
-3. Under [[licenseFeeTitle]], set the amount you charge members for their LTF licence, or leave 0.00.
-4. Under [[billingsTitle]], click [[addBilling]] only if you bill the membership fee more than once a year (for example a spring bill). Then choose under [[licenseFeeBilling]] which bill carries the licence fee – see [When the licence fee is charged](#license-fee-season).
+3. Under [[licenseFeeTitle]], set the amount you charge members for their LTF license, or leave 0.00.
+4. Under [[billingsTitle]], click [[addBilling]] only if you bill the membership fee more than once a year (for example a spring bill). Then choose under [[licenseFeeBilling]] which bill carries the license fee – see [When the license fee is charged](#license-fee-season).
 5. Under [[rebateRules]], click [[addRebate]] for rank 2, 3… Choose [[rebateKindPercent]] or [[rebateKindAmount]]. Tick [[rebateAppliesToLater]] so that every further child gets the same rebate.
 
 ![Membership fees](fig:fees)
 
 > [!NOTE]
-> The licence fee is added once per member and season, on the bill chosen under [[licenseFeeBilling]]. Family rebates never reduce it.
+> The license fee is added once per member and season, on the bill chosen under [[licenseFeeBilling]]. Family rebates never reduce it.
 
 ## Billing the year {#billing}
 
@@ -609,25 +609,25 @@ Once fees and families are ready, billing the whole club takes a few clicks.
 2. Look for households marked [[billingBlocked]]. The reason is shown in the row: usually [[chooseBillRecipient]] (for a child) or a missing membership fee. Fix them in [[navFamilies]] or [[navMembershipFees]].
 3. Click [[selectReady]].
 4. Click [[reviewIssueAction]], check the totals in the confirmation and click [[issueInvoicesAction]].
-5. Email invoices are sent at once. For the rest, click [[printPackAction]] and print the PDF. The total in the email is the same total as on the PDF. That includes a licence invoice marked paid in the same step as the email. A reminder states the amount still due.
+5. Email invoices are sent at once. For the rest, click [[printPackAction]] and print the PDF. The total in the email is the same total as on the PDF. That includes a license invoice marked paid in the same step as the email. A reminder states the amount still due.
 
 The households now show [[billingInvoiced]]. They turn [[billingPaid]] when you record the payment.
 {: .result}
 
 > [!NOTE]
-> A member with a fee of 0.00 gets a bill of 0,00 marked paid, as proof of membership. This does not replace an LTF licence.
+> A member with a fee of 0.00 gets a bill of 0,00 marked paid, as proof of membership. This does not replace an LTF license.
 
-## When the licence fee is charged {#license-fee-season}
+## When the license fee is charged {#license-fee-season}
 
-The Taekwondo season runs from September to September, like the Luxembourg school year. The {{licence fee}} is normally charged with the **first bill of the season**. In the app, however, billings are counted per calendar year ([[billingYear]]), so the first bill of the season is not always [[billingInstallmentNumber|sequence=1]].
+The Taekwondo season runs from September to September, like the Luxembourg school year. The {{license fee}} is normally charged with the **first bill of the season**. In the app, however, billings are counted per calendar year ([[billingYear]]), so the first bill of the season is not always [[billingInstallmentNumber|sequence=1]].
 {: .lead}
 
-- **One bill a year** (usually in autumn): it opens the season and carries the licence fee. There is nothing to set.
-- **Two bills a year**: the spring bill covers the second half of the running season, and the autumn bill opens the new season. The autumn bill is then the **second** bill of the calendar or financial year, and it is the one that should carry the licence fee.
+- **One bill a year** (usually in autumn): it opens the season and carries the license fee. There is nothing to set.
+- **Two bills a year**: the spring bill covers the second half of the running season, and the autumn bill opens the new season. The autumn bill is then the **second** bill of the calendar or financial year, and it is the one that should carry the license fee.
 
 Example: a club bills in February and in October 2026.
 
-| Bill | In the app | Season | Licence fee? |
+| Bill | In the app | Season | License fee? |
 |---|---|---|---|
 | February 2026 | [[billingInstallmentNumber|sequence=1]], label “Spring” | second half of 2025/26 | no – already charged in October 2025 |
 | October 2026 | [[billingInstallmentNumber|sequence=2]], label “Autumn” | start of 2026/27 | yes |
@@ -640,7 +640,7 @@ To set this up:
 3. Under [[licenseFeeBilling]], choose [[billingInstallmentNumber|sequence=2]].
 
 > [!NOTE]
-> The app describes this rule in two places. [[navBilling]] says the licence fee is added “on each member's first bill”; [[navMembershipFees]] says “on the billing chosen for that year”. Both mean the same bill: the one chosen under [[licenseFeeBilling]], which is the first bill of the season. A member who joins after that billing has started pays the licence fee on the next bill. Invoices already issued stay as they are.
+> The app describes this rule in two places. [[navBilling]] says the license fee is added “on each member's first bill”; [[navMembershipFees]] says “on the billing chosen for that year”. Both mean the same bill: the one chosen under [[licenseFeeBilling]], which is the first bill of the season. A member who joins after that billing has started pays the license fee on the next bill. Invoices already issued stay as they are.
 
 ## Recording a payment {#record-payment}
 
@@ -656,15 +656,15 @@ To set this up:
 
 ## Paying the LTF {#pay-ltf}
 
-LTF invoices for your licence orders are in [[navInvoices]] with the [[financeLedgerLabel]] filter set to LTF.
+LTF invoices for your license orders are in [[navInvoices]] with the [[financeLedgerLabel]] filter set to LTF.
 
-Pay by bank transfer and put the invoice number in the communication. LTF Finance records the payment and activates the licences.
+Pay by bank transfer and put the invoice number in the communication. LTF Finance records the payment and activates the licenses.
 
-Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. You leave the app for the card provider's page (Stripe). That page shows one line for this LTF invoice, with the invoice number and the amount still open, and the fields for the card. Confirm the payment there. The provider sends you back to this app, the licences are activated, and the page reads [[Checkout.successTitle]].
+Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. You leave the app for the card provider's page (Stripe). That page shows one line for this LTF invoice, with the invoice number and the amount still open, and the fields for the card. Confirm the payment there. The provider sends you back to this app, the licenses are activated, and the page reads [[Checkout.successTitle]].
 
 ![Pay now, in the row menu of an LTF invoice](fig:pay-now)
 
-If you use the provider's back link and do not pay, you return here and the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licences stay as they were. Members and parents never see this card page: they have no login, and a club invoice sent to them is not paid here.
+If you use the provider's back link and do not pay, you return here and the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licenses stay as they were. Members and parents never see this card page: they have no login, and a club invoice sent to them is not paid here.
 
 ![Payment cancelled, with the way back to the club](fig:checkout-return)
 
@@ -840,7 +840,7 @@ On [[navMembers]], [[teamsFilterNone]] lists members who are not on a team.
 
 ## Height and weight {#height-weight}
 
-On the team sheet, expand a person and open [[heightWeightTitle]]. [[heightWeightHint]] Click [[heightWeightAdd]] and record a dated weight, a height, or both. Only this club can see the measurements. They are not printed on the licence card.
+On the team sheet, expand a person and open [[heightWeightTitle]]. [[heightWeightHint]] Click [[heightWeightAdd]] and record a dated weight, a height, or both. Only this club can see the measurements. They are not printed on the license card.
 
 ![Height and weight on the team sheet](fig:height-weight)
 
@@ -1016,7 +1016,7 @@ The federation committee page works the same way. LTF Admin opens it from [[LtfA
 
 ![Club admins](fig:club-admins)
 
-Under [[adminsCurrentTitle]] you can remove someone who should no longer administer the club. [[adminsLicensedOnly]] limits the list to members with a valid licence.
+Under [[adminsCurrentTitle]] you can remove someone who should no longer administer the club. [[adminsLicensedOnly]] limits the list to members with a valid license.
 
 The row menu can send the link again: [[accessSendInvite]] if that person has not chosen a password yet, or [[accessSendReset]] if they have. You can also copy the link. The same actions are on the LTF's club-admins page. See [Clubs and club admins](#ltf-clubs).
 
@@ -1031,9 +1031,9 @@ A checklist for the busy volunteer. Each line links to the section that explains
 | Before the season | Timetable, holidays, promotion rules | [Timetable](#timetable) |
 | Before a competition | Team sheet, weigh-in, equipment sizes | [Teams](#teams) |
 | September | Fees and family rebates | [Membership fees](#fees) |
-| September | Order licences for all athletes | [Ordering licences](#order-licences) |
+| September | Order licenses for all athletes | [Ordering licenses](#order-licences) |
 | September | Pay the LTF invoice | [Paying the LTF](#pay-ltf) |
-| Once paid | Print licence cards | [Printing cards](#print-cards) |
+| Once paid | Print license cards | [Printing cards](#print-cards) |
 | By 30 September | Subsidy file | [Subsidies](#subsidies) |
 | October | Bill membership fees | [Billing](#billing) |
 | Every class | Take the roll | [Taking the roll](#roll) |
@@ -1049,7 +1049,7 @@ The federation menu, under [[Common.navGroupLtfManagement]], contains [[LtfAdmin
 
 ## Federation overview {#ltf-overview}
 
-The overview counts clubs, members and licences, and its action queue lists clubs without an admin, pending transfers with a fee and members waiting for a licence.
+The overview counts clubs, members and licenses, and its action queue lists clubs without an admin, pending transfers with a fee and members waiting for a license.
 
 ![The LTF overview](fig:ltf-overview)
 
@@ -1069,20 +1069,20 @@ After you upload a logo, the page shows a preview. While it loads, it says [[Com
 
 ![Club admins for every club](fig:ltf-club-admins)
 
-## Members, licences and transfers {#ltf-licences}
+## Members, licenses and transfers {#ltf-licences}
 
-- [[LtfAdmin.navMembers]] and [[LtfAdmin.navLicenses]] show all clubs at once; use the club panel at the top to narrow down. Click a column heading to sort. On the licence list, [[editAction]] and [[deleteAction]] are in [[Common.rowActionsLabel]], and edit opens a side panel.
-- Filter members with [[LtfAdmin.staffFilterStaff]] to see federation staff. A person with no club is shown as [[LtfAdmin.noClub]]. [[LtfAdmin.staffAddAction]] opens a side panel. Leave the club on [[LtfAdmin.staffNoClubOption]] to licence them as LTF staff, with no club order and no club invoice. [[LtfAdmin.staffIssueAction]] issues the licence for the year you choose. The current year is active at once. A past staff licence expires like a club licence and then shows as expired.
-- [[LtfAdmin.navParkedMembers]] lists people saved during an import until you assign a club and a sex, or delete the row. [[LtfAdmin.parkedSubtitle]] They are not in a club list, a licence, a card, a team or a count. See [First-run setup](#setup).
+- [[LtfAdmin.navMembers]] and [[LtfAdmin.navLicenses]] show all clubs at once; use the club panel at the top to narrow down. Click a column heading to sort. On the license list, [[editAction]] and [[deleteAction]] are in [[Common.rowActionsLabel]], and edit opens a side panel.
+- Filter members with [[LtfAdmin.staffFilterStaff]] to see federation staff. A person with no club is shown as [[LtfAdmin.noClub]]. [[LtfAdmin.staffAddAction]] opens a side panel. Leave the club on [[LtfAdmin.staffNoClubOption]] to license them as LTF staff, with no club order and no club invoice. [[LtfAdmin.staffIssueAction]] issues the license for the year you choose. The current year is active at once. A past staff license expires like a club license and then shows as expired.
+- [[LtfAdmin.navParkedMembers]] lists people saved during an import until you assign a club and a sex, or delete the row. [[LtfAdmin.parkedSubtitle]] They are not in a club list, a license, a card, a team or a count. See [First-run setup](#setup).
 - [[LtfAdmin.navMemberTransfers]] lists recent club changes, transfers with a fee and possible {{club tourists}} – members who changed club unusually often.
 
 ![Parked members waiting for a club](fig:parked-members)
 
 ![Federation transfers](fig:ltf-transfers)
 
-## Licence cards {#ltf-cards}
+## License cards {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, licence number and QR code. The row menu also sets the default, saves a copy, exports, or deletes the template. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as the club dashboard. Print jobs lists every club's jobs; preview, download and delete are in the row menu. Printer profiles stores the X/Y offsets of known printers.
+[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, license number and QR code. The row menu also sets the default, saves a copy, exports, or deletes the template. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as the club dashboard. Print jobs lists every club's jobs; preview, download and delete are in the row menu. Printer profiles stores the X/Y offsets of known printers.
 
 ![The card designer](fig:designer)
 
@@ -1116,11 +1116,11 @@ The finance menu contains [[LtfFinance.navOverview]], [[LtfFinance.navOrders]], 
 
 ![The finance overview](fig:fin-overview)
 
-## Licence prices and ordering windows {#license-settings}
+## License prices and ordering windows {#license-settings}
 
 In [[LtfFinance.navLicenseSettings]], the tab [[settingsTabLicenseTypes]] defines each type and its [[currentYearWindowLabel]] and [[nextYearWindowLabel]]. [[settingsTabLicensePrices]] stores prices with history: a new price applies from its [[priceEffectiveFromLabel]] date.
 
-![Licence settings](fig:fin-settings)
+![License settings](fig:fin-settings)
 
 ## Club fees {#club-fees}
 
@@ -1133,11 +1133,11 @@ In [[LtfFinance.navLicenseSettings]], the tab [[settingsTabLicenseTypes]] define
 ## Invoices, payments and credit notes {#ltf-invoices}
 
 1. Open [[LtfFinance.navInvoices]] and click an invoice.
-2. When the club's transfer has arrived, click [[recordPaymentButton]]. Paid licences become active.
+2. When the club's transfer has arrived, click [[recordPaymentButton]]. Paid licenses become active.
 3. To reduce what a club owes, enter a [[creditNoteAmountLabel]] and [[creditNoteReasonLabel]] and click [[addCreditNoteAction]].
 4. To chase an unpaid invoice, click [[sendReminderAction]]. [[lastRemindedAtLabel]] shows when you last did.
 
-The total in the invoice email matches the total on the PDF. That includes a licence invoice marked paid in the same step as the email. A reminder states the amount still due, not the original total.
+The total in the invoice email matches the total on the PDF. That includes a license invoice marked paid in the same step as the email. A reminder states the amount still due, not the original total.
 
 ![Invoice details with credit notes](fig:fin-invoice)
 
@@ -1166,7 +1166,7 @@ Open the ops console. If setup is still open, the overview sends you to this pag
 You bring in three files, in order. Nothing on this page sends an email, and email addresses in the files are ignored. [[Setup.summaryEmail]]
 
 1. [[Setup.step_clubs]]. Upload the club export. A row named LTF is not created as a club. Federation (WT or ITF) is only a guess from the name: change it if it is wrong. An RCS number is optional; if you type one, use the form B123456. Click [[Setup.confirmClubs]].
-2. [[Setup.step_members]]. Upload the member export. Map the columns, preview, then confirm — the same rhythm as the club import, but this is not that wizard. Map the Member ID column to both the WT licence id and the LTF licence id. Auto-map does that. Leave Email unmapped. If [[importPrefixRewriteLabel]] is on, LUX- becomes LTF- on the LTF id only. Active or inactive follows the membership end year, not a separate column. This year or a later year, and a blank date, are [[Setup.active]]. An earlier year is [[Setup.inactive]], and the person is still imported. If the end date cannot be read, choose [[Setup.active]] or [[Setup.inactive]], or park the row. Do not guess.
+2. [[Setup.step_members]]. Upload the member export. Map the columns, preview, then confirm — the same rhythm as the club import, but this is not that wizard. Map the Member ID column to both the WT license id and the LTF license id. Auto-map does that. Leave Email unmapped. If [[importPrefixRewriteLabel]] is on, LUX- becomes LTF- on the LTF id only. Active or inactive follows the membership end year, not a separate column. This year or a later year, and a blank date, are [[Setup.active]]. An earlier year is [[Setup.inactive]], and the person is still imported. If the end date cannot be read, choose [[Setup.active]] or [[Setup.inactive]], or park the row. Do not guess.
 3. Park a row when the club cell is empty, the club is not one you imported, or the end date cannot be read. Click [[Setup.parkRow]], or [[Setup.parkAllUnresolved]] for every row that can be parked. The status is [[Setup.statusParked]]. For an empty club cell, [[Setup.clubNotYet]] is a real choice and parks that person for later. [[Setup.ltfStaff]] is the choice when the person belongs to the federation rather than a club. You may confirm while parked rows remain. [[Setup.blockingTitle]] Click [[Setup.confirmMembers]].
 4. [[Setup.step_admins]]. Upload the club-and-admin export. A ready row becomes a club admin linked to the member from the previous step. Click [[Setup.confirmAdmins]]. Nothing is emailed. [[Setup.copyLink]] copies one person's link. [[Setup.downloadLinks]] downloads them all.
 
@@ -1177,7 +1177,7 @@ You bring in three files, in order. Nothing on this page sends an email, and ema
 
 5. Click [[Setup.finish]]. [[Setup.doneIntro]] Send each club admin only their own link. They open [Your first password](#first-password).
 
-Parked people are reviewed later under [[LtfAdmin.navParkedMembers]]. They stay out of club lists, licences, cards, teams and counts until then.
+Parked people are reviewed later under [[LtfAdmin.navParkedMembers]]. They stay out of club lists, licenses, cards, teams and counts until then.
 
 # Questions and troubleshooting {#faq}
 
@@ -1199,11 +1199,11 @@ You do not hold a current committee office. Ask the president to update the [Com
 ### A household is “Blocked” in billing.
 Read the reason in the row. Usually a child needs a bill recipient (see [Families](#families)) or no membership fee is set (see [Membership fees](#fees)).
 
-### I can't choose a licence type when ordering.
-The reason is written next to the type: the ordering window is closed, there is no price, or the members already have that licence. Windows and prices are set by LTF Finance.
+### I can't choose a license type when ordering.
+The reason is written next to the type: the ordering window is closed, there is no price, or the members already have that license. Windows and prices are set by LTF Finance.
 
 ### The printed card is shifted.
-Print at 100 % and use a printer profile with the right offset (see [Printing licence cards](#print-cards)).
+Print at 100 % and use a printer profile with the right offset (see [Printing license cards](#print-cards)).
 
 ### Dates look like mm/dd/yyyy.
 Date fields follow your browser's language settings. Set your browser to English (United Kingdom), Luxembourgish, German or French to see day/month/year.
@@ -1218,4 +1218,4 @@ It is the number of upcoming events you can see. The word [[Events.calendarNavNe
 If you have a login, use the page described in [Privacy and your data](#privacy). Members and parents ask their club or the LTF, who can export or correct their data.
 
 ### Can we pay online?
-Yes. On an LTF invoice that the club still has to pay, [[Common.payNow]] opens the card provider's page. It shows the invoice number and the amount still open. You enter the card and confirm, and the app then says the payment succeeded and the licences are activated. If you go back without paying, nothing is charged. Afterwards the button names the desk you left, for example [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] or [[Checkout.returnOps]]. Members and parents do not see this page. You can still pay by bank transfer. See [Paying the LTF](#pay-ltf).
+Yes. On an LTF invoice that the club still has to pay, [[Common.payNow]] opens the card provider's page. It shows the invoice number and the amount still open. You enter the card and confirm, and the app then says the payment succeeded and the licenses are activated. If you go back without paying, nothing is charged. Afterwards the button names the desk you left, for example [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] or [[Checkout.returnOps]]. Members and parents do not see this page. You can still pay by bank transfer. See [Paying the LTF](#pay-ltf).

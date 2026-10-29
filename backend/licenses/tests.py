@@ -309,6 +309,48 @@ class LicenseTypeApiTests(TestCase):
         self.assertFalse(policy.allow_current_year_order)
         self.assertTrue(policy.allow_next_year_preorder)
 
+    def test_saved_type_policy_is_still_there_after_reload(self):
+        license_type = LicenseType.objects.create(name="Renewal", code="renewal")
+        self.client.force_authenticate(user=self.ltf_finance)
+        saved = self.client.patch(
+            f"/api/license-types/{license_type.id}/",
+            {
+                "name": "Renewal",
+                "policy": {
+                    "allow_next_year_preorder": True,
+                    "next_start_month": 11,
+                    "next_start_day": 2,
+                    "next_end_month": 12,
+                    "next_end_day": 15,
+                    "reminders_enabled": True,
+                    "reminder_offsets": [60, 30, 7],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.content)
+        stored = LicenseTypePolicy.objects.get(license_type=license_type)
+        self.assertTrue(stored.allow_next_year_preorder)
+        self.assertEqual((stored.next_start_month, stored.next_start_day), (11, 2))
+        self.assertEqual((stored.next_end_month, stored.next_end_day), (12, 15))
+        self.assertTrue(stored.reminders_enabled)
+
+        def assert_saved(policy):
+            self.assertTrue(policy["allow_next_year_preorder"])
+            self.assertEqual(policy["next_start_month"], 11)
+            self.assertEqual(policy["next_start_day"], 2)
+            self.assertEqual(policy["next_end_month"], 12)
+            self.assertEqual(policy["next_end_day"], 15)
+            self.assertTrue(policy["reminders_enabled"])
+
+        assert_saved(saved.data["policy"])
+        again = self.client.get(f"/api/license-types/{license_type.id}/")
+        self.assertEqual(again.status_code, status.HTTP_200_OK)
+        assert_saved(again.data["policy"])
+        listed = self.client.get("/api/license-types/")
+        row = next(item for item in listed.data if item["id"] == license_type.id)
+        assert_saved(row["policy"])
+
     def test_ltf_admin_cannot_update_policy(self):
         license_type = LicenseType.objects.create(name="Locked", code="locked")
         self.client.force_authenticate(user=self.ltf_admin)
@@ -460,7 +502,7 @@ class LicenseValidityTests(TestCase):
             status.HTTP_403_FORBIDDEN,
         )
 
-    def test_activation_expires_a_finished_licence_before_the_renewal_starts(self):
+    def test_activation_expires_a_finished_license_before_the_renewal_starts(self):
         license_type = self._duration_type(years=1, days=0, name="Renewal pass")
         today = timezone.localdate()
         yesterday = today - timedelta(days=1)

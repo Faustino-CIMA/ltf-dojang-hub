@@ -1,4 +1,4 @@
-"""Validity rules for a licence type. Dates already stored on a licence stay put once locked."""
+"""Validity rules for a license type. Dates already stored on a license stay put once locked."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def unlocked_duration_q() -> Q:
 
 
 def stamp_expiry(license_record) -> list[str]:
-    """Lock a calendar-year licence as soon as it is saved. A duration licence is dated on first activation."""
+    """Lock a calendar-year license as soon as it is saved. A duration license is dated on first activation."""
     changed: list[str] = []
     policy = policy_for(license_record)
     mode = policy.validity_mode if policy is not None else "calendar_year"
@@ -80,7 +80,7 @@ def stamp_expiry(license_record) -> list[str]:
 
 
 def placeholder_activation_block(license_record, today: date) -> str | None:
-    """Calendar-year dates gate activation. A duration licence waits for its first activation instead."""
+    """Calendar-year dates gate activation. A duration license waits for its first activation instead."""
     if is_unlocked_duration(license_record):
         return None
     if license_record.start_date > today:

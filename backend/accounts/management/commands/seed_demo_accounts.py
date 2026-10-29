@@ -16,7 +16,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--with-data",
             action="store_true",
-            help="Also create the fictional clubs, members, licences, teams, invoices, and events.",
+            help="Also create the fictional clubs, members, licenses, teams, invoices, and events.",
         )
         parser.add_argument(
             "--force-demo",

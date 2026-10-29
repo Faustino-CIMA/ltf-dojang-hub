@@ -70,7 +70,7 @@ describe("LTF staff panel", () => {
     expect(document.querySelector("select")).toBeNull();
   });
 
-  it("asks for a licence type before issuing, and never shows a price", () => {
+  it("asks for a license type before issuing, and never shows a price", () => {
     const onSubmit = jest.fn();
     render(
       <LtfStaffPanel

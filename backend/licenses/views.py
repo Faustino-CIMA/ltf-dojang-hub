@@ -399,8 +399,8 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             raise serializers.ValidationError(
                 {
                     "detail": (
-                        "Club licences stay on the club order. "
-                        "LTF staff licences are issued from the member."
+                        "Club licenses stay on the club order. "
+                        "LTF staff licenses are issued from the member."
                     )
                 }
             )

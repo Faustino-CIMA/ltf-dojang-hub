@@ -1025,7 +1025,6 @@ class ClubFeeBillingRequestSerializer(serializers.Serializer):
 
 
 class LicenseTypeSerializer(serializers.ModelSerializer):
-    policy = serializers.SerializerMethodField()
     initial_price_amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, write_only=True
     )
@@ -1033,6 +1032,7 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
         max_length=3, required=False, write_only=True, default="EUR"
     )
     initial_price_effective_from = serializers.DateField(required=False, write_only=True)
+    # Written with the type. Read back in to_representation so a reload shows the saved policy.
     policy = serializers.JSONField(required=False, write_only=True)
 
     class Meta:
@@ -1047,7 +1047,6 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             "initial_price_amount",
             "initial_price_currency",
             "initial_price_effective_from",
-            "policy",
         ]
         read_only_fields = ["code", "created_at", "updated_at"]
 
@@ -1056,6 +1055,11 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
         if not normalized:
             raise serializers.ValidationError("Name is required.")
         return normalized
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["policy"] = self.get_policy(instance)
+        return data
 
     def _save_policy(self, license_type, policy_data):
         policy = get_or_create_license_type_policy(license_type)
@@ -1085,6 +1089,7 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             get_or_create_license_type_policy(license_type)
             if policy_data:
                 self._save_policy(license_type, policy_data)
+                license_type._state.fields_cache.pop("policy", None)
             if initial_price_amount is not None:
                 request = self.context.get("request")
                 actor = request.user if request and request.user.is_authenticated else None
@@ -1109,6 +1114,7 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             instance.save()
             if policy_data is not None:
                 self._save_policy(instance, policy_data)
+                instance._state.fields_cache.pop("policy", None)
             else:
                 get_or_create_license_type_policy(instance)
         return instance

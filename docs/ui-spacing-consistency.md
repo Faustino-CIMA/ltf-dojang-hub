@@ -97,7 +97,7 @@ Member detail (`/en/dashboard/club/members/4`; seed has no member 1) stacked Ove
 Also applied, still leaving `space-y-2` label/field rhythm and `gap-2` button groups:
 
 - Copied list toolbars on club members, invoices, orders, licenses, reports, LTF finance reports, training, timetable, and promotion detail: `p-4` / `gap-4` became `p-3` / `gap-3`, matching `ListToolbarPanel`. The filter rule `pt-4` inside those bars and in `ListToolbarPanel` is `pt-3`. The list column around the toolbar is `gap-3`. `ListActionsRow` and the members action bar are `gap-3`; pagination stays `gap-2`.
-- Form and wizard stacks at `space-y-5` (income, expense, licence settings, record-payment, delete, import wizard, membership fees) are `space-y-3`.
+- Form and wizard stacks at `space-y-5` (income, expense, license settings, record-payment, delete, import wizard, membership fees) are `space-y-3`.
 - Dashboard section stacks that were still `space-y-4` (national team tab bodies, teams, finance, settings, member home, and the same shared panels) are `space-y-3`. The license-card designer, marketing landing, and reset-password form were left as they were.
 - `mt-4` immediately before a table, history timeline, or the current-license card preview inside a card is `mt-3`. Other `mt-4` offsets (field grids, modal headers, buttons) stayed.
 - Sibling stat cards on the club, LTF, LTF finance, and ops dashboards use `gap-3`. The `md:gap-5` override is gone. Height/weight charts in that card use `gap-3`.

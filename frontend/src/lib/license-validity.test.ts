@@ -1,7 +1,7 @@
 import { exampleExpiryDate } from "./license-validity";
 
 describe("exampleExpiryDate", () => {
-  it("uses 31 December for a calendar-year licence", () => {
+  it("uses 31 December for a calendar-year license", () => {
     const expiry = exampleExpiryDate("calendar_year", 0, 0, new Date(2026, 9, 29));
     expect(expiry.getFullYear()).toBe(2026);
     expect(expiry.getMonth()).toBe(11);
