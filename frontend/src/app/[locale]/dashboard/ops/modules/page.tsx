@@ -122,6 +122,20 @@ export default function OpsModulesPage() {
     }
   };
 
+  const mintCompetition = async () => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const minted = await mintProductCode(["competition"]);
+      setCode(minted.code);
+      setSuccessMessage(t("modulesMintedCompetition"));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggleAssignment = async (clubId: number, moduleId: string, enabled: boolean) => {
     setErrorMessage(null);
     try {
@@ -199,6 +213,9 @@ export default function OpsModulesPage() {
               </Button>
               <Button type="button" variant="outline" onClick={() => void mintCalendar()} disabled={busy}>
                 {t("modulesMintCalendar")}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void mintCompetition()} disabled={busy}>
+                {t("modulesMintCompetition")}
               </Button>
               <Button type="button" variant="outline" onClick={() => void mintClubMgmt()} disabled={busy}>
                 {t("modulesMintClubMgmt")}

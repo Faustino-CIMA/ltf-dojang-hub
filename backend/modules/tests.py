@@ -266,6 +266,32 @@ class ModuleEntitlementTests(TestCase):
         self.assertTrue(is_install_entitled(CLUB_MANAGEMENT_MODULE_ID))
         self.assertFalse(InstallEntitlement.objects.filter(module_id=INVENTORY_CLUB_LEGACY_ID).exists())
 
+    def test_mint_and_redeem_competition_then_switch_it_on_for_the_club(self):
+        self._auth(self.superuser)
+        minted = self.client.post(
+            "/api/ops/modules/codes/mint/",
+            {"modules": [COMPETITION_MODULE_ID]},
+            format="json",
+        )
+        self.assertEqual(minted.status_code, 200, minted.content)
+        self.assertEqual(minted.data["modules"], [COMPETITION_MODULE_ID])
+        self.assertTrue(minted.data["code"].startswith("LTF1."))
+        redeemed = self.client.post(
+            "/api/ops/modules/codes/",
+            {"code": minted.data["code"]},
+            format="json",
+        )
+        self.assertEqual(redeemed.status_code, 201, redeemed.content)
+        self.assertTrue(is_install_entitled(COMPETITION_MODULE_ID))
+        self.assertFalse(is_club_assigned(COMPETITION_MODULE_ID, self.club.id))
+        assigned = self.client.put(
+            "/api/ops/modules/assignments/",
+            {"club_id": self.club.id, "module_id": COMPETITION_MODULE_ID, "enabled": True},
+            format="json",
+        )
+        self.assertEqual(assigned.status_code, 200, assigned.content)
+        self.assertTrue(is_club_assigned(COMPETITION_MODULE_ID, self.club.id))
+
     def test_minting_inventory_club_canonicalizes_to_club_management(self):
         payload = build_payload(module_ids=[INVENTORY_CLUB_LEGACY_ID], install_id=install_id_str())
         self.assertEqual(payload["modules"], [CLUB_MANAGEMENT_MODULE_ID])
