@@ -80,6 +80,7 @@ from licenses.club_books import (
     ClubIncomeViewSet,
     ClubStatementView,
 )
+from licenses.bundle_catalog import ModuleBundleViewSet, ModuleSubscriptionSettingsView
 from licenses.views import (
     ClubInvoiceViewSet,
     ClubPaymentViewSet,
@@ -147,6 +148,7 @@ router.register(r"licenses", LicenseViewSet, basename="license")
 router.register(r"license-types", LicenseTypeViewSet, basename="license-type")
 router.register(r"license-prices", LicensePriceViewSet, basename="license-price")
 router.register(r"club-fee-types", ClubFeeTypeViewSet, basename="club-fee-type")
+router.register(r"module-bundles", ModuleBundleViewSet, basename="module-bundle")
 router.register(r"club-fee-prices", ClubFeePriceViewSet, basename="club-fee-price")
 router.register(
     r"club-fee-billing-schedules",
@@ -261,6 +263,11 @@ urlpatterns = [
     path("api/parked-members/<int:pk>/resolve/", ParkedMemberResolveView.as_view(), name="parked-member-resolve"),
     path("api/federation-profile/", FederationProfileView.as_view(), name="federation-profile"),
     path("api/club-fee-billings/", ClubFeeBillingView.as_view(), name="club-fee-billings"),
+    path(
+        "api/module-subscription-settings/",
+        ModuleSubscriptionSettingsView.as_view(),
+        name="module-subscription-settings",
+    ),
     path(
         "api/federation-profile/logos/",
         FederationProfileLogoListView.as_view(),
