@@ -1,8 +1,8 @@
 """Prices the federation charges a club for a software module.
 
-An active member is a member of that club who holds a valid licence for the
-billing year. Valid means the licence is active or pending, the same rule the
-member lists already use, and the licence belongs to this club for that year.
+An active member is a member of that club who holds a valid license for the
+billing year. Valid means the license is active or pending, the same rule the
+member lists already use, and the license belongs to this club for that year.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ VALID_LICENSE_STATUSES = (License.Status.ACTIVE, License.Status.PENDING)
 
 
 def active_member_count(club_id: int, year: int) -> int:
-    """Members of this club with a valid licence for the year.
+    """Members of this club with a valid license for the year.
 
     LTF staff with no club are not included: the count is scoped to club_id.
     """

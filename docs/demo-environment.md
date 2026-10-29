@@ -135,7 +135,7 @@ python -c "import os; print('DB=' + os.environ.get('POSTGRES_DB','')); print('DE
 
 `DEMO_MODE` must be `true`. `DB` must be the new demo database name. If either is wrong, stop.
 
-3. Load the fictional clubs, members, licences, teams, sizes, invoices, events, and logins:
+3. Load the fictional clubs, members, licenses, teams, sizes, invoices, events, and logins:
 
 ```
 python manage.py seed_demo_data

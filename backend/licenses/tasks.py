@@ -14,6 +14,7 @@ import stripe
 from accounts.email_utils import send_resend_email
 
 from .history import expire_outdated_licenses, log_license_status_change
+from .validity import placeholder_activation_block, unlocked_duration_q
 from .models import FinanceAuditLog, Invoice, License, Order, PrintJob
 from .pdf_utils import build_invoice_context, invoice_balance_due_text, render_invoice_pdf
 from .print_jobs import execute_print_job_now
@@ -348,7 +349,7 @@ def _dispatch_invoice_email(
 
     context = build_invoice_context(invoice)
     # The invoice PDF prints total_amount. outstanding() is already 0 when a
-    # licence invoice is mailed in the same step that records the payment.
+    # license invoice is mailed in the same step that records the payment.
     amount = invoice_balance_due_text(invoice) if balance else context["total_amount"]
     context["copy"] = {
         "hello": copy["hello"],
@@ -443,14 +444,12 @@ def reconcile_expired_licenses() -> int:
 def activate_eligible_paid_licenses() -> int:
     today = timezone.localdate()
     now = timezone.now()
+    expire_outdated_licenses(actor=None)
     eligible_licenses = (
-        License.objects.filter(
-            status=License.Status.PENDING,
-            start_date__lte=today,
-            end_date__gte=today,
-        )
+        License.objects.filter(status=License.Status.PENDING)
+        .filter(Q(start_date__lte=today, end_date__gte=today) | unlocked_duration_q())
         .filter(
-            # A club licence waits for a paid order. A staff licence has no
+            # A club license waits for a paid order. A staff license has no
             # order; issuing it is the authorisation, and club may be empty.
             Q(order_items__order__status=Order.Status.PAID) | Q(club__isnull=True)
         )
@@ -462,6 +461,9 @@ def activate_eligible_paid_licenses() -> int:
     activated_license_ids = []
     conflict_license_ids = []
     for license_record in eligible_licenses:
+        blocked = placeholder_activation_block(license_record, today)
+        if blocked:
+            continue
         has_conflict = License.objects.filter(
             member=license_record.member,
             status=License.Status.ACTIVE,

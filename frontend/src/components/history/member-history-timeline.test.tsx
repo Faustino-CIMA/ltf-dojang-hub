@@ -77,7 +77,7 @@ describe("MemberHistoryTimeline", () => {
     expect(screen.getAllByText("Club").length).toBeGreaterThan(0);
   });
 
-  it("shows No club on a licence that has no club", () => {
+  it("shows No club on a license that has no club", () => {
     render(
       <MemberHistoryTimeline
         {...baseProps}
@@ -93,7 +93,7 @@ describe("MemberHistoryTimeline", () => {
             actor: null,
             event_type: "issued",
             event_at: "2026-03-01T00:00:00Z",
-            reason: "LTF staff licence issued without an invoice.",
+            reason: "LTF staff license issued without an invoice.",
             metadata: {},
             license_year: 2026,
             status_before: "",

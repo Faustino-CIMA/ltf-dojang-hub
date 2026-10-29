@@ -264,8 +264,31 @@ export type LicenseTypePolicy = {
   next_start_day: number;
   next_end_month: number;
   next_end_day: number;
+  validity_mode?: "calendar_year" | "duration";
+  duration_years?: number;
+  duration_days?: number;
+  reminders_enabled?: boolean;
+  reminder_offsets?: number[];
   created_at: string;
   updated_at: string;
+};
+
+export type LicenseTypePolicyInput = {
+  allow_current_year_order: boolean;
+  current_start_month: number;
+  current_start_day: number;
+  current_end_month: number;
+  current_end_day: number;
+  allow_next_year_preorder: boolean;
+  next_start_month: number;
+  next_start_day: number;
+  next_end_month: number;
+  next_end_day: number;
+  validity_mode: "calendar_year" | "duration";
+  duration_years: number;
+  duration_days: number;
+  reminders_enabled: boolean;
+  reminder_offsets: number[];
 };
 
 export type ClubFeeCadence = "one_off" | "annual" | "per_member" | "per_event";
@@ -767,6 +790,7 @@ export function createFinanceLicenseType(input: {
   initial_price_amount?: string;
   initial_price_currency?: string;
   initial_price_effective_from?: string;
+  policy?: LicenseTypePolicyInput;
 }) {
   return apiRequest<FinanceLicenseType>("/api/license-types/", {
     method: "POST",
@@ -774,7 +798,10 @@ export function createFinanceLicenseType(input: {
   });
 }
 
-export function updateFinanceLicenseType(id: number, input: { name: string }) {
+export function updateFinanceLicenseType(
+  id: number,
+  input: { name: string; policy?: LicenseTypePolicyInput },
+) {
   return apiRequest<FinanceLicenseType>(`/api/license-types/${id}/`, {
     method: "PATCH",
     body: JSON.stringify(input),

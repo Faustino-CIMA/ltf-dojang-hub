@@ -207,7 +207,7 @@ def sync_subsidy_income(season: SubsidySeason, actor, *, update_existing: bool =
 def build_dossier(club, year: int) -> dict:
     season = get_or_create_season(club, year)
     cutoff = date(year, 12, 31)
-    # The ministry freezes the headcount in January. A licence for the year is
+    # The ministry freezes the headcount in January. A license for the year is
     # that snapshot. The member record does not store when it was marked
     # inactive, so a later inactive flag does not remove a licensed member.
     licensed = _licensed_ids(club.id, year)
@@ -730,7 +730,7 @@ def youth_csv(club, year: int) -> str:
     buffer = StringIO()
     writer = csv.writer(buffer)
     writer.writerow(
-        ["First name", "Last name", "Date of birth", "Sex", "Licence", "National identification number"]
+        ["First name", "Last name", "Date of birth", "Sex", "License", "National identification number"]
     )
     for row in dossier["youth"]:
         writer.writerow(

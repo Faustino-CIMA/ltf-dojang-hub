@@ -7,7 +7,7 @@ from accounts.demo_seed import seed_demo_world
 class Command(BaseCommand):
     help = (
         "Create or update fictional Luxembourg-style demo clubs, members, "
-        "licences, teams, equipment sizes, club invoices, calendar events, and "
+        "licenses, teams, equipment sizes, club invoices, calendar events, and "
         "the demo logins. Refuses to run unless DEMO_MODE=true. Safe to run again."
     )
 

@@ -30,7 +30,7 @@ if not st:
            f"{d(7)};130,00;Membership {T.year};Paul BECKER;\n"
            f"{d(6)};-45,90;Training cones and pads;Sport Shop Demo;\n"
            f"{d(4)};35,00;Dobok size 130;Mia HANSEN;\n"
-           f"{d(2)};-80,00;LTF licences;Luxembourg Taekwondo Federation;INV-0F5FE00B403F\n").encode()
+           f"{d(2)};-80,00;LTF licenses;Luxembourg Taekwondo Federation;INV-0F5FE00B403F\n").encode()
     b = "----manualdemo"
     body = (f"--{b}\r\nContent-Disposition: form-data; name=\"club\"\r\n\r\n{C}\r\n"
             f"--{b}\r\nContent-Disposition: form-data; name=\"opening_balance\"\r\n\r\n2450.00\r\n"
@@ -44,7 +44,7 @@ if not st:
 inv = call("ltf.finance", "GET", "/api/invoices/14/")
 if not inv.get("credit_notes"):
     print("credit", str(call("ltf.finance", "POST", "/api/invoices/14/credit-note/",
-          {"amount": "10.00", "reason": "Licence ordered twice"}))[:120])
+          {"amount": "10.00", "reason": "License ordered twice"}))[:120])
 
 # 5. Felix THILL (member 40): Musel -> Uelzecht -> Musel -> Uelzecht -> Musel
 done = [t for t in call(A, "GET", "/api/member-transfers/") if t["member"]["id"] == 40]

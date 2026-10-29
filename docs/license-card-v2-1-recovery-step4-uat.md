@@ -1,4 +1,4 @@
-> Historical note (March 2026). This file records licence-card work from v0.3.x. It is not a description of the current app.
+> Historical note (March 2026). This file records license-card work from v0.3.x. It is not a description of the current app.
 
 # Card v2.1 Recovery - Step 4 Final Recovery Gate + Release Readiness UAT
 

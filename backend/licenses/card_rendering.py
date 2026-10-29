@@ -680,7 +680,7 @@ def _resolve_entities(
 
 
 def _card_club_name(member: Member | None, license_record: License | None, club: Club | None) -> str:
-    """Club line on a card. A federation-issued staff licence prints LTF."""
+    """Club line on a card. A federation-issued staff license prints LTF."""
     if license_record is not None and license_record.club_id is None:
         return "LTF"
     if club is not None:

@@ -208,7 +208,7 @@ class SetupMemberStepTests(TestCase):
         self.assertEqual(blocked.data["error"], "sex_required")
         self.assertFalse(Member.objects.exists())
 
-    def test_import_creates_club_members_and_staff_without_licences_or_trainer_role(self):
+    def test_import_creates_club_members_and_staff_without_licenses_or_trainer_role(self):
         payload = {
             "sex_overrides": {"6": "F", "7": "skip"},
             "active_overrides": {"15": True},

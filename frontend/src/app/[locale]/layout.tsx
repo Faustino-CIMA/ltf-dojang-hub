@@ -26,7 +26,7 @@ const anton = Anton({
 
 export const metadata: Metadata = {
   title: "LTF Dojang Hub",
-  description: "The digital home of Luxembourg Taekwondo: clubs, members, licences and competitions in one place.",
+  description: "The digital home of Luxembourg Taekwondo: clubs, members, licenses and competitions in one place.",
 };
 
 type LocaleLayoutProps = Readonly<{
