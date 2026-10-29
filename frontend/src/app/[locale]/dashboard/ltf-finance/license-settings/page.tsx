@@ -55,6 +55,8 @@ import {
   ClubFeeType,
   FinanceLicenseType,
   LicensePrice,
+  ModuleBundle,
+  ModuleSubscriptionSettings,
   createClubFeeBilling,
   getClubFeeBillingStatus,
   createClubFeePrice,
@@ -68,8 +70,15 @@ import {
   getClubFeeTypes,
   getFinanceLicenseTypes,
   getLicensePrices,
+  getModuleBundles,
+  getModuleSubscriptionSettings,
+  createModuleBundle,
+  updateModuleBundle,
+  deleteModuleBundle,
+  updateModuleSubscriptionSettings,
   updateClubFeeBillingSchedule,
 } from "@/lib/ltf-finance-api";
+import { ModuleBundlesPanel, ModuleSubscriptionSettingsCard } from "@/components/ltf-finance/module-bundles-panel";
 import { ModuleFeesPanel, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Club, getClubs, updateClub } from "@/lib/club-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
@@ -109,6 +118,9 @@ export default function LtfFinanceLicenseSettingsPage() {
   const [prices, setPrices] = useState<LicensePrice[]>([]);
   const [clubFeeTypes, setClubFeeTypes] = useState<ClubFeeType[]>([]);
   const [clubFeePrices, setClubFeePrices] = useState<ClubFeePrice[]>([]);
+  const [moduleBundles, setModuleBundles] = useState<ModuleBundle[]>([]);
+  const [subscriptionSettings, setSubscriptionSettings] = useState<ModuleSubscriptionSettings | null>(null);
+  const [bundleSettingsOpen, setBundleSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [typePanel, setTypePanel] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(null);
   const [typeSort, setTypeSort] = useState<TableSort | null>(null);
@@ -195,6 +207,8 @@ export default function LtfFinanceLicenseSettingsPage() {
         clubsResponse,
         schedulesResponse,
         chargesResponse,
+        bundlesResponse,
+        subscriptionResponse,
       ] = await Promise.all([
           getFinanceLicenseTypes(),
           getLicensePrices(),
@@ -203,6 +217,8 @@ export default function LtfFinanceLicenseSettingsPage() {
           getClubs(),
           getClubFeeBillingSchedules(),
           getClubFeeBillingStatus(Number(billingYear) || new Date().getFullYear()),
+          getModuleBundles(),
+          getModuleSubscriptionSettings(),
         ]);
       setLicenseTypes(licenseTypesResponse);
       setPrices(pricesResponse);
@@ -211,6 +227,8 @@ export default function LtfFinanceLicenseSettingsPage() {
       setClubs(clubsResponse);
       setSchedules(schedulesResponse);
       setBillingCharges(chargesResponse.charges);
+      setModuleBundles(bundlesResponse);
+      setSubscriptionSettings(subscriptionResponse);
       setPriceDrafts((previous) => {
         const next: Record<number, PriceDraft> = {};
         licenseTypesResponse.forEach((licenseType) => {
@@ -960,6 +978,11 @@ export default function LtfFinanceLicenseSettingsPage() {
       ) : null}
 
       {activeTab === "module-fees" ? (
+        <div className="space-y-3">
+        <ModuleSubscriptionSettingsCard
+          settings={subscriptionSettings}
+          onOpen={() => setBundleSettingsOpen(true)}
+        />
         <ModuleFeesPanel
           fees={moduleFees}
           prices={clubFeePrices}
@@ -1008,6 +1031,70 @@ export default function LtfFinanceLicenseSettingsPage() {
             return "deleted";
           }}
         />
+        <ModuleBundlesPanel
+          bundles={moduleBundles}
+          moduleFees={moduleFees}
+          settings={subscriptionSettings}
+          settingsOpen={bundleSettingsOpen}
+          onSettingsOpenChange={setBundleSettingsOpen}
+          onNotice={(kind, message) => {
+            if (kind === "error") {
+              setErrorMessage(message);
+              setSuccessMessage(null);
+            } else {
+              setSuccessMessage(message);
+              setErrorMessage(null);
+            }
+          }}
+          onCreate={async (draft) => {
+            await createModuleBundle({
+              name: draft.name.trim(),
+              description: draft.description.trim(),
+              is_active: draft.isActive,
+              modules: draft.moduleIds,
+              initial_amount: draft.amount.trim(),
+              initial_currency: "EUR",
+              initial_effective_from: draft.effectiveFrom || undefined,
+            });
+            await loadData();
+          }}
+          onUpdate={async (bundle, draft) => {
+            const amountChanged =
+              draft.amount.trim() !== (bundle.current_amount ?? "") || Boolean(draft.effectiveFrom);
+            await updateModuleBundle(bundle.id, {
+              name: draft.name.trim(),
+              description: draft.description.trim(),
+              is_active: draft.isActive,
+              modules: draft.moduleIds,
+              ...(amountChanged
+                ? {
+                    initial_amount: draft.amount.trim(),
+                    initial_currency: "EUR",
+                    initial_effective_from: draft.effectiveFrom || undefined,
+                  }
+                : {}),
+            });
+            await loadData();
+          }}
+          onRemove={async (bundle) => {
+            const result = await deleteModuleBundle(bundle.id);
+            await loadData();
+            if (result && result.is_active === false) {
+              return "switched_off";
+            }
+            return "deleted";
+          }}
+          onSaveSettings={async (draft) => {
+            await updateModuleSubscriptionSettings({
+              subscription_months: Number(draft.subscription_months),
+              renewal_notice_days: Number(draft.renewal_notice_days),
+              payment_window_days: Number(draft.payment_window_days),
+              payment_warning_days: Number(draft.payment_warning_days),
+            });
+            await loadData();
+          }}
+        />
+        </div>
       ) : null}
 
       {activeTab === "billing" ? (

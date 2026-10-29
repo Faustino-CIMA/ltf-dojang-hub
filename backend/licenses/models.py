@@ -209,6 +209,94 @@ class ClubFeePrice(models.Model):
         )
 
 
+class ModuleBundle(models.Model):
+    """Several billable modules sold together at one flat price. Phase 1 is the catalog only."""
+
+    name = models.CharField(max_length=100, unique=True)
+    code = models.SlugField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return str(self.name)
+
+    def has_been_invoiced(self) -> bool:
+        # Invoices arrive in a later phase. Nothing in this catalog is billed yet.
+        return False
+
+
+class ModuleBundleModule(models.Model):
+    bundle = models.ForeignKey(ModuleBundle, on_delete=models.CASCADE, related_name="modules")
+    module_id = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["bundle", "module_id"], name="uniq_bundle_module"),
+        ]
+        ordering = ["module_id"]
+
+    def __str__(self) -> str:
+        return f"{self.bundle.name}: {self.module_id}"
+
+
+class ModuleBundlePrice(models.Model):
+    bundle = models.ForeignKey(ModuleBundle, on_delete=models.CASCADE, related_name="prices")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="EUR")
+    effective_from = models.DateField(default=timezone.localdate)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="module_bundle_prices",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_from", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.bundle.name}: {self.amount} {self.currency} ({self.effective_from})"
+
+    @classmethod
+    def get_active_price(cls, *, bundle: ModuleBundle, as_of=None):
+        date_value = as_of or timezone.localdate()
+        return (
+            cls.objects.filter(bundle=bundle, effective_from__lte=date_value)
+            .order_by("-effective_from", "-created_at")
+            .first()
+        )
+
+
+class ModuleSubscriptionSettings(models.Model):
+    """One row for the installation. Later phases read it. Phase 1 only stores it."""
+
+    subscription_months = models.PositiveSmallIntegerField(default=12)
+    renewal_notice_days = models.PositiveSmallIntegerField(default=30)
+    payment_window_days = models.PositiveSmallIntegerField(default=30)
+    payment_warning_days = models.PositiveSmallIntegerField(default=7)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def load(cls):
+        row, _created = cls.objects.get_or_create(pk=1)
+        return row
+
+    def __str__(self) -> str:
+        return "Module subscription settings"
+
+
 def generate_order_number() -> str:
     return f"ORD-{uuid4().hex[:12].upper()}"
 

@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Pencil, Power, Trash2 } from "lucide-react";
 
-import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormPanel } from "@/components/ui/list-page-chrome";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
@@ -150,20 +150,25 @@ export function ModuleFeesPanel({
   const history = editing ? pricesFor(editing.id) : [];
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <>
+      <FormPanel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-section text-foreground">{t("moduleFeesTitle")}</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted">{t("moduleFeesSubtitle")}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted">{t("moduleFeesSubtitle")}</p>
         </div>
-        <Button type="button" onClick={openCreate}>
+        <Button type="button" variant="primary" onClick={openCreate}>
           {t("moduleFeeAdd")}
         </Button>
       </div>
 
       {fees.length === 0 ? (
-        <EmptyState title={t("moduleFeesEmptyTitle")} description={t("moduleFeesEmptySubtitle")} />
+        <div className="mt-6">
+          <p className="text-sm font-medium text-foreground">{t("moduleFeesEmptyTitle")}</p>
+          <p className="mt-1 text-sm text-muted">{t("moduleFeesEmptySubtitle")}</p>
+        </div>
       ) : (
+        <div className="mt-6">
         <EntityTable
           clientSort
           sort={sort}
@@ -252,7 +257,9 @@ export function ModuleFeesPanel({
             },
           ]}
         />
+        </div>
       )}
+      </FormPanel>
 
       <SidePanel
         open={editor !== null}
@@ -400,6 +407,6 @@ export function ModuleFeesPanel({
           {confirmFee ? moduleName(confirmFee.module_id, confirmFee.name) : ""}
         </p>
       </SidePanel>
-    </div>
+    </>
   );
 }

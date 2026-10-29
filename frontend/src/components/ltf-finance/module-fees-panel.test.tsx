@@ -56,6 +56,9 @@ describe("Module fees panel", () => {
 
   it("puts Edit first and Delete last when the fee has no invoice", () => {
     renderPanel([fee()]);
+    const card = screen.getByRole("heading", { name: "moduleFeesTitle" }).closest("section");
+    expect(card?.className).toContain("app-panel");
+    expect(card).toContainElement(screen.getByRole("button", { name: "moduleFeeAdd" }));
     fireEvent.click(screen.getByRole("button", { name: "moduleFeeRowActions" }));
     const items = screen.getAllByRole("menuitem");
     expect(items.map((item) => item.textContent)).toEqual(["moduleFeeEdit", "moduleFeeDelete"]);

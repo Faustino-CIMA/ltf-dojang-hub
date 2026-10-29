@@ -857,6 +857,81 @@ export function updateClubFeeType(
   });
 }
 
+export type ModuleBundle = {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  is_active: boolean;
+  module_ids: string[];
+  current_amount: string | null;
+  current_currency: string | null;
+  current_effective_from: string | null;
+  has_invoices: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ModuleSubscriptionSettings = {
+  subscription_months: number;
+  renewal_notice_days: number;
+  payment_window_days: number;
+  payment_warning_days: number;
+  updated_at: string;
+};
+
+export function getModuleBundles() {
+  return apiRequest<ModuleBundle[]>("/api/module-bundles/");
+}
+
+export function createModuleBundle(input: {
+  name: string;
+  description?: string;
+  is_active?: boolean;
+  modules: string[];
+  initial_amount: string;
+  initial_currency?: string;
+  initial_effective_from?: string;
+}) {
+  return apiRequest<ModuleBundle>("/api/module-bundles/", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateModuleBundle(
+  id: number,
+  input: {
+    name?: string;
+    description?: string;
+    is_active?: boolean;
+    modules?: string[];
+    initial_amount?: string;
+    initial_currency?: string;
+    initial_effective_from?: string;
+  },
+) {
+  return apiRequest<ModuleBundle>(`/api/module-bundles/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteModuleBundle(id: number) {
+  return apiRequest<ModuleBundle | null>(`/api/module-bundles/${id}/`, { method: "DELETE" });
+}
+
+export function getModuleSubscriptionSettings() {
+  return apiRequest<ModuleSubscriptionSettings>("/api/module-subscription-settings/");
+}
+
+export function updateModuleSubscriptionSettings(input: Partial<Omit<ModuleSubscriptionSettings, "updated_at">>) {
+  return apiRequest<ModuleSubscriptionSettings>("/api/module-subscription-settings/", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export function deleteClubFeeType(id: number) {
   return apiRequest<ClubFeeType | null>(`/api/club-fee-types/${id}/`, {
     method: "DELETE",
