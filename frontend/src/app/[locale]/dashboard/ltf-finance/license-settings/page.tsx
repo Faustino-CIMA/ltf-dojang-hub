@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Boxes,
@@ -20,13 +20,14 @@ import {
 
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import type { TableSort } from "@/lib/table-sort";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { ClubFeeFormPanel, type ClubFeeDraft } from "@/components/ltf-finance/club-fee-panel";
-import { LicenseTypeFormPanel, OrderWindowPanel } from "@/components/ltf-finance/license-type-panels";
+import { LicenseTypeFormPanel } from "@/components/ltf-finance/license-type-panels";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -98,7 +99,6 @@ type PriceDraft = {
 export default function LtfFinanceLicenseSettingsPage() {
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
-  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -111,7 +111,7 @@ export default function LtfFinanceLicenseSettingsPage() {
   const [clubFeePrices, setClubFeePrices] = useState<ClubFeePrice[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typePanel, setTypePanel] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(null);
-  const [windowTypeId, setWindowTypeId] = useState<number | null>(null);
+  const [typeSort, setTypeSort] = useState<TableSort | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,7 +180,7 @@ export default function LtfFinanceLicenseSettingsPage() {
       return;
     }
     setActiveTab("license-types");
-    setWindowTypeId(id);
+    setTypePanel({ mode: "edit", id });
   });
 
   const loadData = useCallback(async () => {
@@ -638,12 +638,41 @@ export default function LtfFinanceLicenseSettingsPage() {
           <EmptyState title={t("noLicenseTypesTitle")} description={t("noLicenseTypesSubtitle")} />
         ) : (
           <EntityTable
+            clientSort
+            sort={typeSort}
+            onSortChange={setTypeSort}
             columns={[
-              { key: "name", header: t("licenseTypeNameLabel") },
-              { key: "code", header: t("licenseTypeCodeLabel") },
+              { key: "name", header: t("licenseTypeNameLabel"), sortable: true, sortValue: (row) => row.name },
+              { key: "code", header: t("licenseTypeCodeLabel"), sortable: true, sortValue: (row) => row.code },
+              {
+                key: "validity",
+                header: t("validityColumn"),
+                sortable: true,
+                sortValue: (licenseType: FinanceLicenseType) =>
+                  licenseType.policy?.validity_mode === "duration"
+                    ? (licenseType.policy.duration_years ?? 0) * 1000 + (licenseType.policy.duration_days ?? 0)
+                    : 0,
+                render: (licenseType: FinanceLicenseType) =>
+                  licenseType.policy?.validity_mode === "duration"
+                    ? t("durationSummary", {
+                        years: licenseType.policy.duration_years ?? 0,
+                        days: licenseType.policy.duration_days ?? 0,
+                      })
+                    : t("validityCalendarYearShort"),
+              },
               {
                 key: "current_window",
                 header: t("currentYearWindowLabel"),
+                sortable: true,
+                sortValue: (licenseType: FinanceLicenseType) =>
+                  licenseType.policy?.allow_current_year_order
+                    ? formatWindow(
+                        licenseType.policy.current_start_month,
+                        licenseType.policy.current_start_day,
+                        licenseType.policy.current_end_month,
+                        licenseType.policy.current_end_day,
+                      )
+                    : "",
                 render: (licenseType: FinanceLicenseType) =>
                   licenseType.policy?.allow_current_year_order
                     ? formatWindow(
@@ -679,11 +708,6 @@ export default function LtfFinanceLicenseSettingsPage() {
                           key: "edit",
                           label: t("editAction"),
                           onSelect: () => setTypePanel({ mode: "edit", id: licenseType.id }),
-                        },
-                        {
-                          key: "window",
-                          label: t("editPolicyAction"),
-                          onSelect: () => setWindowTypeId(licenseType.id),
                         },
                         {
                           key: "delete",
@@ -1312,16 +1336,6 @@ export default function LtfFinanceLicenseSettingsPage() {
         onClose={() => setTypePanel(null)}
         onSaved={async () => {
           setTypePanel(null);
-          await loadData();
-        }}
-      />
-      <OrderWindowPanel
-        open={windowTypeId !== null}
-        licenseTypeId={windowTypeId}
-        licenseTypeName={licenseTypes.find((item) => item.id === windowTypeId)?.name}
-        onClose={() => setWindowTypeId(null)}
-        onSaved={async () => {
-          setWindowTypeId(null);
           await loadData();
         }}
       />

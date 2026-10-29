@@ -58,7 +58,7 @@ class InvoiceEmailAmountTests(TestCase):
 
     @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
     @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
-    def test_paid_licence_invoice_email_matches_the_pdf_total(self, send, _pdf):
+    def test_paid_license_invoice_email_matches_the_pdf_total(self, send, _pdf):
         invoice = self._invoice(total=Decimal("80.00"), status=Invoice.Status.PAID)
         Payment.objects.create(
             invoice=invoice,

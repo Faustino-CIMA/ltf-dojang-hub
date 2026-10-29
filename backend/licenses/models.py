@@ -34,6 +34,10 @@ class LicenseType(models.Model):
         return str(self.name)
 
 
+def default_reminder_offsets():
+    return [60, 30, 7]
+
+
 class LicenseTypePolicy(models.Model):
     license_type = models.OneToOneField(
         LicenseType, on_delete=models.CASCADE, related_name="policy"
@@ -48,6 +52,19 @@ class LicenseTypePolicy(models.Model):
     next_start_day = models.PositiveSmallIntegerField(default=1)  # pyright: ignore[reportArgumentType]
     next_end_month = models.PositiveSmallIntegerField(default=12)  # pyright: ignore[reportArgumentType]
     next_end_day = models.PositiveSmallIntegerField(default=31)  # pyright: ignore[reportArgumentType]
+    class ValidityMode(models.TextChoices):
+        CALENDAR_YEAR = "calendar_year", "Calendar year"
+        DURATION = "duration", "Duration"
+
+    validity_mode = models.CharField(
+        max_length=20,
+        choices=ValidityMode.choices,
+        default=ValidityMode.CALENDAR_YEAR,
+    )
+    duration_years = models.PositiveSmallIntegerField(default=0)
+    duration_days = models.PositiveSmallIntegerField(default=0)
+    reminders_enabled = models.BooleanField(default=False)
+    reminder_offsets = models.JSONField(default=default_reminder_offsets)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -212,7 +229,7 @@ class License(models.Model):
         REVOKED = "revoked", "Revoked"
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="licenses")
-    # Empty when the LTF issues a licence for staff who are not in a club. No order is created.
+    # Empty when the LTF issues a license for staff who are not in a club. No order is created.
     club = models.ForeignKey(
         Club,
         on_delete=models.PROTECT,
@@ -230,6 +247,7 @@ class License(models.Model):
     end_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     issued_at = models.DateTimeField(null=True, blank=True)
+    expiry_locked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     history = HistoricalRecords()
@@ -259,9 +277,12 @@ class License(models.Model):
             self.end_date = date(year, 12, 31)
         if self.status == self.Status.ACTIVE and self.issued_at is None:
             self.issued_at = timezone.now()
-            update_fields = kwargs.get("update_fields")
-            if update_fields is not None:
-                kwargs["update_fields"] = list({*update_fields, "issued_at"})
+        from .validity import stamp_expiry
+
+        stamped = stamp_expiry(self)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and stamped:
+            kwargs["update_fields"] = list({*update_fields, *stamped})
         super().save(*args, **kwargs)
 
     def __str__(self):

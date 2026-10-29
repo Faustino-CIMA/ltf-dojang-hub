@@ -128,7 +128,7 @@ def _parse_competition_date(value):
 
 
 def _licence_covers(member: Member, competition_on: date | None) -> str:
-    """Warning when no licence is still valid on the competition date."""
+    """Warning when no license is still valid on the competition date."""
     if competition_on is None:
         return ""
     expired_before = False
@@ -161,7 +161,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
 
     Age class, Poomsae division, and the WT category use the competition
     year's calendar age when a competition date is set. Coaches are listed
-    with the team but those classes are not computed for them. A licence
+    with the team but those classes are not computed for them. A license
     warning still applies to a coach.
     """
     year = team.competition_on.year if team.competition_on else timezone.localdate().year

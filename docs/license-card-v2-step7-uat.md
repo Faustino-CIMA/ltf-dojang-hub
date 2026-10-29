@@ -1,4 +1,4 @@
-> Historical note (March 2026). This file records licence-card work from v0.3.x. It is not a description of the current app.
+> Historical note (March 2026). This file records license-card work from v0.3.x. It is not a description of the current app.
 
 # License Card v2 - Step 7 Full Regression + Stability UAT
 

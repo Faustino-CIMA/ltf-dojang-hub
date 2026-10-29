@@ -584,7 +584,7 @@ class ClubTeamApiTests(TestCase):
         self.assertIn("Cadets", text)
         self.assertIn("Kyorugi", text)
         self.assertIn("62.4", text)
-        self.assertIn("Licence expires before the competition", text)
+        self.assertIn("License expires before the competition", text)
         pdf = self.client.get(f"/api/club-management/teams/{team_id}/sheet.pdf?lang=fr")
         self.assertEqual(pdf.status_code, 200, pdf.content[:20])
         self.assertTrue(pdf.content.startswith(b"%PDF"))

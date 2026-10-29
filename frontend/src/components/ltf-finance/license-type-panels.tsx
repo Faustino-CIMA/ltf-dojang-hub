@@ -9,18 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
+import { exampleExpiryDate, type ValidityMode } from "@/lib/license-validity";
 import {
-  FinanceLicenseType,
-  LicenseTypePolicy,
   createFinanceLicenseType,
-  getFinanceLicenseTypePolicy,
   getFinanceLicenseTypes,
   updateFinanceLicenseType,
-  updateFinanceLicenseTypePolicy,
+  type LicenseTypePolicy,
 } from "@/lib/ltf-finance-api";
 
 const TYPE_FORM_ID = "license-type-form";
-const WINDOW_FORM_ID = "order-window-form";
 
 type PolicyFormState = {
   allow_current_year_order: boolean;
@@ -33,6 +30,11 @@ type PolicyFormState = {
   next_start_day: number;
   next_end_month: number;
   next_end_day: number;
+  validity_mode: ValidityMode;
+  duration_years: number;
+  duration_days: number;
+  reminders_enabled: boolean;
+  reminder_offsets: number[];
 };
 
 const DEFAULT_POLICY: PolicyFormState = {
@@ -42,10 +44,15 @@ const DEFAULT_POLICY: PolicyFormState = {
   current_end_month: 12,
   current_end_day: 31,
   allow_next_year_preorder: false,
-  next_start_month: 9,
+  next_start_month: 12,
   next_start_day: 1,
   next_end_month: 12,
   next_end_day: 31,
+  validity_mode: "calendar_year",
+  duration_years: 1,
+  duration_days: 0,
+  reminders_enabled: false,
+  reminder_offsets: [60, 30, 7],
 };
 
 function getMaxDaysInMonth(month: number) {
@@ -64,6 +71,11 @@ function toPolicyForm(policy: LicenseTypePolicy): PolicyFormState {
     next_start_day: policy.next_start_day,
     next_end_month: policy.next_end_month,
     next_end_day: policy.next_end_day,
+    validity_mode: policy.validity_mode ?? "calendar_year",
+    duration_years: policy.duration_years ?? 1,
+    duration_days: policy.duration_days ?? 0,
+    reminders_enabled: policy.reminders_enabled ?? false,
+    reminder_offsets: policy.reminder_offsets?.length ? policy.reminder_offsets : [60, 30, 7],
   };
 }
 
@@ -126,11 +138,13 @@ export function LicenseTypeFormPanel({
 }) {
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
+  const locale = useLocale();
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [initialPriceAmount, setInitialPriceAmount] = useState("");
   const [initialPriceEffectiveFrom, setInitialPriceEffectiveFrom] = useState("");
   const [initialPriceIsFree, setInitialPriceIsFree] = useState(false);
+  const [policyForm, setPolicyForm] = useState<PolicyFormState>(DEFAULT_POLICY);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -145,6 +159,7 @@ export function LicenseTypeFormPanel({
       setInitialPriceAmount("");
       setInitialPriceEffectiveFrom("");
       setInitialPriceIsFree(false);
+      setPolicyForm(DEFAULT_POLICY);
       return;
     }
     if (!licenseTypeId) {
@@ -159,6 +174,7 @@ export function LicenseTypeFormPanel({
         const match = rows.find((row) => row.id === licenseTypeId);
         setName(match?.name ?? "");
         setCode(match?.code ?? "");
+        setPolicyForm(match?.policy ? toPolicyForm(match.policy) : DEFAULT_POLICY);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -170,6 +186,35 @@ export function LicenseTypeFormPanel({
     };
   }, [open, mode, licenseTypeId, t]);
 
+  const monthOptions = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, { month: "long" });
+    return Array.from({ length: 12 }, (_, index) => ({
+      value: String(index + 1),
+      label: formatter.format(new Date(2024, index, 1)),
+    }));
+  }, [locale]);
+
+  const preview = useMemo(() => {
+    const years = Number.isFinite(policyForm.duration_years) ? policyForm.duration_years : 0;
+    const days = Number.isFinite(policyForm.duration_days) ? policyForm.duration_days : 0;
+    const expiry = exampleExpiryDate(policyForm.validity_mode, years, days);
+    const today = new Date();
+    const formatter = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" });
+    return t("validityPreview", {
+      date: formatter.format(today),
+      expiry: formatter.format(expiry),
+    });
+  }, [locale, policyForm.duration_days, policyForm.duration_years, policyForm.validity_mode, t]);
+
+  const setMonth = (field: "current_start" | "current_end" | "next_start" | "next_end", value: string) => {
+    const month = Number(value);
+    setPolicyForm((previous) => ({
+      ...previous,
+      [`${field}_month`]: month,
+      [`${field}_day`]: Math.min(previous[`${field}_day`], getMaxDaysInMonth(month)),
+    }));
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = name.trim();
@@ -177,11 +222,38 @@ export function LicenseTypeFormPanel({
       setErrorMessage(t("licenseTypeNameRequiredError"));
       return;
     }
+    if (
+      policyForm.validity_mode === "duration" &&
+      policyForm.duration_years === 0 &&
+      policyForm.duration_days === 0
+    ) {
+      setErrorMessage(t("durationInvalid"));
+      return;
+    }
+    if (policyForm.duration_days < 0 || policyForm.duration_days > 366 || policyForm.duration_years < 0) {
+      setErrorMessage(t("durationInvalid"));
+      return;
+    }
+    const offsets = policyForm.reminder_offsets;
+    const uniqueOffsets = new Set(offsets);
+    if (
+      offsets.length > 5 ||
+      uniqueOffsets.size !== offsets.length ||
+      offsets.some((offset) => !Number.isInteger(offset) || offset < 1 || offset > 365)
+    ) {
+      setErrorMessage(t("offsetsInvalid"));
+      return;
+    }
     setIsSaving(true);
     setErrorMessage(null);
+    const policy = {
+      ...policyForm,
+      duration_years: policyForm.validity_mode === "duration" ? policyForm.duration_years : 0,
+      duration_days: policyForm.validity_mode === "duration" ? policyForm.duration_days : 0,
+    };
     try {
       if (mode === "edit" && licenseTypeId) {
-        await updateFinanceLicenseType(licenseTypeId, { name: trimmedName });
+        await updateFinanceLicenseType(licenseTypeId, { name: trimmedName, policy });
       } else {
         const normalizedInitialAmount = initialPriceIsFree ? "0.00" : initialPriceAmount.trim();
         if (!normalizedInitialAmount) {
@@ -194,6 +266,7 @@ export function LicenseTypeFormPanel({
           initial_price_amount: normalizedInitialAmount,
           initial_price_currency: "EUR",
           initial_price_effective_from: initialPriceEffectiveFrom || undefined,
+          policy,
         });
       }
       await onSaved();
@@ -286,115 +359,66 @@ export function LicenseTypeFormPanel({
             </div>
           </div>
         ) : null}
-      </form>
-    </SidePanel>
-  );
-}
 
-export function OrderWindowPanel({
-  open,
-  licenseTypeId,
-  licenseTypeName,
-  onClose,
-  onSaved,
-}: {
-  open: boolean;
-  licenseTypeId: number | null;
-  licenseTypeName?: string;
-  onClose: () => void;
-  onSaved: () => void | Promise<void>;
-}) {
-  const t = useTranslations("LtfFinance");
-  const common = useTranslations("Common");
-  const locale = useLocale();
-  const [policyForm, setPolicyForm] = useState<PolicyFormState>(DEFAULT_POLICY);
-  const [resolvedName, setResolvedName] = useState(licenseTypeName ?? "");
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+        <section className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">
+          <p className="text-sm font-medium text-foreground">{t("validitySectionLabel")}</p>
+          <div className="space-y-2">
+            <Label required>{t("validityModeLabel")}</Label>
+            <PopoverSelect
+              className="w-full"
+              value={policyForm.validity_mode}
+              onValueChange={(value) =>
+                setPolicyForm((previous) => ({ ...previous, validity_mode: value as ValidityMode }))
+              }
+              ariaLabel={t("validityModeLabel")}
+              options={[
+                { value: "calendar_year", label: t("validityCalendarYear") },
+                { value: "duration", label: t("validityDuration") },
+              ]}
+            />
+          </div>
+          {policyForm.validity_mode === "duration" ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="duration-years" required>
+                  {t("durationYearsLabel")}
+                </Label>
+                <Input
+                  id="duration-years"
+                  type="number"
+                  min={0}
+                  value={String(policyForm.duration_years)}
+                  onChange={(event) =>
+                    setPolicyForm((previous) => ({
+                      ...previous,
+                      duration_years: Math.max(0, Number(event.target.value) || 0),
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration-days" required>
+                  {t("durationDaysLabel")}
+                </Label>
+                <Input
+                  id="duration-days"
+                  type="number"
+                  min={0}
+                  max={366}
+                  value={String(policyForm.duration_days)}
+                  onChange={(event) =>
+                    setPolicyForm((previous) => ({
+                      ...previous,
+                      duration_days: Math.min(366, Math.max(0, Number(event.target.value) || 0)),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+          <p className="text-sm text-muted">{preview}</p>
+        </section>
 
-  useEffect(() => {
-    if (!open || !licenseTypeId) {
-      return;
-    }
-    let cancelled = false;
-    setErrorMessage(null);
-    setResolvedName(licenseTypeName ?? "");
-    void Promise.all([getFinanceLicenseTypePolicy(licenseTypeId), getFinanceLicenseTypes()])
-      .then(([policy, types]) => {
-        if (cancelled) {
-          return;
-        }
-        setPolicyForm(toPolicyForm(policy));
-        const match = types.find((row: FinanceLicenseType) => row.id === licenseTypeId);
-        if (match) {
-          setResolvedName(match.name);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : t("licenseSettingsLoadError"));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, licenseTypeId, licenseTypeName, t]);
-
-  const monthOptions = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat(locale, { month: "long" });
-    return Array.from({ length: 12 }, (_, index) => ({
-      value: String(index + 1),
-      label: formatter.format(new Date(2024, index, 1)),
-    }));
-  }, [locale]);
-
-  const setMonth = (field: "current_start" | "current_end" | "next_start" | "next_end", value: string) => {
-    const month = Number(value);
-    setPolicyForm((previous) => ({
-      ...previous,
-      [`${field}_month`]: month,
-      [`${field}_day`]: Math.min(previous[`${field}_day`], getMaxDaysInMonth(month)),
-    }));
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!licenseTypeId) {
-      return;
-    }
-    setIsSaving(true);
-    setErrorMessage(null);
-    try {
-      await updateFinanceLicenseTypePolicy(licenseTypeId, policyForm);
-      await onSaved();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("licenseTypeSaveError"));
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <SidePanel
-      open={open}
-      wide
-      title={t("editPolicyAction")}
-      description={resolvedName || t("licenseTypeDetailSubtitle")}
-      closeLabel={common("modalClose")}
-      onClose={onClose}
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            {common("deleteCancelButton")}
-          </Button>
-          <Button type="submit" form={WINDOW_FORM_ID} disabled={isSaving}>
-            {isSaving ? t("savingAction") : t("saveChanges")}
-          </Button>
-        </>
-      }
-    >
-      <form id={WINDOW_FORM_ID} className="space-y-3" onSubmit={handleSubmit}>
-        {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
         <section className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">
           <label className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Checkbox
@@ -438,6 +462,7 @@ export function OrderWindowPanel({
             </div>
           </div>
         </section>
+
         <section className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">
           <label className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Checkbox
@@ -477,6 +502,74 @@ export function OrderWindowPanel({
                 onDayChange={(value) => setPolicyForm((previous) => ({ ...previous, next_end_day: Number(value) }))}
               />
             </div>
+          </div>
+        </section>
+
+        <section className="space-y-3 rounded-[var(--radius-card)] border border-border p-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Checkbox
+              checked={policyForm.reminders_enabled}
+              onCheckedChange={(checked) =>
+                setPolicyForm((previous) => ({ ...previous, reminders_enabled: checked === true }))
+              }
+            />
+            {t("remindersEnabledLabel")}
+          </label>
+          <p className="text-xs text-muted">{t("remindersNotSentYet")}</p>
+          <div className="space-y-2">
+            <Label>{t("reminderOffsetsLabel")}</Label>
+            <div className="flex flex-wrap gap-2">
+              {policyForm.reminder_offsets.map((offset, index) => (
+                <div key={`${index}-${offset}`} className="flex items-center gap-1">
+                  <Input
+                    className="w-24"
+                    type="number"
+                    min={1}
+                    max={365}
+                    disabled={!policyForm.reminders_enabled}
+                    aria-label={t("reminderOffsetsLabel")}
+                    value={String(offset)}
+                    onChange={(event) => {
+                      const next = [...policyForm.reminder_offsets];
+                      next[index] = Math.max(1, Math.min(365, Number(event.target.value) || 1));
+                      setPolicyForm((previous) => ({ ...previous, reminder_offsets: next }));
+                    }}
+                  />
+                  {policyForm.reminder_offsets.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!policyForm.reminders_enabled}
+                      onClick={() =>
+                        setPolicyForm((previous) => ({
+                          ...previous,
+                          reminder_offsets: previous.reminder_offsets.filter((_, item) => item !== index),
+                        }))
+                      }
+                    >
+                      {t("reminderOffsetRemove")}
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            {policyForm.reminder_offsets.length < 5 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!policyForm.reminders_enabled}
+                onClick={() =>
+                  setPolicyForm((previous) => ({
+                    ...previous,
+                    reminder_offsets: [...previous.reminder_offsets, 14],
+                  }))
+                }
+              >
+                {t("reminderOffsetAdd")}
+              </Button>
+            ) : null}
           </div>
         </section>
       </form>

@@ -13,7 +13,7 @@ front = [{"id": "bg", "type": "shape", "x_mm": 0, "y_mm": 0, "width_mm": 85, "he
          T("g", 32, 25, 50, 5, mf="member.current_grade"),
          T("id", 32, 32, 50, 5, mf="member.ltf_licenseid"),
          T("c", 32, 39, 50, 5, mf="club.name", size=2.8)]
-back = [T("b1", 5, 5, 75, 6, text="Licence card - demo template", size=3, bold=True),
+back = [T("b1", 5, 5, 75, 6, text="License card - demo template", size=3, bold=True),
         {"id": "qr", "type": "qr", "x_mm": 58, "y_mm": 26, "width_mm": 22, "height_mm": 22, "merge_fields": ["member.ltf_licenseid"]}]
 payload = {"sides": {"front": {"elements": front}, "back": {"elements": back}}}
 r = call(L, "POST", "/api/card-template-versions/", {"template": 1, "card_format": 1, "paper_profile": 1, "design_payload": payload})

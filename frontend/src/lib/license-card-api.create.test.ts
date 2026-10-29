@@ -35,7 +35,7 @@ describe("createPrintJob", () => {
     });
   });
 
-  it("posts licence ids without a printer profile", async () => {
+  it("posts license ids without a printer profile", async () => {
     await createPrintJob({
       club: 2,
       template_version: 4,

@@ -51,7 +51,7 @@ class LtfStaffApiTests(TestCase):
         )
         self.license_type = LicenseType.objects.create(name="Annual", code="annual-staff")
 
-    def test_admin_creates_staff_without_club_and_issues_licence_without_order(self):
+    def test_admin_creates_staff_without_club_and_issues_license_without_order(self):
         self.client.force_authenticate(user=self.admin)
         with patch("accounts.email_utils.send_password_reset_email", return_value=(True, None)):
             response = self.client.post(
@@ -94,7 +94,7 @@ class LtfStaffApiTests(TestCase):
         )
         self.assertEqual(context["club.name"], "LTF")
 
-    def test_ltf_coach_follows_the_same_licence_rules(self):
+    def test_ltf_coach_follows_the_same_license_rules(self):
         self.client.force_authenticate(user=self.admin)
         created = self.client.post(
             "/api/members/ltf-staff/",
@@ -129,7 +129,7 @@ class LtfStaffApiTests(TestCase):
         self.assertEqual(secretary.status_code, status.HTTP_201_CREATED, secretary.data)
         self.assertEqual(secretary.data["ltf_staff"]["function"], "secretary")
 
-    def test_ltf_medic_follows_the_same_licence_rules(self):
+    def test_ltf_medic_follows_the_same_license_rules(self):
         self.client.force_authenticate(user=self.admin)
         created = self.client.post(
             "/api/members/ltf-staff/",
@@ -202,7 +202,7 @@ class LtfStaffApiTests(TestCase):
         media = self.client.get("/api/members/?staff_function=media")
         self.assertEqual({row["id"] for row in media.data}, {member.id, self.club_member.id})
 
-    def test_finance_cannot_create_or_issue_staff_licences(self):
+    def test_finance_cannot_create_or_issue_staff_licenses(self):
         self.client.force_authenticate(user=self.finance)
         response = self.client.post(
             "/api/members/ltf-staff/",
@@ -211,7 +211,7 @@ class LtfStaffApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_club_member_can_also_be_staff_and_keeps_club_licence_flow(self):
+    def test_club_member_can_also_be_staff_and_keeps_club_license_flow(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.post(
             "/api/members/ltf-staff/",
@@ -384,7 +384,7 @@ class LtfStaffApiTests(TestCase):
         pending.refresh_from_db()
         self.assertEqual(pending.status, License.Status.PENDING)
 
-    def test_expiry_and_activation_include_staff_licences_without_a_club(self):
+    def test_expiry_and_activation_include_staff_licenses_without_a_club(self):
         member = self._staff_member("Mila", "Fox")
         today = timezone.localdate()
         past = License.objects.create(
@@ -433,7 +433,7 @@ class LtfStaffApiTests(TestCase):
         self.assertEqual(untouched.status, License.Status.PENDING)
         self.assertEqual(expire_outdated_licenses(), 0)
 
-    def test_expired_staff_licence_counts_as_expired_and_not_valid(self):
+    def test_expired_staff_license_counts_as_expired_and_not_valid(self):
         member = self._staff_member("Remy", "Past")
         today = timezone.localdate()
         License.objects.create(

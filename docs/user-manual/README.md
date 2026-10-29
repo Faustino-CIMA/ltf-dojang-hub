@@ -87,13 +87,13 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
 
    | # | Script | Kind | Creates |
    |---|---|---|---|
-   | 1 | `seed_1_base_orm.py` | ORM | federation profile, demo clubs, members, demo logins, licence types/prices, licences, grade history |
-   | 2 | `seed_2_training_api.py` | API | training series, membership and licence fees, calendar events |
+   | 1 | `seed_1_base_orm.py` | ORM | federation profile, demo clubs, members, demo logins, license types/prices, licenses, grade history |
+   | 2 | `seed_2_training_api.py` | API | training series, membership and license fees, calendar events |
    | 3 | `seed_3_committee_shop_orm.py` | ORM | committee mandates, shop items/variants and opening stock |
    | 4 | `seed_4_activity_api.py` | API | families, held training sessions, promotion rules and belt tests |
-   | 5 | `seed_5_billing_api.py` | API | yearly club billing, licence orders and LTF invoices |
-   | 6 | `seed_6_club3_history_orm.py` | ORM | second club admin (`paul.musel`), licence history |
-   | 7 | `seed_7_cardtemplate_api.py` | API | licence-card template version, set as default |
+   | 5 | `seed_5_billing_api.py` | API | yearly club billing, license orders and LTF invoices |
+   | 6 | `seed_6_club3_history_orm.py` | ORM | second club admin (`paul.musel`), license history |
+   | 7 | `seed_7_cardtemplate_api.py` | API | license-card template version, set as default |
 | 8 | `seed_8_contacts_orm.py` | ORM | contact data for Tom SCHMIT's club record, grade history for Sandra WEIS |
 | 9 | `seed_9_figure_fill_api.py` | API | today's club event, a demo bank statement, a credit note on LTF invoice 14, completed transfers (Felix THILL, who ends back in his own club) |
 
@@ -153,7 +153,7 @@ Status after Faustino's answers (6 October 2026):
 | 1 | Coach member list is empty (coaches only see members of clubs they administer) | **Resolved.** Coach features are not finished. The manual describes only what works (training week, roll, calendar) and says more is planned. The empty list is not documented as a feature. |
 | 2 | Do members and parents get a login? | **Resolved.** No. The app is a staff tool for clubs and the federation. Stated in Getting started, Roles and the FAQ; the member chapter was removed. One line says member access may come later. |
 | 3 | Expense form wording "federation accounts" | **Resolved.** Club expense pages use `LtfFinance.clubExpensesSubtitle` / `clubExpenseFormSubtitle` ("this club's accounts"); LTF Finance keeps the federation wording. Shipped with this docs commit. The manual quotes the new subtitles in "Other income and expenses". |
-| 4 | Licence fee: "first bill" vs. "billing chosen for that year" | **Resolved.** The season runs September to September. New section "When the licence fee is charged", with an example and a note that reconciles the two wordings. |
+| 4 | License fee: "first bill" vs. "billing chosen for that year" | **Resolved.** The season runs September to September. New section "When the license fee is charged", with an example and a note that reconciles the two wordings. |
 | 5 | Privacy page `/settings/privacy` | **Resolved.** Own section in Getting started, checked against the code. The page is reached by URL only, its text is English only, and it is marked as being reviewed. |
 | 6 | Subsidies hint says "Trainers" while the tab is "Coaches" | Open |
 | 7 | Inconsistent LB UI strings | Open |

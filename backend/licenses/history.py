@@ -110,13 +110,15 @@ def log_license_status_change(
     )
 
 
-def expire_outdated_licenses(actor=None) -> int:
+def expire_outdated_licenses(actor=None, member_ids=None) -> int:
     today = timezone.localdate()
-    # club is empty for an LTF staff licence. The filter does not require a club.
+    # club is empty for an LTF staff license. The filter does not require a club.
     outdated_licenses = License.objects.filter(
         status=License.Status.ACTIVE,
         end_date__lt=today,
     ).select_related("member", "club")
+    if member_ids is not None:
+        outdated_licenses = outdated_licenses.filter(member_id__in=list(member_ids))
 
     expired_count = 0
     for license_record in outdated_licenses:
