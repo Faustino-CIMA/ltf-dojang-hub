@@ -204,6 +204,43 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
 
         return Response(module_fee_quote(club))
 
+    @action(detail=True, methods=["get"], url_path="module-order-catalog")
+    def module_order_catalog(self, request, pk=None):
+        user = request.user
+        if user.role not in {"club_admin", "ltf_finance", "ltf_admin"} and not user.is_superuser:
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        club = self.get_object()
+        if user.role == "club_admin" and not club.admins.filter(id=user.id).exists():
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        from licenses.module_orders import module_order_catalog as build_catalog
+
+        include_unentitled = user.role in {"ltf_finance", "ltf_admin"} or user.is_superuser
+        return Response(build_catalog(club, include_unentitled=include_unentitled))
+
+    @action(detail=True, methods=["post"], url_path="module-orders")
+    def module_orders(self, request, pk=None):
+        user = request.user
+        club = self.get_object()
+        if user.role == "ltf_finance":
+            allow_unentitled = True
+        elif user.role == "club_admin" and club.admins.filter(id=user.id).exists():
+            allow_unentitled = False
+        else:
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        from licenses.module_orders import ModuleOrderError, create_module_order
+
+        try:
+            result = create_module_order(
+                club,
+                module_ids=request.data.get("modules") or [],
+                bundle_ids=request.data.get("bundles") or [],
+                actor=user,
+                allow_unentitled=allow_unentitled,
+            )
+        except ModuleOrderError as exc:
+            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=["get"], url_path="communication-languages")
     def communication_languages(self, request):
         return Response(

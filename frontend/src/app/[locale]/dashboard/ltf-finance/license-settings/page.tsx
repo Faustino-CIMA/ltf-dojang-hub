@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Boxes,
@@ -78,6 +78,7 @@ import {
   updateModuleSubscriptionSettings,
   updateClubFeeBillingSchedule,
 } from "@/lib/ltf-finance-api";
+import { ClubModuleOrder } from "@/components/club-admin/club-module-order";
 import { ModuleBundlesPanel, ModuleSubscriptionSettingsCard } from "@/components/ltf-finance/module-bundles-panel";
 import { ModuleFeesPanel, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Club, getClubs, updateClub } from "@/lib/club-admin-api";
@@ -107,6 +108,7 @@ type PriceDraft = {
 
 export default function LtfFinanceLicenseSettingsPage() {
   const t = useTranslations("LtfFinance");
+  const locale = useLocale();
   const common = useTranslations("Common");
   const router = useRouter();
   const pathname = usePathname();
@@ -1376,6 +1378,12 @@ export default function LtfFinanceLicenseSettingsPage() {
               )}
             </div>
           </FormPanel>
+
+          <ClubModuleOrder
+            clubs={clubs.filter((club) => club.is_active).map((club) => ({ id: club.id, name: club.name }))}
+            allowUnentitled
+            invoicePath={(invoiceId) => `/${locale}/dashboard/ltf-finance/invoices/${invoiceId}`}
+          />
 
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubFeeSchedulesTitle")}</h2>
