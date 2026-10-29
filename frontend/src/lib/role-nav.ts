@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BadgeDollarSign,
+  Boxes,
   Building2,
   Camera,
   CircleDollarSign,
@@ -128,6 +129,14 @@ const LTF_ADMIN_NAV: RoleNavDef[] = [
     labelKey: "navClubs",
     namespace: "LtfAdmin",
     icon: Building2,
+    matchMode: "prefix",
+  },
+  {
+    id: "module-purchases",
+    href: (locale) => `/${locale}/dashboard/ltf/module-purchases`,
+    labelKey: "navModulePurchases",
+    namespace: "LtfAdmin",
+    icon: Boxes,
     matchMode: "prefix",
   },
   {

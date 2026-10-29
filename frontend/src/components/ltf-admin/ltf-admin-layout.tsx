@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useContext, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
+  Boxes,
   Building2,
   CalendarDays,
   Archive,
@@ -49,6 +50,7 @@ type LtfNavDef = {
   labelKey:
     | "navOverview"
     | "navClubs"
+    | "navModulePurchases"
     | "navClubAdmins"
     | "navMemberTransfers"
     | "navMembers"
@@ -69,6 +71,13 @@ type LtfNavDef = {
 const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "overview", href: (l) => `/${l}/dashboard/ltf`, labelKey: "navOverview", matchMode: "exact", icon: LayoutDashboard },
   { id: "clubs", href: (l) => `/${l}/dashboard/ltf/clubs`, labelKey: "navClubs", matchMode: "prefix", icon: Building2 },
+  {
+    id: "module-purchases",
+    href: (l) => `/${l}/dashboard/ltf/module-purchases`,
+    labelKey: "navModulePurchases",
+    matchMode: "prefix",
+    icon: Boxes,
+  },
   { id: "club-admins", href: (l) => `/${l}/dashboard/ltf/club-admins`, labelKey: "navClubAdmins", matchMode: "prefix", icon: UserCog },
   { id: "member-transfers", href: (l) => `/${l}/dashboard/ltf/member-transfers`, labelKey: "navMemberTransfers", matchMode: "prefix", icon: ArrowLeftRight },
   { id: "members", href: (l) => `/${l}/dashboard/ltf/members`, labelKey: "navMembers", matchMode: "prefix", icon: Users },

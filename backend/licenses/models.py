@@ -417,6 +417,44 @@ class ModuleRenewalJournal(models.Model):
         return f"{self.purchase_id} {self.period_end} {self.stage}"
 
 
+class ModulePurchaseOverride(models.Model):
+    """One audited LTF Admin change. The daily job does not undo a held purchase."""
+
+    class Action(models.TextChoices):
+        SWITCH_ON = "switch_on", "Switch on"
+        SWITCH_OFF = "switch_off", "Switch off"
+        SET_END = "set_end", "Set end date"
+        KEEP_OPEN = "keep_open", "Keep on with no end date"
+        WAIVE = "waive", "Waive this period"
+        CANCEL = "cancel", "Cancel"
+        CLEAR_HOLD = "clear_hold", "Clear the hold"
+
+    purchase = models.ForeignKey(ModulePurchase, on_delete=models.CASCADE, related_name="overrides")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="module_purchase_overrides",
+    )
+    action = models.CharField(max_length=32, choices=Action.choices)
+    previous_ends_at = models.DateField(null=True, blank=True)
+    new_ends_at = models.DateField(null=True, blank=True)
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    reason = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        indexes = [
+            models.Index(fields=["purchase", "-created_at"], name="mod_override_purchase_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purchase_id} {self.action}"
+
+
 def generate_order_number() -> str:
     return f"ORD-{uuid4().hex[:12].upper()}"
 

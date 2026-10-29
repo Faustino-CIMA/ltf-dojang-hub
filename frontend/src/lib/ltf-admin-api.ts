@@ -996,3 +996,58 @@ export function deleteLicense(id: number) {
     method: "DELETE",
   });
 }
+
+export type ModulePurchaseRow = {
+  id: number;
+  club: number;
+  club_name: string;
+  description: string;
+  module_ids: string[];
+  status: string;
+  ends_at: string | null;
+  automation_hold: string;
+  switched_off: boolean;
+  renewal_choice: string;
+  source: string;
+};
+
+export type ModulePurchaseOverrideRow = {
+  id: number;
+  purchase: number;
+  purchase_name: string;
+  actor_name: string;
+  action: string;
+  previous_ends_at: string | null;
+  new_ends_at: string | null;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  reason: string;
+  created_at: string;
+};
+
+export type ModuleOverrideAction =
+  | "switch_on"
+  | "switch_off"
+  | "set_end"
+  | "keep_open"
+  | "waive"
+  | "cancel"
+  | "clear_hold";
+
+export function getModulePurchases(clubId: number) {
+  return apiRequest<ModulePurchaseRow[]>(`/api/module-purchases/?club=${clubId}`);
+}
+
+export function getModulePurchaseOverrides(clubId: number) {
+  return apiRequest<ModulePurchaseOverrideRow[]>(`/api/module-purchase-overrides/?club=${clubId}`);
+}
+
+export function overrideModulePurchase(
+  id: number,
+  input: { action: ModuleOverrideAction; ends_at?: string; reason?: string },
+) {
+  return apiRequest<ModulePurchaseOverrideRow>(`/api/module-purchases/${id}/override/`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
