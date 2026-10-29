@@ -812,7 +812,18 @@ export function createClubFeeType(input: {
   });
 }
 
-export function updateClubFeeType(id: number, input: { is_active?: boolean; description?: string }) {
+export function updateClubFeeType(
+  id: number,
+  input: {
+    name?: string;
+    description?: string;
+    cadence?: ClubFeeCadence;
+    is_active?: boolean;
+    initial_amount?: string;
+    initial_currency?: string;
+    initial_effective_from?: string;
+  },
+) {
   return apiRequest<ClubFeeType>(`/api/club-fee-types/${id}/`, {
     method: "PATCH",
     body: JSON.stringify(input),

@@ -10,6 +10,7 @@ import {
   Check,
   CircleDollarSign,
   IdCard,
+  Pencil,
   Receipt,
   Repeat,
   ScrollText,
@@ -24,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { ClubFeeFormPanel, type ClubFeeDraft } from "@/components/ltf-finance/club-fee-panel";
 import { LicenseTypeFormPanel, OrderWindowPanel } from "@/components/ltf-finance/license-type-panels";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,12 +124,8 @@ export default function LtfFinanceLicenseSettingsPage() {
   const [savingPriceByType, setSavingPriceByType] = useState<Record<number, boolean>>({});
   const [feePriceDrafts, setFeePriceDrafts] = useState<Record<number, PriceDraft>>({});
   const [savingFeePriceByType, setSavingFeePriceByType] = useState<Record<number, boolean>>({});
-  const [newFeeName, setNewFeeName] = useState("");
-  const [newFeeDescription, setNewFeeDescription] = useState("");
-  const [newFeeCadence, setNewFeeCadence] = useState<ClubFeeCadence>("one_off");
-  const [newFeeAmount, setNewFeeAmount] = useState("");
-  const [newFeeActive, setNewFeeActive] = useState(true);
-  const [isCreatingFee, setIsCreatingFee] = useState(false);
+  const [feeEditor, setFeeEditor] = useState<ClubFeeType | "new" | null>(null);
+  const [isSavingFee, setIsSavingFee] = useState(false);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [schedules, setSchedules] = useState<ClubFeeBillingSchedule[]>([]);
   const [selectedFeeIds, setSelectedFeeIds] = useState<number[]>([]);
@@ -426,34 +424,40 @@ export default function LtfFinanceLicenseSettingsPage() {
     }));
   };
 
-  const createFee = async () => {
-    if (!newFeeName.trim()) {
-      setErrorMessage(t("clubFeeNameRequiredError"));
-      return;
-    }
+  const saveFeeEditor = async (draft: ClubFeeDraft) => {
     setErrorMessage(null);
     setSuccessMessage(null);
-    setIsCreatingFee(true);
+    setIsSavingFee(true);
+    const creating = feeEditor === "new";
     try {
-      await createClubFeeType({
-        name: newFeeName.trim(),
-        description: newFeeDescription.trim(),
-        cadence: newFeeCadence,
-        is_active: newFeeActive,
-        initial_amount: newFeeAmount.trim() || undefined,
-        initial_currency: "EUR",
-      });
-      setNewFeeName("");
-      setNewFeeDescription("");
-      setNewFeeCadence("one_off");
-      setNewFeeAmount("");
-      setNewFeeActive(true);
-      setSuccessMessage(t("clubFeeCreatedMessage"));
+      const amount = draft.amount.trim();
+      if (creating) {
+        await createClubFeeType({
+          name: draft.name,
+          description: draft.description,
+          cadence: draft.cadence,
+          is_active: draft.isActive,
+          initial_amount: amount || undefined,
+          initial_currency: "EUR",
+        });
+        setSuccessMessage(t("clubFeeCreatedMessage"));
+      } else if (feeEditor) {
+        const amountChanged = amount !== (feeEditor.current_amount ?? "");
+        await updateClubFeeType(feeEditor.id, {
+          name: draft.name,
+          description: draft.description,
+          cadence: draft.cadence,
+          is_active: draft.isActive,
+          ...(amountChanged && amount ? { initial_amount: amount, initial_currency: "EUR" } : {}),
+        });
+        setSuccessMessage(t("clubFeeUpdatedMessage"));
+      }
+      setFeeEditor(null);
       await loadData();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("clubFeeCreateError"));
+      setErrorMessage(error instanceof Error ? error.message : t(creating ? "clubFeeCreateError" : "clubFeeUpdateError"));
     } finally {
-      setIsCreatingFee(false);
+      setIsSavingFee(false);
     }
   };
 
@@ -797,64 +801,12 @@ export default function LtfFinanceLicenseSettingsPage() {
       {activeTab === "club-fees" ? (
         <div className="space-y-3">
           <FormPanel>
-            <h2 className="text-section text-foreground">{t("clubFeesTitle")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("clubFeesSubtitle")}</p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="club-fee-name">{t("clubFeeNameLabel")}</Label>
-                <Input
-                  id="club-fee-name"
-                  value={newFeeName}
-                  onChange={(event) => setNewFeeName(event.target.value)}
-                  placeholder={t("clubFeeNameLabel")}
-                />
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-section text-foreground">{t("clubFeesTitle")}</h2>
+                <p className="mt-1 text-sm text-muted">{t("clubFeesSubtitle")}</p>
               </div>
-              <div className="space-y-2">
-                <Label>{t("clubFeeCadenceLabel")}</Label>
-                <Select
-                  value={newFeeCadence}
-                  onValueChange={(value) => setNewFeeCadence(value as ClubFeeCadence)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="one_off">{t("clubFeeCadenceOneOff")}</SelectItem>
-                    <SelectItem value="annual">{t("clubFeeCadenceAnnual")}</SelectItem>
-                    <SelectItem value="per_member">{t("clubFeeCadencePerMember")}</SelectItem>
-                    <SelectItem value="per_event">{t("clubFeeCadencePerEvent")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="club-fee-amount">{t("clubFeeAmountLabel")}</Label>
-                <Input
-                  id="club-fee-amount"
-                  value={newFeeAmount}
-                  onChange={(event) => setNewFeeAmount(event.target.value)}
-                  placeholder="0.00"
-                  inputMode="decimal"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="club-fee-description">{t("clubFeeDescriptionLabel")}</Label>
-                <Input
-                  id="club-fee-description"
-                  value={newFeeDescription}
-                  onChange={(event) => setNewFeeDescription(event.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2 md:col-span-2">
-                <Checkbox
-                  id="club-fee-active"
-                  checked={newFeeActive}
-                  onCheckedChange={(value) => setNewFeeActive(Boolean(value))}
-                />
-                <Label htmlFor="club-fee-active">{t("clubFeeActiveLabel")}</Label>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Button onClick={() => void createFee()} disabled={isCreatingFee}>
+              <Button type="button" onClick={() => setFeeEditor("new")}>
                 {t("clubFeeCreateAction")}
               </Button>
             </div>
@@ -888,18 +840,30 @@ export default function LtfFinanceLicenseSettingsPage() {
                           <p className="text-xs text-muted">{feeType.description}</p>
                         ) : null}
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="icon-sm"
-                        aria-label={t("deleteAction")}
-                        onClick={() => {
-                          setFeeTypeToDelete(feeType);
-                          setLicenseTypeToDelete(null);
-                          setIsDeleteOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label={t("clubFeeEditAction")}
+                          onClick={() => setFeeEditor(feeType)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon-sm"
+                          aria-label={t("deleteAction")}
+                          onClick={() => {
+                            setFeeTypeToDelete(feeType);
+                            setLicenseTypeToDelete(null);
+                            setIsDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     {rows.length === 0 ? (
                       <p className="px-4 py-4 text-sm text-muted">{t("priceHistoryEmptySubtitle")}</p>
@@ -1334,6 +1298,13 @@ export default function LtfFinanceLicenseSettingsPage() {
         </div>
       ) : null}
 
+      <ClubFeeFormPanel
+        open={feeEditor !== null}
+        fee={feeEditor && feeEditor !== "new" ? feeEditor : null}
+        saving={isSavingFee}
+        onClose={() => setFeeEditor(null)}
+        onSubmit={saveFeeEditor}
+      />
       <LicenseTypeFormPanel
         open={typePanel !== null}
         mode={typePanel?.mode ?? "create"}

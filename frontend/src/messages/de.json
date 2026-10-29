@@ -872,6 +872,12 @@
     "committeeOfficeActions": "Aktionen für {role}"
   },
   "LtfFinance": {
+    "clubFeeEditAction": "Vereinsgebühr bearbeiten",
+    "clubFeeEditTitle": "Vereinsgebühr bearbeiten",
+    "clubFeeEditSubtitle": "Ändern Sie diese Gebühr. Ein neuer Betrag wird als nächster Preis gespeichert. Bereits versandte Rechnungen bleiben unverändert.",
+    "clubFeeSaveAction": "Änderungen speichern",
+    "clubFeeUpdatedMessage": "Vereinsgebühr gespeichert.",
+    "clubFeeUpdateError": "Die Vereinsgebühr konnte nicht gespeichert werden.",
     "settingsTabModuleFees": "Modulgebühren",
     "moduleFeesTitle": "Modulgebühren",
     "moduleFeesSubtitle": "Jahrespreise für die Teile der App, die ein Verein einschalten kann. Vereinsverwaltung und Veranstaltungskalender können einen Preis haben. Die Vorschau bleibt kostenlos. Ein neuer Preis gilt ab dem gewählten Datum. Bereits versandte Rechnungen bleiben unverändert.",

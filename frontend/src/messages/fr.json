@@ -872,6 +872,12 @@
     "committeeOfficeActions": "Actions pour {role}"
   },
   "LtfFinance": {
+    "clubFeeEditAction": "Modifier le frais de club",
+    "clubFeeEditTitle": "Modifier le frais de club",
+    "clubFeeEditSubtitle": "Modifiez ce frais. Un nouveau montant est enregistré comme prix suivant. Les factures déjà envoyées restent telles quelles.",
+    "clubFeeSaveAction": "Enregistrer",
+    "clubFeeUpdatedMessage": "Frais de club enregistré.",
+    "clubFeeUpdateError": "Le frais de club n'a pas pu être enregistré.",
     "settingsTabModuleFees": "Frais de modules",
     "moduleFeesTitle": "Frais de modules",
     "moduleFeesSubtitle": "Prix annuels des parties de l'application qu'un club peut activer. La gestion du club et le calendrier des événements peuvent avoir un prix. L'aperçu reste gratuit. Un nouveau prix commence à la date choisie. Les factures déjà envoyées restent telles quelles.",

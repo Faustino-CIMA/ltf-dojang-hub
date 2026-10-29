@@ -382,6 +382,70 @@ class ClubFeeApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_ltf_finance_can_update_club_fee(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        created = self.client.post(
+            "/api/club-fee-types/",
+            {
+                "name": "Affiliation",
+                "cadence": "annual",
+                "description": "Yearly club affiliation",
+                "is_active": True,
+                "initial_amount": "150.00",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        fee_id = created.data["id"]
+        response = self.client.patch(
+            f"/api/club-fee-types/{fee_id}/",
+            {
+                "name": "Club affiliation",
+                "cadence": "one_off",
+                "description": "Charged once",
+                "is_active": False,
+                "initial_amount": "175.00",
+                "initial_currency": "EUR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        self.assertEqual(response.data["name"], "Club affiliation")
+        self.assertEqual(response.data["cadence"], "one_off")
+        self.assertEqual(response.data["description"], "Charged once")
+        self.assertFalse(response.data["is_active"])
+        self.assertEqual(response.data["current_amount"], "175.00")
+        fee = ClubFeeType.objects.get(id=fee_id)
+        self.assertEqual(fee.prices.count(), 2)
+        self.assertEqual(fee.code, "affiliation")
+
+        blank = self.client.patch(
+            f"/api/club-fee-types/{fee_id}/",
+            {"name": "   "},
+            format="json",
+        )
+        self.assertEqual(blank.status_code, status.HTTP_400_BAD_REQUEST)
+        fee.refresh_from_db()
+        self.assertEqual(fee.name, "Club affiliation")
+
+    def test_club_admin_and_ltf_admin_cannot_update_club_fee(self):
+        fee = ClubFeeType.objects.create(name="Insurance", code="insurance", cadence="annual")
+        ltf_admin = User.objects.create_user(
+            username="ltfadmin-club-fees",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        for user in (self.club_admin, ltf_admin):
+            self.client.force_authenticate(user=user)
+            response = self.client.patch(
+                f"/api/club-fee-types/{fee.id}/",
+                {"name": "Changed", "cadence": "one_off"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        fee.refresh_from_db()
+        self.assertEqual(fee.name, "Insurance")
+
     def test_ltf_finance_can_bill_active_clubs(self):
         from clubs.models import Club
 
