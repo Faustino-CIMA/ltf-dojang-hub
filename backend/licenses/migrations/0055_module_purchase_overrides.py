@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('licenses', '0054_module_renewals'),
+        ('licenses', '0055_legacy_module_purchases'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
