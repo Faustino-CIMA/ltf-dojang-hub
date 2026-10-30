@@ -204,6 +204,44 @@
     <div class="fold"></div>
     <div class="lead"></div>
 
+    {% if module_invoice %}
+    <table class="lines block">
+      <colgroup>
+        <col style="width: 122mm" />
+        <col style="width: 12mm" />
+        <col style="width: 20.5mm" />
+        <col style="width: 20.5mm" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="num">Qty</th>
+          <th class="num">Unit</th>
+          <th class="num">Subtotal</th>
+        </tr>
+      </thead>
+    </table>
+    <div class="sheet block">
+      <table class="body">
+        <colgroup>
+          <col style="width: 122mm" />
+          <col style="width: 12mm" />
+          <col style="width: 20.5mm" />
+          <col style="width: 20.5mm" />
+        </colgroup>
+        <tbody>
+          {% for row in module_rows %}
+          <tr>
+            <td class="left">{{ row.label }}</td>
+            <td class="center">{{ row.quantity }}</td>
+            <td class="right">{{ row.unit_price }}</td>
+            <td class="right">{{ row.line_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
     <table class="lines block">
       <colgroup>
         <col style="width: 58mm" />
@@ -248,6 +286,7 @@
         </tbody>
       </table>
     </div>
+    {% endif %}
     <p class="grand"><span>Total Qty : {{ total_qty }}</span><span>Total : {{ total_amount }}</span></p>
 
     <div class="closing">

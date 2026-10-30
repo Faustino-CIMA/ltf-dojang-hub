@@ -31,7 +31,16 @@ import {
   sendClubInvoiceReminder,
 } from "@/lib/club-finance-api";
 import { rememberCheckoutReturn } from "@/lib/checkout-return";
-import { isClubLedger, orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
+import {
+  isClubLedger,
+  modulePurchaseLineTotal,
+  modulePurchaseUnitPrice,
+  orderItemLabel,
+  orderItemMemberDisplay,
+  orderItemsAreClubFees,
+  orderItemsAreModulePurchases,
+  orderItemYearLabel,
+} from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
   id: number;
@@ -40,6 +49,8 @@ type InvoiceItemRow = {
   ltfLicenseId: string;
   year: string;
   quantity: number;
+  unitPrice: string;
+  lineTotal: string;
 };
 
 export default function ClubInvoiceDetailPage() {
@@ -152,12 +163,22 @@ export default function ClubInvoiceDetailPage() {
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
         quantity: item.quantity,
+        unitPrice: modulePurchaseUnitPrice(item, order.currency),
+        lineTotal: modulePurchaseLineTotal(item, order.currency),
       };
     });
   }, [order, members, t]);
 
+  const modulePurchase = orderItemsAreModulePurchases(order?.items);
   const feeOnly = orderItemsAreClubFees(order?.items);
-  const columns = feeOnly
+  const columns = modulePurchase
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: t("qtyLabel") },
+        { key: "unitPrice", header: t("invoiceUnitLabel") },
+        { key: "lineTotal", header: t("invoiceLineTotalLabel") },
+      ]
+    : feeOnly
     ? [
         { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: t("qtyLabel") },

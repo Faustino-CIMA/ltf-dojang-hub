@@ -15,6 +15,8 @@ export type FinanceOrderItem = {
   billing_year?: number | null;
   price_snapshot: string;
   quantity: number;
+  charged_amount?: string | null;
+  module_purchase?: boolean;
   member_id?: number | null;
   member_first_name?: string | null;
   member_last_name?: string | null;
@@ -83,6 +85,19 @@ export function isClubFeeItem(item: FinanceOrderItem): boolean {
 
 export function orderItemsAreClubFees(items: FinanceOrderItem[] | undefined): boolean {
   return Boolean(items?.length) && items!.every((item) => isClubFeeItem(item));
+}
+
+export function orderItemsAreModulePurchases(items: FinanceOrderItem[] | undefined): boolean {
+  return Boolean(items?.length) && items!.every((item) => item.module_purchase === true);
+}
+
+export function modulePurchaseUnitPrice(item: FinanceOrderItem, currency: string): string {
+  return `${item.price_snapshot} ${currency}`.trim();
+}
+
+export function modulePurchaseLineTotal(item: FinanceOrderItem, currency: string): string {
+  const amount = item.charged_amount || item.price_snapshot;
+  return `${amount} ${currency}`.trim();
 }
 
 export type FinanceLedger = "federation" | "club";

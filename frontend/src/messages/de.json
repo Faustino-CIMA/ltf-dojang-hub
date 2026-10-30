@@ -99,6 +99,8 @@
     "logoPreviewLoading": "Logovorschau wird geladen"
   },
   "ClubAdmin": {
+    "invoiceUnitLabel": "Einzelpreis",
+    "invoiceLineTotalLabel": "Zwischensumme",
     "trainingPlace": "Trainingsort",
     "trainingPlaceHint": "Optional. Leer lassen, um die Halle aus der Förderakte zu verwenden.",
     "trainingVenueAria": "Trainingsort",
@@ -954,6 +956,8 @@
     "committeeOfficeActions": "Aktionen für {role}"
   },
   "LtfFinance": {
+    "invoiceUnitLabel": "Einzelpreis",
+    "invoiceLineTotalLabel": "Zwischensumme",
     "clubFeeEditAction": "Vereinsgebühr bearbeiten",
     "clubFeeEditTitle": "Vereinsgebühr bearbeiten",
     "clubFeeEditSubtitle": "Ändern Sie diese Gebühr. Ein neuer Betrag wird als nächster Preis gespeichert. Bereits versandte Rechnungen bleiben unverändert.",

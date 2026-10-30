@@ -99,6 +99,8 @@
     "logoPreviewLoading": "Chargement de l'aperçu"
   },
   "ClubAdmin": {
+    "invoiceUnitLabel": "Prix unitaire",
+    "invoiceLineTotalLabel": "Sous-total",
     "trainingPlace": "Lieu d'entraînement",
     "trainingPlaceHint": "Facultatif. Laissez vide pour utiliser la salle du dossier de subvention.",
     "trainingVenueAria": "Lieu d'entraînement",
@@ -954,6 +956,8 @@
     "committeeOfficeActions": "Actions pour {role}"
   },
   "LtfFinance": {
+    "invoiceUnitLabel": "Prix unitaire",
+    "invoiceLineTotalLabel": "Sous-total",
     "clubFeeEditAction": "Modifier le frais de club",
     "clubFeeEditTitle": "Modifier le frais de club",
     "clubFeeEditSubtitle": "Modifiez ce frais. Un nouveau montant est enregistré comme prix suivant. Les factures déjà envoyées restent telles quelles.",

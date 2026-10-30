@@ -9,7 +9,7 @@ from pathlib import Path
 from django.conf import settings
 from django.template.loader import render_to_string
 
-from .models import Invoice, Order
+from .models import Invoice, ModulePurchase, Order
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _ZERO_FAMILY_REBATE = re.compile(
@@ -342,6 +342,34 @@ def _is_ltf_license_invoice(invoice: Invoice) -> bool:
     return order.items.filter(license__isnull=False).exists()
 
 
+def _is_module_purchase_invoice(invoice: Invoice) -> bool:
+    """Federation invoice for a module or bundle purchase, including a renewal."""
+    order = invoice.order
+    if order.ledger != Order.Ledger.FEDERATION:
+        return False
+    if order.items.filter(license__isnull=False).exists():
+        return False
+    return (
+        ModulePurchase.objects.filter(order_item__order_id=order.id).exists()
+        or ModulePurchase.objects.filter(renewal_order_item__order_id=order.id).exists()
+    )
+
+
+def _module_rows(items) -> list[dict]:
+    """One row per order line. A bundle stays one line."""
+    rows = []
+    for item in items:
+        rows.append(
+            {
+                "label": invoice_item_label(item),
+                "quantity": item.quantity,
+                "unit_price": euro_amount(item.price_snapshot),
+                "line_total": euro_amount(item.line_amount()),
+            }
+        )
+    return rows
+
+
 def invoice_item_label(item) -> str:
     if getattr(item, "active_member_count", None) is not None or getattr(item, "minimum_applied", False):
         description = (item.description or "").strip()
@@ -423,16 +451,18 @@ def build_invoice_context(invoice: Invoice) -> dict:
             Invoice.DeliveryMethod.HAND: "In person",
         }.get(invoice.delivery_method, "")
     license_invoice = _is_ltf_license_invoice(invoice)
-    club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice
+    module_invoice = not license_invoice and _is_module_purchase_invoice(invoice)
+    club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice and not module_invoice
     license_rows = _license_rows(items) if license_invoice else []
+    module_rows = _module_rows(items) if module_invoice else []
     club_rows = _club_item_rows(items) if club_invoice else []
     order_delivered = order.status == Order.Status.PAID
     invoice_paid = invoice.status == Invoice.Status.PAID
-    if license_invoice:
+    if license_invoice or module_invoice:
         issuer = _issuer()
         recipient_name = invoice.club.name if invoice.club_id else ""
         recipient_lines = _club_lines(invoice.club)
-        total_qty = sum(row["quantity"] for row in license_rows)
+        total_qty = sum(row["quantity"] for row in (module_rows if module_invoice else license_rows))
         sepa_slot_qr = build_qr_base64("SEPA", fill_color="#1d4e89")
         wero_slot_qr = build_qr_base64("WERO", fill_color="#1d4e89")
     elif club_invoice:
@@ -484,8 +514,10 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "credited_total": invoice.credited_total(),
         "outstanding": invoice.outstanding(),
         "license_invoice": license_invoice,
+        "module_invoice": module_invoice,
         "club_invoice": club_invoice,
         "license_rows": license_rows,
+        "module_rows": module_rows,
         "club_rows": club_rows,
         "issuer": issuer,
         "recipient_name": recipient_name,
@@ -544,7 +576,7 @@ def render_invoice_pdf(invoice: Invoice, *, base_url: str) -> bytes | None:
     if HTML is None:
         return None
     context = build_invoice_context(invoice)
-    if context["license_invoice"]:
+    if context["license_invoice"] or context["module_invoice"]:
         template = "finance/ltf_license_invoice_pdf.html"
     elif context["club_invoice"]:
         template = "finance/club_member_invoice_pdf.html"
