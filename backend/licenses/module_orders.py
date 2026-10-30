@@ -101,6 +101,8 @@ def _coverage(club) -> dict:
             continue
         if purchase.status != ModulePurchase.Status.ACTIVE:
             continue
+        if purchase.switched_off_at is not None:
+            continue
         if purchase.ends_at is not None and purchase.ends_at < today:
             continue
         for module_id in module_ids:

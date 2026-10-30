@@ -82,6 +82,7 @@ from licenses.club_books import (
     ClubStatementView,
 )
 from licenses.bundle_catalog import ModuleBundleViewSet, ModuleSubscriptionSettingsView
+from licenses.module_overrides import ModulePurchaseAdminViewSet, ModulePurchaseOverrideViewSet
 from licenses.views import (
     ClubInvoiceViewSet,
     ClubPaymentViewSet,
@@ -150,6 +151,8 @@ router.register(r"license-types", LicenseTypeViewSet, basename="license-type")
 router.register(r"license-prices", LicensePriceViewSet, basename="license-price")
 router.register(r"club-fee-types", ClubFeeTypeViewSet, basename="club-fee-type")
 router.register(r"module-bundles", ModuleBundleViewSet, basename="module-bundle")
+router.register(r"module-purchases", ModulePurchaseAdminViewSet, basename="module-purchase-admin")
+router.register(r"module-purchase-overrides", ModulePurchaseOverrideViewSet, basename="module-purchase-override")
 router.register(r"club-fee-prices", ClubFeePriceViewSet, basename="club-fee-price")
 router.register(
     r"club-fee-billing-schedules",
