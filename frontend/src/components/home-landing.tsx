@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { apiRequest } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
-import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import { routeAfterSignIn } from "@/lib/dashboard-routing";
 import { getPublicStats, type PublicStats } from "@/lib/public-stats";
 import { getRoleNavDefs, type RoleNavDef } from "@/lib/role-nav";
 
@@ -19,6 +19,7 @@ type MeResponse = {
   first_name: string;
   role: string;
   is_superuser?: boolean;
+  last_desk?: { desk: string; club_id: number | null } | null;
 };
 
 export function HomeLanding() {
@@ -48,8 +49,10 @@ export function HomeLanding() {
         }
         setSignedIn(me);
         setDashboardHref(
-          getDashboardRouteForRole(me.role, locale, { isSuperuser: Boolean(me.is_superuser) }) ??
-            `/${locale}/dashboard`
+          routeAfterSignIn(me.role, locale, {
+            isSuperuser: Boolean(me.is_superuser),
+            lastDesk: me.last_desk ?? null,
+          }) ?? `/${locale}/dashboard`,
         );
       } catch {
         clearToken();

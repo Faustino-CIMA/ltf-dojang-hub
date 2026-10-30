@@ -78,6 +78,13 @@
     "forgotError": "Die Anfrage ist nicht durchgegangen. Versuchen Sie es erneut."
   },
   "Common": {
+    "deskSwitcherLabel": "Schreibtische",
+    "deskViewOnly": "Nur ansehen",
+    "deskSwitchTitle": "Einen anderen Schreibtisch öffnen",
+    "deskSwitchAsk": "Den Schreibtisch {desk} öffnen?",
+    "deskSwitchAskAdmin": "LTF Admin öffnen? Sie sehen alle Vereine, auch Minderjährige.",
+    "deskSwitchConfirm": "Schreibtisch öffnen",
+    "deskSwitchStay": "Hier bleiben",
     "requiredMark": "Pflichtfeld",
     "requiredLegend": "Pflichtfeld",
     "themeLabel": "Darstellung",

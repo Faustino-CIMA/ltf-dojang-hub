@@ -305,9 +305,15 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 else:
                     field = F(measurement_fields[sort_key])
                 directed = field.desc(nulls_last=True) if descending else field.asc(nulls_last=True)
-                return queryset.order_by(directed, "last_name", "first_name", "id")
+                from accounts.desks import scope_to_active_club
+
+                return scope_to_active_club(self.request, queryset, "club_id").order_by(
+                    directed, "last_name", "first_name", "id"
+                )
+        from accounts.desks import scope_to_active_club
+
         return apply_list_ordering(
-            queryset,
+            scope_to_active_club(self.request, queryset, "club_id"),
             ordering,
             allowed=allowed,
             default=("last_name", "first_name", "id"),

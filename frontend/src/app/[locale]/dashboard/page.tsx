@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { apiRequest } from "@/lib/api";
+import { defaultDesk, deskHeaderValue, rememberActiveDesk, type DeskChoice } from "@/lib/active-desk";
 import { logout } from "@/lib/auth-api";
 import { clearToken } from "@/lib/auth";
-import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import { routeAfterSignIn } from "@/lib/dashboard-routing";
+import { persistSelectedClubId } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 
@@ -17,6 +19,9 @@ type MeResponse = {
   email: string;
   role: string;
   is_superuser?: boolean;
+  home_club_id?: number | null;
+  desks?: DeskChoice[];
+  last_desk?: { desk: string; level: string; club_id: number | null } | null;
 };
 
 export default function DashboardPage() {
@@ -31,8 +36,21 @@ export default function DashboardPage() {
       try {
         const response = await apiRequest<MeResponse>("/api/auth/me/");
         setUser(response);
-        const targetRoute = getDashboardRouteForRole(response.role, locale, {
+        const chosen = defaultDesk(
+          response.desks ?? [],
+          response.last_desk ?? null,
+          response.role,
+          response.home_club_id ?? null,
+        );
+        if (chosen) {
+          rememberActiveDesk(deskHeaderValue(chosen));
+          if (chosen.club_id) {
+            persistSelectedClubId(chosen.club_id);
+          }
+        }
+        const targetRoute = routeAfterSignIn(response.role, locale, {
           isSuperuser: Boolean(response.is_superuser),
+          lastDesk: response.last_desk ?? null,
         });
         if (targetRoute) {
           router.push(targetRoute);

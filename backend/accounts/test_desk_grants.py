@@ -143,3 +143,29 @@ class DeskGrantTests(APITestCase):
         self.assertTrue(OpsAuditLog.objects.filter(action="desk.switched", actor=self.admin).exists())
         record_desk_switch(self.admin, desk=DeskGrant.Desk.LTF_ADMIN)
         self.assertEqual(OpsAuditLog.objects.filter(action="desk.switched", actor=self.admin).count(), 1)
+
+    def test_me_lists_one_row_per_club_and_select_audits_ltf_admin(self):
+        self.client.force_authenticate(user=self.club_admin)
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, status.HTTP_200_OK)
+        clubs = {row["club_id"] for row in me.data["desks"]}
+        self.assertEqual(clubs, {self.club_a.id, self.club_b.id})
+        self.client.force_authenticate(user=self.admin)
+        chosen = self.client.post("/api/auth/desk/", {"desk": "ltf_admin"}, format="json")
+        self.assertEqual(chosen.status_code, status.HTTP_200_OK, chosen.content)
+        self.assertEqual(chosen.data["level"], "full")
+        audit = OpsAuditLog.objects.filter(action="desk.switched", actor=self.admin).latest("id")
+        self.assertTrue(audit.metadata["into_ltf_admin"])
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, User.Roles.LTF_ADMIN)
+        refused = self.client.post("/api/auth/desk/", {"desk": "ltf_finance"}, format="json")
+        self.assertEqual(refused.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_club_list_narrows_to_the_active_club_desk(self):
+        self.client.force_authenticate(user=self.club_admin)
+        everything = self.client.get("/api/clubs/")
+        self.assertEqual(everything.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(everything.data), 2)
+        one = self.client.get("/api/clubs/", HTTP_X_DESK=f"club_admin:{self.club_a.id}")
+        self.assertEqual(one.status_code, status.HTTP_200_OK, one.content)
+        self.assertEqual([row["id"] for row in one.data], [self.club_a.id])

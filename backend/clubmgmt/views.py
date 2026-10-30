@@ -674,7 +674,9 @@ class CommitteeViewSet(viewsets.ModelViewSet):
             qs = qs.filter(club_id=club_id)
         elif scope == Committee.Scope.FEDERATION:
             qs = qs.filter(scope=Committee.Scope.FEDERATION)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         scope = serializer.validated_data.get("scope")
@@ -715,7 +717,9 @@ class CommitteeMandateViewSet(viewsets.ModelViewSet):
         committee_id = self.request.query_params.get("committee")
         if committee_id:
             qs = qs.filter(committee_id=committee_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "committee__club_id")
 
     def perform_create(self, serializer):
         committee = serializer.validated_data.get("committee")

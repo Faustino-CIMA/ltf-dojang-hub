@@ -78,6 +78,13 @@
     "forgotError": "La demande n'est pas passée. Réessayez."
   },
   "Common": {
+    "deskSwitcherLabel": "Bureaux",
+    "deskViewOnly": "Lecture seule",
+    "deskSwitchTitle": "Ouvrir un autre bureau",
+    "deskSwitchAsk": "Ouvrir le bureau {desk} ?",
+    "deskSwitchAskAdmin": "Ouvrir l'administration LTF ? Vous verrez tous les clubs, y compris les mineurs.",
+    "deskSwitchConfirm": "Ouvrir le bureau",
+    "deskSwitchStay": "Rester ici",
     "requiredMark": "obligatoire",
     "requiredLegend": "Obligatoire",
     "themeLabel": "Thème",

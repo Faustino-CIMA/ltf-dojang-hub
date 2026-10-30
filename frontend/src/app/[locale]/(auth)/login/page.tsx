@@ -9,8 +9,10 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { persistSelectedClubId } from "@/components/club-selection-provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { defaultDesk, deskHeaderValue, rememberActiveDesk } from "@/lib/active-desk";
 import { login } from "@/lib/auth-api";
 import { setToken } from "@/lib/auth";
+import { routeAfterSignIn } from "@/lib/dashboard-routing";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
@@ -60,8 +62,24 @@ export default function LoginPage() {
     try {
       const response = await login({ username, password });
       setToken(response.token);
-      persistSelectedClubId(null);
-      router.push(`/${locale}/dashboard`);
+      const chosen = defaultDesk(
+        response.desks ?? [],
+        response.last_desk ?? null,
+        response.user.role,
+        response.user.home_club_id ?? null,
+      );
+      if (chosen) {
+        rememberActiveDesk(deskHeaderValue(chosen));
+        persistSelectedClubId(chosen.club_id);
+      } else {
+        persistSelectedClubId(null);
+      }
+      router.push(
+        routeAfterSignIn(response.user.role, locale, {
+          isSuperuser: Boolean(response.user.is_superuser),
+          lastDesk: response.last_desk ?? null,
+        }) ?? `/${locale}/dashboard`,
+      );
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "";
       const normalized = rawMessage.toLowerCase();

@@ -378,8 +378,10 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(search_filter)
 
         ordering = self.request.query_params.get("ordering") if self.action == "list" else None
+        from accounts.desks import scope_to_active_club
+
         return apply_list_ordering(
-            queryset,
+            scope_to_active_club(self.request, queryset, "club_id"),
             ordering,
             allowed={
                 "member": ("member__last_name", "member__first_name", "id"),
@@ -1603,11 +1605,14 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
     permission_classes = [permissions.IsAuthenticated]
 
     def _base_queryset(self):
+        from accounts.desks import scope_to_active_club
+
         queryset = (
             Order.objects.select_related("club", "member", "invoice")
             .annotate(item_quantity=Coalesce(Sum("items__quantity"), 0))
             .filter(club__admins=self.request.user)
         )
+        queryset = scope_to_active_club(self.request, queryset, "club_id")
         if self.action != "list":
             queryset = queryset.prefetch_related("items__license__member")
         return queryset
@@ -2415,7 +2420,9 @@ class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
         queryset = _apply_invoice_issue_filter(
             queryset, self.request.query_params.get("issue")
         )
-        return _order_invoice_queryset(self, queryset)
+        from accounts.desks import scope_to_active_club
+
+        return _order_invoice_queryset(self, scope_to_active_club(self.request, queryset, "club_id"))
 
     def get_permissions(self):
         return [IsClubAdmin()]

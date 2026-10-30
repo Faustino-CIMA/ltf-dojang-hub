@@ -9,9 +9,21 @@ import type { LucideIcon } from "lucide-react";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
-import { logout } from "@/lib/auth-api";
+import {
+  defaultDesk,
+  deskHeaderValue,
+  grantForPath,
+  headerMatchesPath,
+  pathNeedsDesk,
+  readActiveDeskHeader,
+  rememberActiveDesk,
+  clearActiveDesk,
+  type DeskChoice,
+} from "@/lib/active-desk";
+import { logout, selectDesk } from "@/lib/auth-api";
 import { clearToken, getToken } from "@/lib/auth";
-import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import { getDashboardRouteForRole, routeForDesk } from "@/lib/dashboard-routing";
+import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
 import {
   ALL_CLUBS_SELECT_VALUE,
   allowsAllClubsSelection,
@@ -62,6 +74,9 @@ type AuthMeResponse = {
   role: string;
   is_superuser?: boolean;
   demo_mode?: boolean;
+  home_club_id?: number | null;
+  desks?: DeskChoice[];
+  last_desk?: { desk: string; level: string; club_id: number | null } | null;
 };
 
 function pathMatches(pathname: string, href: string, matchMode: AppNavItem["matchMode"]) {
@@ -107,6 +122,8 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [collapsed, setCollapsed] = useState(false);
   const [collapseReady, setCollapseReady] = useState(false);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
+  const [activeHeader, setActiveHeader] = useState<string | null>(null);
+  const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
   const allowAllClubs = allowsAllClubsSelection(pathname);
   const visibleClubId = resolveAssignedClubId(clubs, selectedClubId);
@@ -152,6 +169,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
         const response = await apiRequest<AuthMeResponse>("/api/auth/me/");
         if (!cancelled) {
           setMe(response);
+          const desks = response.desks ?? [];
+          if (!readActiveDeskHeader()) {
+            const chosen = defaultDesk(desks, response.last_desk ?? null, response.role, response.home_club_id ?? null);
+            if (chosen) {
+              rememberActiveDesk(deskHeaderValue(chosen));
+              if (chosen.club_id) {
+                persistSelectedClubId(chosen.club_id);
+              }
+            }
+          }
+          setActiveHeader(readActiveDeskHeader());
         }
       } catch {
         if (!cancelled) {
@@ -168,9 +196,47 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const handleSignOut = async () => {
     await logout();
     clearToken();
+    clearActiveDesk();
     persistSelectedClubId(null);
     setMe(null);
     router.push(`/${locale}/login`);
+  };
+
+  const desks = me?.desks ?? [];
+  const activeDesk = desks.find((desk) => deskHeaderValue(desk) === (activeHeader ?? readActiveDeskHeader())) ?? null;
+  const needed = pathNeedsDesk(pathname);
+  const neededGrant = grantForPath(desks, needed);
+  const askToSwitch =
+    desks.length > 1 &&
+    neededGrant != null &&
+    !headerMatchesPath(activeHeader ?? readActiveDeskHeader(), needed);
+
+  useEffect(() => {
+    setPendingDesk(askToSwitch ? neededGrant : null);
+  }, [askToSwitch, neededGrant]);
+
+  const deskNames: Record<string, string> = {
+    ltf_admin: t("roleLtfAdmin"),
+    ltf_finance: t("roleLtfFinance"),
+    club_admin: t("roleClubAdmin"),
+    coach: t("roleCoach"),
+    member: t("roleMember"),
+    ops: t("roleSuperuser"),
+  };
+
+  const switchTo = async (desk: DeskChoice) => {
+    const saved = await selectDesk(desk);
+    const header = deskHeaderValue(saved);
+    rememberActiveDesk(header);
+    setActiveHeader(header);
+    if (saved.club_id) {
+      setSelectedClubId(saved.club_id);
+    }
+    const route = routeForDesk(saved.desk, locale);
+    if (route && pathname && !pathname.startsWith(route)) {
+      router.push(route);
+    }
+    setPendingDesk(null);
   };
 
   const displayName = me?.first_name?.trim() || me?.username || t("welcomeFallbackName");
@@ -383,6 +449,9 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                   <h1 className="text-title truncate text-foreground">{title}</h1>
                 )}
                 {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {activeDesk?.level === "read_only" ? (
+                  <p className="mt-0.5 text-meta text-muted">{t("deskViewOnly")}</p>
+                ) : null}
               </div>
             </div>
 
@@ -407,6 +476,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 <p className="rounded-[var(--radius-control)] border border-border bg-secondary px-2.5 py-1 text-meta text-foreground">
                   {t("demoBadge")}
                 </p>
+              ) : null}
+
+              {desks.length > 1 ? (
+                <DeskSwitcher
+                  desks={desks}
+                  active={activeDesk}
+                  names={deskNames}
+                  viewOnlyLabel={t("deskViewOnly")}
+                  menuLabel={t("deskSwitcherLabel")}
+                  onSelect={(desk) => void switchTo(desk)}
+                />
               ) : null}
 
               {me ? (
@@ -446,7 +526,26 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
               : "px-[var(--page-padding-x)] py-[var(--page-padding-y)]"
           )}
         >
-          {isWorkspace ? (
+          {pendingDesk ? (
+            <DeskSwitchAsk
+              title={t("deskSwitchTitle")}
+              message={
+                pendingDesk.desk === "ltf_admin"
+                  ? t("deskSwitchAskAdmin")
+                  : t("deskSwitchAsk", { desk: deskLabel(pendingDesk, deskNames) })
+              }
+              confirmLabel={t("deskSwitchConfirm")}
+              stayLabel={t("deskSwitchStay")}
+              onConfirm={() => void switchTo(pendingDesk)}
+              onStay={() => {
+                const home = activeDesk ? routeForDesk(activeDesk.desk, locale) : getDashboardRouteForRole(me?.role ?? "", locale);
+                setPendingDesk(null);
+                if (home) {
+                  router.push(home);
+                }
+              }}
+            />
+          ) : isWorkspace ? (
             children
           ) : (
             <div className="w-full">{children}</div>

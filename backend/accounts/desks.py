@@ -180,6 +180,7 @@ def record_desk_switch(user, *, desk: str, club_id: int | None = None) -> DeskPr
                 "desk": desk,
                 "club_id": club_id,
                 "level": None if grant is None else grant.level,
+                "into_ltf_admin": desk == DeskGrant.Desk.LTF_ADMIN,
             },
             target_id=str(preference.pk),
         )
@@ -282,6 +283,58 @@ def sync_legacy_grants(user) -> None:
             _end_grant(grant, today)
     for desk, club_id in desired:
         ensure_legacy_grant(user, desk, club_id, today)
+
+
+def active_club_id(request) -> int | None:
+    """Club named by the active club desk. Empty when the request did not name one."""
+    grant = getattr(request, "desk_grant", None)
+    if grant is None or grant.desk not in CLUB_DESKS:
+        return None
+    return grant.club_id
+
+
+def scope_to_active_club(request, queryset, lookup: str = "club_id"):
+    club_id = active_club_id(request)
+    if not club_id:
+        return queryset
+    return queryset.filter(**{lookup: club_id})
+
+
+def open_desk_summary(user) -> dict:
+    """Grants still open, and the last chosen desk when that grant is still valid."""
+    today = _today()
+    grants = list(
+        DeskGrant.objects.filter(user_id=user.id, valid_from__lte=today)
+        .filter(Q(valid_until__isnull=True) | Q(valid_until__gt=today))
+        .select_related("club")
+        .order_by("desk", "club__name", "id")
+    )
+    chosen: dict[tuple, DeskGrant] = {}
+    for grant in grants:
+        key = (grant.desk, grant.club_id)
+        current = chosen.get(key)
+        if current is None or (
+            current.level != DeskGrant.Level.FULL and grant.level == DeskGrant.Level.FULL
+        ):
+            chosen[key] = grant
+    desks = [
+        {
+            "desk": grant.desk,
+            "level": grant.level,
+            "club_id": grant.club_id,
+            "club_name": grant.club.name if grant.club_id else "",
+        }
+        for grant in chosen.values()
+    ]
+    preference = DeskPreference.objects.filter(user_id=user.id).first()
+    last = None
+    if preference is not None:
+        match = chosen.get((preference.desk, preference.club_id))
+        if match is None and preference.desk not in CLUB_DESKS:
+            match = chosen.get((preference.desk, None))
+        if match is not None:
+            last = {"desk": match.desk, "level": match.level, "club_id": match.club_id}
+    return {"desks": desks, "last_desk": last}
 
 
 def audit_read_only_export(request) -> None:

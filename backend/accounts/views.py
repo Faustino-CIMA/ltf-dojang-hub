@@ -17,7 +17,8 @@ from members.services import clear_member_profile_picture
 from licenses.models import License, LicenseHistoryEvent
 
 from .email_utils import build_password_reset_url, send_password_reset_email
-from .models import AccountSetupInvite, User
+from .desks import open_desk_summary, record_desk_switch
+from .models import AccountSetupInvite, DeskGrant, User
 from .setup_invites import NEUTRAL_DETAIL, account_setup_assignments, invite_for_token, invite_is_open
 from .serializers import (
     ConsentSerializer,
@@ -86,7 +87,9 @@ class LoginView(views.APIView):
             user=user,
         )
         run_success_detectors(request, user=user, ip=ip)
-        return response.Response({"token": token.key, "user": UserSerializer(user).data})
+        return response.Response(
+            {"token": token.key, "user": UserSerializer(user).data, **open_desk_summary(user)}
+        )
 
 
 @extend_schema(
@@ -118,7 +121,41 @@ class MeView(views.APIView):
     serializer_class = EmptySerializer
 
     def get(self, request):
-        return response.Response(UserSerializer(request.user).data)
+        payload = UserSerializer(request.user).data
+        payload.update(open_desk_summary(request.user))
+        return response.Response(payload)
+
+
+class DeskSelectView(views.APIView):
+    """Remember the desk the person chose. Does not grant a new one."""
+
+    def post(self, request):
+        desk = str(request.data.get("desk") or "").strip()
+        raw_club = request.data.get("club_id")
+        club_id = None
+        if raw_club not in (None, ""):
+            try:
+                club_id = int(raw_club)
+            except (TypeError, ValueError):
+                return response.Response({"detail": "desk_not_granted"}, status=status.HTTP_403_FORBIDDEN)
+        if desk not in set(DeskGrant.Desk.values) and desk != "ops":
+            return response.Response({"detail": "desk_not_granted"}, status=status.HTTP_403_FORBIDDEN)
+        from rest_framework.exceptions import PermissionDenied
+
+        try:
+            preference = record_desk_switch(request.user, desk=desk, club_id=club_id)
+        except PermissionDenied as exc:
+            return response.Response({"detail": exc.detail}, status=status.HTTP_403_FORBIDDEN)
+        summary = open_desk_summary(request.user)
+        current = next(
+            (
+                row
+                for row in summary["desks"]
+                if row["desk"] == preference.desk and row["club_id"] == preference.club_id
+            ),
+            {"desk": preference.desk, "level": DeskGrant.Level.FULL, "club_id": preference.club_id, "club_name": ""},
+        )
+        return response.Response(current)
 
 
 @extend_schema(
