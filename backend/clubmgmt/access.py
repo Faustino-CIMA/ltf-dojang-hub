@@ -44,7 +44,11 @@ class CompetitionModulePermission(IsClubModuleAssigned):
 
 
 def is_ltf_manager(user) -> bool:
-    return bool(user and user.is_authenticated and (user.is_superuser or user.role == "ltf_admin"))
+    if user and user.is_authenticated and (user.is_superuser or user.role == "ltf_admin"):
+        return True
+    from accounts.desks import current_desk
+
+    return current_desk() == "ltf_admin"
 
 
 def is_club_admin_of(user, club_id: int | None) -> bool:
