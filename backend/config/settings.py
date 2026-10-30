@@ -130,6 +130,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "accounts.desk_middleware.DeskExportAuditMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -425,6 +426,15 @@ CORS_ALLOWED_ORIGINS = split_csv(
     )
 )
 CORS_EXPOSE_HEADERS = ["Content-Disposition", "X-Access-Links-Skipped"]
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-desk",
+]
 CORS_ALLOWED_ORIGIN_REGEXES = split_regex_list(
     config(
         "CORS_ALLOWED_ORIGIN_REGEXES",
