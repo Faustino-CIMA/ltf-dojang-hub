@@ -48,14 +48,19 @@ class NationalTeamAccess(BasePermission):
         return user.role in ("club_admin", "coach") and getattr(view, "club_read", False)
 
 
-def _selection_queryset(user):
+def _selection_queryset(user, request=None):
     queryset = SquadSelection.objects.select_related(
         "member", "member__club", "squad", "season"
     )
     if user.role in ("ltf_admin", "ltf_finance"):
         return queryset
     if user.role in ("club_admin", "coach"):
-        return queryset.filter(member__club__admins=user)
+        queryset = queryset.filter(member__club__admins=user)
+        if request is not None:
+            from accounts.desks import scope_to_active_club
+
+            queryset = scope_to_active_club(request, queryset, "member__club_id")
+        return queryset
     return queryset.none()
 
 
@@ -122,7 +127,7 @@ class SelectionViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        queryset = _selection_queryset(self.request.user)
+        queryset = _selection_queryset(self.request.user, self.request)
         season_id = self.request.query_params.get("season")
         if season_id:
             queryset = queryset.filter(season_id=season_id)

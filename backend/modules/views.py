@@ -43,6 +43,11 @@ class PreviewModuleView(views.APIView):
         administered = set(user.clubs_administered.values_list("id", flat=True))
         if role == "coach":
             administered.update(user.clubs_trained.values_list("id", flat=True))
+        from accounts.desks import current_active_club
+
+        active = current_active_club()
+        if active is not None:
+            administered = {club_id for club_id in administered if club_id == active}
         if club_id is None:
             if len(administered) == 1:
                 club_id = next(iter(administered))

@@ -7,6 +7,8 @@ when a grant for that desk is still valid. User.role is never rewritten here.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -14,6 +16,7 @@ from rest_framework.exceptions import PermissionDenied
 from .models import DeskGrant, DeskPreference, User
 
 HEADER = "HTTP_X_DESK"
+_active_club: ContextVar[int | None] = ContextVar("ltf_active_club", default=None)
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CLUB_DESKS = frozenset({DeskGrant.Desk.CLUB_ADMIN, DeskGrant.Desk.COACH})
 NAMED_DESKS = frozenset(
@@ -24,6 +27,18 @@ NAMED_DESKS = frozenset(
         "ops",
     }
 )
+
+
+def bind_active_club(club_id: int | None):
+    return _active_club.set(club_id)
+
+
+def reset_active_club(token) -> None:
+    _active_club.reset(token)
+
+
+def current_active_club() -> int | None:
+    return _active_club.get()
 
 
 def _today():
@@ -135,6 +150,8 @@ def bind_request_desk(request, user) -> None:
         return
     request.desk_grant = grant
     _django_request(request).desk_grant = grant
+    if grant.desk in CLUB_DESKS and grant.club_id:
+        _active_club.set(grant.club_id)
     if grant.level == DeskGrant.Level.READ_ONLY and request.method not in SAFE_METHODS:
         _refuse(
             request,

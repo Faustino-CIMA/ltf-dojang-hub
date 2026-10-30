@@ -52,6 +52,11 @@ def is_club_admin_of(user, club_id: int | None) -> bool:
         return False
     if user.role != "club_admin":
         return False
+    from accounts.desks import current_active_club
+
+    active = current_active_club()
+    if active is not None and int(club_id) != int(active):
+        return False
     return user.clubs_administered.filter(id=club_id).exists()
 
 

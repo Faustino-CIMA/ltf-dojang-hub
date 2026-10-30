@@ -1466,6 +1466,11 @@ class PayconiqPaymentViewSet(viewsets.GenericViewSet):
         if user.role in ["ltf_finance", "ltf_admin"]:
             return True
         if user.role == "club_admin":
+            from accounts.desks import active_club_id
+
+            active = active_club_id(self.request)
+            if active is not None and order.club_id != active:
+                return False
             return order.club.admins.filter(id=user.id).exists()
         return False
 
@@ -2526,7 +2531,9 @@ class ClubPaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
         queryset = _apply_payment_issue_filter(
             queryset, self.request.query_params.get("issue")
         )
-        return queryset.order_by("-created_at")
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, queryset, "order__club_id").order_by("-created_at")
 
     def get_permissions(self):
         return [IsClubAdmin()]
@@ -2550,6 +2557,11 @@ class InvoicePdfView(APIView):
         if user.role == "ltf_finance" and invoice.order.ledger != Order.Ledger.FEDERATION:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         if user.role == "club_admin" and not invoice.club.admins.filter(id=user.id).exists():
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        from accounts.desks import active_club_id
+
+        active = active_club_id(request)
+        if active is not None and invoice.club_id != active:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         pdf_file = render_invoice_pdf(invoice, base_url=request.build_absolute_uri("/"))
         if not pdf_file:
