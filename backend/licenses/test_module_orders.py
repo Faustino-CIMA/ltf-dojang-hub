@@ -344,3 +344,62 @@ class ModuleOrderTests(APITestCase):
         self.assertFalse(removed.data["is_active"])
         self.assertTrue(removed.data["has_invoices"])
         self.assertTrue(ModuleBundle.objects.filter(id=self.bundle_id, is_active=False).exists())
+
+    def test_module_purchase_invoice_uses_the_federation_letterhead(self):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        from licenses.models import Order, OrderItem
+        from licenses.pdf_utils import build_invoice_context, render_invoice_pdf
+
+        self.client.force_authenticate(user=self.club_admin)
+        ordered = self.client.post(
+            f"/api/clubs/{self.club.id}/module-orders/",
+            {"bundles": [self.bundle_id], "modules": [EVENT_CALENDAR_MODULE_ID]},
+            format="json",
+        )
+        self.assertEqual(ordered.status_code, status.HTTP_201_CREATED, ordered.content)
+        invoice = Invoice.objects.get(id=ordered.data["invoice_id"])
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["module_invoice"])
+        self.assertFalse(context["license_invoice"])
+        self.assertFalse(context["club_invoice"])
+        self.assertEqual(len(context["module_rows"]), 2)
+        bundle_row = next(row for row in context["module_rows"] if "Competition pack" in row["label"])
+        self.assertEqual(bundle_row["label"], "Competition pack — Club management, Competition")
+        self.assertEqual(bundle_row["quantity"], 1)
+        self.assertEqual(bundle_row["line_total"], "100,00 €")
+        self.assertEqual(context["total_amount"], "140,00 €")
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("Luxembourg Taekwondo Federation", text)
+        self.assertIn("Subject:", text)
+        self.assertIn("Competition pack", text)
+        self.assertIn("100,00 €", text)
+        self.assertIn("140,00 €", text)
+        self.assertNotIn("License ID", text)
+        self.assertNotIn("LTF Dojang Hub", text)
+
+        fee_order = Order.objects.create(club=self.club, ledger=Order.Ledger.FEDERATION, status=Order.Status.PENDING)
+        OrderItem.objects.create(
+            order=fee_order,
+            description="Club management 2026",
+            price_snapshot=Decimal("80.00"),
+            quantity=1,
+            charged_amount=Decimal("80.00"),
+        )
+        fee_invoice = Invoice.objects.create(
+            order=fee_order,
+            club=self.club,
+            status=Invoice.Status.ISSUED,
+            subtotal=Decimal("80.00"),
+            total=Decimal("80.00"),
+            issued_at=timezone.now(),
+        )
+        fee_context = build_invoice_context(fee_invoice)
+        self.assertFalse(fee_context["module_invoice"])
+        self.assertFalse(fee_context["license_invoice"])
+        fee_pdf = render_invoice_pdf(fee_invoice, base_url="http://localhost")
+        fee_text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(fee_pdf)).pages)
+        self.assertIn("LTF Dojang Hub", fee_text)

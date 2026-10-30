@@ -24,9 +24,12 @@ import {
   getFinanceInvoice,
   getFinanceMembers,
   getFinanceOrder,
+  modulePurchaseLineTotal,
+  modulePurchaseUnitPrice,
   orderItemLabel,
   orderItemMemberDisplay,
   orderItemsAreClubFees,
+  orderItemsAreModulePurchases,
   orderItemYearLabel,
   sendFinanceInvoiceReminder,
 } from "@/lib/ltf-finance-api";
@@ -38,6 +41,8 @@ type InvoiceItemRow = {
   ltfLicenseId: string;
   year: string;
   quantity: number;
+  unitPrice: string;
+  lineTotal: string;
 };
 
 export default function LtfFinanceInvoiceDetailPage() {
@@ -139,6 +144,8 @@ export default function LtfFinanceInvoiceDetailPage() {
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
         quantity: item.quantity,
+        unitPrice: modulePurchaseUnitPrice(item, order.currency),
+        lineTotal: modulePurchaseLineTotal(item, order.currency),
       };
     });
   }, [order, memberById]);
@@ -154,8 +161,16 @@ export default function LtfFinanceInvoiceDetailPage() {
   const canRecord = invoice
     ? invoice.status !== "paid" && invoice.status !== "void" && outstanding > 0
     : false;
+  const modulePurchase = orderItemsAreModulePurchases(order?.items);
   const feeOnly = orderItemsAreClubFees(order?.items);
-  const columns = feeOnly
+  const columns = modulePurchase
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: common("qtyLabel") },
+        { key: "unitPrice", header: t("invoiceUnitLabel") },
+        { key: "lineTotal", header: t("invoiceLineTotalLabel") },
+      ]
+    : feeOnly
     ? [
         { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: common("qtyLabel") },

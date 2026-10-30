@@ -177,8 +177,9 @@ class ModuleRenewalJobTests(APITestCase):
         stale = self.client.post("/api/module-renewals/", {"token": self._token(purchase, "continue")}, format="json")
         self.assertEqual(stale.status_code, status.HTTP_400_BAD_REQUEST)
 
+    @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
     @patch("licenses.module_renewals.send_resend_email", return_value=(True, ""))
-    def test_continue_shares_one_invoice_and_payment_extends_the_old_end_date(self, send):
+    def test_continue_shares_one_invoice_and_payment_extends_the_old_end_date(self, send, invoice_send):
         other = ClubFeeType.objects.create(
             name="Competition",
             code="competition-renew",
@@ -200,6 +201,14 @@ class ModuleRenewalJobTests(APITestCase):
         invoice = Invoice.objects.get()
         self.assertEqual(invoice.order.items.count(), 2)
         self.assertEqual(invoice.total, Decimal("120.00"))
+        self.assertTrue(invoice_send.called)
+        _to, subject, _html, text = invoice_send.call_args[0]
+        attachments = invoice_send.call_args.kwargs["attachments"]
+        self.assertIn(invoice.invoice_number, subject)
+        self.assertIn("Pay by", text)
+        self.assertIn("The PDF is attached", text)
+        self.assertEqual(attachments[0]["filename"], f"invoice_{invoice.invoice_number}.pdf")
+        self.assertTrue(attachments[0]["content"])
         old_end = first.ends_at
         self.client.force_authenticate(user=self.finance)
         with patch("licenses.tasks.send_invoice_email.delay"):

@@ -4,4 +4,6 @@
 {{ copy.total }}
 
 {{ copy.pdf }}
-{{ copy.thanks }}
+{% if copy.note %}{{ copy.note }}
+
+{% endif %}{{ copy.thanks }}

@@ -61,6 +61,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     member_first_name = serializers.SerializerMethodField()
     member_last_name = serializers.SerializerMethodField()
     member_ltf_licenseid = serializers.SerializerMethodField()
+    module_purchase = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -79,6 +80,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "member_first_name",
             "member_last_name",
             "member_ltf_licenseid",
+            "module_purchase",
         ]
 
     def get_member_id(self, obj: OrderItem):
@@ -92,6 +94,24 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_member_ltf_licenseid(self, obj: OrderItem):
         return obj.license.member.ltf_licenseid if obj.license_id else ""
+
+    def get_module_purchase(self, obj: OrderItem) -> bool:
+        order = obj.order
+        cached = getattr(order, "_module_purchase_item_ids", None)
+        if cached is None:
+            from django.db.models import Q
+
+            from .models import ModulePurchase
+
+            cached = set(
+                ModulePurchase.objects.filter(
+                    Q(order_item__order_id=order.id) | Q(renewal_order_item__order_id=order.id)
+                ).values_list("order_item_id", "renewal_order_item_id")
+            )
+            item_ids = {item_id for pair in cached for item_id in pair if item_id}
+            order._module_purchase_item_ids = item_ids
+            cached = item_ids
+        return obj.id in cached
 
 
 class CreditNoteSerializer(serializers.ModelSerializer):

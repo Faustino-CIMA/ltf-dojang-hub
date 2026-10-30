@@ -318,7 +318,7 @@ def _dispatch_invoice_email(
     recipients: list[str] | None = None,
     *,
     balance: bool = False,
-) -> None:
+) -> bool:
     recipient_list = invoice_recipient_emails(invoice, recipients)
     if not recipient_list:
         FinanceAuditLog.objects.create(
@@ -331,7 +331,7 @@ def _dispatch_invoice_email(
             invoice=invoice,
             metadata={"reason": "no_recipients"},
         )
-        return
+        return True
 
     pdf_bytes = render_invoice_pdf(invoice, base_url=settings.FRONTEND_BASE_URL)
     if not pdf_bytes:
@@ -345,7 +345,7 @@ def _dispatch_invoice_email(
             invoice=invoice,
             metadata={"reason": "pdf_generation_failed"},
         )
-        return
+        return False
 
     context = build_invoice_context(invoice)
     # The invoice PDF prints total_amount. outstanding() is already 0 when a
@@ -356,6 +356,7 @@ def _dispatch_invoice_email(
         "ready": copy["ready"].format(number=invoice.invoice_number),
         "total": copy["total"].format(total=amount),
         "pdf": copy["pdf"],
+        "note": copy.get("note") or "",
         "thanks": copy["thanks"],
     }
     html = render_to_string("finance/invoice_email.html", context)
@@ -364,6 +365,7 @@ def _dispatch_invoice_email(
         "filename": f"invoice_{invoice.invoice_number}.pdf",
         "content": base64.b64encode(pdf_bytes).decode("ascii"),
     }
+    sent = True
     for recipient in recipient_list:
         success, error = send_resend_email(
             recipient,
@@ -386,6 +388,8 @@ def _dispatch_invoice_email(
                 "error": error if not success else "",
             },
         )
+        sent = sent and success
+    return sent
 
 
 @shared_task

@@ -242,7 +242,7 @@ COPY = {
         "stop_subject": "These modules will stop",
         "stop_body": "{name} stays on until {date}, then switches off. We will not ask again.",
         "invoice_subject": "Renewal invoice {number}",
-        "invoice_body": "Invoice {number} for {amount} is ready. Pay by {last_day}. The modules stay on until that day.",
+        "invoice_body": "Pay by {last_day}. The modules stay on until that day.",
         "warning_subject": "Renewal invoice {number} is still unpaid",
         "warning_body": "Pay invoice {number} by {last_day}. The next morning the modules switch off.",
         "off_subject": "Modules switched off",
@@ -268,7 +268,7 @@ COPY = {
         "stop_subject": "Ces modules vont s'arrêter",
         "stop_body": "{name} reste actif jusqu'au {date}, puis s'éteint. Nous ne redemanderons pas.",
         "invoice_subject": "Facture de renouvellement {number}",
-        "invoice_body": "La facture {number} de {amount} est prête. Payez avant le {last_day}. Les modules restent actifs jusqu'à ce jour.",
+        "invoice_body": "Payez avant le {last_day}. Les modules restent actifs jusqu'à ce jour.",
         "warning_subject": "La facture de renouvellement {number} n'est pas payée",
         "warning_body": "Payez la facture {number} avant le {last_day}. Le lendemain matin, les modules s'éteignent.",
         "off_subject": "Modules éteints",
@@ -294,7 +294,7 @@ COPY = {
         "stop_subject": "Diese Module werden gestoppt",
         "stop_body": "{name} bleibt bis {date} an und schaltet dann ab. Wir fragen nicht noch einmal.",
         "invoice_subject": "Verlängerungsrechnung {number}",
-        "invoice_body": "Rechnung {number} über {amount} ist bereit. Zahlen Sie bis {last_day}. Die Module bleiben bis zu diesem Tag an.",
+        "invoice_body": "Zahlen Sie bis {last_day}. Die Module bleiben bis zu diesem Tag an.",
         "warning_subject": "Verlängerungsrechnung {number} ist noch offen",
         "warning_body": "Zahlen Sie Rechnung {number} bis {last_day}. Am nächsten Morgen schalten die Module ab.",
         "off_subject": "Module ausgeschaltet",
@@ -320,7 +320,7 @@ COPY = {
         "stop_subject": "Dës Moduler ginn gestoppt",
         "stop_body": "{name} bleift bis {date} un an geet dann aus. Mir froen net nach eng Kéier.",
         "invoice_subject": "Verlängerungsrechnung {number}",
-        "invoice_body": "D'Rechnung {number} iwwer {amount} ass prett. Bezuelt bis {last_day}. D'Moduler bleiwen bis deen Dag un.",
+        "invoice_body": "Bezuelt bis {last_day}. D'Moduler bleiwen bis deen Dag un.",
         "warning_subject": "Verlängerungsrechnung {number} ass nach op",
         "warning_body": "Bezuelt d'Rechnung {number} bis {last_day}. De Moien drop ginn d'Moduler aus.",
         "off_subject": "Moduler ausgeschalt",
@@ -470,7 +470,14 @@ def _create_renewal_invoices(purchases: list[ModulePurchase], today) -> None:
                     "amount": f"{_money(subtotal)} EUR",
                     "last_day": last_day.isoformat(),
                 }
-                if not _send(club, copy["invoice_subject"].format(**values), copy["invoice_body"].format(**values)):
+                from clubs.communications import invoice_copy_for_club
+
+                from .tasks import _dispatch_invoice_email
+
+                mail = dict(invoice_copy_for_club(club))
+                mail["subject"] = copy["invoice_subject"]
+                mail["note"] = copy["invoice_body"].format(**values)
+                if not _dispatch_invoice_email(invoice, mail):
                     raise RuntimeError("email failed")
             except Exception:
                 logger.exception("Module renewal invoice failed")
