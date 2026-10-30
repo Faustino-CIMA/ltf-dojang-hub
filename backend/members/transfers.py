@@ -49,10 +49,21 @@ class TransferError(Exception):
 
 
 def _clubs_administered(user: User):
-    return Club.objects.filter(admins=user).distinct()
+    from accounts.desks import current_active_club
+
+    queryset = Club.objects.filter(admins=user).distinct()
+    active = current_active_club()
+    if active is not None:
+        queryset = queryset.filter(pk=active)
+    return queryset
 
 
 def _user_admins_club(user: User, club: Club) -> bool:
+    from accounts.desks import current_active_club
+
+    active = current_active_club()
+    if active is not None and club.id != active:
+        return False
     return club.admins.filter(id=user.id).exists()
 
 

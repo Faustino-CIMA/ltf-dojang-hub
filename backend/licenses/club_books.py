@@ -149,9 +149,14 @@ class ClubExpenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Expense.objects.none()
         user = self.request.user
-        queryset = (
-            Expense.objects.select_related("category", "club", "created_by")
-            .filter(ledger=Order.Ledger.CLUB, club__admins=user)
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(
+            self.request,
+            Expense.objects.select_related("category", "club", "created_by").filter(
+                ledger=Order.Ledger.CLUB, club__admins=user
+            ),
+            "club_id",
         )
         club_id = self.request.query_params.get("club_id") or self.request.query_params.get("club")
         if club_id:
@@ -272,9 +277,14 @@ class ClubIncomeViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Income.objects.none()
         user = self.request.user
-        queryset = (
-            Income.objects.select_related("category", "club", "created_by")
-            .filter(ledger=Order.Ledger.CLUB, club__admins=user)
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(
+            self.request,
+            Income.objects.select_related("category", "club", "created_by").filter(
+                ledger=Order.Ledger.CLUB, club__admins=user
+            ),
+            "club_id",
         )
         club_id = self.request.query_params.get("club_id") or self.request.query_params.get("club")
         if club_id:

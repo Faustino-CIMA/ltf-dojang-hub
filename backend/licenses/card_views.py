@@ -856,6 +856,10 @@ class PrintJobViewSet(
         if not (_is_ltf_admin(user) or _is_club_admin(user)):
             return PrintJob.objects.none()
 
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(self.request, queryset, "club_id")
+
         if self.action != "list":
             return queryset.order_by("-created_at", "-id")
 

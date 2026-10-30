@@ -7,6 +7,8 @@ when a grant for that desk is still valid. User.role is never rewritten here.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -14,6 +16,7 @@ from rest_framework.exceptions import PermissionDenied
 from .models import DeskGrant, DeskPreference, User
 
 HEADER = "HTTP_X_DESK"
+_active_club: ContextVar[int | None] = ContextVar("ltf_active_club", default=None)
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CLUB_DESKS = frozenset({DeskGrant.Desk.CLUB_ADMIN, DeskGrant.Desk.COACH})
 NAMED_DESKS = frozenset(
@@ -24,6 +27,18 @@ NAMED_DESKS = frozenset(
         "ops",
     }
 )
+
+
+def bind_active_club(club_id: int | None):
+    return _active_club.set(club_id)
+
+
+def reset_active_club(token) -> None:
+    _active_club.reset(token)
+
+
+def current_active_club() -> int | None:
+    return _active_club.get()
 
 
 def _today():
@@ -135,6 +150,8 @@ def bind_request_desk(request, user) -> None:
         return
     request.desk_grant = grant
     _django_request(request).desk_grant = grant
+    if grant.desk in CLUB_DESKS and grant.club_id:
+        _active_club.set(grant.club_id)
     if grant.level == DeskGrant.Level.READ_ONLY and request.method not in SAFE_METHODS:
         _refuse(
             request,
@@ -180,6 +197,7 @@ def record_desk_switch(user, *, desk: str, club_id: int | None = None) -> DeskPr
                 "desk": desk,
                 "club_id": club_id,
                 "level": None if grant is None else grant.level,
+                "into_ltf_admin": desk == DeskGrant.Desk.LTF_ADMIN,
             },
             target_id=str(preference.pk),
         )
@@ -282,6 +300,58 @@ def sync_legacy_grants(user) -> None:
             _end_grant(grant, today)
     for desk, club_id in desired:
         ensure_legacy_grant(user, desk, club_id, today)
+
+
+def active_club_id(request) -> int | None:
+    """Club named by the active club desk. Empty when the request did not name one."""
+    grant = getattr(request, "desk_grant", None)
+    if grant is None or grant.desk not in CLUB_DESKS:
+        return None
+    return grant.club_id
+
+
+def scope_to_active_club(request, queryset, lookup: str = "club_id"):
+    club_id = active_club_id(request)
+    if not club_id:
+        return queryset
+    return queryset.filter(**{lookup: club_id})
+
+
+def open_desk_summary(user) -> dict:
+    """Grants still open, and the last chosen desk when that grant is still valid."""
+    today = _today()
+    grants = list(
+        DeskGrant.objects.filter(user_id=user.id, valid_from__lte=today)
+        .filter(Q(valid_until__isnull=True) | Q(valid_until__gt=today))
+        .select_related("club")
+        .order_by("desk", "club__name", "id")
+    )
+    chosen: dict[tuple, DeskGrant] = {}
+    for grant in grants:
+        key = (grant.desk, grant.club_id)
+        current = chosen.get(key)
+        if current is None or (
+            current.level != DeskGrant.Level.FULL and grant.level == DeskGrant.Level.FULL
+        ):
+            chosen[key] = grant
+    desks = [
+        {
+            "desk": grant.desk,
+            "level": grant.level,
+            "club_id": grant.club_id,
+            "club_name": grant.club.name if grant.club_id else "",
+        }
+        for grant in chosen.values()
+    ]
+    preference = DeskPreference.objects.filter(user_id=user.id).first()
+    last = None
+    if preference is not None:
+        match = chosen.get((preference.desk, preference.club_id))
+        if match is None and preference.desk not in CLUB_DESKS:
+            match = chosen.get((preference.desk, None))
+        if match is not None:
+            last = {"desk": match.desk, "level": match.level, "club_id": match.club_id}
+    return {"desks": desks, "last_desk": last}
 
 
 def audit_read_only_export(request) -> None:

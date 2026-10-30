@@ -133,14 +133,16 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             return Club.objects.none()
         # For mutations where object-level rules apply, fetch the club first
         # and authorize explicitly in the handler to return 403 (not 404).
+        from accounts.desks import scope_to_active_club
+
         if self.action in ["update", "partial_update"]:
-            return Club.objects.all()
+            return scope_to_active_club(self.request, Club.objects.all(), "pk")
         if self.action in ["logos", "logo_detail"] and self.request.method in [
             "POST",
             "PATCH",
             "DELETE",
         ]:
-            return Club.objects.all()
+            return scope_to_active_club(self.request, Club.objects.all(), "pk")
         if user.role in ["ltf_admin", "ltf_finance"]:
             queryset = Club.objects.all()
         elif user.role == "club_admin":
@@ -162,7 +164,9 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             federation = (self.request.query_params.get("federation") or "").strip().upper()
             if federation in {Club.Federation.WT, Club.Federation.ITF}:
                 queryset = queryset.filter(federation=federation)
-        return queryset
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, queryset, "pk")
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

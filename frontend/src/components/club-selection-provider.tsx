@@ -128,6 +128,7 @@ export function ClubSelectionProvider({ children }: { children: React.ReactNode 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubIdState] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [deskVersion, setDeskVersion] = useState(0);
 
   const isDashboardRoute = Boolean(pathname?.includes("/dashboard"));
   const allowAllClubs = allowsAllClubsSelection(pathname);
@@ -141,6 +142,12 @@ export function ClubSelectionProvider({ children }: { children: React.ReactNode 
     setSelectedClubIdState(nextId);
     persistSelectedClubId(nextId);
   }, [allowAllClubs, clubs]);
+
+  useEffect(() => {
+    const onDesk = () => setDeskVersion((version) => version + 1);
+    window.addEventListener("desk-changed", onDesk);
+    return () => window.removeEventListener("desk-changed", onDesk);
+  }, []);
 
   useEffect(() => {
     if (!isDashboardRoute || !getToken()) {
@@ -179,7 +186,7 @@ export function ClubSelectionProvider({ children }: { children: React.ReactNode 
     return () => {
       cancelled = true;
     };
-  }, [allowAllClubs, isDashboardRoute]);
+  }, [allowAllClubs, deskVersion, isDashboardRoute]);
 
   const value = useMemo(
     () => ({ clubs, selectedClubId, setSelectedClubId, isLoading }),

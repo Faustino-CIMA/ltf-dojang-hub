@@ -82,6 +82,11 @@ def measurement_club_ids(user) -> set[int]:
         club_ids.update(user.clubs_trained.values_list("id", flat=True))
     else:
         return set()
+    from accounts.desks import current_active_club
+
+    active = current_active_club()
+    if active is not None:
+        club_ids = {club_id for club_id in club_ids if club_id == active}
     if not club_ids or not is_install_entitled(COMPETITION_MODULE_ID):
         return set()
     return set(

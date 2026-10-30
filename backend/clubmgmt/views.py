@@ -141,7 +141,9 @@ class MemberRecordViewSet(viewsets.ModelViewSet):
             qs = qs.filter(member__club_id=club_id)
         elif self.request.user.role == "club_admin":
             qs = qs.filter(member__club__in=self.request.user.clubs_administered.all())
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "member__club_id")
 
     def perform_create(self, serializer):
         member = serializer.validated_data["member"]
@@ -230,7 +232,9 @@ class PersonViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         club_id = _require_club(self.request)
@@ -354,7 +358,9 @@ class MemberContactViewSet(viewsets.ModelViewSet):
         member_id = self.request.query_params.get("member")
         if member_id:
             qs = qs.filter(member_id=member_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "member__club_id")
 
     def list(self, request, *args, **kwargs):
         contacts = list(self.filter_queryset(self.get_queryset()))
@@ -438,7 +444,9 @@ class MedicalCheckupViewSet(viewsets.ModelViewSet):
         member_id = self.request.query_params.get("member")
         if member_id:
             qs = qs.filter(member_id=member_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "member__club_id")
 
 
 class FamilyViewSet(viewsets.ModelViewSet):
@@ -455,7 +463,9 @@ class FamilyViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         club_id = _require_club(self.request)
@@ -591,7 +601,9 @@ class FamilyRebateRuleViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
 
 class MembershipFeeViewSet(viewsets.ModelViewSet):
@@ -603,7 +615,9 @@ class MembershipFeeViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         fee = serializer.save()
@@ -674,7 +688,9 @@ class CommitteeViewSet(viewsets.ModelViewSet):
             qs = qs.filter(club_id=club_id)
         elif scope == Committee.Scope.FEDERATION:
             qs = qs.filter(scope=Committee.Scope.FEDERATION)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         scope = serializer.validated_data.get("scope")
@@ -715,7 +731,9 @@ class CommitteeMandateViewSet(viewsets.ModelViewSet):
         committee_id = self.request.query_params.get("committee")
         if committee_id:
             qs = qs.filter(committee_id=committee_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "committee__club_id")
 
     def perform_create(self, serializer):
         committee = serializer.validated_data.get("committee")

@@ -1,3 +1,4 @@
+import { readActiveDeskHeader } from "./active-desk";
 import { getToken } from "./auth";
 
 type RequestOptions = Omit<RequestInit, "headers"> & {
@@ -136,8 +137,10 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
     path.startsWith("/api/auth/password-reset/") ||
     path.startsWith("/api/auth/account-setup/") ||
     path.startsWith("/api/module-renewals/");
+  const deskHeader = !skipAuthHeader ? readActiveDeskHeader() : null;
   const defaultHeaders: Record<string, string> = {
     ...(token && !skipAuthHeader ? { Authorization: `Token ${token}` } : {}),
+    ...(deskHeader ? { "X-Desk": deskHeader } : {}),
   };
   if (!isFormDataRequest) {
     defaultHeaders["Content-Type"] = "application/json";

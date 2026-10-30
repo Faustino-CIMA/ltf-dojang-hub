@@ -67,6 +67,11 @@ def club_ids_for_user(user) -> list[int]:
         administered = set(user.clubs_administered.values_list("id", flat=True))
         if getattr(user, "role", "") == "coach":
             administered.update(user.clubs_trained.values_list("id", flat=True))
+        from accounts.desks import current_active_club
+
+        active = current_active_club()
+        if active is not None:
+            administered = {club_id for club_id in administered if club_id == active}
         return list(Club.objects.filter(id__in=administered).order_by("name").values_list("id", flat=True))
     member = getattr(user, "member_profile", None)
     if member is not None and getattr(member, "club_id", None):

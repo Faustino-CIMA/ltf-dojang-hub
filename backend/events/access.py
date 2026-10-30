@@ -26,6 +26,11 @@ def is_club_manager(user, club_id: int | None) -> bool:
         return False
     if getattr(user, "role", "") != "club_admin":
         return False
+    from accounts.desks import current_active_club
+
+    active = current_active_club()
+    if active is not None and int(club_id) != int(active):
+        return False
     return user.clubs_administered.filter(id=club_id).exists()
 
 
@@ -33,6 +38,11 @@ def is_club_coach(user, club_id: int | None) -> bool:
     if not user or not getattr(user, "is_authenticated", False) or club_id is None:
         return False
     if getattr(user, "role", "") != "coach":
+        return False
+    from accounts.desks import current_active_club
+
+    active = current_active_club()
+    if active is not None and int(club_id) != int(active):
         return False
     return user.clubs_trained.filter(id=club_id).exists() or user.clubs_administered.filter(id=club_id).exists()
 
@@ -62,6 +72,11 @@ def _assigned_staff_club_ids(user) -> set[int]:
         return cached
     club_ids = set(user.clubs_administered.values_list("id", flat=True))
     club_ids.update(user.clubs_trained.values_list("id", flat=True))
+    from accounts.desks import current_active_club
+
+    active = current_active_club()
+    if active is not None:
+        club_ids = {club_id for club_id in club_ids if club_id == active}
     assigned = {club_id for club_id in club_ids if club_calendar_assigned(club_id)}
     user._event_staff_club_ids = assigned
     return assigned

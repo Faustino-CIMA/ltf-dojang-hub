@@ -12,9 +12,18 @@ export type AuthUser = {
   home_club_id?: number | null;
 };
 
+export type AuthDesk = {
+  desk: string;
+  level: string;
+  club_id: number | null;
+  club_name?: string;
+};
+
 export type AuthResponse = {
   token: string;
   user: AuthUser;
+  desks?: AuthDesk[];
+  last_desk?: { desk: string; level: string; club_id: number | null } | null;
 };
 
 const TOKEN_KEY = "ltf_token";

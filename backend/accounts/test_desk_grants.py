@@ -1,5 +1,7 @@
 import importlib
-from datetime import timedelta
+from datetime import date, timedelta
+from decimal import Decimal
+from unittest.mock import patch
 
 from django.apps import apps
 from django.utils import timezone
@@ -7,6 +9,16 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from clubs.models import Club
+from licenses.models import (
+    BankStatement,
+    CardFormatPreset,
+    CardTemplate,
+    CardTemplateVersion,
+    Expense,
+    ExpenseCategory,
+    Order,
+    PrintJob,
+)
 from members.models import Member
 from ops.models import OpsAuditLog
 
@@ -143,3 +155,90 @@ class DeskGrantTests(APITestCase):
         self.assertTrue(OpsAuditLog.objects.filter(action="desk.switched", actor=self.admin).exists())
         record_desk_switch(self.admin, desk=DeskGrant.Desk.LTF_ADMIN)
         self.assertEqual(OpsAuditLog.objects.filter(action="desk.switched", actor=self.admin).count(), 1)
+
+    def test_me_lists_one_row_per_club_and_select_audits_ltf_admin(self):
+        self.client.force_authenticate(user=self.club_admin)
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, status.HTTP_200_OK)
+        clubs = {row["club_id"] for row in me.data["desks"]}
+        self.assertEqual(clubs, {self.club_a.id, self.club_b.id})
+        self.client.force_authenticate(user=self.admin)
+        chosen = self.client.post("/api/auth/desk/", {"desk": "ltf_admin"}, format="json")
+        self.assertEqual(chosen.status_code, status.HTTP_200_OK, chosen.content)
+        self.assertEqual(chosen.data["level"], "full")
+        audit = OpsAuditLog.objects.filter(action="desk.switched", actor=self.admin).latest("id")
+        self.assertTrue(audit.metadata["into_ltf_admin"])
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, User.Roles.LTF_ADMIN)
+        refused = self.client.post("/api/auth/desk/", {"desk": "ltf_finance"}, format="json")
+        self.assertEqual(refused.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_club_list_narrows_to_the_active_club_desk(self):
+        self.client.force_authenticate(user=self.club_admin)
+        everything = self.client.get("/api/clubs/")
+        self.assertEqual(everything.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(everything.data), 2)
+        one = self.client.get("/api/clubs/", HTTP_X_DESK=f"club_admin:{self.club_a.id}")
+        self.assertEqual(one.status_code, status.HTTP_200_OK, one.content)
+        self.assertEqual([row["id"] for row in one.data], [self.club_a.id])
+
+    def test_club_desk_hides_the_other_clubs_books_and_print_jobs(self):
+        today = date.today()
+        category = ExpenseCategory.objects.create(name="Desk paper", club=self.club_a)
+        own_expense = Expense.objects.create(
+            category=category,
+            club=self.club_a,
+            description="Paper",
+            amount=Decimal("2.00"),
+            expense_date=today,
+            ledger=Order.Ledger.CLUB,
+            created_by=self.club_admin,
+        )
+        other_expense = Expense.objects.create(
+            category=category,
+            club=self.club_b,
+            description="Other paper",
+            amount=Decimal("3.00"),
+            expense_date=today,
+            ledger=Order.Ledger.CLUB,
+            created_by=self.club_admin,
+        )
+        own_statement = BankStatement.objects.create(
+            ledger=Order.Ledger.CLUB,
+            club=self.club_a,
+            period_start=today,
+            period_end=today,
+            created_by=self.club_admin,
+        )
+        other_statement = BankStatement.objects.create(
+            ledger=Order.Ledger.CLUB,
+            club=self.club_b,
+            period_start=today,
+            period_end=today,
+            created_by=self.club_admin,
+        )
+        preset = CardFormatPreset.objects.order_by("id").first()
+        if preset is None:
+            preset = CardFormatPreset.objects.create(name="Desk card", width_mm=Decimal("85.60"), height_mm=Decimal("53.98"))
+        template = CardTemplate.objects.create(name="Desk template")
+        version = CardTemplateVersion.objects.create(template=template, version_number=1, card_format=preset)
+        own_job = PrintJob.objects.create(club=self.club_a, template_version=version)
+        other_job = PrintJob.objects.create(club=self.club_b, template_version=version)
+        self.client.force_authenticate(user=self.club_admin)
+        header = {"HTTP_X_DESK": f"club_admin:{self.club_a.id}"}
+        with patch("clubmgmt.access.club_mgmt_entitled", return_value=True), patch(
+            "clubmgmt.access.club_mgmt_assigned", return_value=True
+        ):
+            self.assertEqual(self.client.get(f"/api/club-expenses/{own_expense.id}/", **header).status_code, status.HTTP_200_OK)
+            self.assertEqual(self.client.get(f"/api/club-expenses/{other_expense.id}/", **header).status_code, status.HTTP_404_NOT_FOUND)
+            self.assertEqual(self.client.get(f"/api/club-expenses/{other_expense.id}/").status_code, status.HTTP_200_OK)
+            self.assertEqual(
+                self.client.get(f"/api/club-bank-statements/{own_statement.id}/", **header).status_code,
+                status.HTTP_200_OK,
+            )
+            self.assertEqual(
+                self.client.get(f"/api/club-bank-statements/{other_statement.id}/", **header).status_code,
+                status.HTTP_404_NOT_FOUND,
+            )
+        self.assertEqual(self.client.get(f"/api/print-jobs/{own_job.id}/", **header).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.get(f"/api/print-jobs/{other_job.id}/", **header).status_code, status.HTTP_404_NOT_FOUND)

@@ -763,10 +763,16 @@ class ClubBankStatementViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyMod
         if getattr(self, "swagger_fake_view", False):
             return BankStatement.objects.none()
         user = self.request.user
-        queryset = BankStatement.objects.filter(ledger=Order.Ledger.CLUB, club__admins=user).prefetch_related(
-            "lines__payment__invoice",
-            "lines__income",
-            "lines__expense",
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(
+            self.request,
+            BankStatement.objects.filter(ledger=Order.Ledger.CLUB, club__admins=user).prefetch_related(
+                "lines__payment__invoice",
+                "lines__income",
+                "lines__expense",
+            ),
+            "club_id",
         )
         club_id = _club_id(self.request)
         if club_id:
