@@ -132,6 +132,7 @@ def bind_request_desk(request, user) -> None:
         _django_request(request).desk_read_only = read_only
         if read_only and request.method not in SAFE_METHODS:
             _refuse(request, user, "desk_read_only", {"desk": user.role, "header": ""})
+        _enforce_mfa(request, user)
         return
     try:
         desk, club_id = _parse_header(raw)
@@ -143,6 +144,7 @@ def bind_request_desk(request, user) -> None:
             _refuse(request, user, "desk_not_granted", {"header": raw})
         request.desk_ops = True
         _django_request(request).desk_ops = True
+        _enforce_mfa(request, user)
         return
     grant = _best(load_grants(request, user), desk, club_id)
     if grant is None:
@@ -159,6 +161,13 @@ def bind_request_desk(request, user) -> None:
             "desk_read_only",
             {"desk": grant.desk, "club_id": grant.club_id, "header": raw},
         )
+    _enforce_mfa(request, user)
+
+
+def _enforce_mfa(request, user) -> None:
+    from .mfa import enforce_elevated_mfa
+
+    enforce_elevated_mfa(request, user)
 
 
 def record_desk_switch(user, *, desk: str, club_id: int | None = None) -> DeskPreference:
@@ -300,6 +309,9 @@ def sync_legacy_grants(user) -> None:
             _end_grant(grant, today)
     for desk, club_id in desired:
         ensure_legacy_grant(user, desk, club_id, today)
+    from .mfa import note_new_elevated_user
+
+    note_new_elevated_user(user)
 
 
 def active_club_id(request) -> int | None:

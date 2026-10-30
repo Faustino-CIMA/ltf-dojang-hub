@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import permissions, response, status, views
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
 from accounts.email_utils import build_password_reset_url, send_password_reset_email
@@ -266,6 +267,24 @@ class OpsUserActionView(views.APIView):
             user.is_superuser = True
             user.is_staff = True
             user.save(update_fields=["is_superuser", "is_staff"])
+            from accounts.mfa import note_new_elevated_user
+
+            note_new_elevated_user(user)
+        elif action == "reset_authenticator":
+            from accounts.mfa import reset_authenticators
+
+            reset_authenticators(request.user, user)
+        elif action == "remove_passkeys":
+            from accounts.mfa import remove_passkeys
+
+            remove_passkeys(request.user, user)
+        elif action == "extend_mfa_grace":
+            from accounts.mfa import extend_grace
+
+            try:
+                extend_grace(request.user, user)
+            except ValidationError as exc:
+                return response.Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
         elif action == "revoke_superuser":
             if User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk).count() == 0:
                 return response.Response(

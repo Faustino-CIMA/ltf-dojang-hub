@@ -45,10 +45,10 @@ class LoginView(views.APIView):
     serializer_class = LoginSerializer
 
     def post(self, request):
-        from ops.detectors import run_failure_detectors, run_success_detectors
+        from ops.detectors import run_failure_detectors
         from ops.events import is_locked, record_auth_event
         from ops.models import AuthEvent
-        from ops.request_utils import client_ip, touch_token_meta
+        from ops.request_utils import client_ip
 
         username = str(request.data.get("username") or "").strip()
         ip = client_ip(request)
@@ -76,20 +76,13 @@ class LoginView(views.APIView):
                 run_failure_detectors(request, username=username, ip=ip)
             raise
         user = serializer.validated_data["user"]
-        user.last_login = timezone.now()
-        user.save(update_fields=["last_login"])
-        token, _ = Token.objects.get_or_create(user=user)
-        touch_token_meta(token, request)
-        record_auth_event(
-            request,
-            AuthEvent.EventType.LOGIN_SUCCESS,
-            username=user.username,
-            user=user,
-        )
-        run_success_detectors(request, user=user, ip=ip)
-        return response.Response(
-            {"token": token.key, "user": UserSerializer(user).data, **open_desk_summary(user)}
-        )
+        from .mfa import begin_password_login
+
+        try:
+            payload = begin_password_login(request._request, user)
+        except ValidationError as exc:
+            return response.Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+        return response.Response(payload)
 
 
 @extend_schema(
@@ -103,6 +96,9 @@ class LogoutView(views.APIView):
         from ops.events import record_auth_event
         from ops.models import AuthEvent
 
+        session = getattr(request._request, "_allauth_token_session", None)
+        if session is not None:
+            session.flush()
         Token.objects.filter(user=request.user).delete()
         record_auth_event(
             request,
@@ -121,8 +117,11 @@ class MeView(views.APIView):
     serializer_class = EmptySerializer
 
     def get(self, request):
+        from .mfa import public_mfa_status
+
         payload = UserSerializer(request.user).data
         payload.update(open_desk_summary(request.user))
+        payload["mfa"] = public_mfa_status(request.user)
         return response.Response(payload)
 
 
@@ -414,6 +413,9 @@ class PasswordResetConfirmView(views.APIView):
         user.set_password(password)
         user.is_email_verified = True
         user.save(update_fields=["password", "is_email_verified"])
+        from allauth.account.signals import password_reset
+
+        password_reset.send(sender=user.__class__, request=request._request, user=user)
         return response.Response({"detail": "Password reset successfully."})
 
 

@@ -11,7 +11,9 @@ import { persistSelectedClubId } from "@/components/club-selection-provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { defaultDesk, deskHeaderValue, rememberActiveDesk } from "@/lib/active-desk";
 import { login } from "@/lib/auth-api";
-import { setToken } from "@/lib/auth";
+import { setToken, type AuthResponse } from "@/lib/auth";
+import { confirmMfa, beginPasskeyLogin, finishPasskeyLogin } from "@/lib/mfa-api";
+import { getPasskey } from "@/lib/webauthn";
 import { routeAfterSignIn } from "@/lib/dashboard-routing";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { Input } from "@/components/ui/input";
@@ -31,7 +33,39 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [pendingMethods, setPendingMethods] = useState<string[]>([]);
   const year = new Date().getFullYear();
+
+  const finishSignIn = (response: AuthResponse) => {
+    if (!response.token || !response.user) {
+      return;
+    }
+    setToken(response.token);
+    const chosen = defaultDesk(
+      response.desks ?? [],
+      response.last_desk ?? null,
+      response.user.role,
+      response.user.home_club_id ?? null,
+    );
+    if (chosen) {
+      rememberActiveDesk(deskHeaderValue(chosen));
+      persistSelectedClubId(chosen.club_id);
+    } else {
+      persistSelectedClubId(null);
+    }
+    router.push(
+      routeAfterSignIn(response.user.role, locale, {
+        isSuperuser: Boolean(response.user.is_superuser),
+        lastDesk: response.last_desk ?? null,
+      }) ?? `/${locale}/dashboard`,
+    );
+  };
+
+  const holdForCode = (response: AuthResponse) => {
+    setPendingToken(response.token);
+    setPendingMethods(response.mfa_methods ?? []);
+  };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -61,25 +95,11 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const response = await login({ username, password });
-      setToken(response.token);
-      const chosen = defaultDesk(
-        response.desks ?? [],
-        response.last_desk ?? null,
-        response.user.role,
-        response.user.home_club_id ?? null,
-      );
-      if (chosen) {
-        rememberActiveDesk(deskHeaderValue(chosen));
-        persistSelectedClubId(chosen.club_id);
-      } else {
-        persistSelectedClubId(null);
+      if (response.mfa_pending) {
+        holdForCode(response);
+        return;
       }
-      router.push(
-        routeAfterSignIn(response.user.role, locale, {
-          isSuperuser: Boolean(response.user.is_superuser),
-          lastDesk: response.last_desk ?? null,
-        }) ?? `/${locale}/dashboard`,
-      );
+      finishSignIn(response);
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "";
       const normalized = rawMessage.toLowerCase();
@@ -137,7 +157,49 @@ export default function LoginPage() {
                 {t("loginHint")}
               </p>
 
-              <form className="mt-6" onSubmit={onSubmit} noValidate>
+              {pendingToken ? (
+                <form
+                  className="mt-6 space-y-4"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const code = String(new FormData(event.currentTarget).get("code") || "").trim();
+                    if (!code) {
+                      setErrorMessage(t("mfaCodeRequired"));
+                      return;
+                    }
+                    setIsSubmitting(true);
+                    setErrorMessage(null);
+                    try {
+                      finishSignIn(await confirmMfa(pendingToken, code));
+                    } catch {
+                      setErrorMessage(t("mfaFailed"));
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                >
+                  <h2 className="text-section text-[var(--brand-on-ink)]">{t("mfaTitle")}</h2>
+                  <p className="text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_72%,var(--brand-ink))]">
+                    {pendingMethods.includes("email") ? t("mfaEmailHint") : t("mfaHint")}
+                  </p>
+                  <RequiredForm className="space-y-2">
+                    <Label htmlFor="mfa-code" required>
+                      {t("mfaCode")}
+                    </Label>
+                    <Input id="mfa-code" name="code" inputMode="numeric" autoComplete="one-time-code" required />
+                  </RequiredForm>
+                  <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--brand-ltf-red)] text-sm font-semibold text-[var(--brand-on-ink)] disabled:opacity-60"
+                  >
+                    {isSubmitting ? t("loading") : t("mfaConfirm")}
+                  </button>
+                </form>
+              ) : null}
+
+              <form className={pendingToken ? "hidden" : "mt-6"} onSubmit={onSubmit} noValidate>
                 <RequiredForm className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-username" required>
@@ -189,6 +251,28 @@ export default function LoginPage() {
                     {fieldErrors.password ? <p className="text-sm text-[var(--brand-text-red)]">{fieldErrors.password}</p> : null}
                   </div>
 
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-[var(--brand-text-blue)]"
+                    onClick={async () => {
+                      setErrorMessage(null);
+                      setIsSubmitting(true);
+                      try {
+                        const started = await beginPasskeyLogin();
+                        const requestOptions =
+                          (started.options as { publicKey?: PublicKeyCredentialRequestOptionsJSON }).publicKey ??
+                          started.options;
+                        const credential = await getPasskey(requestOptions);
+                        finishSignIn(await finishPasskeyLogin(started.token, credential));
+                      } catch {
+                        setErrorMessage(t("mfaPasskeyFailed"));
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                  >
+                    {t("mfaPasskey")}
+                  </button>
                   <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
                   {showVerifyLink ? (
                     <p className="text-sm text-muted">
