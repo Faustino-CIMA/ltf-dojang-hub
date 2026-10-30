@@ -2,7 +2,7 @@ from django.urls import path
 
 from modules import ops_views as module_ops_views
 
-from . import desk_views, views
+from . import desk_views, merge_views, views
 
 urlpatterns = [
     path("overview/", views.OpsOverviewView.as_view(), name="ops-overview"),
@@ -22,6 +22,7 @@ urlpatterns = [
     path("desks/grants/<int:grant_id>/end/", desk_views.OpsDeskGrantEndView.as_view(), name="ops-desk-grant-end"),
     path("desks/contacts/", desk_views.OpsContactLinkView.as_view(), name="ops-desk-contacts"),
     path("desks/exceptions/", desk_views.OpsDutyExceptionView.as_view(), name="ops-desk-exceptions"),
+    path("merges/", merge_views.OpsMergeView.as_view(), name="ops-merges"),
     path("users/<int:user_id>/", views.OpsUserActionView.as_view(), name="ops-user-action"),
     path("queries/", views.OpsQueryCatalogView.as_view(), name="ops-query-catalog"),
     path("queries/<str:query_id>/run/", views.OpsQueryRunView.as_view(), name="ops-query-run"),

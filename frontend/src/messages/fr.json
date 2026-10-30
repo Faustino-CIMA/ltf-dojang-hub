@@ -1542,6 +1542,26 @@
     "officeOther": "Autre",
     "deskFinance": "LTF Finances",
     "deskAdmin": "LTF Admin",
-    "deskMember": "Membre"
+    "deskMember": "Membre",
+    "navMerges": "Fusionner les identifiants",
+    "mergeTitle": "Fusionner les identifiants",
+    "mergeSubtitle": "Regroupez les identifiants en trop d'une personne dans celui que vous gardez. Rien n'est rapproché par le nom, et l'identifiant replié reste, mais ne peut plus se connecter.",
+    "mergeSearch": "Chercher un identifiant",
+    "mergeKeep": "Garder cet identifiant",
+    "mergeFold": "Replier cet identifiant",
+    "mergeKept": "Identifiant conservé",
+    "mergeFolded": "Identifiants à replier",
+    "mergePreview": "Aperçu",
+    "mergeConfirm": "Fusionner",
+    "mergeConfirmAsk": "Replier ces identifiants dans celui que vous gardez ? Cela ne peut pas être annulé.",
+    "mergeDone": "Identifiants fusionnés. L'identifiant replié ne peut plus se connecter.",
+    "mergeMfa": "Confirmez votre application d'authentification avant de fusionner.",
+    "mergeConflict": "Les deux identifiants ont un profil de membre. Choisissez le profil qui reste sur l'identifiant conservé.",
+    "mergeProfile": "Profil de membre",
+    "mergeGrants": "Accès aux bureaux",
+    "mergeRecords": "Données qui sont déplacées",
+    "mergeEmailSecondary": "L'e-mail replié est gardé comme seconde adresse, sauf s'il est déjà utilisé.",
+    "mergePasskeys": "Les clés d'accès de l'identifiant replié sont retirées. L'application d'authentification ne suit que si l'identifiant conservé n'en a pas déjà une.",
+    "mergeNone": "Choisissez un identifiant à garder et au moins un identifiant à replier."
   }
 }

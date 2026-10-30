@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Boxes,
+  GitMerge,
   KeyRound,
   Database,
   Languages,
@@ -45,7 +46,8 @@ const OPS_NAV: Array<{
     | "navJobs"
     | "navAudit"
     | "navModules"
-    | "navDesks";
+    | "navDesks"
+    | "navMerges";
   matchMode: AppNavItem["matchMode"];
   icon: AppNavItem["icon"];
 }> = [
@@ -57,6 +59,7 @@ const OPS_NAV: Array<{
   { id: "jobs", href: (l) => `/${l}/dashboard/ops/jobs`, labelKey: "navJobs", matchMode: "prefix", icon: Printer },
   { id: "modules", href: (l) => `/${l}/dashboard/ops/modules`, labelKey: "navModules", matchMode: "prefix", icon: Boxes },
   { id: "desks", href: (l) => `/${l}/dashboard/ops/desks`, labelKey: "navDesks", matchMode: "prefix", icon: KeyRound },
+  { id: "merges", href: (l) => `/${l}/dashboard/ops/merges`, labelKey: "navMerges", matchMode: "prefix", icon: GitMerge },
   { id: "audit", href: (l) => `/${l}/dashboard/ops/audit`, labelKey: "navAudit", matchMode: "prefix", icon: ScrollText },
 ];
 
