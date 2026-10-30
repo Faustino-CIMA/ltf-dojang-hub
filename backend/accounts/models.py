@@ -156,3 +156,73 @@ class DeskPreference(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} {self.desk}"
+
+
+class MfaPolicy(models.Model):
+    """When the second factor shipped, and when old tokens stop working."""
+
+    shipped_on = models.DateField()
+    grace_days = models.PositiveSmallIntegerField(default=14)
+    token_sunset_on = models.DateField()
+
+    def __str__(self) -> str:
+        return f"mfa {self.shipped_on}"
+
+
+class StaffMfaGrace(models.Model):
+    """Grace for people who already had an elevated desk on the day 2FA shipped.
+
+    A row with no_grace means this person received an elevated desk after that
+    day, so the desk stays closed until they enrol. extended may be set once.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="mfa_grace",
+    )
+    grace_until = models.DateField()
+    no_grace = models.BooleanField(default=False)
+    extended = models.BooleanField(default=False)
+    extended_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    extended_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"grace {self.user_id} until {self.grace_until}"
+
+
+class EmailMfa(models.Model):
+    """Optional email codes for members, coaches, and parents. Never for staff desks."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="email_mfa",
+    )
+    enabled = models.BooleanField(default=False)
+
+    def __str__(self) -> str:
+        return f"email mfa {self.user_id}"
+
+
+class EmailMfaCode(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="email_mfa_codes",
+    )
+    code_hash = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="emailmfa_user_created_idx"),
+        ]

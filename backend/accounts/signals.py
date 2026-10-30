@@ -1,4 +1,7 @@
-from allauth.account.signals import email_confirmed
+from allauth.account.signals import email_confirmed, password_reset
+from allauth.mfa.models import Authenticator
+from allauth.mfa.signals import authenticator_added, authenticator_removed, authenticator_used
+from django.contrib.auth.signals import user_logged_in
 from django.db.models.signals import m2m_changed, post_save
 from django.dispatch import receiver
 
@@ -6,6 +9,72 @@ from clubs.models import Club
 
 from .desks import sync_legacy_grants
 from .models import User
+
+
+def _auth_event(request, event_type, user, username=""):
+    from ops.events import record_auth_event
+
+    record_auth_event(
+        request,
+        event_type,
+        username=username or getattr(user, "username", ""),
+        user=user,
+    )
+
+
+def _ops(actor, action, user, message, metadata=None):
+    from ops.models import OpsAuditLog
+
+    OpsAuditLog.objects.create(
+        actor=actor if getattr(actor, "is_authenticated", False) else actor,
+        action=action,
+        target_type="user",
+        target_id=str(getattr(user, "id", "") or ""),
+        message=message,
+        metadata=metadata or {},
+    )
+
+
+@receiver(user_logged_in)
+def record_login_success(sender, request, user, **kwargs):
+    path = ""
+    if request is not None:
+        path = getattr(request, "path", "") or ""
+    if "/admin/" in path:
+        return
+    from ops.detectors import run_success_detectors
+    from ops.models import AuthEvent
+    from ops.request_utils import client_ip
+
+    _auth_event(request, AuthEvent.EventType.LOGIN_SUCCESS, user, user.username)
+    run_success_detectors(request, user=user, ip=client_ip(request))
+
+
+@receiver(password_reset)
+def record_password_reset(sender, request, user, **kwargs):
+    from ops.models import AuthEvent
+
+    _auth_event(request, AuthEvent.EventType.PASSWORD_RESET, user, getattr(user, "username", ""))
+
+
+@receiver(authenticator_added)
+def record_authenticator_added(sender, request, user, authenticator, **kwargs):
+    if authenticator.type == Authenticator.Type.WEBAUTHN:
+        _ops(user, "passkey.added", user, "Passkey added.")
+        return
+    _ops(user, "mfa.enrolled", user, "Authenticator enrolled.", {"type": authenticator.type})
+
+
+@receiver(authenticator_removed)
+def record_authenticator_removed(sender, request, user, authenticator, **kwargs):
+    if authenticator.type == Authenticator.Type.WEBAUTHN:
+        _ops(user, "passkey.removed", user, "Passkey removed.")
+
+
+@receiver(authenticator_used)
+def record_recovery_used(sender, request, user, authenticator, **kwargs):
+    if authenticator.type == Authenticator.Type.RECOVERY_CODES:
+        _ops(user, "mfa.recovery_used", user, "Recovery code used.")
 
 
 @receiver(email_confirmed)

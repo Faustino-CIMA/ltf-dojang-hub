@@ -21,7 +21,9 @@ import {
   type DeskChoice,
 } from "@/lib/active-desk";
 import { logout, selectDesk } from "@/lib/auth-api";
-import { clearToken, getToken } from "@/lib/auth";
+import { clearToken, getToken, type MfaStatus } from "@/lib/auth";
+import { MfaSecurityPanel } from "@/components/mfa-security-panel";
+import { formatDisplayDate } from "@/lib/date-display";
 import { getDashboardRouteForRole, routeForDesk } from "@/lib/dashboard-routing";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
 import {
@@ -77,6 +79,7 @@ type AuthMeResponse = {
   home_club_id?: number | null;
   desks?: DeskChoice[];
   last_desk?: { desk: string; level: string; club_id: number | null } | null;
+  mfa?: MfaStatus;
 };
 
 function pathMatches(pathname: string, href: string, matchMode: AppNavItem["matchMode"]) {
@@ -115,6 +118,7 @@ export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
 
 export function AppShell({ title, subtitle, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
   const t = useTranslations("Common");
+  const authCopy = useTranslations("Auth");
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -124,6 +128,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [activeHeader, setActiveHeader] = useState<string | null>(null);
   const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
+  const [securityOpen, setSecurityOpen] = useState(false);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
   const allowAllClubs = allowsAllClubsSelection(pathname);
   const visibleClubId = resolveAssignedClubId(clubs, selectedClubId);
@@ -511,6 +516,9 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
               ) : null}
               <ThemeToggle />
               <LanguageSwitcher compact />
+              <Button variant="outline" onClick={() => setSecurityOpen(true)}>
+                {authCopy("mfaSecurity")}
+              </Button>
               <Button variant="outline" onClick={handleSignOut}>
                 {t("signOut")}
               </Button>
@@ -518,6 +526,19 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           </div>
         </header>
 
+        {me?.mfa?.grace && me.mfa.grace_until ? (
+          <div className="border-b border-border bg-secondary px-[var(--page-padding-x)] py-2 text-sm text-foreground">
+            <button type="button" className="text-left" onClick={() => setSecurityOpen(true)}>
+              {authCopy("mfaGraceBanner", { date: formatDisplayDate(me.mfa.grace_until) })}
+            </button>
+          </div>
+        ) : null}
+        <MfaSecurityPanel
+          open={securityOpen}
+          status={me?.mfa ?? null}
+          onClose={() => setSecurityOpen(false)}
+          onChanged={(next) => setMe((current) => (current ? { ...current, mfa: next } : current))}
+        />
         <main
           className={cn(
             "min-w-0 flex-1",
@@ -545,6 +566,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 }
               }}
             />
+          ) : me?.mfa?.blocked ? (
+            <div className="mx-auto max-w-xl space-y-3 py-8">
+              <h2 className="text-section text-foreground">{authCopy("mfaBlockedTitle")}</h2>
+              <p className="text-sm text-muted">{authCopy("mfaBlockedBody")}</p>
+              <Button type="button" onClick={() => setSecurityOpen(true)}>
+                {authCopy("mfaSetup")}
+              </Button>
+            </div>
           ) : isWorkspace ? (
             children
           ) : (

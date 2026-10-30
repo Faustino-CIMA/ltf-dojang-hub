@@ -106,6 +106,8 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.headless",
+    "allauth.mfa",
     "accounts.apps.AccountsConfig",
     "clubs",
     "members",
@@ -366,6 +368,17 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_ADAPTER = "accounts.adapter.CustomAccountAdapter"
+HEADLESS_ONLY = False
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
+MFA_PASSKEY_LOGIN_ENABLED = True
+MFA_TOTP_ISSUER = "LTF Dojang Hub"
+MFA_ADAPTER = "accounts.mfa_adapter.LtfMFAAdapter"
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = config(
+    "MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN",
+    default=DEBUG,
+    cast=bool,
+)
+WEBAUTHN_RP_ID = config("WEBAUTHN_RP_ID", default="")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -434,6 +447,7 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
     "x-desk",
+    "x-session-token",
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = split_regex_list(
     config(

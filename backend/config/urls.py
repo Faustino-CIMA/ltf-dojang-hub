@@ -7,6 +7,14 @@ from django.views.generic.base import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
+from accounts.mfa_views import (
+    EmailMfaView,
+    MfaConfirmView,
+    MfaStatusView,
+    TotpEnrolView,
+    WebAuthnLoginView,
+    WebAuthnRegisterView,
+)
 from accounts.views import (
     AccountSetupView,
     ConsentView,
@@ -214,7 +222,14 @@ urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/favicon.ico", permanent=True)),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
+    path("_allauth/", include("allauth.headless.urls")),
     path("api/auth/login/", LoginView.as_view(), name="login"),
+    path("api/auth/mfa/", MfaStatusView.as_view(), name="mfa-status"),
+    path("api/auth/mfa/confirm/", MfaConfirmView.as_view(), name="mfa-confirm"),
+    path("api/auth/mfa/totp/", TotpEnrolView.as_view(), name="mfa-totp"),
+    path("api/auth/mfa/webauthn/", WebAuthnRegisterView.as_view(), name="mfa-webauthn"),
+    path("api/auth/mfa/webauthn/login/", WebAuthnLoginView.as_view(), name="mfa-webauthn-login"),
+    path("api/auth/mfa/email/", EmailMfaView.as_view(), name="mfa-email"),
     path("api/auth/logout/", LogoutView.as_view(), name="logout"),
     path("api/auth/me/", MeView.as_view(), name="me"),
     path("api/auth/desk/", DeskSelectView.as_view(), name="desk-select"),

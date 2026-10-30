@@ -19,11 +19,26 @@ export type AuthDesk = {
   club_name?: string;
 };
 
+export type MfaStatus = {
+  required: boolean;
+  enrolled: boolean;
+  recovery_codes: boolean;
+  grace: boolean;
+  grace_until: string | null;
+  blocked: boolean;
+  email_available: boolean;
+  email_enabled: boolean;
+  passkeys: number;
+};
+
 export type AuthResponse = {
   token: string;
-  user: AuthUser;
+  user?: AuthUser;
   desks?: AuthDesk[];
   last_desk?: { desk: string; level: string; club_id: number | null } | null;
+  mfa?: MfaStatus;
+  mfa_pending?: boolean;
+  mfa_methods?: string[];
 };
 
 const TOKEN_KEY = "ltf_token";

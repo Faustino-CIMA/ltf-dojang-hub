@@ -42,7 +42,15 @@ export default function OpsUsersPage() {
   const act = async (user: OpsUser, action: string) => {
     try {
       await runOpsUserAction(user.id, action, action === "send_password_reset" ? { locale } : undefined);
-      setSuccessMessage(t("userActionDone"));
+      const done =
+        action === "reset_authenticator"
+          ? t("mfaResetDone")
+          : action === "remove_passkeys"
+            ? t("mfaPasskeysRemoved")
+            : action === "extend_mfa_grace"
+              ? t("mfaGraceExtended")
+              : t("userActionDone");
+      setSuccessMessage(done);
       await load();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("saveError"));
@@ -116,6 +124,15 @@ export default function OpsUsersPage() {
                     onClick={() => act(row, row.is_superuser ? "revoke_superuser" : "grant_superuser")}
                   >
                     {row.is_superuser ? t("revokeSuperuser") : t("grantSuperuser")}
+                  </Button>
+                  <Button variant="outline" onClick={() => act(row, "extend_mfa_grace")}>
+                    {t("extendMfaGrace")}
+                  </Button>
+                  <Button variant="outline" onClick={() => act(row, "remove_passkeys")}>
+                    {t("removePasskeys")}
+                  </Button>
+                  <Button variant="outline" onClick={() => act(row, "reset_authenticator")}>
+                    {t("resetAuthenticator")}
                   </Button>
                 </div>
               ),
