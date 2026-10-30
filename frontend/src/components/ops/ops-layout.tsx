@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Boxes,
+  KeyRound,
   Database,
   Languages,
   LayoutDashboard,
@@ -43,7 +44,8 @@ const OPS_NAV: Array<{
     | "navTranslations"
     | "navJobs"
     | "navAudit"
-    | "navModules";
+    | "navModules"
+    | "navDesks";
   matchMode: AppNavItem["matchMode"];
   icon: AppNavItem["icon"];
 }> = [
@@ -54,6 +56,7 @@ const OPS_NAV: Array<{
   { id: "translations", href: (l) => `/${l}/dashboard/ops/translations`, labelKey: "navTranslations", matchMode: "prefix", icon: Languages },
   { id: "jobs", href: (l) => `/${l}/dashboard/ops/jobs`, labelKey: "navJobs", matchMode: "prefix", icon: Printer },
   { id: "modules", href: (l) => `/${l}/dashboard/ops/modules`, labelKey: "navModules", matchMode: "prefix", icon: Boxes },
+  { id: "desks", href: (l) => `/${l}/dashboard/ops/desks`, labelKey: "navDesks", matchMode: "prefix", icon: KeyRound },
   { id: "audit", href: (l) => `/${l}/dashboard/ops/audit`, labelKey: "navAudit", matchMode: "prefix", icon: ScrollText },
 ];
 

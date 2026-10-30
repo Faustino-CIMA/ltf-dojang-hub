@@ -17,6 +17,7 @@ from .models import DeskGrant, DeskPreference, User
 
 HEADER = "HTTP_X_DESK"
 _active_club: ContextVar[int | None] = ContextVar("ltf_active_club", default=None)
+_active_desk: ContextVar[str | None] = ContextVar("ltf_active_desk", default=None)
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CLUB_DESKS = frozenset({DeskGrant.Desk.CLUB_ADMIN, DeskGrant.Desk.COACH})
 NAMED_DESKS = frozenset(
@@ -39,6 +40,25 @@ def reset_active_club(token) -> None:
 
 def current_active_club() -> int | None:
     return _active_club.get()
+
+
+def bind_active_desk(desk: str | None):
+    return _active_desk.set(desk)
+
+
+def reset_active_desk(token) -> None:
+    _active_desk.reset(token)
+
+
+def current_desk() -> str | None:
+    return _active_desk.get()
+
+
+def holds_desk(user, desk: str) -> bool:
+    """True for the account role, and for a grant the request named."""
+    if user is not None and getattr(user, "role", None) == desk:
+        return True
+    return current_desk() == desk
 
 
 def _today():
@@ -132,6 +152,7 @@ def bind_request_desk(request, user) -> None:
         _django_request(request).desk_read_only = read_only
         if read_only and request.method not in SAFE_METHODS:
             _refuse(request, user, "desk_read_only", {"desk": user.role, "header": ""})
+        _active_desk.set(None)
         _enforce_mfa(request, user)
         return
     try:
@@ -144,6 +165,7 @@ def bind_request_desk(request, user) -> None:
             _refuse(request, user, "desk_not_granted", {"header": raw})
         request.desk_ops = True
         _django_request(request).desk_ops = True
+        _active_desk.set("ops")
         _enforce_mfa(request, user)
         return
     grant = _best(load_grants(request, user), desk, club_id)
@@ -152,6 +174,7 @@ def bind_request_desk(request, user) -> None:
         return
     request.desk_grant = grant
     _django_request(request).desk_grant = grant
+    _active_desk.set(grant.desk)
     if grant.desk in CLUB_DESKS and grant.club_id:
         _active_club.set(grant.club_id)
     if grant.level == DeskGrant.Level.READ_ONLY and request.method not in SAFE_METHODS:

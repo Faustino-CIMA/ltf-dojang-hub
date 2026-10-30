@@ -484,7 +484,9 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         user = self.request.user
         if not user or not user.is_authenticated:
             return Order.objects.none()
-        if user.role == "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance"):
             queryset = self._base_queryset().filter(federation_q())
 
             club_id = self.request.query_params.get("club_id")
@@ -524,7 +526,9 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 queryset, self.request.query_params.get("issue")
             )
             return queryset.order_by("-created_at")
-        if user.role == "ltf_admin" and self.action in ["confirm_payment", "activate_licenses"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") and self.action in ["confirm_payment", "activate_licenses"]:
             queryset = self._base_queryset().filter(federation_q())
             return queryset.order_by("-created_at")
         return Order.objects.none()
@@ -573,6 +577,11 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="confirm-payment")
     def confirm_payment(self, request, *args, **kwargs):
         order = self.get_object()
+        from accounts.duties import refuse_own_invoice_payment
+
+        refused = refuse_own_invoice_payment(request, order)
+        if refused:
+            return Response({"detail": refused}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if order.status == Order.Status.PAID:
@@ -812,7 +821,9 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
         user = self.request.user
         if not user or not user.is_authenticated:
             return Invoice.objects.none()
-        if user.role == "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance"):
             queryset = (
                 Invoice.objects.select_related("club", "member", "order")
                 .prefetch_related("credit_notes", "payments")
@@ -939,7 +950,9 @@ class PaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
         user = self.request.user
         if not user or not user.is_authenticated:
             return Payment.objects.none()
-        if user.role != "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if not holds_desk(user, "ltf_finance"):
             return Payment.objects.none()
         queryset = Payment.objects.select_related(
             "invoice", "order", "order__club", "created_by"
@@ -1002,7 +1015,9 @@ class FinanceAuditLogViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModel
         user = self.request.user
         if not user or not user.is_authenticated:
             return FinanceAuditLog.objects.none()
-        if user.role == "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance"):
             queryset = (
                 FinanceAuditLog.objects.select_related(
                     "actor",
@@ -1463,7 +1478,9 @@ class PayconiqPaymentViewSet(viewsets.GenericViewSet):
         return [permissions.IsAuthenticated()]
 
     def _ensure_club_access(self, user, order) -> bool:
-        if user.role in ["ltf_finance", "ltf_admin"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance") or holds_desk(user, "ltf_admin"):
             return True
         if user.role == "club_admin":
             from accounts.desks import active_club_id
@@ -2315,7 +2332,9 @@ class ClubFeePriceViewSet(
     def perform_create(self, serializer):
         fee_type = serializer.validated_data.get("fee_type")
         user = self.request.user
-        if fee_type is not None and fee_type.module_id and getattr(user, "role", "") != "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if fee_type is not None and fee_type.module_id and not holds_desk(user, "ltf_finance"):
             raise PermissionDenied("Only LTF Finance can set module fees.")
         serializer.save(created_by=user if user.is_authenticated else None)
 
@@ -2552,9 +2571,11 @@ class InvoicePdfView(APIView):
         if not invoice:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         user = request.user
-        if user.role not in ["ltf_finance", "club_admin"]:
+        from accounts.desks import holds_desk
+
+        if not holds_desk(user, "ltf_finance") and user.role != "club_admin":
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        if user.role == "ltf_finance" and invoice.order.ledger != Order.Ledger.FEDERATION:
+        if holds_desk(user, "ltf_finance") and invoice.order.ledger != Order.Ledger.FEDERATION:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         if user.role == "club_admin" and not invoice.club.admins.filter(id=user.id).exists():
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)

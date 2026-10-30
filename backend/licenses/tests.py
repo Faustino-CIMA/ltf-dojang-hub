@@ -1162,6 +1162,12 @@ class OrderApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         order_id = create_response.data["id"]
+        payer = User.objects.create_user(
+            username="finance-payer",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.client.force_authenticate(user=payer)
         response = self.client.post(
             f"/api/orders/{order_id}/confirm-payment/",
             {"stripe_payment_intent_id": "pi_123", "club_admin_consent_confirmed": True},
@@ -1476,6 +1482,12 @@ class OrderApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         order_id = create_response.data["id"]
+        payer = User.objects.create_user(
+            username="finance-payer-manual",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.client.force_authenticate(user=payer)
         response = self.client.post(
             f"/api/orders/{order_id}/confirm-payment/",
             {
@@ -1530,6 +1542,12 @@ class OrderApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         order_id = create_response.data["id"]
+        payer = User.objects.create_user(
+            username="finance-payer-consent",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.client.force_authenticate(user=payer)
         response = self.client.post(
             f"/api/orders/{order_id}/confirm-payment/",
             {"stripe_payment_intent_id": "pi_123"},
