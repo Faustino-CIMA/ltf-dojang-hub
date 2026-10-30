@@ -186,12 +186,20 @@ def enforce_elevated_mfa(request, user) -> None:
         return
     types = factor_types(user.id)
     enrolled = bool(types & STRONG_TYPES)
+    grant = getattr(request, "desk_grant", None)
+    fresh_grant = (
+        grant is not None
+        and grant.source in {"office", "manual"}
+        and grant.desk in {"ltf_finance", "ltf_admin", "club_admin"}
+    )
     if enrolled:
         if Authenticator.Type.RECOVERY_CODES not in types:
             raise PermissionDenied(detail="mfa_recovery_required")
         if not session_proved_strong(request):
             raise PermissionDenied(detail="mfa_required")
         return
+    if fresh_grant:
+        raise PermissionDenied(detail="mfa_enrol_required")
     open_grace, _until = grace_status(user)
     if open_grace:
         return

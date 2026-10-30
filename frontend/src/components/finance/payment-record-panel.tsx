@@ -137,7 +137,8 @@ export function PaymentRecordPanel({
       }
       await onSaved();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : common("paymentFailed"));
+      const message = error instanceof Error ? error.message : "";
+      setErrorMessage(message.includes("own_invoice_payment") ? t("ownInvoicePayment") : message || common("paymentFailed"));
     } finally {
       setIsSaving(false);
     }

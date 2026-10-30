@@ -73,7 +73,8 @@ export function ModulePurchaseOverrides({
       onNotice("success", t("modulePurchaseSaved"));
       setEditing(null);
     } catch (error) {
-      onNotice("error", error instanceof Error ? error.message : t("modulePurchaseError"));
+      const message = error instanceof Error ? error.message : "";
+      onNotice("error", message.includes("own_club_override") ? t("ownClubOverride") : message || t("modulePurchaseError"));
     } finally {
       setBusy(false);
     }
@@ -88,7 +89,8 @@ export function ModulePurchaseOverrides({
       setConfirming(null);
       setReason("");
     } catch (error) {
-      onNotice("error", error instanceof Error ? error.message : t("modulePurchaseError"));
+      const message = error instanceof Error ? error.message : "";
+      onNotice("error", message.includes("own_club_override") ? t("ownClubOverride") : message || t("modulePurchaseError"));
     } finally {
       setBusy(false);
     }

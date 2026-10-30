@@ -2041,3 +2041,51 @@ class PrintJobItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.print_job.job_number} item {self.id}"
+
+
+class DutyException(models.Model):
+    """A superuser allowance for one separation rule, for one club or one invoice."""
+
+    class Rule(models.TextChoices):
+        OWN_CLUB = "own_club_override", "Own club override"
+        OWN_INVOICE = "own_invoice_payment", "Own invoice payment"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="duty_exceptions",
+    )
+    rule = models.CharField(max_length=32, choices=Rule.choices)
+    club = models.ForeignKey(
+        "clubs.Club",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="duty_exceptions",
+    )
+    invoice = models.ForeignKey(
+        "Invoice",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="duty_exceptions",
+    )
+    reason = models.CharField(max_length=255)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="duty_exceptions_given",
+    )
+    valid_from = models.DateField()
+    valid_until = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "rule", "valid_until"], name="duty_exc_user_rule_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} {self.rule}"

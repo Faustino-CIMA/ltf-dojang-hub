@@ -61,15 +61,15 @@ class ClubAdminAccessLinkTests(TestCase):
 
         other_member = Member.objects.create(club=self.other, first_name="Omar", last_name="Feld", email="omar.feld@example.com")
         cross = self.client.post(f"/api/clubs/{self.other.id}/add_admin/", {"member_id": other_member.id}, format="json")
-        self.assertEqual(cross.status_code, 403)
-        self.assertEqual(cross.data["detail"], "actor_home_club")
+        self.assertEqual(cross.status_code, 200, cross.data)
+        mail.outbox.clear()
         remove_other = self.client.post(
             f"/api/clubs/{self.other.id}/remove_admin/",
             {"user_id": self.other_admin.id},
             format="json",
         )
-        self.assertEqual(remove_other.status_code, 403)
-        self.assertTrue(self.other.admins.filter(id=self.other_admin.id).exists())
+        self.assertEqual(remove_other.status_code, 200, remove_other.data)
+        self.assertFalse(self.other.admins.filter(id=self.other_admin.id).exists())
 
         removed = self.client.post(f"/api/clubs/{self.home.id}/remove_admin/", {"user_id": self.fresh.id}, format="json")
         self.assertEqual(removed.status_code, 200, removed.data)

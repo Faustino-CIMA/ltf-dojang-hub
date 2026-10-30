@@ -12,8 +12,11 @@ class ClubmgmtConfig(AppConfig):
         from clubs.models import Club, TrainingVenue
         from members.models import Member
 
+        from .models import CommitteeMandate
         from .teams import log_memberships_before_member_delete
         from .training import remember_series_place_for_venue
+
+        post_save.connect(_sync_office_grant, sender=CommitteeMandate, dispatch_uid="office_grant_mandate")
 
         pre_delete.connect(log_memberships_before_member_delete, sender=Member, dispatch_uid="club_team_member_delete")
         post_save.connect(_seed_club_clothing, sender=Club, dispatch_uid="club_clothing_defaults")
@@ -27,6 +30,14 @@ class ClubmgmtConfig(AppConfig):
             sender=TrainingVenue,
             dispatch_uid="training_series_venue_delete",
         )
+
+
+def _sync_office_grant(sender, instance, **kwargs):
+    if kwargs.get("raw"):
+        return
+    from accounts.offices import sync_mandate
+
+    sync_mandate(instance)
 
 
 def _seed_club_clothing(sender, instance, created, **kwargs):

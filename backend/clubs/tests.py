@@ -905,8 +905,8 @@ class ClubAdminManagementTests(TestCase):
             {"member_id": visitor.id},
             format="json",
         )
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.data["detail"], "actor_home_club")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "home_club_only")
         self.assertFalse(other.admins.filter(id=visitor.user_id).exists())
 
     def test_club_admin_cannot_remove_last_admin(self):

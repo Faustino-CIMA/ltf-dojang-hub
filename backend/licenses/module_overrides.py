@@ -195,6 +195,11 @@ class ModulePurchaseAdminViewSet(mixins.ListModelMixin, viewsets.GenericViewSet)
     @action(detail=True, methods=["post"])
     def override(self, request, pk=None):
         purchase = self.get_object()
+        from accounts.duties import refuse_own_club_override
+
+        refused = refuse_own_club_override(request, purchase.club_id)
+        if refused:
+            return Response({"detail": refused}, status=status.HTTP_403_FORBIDDEN)
         raw_end = request.data.get("ends_at")
         parsed_end = None
         if raw_end:

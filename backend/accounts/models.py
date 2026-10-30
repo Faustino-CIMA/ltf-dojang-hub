@@ -105,6 +105,13 @@ class DeskGrant(models.Model):
         blank=True,
         related_name="desk_grants_given",
     )
+    mandate = models.ForeignKey(
+        "clubmgmt.CommitteeMandate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="desk_grants",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -114,6 +121,11 @@ class DeskGrant(models.Model):
                 condition=Q(source="legacy"),
                 nulls_distinct=False,
                 name="desk_grant_legacy_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["mandate", "desk", "level"],
+                condition=Q(source="office"),
+                name="desk_grant_office_uniq",
             ),
             models.CheckConstraint(
                 condition=~Q(source="manual", level="read_only", valid_until__isnull=True),
@@ -134,6 +146,23 @@ class DeskGrant(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} {self.desk} {self.level}"
+
+
+class OfficeDeskMap(models.Model):
+    """Which federation office opens which desk, and at what level."""
+
+    office = models.CharField(max_length=32)
+    desk = models.CharField(max_length=20, choices=DeskGrant.Desk.choices)
+    level = models.CharField(max_length=20, choices=DeskGrant.Level.choices)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["office", "desk"], name="office_desk_map_uniq"),
+        ]
+        ordering = ["office", "desk"]
+
+    def __str__(self) -> str:
+        return f"{self.office} {self.desk} {self.level}"
 
 
 class DeskPreference(models.Model):

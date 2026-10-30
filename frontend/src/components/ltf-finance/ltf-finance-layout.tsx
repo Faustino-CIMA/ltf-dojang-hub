@@ -124,9 +124,10 @@ function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutPro
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<{ role: string }>("/api/auth/me/")
+    apiRequest<{ role: string; desks?: Array<{ desk: string }> }>("/api/auth/me/")
       .then((me) => {
-        if (!cancelled) setAccess(me.role === "ltf_finance" ? "allowed" : "denied");
+        const granted = (me.desks ?? []).some((desk) => desk.desk === "ltf_finance");
+        if (!cancelled) setAccess(me.role === "ltf_finance" || granted ? "allowed" : "denied");
       })
       .catch(() => {
         if (!cancelled) setAccess("denied");

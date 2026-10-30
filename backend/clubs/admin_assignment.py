@@ -146,10 +146,29 @@ def actor_may_assign_club(user, club) -> tuple[bool, str]:
     if user.is_superuser or user.role == User.Roles.LTF_ADMIN:
         return True, ""
     if user.role == User.Roles.CLUB_ADMIN and club.admins.filter(id=user.id).exists():
-        if home_club_id(user) != club.id:
+        if home_club_id(user) != club.id and not _grant_names_club(user, club.id):
             return False, "actor_home_club"
         return True, ""
+    if _grant_names_club(user, club.id):
+        return True, ""
     return False, "Not allowed."
+
+
+def _grant_names_club(user, club_id: int) -> bool:
+    """A Club Admin grant for this club lifts the home-club-only block."""
+    from django.db.models import Q
+    from django.utils import timezone
+
+    from accounts.models import DeskGrant
+
+    today = timezone.localdate()
+    return DeskGrant.objects.filter(
+        user_id=user.id,
+        desk=DeskGrant.Desk.CLUB_ADMIN,
+        club_id=club_id,
+        level=DeskGrant.Level.FULL,
+        valid_from__lte=today,
+    ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=today)).exists()
 
 
 def build_assignment_board(*, club_ids=None) -> dict:
