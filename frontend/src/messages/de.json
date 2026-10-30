@@ -1542,6 +1542,26 @@
     "officeOther": "Sonstiges",
     "deskFinance": "LTF Finanzen",
     "deskAdmin": "LTF Admin",
-    "deskMember": "Mitglied"
+    "deskMember": "Mitglied",
+    "navMerges": "Anmeldungen zusammenführen",
+    "mergeTitle": "Anmeldungen zusammenführen",
+    "mergeSubtitle": "Falten Sie zusätzliche Anmeldungen einer Person in die Anmeldung, die bleiben soll. Es gibt keinen Abgleich über den Namen, und die gefaltete Anmeldung bleibt erhalten, kann sich aber nicht mehr anmelden.",
+    "mergeSearch": "Anmeldungen suchen",
+    "mergeKeep": "Diese Anmeldung behalten",
+    "mergeFold": "Diese Anmeldung falten",
+    "mergeKept": "Anmeldung, die bleibt",
+    "mergeFolded": "Anmeldungen, die gefaltet werden",
+    "mergePreview": "Vorschau",
+    "mergeConfirm": "Zusammenführen",
+    "mergeConfirmAsk": "Diese Anmeldungen in die behaltene falten? Das kann nicht rückgängig gemacht werden.",
+    "mergeDone": "Anmeldungen zusammengeführt. Die gefaltete Anmeldung kann sich nicht mehr anmelden.",
+    "mergeMfa": "Bestätigen Sie Ihre Authenticator-App, bevor Sie Anmeldungen zusammenführen.",
+    "mergeConflict": "Beide Anmeldungen haben ein Mitgliederprofil. Wählen Sie, welches Profil bei der behaltenen Anmeldung bleibt.",
+    "mergeProfile": "Mitgliederprofil",
+    "mergeGrants": "Schreibtisch-Zugänge",
+    "mergeRecords": "Daten, die umziehen",
+    "mergeEmailSecondary": "Die gefaltete E-Mail bleibt als zweite Adresse, sofern sie nicht schon verwendet wird.",
+    "mergePasskeys": "Passkeys der gefalteten Anmeldung werden entfernt. Die Authenticator-App zieht nur um, wenn die behaltene Anmeldung noch keine hat.",
+    "mergeNone": "Wählen Sie eine Anmeldung, die bleibt, und mindestens eine, die gefaltet wird."
   }
 }
