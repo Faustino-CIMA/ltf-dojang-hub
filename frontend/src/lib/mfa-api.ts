@@ -1,4 +1,5 @@
-import { apiRequest } from "./api";
+import { API_URL, apiRequest } from "./api";
+import { AuthApiError } from "./auth-errors";
 import { getToken, setToken, type AuthResponse, type MfaStatus } from "./auth";
 
 export function confirmMfa(token: string, code: string) {
@@ -61,6 +62,13 @@ export function beginPasskeyRegistration() {
   return apiRequest<PublicKeyCredentialCreationOptionsJSON>("/api/auth/mfa/webauthn/");
 }
 
+export function removePasskey(id: number) {
+  return apiRequest<MfaStatus>("/api/auth/mfa/webauthn/", {
+    method: "DELETE",
+    body: JSON.stringify({ ids: [id] }),
+  });
+}
+
 export function finishPasskeyRegistration(name: string, credential: unknown) {
   return apiRequest<{ recovery_codes: string[]; mfa: MfaStatus }>("/api/auth/mfa/webauthn/", {
     method: "POST",
@@ -77,6 +85,33 @@ export function finishPasskeyLogin(token: string, credential: unknown) {
     method: "POST",
     body: JSON.stringify({ token, credential }),
   });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const token = getToken() ?? "";
+  const response = await fetch(`${API_URL}/_allauth/app/v1/account/password/change`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Token ${token}`,
+      "X-Session-Token": token,
+    },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    meta?: { session_token?: string };
+    errors?: { code?: string }[];
+  };
+  const nextToken = payload.meta?.session_token;
+  if (nextToken && nextToken !== token) {
+    setToken(nextToken);
+  }
+  if (!response.ok) {
+    const code = payload.errors?.find((row) => row.code)?.code || "password_change_failed";
+    throw new AuthApiError(code, code, "danger");
+  }
+  return payload;
 }
 
 export function regenerateRecoveryCodes() {
