@@ -372,6 +372,10 @@ HEADLESS_ONLY = False
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
 MFA_PASSKEY_LOGIN_ENABLED = True
 MFA_TOTP_ISSUER = "LTF Dojang Hub"
+# One step each side of the current 30s window, so a phone clock that is slightly off still matches.
+MFA_TOTP_TOLERANCE = 1
+MFA_TOTP_DIGITS = 6
+MFA_TOTP_PERIOD = 30
 MFA_ADAPTER = "accounts.mfa_adapter.LtfMFAAdapter"
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = config(
     "MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN",

@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   CircleHelp,
+  Clock,
   Database,
   GitBranch,
   HardDrive,
@@ -34,6 +35,7 @@ import { healthDetailText, orderOpsHealthChecks } from "@/lib/ops-health-cards";
 import { getOpsOverview, getOpsSessions, type OpsOverview, type OpsSession } from "@/lib/ops-api";
 
 const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
+  { key: "clock", icon: Clock },
   { key: "postgres", icon: Database },
   { key: "redis", icon: Zap },
   { key: "celery", icon: Workflow },

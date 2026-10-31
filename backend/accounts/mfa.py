@@ -295,15 +295,41 @@ def confirm_code(django_request, token: str, code: str) -> dict:
         stage = LoginStageController.enter(django_request, AuthenticateStage.key)
         if stage is None or stage.login.user is None:
             raise ValidationError("mfa_not_pending")
-        form = AuthenticateForm(data={"code": code}, user=stage.login.user)
+        form = AuthenticateForm(data={"code": str(code)}, user=stage.login.user)
         if not form.is_valid():
-            raise ValidationError("incorrect_code")
+            detail = form_failure_detail(form)
+            if detail == "incorrect_code":
+                _log_enrolled_totp_refusal(stage.login.user, str(code))
+            raise ValidationError(detail)
         form.save()
         stage.exit()
         session.save()
         if not getattr(django_request.user, "is_authenticated", False):
             raise ValidationError("mfa_not_pending")
         return auth_payload(django_request.user, session.session_key)
+
+
+def _log_enrolled_totp_refusal(user, code: str) -> None:
+    import logging
+
+    from allauth.mfa.models import Authenticator
+    from allauth.mfa.utils import decrypt
+
+    row = Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.TOTP).first()
+    if row is None:
+        return
+    try:
+        secret = decrypt(row.data.get("secret") or "")
+    except Exception:
+        from allauth.mfa import app_settings as mfa_settings
+
+        logging.getLogger(__name__).warning(
+            "totp refused user=%s drift=unreadable_secret tolerance_steps=%s",
+            user.id,
+            int(mfa_settings.TOTP_TOLERANCE or 0),
+        )
+        return
+    log_totp_refusal(secret=secret, code=code, user_id=user.id)
 
 
 def _email_step_needed(user) -> bool:
@@ -412,6 +438,78 @@ def _audit(actor, action: str, user, message: str, metadata: dict | None = None)
         message=message,
         metadata=metadata or {"user_id": user.id},
     )
+
+
+def log_totp_refusal(*, secret: str, code: str, user_id) -> None:
+    """Say whether a refused code would have matched a nearby time step.
+
+    The line is for the server log only. It never includes the code or the secret.
+    Acceptance stays at MFA_TOTP_TOLERANCE (one step). This probe looks ±10 steps
+    so a wrong clock can be told apart from a secret that does not match at all.
+    """
+    import logging
+    import time
+
+    from allauth.core.internal.cryptokit import compare_user_code
+    from allauth.mfa import app_settings as mfa_settings
+    from allauth.mfa.totp.internal.auth import format_hotp_value, hotp_value
+
+    logger = logging.getLogger(__name__)
+    probe_steps = 10
+    period = int(mfa_settings.TOTP_PERIOD or 30)
+    tolerance = int(mfa_settings.TOTP_TOLERANCE or 0)
+    digits = "".join(ch for ch in str(code or "") if ch.isdigit())
+    if not secret or len(digits) != int(mfa_settings.TOTP_DIGITS or 6):
+        logger.warning(
+            "totp refused user=%s drift=not_a_totp_code tolerance_steps=%s",
+            user_id,
+            tolerance,
+        )
+        return
+    current = int(time.time()) // period
+    matched = None
+    try:
+        for distance in range(0, probe_steps + 1):
+            offsets = (0,) if distance == 0 else (distance, -distance)
+            for offset in offsets:
+                expected = format_hotp_value(hotp_value(secret, current + offset))
+                if compare_user_code(actual=digits, expected=expected):
+                    matched = offset
+                    break
+            if matched is not None:
+                break
+    except Exception:
+        logger.warning(
+            "totp refused user=%s drift=unreadable_secret tolerance_steps=%s",
+            user_id,
+            tolerance,
+        )
+        return
+    if matched is None:
+        logger.warning(
+            "totp refused user=%s drift=no_match_within_%s_steps tolerance_steps=%s",
+            user_id,
+            probe_steps,
+            tolerance,
+        )
+        return
+    logger.warning(
+        "totp refused user=%s drift_offset_steps=%s drift_seconds=%s tolerance_steps=%s",
+        user_id,
+        matched,
+        matched * period,
+        tolerance,
+    )
+
+
+def form_failure_detail(form) -> str:
+    """Keep a wrong code distinct from a lockout. Callers map the string themselves."""
+    rate_codes = {"rate_limited", "too_many_login_attempts"}
+    for field in form.errors:
+        for item in form.errors[field].as_data():
+            if item.code in rate_codes:
+                return "rate_limited"
+    return "incorrect_code"
 
 
 def recently_authenticated(request) -> bool:
