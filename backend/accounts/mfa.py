@@ -143,7 +143,14 @@ def session_proved_strong(request) -> bool:
     return False
 
 
-def public_mfa_status(user) -> dict:
+def desk_block_code(request, user) -> str | None:
+    """Which second-factor refusal this desk would raise. Status paths stay 200 and carry the code."""
+    if request is None or not _needs_strong_mfa(request, user, ignore_exempt=True):
+        return None
+    return _mfa_refusal(request, user)
+
+
+def public_mfa_status(user, request=None) -> dict:
     types = factor_types(user.id) if getattr(user, "id", None) else set()
     enrolled = bool(types & STRONG_TYPES)
     recovery = Authenticator.Type.RECOVERY_CODES in types
@@ -158,15 +165,16 @@ def public_mfa_status(user) -> dict:
         "grace": bool(staff and open_grace and not enrolled),
         "grace_until": until if staff and open_grace and not enrolled else None,
         "blocked": blocked,
+        "desk_block": desk_block_code(request, user),
         "email_available": not staff,
         "email_enabled": email and not staff,
         "passkeys": Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.WEBAUTHN).count(),
     }
 
 
-def _needs_strong_mfa(request, user) -> bool:
+def _needs_strong_mfa(request, user, ignore_exempt: bool = False) -> bool:
     path = getattr(request, "path", "") or ""
-    if any(path.startswith(prefix) for prefix in EXEMPT_PREFIXES):
+    if not ignore_exempt and any(path.startswith(prefix) for prefix in EXEMPT_PREFIXES):
         return False
     raw = str(request.META.get("HTTP_X_DESK") or "").strip()
     if raw == "member" or raw.startswith("coach:"):
@@ -181,9 +189,7 @@ def _needs_strong_mfa(request, user) -> bool:
     return False
 
 
-def enforce_elevated_mfa(request, user) -> None:
-    if not _needs_strong_mfa(request, user):
-        return
+def _mfa_refusal(request, user) -> str | None:
     types = factor_types(user.id)
     enrolled = bool(types & STRONG_TYPES)
     grant = getattr(request, "desk_grant", None)
@@ -194,16 +200,24 @@ def enforce_elevated_mfa(request, user) -> None:
     )
     if enrolled:
         if Authenticator.Type.RECOVERY_CODES not in types:
-            raise PermissionDenied(detail="mfa_recovery_required")
+            return "mfa_recovery_required"
         if not session_proved_strong(request):
-            raise PermissionDenied(detail="mfa_required")
-        return
+            return "mfa_required"
+        return None
     if fresh_grant:
-        raise PermissionDenied(detail="mfa_enrol_required")
+        return "mfa_enrol_required"
     open_grace, _until = grace_status(user)
     if open_grace:
+        return None
+    return "mfa_enrol_required"
+
+
+def enforce_elevated_mfa(request, user) -> None:
+    if not _needs_strong_mfa(request, user):
         return
-    raise PermissionDenied(detail="mfa_enrol_required")
+    code = _mfa_refusal(request, user)
+    if code:
+        raise PermissionDenied(detail=code)
 
 
 def auth_payload(user, token: str) -> dict:

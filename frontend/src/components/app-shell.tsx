@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
@@ -23,8 +23,9 @@ import {
 import { logout, selectDesk } from "@/lib/auth-api";
 import { clearToken, getToken, type MfaStatus } from "@/lib/auth";
 import { MfaSecurityPanel } from "@/components/mfa-security-panel";
-import { formatDisplayDate } from "@/lib/date-display";
+import { presentAuthError } from "@/lib/auth-errors";
 import { getDashboardRouteForRole, routeForDesk } from "@/lib/dashboard-routing";
+import { isLeavingDeepLink, showLegacyClubPicker } from "@/lib/desk-switch";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
 import {
   ALL_CLUBS_SELECT_VALUE,
@@ -39,6 +40,7 @@ import { ClubSwitcher } from "@/components/club-switcher";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { PageNotice } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +83,36 @@ type AuthMeResponse = {
   last_desk?: { desk: string; level: string; club_id: number | null } | null;
   mfa?: MfaStatus;
 };
+
+function SwitchRefusal({
+  message,
+  setupLabel,
+  onSetup,
+}: {
+  message: string;
+  setupLabel: string;
+  onSetup: () => void;
+}) {
+  const shown = presentAuthError(message);
+  const offerSetup = shown.code === "mfa_enrol_required" || shown.code === "mfa_required" || shown.code === "mfa_recovery_required";
+  return (
+    <div className="space-y-3">
+      <PageNotice tone={shown.tone}>{shown.text}</PageNotice>
+      {offerSetup ? (
+        <Button type="button" variant="primary" onClick={onSetup}>
+          {setupLabel}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function daysUntil(until: string): number {
+  const end = new Date(`${until.slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((end.getTime() - today.getTime()) / 86400000));
+}
 
 function pathMatches(pathname: string, href: string, matchMode: AppNavItem["matchMode"]) {
   if (matchMode === "exact") {
@@ -129,6 +161,8 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [activeHeader, setActiveHeader] = useState<string | null>(null);
   const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [switchNotice, setSwitchNotice] = useState<string | null>(null);
+  const suppressAsk = useRef(false);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
   const allowAllClubs = allowsAllClubsSelection(pathname);
   const visibleClubId = resolveAssignedClubId(clubs, selectedClubId);
@@ -217,8 +251,19 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     !headerMatchesPath(activeHeader ?? readActiveDeskHeader(), needed);
 
   useEffect(() => {
+    if (suppressAsk.current) {
+      suppressAsk.current = false;
+      return;
+    }
     setPendingDesk(askToSwitch ? neededGrant : null);
   }, [askToSwitch, neededGrant]);
+
+  useEffect(() => {
+    if (desks.length < 2 || !activeDesk?.club_id || activeDesk.club_id === selectedClubId) {
+      return;
+    }
+    setSelectedClubId(activeDesk.club_id);
+  }, [activeDesk, desks.length, selectedClubId, setSelectedClubId]);
 
   const deskNames: Record<string, string> = {
     ltf_admin: t("roleLtfAdmin"),
@@ -229,19 +274,37 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     ops: t("roleSuperuser"),
   };
 
-  const switchTo = async (desk: DeskChoice) => {
-    const saved = await selectDesk(desk);
-    const header = deskHeaderValue(saved);
-    rememberActiveDesk(header);
-    setActiveHeader(header);
-    if (saved.club_id) {
-      setSelectedClubId(saved.club_id);
+  const applySwitch = async (desk: DeskChoice) => {
+    suppressAsk.current = true;
+    setSwitchNotice(null);
+    try {
+      const saved = await selectDesk(desk);
+      const header = deskHeaderValue(saved);
+      if (saved.club_id) {
+        persistSelectedClubId(saved.club_id);
+        setSelectedClubId(saved.club_id);
+      }
+      rememberActiveDesk(header);
+      setActiveHeader(header);
+      const route = routeForDesk(saved.desk, locale);
+      if (route && pathname !== route) {
+        router.push(route);
+      }
+      setPendingDesk(null);
+      const response = await apiRequest<AuthMeResponse>("/api/auth/me/");
+      setMe(response);
+    } catch (error) {
+      suppressAsk.current = false;
+      setSwitchNotice(error instanceof Error ? error.message : "");
     }
-    const route = routeForDesk(saved.desk, locale);
-    if (route && pathname && !pathname.startsWith(route)) {
-      router.push(route);
+  };
+
+  const requestSwitch = (desk: DeskChoice) => {
+    if (activeDesk && isLeavingDeepLink(pathname, activeDesk.desk, locale)) {
+      setPendingDesk(desk);
+      return;
     }
-    setPendingDesk(null);
+    void applySwitch(desk);
   };
 
   const displayName = me?.first_name?.trim() || me?.username || t("welcomeFallbackName");
@@ -461,7 +524,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
             </div>
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
-              {showClubSelector ? (
+              {showLegacyClubPicker(desks.length) && showClubSelector ? (
                 <ClubSwitcher
                   clubs={clubs}
                   value={clubSelectValue}
@@ -490,7 +553,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                   names={deskNames}
                   viewOnlyLabel={t("deskViewOnly")}
                   menuLabel={t("deskSwitcherLabel")}
-                  onSelect={(desk) => void switchTo(desk)}
+                  onSelect={requestSwitch}
                 />
               ) : null}
 
@@ -526,11 +589,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           </div>
         </header>
 
-        {me?.mfa?.grace && me.mfa.grace_until ? (
-          <div className="border-b border-border bg-secondary px-[var(--page-padding-x)] py-2 text-sm text-foreground">
-            <button type="button" className="text-left" onClick={() => setSecurityOpen(true)}>
-              {authCopy("mfaGraceBanner", { date: formatDisplayDate(me.mfa.grace_until) })}
-            </button>
+        {me?.mfa?.grace && me.mfa.grace_until && !me.mfa.desk_block && !me.mfa.blocked ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
+            <PageNotice tone="info">{authCopy("mfaEnrolGrace", { days: daysUntil(me.mfa.grace_until) })}</PageNotice>
+            <Button type="button" variant="primary" onClick={() => setSecurityOpen(true)}>
+              {authCopy("mfaEnrolAction")}
+            </Button>
           </div>
         ) : null}
         <MfaSecurityPanel
@@ -557,27 +621,46 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
               }
               confirmLabel={t("deskSwitchConfirm")}
               stayLabel={t("deskSwitchStay")}
-              onConfirm={() => void switchTo(pendingDesk)}
+              onConfirm={() => void applySwitch(pendingDesk)}
               onStay={() => {
                 const home = activeDesk ? routeForDesk(activeDesk.desk, locale) : getDashboardRouteForRole(me?.role ?? "", locale);
                 setPendingDesk(null);
-                if (home) {
+                if (home && pathname !== home) {
                   router.push(home);
                 }
               }}
             />
-          ) : me?.mfa?.blocked ? (
+          ) : me?.mfa?.blocked || me?.mfa?.desk_block ? (
             <div className="mx-auto max-w-xl space-y-3 py-8">
-              <h2 className="text-section text-foreground">{authCopy("mfaBlockedTitle")}</h2>
-              <p className="text-sm text-muted">{authCopy("mfaBlockedBody")}</p>
-              <Button type="button" onClick={() => setSecurityOpen(true)}>
-                {authCopy("mfaSetup")}
+              <PageNotice tone="info">
+                {me?.mfa?.desk_block === "mfa_required"
+                  ? authCopy("mfaSessionNotice")
+                  : me?.mfa?.desk_block === "mfa_recovery_required"
+                    ? authCopy("mfaRecoveryNotice")
+                    : me?.mfa?.grace && me?.mfa?.grace_until
+                      ? authCopy("mfaEnrolGrace", { days: daysUntil(me?.mfa?.grace_until ?? "") })
+                      : authCopy("mfaEnrolClosed")}
+              </PageNotice>
+              <Button type="button" variant="primary" onClick={() => setSecurityOpen(true)}>
+                {authCopy("mfaEnrolAction")}
               </Button>
             </div>
           ) : isWorkspace ? (
-            children
+            <div className="flex min-h-0 flex-1 flex-col">
+              {switchNotice ? (
+                <div className="p-3">
+                  <SwitchRefusal message={switchNotice} setupLabel={authCopy("mfaEnrolAction")} onSetup={() => setSecurityOpen(true)} />
+                </div>
+              ) : null}
+              {children}
+            </div>
           ) : (
-            <div className="w-full">{children}</div>
+            <div className="w-full space-y-3">
+              {switchNotice ? (
+                <SwitchRefusal message={switchNotice} setupLabel={authCopy("mfaEnrolAction")} onSetup={() => setSecurityOpen(true)} />
+              ) : null}
+              {children}
+            </div>
           )}
         </main>
       </div>
