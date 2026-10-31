@@ -2,9 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { X } from "lucide-react";
+import { SwitchCamera, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  attachCameraPreview,
+  listVideoInputs,
+  openCamera,
+  stopMediaStream,
+  switchCamera,
+  type CameraFacing,
+} from "@/lib/camera-capture";
 
 type ShopCameraScanProps = {
   onCode: (code: string) => void;
@@ -44,10 +52,14 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const facingRef = useRef<CameraFacing>("environment");
+  const flipRef = useRef<() => Promise<void>>(async () => {});
   const lastCode = useRef("");
   const onCodeRef = useRef(onCode);
   onCodeRef.current = onCode;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [canSwitch, setCanSwitch] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +67,7 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
 
     const stop = () => {
       if (timer) window.clearTimeout(timer);
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      stopMediaStream(streamRef.current);
       streamRef.current = null;
     };
 
@@ -89,24 +101,49 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
 
     const start = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
+        const stream = await openCamera({ facing: "environment" });
         if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
+          stopMediaStream(stream);
           return;
         }
         streamRef.current = stream;
+        facingRef.current = "environment";
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+          await attachCameraPreview(videoRef.current, stream);
         }
+        const inputs = await listVideoInputs();
+        if (!cancelled) setCanSwitch(inputs.length > 1);
         void tick();
       } catch {
-        setErrorMessage(t("shopScanCameraDenied"));
+        if (!cancelled) setErrorMessage(t("shopScanCameraDenied"));
       }
     };
+
+    const flip = async () => {
+      const current = streamRef.current;
+      if (!current || cancelled) return;
+      setSwitching(true);
+      setErrorMessage(null);
+      try {
+        const next = await switchCamera(current, facingRef.current);
+        if (cancelled) {
+          stopMediaStream(next.stream);
+          return;
+        }
+        streamRef.current = next.stream;
+        facingRef.current = next.facing;
+        if (videoRef.current) {
+          await attachCameraPreview(videoRef.current, next.stream);
+        }
+      } catch {
+        if (!cancelled) {
+          setErrorMessage(t("shopScanCameraDenied"));
+        }
+      } finally {
+        if (!cancelled) setSwitching(false);
+      }
+    };
+    flipRef.current = flip;
 
     void start();
     return () => {
@@ -119,10 +156,18 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--scrim)] p-4 text-[var(--scrim-foreground)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-medium">{t("shopScanCameraHint")}</p>
-        <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-          <X className="size-4" aria-hidden />
-          {t("shopScanClose")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canSwitch ? (
+            <Button type="button" variant="secondary" size="sm" disabled={switching} onClick={() => void flipRef.current()}>
+              <SwitchCamera aria-hidden />
+              {t("shopScanSwitchCamera")}
+            </Button>
+          ) : null}
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            <X className="size-4" aria-hidden />
+            {t("shopScanClose")}
+          </Button>
+        </div>
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
         <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
@@ -131,7 +176,7 @@ export function ShopCameraScan({ onCode, onClose }: ShopCameraScanProps) {
         </div>
       </div>
       <canvas ref={canvasRef} className="hidden" />
-      {errorMessage ? <p className="mt-3 text-sm text-red-200">{errorMessage}</p> : null}
+      {errorMessage ? <p className="banner-danger mt-3 rounded-[var(--radius-form)] px-3 py-2 text-sm">{errorMessage}</p> : null}
     </div>
   );
 }

@@ -194,6 +194,7 @@
   },
   "ClubAdmin": {
     "invoiceUnitLabel": "Prix unitaire",
+    "photoCameraSwitch": "Changer de caméra",
     "invoiceLineTotalLabel": "Sous-total",
     "trainingPlace": "Lieu d'entraînement",
     "trainingPlaceHint": "Facultatif. Laissez vide pour utiliser la salle du dossier de subvention.",
@@ -712,6 +713,7 @@
   },
   "LtfAdmin": {
     "federationLabel": "Fédération",
+    "photoCameraSwitch": "Changer de caméra",
     "federationWt": "WT",
     "federationItf": "ITF",
     "federationFilterLabel": "Fédération",
@@ -1002,6 +1004,7 @@
   },
   "ClubMgmt": {
     "useForInvoice": "Envoyer les factures ici",
+    "shopScanSwitchCamera": "Changer de caméra",
     "oneInvoiceAddress": "Une seule adresse peut être utilisée pour les factures.",
     "oneInvoiceAddressHint": "Une seule adresse reçoit les factures. Ce choix retire la marque des autres.",
     "shopQrAlt": "Code QR pour la taille {size}",
