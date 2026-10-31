@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageNotice } from "@/components/ui/list-page-chrome";
 import { AuthApiError } from "@/lib/auth-errors";
 import type { MfaStatus } from "@/lib/auth";
 import {
@@ -18,6 +18,7 @@ import {
   finishPasskeyRegistration,
   mfaFailureKey,
   reauthenticate,
+  regenerateRecoveryCodes,
   sendEmailMfaCode,
   totpDigits,
 } from "@/lib/mfa-api";
@@ -40,6 +41,7 @@ export function MfaSecurityPanel({
   const [secret, setSecret] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
+  const [codesAreNewKey, setCodesAreNewKey] = useState(false);
   const [emailCode, setEmailCode] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export function MfaSecurityPanel({
 
   const completeEnrolment = () => {
     setCodes(null);
+    setCodesAreNewKey(false);
     setSuccessMessage(null);
     onEnrolled();
     onClose();
@@ -87,6 +90,7 @@ export function MfaSecurityPanel({
 
   const noteEnrolment = (recoveryCodes: string[] | undefined) => {
     if (recoveryCodes?.length) {
+      setCodesAreNewKey(true);
       setCodes(recoveryCodes);
       setSuccessMessage(null);
       return;
@@ -95,7 +99,27 @@ export function MfaSecurityPanel({
   };
 
   const acknowledgeCodes = () => {
-    completeEnrolment();
+    if (codesAreNewKey) {
+      completeEnrolment();
+      return;
+    }
+    setCodes(null);
+    setCodesAreNewKey(false);
+  };
+
+  const regenerateCodes = async () => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const result = await regenerateRecoveryCodes();
+      setCodesAreNewKey(false);
+      setCodes(result.recovery_codes);
+      onChanged(result.mfa);
+    } catch (error) {
+      setErrorMessage(explain(error));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const finishTotp = async (event: FormEvent<HTMLFormElement>) => {
@@ -211,7 +235,7 @@ export function MfaSecurityPanel({
         {codes ? (
           <div className="space-y-3">
             <h2 className="text-section">{t("mfaRecoveryTitle")}</h2>
-            <p className="text-muted">{t("mfaRecoveryHint")}</p>
+            <PageNotice tone="info">{t("mfaRecoveryKeep", { count: codes.length })}</PageNotice>
             <ul className="grid grid-cols-2 gap-2 font-mono text-sm">
               {codes.map((code) => (
                 <li key={code} className="rounded-[var(--radius-control)] border border-border bg-surface px-2 py-1">
@@ -263,6 +287,18 @@ export function MfaSecurityPanel({
           <button type="button" className="text-sm font-medium text-primary" disabled={busy} onClick={() => void addPasskey()}>
             {t("mfaPasskeyAdd")}
           </button>
+          {status?.enrolled && !codes?.length ? (
+            <div className="mt-3 space-y-2">
+              <PageNotice tone={(status.recovery_codes_remaining ?? 0) <= 0 ? "danger" : (status.recovery_codes_remaining ?? 0) <= 3 ? "warning" : "info"}>
+                {(status.recovery_codes_remaining ?? 0) <= 0
+                  ? t("mfaRecoveryStockNone")
+                  : t("mfaRecoveryStock", { count: status.recovery_codes_remaining ?? 0 })}
+              </PageNotice>
+              <button type="button" className="text-sm font-medium text-primary" disabled={busy} onClick={() => void regenerateCodes()}>
+                {t("mfaRegenerate")}
+              </button>
+            </div>
+          ) : null}
           {status?.passkeys ? <p className="text-meta text-muted">{status.passkeys}</p> : null}
         </div>
         {status?.email_available ? (

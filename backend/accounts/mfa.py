@@ -153,7 +153,13 @@ def desk_block_code(request, user) -> str | None:
 def public_mfa_status(user, request=None) -> dict:
     types = factor_types(user.id) if getattr(user, "id", None) else set()
     enrolled = bool(types & STRONG_TYPES)
-    recovery = Authenticator.Type.RECOVERY_CODES in types
+    recovery_row = (
+        Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.RECOVERY_CODES).first()
+        if getattr(user, "id", None)
+        else None
+    )
+    recovery = recovery_row is not None
+    recovery_left = len(recovery_row.wrap().get_unused_codes()) if recovery_row is not None else 0
     staff = is_staff_account(user)
     open_grace, until = grace_status(user) if staff else (False, None)
     email = EmailMfa.objects.filter(user_id=user.id, enabled=True).exists()
@@ -162,6 +168,7 @@ def public_mfa_status(user, request=None) -> dict:
         "required": staff,
         "enrolled": enrolled,
         "recovery_codes": recovery,
+        "recovery_codes_remaining": recovery_left,
         "grace": bool(staff and open_grace and not enrolled),
         "grace_until": until if staff and open_grace and not enrolled else None,
         "blocked": blocked,
@@ -315,12 +322,17 @@ def confirm_code(django_request, token: str, code: str) -> dict:
             if detail == "incorrect_code":
                 _log_enrolled_totp_refusal(stage.login.user, str(code))
             raise ValidationError(detail)
+        used = form.authenticator
         form.save()
         stage.exit()
         session.save()
         if not getattr(django_request.user, "is_authenticated", False):
             raise ValidationError("mfa_not_pending")
-        return auth_payload(django_request.user, session.session_key)
+        payload = auth_payload(django_request.user, session.session_key)
+        if used.type == Authenticator.Type.RECOVERY_CODES:
+            used.refresh_from_db()
+            payload["recovery_codes_remaining"] = len(used.wrap().get_unused_codes())
+        return payload
 
 
 def _log_enrolled_totp_refusal(user, code: str) -> None:
@@ -404,6 +416,32 @@ def enable_email_mfa(user) -> None:
 
 def disable_email_mfa(user) -> None:
     EmailMfa.objects.filter(user_id=user.id).update(enabled=False)
+
+
+RESET_GRACE_DAYS = 2
+
+
+def reset_totp_from_command(user) -> str:
+    """Drop the authenticator app only. Passkeys and recovery codes stay. Two days of grace."""
+    Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.TOTP).delete()
+    until = timezone.localdate() + timedelta(days=RESET_GRACE_DAYS)
+    row = StaffMfaGrace.objects.filter(user_id=user.id).first()
+    if row is None:
+        row = StaffMfaGrace(user=user)
+    row.grace_until = until
+    row.no_grace = False
+    row.save()
+    from ops.models import OpsAuditLog
+
+    OpsAuditLog.objects.create(
+        actor=None,
+        action="mfa.reset",
+        target_type="user",
+        target_id=str(user.id),
+        message="Authenticator app removed by server command. Passkeys and recovery codes were kept.",
+        metadata={"username": user.username, "grace_until": until.isoformat(), "removed": "totp"},
+    )
+    return until.isoformat()
 
 
 def reset_authenticators(actor, user) -> None:

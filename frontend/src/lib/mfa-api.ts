@@ -79,6 +79,13 @@ export function finishPasskeyLogin(token: string, credential: unknown) {
   });
 }
 
+export function regenerateRecoveryCodes() {
+  return apiRequest<{ recovery_codes: string[]; mfa: MfaStatus }>("/api/auth/mfa/recovery/", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export function sendEmailMfaCode() {
   return apiRequest<{ detail: string }>("/api/auth/mfa/email/", {
     method: "POST",

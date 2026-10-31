@@ -131,7 +131,9 @@ class MfaLoginTests(TestCase):
         clubs = self.client.get("/api/clubs/")
         self.assertNotEqual(clubs.status_code, 403)
         codes = Authenticator.objects.get(user=self.admin, type=Authenticator.Type.RECOVERY_CODES)
-        recovery = codes.wrap().get_unused_codes()[0]
+        unused = codes.wrap().get_unused_codes()
+        recovery = unused[0]
+        before = len(unused)
         self.client.credentials()
         again = self.client.post(
             "/api/auth/login/",
@@ -144,6 +146,7 @@ class MfaLoginTests(TestCase):
             format="json",
         )
         self.assertEqual(used.status_code, 200, used.data)
+        self.assertEqual(used.data["recovery_codes_remaining"], before - 1)
         self.assertTrue(
             OpsAuditLog.objects.filter(action="mfa.recovery_used", target_id=str(self.admin.id)).exists()
         )
@@ -214,6 +217,44 @@ class MfaLoginTests(TestCase):
         )
         self.assertEqual(second.status_code, 400)
         self.assertTrue(OpsAuditLog.objects.filter(action="mfa.grace_extended").exists())
+
+    def test_server_command_removes_only_the_authenticator_app(self):
+        from datetime import timedelta
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from accounts.mfa import RESET_GRACE_DAYS
+        from accounts.models import StaffMfaGrace
+
+        TOTP.activate(self.admin, "JBSWY3DPEHPK3PXP")
+        RecoveryCodes.activate(self.admin)
+        Authenticator.objects.create(
+            user=self.admin,
+            type=Authenticator.Type.WEBAUTHN,
+            data={"name": "Laptop", "credential": {}},
+        )
+        StaffMfaGrace.objects.update_or_create(
+            user=self.admin,
+            defaults={"grace_until": timezone.localdate(), "no_grace": True, "extended": False},
+        )
+        call_command("mfa_reset", self.admin.username)
+        self.assertFalse(Authenticator.objects.filter(user=self.admin, type=Authenticator.Type.TOTP).exists())
+        self.assertTrue(Authenticator.objects.filter(user=self.admin, type=Authenticator.Type.WEBAUTHN).exists())
+        self.assertTrue(Authenticator.objects.filter(user=self.admin, type=Authenticator.Type.RECOVERY_CODES).exists())
+        grace = StaffMfaGrace.objects.get(user=self.admin)
+        self.assertFalse(grace.no_grace)
+        self.assertEqual(grace.grace_until, timezone.localdate() + timedelta(days=RESET_GRACE_DAYS))
+        self.assertTrue(OpsAuditLog.objects.filter(action="mfa.reset", target_id=str(self.admin.id), actor__isnull=True).exists())
+        signed = self.client.post(
+            "/api/auth/login/",
+            {"username": "mfa-admin", "password": "pass12345"},
+            format="json",
+        )
+        self.assertEqual(signed.status_code, 200, signed.data)
+        self.assertTrue(signed.data.get("mfa_pending"))
+        self.assertNotIn("totp", signed.data.get("mfa_methods") or [])
+        self.assertIn("webauthn", signed.data.get("mfa_methods") or [])
 
     def test_passkey_login_options_are_offered(self):
         options = self.client.get("/api/auth/mfa/webauthn/login/")

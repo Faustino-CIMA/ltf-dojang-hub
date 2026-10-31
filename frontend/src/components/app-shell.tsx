@@ -163,6 +163,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [enrolToast, setEnrolToast] = useState(false);
+  const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null);
   const stopCelebration = useRef<(() => void) | null>(null);
   const enrolToastTimer = useRef<number | null>(null);
   const [switchNotice, setSwitchNotice] = useState<string | null>(null);
@@ -234,6 +235,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const raw = window.sessionStorage.getItem("ltf_recovery_remaining");
+    if (raw == null) {
+      return;
+    }
+    const count = Number(raw);
+    if (Number.isInteger(count) && count >= 0) {
+      setRecoveryLeft(count);
+    }
   }, []);
 
   useEffect(() => {
@@ -612,6 +624,20 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           </div>
         </header>
 
+        {recoveryLeft != null ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
+            <PageNotice tone={recoveryLeft <= 0 ? "danger" : recoveryLeft <= 3 ? "warning" : "info"}>
+              {recoveryLeft <= 0 ? authCopy("mfaRecoveryUsedNone") : authCopy("mfaRecoveryUsed", { count: recoveryLeft })}
+            </PageNotice>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => setSecurityOpen(true)}
+            >
+              {authCopy("mfaMakeNewSet")}
+            </Button>
+          </div>
+        ) : null}
         {me?.mfa?.grace && me.mfa.grace_until && !me.mfa.desk_block && !me.mfa.blocked ? (
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
             <PageNotice tone="info">{authCopy("mfaEnrolGrace", { days: daysUntil(me.mfa.grace_until) })}</PageNotice>

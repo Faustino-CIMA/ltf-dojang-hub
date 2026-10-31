@@ -9,9 +9,12 @@ from allauth.core.context import request_context
 from allauth.core.exceptions import ReauthenticationRequired
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.models import Authenticator
+from allauth.mfa.recovery_codes.internal.flows import generate_recovery_codes
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal import auth as totp_auth
 from allauth.mfa.totp.internal import flows as totp_flows
+from allauth.mfa.totp.internal.auth import clear_totp_secret
+from allauth.mfa.utils import encrypt
 from allauth.mfa.webauthn.internal import flows as webauthn_flows
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpRequest
@@ -110,15 +113,50 @@ class TotpEnrolView(views.APIView):
             # activate_totp then raises, and the account middleware turns that into an HTML
             # redirect the screen reports as a rejected code. Inside the timeout, the sign-in is enough.
             record_authentication(django_request, request.user, method="password", reauthenticated=True)
+            existing = Authenticator.objects.filter(
+                user_id=request.user.id, type=Authenticator.Type.TOTP
+            ).first()
+            if existing is None:
+                try:
+                    _totp, recovery = totp_flows.activate_totp(django_request, form)
+                except ReauthenticationRequired:
+                    return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
+                codes = recovery.wrap().get_unused_codes() if recovery is not None else []
+            else:
+                # The old key and the old recovery codes stay until this new code is accepted.
+                existing.data["secret"] = encrypt(form.secret)
+                existing.save(update_fields=["data"])
+                clear_totp_secret(django_request)
+                from ops.models import OpsAuditLog
+
+                OpsAuditLog.objects.create(
+                    actor=request.user,
+                    action="mfa.key_changed",
+                    target_type="user",
+                    target_id=str(request.user.id),
+                    message="Authenticator key replaced. Recovery codes were kept.",
+                    metadata={"user_id": request.user.id},
+                )
+                codes = []
+            record_authentication(django_request, request.user, method="mfa", type="totp")
+        django_request.session.save()
+        return response.Response({"recovery_codes": codes, "mfa": public_mfa_status(request.user, request)})
+
+
+class RecoveryCodeView(views.APIView):
+    """Replace recovery codes only when the person asks. A key change does not do this."""
+
+    def post(self, request):
+        if not recently_authenticated(request):
+            return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
+        django_request = _django(request)
+        with request_context(django_request):
+            record_authentication(django_request, request.user, method="password", reauthenticated=True)
             try:
-                _totp, recovery = totp_flows.activate_totp(django_request, form)
+                authenticator = generate_recovery_codes(django_request)
             except ReauthenticationRequired:
                 return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
-            # The code just proved the new authenticator. This visit can open the desk without signing in again.
-            record_authentication(django_request, request.user, method="mfa", type="totp")
-            codes = []
-            if recovery is not None:
-                codes = recovery.wrap().get_unused_codes()
+            codes = authenticator.wrap().get_unused_codes()
         django_request.session.save()
         return response.Response({"recovery_codes": codes, "mfa": public_mfa_status(request.user, request)})
 

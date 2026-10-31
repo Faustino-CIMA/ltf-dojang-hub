@@ -23,6 +23,7 @@ export type MfaStatus = {
   required: boolean;
   enrolled: boolean;
   recovery_codes: boolean;
+  recovery_codes_remaining?: number;
   grace: boolean;
   grace_until: string | null;
   blocked: boolean;
@@ -40,6 +41,7 @@ export type AuthResponse = {
   mfa?: MfaStatus;
   mfa_pending?: boolean;
   mfa_methods?: string[];
+  recovery_codes_remaining?: number;
 };
 
 const TOKEN_KEY = "ltf_token";
