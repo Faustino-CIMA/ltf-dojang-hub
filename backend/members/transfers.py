@@ -246,12 +246,18 @@ def search_destination_clubs(*, user: User, from_club_id, query: str = "") -> di
     }
 
 
+def _holds(user: User, desk: str) -> bool:
+    from accounts.desks import holds_desk
+
+    return holds_desk(user, desk)
+
+
 def list_transfers(*, user: User, fee_only: bool = False):
-    if user.role == User.Roles.LTF_ADMIN:
+    if _holds(user, User.Roles.LTF_ADMIN):
         queryset = MemberTransfer.objects.all()
         if fee_only:
             queryset = queryset.filter(fee_amount__gt=0)
-    elif user.role == User.Roles.CLUB_ADMIN:
+    elif user.role == User.Roles.CLUB_ADMIN or _holds(user, User.Roles.CLUB_ADMIN):
         administered = _clubs_administered(user)
         queryset = MemberTransfer.objects.filter(
             Q(from_club__in=administered) | Q(to_club__in=administered)
@@ -290,10 +296,12 @@ def list_member_club_transfers(*, user: User, member_id: int) -> dict:
     member = Member.objects.select_related("club").filter(id=member_id).first()
     if not member:
         raise TransferError({"detail": "Member not found."}, 404)
-    if user.role == User.Roles.CLUB_ADMIN:
+    if _holds(user, User.Roles.LTF_ADMIN) or _holds(user, User.Roles.LTF_FINANCE):
+        pass
+    elif user.role == User.Roles.CLUB_ADMIN:
         if member.club_id is None or not _user_admins_club(user, member.club):
             raise TransferError({"detail": "Not allowed."}, 403)
-    elif user.role not in {User.Roles.LTF_ADMIN, User.Roles.LTF_FINANCE}:
+    else:
         raise TransferError({"detail": "Not allowed."}, 403)
 
     transfers = list(
@@ -321,7 +329,7 @@ def list_member_club_transfers(*, user: User, member_id: int) -> dict:
 
 
 def build_movement_monitor(*, user: User) -> dict:
-    if user.role != User.Roles.LTF_ADMIN:
+    if not _holds(user, User.Roles.LTF_ADMIN):
         raise TransferError({"detail": "Not allowed."}, 403)
 
     threshold = get_club_tourist_threshold()
@@ -422,9 +430,9 @@ def get_transfer(*, user: User, transfer_id: int) -> MemberTransfer:
     transfer = _transfer_queryset().filter(id=transfer_id).first()
     if not transfer:
         raise TransferError({"detail": "Transfer not found."}, 404)
-    if user.role == User.Roles.LTF_ADMIN:
+    if _holds(user, User.Roles.LTF_ADMIN):
         return transfer
-    if user.role != User.Roles.CLUB_ADMIN:
+    if user.role != User.Roles.CLUB_ADMIN and not _holds(user, User.Roles.CLUB_ADMIN):
         raise TransferError({"detail": "Not allowed."}, 403)
     if not (
         _user_admins_club(user, transfer.from_club) or _user_admins_club(user, transfer.to_club)

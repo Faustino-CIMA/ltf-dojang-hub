@@ -1,3 +1,5 @@
+import { readDeskReadOnly } from "./active-desk";
+
 export type AuthNoticeTone = "info" | "danger";
 
 type Locale = "en" | "fr" | "de" | "lb";
@@ -54,6 +56,12 @@ const COPY: Record<string, Record<Locale, string>> = {
     fr: "Ce bureau est en lecture seule.",
     de: "Dieser Schreibtisch ist nur zum Ansehen.",
     lb: "Dëse Schreifdësch ass nëmme fir ze kucken.",
+  },
+  not_allowed: {
+    en: "That action is not available.",
+    fr: "Cette action n'est pas disponible.",
+    de: "Diese Aktion ist nicht verfügbar.",
+    lb: "Dës Aktioun ass net disponibel.",
   },
   incorrect_code: {
     en: "That code was not accepted.",
@@ -147,16 +155,28 @@ export function matchAuthCode(message: string): string | null {
   return KNOWN_TEXT.get(text)?.code ?? null;
 }
 
+const RAW_DENIALS = new Set([
+  "Not allowed.",
+  "You do not have permission to perform this action.",
+]);
+
 export function presentAuthError(message: string, locale: Locale = readUiLocale()): {
   code: string | null;
   text: string;
   tone: AuthNoticeTone;
 } {
-  const known = KNOWN_TEXT.get(message.trim());
+  const trimmed = message.trim();
+  if (readDeskReadOnly() && (RAW_DENIALS.has(trimmed) || trimmed.includes("Not allowed."))) {
+    return { code: "desk_read_only", text: COPY.desk_read_only[locale] ?? COPY.desk_read_only.en, tone: "info" };
+  }
+  if (trimmed === "Not allowed.") {
+    return { code: "not_allowed", text: COPY.not_allowed[locale] ?? COPY.not_allowed.en, tone: "danger" };
+  }
+  const known = KNOWN_TEXT.get(trimmed);
   if (known) {
     return { code: known.code, text: message.trim(), tone: known.tone };
   }
-  const code = matchAuthCode(message);
+  const code = matchAuthCode(trimmed);
   if (!code) {
     return { code: null, text: message, tone: "danger" };
   }

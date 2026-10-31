@@ -483,6 +483,19 @@
   padding-bottom: 0.375rem;
 }
 
+[data-view-only="true"] :is(input:read-only, textarea:read-only) {
+  opacity: 1;
+  color: var(--field-foreground);
+  -webkit-text-fill-color: var(--field-foreground);
+  cursor: text;
+}
+
+[data-view-only="true"] :is(select:disabled, [data-slot="select-trigger"][data-disabled], [role="combobox"][aria-disabled="true"]) {
+  opacity: 1;
+  color: var(--field-foreground);
+  cursor: default;
+}
+
 .sidebar-nav-link .sidebar-nav-icon {
   width: var(--sidebar-item-icon-size);
   height: var(--sidebar-item-icon-size);

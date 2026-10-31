@@ -24,14 +24,20 @@ class IsLtfFinanceOrLtfAdmin(BasePermission):
 
 class IsClubAdminOrCoach(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ["club_admin", "coach"]
+        user = request.user
+        return user.is_authenticated and (
+            holds_desk(user, "club_admin") or holds_desk(user, "coach")
+        )
 
 
 class IsClubAdmin(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == "club_admin"
+        return request.user.is_authenticated and holds_desk(request.user, "club_admin")
 
 
 class IsLtfAdminOrClubAdmin(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ["ltf_admin", "club_admin"]
+        user = request.user
+        return user.is_authenticated and (
+            holds_desk(user, "ltf_admin") or holds_desk(user, "club_admin")
+        )

@@ -314,7 +314,9 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return License.objects.none()
 
-        if user.role == "ltf_admin":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") or user.role == "ltf_admin":
             queryset = License.objects.select_related("member", "club", "license_type").all()
         elif user.role in ["club_admin", "coach"]:
             queryset = License.objects.select_related("member", "club", "license_type").filter(

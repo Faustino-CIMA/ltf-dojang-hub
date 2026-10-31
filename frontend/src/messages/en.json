@@ -59,6 +59,7 @@
     "deskSwitcherLabel": "Desks",
     "deskViewOnly": "View only",
     "deskViewOnlyHint": "This desk is view only.",
+    "deskViewOnlyAction": "View only on this desk",
     "deskSwitchTitle": "Open another desk",
     "deskSwitchAsk": "Open the {desk} desk?",
     "deskSwitchAskAdmin": "Open LTF Admin? You will see every club, including minors.",

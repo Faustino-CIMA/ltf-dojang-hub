@@ -166,6 +166,7 @@
     "deskSwitcherLabel": "Schreibtische",
     "deskViewOnly": "Nur ansehen",
     "deskViewOnlyHint": "Dieser Schreibtisch ist nur zum Ansehen.",
+    "deskViewOnlyAction": "Auf diesem Schreibtisch nur ansehen",
     "deskSwitchTitle": "Einen anderen Schreibtisch öffnen",
     "deskSwitchAsk": "Den Schreibtisch {desk} öffnen?",
     "deskSwitchAskAdmin": "LTF Admin öffnen? Sie sehen alle Vereine, auch Minderjährige.",

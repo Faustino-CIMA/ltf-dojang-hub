@@ -107,7 +107,9 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     def _assignment_club_ids(self, user):
         if not user or not user.is_authenticated:
             return False
-        if user.is_superuser or user.role == "ltf_admin":
+        from accounts.desks import holds_desk
+
+        if user.is_superuser or holds_desk(user, "ltf_admin"):
             return None
         if user.role == "club_admin":
             home_id = home_club_id(user)
@@ -143,7 +145,9 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             "DELETE",
         ]:
             return scope_to_active_club(self.request, Club.objects.all(), "pk")
-        if user.role in ["ltf_admin", "ltf_finance"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") or holds_desk(user, "ltf_finance"):
             queryset = Club.objects.all()
         elif user.role == "club_admin":
             queryset = Club.objects.filter(admins=user).distinct()
@@ -201,7 +205,14 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     def module_fees(self, request, pk=None):
         """Price list for club admins. Reachable when the club has no module switched on."""
         user = request.user
-        if user.role not in {"club_admin", "ltf_finance", "ltf_admin"} and not user.is_superuser:
+        from accounts.desks import holds_desk
+
+        if not (
+            user.is_superuser
+            or holds_desk(user, "club_admin")
+            or holds_desk(user, "ltf_finance")
+            or holds_desk(user, "ltf_admin")
+        ):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         club = self.get_object()
         from licenses.module_fees import module_fee_quote
@@ -211,14 +222,22 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="module-order-catalog")
     def module_order_catalog(self, request, pk=None):
         user = request.user
-        if user.role not in {"club_admin", "ltf_finance", "ltf_admin"} and not user.is_superuser:
+        from accounts.desks import holds_desk
+
+        if not (
+            user.is_superuser
+            or holds_desk(user, "club_admin")
+            or holds_desk(user, "ltf_finance")
+            or holds_desk(user, "ltf_admin")
+        ):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         club = self.get_object()
-        if user.role == "club_admin" and not club.admins.filter(id=user.id).exists():
+        federation = user.is_superuser or holds_desk(user, "ltf_finance") or holds_desk(user, "ltf_admin")
+        if not federation and not club.admins.filter(id=user.id).exists() and not holds_desk(user, "club_admin"):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         from licenses.module_orders import module_order_catalog as build_catalog
 
-        include_unentitled = user.role in {"ltf_finance", "ltf_admin"} or user.is_superuser
+        include_unentitled = federation
         return Response(build_catalog(club, include_unentitled=include_unentitled))
 
     @action(detail=True, methods=["post"], url_path="module-orders")
@@ -312,7 +331,11 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def admins(self, request, pk=None):
         club = self.get_object()
-        if request.user.role != "ltf_admin" and not (
+        from accounts.desks import current_active_club, holds_desk
+
+        active = current_active_club()
+        on_this_club = holds_desk(request.user, "club_admin") and (active is None or active == club.id)
+        if not holds_desk(request.user, "ltf_admin") and not on_this_club and not (
             request.user.role == "club_admin" and club.admins.filter(id=request.user.id).exists()
         ):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
@@ -328,7 +351,9 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def eligible_members(self, request, pk=None):
         club = self.get_object()
-        if request.user.role != "ltf_admin":
+        from accounts.desks import holds_desk
+
+        if not holds_desk(request.user, "ltf_admin"):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         queryset = (
             Member.objects.filter(user__isnull=True)

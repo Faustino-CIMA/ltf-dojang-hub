@@ -461,7 +461,7 @@ export default function LtfAdminMembersPage() {
             actions={
               <div className="flex flex-wrap items-center gap-3">
                 {canManageStaff ? (
-                  <Button type="button" onClick={() => void openPanel("create", null)}>
+                  <Button type="button" write onClick={() => void openPanel("create", null)}>
                     {t("staffAddAction")}
                   </Button>
                 ) : null}

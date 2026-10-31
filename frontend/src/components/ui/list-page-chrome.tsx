@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
+import { useDeskAccess } from "@/components/desk-access";
 import { RequiredForm } from "@/components/ui/label";
 import { presentAuthError } from "@/lib/auth-errors";
 import { cn } from "@/lib/utils";
@@ -370,13 +371,16 @@ export const dataRowClass =
   "h-[var(--table-row-height)] text-foreground transition-colors hover:bg-[var(--accent-soft)]";
 export const dataRowClickableClass = `${dataRowClass} cursor-pointer`;
 
-export function AppTextarea({ className, ...props }: ComponentProps<"textarea">) {
+export function AppTextarea({ className, readOnly, ...props }: ComponentProps<"textarea">) {
+  const { readOnly: viewOnly } = useDeskAccess()
   return (
     <textarea
+      readOnly={viewOnly ? true : readOnly}
+      aria-readonly={viewOnly ? true : undefined}
       className={cn(
         "placeholder:text-[var(--field-placeholder)] min-h-[7.5rem] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] outline-none transition-[color,box-shadow]",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "disabled:cursor-not-allowed disabled:opacity-50 read-only:cursor-text read-only:opacity-100",
         className
       )}
       {...props}

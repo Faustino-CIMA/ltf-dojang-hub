@@ -80,6 +80,13 @@ class ClubMgmtPermission(permissions.BasePermission):
             return False
         if is_ltf_manager(user):
             return True
+        from accounts.desks import current_desk
+
+        if current_desk() == "club_admin":
+            club_id = _club_id(request)
+            if club_id is None:
+                return True
+            return can_manage_club_records(user, club_id)
         if user.role != "club_admin":
             return False
         club_id = _club_id(request)
