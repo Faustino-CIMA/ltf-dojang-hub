@@ -227,6 +227,53 @@ class TotpSetupTests(TestCase):
         self.assertNotIn(drifted, blob)
         self.assertNotIn(secret, blob)
 
+    def test_status_names_the_authenticator_and_each_passkey(self):
+        from allauth.mfa.models import Authenticator
+
+        started = self.client.get("/api/auth/mfa/totp/")
+        activated = self.client.post(
+            "/api/auth/mfa/totp/",
+            {"code": _code(started.data["secret"])},
+            format="json",
+        )
+        self.assertEqual(activated.status_code, 200, activated.data)
+        self.assertTrue(activated.data["mfa"]["totp"])
+        self.assertRegex(activated.data["mfa"]["totp_since"], r"^\d{4}-\d{2}-\d{2}$")
+        Authenticator.objects.create(
+            user=self.user,
+            type=Authenticator.Type.WEBAUTHN,
+            data={"name": "Laptop", "credential": {}},
+        )
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200, me.data)
+        self.assertEqual(me.data["mfa"]["passkeys"], 1)
+        self.assertEqual(me.data["mfa"]["passkey_devices"][0]["name"], "Laptop")
+        self.assertRegex(me.data["mfa"]["passkey_devices"][0]["added_on"], r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_password_change_keeps_this_sign_in(self):
+        wrong = self.client.post(
+            "/_allauth/app/v1/account/password/change",
+            {"current_password": "not-the-password", "new_password": "fresh-pass-99"},
+            format="json",
+            HTTP_X_SESSION_TOKEN=self.token,
+        )
+        self.assertEqual(wrong.status_code, 400, wrong.content)
+        self.assertEqual(wrong.json()["errors"][0]["code"], "enter_current_password")
+        changed = self.client.post(
+            "/_allauth/app/v1/account/password/change",
+            {"current_password": "pass12345", "new_password": "fresh-pass-99"},
+            format="json",
+            HTTP_X_SESSION_TOKEN=self.token,
+        )
+        self.assertEqual(changed.status_code, 200, changed.content)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("fresh-pass-99"))
+        next_token = changed.json()["meta"]["session_token"]
+        self.assertNotEqual(next_token, self.token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {next_token}")
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200, me.data)
+
     def test_server_time_command_prints_utc(self):
         out = StringIO()
         call_command("server_time", stdout=out)

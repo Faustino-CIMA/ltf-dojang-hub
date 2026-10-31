@@ -160,6 +160,22 @@ def public_mfa_status(user, request=None) -> dict:
     )
     recovery = recovery_row is not None
     recovery_left = len(recovery_row.wrap().get_unused_codes()) if recovery_row is not None else 0
+    totp_row = (
+        Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.TOTP).only("created_at").first()
+        if getattr(user, "id", None)
+        else None
+    )
+    devices = []
+    if getattr(user, "id", None):
+        for row in Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.WEBAUTHN).order_by("id"):
+            data = row.data if isinstance(row.data, dict) else {}
+            devices.append(
+                {
+                    "id": row.id,
+                    "name": str(data.get("name") or "Passkey"),
+                    "added_on": timezone.localtime(row.created_at).date().isoformat(),
+                }
+            )
     staff = is_staff_account(user)
     open_grace, until = grace_status(user) if staff else (False, None)
     email = EmailMfa.objects.filter(user_id=user.id, enabled=True).exists()
@@ -175,7 +191,10 @@ def public_mfa_status(user, request=None) -> dict:
         "desk_block": desk_block_code(request, user),
         "email_available": not staff,
         "email_enabled": email and not staff,
-        "passkeys": Authenticator.objects.filter(user_id=user.id, type=Authenticator.Type.WEBAUTHN).count(),
+        "passkeys": len(devices),
+        "totp": totp_row is not None,
+        "totp_since": timezone.localtime(totp_row.created_at).date().isoformat() if totp_row is not None else None,
+        "passkey_devices": devices,
     }
 
 

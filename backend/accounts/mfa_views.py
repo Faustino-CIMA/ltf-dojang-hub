@@ -201,7 +201,7 @@ class WebAuthnRegisterView(views.APIView):
         django_request = _django(request)
         with request_context(django_request):
             webauthn_flows.remove_authenticators(django_request, authenticators)
-        return response.Response(public_mfa_status(request.user))
+        return response.Response(public_mfa_status(request.user, request))
 
 
 class WebAuthnLoginView(views.APIView):

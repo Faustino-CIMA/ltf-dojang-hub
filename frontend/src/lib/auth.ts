@@ -31,6 +31,9 @@ export type MfaStatus = {
   email_available: boolean;
   email_enabled: boolean;
   passkeys: number;
+  totp?: boolean;
+  totp_since?: string | null;
+  passkey_devices?: { id: number; name: string; added_on: string }[];
 };
 
 export type AuthResponse = {
