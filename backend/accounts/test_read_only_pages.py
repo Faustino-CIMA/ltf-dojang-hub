@@ -220,3 +220,44 @@ class ReadOnlyDeskPageTests(APITestCase):
         )
         self.assertEqual(preview.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(preview.data["detail"], "desk_read_only")
+
+    def test_no_grant_or_another_clubs_grant_does_not_open_the_desk(self):
+        today = timezone.localdate()
+        outsider = User.objects.create_user(
+            username="ro-outsider",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+            email="ro-outsider@example.com",
+        )
+        DeskGrant.objects.filter(user=outsider).update(valid_until=today)
+        other = Club.objects.create(name="Other Club", created_by=self.admin)
+        Member.objects.create(club=other, first_name="Hidden", last_name="Person")
+        self.client.force_authenticate(user=outsider)
+        for path, header in (
+            ("/api/member-transfers/movements/", "ltf_admin"),
+            ("/api/members/", "ltf_admin"),
+            ("/api/licenses/", "ltf_admin"),
+            ("/api/dashboard/overview/ltf-admin/", "ltf_admin"),
+            ("/api/dashboard/overview/ltf-finance/", "ltf_finance"),
+            ("/api/national-team/seasons/", "ltf_admin"),
+            (f"/api/members/?club={self.club.id}", f"club_admin:{self.club.id}"),
+            (f"/api/clubs/{self.club.id}/admins/", f"club_admin:{self.club.id}"),
+        ):
+            refused = self.client.get(path, HTTP_X_DESK=header)
+            self.assertEqual(refused.status_code, status.HTTP_403_FORBIDDEN, path)
+            self.assertEqual(refused.data["detail"], "desk_not_granted", path)
+
+        self.client.force_authenticate(user=self.club_user)
+        wrong_desk = self.client.get(f"/api/clubs/{other.id}/", HTTP_X_DESK=f"club_admin:{other.id}")
+        self.assertEqual(wrong_desk.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(wrong_desk.data["detail"], "desk_not_granted")
+        own_desk = self.client.get(
+            f"/api/members/?club={other.id}",
+            HTTP_X_DESK=f"club_admin:{self.club.id}",
+        )
+        self.assertNotContains(own_desk, "Hidden", status_code=own_desk.status_code)
+        other_admins = self.client.get(
+            f"/api/clubs/{other.id}/admins/",
+            HTTP_X_DESK=f"club_admin:{self.club.id}",
+        )
+        self.assertNotEqual(other_admins.status_code, status.HTTP_200_OK)
