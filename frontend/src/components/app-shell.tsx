@@ -40,7 +40,8 @@ import { ClubSwitcher } from "@/components/club-switcher";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { PageNotice } from "@/components/ui/list-page-chrome";
+import { FloatingNotice, PageNotice } from "@/components/ui/list-page-chrome";
+import { playMfaCelebration } from "@/lib/mfa-celebration";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
@@ -161,6 +162,9 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [activeHeader, setActiveHeader] = useState<string | null>(null);
   const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [enrolToast, setEnrolToast] = useState(false);
+  const stopCelebration = useRef<(() => void) | null>(null);
+  const enrolToastTimer = useRef<number | null>(null);
   const [switchNotice, setSwitchNotice] = useState<string | null>(null);
   const suppressAsk = useRef(false);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
@@ -231,6 +235,25 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      stopCelebration.current?.();
+      if (enrolToastTimer.current) {
+        window.clearTimeout(enrolToastTimer.current);
+      }
+    };
+  }, []);
+
+  const showEnrolmentSuccess = () => {
+    setSecurityOpen(false);
+    setEnrolToast(true);
+    stopCelebration.current = playMfaCelebration();
+    if (enrolToastTimer.current) {
+      window.clearTimeout(enrolToastTimer.current);
+    }
+    enrolToastTimer.current = window.setTimeout(() => setEnrolToast(false), 4000);
+  };
 
   const handleSignOut = async () => {
     await logout();
@@ -601,6 +624,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           open={securityOpen}
           status={me?.mfa ?? null}
           onClose={() => setSecurityOpen(false)}
+          onEnrolled={showEnrolmentSuccess}
           onChanged={(next) => {
             setMe((current) => (current ? { ...current, mfa: next } : current));
             void apiRequest<AuthMeResponse>("/api/auth/me/")
@@ -608,6 +632,15 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
               .catch(() => undefined);
           }}
         />
+        <FloatingNotice
+          open={enrolToast}
+          token="mfa-enabled"
+          tone="success"
+          dismissLabel={authCopy("mfaClose")}
+          onDismiss={() => setEnrolToast(false)}
+        >
+          {authCopy("mfaEnabled")}
+        </FloatingNotice>
         <main
           className={cn(
             "min-w-0 flex-1",
