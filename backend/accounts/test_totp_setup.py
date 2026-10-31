@@ -103,6 +103,54 @@ class TotpSetupTests(TestCase):
         self.assertEqual(activated.status_code, 200, activated.data)
         self.assertTrue(activated.data["recovery_codes"])
 
+    def test_replacing_the_key_waits_until_the_new_code_is_accepted(self):
+        from allauth.mfa.models import Authenticator
+        from allauth.mfa.recovery_codes.internal.auth import RecoveryCodes
+        from allauth.mfa.utils import decrypt
+
+        started = self.client.get("/api/auth/mfa/totp/")
+        old_secret = started.data["secret"]
+        activated = self.client.post("/api/auth/mfa/totp/", {"code": _code(old_secret)}, format="json")
+        self.assertEqual(activated.status_code, 200, activated.data)
+        original_codes = list(activated.data["recovery_codes"])
+        self.assertTrue(original_codes)
+
+        fresh = self.client.get("/api/auth/mfa/totp/?fresh=1")
+        self.assertEqual(fresh.status_code, 200, fresh.data)
+        new_secret = fresh.data["secret"]
+        self.assertNotEqual(new_secret, old_secret)
+        stored = Authenticator.objects.get(user=self.user, type=Authenticator.Type.TOTP)
+        self.assertEqual(decrypt(stored.data["secret"]), old_secret)
+        kept = RecoveryCodes(
+            Authenticator.objects.get(user=self.user, type=Authenticator.Type.RECOVERY_CODES)
+        ).get_unused_codes()
+        self.assertEqual(kept, original_codes)
+
+        wrong = "111111" if _code(new_secret) != "111111" else "000000"
+        refused = self.client.post("/api/auth/mfa/totp/", {"code": wrong}, format="json")
+        self.assertEqual(refused.status_code, 400, refused.data)
+        stored.refresh_from_db()
+        self.assertEqual(decrypt(stored.data["secret"]), old_secret)
+        self.assertEqual(
+            RecoveryCodes(
+                Authenticator.objects.get(user=self.user, type=Authenticator.Type.RECOVERY_CODES)
+            ).get_unused_codes(),
+            original_codes,
+        )
+
+        swapped = self.client.post("/api/auth/mfa/totp/", {"code": _code(new_secret)}, format="json")
+        self.assertEqual(swapped.status_code, 200, swapped.data)
+        self.assertEqual(swapped.data["recovery_codes"], [])
+        stored.refresh_from_db()
+        self.assertEqual(decrypt(stored.data["secret"]), new_secret)
+        self.assertEqual(Authenticator.objects.filter(user=self.user, type=Authenticator.Type.TOTP).count(), 1)
+        self.assertEqual(
+            RecoveryCodes(
+                Authenticator.objects.get(user=self.user, type=Authenticator.Type.RECOVERY_CODES)
+            ).get_unused_codes(),
+            original_codes,
+        )
+
     def test_fresh_asks_for_a_new_secret(self):
         first = self.client.get("/api/auth/mfa/totp/")
         fresh = self.client.get("/api/auth/mfa/totp/?fresh=1")
