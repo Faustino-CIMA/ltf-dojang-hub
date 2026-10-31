@@ -104,6 +104,7 @@
     "mfaEmailOff": "Désactiver les codes e-mail",
     "mfaPasskeyAdd": "Ajouter une clé d'accès",
     "mfaPasskeyAdded": "Clé d'accès ajoutée.",
+    "mfaEnabled": "La connexion en deux étapes est activée.",
     "mfaSignInAgain": "Reconnectez-vous, puis faites cette étape pendant que la visite est encore récente.",
     "mfaClose": "Fermer",
     "backHome": "Retour à l'accueil",
@@ -119,6 +120,7 @@
   "Common": {
     "deskSwitcherLabel": "Bureaux",
     "deskViewOnly": "Lecture seule",
+    "deskViewOnlyHint": "Ce bureau est en lecture seule.",
     "deskSwitchTitle": "Ouvrir un autre bureau",
     "deskSwitchAsk": "Ouvrir le bureau {desk} ?",
     "deskSwitchAskAdmin": "Ouvrir l'administration LTF ? Vous verrez tous les clubs, y compris les mineurs.",

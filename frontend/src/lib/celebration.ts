@@ -10,6 +10,26 @@ export type CelebrationBurst = {
   scalar: number;
 };
 
+/** A short burst for two-step setup. Reduced motion gets nothing. */
+export function setupSuccessBursts(reducedMotion: boolean): CelebrationBurst[] {
+  if (reducedMotion) {
+    return [];
+  }
+  return [
+    {
+      delayMs: 0,
+      particleCount: 70,
+      spread: 70,
+      angle: 90,
+      originX: 0.5,
+      originY: 0.35,
+      startVelocity: 28,
+      ticks: 140,
+      scalar: 0.85,
+    },
+  ];
+}
+
 /** One short explosion. Reduced motion gets nothing. */
 export function celebrationBursts(reducedMotion: boolean): CelebrationBurst[] {
   if (reducedMotion) {

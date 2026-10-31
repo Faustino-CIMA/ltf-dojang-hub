@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 
+import { MfaSetupConfetti } from "@/components/mfa-setup-confetti";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
@@ -44,6 +45,17 @@ export function MfaSecurityPanel({
   const [busy, setBusy] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!celebrate) {
+      return;
+    }
+    const timer = window.setTimeout(() => onCloseRef.current(), 1600);
+    return () => window.clearTimeout(timer);
+  }, [celebrate]);
 
   const explain = (error: unknown) => {
     if (error instanceof AuthApiError && (error.code === "mfa_sign_in_again" || error.code === "mfa_not_pending")) {
@@ -76,6 +88,23 @@ export function MfaSecurityPanel({
     }
   };
 
+  const noteEnrolment = (recoveryCodes: string[] | undefined) => {
+    if (recoveryCodes?.length) {
+      setCodes(recoveryCodes);
+      setSuccessMessage(null);
+      return;
+    }
+    setCodes(null);
+    setSuccessMessage(t("mfaEnabled"));
+    setCelebrate(true);
+  };
+
+  const acknowledgeCodes = () => {
+    setCodes(null);
+    setSuccessMessage(t("mfaEnabled"));
+    setCelebrate(true);
+  };
+
   const finishTotp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const code = totpDigits(String(new FormData(event.currentTarget).get("code") || ""));
@@ -88,12 +117,12 @@ export function MfaSecurityPanel({
     setErrorMessage(null);
     try {
       const result = await activateTotp(code);
-      setCodes(result.recovery_codes);
       setSecret(null);
       setQr(null);
       setPendingCode(null);
       setNeedsReauth(false);
       onChanged(result.mfa);
+      noteEnrolment(result.recovery_codes);
     } catch (error) {
       setErrorMessage(explain(error));
     } finally {
@@ -115,11 +144,11 @@ export function MfaSecurityPanel({
       setNeedsReauth(false);
       if (pendingCode) {
         const result = await activateTotp(pendingCode);
-        setCodes(result.recovery_codes);
         setSecret(null);
         setQr(null);
         setPendingCode(null);
         onChanged(result.mfa);
+        noteEnrolment(result.recovery_codes);
         return;
       }
       if (!secret) {
@@ -142,11 +171,8 @@ export function MfaSecurityPanel({
       const creation = (options as { publicKey?: PublicKeyCredentialCreationOptionsJSON }).publicKey ?? options;
       const credential = await createPasskey(creation);
       const result = await finishPasskeyRegistration("Passkey", credential);
-      if (result.recovery_codes?.length) {
-        setCodes(result.recovery_codes);
-      }
-      setSuccessMessage(t("mfaPasskeyAdded"));
       onChanged(result.mfa);
+      noteEnrolment(result.recovery_codes);
     } catch (error) {
       setErrorMessage(explain(error));
     } finally {
@@ -175,6 +201,7 @@ export function MfaSecurityPanel({
 
   return (
     <SidePanel open={open} title={t("mfaSecurity")} closeLabel={t("mfaClose")} onClose={onClose}>
+      <MfaSetupConfetti active={celebrate} />
       <div className="space-y-5 text-sm text-foreground">
         <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
         {needsReauth ? (
@@ -200,11 +227,12 @@ export function MfaSecurityPanel({
                 </li>
               ))}
             </ul>
-            <button type="button" className="text-sm font-medium text-primary" onClick={() => setCodes(null)}>
+            <button type="button" className="inline-flex h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground" onClick={acknowledgeCodes}>
               {t("mfaRecoveryDone")}
             </button>
           </div>
         ) : null}
+        {codes?.length ? null : (
         <div className="space-y-2">
           <h2 className="text-section">{t("mfaSetup")}</h2>
           {qr ? <div className="max-w-48 bg-surface" dangerouslySetInnerHTML={{ __html: qr }} /> : null}
@@ -238,6 +266,7 @@ export function MfaSecurityPanel({
             </form>
           ) : null}
         </div>
+        )}
         <div>
           <button type="button" className="text-sm font-medium text-primary" disabled={busy} onClick={() => void addPasskey()}>
             {t("mfaPasskeyAdd")}

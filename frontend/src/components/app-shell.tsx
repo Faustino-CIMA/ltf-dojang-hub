@@ -518,7 +518,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 )}
                 {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
                 {activeDesk?.level === "read_only" ? (
-                  <p className="mt-0.5 text-meta text-muted">{t("deskViewOnly")}</p>
+                  <p className="mt-0.5 text-meta text-muted">{t("deskViewOnlyHint")}</p>
                 ) : null}
               </div>
             </div>
@@ -601,7 +601,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           open={securityOpen}
           status={me?.mfa ?? null}
           onClose={() => setSecurityOpen(false)}
-          onChanged={(next) => setMe((current) => (current ? { ...current, mfa: next } : current))}
+          onChanged={(next) => {
+            setMe((current) => (current ? { ...current, mfa: next } : current));
+            void apiRequest<AuthMeResponse>("/api/auth/me/")
+              .then((fresh) => setMe(fresh))
+              .catch(() => undefined);
+          }}
         />
         <main
           className={cn(
