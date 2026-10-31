@@ -81,6 +81,18 @@ def _apply_member_issue_filter(queryset, issue):
     return queryset
 
 
+def _finance_only_view(user) -> bool:
+    """Finance sees payment history. The LTF Admin desk still sees the full record."""
+    from accounts.desks import current_desk
+
+    desk = current_desk()
+    if desk == "ltf_admin":
+        return False
+    if desk == "ltf_finance":
+        return True
+    return getattr(user, "role", None) == "ltf_finance"
+
+
 class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     serializer_class = MemberSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -115,7 +127,9 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return Member.objects.none()
 
-        if user.role in ["ltf_admin", "ltf_finance"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") or holds_desk(user, "ltf_finance"):
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
             )
@@ -546,14 +560,14 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             .filter(member=member)
             .order_by("-event_at", "-id")
         )
-        if request.user.role == "ltf_finance":
+        if _finance_only_view(request.user):
             queryset = queryset.filter(Q(order__isnull=False) | Q(payment__isnull=False))
         serializer = LicenseHistoryEventSerializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="grade-history")
     def grade_history(self, request, *args, **kwargs):
-        if request.user.role == "ltf_finance":
+        if _finance_only_view(request.user):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         member = self.get_object()
         queryset = (
@@ -589,7 +603,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             .filter(member=member)
             .order_by("-event_at", "-id")
         )
-        if request.user.role == "ltf_finance":
+        if _finance_only_view(request.user):
             license_queryset = license_queryset.filter(
                 Q(order__isnull=False) | Q(payment__isnull=False)
             )

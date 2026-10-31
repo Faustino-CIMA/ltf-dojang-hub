@@ -54,11 +54,13 @@ def is_ltf_manager(user) -> bool:
 def is_club_admin_of(user, club_id: int | None) -> bool:
     if not user or not user.is_authenticated or club_id is None:
         return False
-    if user.role != "club_admin":
-        return False
-    from accounts.desks import current_active_club
+    from accounts.desks import current_active_club, current_desk
 
     active = current_active_club()
+    if current_desk() == "club_admin" and active is not None and int(club_id) == int(active):
+        return True
+    if user.role != "club_admin":
+        return False
     if active is not None and int(club_id) != int(active):
         return False
     return user.clubs_administered.filter(id=club_id).exists()

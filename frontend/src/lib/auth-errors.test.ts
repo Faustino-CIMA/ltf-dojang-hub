@@ -18,4 +18,13 @@ describe("auth error copy", () => {
     expect(presentAuthError("token_sunset", "en").tone).toBe("danger");
     expect(presentAuthError("desk_read_only", "en").tone).toBe("info");
   });
+
+  it("does not show the raw not-allowed sentence", () => {
+    expect(presentAuthError("Not allowed.", "fr").text).toBe("Cette action n'est pas disponible.");
+    window.sessionStorage.setItem("ltf_active_desk_level", "read_only");
+    const shown = presentAuthError("Not allowed.", "en");
+    expect(shown.tone).toBe("info");
+    expect(shown.text).toBe("This desk is view only.");
+    window.sessionStorage.removeItem("ltf_active_desk_level");
+  });
 });

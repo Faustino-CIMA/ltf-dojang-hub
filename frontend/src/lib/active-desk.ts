@@ -6,6 +6,7 @@ export type DeskChoice = {
 };
 
 const STORAGE_KEY = "ltf_active_desk";
+const LEVEL_KEY = "ltf_active_desk_level";
 
 export function deskHeaderValue(desk: Pick<DeskChoice, "desk" | "club_id">): string {
   if ((desk.desk === "club_admin" || desk.desk === "coach") && desk.club_id) {
@@ -34,8 +35,27 @@ export function rememberActiveDesk(value: string | null) {
   window.dispatchEvent(new Event("desk-changed"));
 }
 
+export function rememberDeskLevel(level: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (level) {
+    window.sessionStorage.setItem(LEVEL_KEY, level);
+  } else {
+    window.sessionStorage.removeItem(LEVEL_KEY);
+  }
+}
+
+export function readDeskReadOnly(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.sessionStorage.getItem(LEVEL_KEY) === "read_only";
+}
+
 export function clearActiveDesk() {
   rememberActiveDesk(null);
+  rememberDeskLevel(null);
 }
 
 export function deskMatchesHeader(desk: DeskChoice, header: string | null): boolean {

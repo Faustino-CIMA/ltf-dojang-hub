@@ -17,6 +17,7 @@ import {
   pathNeedsDesk,
   readActiveDeskHeader,
   rememberActiveDesk,
+  rememberDeskLevel,
   clearActiveDesk,
   type DeskChoice,
 } from "@/lib/active-desk";
@@ -26,7 +27,9 @@ import { MfaSecurityPanel } from "@/components/mfa-security-panel";
 import { presentAuthError } from "@/lib/auth-errors";
 import { getDashboardRouteForRole, routeForDesk } from "@/lib/dashboard-routing";
 import { isLeavingDeepLink, showLegacyClubPicker } from "@/lib/desk-switch";
+import { DeskAccessContext } from "@/components/desk-access";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   ALL_CLUBS_SELECT_VALUE,
   allowsAllClubsSelection,
@@ -42,7 +45,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { FloatingNotice, PageNotice } from "@/components/ui/list-page-chrome";
 import { playMfaCelebration } from "@/lib/mfa-celebration";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
 export type AppNavGroup = {
@@ -278,6 +280,11 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
 
   const desks = me?.desks ?? [];
   const activeDesk = desks.find((desk) => deskHeaderValue(desk) === (activeHeader ?? readActiveDeskHeader())) ?? null;
+  const deskReadOnly = activeDesk?.level === "read_only";
+
+  useEffect(() => {
+    rememberDeskLevel(activeDesk?.level ?? null);
+  }, [activeDesk]);
   const needed = pathNeedsDesk(pathname);
   const neededGrant = grantForPath(desks, needed);
   const askToSwitch =
@@ -487,6 +494,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const isWorkspace = variant === "workspace";
 
   return (
+    <DeskAccessContext.Provider value={{ readOnly: deskReadOnly, viewOnlyLabel: t("deskViewOnlyAction") }}>
     <div
       data-tone={tone === "brand" ? "brand" : undefined}
       className={cn("bg-background text-foreground", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}
@@ -552,8 +560,10 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                   <h1 className="text-title truncate text-foreground">{title}</h1>
                 )}
                 {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
-                {activeDesk?.level === "read_only" ? (
-                  <p className="mt-0.5 text-meta text-muted">{t("deskViewOnlyHint")}</p>
+                {deskReadOnly ? (
+                  <span className="mt-0.5 inline-flex" title={t("deskViewOnlyHint")}>
+                    <StatusBadge label={t("deskViewOnly")} tone="info" />
+                  </span>
                 ) : null}
               </div>
             </div>
@@ -729,5 +739,6 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
         </main>
       </div>
     </div>
+    </DeskAccessContext.Provider>
   );
 }

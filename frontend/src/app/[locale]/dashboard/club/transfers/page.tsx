@@ -674,14 +674,14 @@ export default function ClubTransfersPage() {
                           onChange={(event) => setMessageBody(event.target.value)}
                           placeholder={t("transferMessagePlaceholder")}
                         />
-                        <Button type="button" variant="outline" onClick={() => void sendMessage()} disabled={isSaving}>
+                        <Button type="button" variant="outline" write onClick={() => void sendMessage()} disabled={isSaving}>
                           {t("transferSendMessage")}
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {selectedTransfer.to_club.id === selectedClubId ? (
                           <>
-                            <Button type="button" onClick={() => void runDecision("accept")} disabled={isSaving}>
+                            <Button type="button" write onClick={() => void runDecision("accept")} disabled={isSaving}>
                               {t("transferAcceptAction")}
                             </Button>
                             <Button
@@ -698,6 +698,7 @@ export default function ClubTransfersPage() {
                           <Button
                             type="button"
                             variant="outline"
+                            write
                             onClick={() => void runDecision("cancel")}
                             disabled={isSaving}
                           >

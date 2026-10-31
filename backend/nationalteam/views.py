@@ -36,14 +36,16 @@ class NationalTeamAccess(BasePermission):
     """LTF Admin writes. LTF Finance reads everything. Clubs read their own athletes."""
 
     def has_permission(self, request, view):
+        from accounts.desks import holds_desk
+
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        if user.role == "ltf_admin":
+        if holds_desk(user, "ltf_admin"):
             return True
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             return False
-        if user.role == "ltf_finance":
+        if holds_desk(user, "ltf_finance"):
             return True
         return user.role in ("club_admin", "coach") and getattr(view, "club_read", False)
 
@@ -52,7 +54,9 @@ def _selection_queryset(user, request=None):
     queryset = SquadSelection.objects.select_related(
         "member", "member__club", "squad", "season"
     )
-    if user.role in ("ltf_admin", "ltf_finance"):
+    from accounts.desks import holds_desk
+
+    if holds_desk(user, "ltf_admin") or holds_desk(user, "ltf_finance"):
         return queryset
     if user.role in ("club_admin", "coach"):
         queryset = queryset.filter(member__club__admins=user)

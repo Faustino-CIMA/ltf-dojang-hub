@@ -75,11 +75,15 @@ from .tasks import execute_print_job_task
 
 
 def _is_ltf_admin(user) -> bool:
-    return bool(user and user.is_authenticated and user.role == "ltf_admin")
+    from accounts.desks import holds_desk
+
+    return bool(user and user.is_authenticated and holds_desk(user, "ltf_admin"))
 
 
 def _is_club_admin(user) -> bool:
-    return bool(user and user.is_authenticated and user.role == "club_admin")
+    from accounts.desks import holds_desk
+
+    return bool(user and user.is_authenticated and holds_desk(user, "club_admin"))
 
 
 class IsLtfAdminOrClubAdminReadOnly(permissions.BasePermission):

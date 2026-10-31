@@ -139,6 +139,7 @@
     "deskSwitcherLabel": "Bureaux",
     "deskViewOnly": "Lecture seule",
     "deskViewOnlyHint": "Ce bureau est en lecture seule.",
+    "deskViewOnlyAction": "Lecture seule sur ce bureau",
     "deskSwitchTitle": "Ouvrir un autre bureau",
     "deskSwitchAsk": "Ouvrir le bureau {desk} ?",
     "deskSwitchAskAdmin": "Ouvrir l'administration LTF ? Vous verrez tous les clubs, y compris les mineurs.",

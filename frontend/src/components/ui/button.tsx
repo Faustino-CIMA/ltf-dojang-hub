@@ -1,7 +1,10 @@
+"use client"
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
+import { useDeskAccess } from "@/components/desk-access"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
@@ -46,11 +49,18 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  write = false,
+  disabled,
+  title,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /** A create, edit, approve, reject, or delete action. Hidden from use on a view-only desk. */
+    write?: boolean
   }) {
+  const { readOnly, viewOnlyLabel } = useDeskAccess()
+  const locked = readOnly && (write || variant === "destructive")
   const Comp = asChild ? Slot : "button"
 
   return (
@@ -59,6 +69,9 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={locked ? true : disabled}
+      title={locked ? viewOnlyLabel : title}
+      aria-disabled={locked ? true : undefined}
       {...props}
     />
   )

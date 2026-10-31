@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { MoreVertical } from "lucide-react";
 
+import { useDeskAccess } from "@/components/desk-access";
 import type { MenuAction } from "@/components/ui/action-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,11 @@ export function RowActionMenu({
   const [open, setOpen] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const pending = actions.find((action) => action.key === pendingKey) ?? null;
+  const { readOnly, viewOnlyLabel } = useDeskAccess();
+  const visible = actions.map((action) =>
+    readOnly && !action.href ? { ...action, disabled: true } : action,
+  );
+  const pending = visible.find((action) => action.key === pendingKey) ?? null;
 
   return (
     <Popover
@@ -104,7 +109,7 @@ export function RowActionMenu({
             </button>
           </div>
         ) : (
-          actions.map((action) =>
+          visible.map((action) =>
             action.href ? (
               <a
                 key={action.key}
@@ -125,6 +130,7 @@ export function RowActionMenu({
                 type="button"
                 role="menuitem"
                 disabled={action.disabled}
+                title={readOnly && action.disabled ? viewOnlyLabel : undefined}
                 className={cn(itemClassName, action.destructive && destructiveItemClassName)}
                 onClick={(event) => {
                   event.stopPropagation();
