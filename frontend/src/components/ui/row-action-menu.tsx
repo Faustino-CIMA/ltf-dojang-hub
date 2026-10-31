@@ -42,11 +42,12 @@ export function RowActionMenu({
   const [open, setOpen] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { readOnly, viewOnlyLabel } = useDeskAccess();
-  const visible = actions.map((action) =>
-    readOnly && !action.href ? { ...action, disabled: true } : action,
-  );
+  const { readOnly } = useDeskAccess();
+  const visible = readOnly ? actions.filter((action) => action.href) : actions;
   const pending = visible.find((action) => action.key === pendingKey) ?? null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <Popover
@@ -130,7 +131,6 @@ export function RowActionMenu({
                 type="button"
                 role="menuitem"
                 disabled={action.disabled}
-                title={readOnly && action.disabled ? viewOnlyLabel : undefined}
                 className={cn(itemClassName, action.destructive && destructiveItemClassName)}
                 onClick={(event) => {
                   event.stopPropagation();

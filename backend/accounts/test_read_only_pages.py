@@ -123,6 +123,22 @@ class ReadOnlyDeskPageTests(APITestCase):
         )
         self.assertEqual(refused.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(refused.data["detail"], "desk_read_only")
+        preview = self.client.post(
+            "/api/imports/members/preview/",
+            {"club_id": self.club.id},
+            format="multipart",
+            HTTP_X_DESK="ltf_admin",
+        )
+        confirm = self.client.post(
+            "/api/imports/members/confirm/",
+            {"club_id": self.club.id},
+            format="json",
+            HTTP_X_DESK="ltf_admin",
+        )
+        self.assertEqual(preview.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(preview.data["detail"], "desk_read_only")
+        self.assertEqual(confirm.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(confirm.data["detail"], "desk_read_only")
 
     def test_read_only_finance_loads_every_list(self):
         year = timezone.localdate().year
@@ -196,3 +212,11 @@ class ReadOnlyDeskPageTests(APITestCase):
         )
         self.assertEqual(refused.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(refused.data["detail"], "desk_read_only")
+        preview = self.client.post(
+            "/api/imports/members/preview/",
+            {"club_id": club},
+            format="multipart",
+            HTTP_X_DESK=header,
+        )
+        self.assertEqual(preview.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(preview.data["detail"], "desk_read_only")

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { useDeskAccess } from "@/components/desk-access";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type MenuAction = {
@@ -29,7 +30,17 @@ export function ActionMenu({
   disabled?: boolean;
   actions: MenuAction[];
 }) {
+  const { readOnly, viewOnlyLabel } = useDeskAccess();
+  const visible = readOnly ? actions.filter((action) => action.href) : actions;
   const [open, setOpen] = useState(false);
+  if (readOnly && visible.length === 0) {
+    return (
+      <button type="button" className={menuTriggerClassName} aria-label={label} disabled title={viewOnlyLabel}>
+        {label}
+        <ChevronDown className="size-4 opacity-50" />
+      </button>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className={menuTriggerClassName} aria-label={label} disabled={disabled}>
@@ -37,7 +48,7 @@ export function ActionMenu({
         <ChevronDown className="size-4 opacity-50" />
       </PopoverTrigger>
       <PopoverContent>
-        {actions.map((action) => (
+        {visible.map((action) => (
           <button
             key={action.key}
             type="button"

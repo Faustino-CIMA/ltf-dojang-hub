@@ -4,17 +4,24 @@ import * as React from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { CheckIcon, MinusIcon } from "lucide-react"
 
+import { useDeskAccess } from "@/components/desk-access"
 import { cn } from "@/lib/utils"
 
 function Checkbox({
   className,
+  disabled,
+  title,
   ...props
 }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+  const { readOnly, viewOnlyLabel } = useDeskAccess()
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"
+      disabled={readOnly || disabled}
+      title={readOnly ? viewOnlyLabel : title}
       className={cn(
         "peer h-4 w-4 shrink-0 rounded-[var(--radius-form)] border border-[var(--checkbox-border)] bg-[var(--surface)] text-primary-foreground data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        readOnly && "disabled:opacity-100",
         className
       )}
       {...props}

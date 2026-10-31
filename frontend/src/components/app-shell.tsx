@@ -28,6 +28,7 @@ import { presentAuthError } from "@/lib/auth-errors";
 import { getDashboardRouteForRole, routeForDesk } from "@/lib/dashboard-routing";
 import { isLeavingDeepLink, showLegacyClubPicker } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
+import { ViewOnlyScope } from "@/components/view-only-scope";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -726,14 +727,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                   <SwitchRefusal message={switchNotice} setupLabel={authCopy("mfaEnrolAction")} onSetup={() => setSecurityOpen(true)} />
                 </div>
               ) : null}
-              {children}
+              <ViewOnlyScope>{children}</ViewOnlyScope>
             </div>
           ) : (
             <div className="w-full space-y-3">
               {switchNotice ? (
                 <SwitchRefusal message={switchNotice} setupLabel={authCopy("mfaEnrolAction")} onSetup={() => setSecurityOpen(true)} />
               ) : null}
-              {children}
+              <ViewOnlyScope>{children}</ViewOnlyScope>
             </div>
           )}
         </main>

@@ -4,12 +4,15 @@ import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
+import { useDeskAccess } from "@/components/desk-access"
 import { cn } from "@/lib/utils"
 
 function Select({
+  disabled,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  const { readOnly } = useDeskAccess()
+  return <SelectPrimitive.Root data-slot="select" disabled={readOnly || disabled} {...props} />
 }
 
 function SelectGroup({
@@ -28,14 +31,19 @@ function SelectTrigger({
   className,
   size = "default",
   children,
+  title,
+  disabled,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
 }) {
+  const { readOnly, viewOnlyLabel } = useDeskAccess()
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
+      disabled={readOnly || disabled}
+      title={readOnly ? viewOnlyLabel : title}
       className={cn(
         "border-[var(--border)] data-[placeholder]:text-[var(--field-placeholder)] [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex w-fit items-center justify-between gap-2 rounded-[var(--radius-form)] border bg-[var(--field-background)] px-3 py-0 text-sm text-[var(--field-foreground)] whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-[var(--control-height)] data-[size=default]:min-h-[var(--control-height)] data-[size=sm]:h-[var(--control-height-sm)] data-[size=sm]:min-h-[var(--control-height-sm)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { useDeskAccess } from "@/components/desk-access";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,8 @@ export function PopoverSelect({
   searchPlaceholder?: string;
   emptyMessage?: string;
 }) {
+  const { readOnly, viewOnlyLabel } = useDeskAccess();
+  const locked = disabled || readOnly;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -109,7 +112,7 @@ export function PopoverSelect({
         }
       }}
     >
-      <PopoverTrigger className={cn(triggerClassName, className)} aria-label={ariaLabel} aria-haspopup="listbox" disabled={disabled}>
+      <PopoverTrigger className={cn(triggerClassName, className, locked && "cursor-default opacity-100")} aria-label={ariaLabel} aria-haspopup="listbox" disabled={locked} title={readOnly ? viewOnlyLabel : undefined}>
         <span className="truncate">{selected?.label ?? placeholder ?? ariaLabel}</span>
         <ChevronDown className="size-4 shrink-0 opacity-50" />
       </PopoverTrigger>

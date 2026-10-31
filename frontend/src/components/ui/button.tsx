@@ -52,6 +52,7 @@ function Button({
   write = false,
   disabled,
   title,
+  type,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -60,7 +61,8 @@ function Button({
     write?: boolean
   }) {
   const { readOnly, viewOnlyLabel } = useDeskAccess()
-  const locked = readOnly && (write || variant === "destructive")
+  const writes = write || variant === "destructive" || type === "submit"
+  const locked = readOnly && writes
   const Comp = asChild ? Slot : "button"
 
   return (
@@ -68,7 +70,9 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-write={writes ? "true" : undefined}
       className={cn(buttonVariants({ variant, size, className }))}
+      type={type}
       disabled={locked ? true : disabled}
       title={locked ? viewOnlyLabel : title}
       aria-disabled={locked ? true : undefined}
