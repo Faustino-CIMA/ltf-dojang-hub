@@ -1,4 +1,5 @@
 import time
+from datetime import timedelta
 from importlib import import_module
 from io import StringIO
 
@@ -9,9 +10,10 @@ from allauth.mfa.totp.internal.auth import format_hotp_value, hotp_value
 from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import User
+from .models import DeskGrant, User
 
 
 def _code(secret: str, offset: int = 0) -> str:
@@ -58,6 +60,33 @@ class TotpSetupTests(TestCase):
             format="json",
         )
         self.assertEqual(activated.status_code, 200, activated.data)
+        self.assertIsNone(activated.data["mfa"]["desk_block"])
+        opened = self.client.get("/api/clubs/", HTTP_X_DESK="ltf_admin")
+        self.assertNotEqual(opened.status_code, 403, getattr(opened, "data", opened.content))
+
+    def test_view_only_desk_does_not_report_itself_as_the_setup_result(self):
+        today = timezone.localdate()
+        DeskGrant.objects.filter(user=self.user, source=DeskGrant.Source.LEGACY).update(valid_until=today)
+        DeskGrant.objects.create(
+            user=self.user,
+            desk=DeskGrant.Desk.LTF_ADMIN,
+            level=DeskGrant.Level.READ_ONLY,
+            source=DeskGrant.Source.MANUAL,
+            valid_from=today - timedelta(days=1),
+            valid_until=today + timedelta(days=10),
+            reason="Look",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token}", HTTP_X_DESK="ltf_admin")
+        started = self.client.get("/api/auth/mfa/totp/")
+        self.assertEqual(started.status_code, 200, started.data)
+        activated = self.client.post(
+            "/api/auth/mfa/totp/",
+            {"code": _code(started.data["secret"])},
+            format="json",
+        )
+        self.assertEqual(activated.status_code, 200, activated.data)
+        self.assertNotEqual(activated.data.get("detail"), "desk_read_only")
+        self.assertTrue(activated.data["recovery_codes"])
 
     def test_second_setup_keeps_the_first_secret_and_accepts_a_spaced_code(self):
         first = self.client.get("/api/auth/mfa/totp/")

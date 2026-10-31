@@ -104,6 +104,7 @@
     "mfaEmailOff": "E-Mail-Codes ausschalten",
     "mfaPasskeyAdd": "Passkey hinzufügen",
     "mfaPasskeyAdded": "Passkey hinzugefügt.",
+    "mfaEnabled": "Die Anmeldung in zwei Schritten ist an.",
     "mfaSignInAgain": "Melden Sie sich erneut an und richten Sie das ein, solange dieser Besuch noch frisch ist.",
     "mfaClose": "Schliessen",
     "backHome": "Zur Startseite",
@@ -119,6 +120,7 @@
   "Common": {
     "deskSwitcherLabel": "Schreibtische",
     "deskViewOnly": "Nur ansehen",
+    "deskViewOnlyHint": "Dieser Schreibtisch ist nur zum Ansehen.",
     "deskSwitchTitle": "Einen anderen Schreibtisch öffnen",
     "deskSwitchAsk": "Den Schreibtisch {desk} öffnen?",
     "deskSwitchAskAdmin": "LTF Admin öffnen? Sie sehen alle Vereine, auch Minderjährige.",

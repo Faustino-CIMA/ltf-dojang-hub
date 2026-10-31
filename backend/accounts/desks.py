@@ -129,6 +129,21 @@ def _audit(action: str, user, message: str, metadata: dict, target_id: str = "")
     )
 
 
+def _account_security_write(request) -> bool:
+    """Signing in, choosing a desk, and setting up a second factor are not edits of that desk."""
+    path = getattr(request, "path", "") or ""
+    return any(
+        path.startswith(prefix)
+        for prefix in ("/api/auth/mfa/", "/api/auth/desk/", "/api/auth/logout", "/api/auth/me")
+    )
+
+
+def _read_only_write_blocked(request) -> bool:
+    if request.method in SAFE_METHODS:
+        return False
+    return not _account_security_write(request)
+
+
 def _refuse(request, user, code: str, metadata: dict):
     action = "desk.read_only_refused" if code == "desk_read_only" else "desk.switch_refused"
     request._desk_error = code
@@ -150,7 +165,7 @@ def bind_request_desk(request, user) -> None:
         read_only = _implicit_read_only(user, load_grants(request, user))
         request.desk_read_only = read_only
         _django_request(request).desk_read_only = read_only
-        if read_only and request.method not in SAFE_METHODS:
+        if read_only and _read_only_write_blocked(request):
             _refuse(request, user, "desk_read_only", {"desk": user.role, "header": ""})
         _active_desk.set(None)
         _enforce_mfa(request, user)
@@ -177,7 +192,7 @@ def bind_request_desk(request, user) -> None:
     _active_desk.set(grant.desk)
     if grant.desk in CLUB_DESKS and grant.club_id:
         _active_club.set(grant.club_id)
-    if grant.level == DeskGrant.Level.READ_ONLY and request.method not in SAFE_METHODS:
+    if grant.level == DeskGrant.Level.READ_ONLY and _read_only_write_blocked(request):
         _refuse(
             request,
             user,

@@ -114,11 +114,13 @@ class TotpEnrolView(views.APIView):
                 _totp, recovery = totp_flows.activate_totp(django_request, form)
             except ReauthenticationRequired:
                 return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
+            # The code just proved the new authenticator. This visit can open the desk without signing in again.
+            record_authentication(django_request, request.user, method="mfa", type="totp")
             codes = []
             if recovery is not None:
                 codes = recovery.wrap().get_unused_codes()
         django_request.session.save()
-        return response.Response({"recovery_codes": codes, "mfa": public_mfa_status(request.user)})
+        return response.Response({"recovery_codes": codes, "mfa": public_mfa_status(request.user, request)})
 
 
 class WebAuthnRegisterView(views.APIView):
@@ -143,8 +145,9 @@ class WebAuthnRegisterView(views.APIView):
             except Exception:
                 return response.Response({"detail": "incorrect_code"}, status=status.HTTP_400_BAD_REQUEST)
             codes = recovery.wrap().get_unused_codes() if recovery is not None else []
+            record_authentication(django_request, request.user, method="mfa", type="webauthn")
         django_request.session.save()
-        return response.Response({"recovery_codes": codes, "mfa": public_mfa_status(request.user)})
+        return response.Response({"recovery_codes": codes, "mfa": public_mfa_status(request.user, request)})
 
     def delete(self, request):
         if not recently_authenticated(request):
