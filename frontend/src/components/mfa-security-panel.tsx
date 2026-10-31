@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 
-import { MfaSetupConfetti } from "@/components/mfa-setup-confetti";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
@@ -29,11 +28,13 @@ export function MfaSecurityPanel({
   status,
   onClose,
   onChanged,
+  onEnrolled,
 }: {
   open: boolean;
   status: MfaStatus | null;
   onClose: () => void;
   onChanged: (next: MfaStatus) => void;
+  onEnrolled: () => void;
 }) {
   const t = useTranslations("Auth");
   const [secret, setSecret] = useState<string | null>(null);
@@ -45,17 +46,6 @@ export function MfaSecurityPanel({
   const [busy, setBusy] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
-  const [celebrate, setCelebrate] = useState(false);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    if (!celebrate) {
-      return;
-    }
-    const timer = window.setTimeout(() => onCloseRef.current(), 1600);
-    return () => window.clearTimeout(timer);
-  }, [celebrate]);
 
   const explain = (error: unknown) => {
     if (error instanceof AuthApiError && (error.code === "mfa_sign_in_again" || error.code === "mfa_not_pending")) {
@@ -88,21 +78,24 @@ export function MfaSecurityPanel({
     }
   };
 
+  const completeEnrolment = () => {
+    setCodes(null);
+    setSuccessMessage(null);
+    onEnrolled();
+    onClose();
+  };
+
   const noteEnrolment = (recoveryCodes: string[] | undefined) => {
     if (recoveryCodes?.length) {
       setCodes(recoveryCodes);
       setSuccessMessage(null);
       return;
     }
-    setCodes(null);
-    setSuccessMessage(t("mfaEnabled"));
-    setCelebrate(true);
+    completeEnrolment();
   };
 
   const acknowledgeCodes = () => {
-    setCodes(null);
-    setSuccessMessage(t("mfaEnabled"));
-    setCelebrate(true);
+    completeEnrolment();
   };
 
   const finishTotp = async (event: FormEvent<HTMLFormElement>) => {
@@ -201,7 +194,6 @@ export function MfaSecurityPanel({
 
   return (
     <SidePanel open={open} title={t("mfaSecurity")} closeLabel={t("mfaClose")} onClose={onClose}>
-      <MfaSetupConfetti active={celebrate} />
       <div className="space-y-5 text-sm text-foreground">
         <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
         {needsReauth ? (
