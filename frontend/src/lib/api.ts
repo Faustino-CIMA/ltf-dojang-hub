@@ -1,4 +1,5 @@
 import { readActiveDeskHeader } from "./active-desk";
+import { AuthApiError, presentAuthError } from "./auth-errors";
 import { getToken } from "./auth";
 
 type RequestOptions = Omit<RequestInit, "headers"> & {
@@ -201,7 +202,11 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
         normalizedMessage = message;
       }
     }
-    throw new Error(normalizedMessage || `Request failed with ${response.status}`);
+    const presented = presentAuthError(normalizedMessage || `Request failed with ${response.status}`);
+    if (presented.code) {
+      throw new AuthApiError(presented.code, presented.text, presented.tone);
+    }
+    throw new Error(presented.text);
   }
 
   if (response.status === 204) {

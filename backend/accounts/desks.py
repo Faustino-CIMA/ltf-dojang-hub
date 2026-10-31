@@ -378,9 +378,13 @@ def open_desk_summary(user) -> dict:
         }
         for grant in chosen.values()
     ]
+    if getattr(user, "is_superuser", False):
+        desks.append({"desk": "ops", "level": "full", "club_id": None, "club_name": ""})
     preference = DeskPreference.objects.filter(user_id=user.id).first()
     last = None
-    if preference is not None:
+    if preference is not None and preference.desk == "ops" and getattr(user, "is_superuser", False):
+        last = {"desk": "ops", "level": "full", "club_id": None}
+    elif preference is not None:
         match = chosen.get((preference.desk, preference.club_id))
         if match is None and preference.desk not in CLUB_DESKS:
             match = chosen.get((preference.desk, None))

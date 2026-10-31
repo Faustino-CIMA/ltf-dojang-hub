@@ -147,6 +147,63 @@ class DeskGrantTests(APITestCase):
         self.assertEqual(writing.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(writing.data["detail"], "desk_read_only")
 
+    def test_multi_hat_user_can_switch_every_desk(self):
+        person = User.objects.create_user(
+            username="desk-hats",
+            email="desk-hats@example.com",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+            is_superuser=True,
+        )
+        self.club_a.admins.add(person)
+        self.club_b.admins.add(person)
+        DeskGrant.objects.create(
+            user=person,
+            desk=DeskGrant.Desk.LTF_FINANCE,
+            level=DeskGrant.Level.FULL,
+            source=DeskGrant.Source.MANUAL,
+            valid_from=timezone.localdate() - timedelta(days=1),
+            reason="Cover",
+        )
+        DeskGrant.objects.create(
+            user=person,
+            desk=DeskGrant.Desk.LTF_ADMIN,
+            level=DeskGrant.Level.READ_ONLY,
+            source=DeskGrant.Source.MANUAL,
+            valid_from=timezone.localdate() - timedelta(days=1),
+            valid_until=timezone.localdate() + timedelta(days=30),
+            reason="Cover",
+        )
+        self.client.force_authenticate(user=person)
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, status.HTTP_200_OK, me.content)
+        names = {(row["desk"], row["club_id"]) for row in me.data["desks"]}
+        self.assertIn(("club_admin", self.club_a.id), names)
+        self.assertIn(("club_admin", self.club_b.id), names)
+        self.assertIn(("ltf_finance", None), names)
+        self.assertIn(("ltf_admin", None), names)
+        self.assertIn(("ops", None), names)
+        finance = self.client.get("/api/auth/me/", HTTP_X_DESK="ltf_finance")
+        self.assertEqual(finance.status_code, status.HTTP_200_OK, finance.content)
+        self.assertEqual(finance.data["mfa"]["desk_block"], "mfa_enrol_required")
+        for desk, club_id in (
+            ("club_admin", self.club_a.id),
+            ("club_admin", self.club_b.id),
+            ("ltf_finance", None),
+            ("ltf_admin", None),
+            ("ops", None),
+        ):
+            body = {"desk": desk} if club_id is None else {"desk": desk, "club_id": club_id}
+            chosen = self.client.post("/api/auth/desk/", body, format="json")
+            self.assertEqual(chosen.status_code, status.HTTP_200_OK, chosen.content)
+            self.assertEqual(chosen.data["desk"], desk)
+            self.assertEqual(chosen.data["club_id"], club_id)
+            again = self.client.get("/api/auth/me/", HTTP_X_DESK="ops" if desk == "ops" else (f"{desk}:{club_id}" if club_id else desk))
+            self.assertEqual(again.data["last_desk"]["desk"], desk)
+            self.assertEqual(again.data["last_desk"]["club_id"], club_id)
+            person.refresh_from_db()
+            self.assertEqual(person.role, User.Roles.CLUB_ADMIN)
+
     def test_choosing_a_desk_is_audited_and_leaves_the_role_alone(self):
         record_desk_switch(self.admin, desk=DeskGrant.Desk.LTF_ADMIN)
         self.admin.refresh_from_db()

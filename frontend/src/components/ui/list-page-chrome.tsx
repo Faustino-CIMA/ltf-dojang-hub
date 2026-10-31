@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import { RequiredForm } from "@/components/ui/label";
+import { presentAuthError } from "@/lib/auth-errors";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -302,9 +303,11 @@ export function ActionNotices({
   onDismiss: () => void;
   dismissLabel?: string;
 }) {
-  const message = error || success || null;
+  const raw = error || success || null;
+  const presented = raw ? presentAuthError(raw) : null;
+  const message = presented?.text ?? null;
   const open = Boolean(message);
-  const tone = error ? "danger" : "success";
+  const tone = error ? (presented?.tone === "info" ? "info" : "danger") : "success";
   const onDismissRef = useRef(onDismiss);
 
   useEffect(() => {

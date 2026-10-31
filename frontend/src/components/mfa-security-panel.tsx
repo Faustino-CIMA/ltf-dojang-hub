@@ -7,6 +7,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { AuthApiError } from "@/lib/auth-errors";
 import type { MfaStatus } from "@/lib/auth";
 import {
   activateTotp,
@@ -45,6 +46,13 @@ export function MfaSecurityPanel({
   const [pendingCode, setPendingCode] = useState<string | null>(null);
 
   const explain = (error: unknown) => {
+    if (error instanceof AuthApiError && (error.code === "mfa_sign_in_again" || error.code === "mfa_not_pending")) {
+      setNeedsReauth(true);
+      return t("mfaReauthHint");
+    }
+    if (error instanceof AuthApiError) {
+      return error.message;
+    }
     const message = error instanceof Error ? error.message : "";
     const key = mfaFailureKey(message);
     if (key === "mfaSignInAgain") {

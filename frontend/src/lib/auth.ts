@@ -26,6 +26,7 @@ export type MfaStatus = {
   grace: boolean;
   grace_until: string | null;
   blocked: boolean;
+  desk_block?: string | null;
   email_available: boolean;
   email_enabled: boolean;
   passkeys: number;

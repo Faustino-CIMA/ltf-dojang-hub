@@ -121,7 +121,7 @@ class MeView(views.APIView):
 
         payload = UserSerializer(request.user).data
         payload.update(open_desk_summary(request.user))
-        payload["mfa"] = public_mfa_status(request.user)
+        payload["mfa"] = public_mfa_status(request.user, request)
         return response.Response(payload)
 
 

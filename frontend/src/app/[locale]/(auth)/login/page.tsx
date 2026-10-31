@@ -12,6 +12,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { defaultDesk, deskHeaderValue, rememberActiveDesk } from "@/lib/active-desk";
 import { login } from "@/lib/auth-api";
 import { setToken, type AuthResponse } from "@/lib/auth";
+import { AuthApiError } from "@/lib/auth-errors";
 import { confirmMfa, beginPasskeyLogin, finishPasskeyLogin, mfaFailureKey } from "@/lib/mfa-api";
 import { getPasskey } from "@/lib/webauthn";
 import { routeAfterSignIn } from "@/lib/dashboard-routing";
@@ -172,8 +173,14 @@ export default function LoginPage() {
                     try {
                       finishSignIn(await confirmMfa(pendingToken, code));
                     } catch (error) {
-                      const message = error instanceof Error ? error.message : "";
-                      setErrorMessage(t(mfaFailureKey(message)));
+                      if (error instanceof AuthApiError && (error.code === "mfa_sign_in_again" || error.code === "mfa_not_pending")) {
+                        setErrorMessage(t("mfaSignInAgain"));
+                      } else if (error instanceof AuthApiError) {
+                        setErrorMessage(error.message);
+                      } else {
+                        const message = error instanceof Error ? error.message : "";
+                        setErrorMessage(t(mfaFailureKey(message)));
+                      }
                     } finally {
                       setIsSubmitting(false);
                     }
