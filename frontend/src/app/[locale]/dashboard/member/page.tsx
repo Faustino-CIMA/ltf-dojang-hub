@@ -95,6 +95,7 @@ export default function MemberDashboardPage() {
         ) : (
           <div className="space-y-3">
             <ProfilePhotoManager
+              cameraFacing="user"
               imageUrl={member.profile_picture_url}
               thumbnailUrl={member.profile_picture_thumbnail_url}
               labels={{
@@ -114,6 +115,7 @@ export default function MemberDashboardPage() {
                 cameraUnavailable: t("photoCameraUnavailable"),
                 cameraPermissionDenied: t("photoCameraPermissionDenied"),
                 cameraStartError: t("photoCameraStartError"),
+                cameraSwitchButton: t("photoCameraSwitch"),
                 zoomLabel: t("photoZoomLabel"),
                 backgroundColorLabel: t("photoBackgroundColorLabel"),
                 removeBackgroundButton: t("photoRemoveBackgroundButton"),

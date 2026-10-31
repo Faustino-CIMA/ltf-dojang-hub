@@ -2,6 +2,7 @@
 
 import Cropper, { Area } from "react-easy-crop";
 import { ChangeEvent, DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SwitchCamera } from "lucide-react";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { API_URL } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import {
+  attachCameraPreview,
+  isCameraDenied,
+  listVideoInputs,
+  openCamera,
+  stopMediaStream,
+  switchCamera,
+  type CameraFacing,
+} from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
 const OUTPUT_WIDTH = 945;
@@ -39,6 +49,7 @@ type ProfilePhotoManagerLabels = {
   cameraUnavailable?: string;
   cameraPermissionDenied?: string;
   cameraStartError?: string;
+  cameraSwitchButton?: string;
   zoomLabel: string;
   backgroundColorLabel: string;
   removeBackgroundButton: string;
@@ -64,6 +75,8 @@ type ProfilePhotoManagerProps = {
   readOnly?: boolean;
   isPageEditor?: boolean;
   onCancelEditor?: () => void;
+  /** Rear camera when photographing someone else. Front camera for a self photo. */
+  cameraFacing?: CameraFacing;
 };
 
 function resolveImageRequestUrl(rawUrl: string): string {
@@ -154,6 +167,7 @@ export function ProfilePhotoManager({
   readOnly = false,
   isPageEditor = false,
   onCancelEditor,
+  cameraFacing = "environment",
 }: ProfilePhotoManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -177,32 +191,36 @@ export function ProfilePhotoManager({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
+  const [canSwitchCamera, setCanSwitchCamera] = useState(false);
+  const [cameraGeneration, setCameraGeneration] = useState(0);
 
   const handleCropComplete = useCallback((_area: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
   }, []);
 
   const stopCamera = useCallback(() => {
-    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    stopMediaStream(cameraStreamRef.current);
     cameraStreamRef.current = null;
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setIsCameraOpen(false);
     setIsStartingCamera(false);
+    setCanSwitchCamera(false);
   }, []);
 
   const sourceInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const facingRef = useRef<CameraFacing>(cameraFacing);
   const workingObjectUrlRef = useRef<string | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const storedPhotoObjectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
-      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      stopMediaStream(cameraStreamRef.current);
       cameraStreamRef.current = null;
       if (workingObjectUrlRef.current) {
         URL.revokeObjectURL(workingObjectUrlRef.current);
@@ -221,10 +239,10 @@ export function ProfilePhotoManager({
       return;
     }
     videoRef.current.srcObject = cameraStreamRef.current;
-    void videoRef.current.play().catch(() => {
+    void attachCameraPreview(videoRef.current, cameraStreamRef.current).catch(() => {
       setErrorMessage(labels.cameraStartError ?? "Unable to start the camera.");
     });
-  }, [isCameraOpen, labels.cameraStartError]);
+  }, [cameraGeneration, isCameraOpen, labels.cameraStartError]);
 
   useEffect(() => {
     const sources = [thumbnailUrl, imageUrl]
@@ -368,6 +386,15 @@ export function ProfilePhotoManager({
     hydrateFile(nextFile);
   };
 
+  const showCamera = async (stream: MediaStream) => {
+    stopMediaStream(cameraStreamRef.current);
+    cameraStreamRef.current = stream;
+    const inputs = await listVideoInputs();
+    setCanSwitchCamera(inputs.length > 1);
+    setIsCameraOpen(true);
+    setCameraGeneration((generation) => generation + 1);
+  };
+
   const startCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       cameraInputRef.current?.click();
@@ -376,43 +403,44 @@ export function ProfilePhotoManager({
 
     setIsStartingCamera(true);
     setErrorMessage(null);
+    facingRef.current = cameraFacing;
     try {
-      const constraintAttempts: MediaStreamConstraints[] = [
-        {
-          video: {
-            facingMode: { ideal: "user" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
-        { video: { facingMode: { ideal: "environment" } } },
-        { video: true },
-      ];
-
-      let stream: MediaStream | null = null;
-      let lastError: unknown;
-      for (const constraints of constraintAttempts) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      if (!stream) {
-        throw lastError ?? new Error("Unable to start the camera.");
-      }
-
-      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-      cameraStreamRef.current = stream;
-      setIsCameraOpen(true);
+      const stream = await openCamera({ facing: cameraFacing });
+      await showCamera(stream);
     } catch (error) {
-      const denied =
-        error instanceof DOMException &&
-        (error.name === "NotAllowedError" || error.name === "PermissionDeniedError");
       setErrorMessage(
-        denied
+        isCameraDenied(error)
+          ? (labels.cameraPermissionDenied ??
+            "Camera access was blocked. Allow camera permission in the browser and try again.")
+          : (labels.cameraStartError ?? "Unable to start the camera.")
+      );
+    } finally {
+      setIsStartingCamera(false);
+    }
+  };
+
+  const flipCamera = async () => {
+    const current = cameraStreamRef.current;
+    if (!current || isStartingCamera) {
+      return;
+    }
+    setIsStartingCamera(true);
+    setErrorMessage(null);
+    const previousFacing = facingRef.current;
+    try {
+      const next = await switchCamera(current, previousFacing);
+      facingRef.current = next.facing;
+      await showCamera(next.stream);
+    } catch (error) {
+      try {
+        const restored = await openCamera({ facing: previousFacing });
+        facingRef.current = previousFacing;
+        await showCamera(restored);
+      } catch {
+        stopCamera();
+      }
+      setErrorMessage(
+        isCameraDenied(error)
           ? (labels.cameraPermissionDenied ??
             "Camera access was blocked. Allow camera permission in the browser and try again.")
           : (labels.cameraStartError ?? "Unable to start the camera.")
@@ -653,6 +681,20 @@ export function ProfilePhotoManager({
               <Button type="button" size="sm" onClick={capturePhoto}>
                 {labels.cameraCaptureButton ?? "Take photo"}
               </Button>
+              {canSwitchCamera ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isStartingCamera}
+                  onClick={() => {
+                    void flipCamera();
+                  }}
+                >
+                  <SwitchCamera aria-hidden />
+                  {labels.cameraSwitchButton ?? "Switch camera"}
+                </Button>
+              ) : null}
               <Button type="button" variant="outline" size="sm" onClick={stopCamera}>
                 {labels.cameraCancelButton ?? "Cancel camera"}
               </Button>
@@ -670,7 +712,7 @@ export function ProfilePhotoManager({
           ref={cameraInputRef}
           type="file"
           accept="image/*"
-          capture="user"
+          capture={cameraFacing === "user" ? "user" : "environment"}
           className="hidden"
           onChange={handleFileInput}
         />
