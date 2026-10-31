@@ -122,6 +122,14 @@ def probe_env_keys() -> dict:
     return _status(True, "presence only, values are never returned", {"configured": checks, "missing": missing})
 
 
+def probe_clock() -> dict:
+    """UTC time of this server, so a phone clock can be compared with it."""
+    from datetime import timezone as datetime_timezone
+
+    stamp = timezone.now().astimezone(datetime_timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    return _status(True, stamp)
+
+
 def collect_health() -> dict:
     checks = {
         "postgres": probe_postgres(),
@@ -131,6 +139,7 @@ def collect_health() -> dict:
         "media": probe_media(),
         "migrations": probe_migrations(),
         "env_keys": probe_env_keys(),
+        "clock": probe_clock(),
     }
     overall = all(item.get("ok") for key, item in checks.items() if key != "env_keys")
     return {

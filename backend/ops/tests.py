@@ -212,9 +212,10 @@ class HealthSummaryTests(TestCase):
         self.assertNotIn("docker", health["checks"])
         self.assertEqual(
             set(health["checks"]),
-            {"postgres", "redis", "celery", "smtp", "media", "migrations", "env_keys"},
+            {"postgres", "redis", "celery", "smtp", "media", "migrations", "env_keys", "clock"},
         )
         self.assertTrue(health["ok"])
+        self.assertRegex(health["checks"]["clock"]["detail"], r" UTC$")
 
 
 class I18nHelperTests(TestCase):

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 
+from allauth.account.internal.flows.login import record_authentication
 from allauth.core.context import request_context
+from allauth.core.exceptions import ReauthenticationRequired
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp.forms import ActivateTOTPForm
@@ -21,8 +23,10 @@ from .mfa import (
     confirm_code,
     disable_email_mfa,
     enable_email_mfa,
+    form_failure_detail,
     is_staff_account,
     load_session,
+    log_totp_refusal,
     public_mfa_status,
     recently_authenticated,
     send_email_code,
@@ -35,6 +39,22 @@ def _django(request) -> HttpRequest:
 
 def _json_safe(value):
     return json.loads(json.dumps(value, cls=DjangoJSONEncoder))
+
+
+def _digits(raw) -> str:
+    """Keep the code a string. A number field would drop a leading zero, and spaces must not matter."""
+    return "".join(ch for ch in str(raw or "") if ch.isdigit())
+
+
+def _wants_fresh_secret(request) -> bool:
+    flag = str(request.query_params.get("fresh") or "").strip().lower()
+    return flag in {"1", "true", "yes"}
+
+
+def _form_error(form):
+    detail = form_failure_detail(form)
+    http_status = status.HTTP_429_TOO_MANY_REQUESTS if detail == "rate_limited" else status.HTTP_400_BAD_REQUEST
+    return response.Response({"detail": detail}, status=http_status)
 
 
 class MfaStatusView(views.APIView):
@@ -61,7 +81,9 @@ class TotpEnrolView(views.APIView):
             return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         django_request = _django(request)
         with request_context(django_request):
-            secret = totp_auth.get_totp_secret(regenerate=True)
+            # The pending secret lives in this session. A second fetch must show the same key
+            # until the person confirms it or explicitly asks for a new one.
+            secret = totp_auth.get_totp_secret(regenerate=_wants_fresh_secret(request))
             url = get_adapter().build_totp_url(request.user, secret)
             svg = get_adapter().build_totp_svg(url)
         django_request.session.save()
@@ -71,11 +93,27 @@ class TotpEnrolView(views.APIView):
         if not recently_authenticated(request):
             return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         django_request = _django(request)
+        code = _digits(request.data.get("code"))
         with request_context(django_request):
-            form = ActivateTOTPForm(data={"code": request.data.get("code") or ""}, user=request.user)
+            form = ActivateTOTPForm(data={"code": code}, user=request.user)
             if not form.is_valid():
-                return response.Response({"detail": "incorrect_code"}, status=status.HTTP_400_BAD_REQUEST)
-            _totp, recovery = totp_flows.activate_totp(django_request, form)
+                if form_failure_detail(form) == "incorrect_code":
+                    log_totp_refusal(
+                        secret=totp_auth.get_totp_secret(regenerate=False),
+                        code=code,
+                        user_id=request.user.id,
+                    )
+                return _form_error(form)
+            if not recently_authenticated(request):
+                return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
+            # Login stores a password timestamp without allauth's reauthenticated flag.
+            # activate_totp then raises, and the account middleware turns that into an HTML
+            # redirect the screen reports as a rejected code. Inside the timeout, the sign-in is enough.
+            record_authentication(django_request, request.user, method="password", reauthenticated=True)
+            try:
+                _totp, recovery = totp_flows.activate_totp(django_request, form)
+            except ReauthenticationRequired:
+                return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
             codes = []
             if recovery is not None:
                 codes = recovery.wrap().get_unused_codes()

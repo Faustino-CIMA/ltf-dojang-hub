@@ -15,7 +15,10 @@ import {
   disableEmailMfa,
   enableEmailMfa,
   finishPasskeyRegistration,
+  mfaFailureKey,
+  reauthenticate,
   sendEmailMfaCode,
+  totpDigits,
 } from "@/lib/mfa-api";
 import { createPasskey } from "@/lib/webauthn";
 
@@ -38,23 +41,24 @@ export function MfaSecurityPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const [pendingCode, setPendingCode] = useState<string | null>(null);
 
   const explain = (error: unknown) => {
     const message = error instanceof Error ? error.message : "";
-    if (message.includes("mfa_sign_in_again")) {
-      return t("mfaSignInAgain");
+    const key = mfaFailureKey(message);
+    if (key === "mfaSignInAgain") {
+      setNeedsReauth(true);
+      return t("mfaReauthHint");
     }
-    if (message.includes("email_not_accepted")) {
-      return t("mfaEmailEnableHint");
-    }
-    return t("mfaFailed");
+    return t(key);
   };
 
-  const startTotp = async () => {
+  const startTotp = async (fresh = false) => {
     setBusy(true);
     setErrorMessage(null);
     try {
-      const started = await beginTotp();
+      const started = await beginTotp(fresh);
       setSecret(started.secret);
       setQr(started.qr_svg);
     } catch (error) {
@@ -66,18 +70,55 @@ export function MfaSecurityPanel({
 
   const finishTotp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const code = String(new FormData(event.currentTarget).get("code") || "").trim();
+    const code = totpDigits(String(new FormData(event.currentTarget).get("code") || ""));
     if (!code) {
       setErrorMessage(t("mfaCodeRequired"));
       return;
     }
+    setPendingCode(code);
     setBusy(true);
     setErrorMessage(null);
     try {
       const result = await activateTotp(code);
       setCodes(result.recovery_codes);
       setSecret(null);
+      setQr(null);
+      setPendingCode(null);
+      setNeedsReauth(false);
       onChanged(result.mfa);
+    } catch (error) {
+      setErrorMessage(explain(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const password = String(new FormData(event.currentTarget).get("password") || "");
+    if (!password) {
+      setErrorMessage(t("passwordRequired"));
+      return;
+    }
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      await reauthenticate(password);
+      setNeedsReauth(false);
+      if (pendingCode) {
+        const result = await activateTotp(pendingCode);
+        setCodes(result.recovery_codes);
+        setSecret(null);
+        setQr(null);
+        setPendingCode(null);
+        onChanged(result.mfa);
+        return;
+      }
+      if (!secret) {
+        const started = await beginTotp();
+        setSecret(started.secret);
+        setQr(started.qr_svg);
+      }
     } catch (error) {
       setErrorMessage(explain(error));
     } finally {
@@ -128,6 +169,18 @@ export function MfaSecurityPanel({
     <SidePanel open={open} title={t("mfaSecurity")} closeLabel={t("mfaClose")} onClose={onClose}>
       <div className="space-y-5 text-sm text-foreground">
         <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
+        {needsReauth ? (
+          <form className="space-y-2" onSubmit={(event) => void confirmPassword(event)}>
+            <p className="text-muted">{t("mfaReauthHint")}</p>
+            <Label htmlFor="mfa-reauth-password" required>
+              {t("password")}
+            </Label>
+            <Input id="mfa-reauth-password" name="password" type="password" autoComplete="current-password" required />
+            <button type="submit" disabled={busy} className="inline-flex h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+              {t("mfaReauthSubmit")}
+            </button>
+          </form>
+        ) : null}
         {codes ? (
           <div className="space-y-3">
             <h2 className="text-section">{t("mfaRecoveryTitle")}</h2>
@@ -148,10 +201,16 @@ export function MfaSecurityPanel({
           <h2 className="text-section">{t("mfaSetup")}</h2>
           {qr ? <div className="max-w-48 bg-surface" dangerouslySetInnerHTML={{ __html: qr }} /> : null}
           {secret ? (
-            <p>
-              <span className="text-muted">{t("mfaSecret")}: </span>
-              <span className="font-mono">{secret}</span>
-            </p>
+            <div className="space-y-2">
+              <p>
+                <span className="text-muted">{t("mfaSecret")}: </span>
+                <span className="font-mono tracking-wide">{secret.replace(/\s+/g, "").match(/.{1,4}/g)?.join(" ") ?? secret}</span>
+              </p>
+              <p className="text-muted">{t("mfaSecretHint")}</p>
+              <button type="button" className="text-sm font-medium text-primary" disabled={busy} onClick={() => void startTotp(true)}>
+                {t("mfaRetry")}
+              </button>
+            </div>
           ) : (
             <button type="button" className="text-sm font-medium text-primary" disabled={busy} onClick={() => void startTotp()}>
               {t("mfaSetup")}
@@ -163,7 +222,7 @@ export function MfaSecurityPanel({
                 <Label htmlFor="totp-code" required>
                   {t("mfaCode")}
                 </Label>
-                <Input id="totp-code" name="code" inputMode="numeric" autoComplete="one-time-code" required />
+                <Input id="totp-code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" required />
                 <button type="submit" disabled={busy} className="inline-flex h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">
                   {t("mfaConfirm")}
                 </button>

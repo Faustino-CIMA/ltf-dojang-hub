@@ -12,7 +12,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { defaultDesk, deskHeaderValue, rememberActiveDesk } from "@/lib/active-desk";
 import { login } from "@/lib/auth-api";
 import { setToken, type AuthResponse } from "@/lib/auth";
-import { confirmMfa, beginPasskeyLogin, finishPasskeyLogin } from "@/lib/mfa-api";
+import { confirmMfa, beginPasskeyLogin, finishPasskeyLogin, mfaFailureKey } from "@/lib/mfa-api";
 import { getPasskey } from "@/lib/webauthn";
 import { routeAfterSignIn } from "@/lib/dashboard-routing";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   className="mt-6 space-y-4"
                   onSubmit={async (event) => {
                     event.preventDefault();
-                    const code = String(new FormData(event.currentTarget).get("code") || "").trim();
+                    const code = String(new FormData(event.currentTarget).get("code") || "").replace(/\s+/g, "");
                     if (!code) {
                       setErrorMessage(t("mfaCodeRequired"));
                       return;
@@ -171,8 +171,9 @@ export default function LoginPage() {
                     setErrorMessage(null);
                     try {
                       finishSignIn(await confirmMfa(pendingToken, code));
-                    } catch {
-                      setErrorMessage(t("mfaFailed"));
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : "";
+                      setErrorMessage(t(mfaFailureKey(message)));
                     } finally {
                       setIsSubmitting(false);
                     }
@@ -186,7 +187,7 @@ export default function LoginPage() {
                     <Label htmlFor="mfa-code" required>
                       {t("mfaCode")}
                     </Label>
-                    <Input id="mfa-code" name="code" inputMode="numeric" autoComplete="one-time-code" required />
+                    <Input id="mfa-code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" required />
                   </RequiredForm>
                   <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
                   <button
