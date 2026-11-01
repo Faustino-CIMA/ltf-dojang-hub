@@ -248,6 +248,13 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 to_attr="current_ltf_staff_rows",
             ),
         )
+        from .user_accounts import ACCOUNT_STATES, annotate_account_state
+
+        queryset = annotate_account_state(queryset)
+        if self.action == "list":
+            account = (self.request.query_params.get("account") or "").strip()
+            if account in ACCOUNT_STATES:
+                queryset = queryset.filter(account_state=account)
         ordering = self.request.query_params.get("ordering") if self.action == "list" else None
         allowed = {
             "name": ("last_name", "first_name", "id"),
@@ -258,6 +265,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             "sex": ("sex", "last_name", "first_name", "id"),
             "date_of_birth": ("date_of_birth", "last_name", "first_name", "id"),
             "email": ("email", "last_name", "first_name", "id"),
+            "account": ("account_state", "last_name", "first_name", "id"),
         }
         visible_clubs = measurement_club_ids(user)
         if visible_clubs:

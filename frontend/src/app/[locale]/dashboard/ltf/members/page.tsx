@@ -9,8 +9,11 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
+import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -44,7 +47,9 @@ import {
 } from "@/lib/ltf-admin-api";
 import { displayClubName } from "@/lib/club-label";
 import { staffActionErrorMessage } from "@/lib/staff-action-error";
+import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
 import { formatFullName } from "@/lib/person-name";
+import { togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 function parseMemberIssue(value: string | null): MemberIssueFilter | null {
@@ -75,6 +80,10 @@ export default function LtfAdminMembersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("all");
+  const [accountFilter, setAccountFilter] = useState<"all" | AccountState>("all");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [accountPanel, setAccountPanel] = useState<{ intent: "create" | "copy" | "link"; ids: number[] } | null>(null);
   const [roster, setRoster] = useState<MemberRoster>("all");
   const [role, setRole] = useState<string | null>(null);
   const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
@@ -126,6 +135,7 @@ export default function LtfAdminMembersPage() {
             issue: issue ?? undefined,
             roster,
             ordering,
+            account: accountFilter === "all" ? undefined : accountFilter,
           }),
           getMembersPage({
             page: 1,
@@ -154,9 +164,10 @@ export default function LtfAdminMembersPage() {
             issue: issue ?? undefined,
             roster,
           }),
-          apiRequest<{ role: string }>("/api/auth/me/"),
+          apiRequest<{ role: string; id: number }>("/api/auth/me/"),
         ]);
       setRole(me.role);
+      setCurrentUserId(me.id);
       setClubs(clubsResponse);
       setMembers(membersResponse.results);
       setTotalCount(membersResponse.count);
@@ -170,7 +181,7 @@ export default function LtfAdminMembersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, isActiveFilter, issue, membersListPageSize, ordering, roster, searchQuery, selectedClubId]);
+  }, [accountFilter, currentPage, isActiveFilter, issue, membersListPageSize, ordering, roster, searchQuery, selectedClubId]);
 
   useEffect(() => {
     void loadData();
@@ -178,7 +189,7 @@ export default function LtfAdminMembersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue, roster, tableSort]);
+  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue, roster, tableSort, accountFilter]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -191,6 +202,18 @@ export default function LtfAdminMembersPage() {
 
   const clubById = useMemo(() => new Map(clubs.map((club) => [club.id, club])), [clubs]);
   const canManageStaff = role === "ltf_admin";
+  const visibleIds = useMemo(() => members.map((member) => member.id), [members]);
+  const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const accountLabel = (state: AccountState | undefined) => {
+    if (state === "pending") return t("accountBadgePending");
+    if (state === "active") return t("accountBadgeActive");
+    if (state === "disabled") return t("accountBadgeDisabled");
+    return t("accountBadgeNone");
+  };
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [searchQuery, selectedClubId, memberStatusFilter, issue, roster, accountFilter]);
 
   const openPanel = useCallback(async (mode: StaffPanelMode, member: Member | null) => {
     setPanelMember(member);
@@ -258,6 +281,33 @@ export default function LtfAdminMembersPage() {
 
   const columns = useMemo(
     () => [
+      ...(canManageStaff
+        ? [
+            {
+              key: "select",
+              header: (
+                <Checkbox
+                  aria-label={common("selectAllLabel")}
+                  checked={headerCheck}
+                  onCheckedChange={() => setSelectedIds((current) => togglePageSelection(current, visibleIds))}
+                />
+              ),
+              render: (row: Member) => (
+                <span className="inline-flex" onClick={(event) => event.stopPropagation()}>
+                  <Checkbox
+                    aria-label={common("selectRowLabel")}
+                    checked={selectedIds.includes(row.id)}
+                    onCheckedChange={() =>
+                      setSelectedIds((current) =>
+                        current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id],
+                      )
+                    }
+                  />
+                </span>
+              ),
+            },
+          ]
+        : []),
       {
         key: "name",
         header: common("fullNameLabel"),
@@ -268,6 +318,14 @@ export default function LtfAdminMembersPage() {
             {row.is_ltf_staff ? <StatusBadge label={staffFunctionLabel(t, row)} tone="info" /> : null}
             {row.is_club_tourist ? <StatusBadge label={t("clubTouristBadge")} tone="warning" /> : null}
           </span>
+        ),
+      },
+      {
+        key: "account",
+        header: t("accountColumn"),
+        sortable: true,
+        render: (row: Member) => (
+          <MemberAccountBadge state={row.account_state ?? "none"} label={accountLabel(row.account_state)} />
         ),
       },
       {
@@ -340,6 +398,24 @@ export default function LtfAdminMembersPage() {
                         label: t("staffEditAction"),
                         onSelect: () => void openPanel(row.is_ltf_staff ? "edit" : "create", row),
                       },
+                      ...(accountRowAction(row.account_state, row.user != null && row.user === currentUserId) === "create"
+                        ? [
+                            {
+                              key: "create",
+                              label: t("createUserAccount"),
+                              onSelect: () => setAccountPanel({ intent: "create", ids: [row.id] }),
+                            },
+                          ]
+                        : []),
+                      ...(accountRowAction(row.account_state, row.user != null && row.user === currentUserId) === "copy"
+                        ? [
+                            {
+                              key: "copy",
+                              label: t("copyFirstLoginLink"),
+                              onSelect: () => setAccountPanel({ intent: "copy", ids: [row.id] }),
+                            },
+                          ]
+                        : []),
                       ...(!row.club && !hasCurrent
                         ? [
                             {
@@ -373,7 +449,7 @@ export default function LtfAdminMembersPage() {
           ]
         : []),
     ],
-    [canManageStaff, clubById, common, getLicenseStatusMeta, openPanel, t]
+    [accountLabel, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, headerCheck, openPanel, selectedIds, t, visibleIds]
   );
 
   return (
@@ -439,6 +515,19 @@ export default function LtfAdminMembersPage() {
                     ]}
                   />
                   <FilterPills
+                    ariaLabel={t("accountFilterAria")}
+                    layout="wrap"
+                    value={accountFilter}
+                    onChange={setAccountFilter}
+                    options={[
+                      { value: "all", title: t("accountFilterAll") },
+                      { value: "none", title: t("accountFilterNone") },
+                      { value: "pending", title: t("accountFilterPending") },
+                      { value: "active", title: t("accountFilterActive") },
+                      { value: "disabled", title: t("accountFilterDisabled") },
+                    ]}
+                  />
+                  <FilterPills
                     ariaLabel={t("membersStatusFilterAriaLabel")}
                     value={memberStatusFilter}
                     onChange={setMemberStatusFilter}
@@ -464,6 +553,20 @@ export default function LtfAdminMembersPage() {
                   <Button type="button" write onClick={() => void openPanel("create", null)}>
                     {t("staffAddAction")}
                   </Button>
+                ) : null}
+                {canManageStaff ? (
+                  <ActionMenu
+                    label={common("batchActionsLabel")}
+                    disabled={selectedIds.length === 0}
+                    actions={[
+                      {
+                        key: "accounts",
+                        label: t("createUserAccounts"),
+                        disabled: !canBulkCreateAccounts(selectedIds, members),
+                        onSelect: () => setAccountPanel({ intent: "create", ids: selectedIds }),
+                      },
+                    ]}
+                  />
                 ) : null}
                 <ActionMenu
                   label={t("membersMenuLabel")}
@@ -506,6 +609,16 @@ export default function LtfAdminMembersPage() {
           />
         )}
       </div>
+      <MemberAccountPanel
+        open={accountPanel !== null}
+        namespace="LtfAdmin"
+        memberIds={accountPanel?.ids ?? []}
+        intent={accountPanel?.intent ?? "create"}
+        onClose={() => setAccountPanel(null)}
+        onDone={() => {
+          void loadData();
+        }}
+      />
       <LtfStaffPanel
         mode={panelMode}
         member={panelMember}

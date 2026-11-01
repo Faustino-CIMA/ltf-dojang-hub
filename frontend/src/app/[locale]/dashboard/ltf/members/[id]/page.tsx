@@ -20,7 +20,10 @@ import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-ma
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
+import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   FormPanel,
@@ -50,6 +53,7 @@ import {
   updateLtfStaff,
 } from "@/lib/ltf-admin-api";
 import { displayClubName } from "@/lib/club-label";
+import { accountRowAction } from "@/lib/member-accounts";
 import { formatFullName } from "@/lib/person-name";
 import { getMemberClubTransfers, MemberClubTransferHistory } from "@/lib/club-admin-api";
 
@@ -91,6 +95,8 @@ export default function LtfMemberDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [accountPanel, setAccountPanel] = useState<"create" | "copy" | null>(null);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [licenseTypes, setLicenseTypes] = useState<LicenseType[]>([]);
   const [panelMode, setPanelMode] = useState<StaffPanelMode | null>(null);
@@ -133,11 +139,12 @@ export default function LtfMemberDetailPage() {
         getMember(memberId),
         getMemberHistory(memberId),
         getMemberClubTransfers(memberId),
-        apiRequest<{ role: string }>("/api/auth/me/"),
+        apiRequest<{ role: string; id: number }>("/api/auth/me/"),
         getClubs().catch(() => [] as Club[]),
         getLicenseTypes().catch(() => [] as LicenseType[]),
       ]);
       setCurrentRole(me.role);
+      setCurrentUserId(me.id);
       setClubs(clubRows);
       setLicenseTypes(typeRows);
       setMember(memberResponse);
@@ -318,7 +325,43 @@ export default function LtfMemberDetailPage() {
             >
               {activeTab === "overview" ? (
                 <FormPanel>
-                  <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
+                      <MemberAccountBadge
+                        state={member.account_state ?? "none"}
+                        label={
+                          member.account_state === "pending"
+                            ? t("accountBadgePending")
+                            : member.account_state === "active"
+                              ? t("accountBadgeActive")
+                              : member.account_state === "disabled"
+                                ? t("accountBadgeDisabled")
+                                : t("accountBadgeNone")
+                        }
+                      />
+                    </div>
+                    {canManageStaff ? (
+                      <RowActionMenu
+                        label={commonT("rowActionsLabel")}
+                        actions={[
+                          {
+                            key: "edit",
+                            label: t("staffEditAction"),
+                            onSelect: () => setPanelMode(member.is_ltf_staff ? "edit" : "create"),
+                          },
+                          ...(accountRowAction(member.account_state, member.user != null && member.user === currentUserId) ===
+                          "create"
+                            ? [{ key: "create", label: t("createUserAccount"), onSelect: () => setAccountPanel("create") }]
+                            : []),
+                          ...(accountRowAction(member.account_state, member.user != null && member.user === currentUserId) ===
+                          "copy"
+                            ? [{ key: "copy", label: t("copyFirstLoginLink"), onSelect: () => setAccountPanel("copy") }]
+                            : []),
+                        ]}
+                      />
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-sm text-muted">{t("membersReadOnlyHint")}</p>
                   <div className="mt-4">
                     <ProfilePhotoManager
@@ -487,6 +530,18 @@ export default function LtfMemberDetailPage() {
           </div>
         )}
       </div>
+      {member && accountPanel ? (
+        <MemberAccountPanel
+          open
+          namespace="LtfAdmin"
+          memberIds={[member.id]}
+          intent={accountPanel}
+          onClose={() => setAccountPanel(null)}
+          onDone={() => {
+            void loadMember();
+          }}
+        />
+      ) : null}
       <LtfStaffPanel
         mode={panelMode}
         member={member}

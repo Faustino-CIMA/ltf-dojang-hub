@@ -21,7 +21,10 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
+import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import {
   deleteMemberGrade,
   deleteMemberProfilePicture,
@@ -53,9 +56,10 @@ import { downloadClubStatement } from "@/lib/club-finance-api";
 import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { apiRequest } from "@/lib/api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { accountRowAction } from "@/lib/member-accounts";
 import { canonicalizeLicenseRole } from "@/lib/license-roles";
 
-type AuthMeResponse = { role: string };
+type AuthMeResponse = { role: string; id: number };
 
 const MEMBER_DETAIL_TABS = [
   "overview",
@@ -97,6 +101,8 @@ export default function ClubMemberDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [accountPanel, setAccountPanel] = useState<"create" | "copy" | null>(null);
   const { selectedClubId } = useClubSelection();
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
   const [competitionOn, setCompetitionOn] = useState(false);
@@ -244,6 +250,7 @@ export default function ClubMemberDetailPage() {
         const me = await apiRequest<AuthMeResponse>("/api/auth/me/");
         if (isMounted) {
           setCurrentRole(me.role);
+          setCurrentUserId(me.id);
         }
       } catch {
         if (isMounted) {
@@ -418,18 +425,50 @@ export default function ClubMemberDetailPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <h2 className="text-section text-foreground">{t("memberOverviewTab")}</h2>
+                  <MemberAccountBadge
+                    state={member.account_state ?? "none"}
+                    label={
+                      member.account_state === "pending"
+                        ? t("accountBadgePending")
+                        : member.account_state === "active"
+                          ? t("accountBadgeActive")
+                          : member.account_state === "disabled"
+                            ? t("accountBadgeDisabled")
+                            : t("accountBadgeNone")
+                    }
+                  />
                   <MemberNationalTeamBadge memberId={member.id} />
                 </div>
                 {canManageMemberFull ? (
-                  <Button
-                    variant="outline"
-                    size="icon-lg"
-                    className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0"
-                    aria-label={t("editAction")}
-                    onClick={onEdit}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <RowActionMenu
+                      label={commonT("rowActionsLabel")}
+                      actions={[
+                        { key: "edit", label: t("editAction"), onSelect: onEdit },
+                        ...(accountRowAction(
+                          member.account_state,
+                          member.user != null && member.user === currentUserId,
+                        ) === "create"
+                          ? [{ key: "create", label: t("createUserAccount"), onSelect: () => setAccountPanel("create") }]
+                          : []),
+                        ...(accountRowAction(
+                          member.account_state,
+                          member.user != null && member.user === currentUserId,
+                        ) === "copy"
+                          ? [{ key: "copy", label: t("copyFirstLoginLink"), onSelect: () => setAccountPanel("copy") }]
+                          : []),
+                      ]}
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon-lg"
+                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0"
+                      aria-label={t("editAction")}
+                      onClick={onEdit}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ) : null}
               </div>
               <div className="mt-4">
@@ -648,6 +687,18 @@ export default function ClubMemberDetailPage() {
           </div>
         )}
       </div>
+      {member && accountPanel ? (
+        <MemberAccountPanel
+          open
+          namespace="ClubAdmin"
+          memberIds={[member.id]}
+          intent={accountPanel}
+          onClose={() => setAccountPanel(null)}
+          onDone={() => {
+            void loadMember();
+          }}
+        />
+      ) : null}
       <MemberFormPanel
         open={isEditing && canManageMemberFull && Boolean(member)}
         mode="edit"
