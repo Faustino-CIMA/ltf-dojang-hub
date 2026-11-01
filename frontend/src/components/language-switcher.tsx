@@ -6,7 +6,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-const LOCALES = ["en", "lb"] as const;
+const LOCALES = ["en", "fr", "de", "lb"] as const;
+
+const NATIVE_LABELS: Record<(typeof LOCALES)[number], string | null> = {
+  en: null,
+  lb: null,
+  fr: "Français",
+  de: "Deutsch",
+};
 
 export function LanguageSwitcher({
   compact = false,
@@ -20,7 +27,13 @@ export function LanguageSwitcher({
   const router = useRouter();
   const pathname = usePathname();
 
-  const labelFor = (value: string) => (value === "lb" ? t("languageLux") : t("languageEnglish"));
+  const labelFor = (value: (typeof LOCALES)[number]) => {
+    const native = NATIVE_LABELS[value];
+    if (native) {
+      return native;
+    }
+    return value === "lb" ? t("languageLux") : t("languageEnglish");
+  };
 
   const handleLocaleChange = (value: string) => {
     if (value === locale) {

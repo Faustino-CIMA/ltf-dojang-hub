@@ -1,13 +1,13 @@
 const STORAGE_KEY = "ltf.checkout.returnPath";
 
-const LOCALES = new Set(["en", "lb"]);
+const LOCALES = new Set(["en", "fr", "de", "lb"]);
 
 const AREAS = ["ltf-finance", "club", "ltf", "member", "ops"] as const;
 
 export type CheckoutReturnArea = (typeof AREAS)[number];
 
 const AREA_PATH =
-  /^\/(en|lb)\/dashboard\/(ltf-finance|club|ltf|member|ops)(\/[A-Za-z0-9/_-]*)?$/;
+  /^\/(en|fr|de|lb)\/dashboard\/(ltf-finance|club|ltf|member|ops)(\/[A-Za-z0-9/_-]*)?$/;
 
 export type CheckoutReturnLabelKey =
   | "returnClub"

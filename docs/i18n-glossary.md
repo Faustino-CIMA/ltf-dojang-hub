@@ -1,6 +1,6 @@
 # Translation glossary
 
-Use these words in the French and German interface. Luxembourgish already has its own catalogue. Do not turn French or German on in the language menu until the main areas are filled.
+Use these words in the French and German interface. Luxembourgish already has its own catalogue. French and German are selectable in the application. Emails, PDFs, and the backend language list stay as they are until a later pass.
 
 The audience is a sports federation in Luxembourg. Write the way a club secretary would read a form: clear, polite, and short.
 
@@ -22,6 +22,8 @@ The audience is a sports federation in Luxembourg. Write the way a club secretar
 | household | foyer | Haushalt | One member, or a family, billed together. |
 | family rebate | remise familiale | Familienrabatt | |
 | club shop | boutique du club | Vereinsshop | Desk sales of doboks and other goods. |
+| product code | code produit | Produktcode | Signed code that unlocks modules. Not a member license. |
+| ops console | console ops | Ops-Konsole | The superuser operations screens. |
 | audit log | journal d'audit | Prüfprotokoll | |
 | income statement | compte de résultat | Gewinn- und Verlustrechnung | For the annual meeting. Use GuV only where the full name does not fit. |
 | balance sheet | bilan | Bilanz | |
