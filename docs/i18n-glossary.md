@@ -18,7 +18,7 @@ The audience is a sports federation in Luxembourg. Write the way a club secretar
 | credit note | avoir | Gutschrift | Reduces the amount still due. Not a refund payment. |
 | club fee | frais de club | Vereinsgebühr | |
 | audit log | journal d'audit | Prüfprotokoll | |
-| income statement | compte de résultat | Erfolgsrechnung | For the annual meeting. |
+| income statement | compte de résultat | Gewinn- und Verlustrechnung | For the annual meeting. Use GuV only where the full name does not fit. |
 | balance sheet | bilan | Bilanz | |
 | surplus / deficit | excédent / déficit | Überschuss / Fehlbetrag | |
 | accounts receivable | créances | Forderungen | |
