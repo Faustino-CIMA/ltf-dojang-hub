@@ -17,6 +17,7 @@ urlpatterns = [
     path("alerts/", views.OpsAlertListView.as_view(), name="ops-alerts"),
     path("alerts/<int:alert_id>/", views.OpsAlertUpdateView.as_view(), name="ops-alert-update"),
     path("users/", views.OpsUserListView.as_view(), name="ops-users"),
+    path("users/login-links/", views.OpsBulkLoginLinksView.as_view(), name="ops-user-login-links"),
     path("desks/map/", desk_views.OpsOfficeMapView.as_view(), name="ops-desk-map"),
     path("desks/grants/", desk_views.OpsDeskGrantView.as_view(), name="ops-desk-grants"),
     path("desks/grants/<int:grant_id>/end/", desk_views.OpsDeskGrantEndView.as_view(), name="ops-desk-grant-end"),

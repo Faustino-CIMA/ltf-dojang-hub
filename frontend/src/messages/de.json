@@ -1576,6 +1576,18 @@
     "parkAllUnresolved": "Alle offenen zurückstellen"
   },
   "Ops": {
+    "bulkLoginLinks": "Anmeldelinks",
+    "bulkFirstLogin": "Links für die erste Anmeldung",
+    "bulkResetPassword": "Links zum Zurücksetzen",
+    "bulkConfirmFirstLogin": "{count} Links für die erste Anmeldung erstellen?",
+    "bulkConfirmReset": "{count} Links zum Zurücksetzen erstellen?",
+    "bulkSensitiveWarning": "Diese Datei enthält aktive Links. Wer sie hat, kann diese Passwörter setzen, bis die Links ablaufen. Sie wird nicht per E-Mail gesendet. Löschen Sie sie, wenn Sie fertig sind.",
+    "bulkSkippedInactive": "{count} inaktive Konten werden übersprungen.",
+    "bulkNothingToCreate": "Keine Links zu erstellen. Alle gewählten Konten sind inaktiv.",
+    "bulkDownloaded": "{count} Links heruntergeladen. Die Datei ist vertraulich.",
+    "bulkDownloadCsv": "CSV herunterladen",
+    "bulkDownloadPdf": "PDF herunterladen",
+    "bulkSelectPage": "Personen auf dieser Seite auswählen",
     "navDesks": "Schreibtische",
     "desksTitle": "Schreibtische",
     "desksSubtitle": "Ämterkarte, manuelle Zugänge, und wer von einer Trennungsregel abweichen darf.",

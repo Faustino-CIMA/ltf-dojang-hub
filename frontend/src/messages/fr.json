@@ -1576,6 +1576,18 @@
     "parkAllUnresolved": "Tout mettre de côté"
   },
   "Ops": {
+    "bulkLoginLinks": "Liens de connexion",
+    "bulkFirstLogin": "Liens de première connexion",
+    "bulkResetPassword": "Liens de réinitialisation",
+    "bulkConfirmFirstLogin": "Créer {count} liens de première connexion ?",
+    "bulkConfirmReset": "Créer {count} liens de réinitialisation ?",
+    "bulkSensitiveWarning": "Ce fichier contient des liens actifs. Quiconque l'a peut définir ces mots de passe jusqu'à l'expiration. Il ne sera pas envoyé par e-mail. Supprimez-le quand vous avez fini.",
+    "bulkSkippedInactive": "{count} comptes inactifs seront ignorés.",
+    "bulkNothingToCreate": "Aucun lien à créer. Tous les comptes choisis sont inactifs.",
+    "bulkDownloaded": "{count} liens téléchargés. Le fichier est sensible.",
+    "bulkDownloadCsv": "Télécharger le CSV",
+    "bulkDownloadPdf": "Télécharger le PDF",
+    "bulkSelectPage": "Sélectionner les personnes de cette page",
     "navDesks": "Bureaux",
     "desksTitle": "Bureaux",
     "desksSubtitle": "Carte des fonctions, accès manuels, et qui peut déroger à une règle de séparation.",
