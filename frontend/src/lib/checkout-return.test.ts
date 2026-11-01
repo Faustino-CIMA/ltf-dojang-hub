@@ -28,6 +28,13 @@ describe("checkout return paths", () => {
     expect(dashboardPathForArea("ltf", "en")).toBe("/en/dashboard/ltf");
     expect(dashboardPathForArea("member", "en")).toBe("/en/dashboard/member");
     expect(dashboardPathForArea("ops", "lb")).toBe("/lb/dashboard/ops");
+    expect(sanitizeCheckoutReturnPath("/fr/dashboard/club/invoices/12", "fr")).toBe(
+      "/fr/dashboard/club",
+    );
+    expect(sanitizeCheckoutReturnPath("/de/dashboard/ltf-finance/payments", "de")).toBe(
+      "/de/dashboard/ltf-finance",
+    );
+    expect(sanitizeCheckoutReturnPath("/fr/dashboard/club", "en")).toBe("/en/dashboard/club");
   });
 
   it("rejects open redirects and path tricks", () => {
@@ -40,7 +47,6 @@ describe("checkout return paths", () => {
       "/en/dashboard/club#https://evil.example",
       "/%2e%2e/en/dashboard/club",
       "/en/dashboard/../admin",
-      "/fr/dashboard/club",
       "javascript:alert(1)",
       "/en/dashboard/club/\n",
     ];
