@@ -54,6 +54,7 @@ from .models import (
 )
 from .serializers import (
     assert_single_invoice_address,
+    CommitteeHolderChoiceSerializer,
     CommitteeMandateSerializer,
     CommitteeSerializer,
     FamilyRebateRuleSerializer,
@@ -725,6 +726,48 @@ class CommitteeViewSet(viewsets.ModelViewSet):
         if not can_edit_committee(self.request.user, instance):
             raise PermissionDenied(detail="This module is not available.")
         instance.delete()
+
+    @action(detail=False, methods=["get"], url_path="holder-choices")
+    def holder_choices(self, request):
+        """Adults an LTF admin can hand a federation office to.
+
+        Club members and people with no club are both included. The list is
+        paged and searched here so the picker never downloads the whole roster.
+        """
+        from django.db.models import Q
+
+        from accounts.desks import holds_desk
+        from config.pagination import OptionalPageNumberPagination
+
+        if not holds_desk(request.user, "ltf_admin"):
+            raise PermissionDenied(detail="This module is not available.")
+        today = timezone.localdate()
+        try:
+            cutoff = today.replace(year=today.year - 18)
+        except ValueError:
+            cutoff = today.replace(year=today.year - 18, day=28)
+        queryset = (
+            Member.objects.filter(is_active=True, date_of_birth__isnull=False, date_of_birth__lte=cutoff)
+            .select_related("club")
+            .only("id", "first_name", "last_name", "club_id", "club__id", "club__name")
+            .order_by("last_name", "first_name", "id")
+        )
+        raw_query = (request.query_params.get("q") or "").strip()[:80]
+        for token in raw_query.split()[:5]:
+            queryset = queryset.filter(Q(first_name__icontains=token) | Q(last_name__icontains=token))
+        paginator = OptionalPageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        rows = [
+            {
+                "id": member.id,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+                "club_id": member.club_id,
+                "club_name": member.club.name if member.club_id else "",
+            }
+            for member in page
+        ]
+        return paginator.get_paginated_response(CommitteeHolderChoiceSerializer(rows, many=True).data)
 
 
 class CommitteeMandateViewSet(viewsets.ModelViewSet):

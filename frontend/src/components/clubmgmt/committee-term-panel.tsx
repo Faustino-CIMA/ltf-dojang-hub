@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { todayIso } from "@/lib/committee-terms";
 
+import { CommitteeHolderPicker, type HolderPage } from "./committee-holder-picker";
 import type { CommitteeMandateRow } from "./committee-history-table";
 
 export type CommitteePanelState =
@@ -33,6 +34,7 @@ export function CommitteeTermPanel({
   onEnd,
   onCreatePast,
   onDelete,
+  loadHolders,
 }: {
   panel: CommitteePanelState | null;
   members: Array<{ id: number; name: string }>;
@@ -44,6 +46,7 @@ export function CommitteeTermPanel({
   onEnd: (mandate: CommitteeMandateRow, endedOn: string) => void;
   onCreatePast: (values: TermFormValues) => void;
   onDelete: (mandate: CommitteeMandateRow) => void;
+  loadHolders?: (query: string, page: number, signal: AbortSignal) => Promise<HolderPage>;
 }) {
   const t = useTranslations("ClubMgmt");
   const [role, setRole] = useState("president");
@@ -206,16 +209,25 @@ export function CommitteeTermPanel({
         {showMember ? (
           <div className="space-y-2">
             <Label required>{panel.mode === "replace" ? t("committeeNewMember") : t("committeeColumnPerson")}</Label>
-            <PopoverSelect
-              ariaLabel={t("committeeColumnPerson")}
-              value={memberId}
-              onValueChange={setMemberId}
-              options={memberOptions}
-              searchable
-              searchPlaceholder={t("committeeSearchMembers")}
-              emptyMessage={t("committeeNoAdults")}
-              placeholder={t("committeeNeedMember")}
-            />
+            {panel.mode === "replace" && loadHolders ? (
+              <CommitteeHolderPicker
+                value={memberId}
+                onValueChange={setMemberId}
+                load={loadHolders}
+                fallbackLabel={panel.mandate.member_name || panel.mandate.person_name || undefined}
+              />
+            ) : (
+              <PopoverSelect
+                ariaLabel={t("committeeColumnPerson")}
+                value={memberId}
+                onValueChange={setMemberId}
+                options={memberOptions}
+                searchable
+                searchPlaceholder={t("committeeSearchMembers")}
+                emptyMessage={t("committeeNoAdults")}
+                placeholder={t("committeeNeedMember")}
+              />
+            )}
           </div>
         ) : null}
         {showStart ? (

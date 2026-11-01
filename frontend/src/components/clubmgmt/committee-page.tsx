@@ -28,6 +28,7 @@ import {
   deleteMandate,
   listCommittees,
   replaceMandate,
+  searchCommitteeHolders,
   updateMandate,
   type CommitteeMandateDto,
 } from "@/lib/clubmgmt-api";
@@ -364,6 +365,21 @@ export function CommitteePage({ variant, embed = false }: Props) {
     setSelectedMandateId(null);
   };
 
+  const holderNames = useRef(new Map<number, string>());
+  const loadHolders = useCallback(
+    (query: string, page: number, signal: AbortSignal) =>
+      searchCommitteeHolders({ q: query, page, pageSize: 25 }, { signal }).then((response) => {
+        for (const row of response.results) {
+          holderNames.current.set(row.id, formatFullName(row));
+        }
+        return {
+          results: response.results,
+          hasMore: Boolean(response.next),
+        };
+      }),
+    [],
+  );
+
   const closePanel = () => setPanel(null);
 
   const saveEdit = async (mandate: CommitteeMandateRow, values: { role: string; title: string; member: number | null; started_on: string; ended_on: string | null; notes: string }) => {
@@ -397,7 +413,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
       await replaceMandate(mandate.id, values);
       setSuccessMessage(
         t("committeeReplaced", {
-          name: member ? displayMemberName(member) : "",
+          name: member ? displayMemberName(member) : holderNames.current.get(values.member) ?? "",
           role: t(`role_${mandate.role}`),
           date: formatDisplayDate(values.started_on),
         }),
@@ -860,6 +876,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
         onDelete={(mandate) => {
           void confirmDeleteMandate(mandate);
         }}
+        loadHolders={variant === "ltf" ? loadHolders : undefined}
       />
     </div>
   );
