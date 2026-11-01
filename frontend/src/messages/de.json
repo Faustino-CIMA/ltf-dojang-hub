@@ -193,6 +193,7 @@
     "logoPreviewLoading": "Logovorschau wird geladen"
   },
   "ClubAdmin": {
+    "expiresLabel": "Läuft ab",
     "invoiceUnitLabel": "Einzelpreis",
     "selectedOnOtherPagesLabel": "Auf anderen Seiten: {count}",
     "orderLicenseConfirmList": "Diese Bestellung umfasst:",
@@ -714,6 +715,7 @@
     "ibanPlaceholder": "LU00 0000 0000 0000"
   },
   "LtfAdmin": {
+    "expiresLabel": "Läuft ab",
     "federationLabel": "Verband",
     "selectedOnOtherPagesLabel": "Auf anderen Seiten: {count}",
     "photoCameraSwitch": "Kamera wechseln",

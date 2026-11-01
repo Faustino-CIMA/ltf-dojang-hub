@@ -53,6 +53,7 @@ import {
 } from "@/lib/ltf-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatLicenseExpiry, licenseExpiryClass, licenseExpiryHint } from "@/lib/license-expiry";
 import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
@@ -562,6 +563,15 @@ export default function LtfAdminLicensesPage() {
       header: t("issuedAtLabel"),
       sortable: true,
       render: (license: License) => formatIssuedAt(license.issued_at),
+    },
+    {
+      key: "end_date",
+      header: t("expiresLabel"),
+      sortable: true,
+      render: (license: License) => {
+        const hint = licenseExpiryHint(license.end_date);
+        return <span className={licenseExpiryClass(hint)}>{formatLicenseExpiry(license.end_date)}</span>;
+      },
     },
     {
       key: "actions",
