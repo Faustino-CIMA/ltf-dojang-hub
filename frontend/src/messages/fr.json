@@ -194,6 +194,8 @@
   },
   "ClubAdmin": {
     "invoiceUnitLabel": "Prix unitaire",
+    "selectedOnOtherPagesLabel": "Sur d'autres pages : {count}",
+    "orderLicenseConfirmList": "Cette commande comprend :",
     "photoCameraSwitch": "Changer de caméra",
     "invoiceLineTotalLabel": "Sous-total",
     "trainingPlace": "Lieu d'entraînement",
@@ -713,6 +715,7 @@
   },
   "LtfAdmin": {
     "federationLabel": "Fédération",
+    "selectedOnOtherPagesLabel": "Sur d'autres pages : {count}",
     "photoCameraSwitch": "Changer de caméra",
     "federationWt": "WT",
     "federationItf": "ITF",

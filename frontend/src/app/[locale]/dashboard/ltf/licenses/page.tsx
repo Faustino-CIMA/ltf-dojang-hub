@@ -56,6 +56,7 @@ import { formatDisplayDate } from "@/lib/date-display";
 import { displayClubName } from "@/lib/club-label";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 
 const licenseSchema = z.object({
   club: z.string().min(1, "Club is required"),
@@ -246,15 +247,16 @@ export default function LtfAdminLicensesPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / licensesListPageSize));
 
   const allFilteredIds = useMemo(() => licenses.map((license) => license.id), [licenses]);
-  const allSelected =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
+  const headerCheck = visibleHeaderCheck(selectedIds, allFilteredIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, allFilteredIds);
+
+  useEffect(() => {
+    setSelectedIds([]);
+    lastSelectedLicenseIdRef.current = null;
+  }, [headerClubId, searchQuery, licenseStatusFilter]);
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(allFilteredIds);
-    }
+    setSelectedIds((current) => togglePageSelection(current, allFilteredIds));
     lastSelectedLicenseIdRef.current = null;
   };
 
@@ -493,7 +495,7 @@ export default function LtfAdminLicensesPage() {
       header: (
         <Checkbox
           aria-label={common("selectAllLabel")}
-          checked={allSelected}
+          checked={headerCheck}
           onCheckedChange={() => toggleSelectAll()}
         />
       ),
@@ -634,6 +636,8 @@ export default function LtfAdminLicensesPage() {
                 <SelectionMeta
                   count={selectedIds.length}
                   countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+                  offPageCount={otherPageCount}
+                  offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                   clearLabel={t("clearSelection")}
                   onClear={() => {
                     setSelectedIds([]);

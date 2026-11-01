@@ -686,6 +686,16 @@ export default function ClubMembersOrderLicensesPage() {
               <p className="mt-1 text-sm font-medium text-foreground">
                 {t("orderLicenseMembersCountLabel", { count: validSelectedIds.length })}
               </p>
+              {selectedMembers.length > 0 ? (
+                <>
+                  <p className="mt-2 text-sm text-muted">{t("orderLicenseConfirmList")}</p>
+                  <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto text-sm text-foreground">
+                    {selectedMembers.map((member) => (
+                      <li key={member.id}>{formatFullName(member)}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-medium uppercase tracking-wide text-muted">

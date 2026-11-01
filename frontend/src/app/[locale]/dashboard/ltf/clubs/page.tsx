@@ -28,6 +28,7 @@ import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { sortRowsByKey, type TableSort } from "@/lib/table-sort";
+import { offPageSelectedCount, pruneSelection, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 
 export default function LtfAdminClubsPage() {
   const t = useTranslations("LtfAdmin");
@@ -126,16 +127,17 @@ export default function LtfAdminClubsPage() {
     setCurrentPage(1);
   }, [federationFilter, searchQuery, pageSize, selectedClubId, tableSort]);
 
-  const allFilteredIds = useMemo(() => searchedClubs.map((club) => club.id), [searchedClubs]);
-  const allSelected =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
+  const filteredIds = useMemo(() => searchedClubs.map((club) => club.id), [searchedClubs]);
+  const visibleIds = useMemo(() => pagedClubs.map((club) => club.id), [pagedClubs]);
+  const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
+
+  useEffect(() => {
+    setSelectedIds((current) => pruneSelection(current, filteredIds));
+  }, [filteredIds]);
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(allFilteredIds);
-    }
+    setSelectedIds((current) => togglePageSelection(current, visibleIds));
   };
 
   const toggleSelectRow = (id: number) => {
@@ -261,6 +263,8 @@ export default function LtfAdminClubsPage() {
                 <SelectionMeta
                   count={selectedIds.length}
                   countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+                  offPageCount={otherPageCount}
+                  offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                   clearLabel={t("clearSelection")}
                   onClear={() => setSelectedIds([])}
                 />
@@ -292,7 +296,7 @@ export default function LtfAdminClubsPage() {
                 header: (
                   <Checkbox
                     aria-label={common("selectAllLabel")}
-                    checked={allSelected}
+                    checked={headerCheck}
                     onCheckedChange={() => toggleSelectAll()}
                   />
                 ),

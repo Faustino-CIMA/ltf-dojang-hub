@@ -25,6 +25,7 @@ import { apiRequest } from "@/lib/api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -207,16 +208,15 @@ export default function ClubAdminLicensesPage() {
 
   const canManageLicenses = currentRole === "club_admin";
   const visibleLicenseIds = licenses.map((license) => license.id);
-  const allVisibleSelected =
-    visibleLicenseIds.length > 0 && visibleLicenseIds.every((id) => selectedLicenseIds.includes(id));
+  const headerCheck = visibleHeaderCheck(selectedLicenseIds, visibleLicenseIds);
+  const otherPageCount = offPageSelectedCount(selectedLicenseIds, visibleLicenseIds);
+
+  useEffect(() => {
+    setSelectedLicenseIds([]);
+  }, [searchQuery, licenseStatusFilter, selectedClubId]);
 
   const toggleSelectAll = () => {
-    setSelectedLicenseIds((current) => {
-      if (allVisibleSelected) {
-        return current.filter((id) => !visibleLicenseIds.includes(id));
-      }
-      return Array.from(new Set([...current, ...visibleLicenseIds]));
-    });
+    setSelectedLicenseIds((current) => togglePageSelection(current, visibleLicenseIds));
   };
 
   const toggleSelectRow = (licenseId: number) => {
@@ -290,7 +290,7 @@ export default function ClubAdminLicensesPage() {
             header: (
               <Checkbox
                 aria-label={common("selectAllLabel")}
-                checked={allVisibleSelected}
+                checked={headerCheck}
                 onCheckedChange={() => toggleSelectAll()}
               />
             ),
@@ -406,8 +406,13 @@ export default function ClubAdminLicensesPage() {
                   ]}
                 />
                 {selectedLicenseIds.length > 0 ? (
-                  <span className="text-sm font-medium text-foreground">
-                    {t("selectedMembersCountLabel", { count: selectedLicenseIds.length })}
+                  <span className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="font-medium text-foreground">
+                      {t("selectedMembersCountLabel", { count: selectedLicenseIds.length })}
+                    </span>
+                    {otherPageCount > 0 ? (
+                      <span className="text-muted">{t("selectedOnOtherPagesLabel", { count: otherPageCount })}</span>
+                    ) : null}
                   </span>
                 ) : null}
               </div>
