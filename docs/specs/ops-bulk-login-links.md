@@ -1,6 +1,6 @@
 # Ops: bulk first-login and password-reset links
 
-Status: spec only. Do not build this until it is approved.
+Status: approved and implemented. The rules below are the contract.
 
 Page: `/en/dashboard/ops/users`.
 

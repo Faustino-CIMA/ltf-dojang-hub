@@ -20,6 +20,8 @@ class User(AbstractUser):
         default=Roles.MEMBER,
     )
     is_email_verified = models.BooleanField(default=False)
+    # Mixed into the reset-token hash. Each new reset link increments it, so older links die.
+    password_reset_generation = models.PositiveIntegerField(default=0)
     consent_given = models.BooleanField(default=False)
     consent_given_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

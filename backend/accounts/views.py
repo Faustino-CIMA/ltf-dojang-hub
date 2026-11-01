@@ -1,7 +1,7 @@
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from .password_reset import ResetTokenGenerator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -402,7 +402,7 @@ class PasswordResetConfirmView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        token_ok = PasswordResetTokenGenerator().check_token(user, token)
+        token_ok = ResetTokenGenerator().check_token(user, token)
 
         if not token_ok:
             return response.Response(

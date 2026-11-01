@@ -188,6 +188,23 @@ export function getOpsUsers(params: Record<string, string | undefined> = {}) {
   return apiRequest<PaginatedResponse<OpsUser>>(`/api/ops/users/?${search.toString()}`);
 }
 
+export type BulkLinkType = "first_login" | "reset_password";
+
+export type BulkLoginLinkFile = {
+  created_count: number;
+  skipped_count: number;
+  csv: string;
+  pdf_base64: string;
+};
+
+export function createBulkLoginLinks(input: { link_type: BulkLinkType; user_ids: number[]; locale: string }) {
+  return apiRequest<BulkLoginLinkFile>("/api/ops/users/login-links/", {
+    method: "POST",
+    headers: { "X-Desk": "ops" },
+    body: JSON.stringify(input),
+  });
+}
+
 export function runOpsUserAction(userId: number, action: string, extra?: Record<string, string>) {
   return apiRequest<OpsUser>(`/api/ops/users/${userId}/`, {
     method: "POST",

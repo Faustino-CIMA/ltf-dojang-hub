@@ -4,8 +4,8 @@ from email.utils import parseaddr
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.mail import EmailMultiAlternatives
+from django.db.models import F
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -83,7 +83,13 @@ def _send_via_django(to_email, subject, html, text, attachments=None):
 
 
 def build_password_reset_url(user, locale: str) -> str:
-    token = PasswordResetTokenGenerator().make_token(user)
+    """Issue one reset link and invalidate every older reset link for this person."""
+    from accounts.models import User
+    from accounts.password_reset import ResetTokenGenerator
+
+    User.objects.filter(pk=user.pk).update(password_reset_generation=F("password_reset_generation") + 1)
+    user.refresh_from_db(fields=["password_reset_generation"])
+    token = ResetTokenGenerator().make_token(user)
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     query = urlencode(
         {
