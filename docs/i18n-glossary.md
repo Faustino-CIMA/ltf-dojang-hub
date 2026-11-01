@@ -15,6 +15,17 @@ The audience is a sports federation in Luxembourg. Write the way a club secretar
 | federation | fédération | Verband | |
 | LTF admin | admin LTF | LTF-Admin | |
 | invoice | facture | Rechnung | |
+| credit note | avoir | Gutschrift | Reduces the amount still due. Not a refund payment. |
+| club fee | frais de club | Vereinsgebühr | |
+| audit log | journal d'audit | Prüfprotokoll | |
+| income statement | compte de résultat | Erfolgsrechnung | For the annual meeting. |
+| balance sheet | bilan | Bilanz | |
+| surplus / deficit | excédent / déficit | Überschuss / Fehlbetrag | |
+| accounts receivable | créances | Forderungen | |
+| accounts payable | dettes | Verbindlichkeiten | |
+| opening cash | trésorerie d'ouverture | Kassenanfangsbestand | |
+| bank reconciliation | rapprochement bancaire | Bankabstimmung | CAMT.053 stays as written. |
+| void (a document) | annuler | stornieren | |
 | order | commande | Bestellung | |
 | payment | paiement | Zahlung | |
 | grade / belt rank | grade / grade de ceinture | Grad / Gürtelgrad | |
