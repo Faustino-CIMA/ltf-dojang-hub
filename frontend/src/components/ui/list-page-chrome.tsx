@@ -152,6 +152,8 @@ export function SelectionMeta({
   hiddenCount = 0,
   countLabel,
   hiddenLabel,
+  offPageCount = 0,
+  offPageLabel,
   clearLabel,
   onClear,
 }: {
@@ -159,6 +161,8 @@ export function SelectionMeta({
   hiddenCount?: number;
   countLabel: string;
   hiddenLabel?: string;
+  offPageCount?: number;
+  offPageLabel?: string;
   clearLabel: string;
   onClear: () => void;
 }) {
@@ -168,6 +172,7 @@ export function SelectionMeta({
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
       <span className="font-medium text-[var(--foreground)]">{countLabel}</span>
+      {offPageCount > 0 && offPageLabel ? <span className="text-muted">{offPageLabel}</span> : null}
       {hiddenCount > 0 && hiddenLabel ? (
         <span className="font-medium text-warning">{hiddenLabel}</span>
       ) : null}

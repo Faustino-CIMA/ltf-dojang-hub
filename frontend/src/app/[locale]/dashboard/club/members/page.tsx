@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import {
   Member,
   MemberIssueFilter,
@@ -131,7 +132,6 @@ export default function ClubAdminMembersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
-  const [selectionHydrated, setSelectionHydrated] = useState(false);
   const [statusFilterHydrated, setStatusFilterHydrated] = useState(false);
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
@@ -320,10 +320,6 @@ export default function ClubAdminMembersPage() {
     };
   }, [selectedClubId]);
 
-  const selectedIdsStorageKey = useMemo(
-    () => `club_members_selected_ids:${selectedClubId ?? "all"}`,
-    [selectedClubId]
-  );
   const pageSizeStorageKey = useMemo(
     () => `club_members_page_size:${selectedClubId ?? "all"}`,
     [selectedClubId]
@@ -370,38 +366,6 @@ export default function ClubAdminMembersPage() {
     }
     window.sessionStorage.setItem(pageSizeStorageKey, pageSize);
   }, [pageSize, pageSizeHydrated, pageSizeStorageKey]);
-
-  useEffect(() => {
-    setSelectionHydrated(false);
-    if (typeof window === "undefined") {
-      setSelectionHydrated(true);
-      return;
-    }
-    try {
-      const storedValue = window.sessionStorage.getItem(selectedIdsStorageKey);
-      if (!storedValue) {
-        setSelectedIds([]);
-        lastSelectedMemberIdRef.current = null;
-        return;
-      }
-      const parsedValue = JSON.parse(storedValue);
-      if (Array.isArray(parsedValue)) {
-        const restoredIds = parsedValue
-          .map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value > 0);
-        setSelectedIds(restoredIds);
-        lastSelectedMemberIdRef.current = restoredIds.at(-1) ?? null;
-        return;
-      }
-      setSelectedIds([]);
-      lastSelectedMemberIdRef.current = null;
-    } catch {
-      setSelectedIds([]);
-      lastSelectedMemberIdRef.current = null;
-    } finally {
-      setSelectionHydrated(true);
-    }
-  }, [selectedIdsStorageKey]);
 
   useEffect(() => {
     setStatusFilterHydrated(false);
@@ -454,15 +418,9 @@ export default function ClubAdminMembersPage() {
   }, [issue, searchParams, statusSwitchesStorageKey]);
 
   useEffect(() => {
-    if (!selectionHydrated || typeof window === "undefined") {
-      return;
-    }
-    if (selectedIds.length > 0) {
-      window.sessionStorage.setItem(selectedIdsStorageKey, JSON.stringify(selectedIds));
-    } else {
-      window.sessionStorage.removeItem(selectedIdsStorageKey);
-    }
-  }, [selectedIds, selectedIdsStorageKey, selectionHydrated]);
+    setSelectedIds([]);
+    lastSelectedMemberIdRef.current = null;
+  }, [searchQuery, selectedClubId, memberStatusFilter, issue, teamFilter]);
 
   useEffect(() => {
     if (!statusFilterHydrated || typeof window === "undefined") {
@@ -474,17 +432,9 @@ export default function ClubAdminMembersPage() {
     );
   }, [memberStatusFilter, statusFilterHydrated, statusSwitchesStorageKey]);
 
-  const allFilteredIds = useMemo(
-    () => members.map((member) => member.id),
-    [members]
-  );
-  const selectedVisibleCount = useMemo(
-    () => allFilteredIds.filter((id) => selectedIds.includes(id)).length,
-    [allFilteredIds, selectedIds]
-  );
-  const hiddenSelectedCount = Math.max(selectedIds.length - selectedVisibleCount, 0);
-  const allSelected =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
+  const visibleIds = useMemo(() => members.map((member) => member.id), [members]);
+  const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
 
   const selectedStatusBreakdown = useMemo(() => {
     const selectedOnPage = members.filter((member) => selectedIds.includes(member.id));
@@ -507,13 +457,8 @@ export default function ClubAdminMembersPage() {
     if (!canManageMembers) {
       return;
     }
-    if (allSelected) {
-      setSelectedIds([]);
-      lastSelectedMemberIdRef.current = null;
-    } else {
-      setSelectedIds(allFilteredIds);
-      lastSelectedMemberIdRef.current = allFilteredIds.at(-1) ?? null;
-    }
+    setSelectedIds((current) => togglePageSelection(current, visibleIds));
+    lastSelectedMemberIdRef.current = visibleIds.at(-1) ?? null;
   };
 
   const clearSelection = () => {
@@ -568,6 +513,7 @@ export default function ClubAdminMembersPage() {
   const [pendingDelete, setPendingDelete] = useState<Member | null>(null);
   const [deleteImpact, setDeleteImpact] = useState<string[]>([]);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchTargets, setBatchTargets] = useState<Member[]>([]);
   const [batchImpact, setBatchImpact] = useState<string[]>([]);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -603,6 +549,7 @@ export default function ClubAdminMembersPage() {
       return;
     }
     setBatchDeleteOpen(true);
+    setBatchTargets([]);
     setBatchImpact([]);
     try {
       const roster = [];
@@ -621,6 +568,7 @@ export default function ClubAdminMembersPage() {
       }
       const counts = new Map<number, number>();
       licenses.forEach((license) => counts.set(license.member, (counts.get(license.member) ?? 0) + 1));
+      setBatchTargets(roster);
       setBatchImpact(
         roster.map((member) => {
           const count = counts.get(member.id) ?? 0;
@@ -962,9 +910,9 @@ export default function ClubAdminMembersPage() {
                     <span className="font-medium text-[var(--foreground)]">
                       {t("selectedMembersCountLabel", { count: selectedIds.length })}
                     </span>
-                    {hiddenSelectedCount > 0 ? (
-                      <span className="font-medium text-warning">
-                        {t("hiddenSelectedMembersCountLabel", { count: hiddenSelectedCount })}
+                    {otherPageCount > 0 ? (
+                      <span className="text-muted">
+                        {t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                       </span>
                     ) : null}
                     <button
@@ -1035,7 +983,7 @@ export default function ClubAdminMembersPage() {
                       header: (
                         <Checkbox
                           aria-label={common("selectAllLabel")}
-                          checked={allSelected}
+                          checked={headerCheck}
                           onCheckedChange={() => toggleSelectAll()}
                         />
                       ),
@@ -1234,7 +1182,7 @@ export default function ClubAdminMembersPage() {
           }
         }}
         onConfirm={() => {
-          const targets = members.filter((member) => selectedIds.includes(member.id));
+          const targets = batchTargets.length > 0 ? batchTargets : members.filter((member) => selectedIds.includes(member.id));
           setDeleteBusy(true);
           void (async () => {
             const failed: string[] = [];
@@ -1246,6 +1194,7 @@ export default function ClubAdminMembersPage() {
               }
             }
             setBatchDeleteOpen(false);
+            setBatchTargets([]);
             setSelectedIds([]);
             if (failed.length > 0) {
               setErrorMessage(t("batchDeleteMembersResultLabel", { deleted: targets.length - failed.length, failed: failed.length }));
