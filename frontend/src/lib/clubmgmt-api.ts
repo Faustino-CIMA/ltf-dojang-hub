@@ -1,5 +1,6 @@
 import { API_URL, apiRequest } from "./api";
 import { getToken } from "./auth";
+import type { PaginatedResponse } from "./pagination";
 
 export const CLUB_MANAGEMENT_MODULE_ID = "club_management";
 
@@ -658,6 +659,31 @@ export function listCommittees(params: { scope: string; club?: number }) {
   const q = new URLSearchParams({ scope: params.scope });
   if (params.club) q.set("club", String(params.club));
   return apiRequest<CommitteeDto[]>(`/api/club-management/committees/?${q.toString()}`);
+}
+
+export type CommitteeHolderChoice = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  club_id: number | null;
+  club_name: string;
+};
+
+export function searchCommitteeHolders(
+  params: { q?: string; page: number; pageSize: number },
+  options?: { signal?: AbortSignal },
+) {
+  const search = new URLSearchParams();
+  search.set("page", String(params.page));
+  search.set("page_size", String(params.pageSize));
+  const query = params.q?.trim();
+  if (query) {
+    search.set("q", query);
+  }
+  return apiRequest<PaginatedResponse<CommitteeHolderChoice>>(
+    `/api/club-management/committees/holder-choices/?${search.toString()}`,
+    { signal: options?.signal },
+  );
 }
 
 export function createCommittee(payload: Record<string, unknown>) {

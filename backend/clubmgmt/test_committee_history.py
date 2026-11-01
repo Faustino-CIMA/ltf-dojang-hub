@@ -444,3 +444,67 @@ class CommitteeHistoryTests(TestCase):
         self.assertEqual(finance.status_code, 200)
         self.assertEqual(finance.data["committee_history"], [])
         self.assertEqual(finance.data["grade_history"], [])
+
+    def test_ltf_admin_holder_search_lists_every_adult_and_hides_the_rest(self):
+        self._unlock()
+        staff = Member.objects.create(
+            club=None,
+            first_name="Nora",
+            last_name="Staff",
+            date_of_birth=date(1980, 1, 2),
+        )
+        other = Member.objects.create(
+            club=self.other_club,
+            first_name="Paul",
+            last_name="Other",
+            date_of_birth=date(1985, 5, 5),
+        )
+        Member.objects.create(
+            club=self.club,
+            first_name="Idle",
+            last_name="Gone",
+            date_of_birth=date(1982, 2, 2),
+            is_active=False,
+        )
+        self._auth(self.club_admin)
+        refused = self.client.get("/api/club-management/committees/holder-choices/")
+        self.assertEqual(refused.status_code, 403)
+        self._auth(self.finance_user)
+        self.assertEqual(self.client.get("/api/club-management/committees/holder-choices/").status_code, 403)
+        self._auth(self.member_user)
+        self.assertEqual(self.client.get("/api/club-management/committees/holder-choices/").status_code, 403)
+
+        self._auth(self.ltf_admin)
+        response = self.client.get("/api/club-management/committees/holder-choices/?page=1&page_size=1")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(response.data["count"], 1)
+        self.assertIsNotNone(response.data["next"])
+        first = response.data["results"][0]
+        self.assertEqual(set(first), {"id", "first_name", "last_name", "club_id", "club_name"})
+        self.assertNotIn("email", first)
+        names = []
+        page = 1
+        while page < 10:
+            chunk = self.client.get(f"/api/club-management/committees/holder-choices/?page={page}&page_size=2")
+            self.assertEqual(chunk.status_code, 200)
+            names.extend((row["last_name"], row["first_name"], row["club_name"]) for row in chunk.data["results"])
+            if not chunk.data["next"]:
+                break
+            page += 1
+        self.assertEqual(names, sorted(names))
+        by_last = {row[0] for row in names}
+        self.assertIn("STAFF", by_last)
+        self.assertIn("OTHER", by_last)
+        self.assertIn("INCOMING", by_last)
+        self.assertNotIn("YOUNG", by_last)
+        self.assertNotIn("GONE", by_last)
+        staff_row = next(row for row in names if row[0] == "STAFF")
+        self.assertEqual(staff_row[2], "")
+        other_row = next(row for row in names if row[0] == "OTHER")
+        self.assertEqual(other_row[2], "Other Club")
+
+        found = self.client.get("/api/club-management/committees/holder-choices/?q=paul+other")
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual([row["id"] for row in found.data["results"]], [other.id])
+        staff_found = self.client.get("/api/club-management/committees/holder-choices/?q=staff")
+        self.assertEqual([row["id"] for row in staff_found.data["results"]], [staff.id])

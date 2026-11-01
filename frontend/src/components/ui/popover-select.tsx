@@ -59,6 +59,9 @@ export function PopoverSelect({
   searchable = false,
   searchPlaceholder = "Search",
   emptyMessage = "No matches",
+  remoteSearch = false,
+  onQueryChange,
+  footer,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -70,6 +73,9 @@ export function PopoverSelect({
   searchable?: boolean;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  remoteSearch?: boolean;
+  onQueryChange?: (query: string) => void;
+  footer?: ReactNode;
 }) {
   const { readOnly, viewOnlyLabel } = useDeskAccess();
   const locked = disabled || readOnly;
@@ -79,12 +85,15 @@ export function PopoverSelect({
   const searchRef = useRef<HTMLInputElement>(null);
   const selected = options.find((option) => option.value === value);
   const filteredOptions = useMemo(() => {
+    if (remoteSearch) {
+      return options;
+    }
     const needle = query.trim().toLowerCase();
     if (!searchable || !needle) {
       return options;
     }
     return options.filter((option) => optionSearchText(option).toLowerCase().includes(needle));
-  }, [options, query, searchable]);
+  }, [options, query, remoteSearch, searchable]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowDown") {
@@ -109,6 +118,7 @@ export function PopoverSelect({
         setOpen(next);
         if (!next) {
           setQuery("");
+          onQueryChange?.("");
         }
       }}
     >
@@ -136,7 +146,10 @@ export function PopoverSelect({
             aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             className="mb-1 h-[var(--control-height)] min-h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-0 text-sm text-[var(--field-foreground)] outline-none placeholder:text-[var(--field-placeholder)] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              onQueryChange?.(event.target.value);
+            }}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
                 event.preventDefault();
@@ -177,6 +190,7 @@ export function PopoverSelect({
             <p className="px-3 py-2 text-sm text-muted">{emptyMessage}</p>
           ) : null}
         </div>
+        {footer}
       </PopoverContent>
     </Popover>
   );

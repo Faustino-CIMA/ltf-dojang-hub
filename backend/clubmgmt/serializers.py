@@ -518,6 +518,16 @@ class CommitteeSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
 
+class CommitteeHolderChoiceSerializer(serializers.Serializer):
+    """A person an LTF admin can hand a federation office to. Names and club only."""
+
+    id = serializers.IntegerField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    club_id = serializers.IntegerField(allow_null=True)
+    club_name = serializers.CharField(allow_blank=True)
+
+
 class ShopVariantSerializer(serializers.ModelSerializer):
     low_stock = serializers.SerializerMethodField()
     qr_payload = serializers.SerializerMethodField()
