@@ -84,6 +84,8 @@ export type Member = {
   photo_consent_attested_at?: string | null;
   photo_consent_attested_by?: number | null;
   is_active: boolean;
+  account_state?: "none" | "pending" | "active" | "disabled";
+  linked_user?: { id: number; username: string; role: string } | null;
   created_at: string;
   updated_at: string;
   current_licenses?: CurrentLicense[];
@@ -362,6 +364,7 @@ type MemberListQueryParams = {
   ids?: number[];
   issue?: MemberIssueFilter;
   ordering?: string;
+  account?: "none" | "pending" | "active" | "disabled";
   teamIds?: number[];
   teamNone?: boolean;
 };
@@ -390,6 +393,9 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.ordering) {
     search.set("ordering", params.ordering);
+  }
+  if (params?.account) {
+    search.set("account", params.account);
   }
   if (params?.teamNone) {
     search.set("teams", "none");

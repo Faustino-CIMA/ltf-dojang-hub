@@ -1,6 +1,6 @@
 # Member user accounts
 
-Status: spec only. Do not build this until it is approved.
+Status: approved and implemented. No database migration.
 
 A club admin or an LTF admin can create a login for a member without sending email, see who already has one, and hand over a first-login link. Today a member record and a login are separate. Linking an existing login is explicit (`members/ltf_staff.py` `_link_login`, and the club-admin assignment board). Merging two logins is a superuser action that requires a second factor (`accounts/merge.py`, ops merge). First-login links already exist for ops (`docs/specs/ops-bulk-login-links.md`): 7 days, single use, no email, CSV and PDF.
 
@@ -78,21 +78,21 @@ Before creating, the server checks, in order:
 1. This member already has `user` set. Skip. Do not create another login.
 2. The member's email matches an existing login, ignoring blank emails. Do not create.
 3. That login is already linked to a different member. Do not link. Tell the operator to use the ops account merge (superuser, second factor, nothing matched by name).
-4. That login is not linked to a member, and its role is `member`. The side panel offers **Link this login** instead of create. Linking sets `member.user` and does not change the login's role or password. No email is sent. A first-login link is offered only if that login has never finished setup.
+4. That login is not linked to a member, and its role is `member`. The side panel offers **Link this login** instead of create, and it shows that username. One confirm is enough. Linking sets `member.user` and does not change the login's role or password. No email is sent. A first-login link is offered only if that login has never finished setup.
 5. That login's role is club admin, coach, LTF admin, or finance. A club-admin desk is refused. An LTF-admin desk or a superuser is also refused from this screen: staff logins are not member accounts. Merge remains the tool when two identities must become one.
 
 Name-only matches are not links. Two people can share a name. The only automatic match is a non-blank email, or the member's own `user` field.
 
 ## Minors
 
-Proposed default, for a decision before building:
+Decided:
 
 - Under 16 on the day of the action: no login. The row is skipped in a bulk run, with the reason "under 16". A guardian or family contact stays what it is today: the invoice recipient, not a user account. This feature does not create a login for a parent.
 - If the guardian is also a member, their own row can get an account through the same action. The child's row stays without one.
 - From 16 to 17: a normal member login is allowed. Still no staff desk and no authenticator requirement.
-- No date of birth: refuse until a date is saved. Do not guess.
+- No date of birth: refuse until a date is saved. There is no override.
 
-This is stricter than the committee rule, which uses 18. It is flagged below.
+This is stricter than the committee rule, which uses 18.
 
 ## After creation: the link, not an email
 
@@ -109,7 +109,7 @@ The accounts created by that one confirm are handed over with the existing first
 - response header `Cache-Control: no-store`
 - the raw token is not written to the audit log, application logs, or error reports
 
-A single member also gets **Copy link** in the panel, for the token just created. Copying does not create a second token. If they already had a waiting account, **Copy first-login link** mints one new invite (the old unused invite is revoked) and copies that URL. It still does not send email.
+A single member also gets **Copy link** in the panel, for the token just created. Copying does not create a second token. If they already had a waiting account, **Copy first-login link** mints one new invite (the old unused invite is revoked) and copies that URL. That re-issue is audited. It still does not send email.
 
 People skipped because a link decision is needed (`needs_link`) are not in the file as live URLs. The panel lists them so the operator can open each row and choose Link.
 
@@ -148,9 +148,7 @@ Linking an existing login is its own single-row audit, action `members.user_link
 
 ## Migrations
 
-No schema change is required. The member already points at one user. Setup invites and `is_active` already exist. `build_username` already handles collisions.
-
-If a list index is missing on the invite lookup and the query plan needs it, that is a schema migration only, idempotent, with no data migration. Do not add one unless the queryset cannot stay indexed without it.
+No schema change. The member already points at one user. Setup invites and `is_active` already exist. `build_username` already handles collisions. The list annotation filters invites by the user foreign key, which is already indexed, so no extra index was added.
 
 ## Tests
 
@@ -207,11 +205,11 @@ The sensitive-file warning and the download button labels stay the ones already 
 - Merging two accounts from this screen.
 - Changing the ops user list.
 
-## Open questions
+## Decisions
 
-1. Is under 16 the right cutoff for "no login", with 16–17 allowed as ordinary member accounts? The alternative is the committee rule: no login under 18.
-2. If the date of birth is missing, is "refuse until a date is saved" right, or should an LTF admin be able to override?
-3. Is the current 10-character username (`amueller`, then `amueller1`) readable enough, or should the generated name be longer?
-4. For a waiting account, should "Copy first-login link" mint a fresh 7-day link and revoke the old one, or should re-issuing stay only on the ops user page?
-5. When an email matches an unlinked `member` login, is a one-click Link enough, or do you want a second confirm because the match is only the address?
-6. Should a disabled member record (inactive in the club) ever get a login from this action, or is skip-always correct?
+1. No login under 16. Ages 16 and 17 are allowed as ordinary member logins.
+2. A missing date of birth is refused until one is saved. There is no override.
+3. The current 10-character username stays (`build_username`).
+4. "Copy first-login link" may mint a fresh link while the account is still waiting. The older unused link is revoked, and the re-issue is audited. No email is sent.
+5. One confirm is enough when the only match is the email, as long as the panel shows the login being linked.
+6. Inactive members are always skipped.

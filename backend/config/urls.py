@@ -138,6 +138,7 @@ from licenses.card_views import (
 )
 from members.transfer_views import MemberTransferViewSet
 from events.views import EventViewSet
+from members.user_account_views import MemberUserAccountsView
 from members.views import MemberViewSet, RewriteLtfLicensePrefixView
 from nationalteam.views import (
     AthleteNationalTeamBadgeView,
@@ -377,6 +378,7 @@ urlpatterns = [
     ),
     path("api/clubs/admins/<int:user_id>/access-link/", ClubAdminAccessLinkView.as_view(), name="club-admin-access-link"),
     path("api/clubs/admins/access-links/", ClubAdminAccessLinksCsvView.as_view(), name="club-admin-access-links-csv"),
+    path("api/members/user-accounts/", MemberUserAccountsView.as_view(), name="member-user-accounts"),
     path("api/", include(router.urls)),
     path("api/schema/", schema_view, name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

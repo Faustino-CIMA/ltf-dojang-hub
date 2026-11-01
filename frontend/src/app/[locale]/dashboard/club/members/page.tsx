@@ -30,7 +30,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { apiRequest } from "@/lib/api";
+import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
 import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import {
   Member,
@@ -124,6 +127,9 @@ export default function ClubAdminMembersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("active");
+  const [accountFilter, setAccountFilter] = useState<"all" | AccountState>("all");
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [accountPanel, setAccountPanel] = useState<{ intent: "create" | "copy" | "link"; ids: number[] } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [pageSizeHydrated, setPageSizeHydrated] = useState(false);
@@ -195,6 +201,7 @@ export default function ClubAdminMembersPage() {
             isActive: isActiveFilter,
             issue: issue ?? undefined,
             ordering,
+            account: accountFilter === "all" ? undefined : accountFilter,
             teamIds: teamFilter === "none" ? undefined : teamFilter,
             teamNone: teamFilter === "none",
           }),
@@ -245,6 +252,7 @@ export default function ClubAdminMembersPage() {
     isActiveFilter,
     issue,
     ordering,
+    accountFilter,
     teamFilter,
   ]);
 
@@ -268,9 +276,10 @@ export default function ClubAdminMembersPage() {
     let isMounted = true;
     const loadCurrentUserRole = async () => {
       try {
-        const me = await apiRequest<AuthMeResponse>("/api/auth/me/");
+        const me = await apiRequest<AuthMeResponse & { id: number }>("/api/auth/me/");
         if (isMounted) {
           setCurrentRole(me.role);
+          setCurrentUserId(me.id);
         }
       } catch {
         if (isMounted) {
@@ -285,6 +294,15 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
+  const accountLabel = (state: AccountState | undefined) => {
+    if (state === "pending") return t("accountBadgePending");
+    if (state === "active") return t("accountBadgeActive");
+    if (state === "disabled") return t("accountBadgeDisabled");
+    return t("accountBadgeNone");
+  };
+  const openAccount = (member: Member, action: "create" | "copy") => {
+    setAccountPanel({ intent: action, ids: [member.id] });
+  };
   const showTeams = competitionOn && (currentRole === "club_admin" || currentRole === "coach");
 
   useEffect(() => {
@@ -338,7 +356,7 @@ export default function ClubAdminMembersPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue, tableSort, teamFilter]);
+  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue, tableSort, teamFilter, accountFilter]);
 
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/club/members`);
@@ -420,7 +438,7 @@ export default function ClubAdminMembersPage() {
   useEffect(() => {
     setSelectedIds([]);
     lastSelectedMemberIdRef.current = null;
-  }, [searchQuery, selectedClubId, memberStatusFilter, issue, teamFilter]);
+  }, [searchQuery, selectedClubId, memberStatusFilter, issue, teamFilter, accountFilter]);
 
   useEffect(() => {
     if (!statusFilterHydrated || typeof window === "undefined") {
@@ -842,6 +860,21 @@ export default function ClubAdminMembersPage() {
                   },
                 ]}
               />
+              <div className="mt-2">
+              <FilterPills
+                ariaLabel={t("accountFilterAria")}
+                layout="wrap"
+                value={accountFilter}
+                onChange={setAccountFilter}
+                options={[
+                  { value: "all", title: t("accountFilterAll") },
+                  { value: "none", title: t("accountFilterNone") },
+                  { value: "pending", title: t("accountFilterPending") },
+                  { value: "active", title: t("accountFilterActive") },
+                  { value: "disabled", title: t("accountFilterDisabled") },
+                ]}
+              />
+              </div>
             </div>
           </div>
 
@@ -883,6 +916,12 @@ export default function ClubAdminMembersPage() {
                   disabled={selectedIds.length === 0}
                   actions={[
                     { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete() },
+                    {
+                      key: "accounts",
+                      label: t("createUserAccounts"),
+                      disabled: !canBulkCreateAccounts(selectedIds, members),
+                      onSelect: () => setAccountPanel({ intent: "create", ids: selectedIds }),
+                    },
                     { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
                     {
                       key: "print-cards",
@@ -1019,6 +1058,17 @@ export default function ClubAdminMembersPage() {
                 render: (member: Member) => formatFullName(member),
               },
               {
+                key: "account",
+                header: t("accountColumn"),
+                sortable: true,
+                render: (member: Member) => (
+                  <MemberAccountBadge
+                    state={member.account_state ?? "none"}
+                    label={accountLabel(member.account_state)}
+                  />
+                ),
+              },
+              {
                 key: "sex",
                 header: t("sexLabel"),
                 sortable: true,
@@ -1102,6 +1152,30 @@ export default function ClubAdminMembersPage() {
                                 label: t("editAction"),
                                 onSelect: () => router.push(`/${locale}/dashboard/club/members/${member.id}?edit=1`),
                               },
+                              ...(accountRowAction(
+                                member.account_state,
+                                member.user != null && member.user === currentUserId,
+                              ) === "create"
+                                ? [
+                                    {
+                                      key: "create",
+                                      label: t("createUserAccount"),
+                                      onSelect: () => openAccount(member, "create"),
+                                    },
+                                  ]
+                                : []),
+                              ...(accountRowAction(
+                                member.account_state,
+                                member.user != null && member.user === currentUserId,
+                              ) === "copy"
+                                ? [
+                                    {
+                                      key: "copy",
+                                      label: t("copyFirstLoginLink"),
+                                      onSelect: () => openAccount(member, "copy"),
+                                    },
+                                  ]
+                                : []),
                               {
                                 key: "delete",
                                 label: t("deleteAction"),
@@ -1123,6 +1197,16 @@ export default function ClubAdminMembersPage() {
           />
         )}
       </div>
+      <MemberAccountPanel
+        open={accountPanel !== null}
+        namespace="ClubAdmin"
+        memberIds={accountPanel?.ids ?? []}
+        intent={accountPanel?.intent ?? "create"}
+        onClose={() => setAccountPanel(null)}
+        onDone={() => {
+          void loadData();
+        }}
+      />
       <MemberFormPanel
         open={createOpen}
         mode="create"

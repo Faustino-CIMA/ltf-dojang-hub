@@ -51,6 +51,7 @@ class MemberSerializer(serializers.ModelSerializer):
     is_ltf_staff = serializers.SerializerMethodField()
     ltf_staff = serializers.SerializerMethodField()
     linked_user = serializers.SerializerMethodField()
+    account_state = serializers.SerializerMethodField()
     latest_weight_kg = serializers.SerializerMethodField()
     latest_weight_on = serializers.SerializerMethodField()
     latest_height_cm = serializers.SerializerMethodField()
@@ -88,6 +89,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "is_ltf_staff",
             "ltf_staff",
             "linked_user",
+            "account_state",
             "latest_weight_kg",
             "latest_weight_on",
             "latest_height_cm",
@@ -111,6 +113,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "is_ltf_staff",
             "ltf_staff",
             "linked_user",
+            "account_state",
             "latest_weight_kg",
             "latest_weight_on",
             "latest_height_cm",
@@ -276,6 +279,11 @@ class MemberSerializer(serializers.ModelSerializer):
             "username": obj.user.username,
             "role": obj.user.role,
         }
+
+    def get_account_state(self, obj: Member):
+        from .user_accounts import account_state_value
+
+        return account_state_value(obj)
 
     def _measurements_visible(self, obj: Member) -> bool:
         clubs = self.context.get("measurement_club_ids") or set()
