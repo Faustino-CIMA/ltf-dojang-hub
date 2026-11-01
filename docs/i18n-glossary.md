@@ -16,7 +16,12 @@ The audience is a sports federation in Luxembourg. Write the way a club secretar
 | LTF admin | admin LTF | LTF-Admin | |
 | invoice | facture | Rechnung | |
 | credit note | avoir | Gutschrift | Reduces the amount still due. Not a refund payment. |
-| club fee | frais de club | Vereinsgebühr | |
+| club fee | frais de club | Vereinsgebühr | What the federation charges a club. |
+| membership fee | cotisation | Mitgliedsbeitrag | What a club charges its members. |
+| médico sportif | médico sportif | Médico sportif | Luxembourg sports medical check. Keep the name. |
+| household | foyer | Haushalt | One member, or a family, billed together. |
+| family rebate | remise familiale | Familienrabatt | |
+| club shop | boutique du club | Vereinsshop | Desk sales of doboks and other goods. |
 | audit log | journal d'audit | Prüfprotokoll | |
 | income statement | compte de résultat | Gewinn- und Verlustrechnung | For the annual meeting. Use GuV only where the full name does not fit. |
 | balance sheet | bilan | Bilanz | |
