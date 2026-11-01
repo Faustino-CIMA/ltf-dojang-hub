@@ -38,6 +38,39 @@ export function routeAfterSignIn(
   return getDashboardRouteForRole(role, locale, options);
 }
 
+function deskReachesRoleDashboard(desk: string, role: string): boolean {
+  if (role === "ltf_admin") {
+    return desk === "ltf_admin";
+  }
+  if (role === "ltf_finance") {
+    return desk === "ltf_finance";
+  }
+  if (role === "club_admin" || role === "coach") {
+    return desk === "club_admin" || desk === "coach";
+  }
+  if (role === "member") {
+    return desk === "member";
+  }
+  return false;
+}
+
+/** The ops header link is only for a superuser who cannot open that dashboard from the desk switcher. */
+export function showFederationDashboardLink(input: {
+  isSuperuser: boolean;
+  onOpsDashboard: boolean;
+  role: string;
+  desks: Array<{ desk: string }>;
+}): boolean {
+  if (!input.isSuperuser || !input.onOpsDashboard) {
+    return false;
+  }
+  const route = getDashboardRouteForRole(input.role, "en");
+  if (!route || route.includes("/dashboard/ops")) {
+    return false;
+  }
+  return !input.desks.some((desk) => deskReachesRoleDashboard(desk.desk, input.role));
+}
+
 export function getDashboardRouteForRole(
   role: string,
   locale: string,

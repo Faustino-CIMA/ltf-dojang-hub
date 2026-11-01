@@ -25,7 +25,7 @@ import { logout, selectDesk } from "@/lib/auth-api";
 import { clearToken, getToken, type MfaStatus } from "@/lib/auth";
 import { MfaSecurityPanel } from "@/components/mfa-security-panel";
 import { presentAuthError } from "@/lib/auth-errors";
-import { getDashboardRouteForRole, routeForDesk } from "@/lib/dashboard-routing";
+import { getDashboardRouteForRole, routeForDesk, showFederationDashboardLink } from "@/lib/dashboard-routing";
 import { isLeavingDeepLink, showLegacyClubPicker } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
 import { ViewOnlyScope } from "@/components/view-only-scope";
@@ -375,12 +375,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     ? getDashboardRouteForRole(me.role, locale)
     : null;
   const showOpsConsoleButton = Boolean(me?.is_superuser && !isOpsDashboard);
-  const showFederationDashboardButton = Boolean(
-    me?.is_superuser &&
-      isOpsDashboard &&
-      federationHref &&
-      !federationHref.includes("/dashboard/ops"),
-  );
+  const showFederationDashboardButton = showFederationDashboardLink({
+    isSuperuser: Boolean(me?.is_superuser),
+    onOpsDashboard: isOpsDashboard,
+    role: me?.role ?? "",
+    desks,
+  });
 
   const renderSidebar = (iconOnly: boolean, showCollapse: boolean) => {
     const blocks: Array<{ key: string; group: AppNavGroup | null; items: AppNavItem[] }> = [];
