@@ -1,4 +1,4 @@
-import { getDashboardRouteForRole, routeAfterSignIn } from "./dashboard-routing";
+import { getDashboardRouteForRole, routeAfterSignIn, showFederationDashboardLink } from "./dashboard-routing";
 
 describe("dashboard routing", () => {
   it("maps member role to member history page", () => {
@@ -24,5 +24,59 @@ describe("dashboard routing", () => {
     expect(getDashboardRouteForRole("member", "en", { isSuperuser: true })).toBe(
       "/en/dashboard/ops",
     );
+  });
+
+  it("hides the federation link when the desk switcher already opens that dashboard", () => {
+    expect(
+      showFederationDashboardLink({
+        isSuperuser: true,
+        onOpsDashboard: true,
+        role: "ltf_admin",
+        desks: [{ desk: "ops" }, { desk: "ltf_admin" }],
+      }),
+    ).toBe(false);
+    expect(
+      showFederationDashboardLink({
+        isSuperuser: true,
+        onOpsDashboard: true,
+        role: "ltf_finance",
+        desks: [{ desk: "ops" }, { desk: "ltf_finance" }],
+      }),
+    ).toBe(false);
+    expect(
+      showFederationDashboardLink({
+        isSuperuser: false,
+        onOpsDashboard: true,
+        role: "ltf_admin",
+        desks: [{ desk: "ops" }],
+      }),
+    ).toBe(false);
+    expect(
+      showFederationDashboardLink({
+        isSuperuser: true,
+        onOpsDashboard: false,
+        role: "ltf_admin",
+        desks: [{ desk: "ops" }],
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the federation link for a superuser who has no desk for that dashboard", () => {
+    expect(
+      showFederationDashboardLink({
+        isSuperuser: true,
+        onOpsDashboard: true,
+        role: "ltf_admin",
+        desks: [{ desk: "ops" }],
+      }),
+    ).toBe(true);
+    expect(
+      showFederationDashboardLink({
+        isSuperuser: true,
+        onOpsDashboard: true,
+        role: "member",
+        desks: [{ desk: "ops" }],
+      }),
+    ).toBe(true);
   });
 });
