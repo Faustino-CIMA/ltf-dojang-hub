@@ -29,6 +29,13 @@ The audience is a sports federation in Luxembourg. Write the way a club secretar
 | transfer | transfert | Vereinswechsel | A member moving to another club. |
 | club tourist | touriste de club | Vereinstourist | A monitoring flag, not a penalty. |
 | print job | travail d'impression | Druckauftrag | |
+| card template | modèle de carte | Kartenvorlage | |
+| designer | concepteur | Gestalter | The license-card layout screen. |
+| draft | brouillon | Entwurf | |
+| merge field | champ de fusion | Seriendruckfeld | |
+| asset library | bibliothèque de ressources | Medienbibliothek | Fonts and images for cards. |
+| printer profile | profil d'imprimante | Druckerprofil | |
+| bleed / safe area | fond perdu / zone de sécurité | Beschnitt / Sicherheitszone | |
 | committee | comité | Komitee | |
 | athlete | athlète | Athlet | |
 | official | officiel | Offizieller | |
