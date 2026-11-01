@@ -23,6 +23,7 @@ import {
 } from "@/lib/club-admin-api";
 import { apiRequest } from "@/lib/api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatLicenseExpiry, licenseExpiryClass, licenseExpiryHint } from "@/lib/license-expiry";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
@@ -336,6 +337,15 @@ export default function ClubAdminLicensesPage() {
       header: t("issuedAtLabel"),
       sortable: true,
       render: (license: License) => formatIssuedAt(license.issued_at),
+    },
+    {
+      key: "end_date",
+      header: t("expiresLabel"),
+      sortable: true,
+      render: (license: License) => {
+        const hint = licenseExpiryHint(license.end_date);
+        return <span className={licenseExpiryClass(hint)}>{formatLicenseExpiry(license.end_date)}</span>;
+      },
     },
   ];
 

@@ -922,6 +922,36 @@ class LicenseApiPermissionTests(TestCase):
         returned_ids = {item["id"] for item in response.data}
         self.assertIn(self.license_record.id, returned_ids)
 
+    def test_license_list_sorts_by_end_date_and_ignores_writes(self):
+        from datetime import date
+
+        self.license_record.end_date = date(2026, 12, 31)
+        self.license_record.save(update_fields=["end_date"])
+        sooner = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2025,
+            status=License.Status.ACTIVE,
+        )
+        sooner.end_date = date(2025, 3, 1)
+        sooner.save(update_fields=["end_date"])
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/licenses/?ordering=end_date")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        ids = [row["id"] for row in rows]
+        self.assertLess(ids.index(sooner.id), ids.index(self.license_record.id))
+        self.assertEqual(rows[ids.index(sooner.id)]["end_date"], "2025-03-01")
+        patched = self.client.patch(
+            f"/api/licenses/{self.license_record.id}/",
+            {"end_date": "2030-01-01"},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, status.HTTP_200_OK)
+        self.license_record.refresh_from_db()
+        self.assertEqual(self.license_record.end_date, date(2026, 12, 31))
+
     def test_club_admin_cannot_create_license(self):
         self.client.force_authenticate(user=self.club_admin)
         response = self.client.post("/api/licenses/", self._payload(), format="json")

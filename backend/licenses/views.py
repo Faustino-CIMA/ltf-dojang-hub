@@ -392,6 +392,7 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 "year": ("year", "member__last_name", "member__first_name", "id"),
                 "status": ("status", "member__last_name", "id"),
                 "issued_at": ("issued_at", "id"),
+                "end_date": ("end_date", "id"),
             },
             default=("-year", "-created_at", "-id"),
         )
