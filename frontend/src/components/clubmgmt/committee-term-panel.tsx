@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
-import { todayIso } from "@/lib/committee-terms";
+import { holderIdsFromValue, mandateHolderName, mandateHolderValue, todayIso } from "@/lib/committee-terms";
 
 import { CommitteeHolderPicker, type HolderPage } from "./committee-holder-picker";
 import type { CommitteeMandateRow } from "./committee-history-table";
@@ -63,29 +63,31 @@ export function CommitteeTermPanel({
         return;
       }
       setFormError(null);
-    if (panel.mode === "past") {
-      setRole("president");
-      setTitle("");
-      setMemberId(members[0] ? String(members[0].id) : "");
-      setStartedOn("");
-      setEndedOn("");
-      setNotes("");
-      return;
-    }
-    const mandate = panel.mandate;
-    setRole(mandate.role);
-    setTitle(mandate.title || "");
-    setMemberId(
-      panel.mode === "replace"
-        ? String(panel.memberId ?? mandate.member ?? members[0]?.id ?? "")
-        : String(mandate.member ?? ""),
-    );
-    setStartedOn(panel.mode === "replace" ? todayIso() : mandate.started_on);
-    setEndedOn(panel.mode === "end" ? todayIso() : mandate.ended_on ?? "");
+      if (panel.mode === "past") {
+        setRole("president");
+        setTitle("");
+        setMemberId("");
+        setStartedOn("");
+        setEndedOn("");
+        setNotes("");
+        return;
+      }
+      const mandate = panel.mandate;
+      setRole(mandate.role);
+      setTitle(mandate.title || "");
+      setMemberId(
+        panel.mode === "replace"
+          ? String(panel.memberId ?? mandateHolderValue(mandate))
+          : panel.mode === "edit"
+            ? mandateHolderValue(mandate)
+            : "",
+      );
+      setStartedOn(panel.mode === "replace" ? todayIso() : mandate.started_on);
+      setEndedOn(panel.mode === "end" ? todayIso() : mandate.ended_on ?? "");
       setNotes(mandate.notes ?? "");
     };
     sync();
-  }, [members, panel]);
+  }, [panel]);
 
   if (!panel) {
     return null;
@@ -107,6 +109,19 @@ export function CommitteeTermPanel({
   }[panel.mode];
 
   const memberOptions = members.map((member) => ({ value: String(member.id), label: member.name, searchText: member.name }));
+  const seededLabel =
+    panel.mode === "past"
+      ? ""
+      : members.find((member) => String(member.id) === memberId)?.name || mandateHolderName(panel.mandate);
+  if (
+    (panel.mode === "edit" || panel.mode === "replace") &&
+    memberId &&
+    seededLabel &&
+    !memberOptions.some((option) => option.value === memberId)
+  ) {
+    memberOptions.unshift({ value: memberId, label: seededLabel, searchText: seededLabel });
+  }
+  const remoteHolders = Boolean(loadHolders) && (panel.mode === "edit" || panel.mode === "replace");
   const showRole = panel.mode === "edit" || panel.mode === "past";
   const showMember = panel.mode === "edit" || panel.mode === "replace" || panel.mode === "past";
   const showStart = panel.mode === "edit" || panel.mode === "replace" || panel.mode === "past";
@@ -138,10 +153,12 @@ export function CommitteeTermPanel({
       setFormError(t("committeeNeedTitle"));
       return;
     }
+    const holder = holderIdsFromValue(memberId);
     const values: TermFormValues = {
       role,
       title: role === "other" ? title.trim() : "",
-      member: memberId ? Number(memberId) : null,
+      member: holder.member,
+      person: holder.person,
       started_on: startedOn,
       ended_on: endedOn || null,
       notes: notes.trim(),
@@ -212,12 +229,12 @@ export function CommitteeTermPanel({
         {showMember ? (
           <div className="space-y-2">
             <Label required>{panel.mode === "replace" ? t("committeeNewMember") : t("committeeColumnPerson")}</Label>
-            {panel.mode === "replace" && loadHolders ? (
+            {remoteHolders && loadHolders ? (
               <CommitteeHolderPicker
                 value={memberId}
                 onValueChange={setMemberId}
                 load={loadHolders}
-                fallbackLabel={panel.mandate.member_name || panel.mandate.person_name || undefined}
+                fallbackLabel={seededLabel || undefined}
               />
             ) : (
               <PopoverSelect
@@ -270,6 +287,7 @@ export type TermFormValues = {
   role: string;
   title: string;
   member: number | null;
+  person: number | null;
   started_on: string;
   ended_on: string | null;
   notes: string;

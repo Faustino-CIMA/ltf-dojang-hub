@@ -94,3 +94,29 @@ function namedPerson(first?: string, last?: string): string {
   const person: PersonName = { first_name: first ?? "", last_name: last ?? "" };
   return formatFullName(person);
 }
+
+/** Popover value for the current holder. A person id is marked so it is not saved as a member id. */
+export function mandateHolderValue(mandate: {
+  member?: number | null;
+  person?: number | null;
+}): string {
+  if (mandate.member) {
+    return String(mandate.member);
+  }
+  if (mandate.person) {
+    return `person:${mandate.person}`;
+  }
+  return "";
+}
+
+export function holderIdsFromValue(value: string): { member: number | null; person: number | null } {
+  if (value.startsWith("person:")) {
+    const id = Number(value.slice("person:".length));
+    return { member: null, person: Number.isInteger(id) && id > 0 ? id : null };
+  }
+  if (!value) {
+    return { member: null, person: null };
+  }
+  const id = Number(value);
+  return { member: Number.isInteger(id) && id > 0 ? id : null, person: null };
+}
