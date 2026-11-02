@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.template.loader import render_to_string
 from django.test import TestCase
 
 from accounts.models import User
@@ -67,13 +68,17 @@ class InvoiceEmailAmountTests(TestCase):
             status=Payment.Status.PAID,
         )
         self.assertEqual(invoice.outstanding(), Decimal("0.00"))
-        printed = build_invoice_context(invoice)["total_amount"]
+        context = build_invoice_context(invoice)
+        printed = context["total_amount"]
+        self.assertEqual(context["settlement_label"], "Amount paid")
+        self.assertEqual(context["settlement_amount"], printed)
 
         send_invoice_email(invoice.id)
 
         text = self._sent_text(send)
-        self.assertIn(f"Total due: {printed}", text)
+        self.assertIn(f"Amount paid: {printed}", text)
         self.assertIn("80,00 €", text)
+        self.assertNotIn("Amount due:", text)
         self.assertNotIn("Total due: 0,00 €", text)
         self.assertNotIn("0.00", text)
 
@@ -86,14 +91,21 @@ class InvoiceEmailAmountTests(TestCase):
             delivery_method=Invoice.DeliveryMethod.EMAIL,
             bill_to_email="payer@example.com",
         )
-        printed = build_invoice_context(invoice)["total_amount"]
+        context = build_invoice_context(invoice)
+        printed = context["total_amount"]
+        self.assertEqual(context["settlement_label"], "Amount due")
 
         send_invoice_email(invoice.id, ["payer@example.com"])
 
         text = self._sent_text(send)
-        self.assertIn(f"Total due: {printed}", text)
+        self.assertIn(f"Amount due: {printed}", text)
         self.assertIn("45,50 €", text)
+        self.assertNotIn("Amount paid:", text)
         self.assertEqual(send.call_args.args[0], "payer@example.com")
+        for language, pdf_label in (("fr", "Montant dû"), ("de", "Fälliger Betrag"), ("lb", "Ze bezuelen")):
+            Club.objects.filter(pk=self.club.pk).update(communication_language=language)
+            invoice.club.refresh_from_db()
+            self.assertEqual(build_invoice_context(invoice)["settlement_label"], pdf_label)
 
     @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
     @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
@@ -124,17 +136,20 @@ class InvoiceEmailAmountTests(TestCase):
             amount=Decimal("80.00"),
             status=Payment.Status.PAID,
         )
-        Club.objects.filter(pk=self.club.pk).update(communication_language="lb")
-
-        send_invoice_email(invoice.id)
-        self.assertIn("Total ze bezuelen: 80,00 €", self._sent_text(send))
-
-        send.reset_mock()
-        Club.objects.filter(pk=self.club.pk).update(communication_language="fr")
-        send_invoice_email(invoice.id)
-        self.assertIn("Montant dû : 80,00 €", self._sent_text(send))
-
-        send.reset_mock()
-        Club.objects.filter(pk=self.club.pk).update(communication_language="de")
-        send_invoice_email(invoice.id)
-        self.assertIn("Fälliger Betrag: 80,00 €", self._sent_text(send))
+        expected = (
+            ("lb", "Bezuelt: 80,00 €", "Bezuelt", "Lizenz-ID"),
+            ("fr", "Montant payé : 80,00 €", "Montant payé", "N° de licence"),
+            ("de", "Bezahlter Betrag: 80,00 €", "Bezahlter Betrag", "Lizenz-ID"),
+        )
+        for language, email_line, pdf_label, column in expected:
+            Club.objects.filter(pk=self.club.pk).update(communication_language=language)
+            invoice.club.refresh_from_db()
+            send.reset_mock()
+            send_invoice_email(invoice.id)
+            self.assertIn(email_line, self._sent_text(send))
+            context = build_invoice_context(invoice)
+            self.assertEqual(context["settlement_label"], pdf_label)
+            html = render_to_string("finance/ltf_license_invoice_pdf.html", context)
+            self.assertIn(pdf_label, html)
+            self.assertIn(column, html)
+            self.assertIn(context["labels"]["total"], html)
