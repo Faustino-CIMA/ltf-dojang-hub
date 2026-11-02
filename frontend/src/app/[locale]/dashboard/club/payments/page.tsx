@@ -11,12 +11,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
-import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
+import { ClubFinanceTabs, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
@@ -322,11 +323,17 @@ export default function ClubPaymentsPage() {
                 allLabel={common("rowsPerPageAll")}
               />
             }
-            trailing={<ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />}
             filtersPlacement="below"
             filters={
+              <FinanceListFilters
+                statusActive={statusFilter !== "all"}
+                onResetStatus={() => setStatusFilter("all")}
+                ledger={ledgerFilter}
+                onLedgerChange={setLedgerFilter}
+                status={
               <FilterPills
                 ariaLabel={t("paymentsStatusFilterAriaLabel")}
+                layout="wrap"
                 value={statusFilter}
                 onChange={setStatusFilter}
                 options={[
@@ -348,6 +355,8 @@ export default function ClubPaymentsPage() {
                     count: paymentFacetCounts.cancelled,
                   },
                 ]}
+              />
+                }
               />
             }
           />

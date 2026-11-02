@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
-import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
+import { ClubFinanceTabs, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
@@ -16,6 +16,7 @@ import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Input } from "@/components/ui/input";
 import { ActionNotices, PageSizeSelect } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { displayPageSize, readListPage } from "@/lib/list-page";
@@ -383,14 +384,23 @@ export default function ClubAdminInvoicesPage() {
                 ariaLabel={common("rowsPerPageLabel")}
                 allLabel={common("rowsPerPageAll")}
               />
-              <div className="ml-auto shrink-0">
-                <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
-              </div>
             </div>
 
             <div className="min-w-0 border-t border-[var(--border)] pt-3">
+              <FinanceListFilters
+                statusActive={overdueIssue || invoiceStatusFilter !== "all"}
+                onResetStatus={() => {
+                  setInvoiceStatusFilter("all");
+                  if (overdueIssue) {
+                    router.replace(`/${locale}/dashboard/club/invoices`);
+                  }
+                }}
+                ledger={ledgerFilter}
+                onLedgerChange={setLedgerFilter}
+                status={
               <FilterPills
                 ariaLabel={t("invoicesStatusFilterAriaLabel")}
+                layout="wrap"
                 value={overdueIssue ? "issued" : invoiceStatusFilter}
                 onChange={setInvoiceStatusFilter}
                 disabled={overdueIssue}
@@ -401,6 +411,8 @@ export default function ClubAdminInvoicesPage() {
                   { value: "paid", title: common("statusPaid"), count: invoiceFacetCounts.paid },
                   { value: "void", title: common("statusVoid"), count: invoiceFacetCounts.void },
                 ]}
+              />
+                }
               />
             </div>
           </div>
