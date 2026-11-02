@@ -46,6 +46,21 @@ const quote: ClubModuleFeeQuote = {
       estimated_amount: "40.00",
       minimum_applied: false,
     },
+    {
+      module_id: "competition",
+      name: "Competition",
+      enabled: true,
+      has_price: true,
+      pricing_type: "flat",
+      amount: "50.00",
+      currency: "EUR",
+      minimum_amount: "5.00",
+      effective_from: "2026-01-01",
+      active_member_count: 48,
+      calculated_amount: "50.00",
+      estimated_amount: "50.00",
+      minimum_applied: false,
+    },
   ],
 };
 
@@ -55,12 +70,14 @@ describe("Club profile module prices", () => {
 
     expect(screen.getByRole("heading", { name: "modulePricesTitle" })).toBeInTheDocument();
     expect(screen.getByText("modulePricesEstimateHint")).toBeInTheDocument();
-    expect(screen.getByText("modulePricesOn")).toBeInTheDocument();
+    expect(screen.getAllByText("modulePricesOn").length).toBeGreaterThan(0);
     expect(screen.getByText("modulePricesOff")).toBeInTheDocument();
     expect(
       screen.getByText("modulePricesCalculation:48|€2.00|€96.00 modulePricesMinimumLine:€150.00|€150.00")
     ).toBeInTheDocument();
     expect(screen.getByText("modulePricesFlat:€40.00")).toBeInTheDocument();
+    expect(screen.getByText("150.00")).toBeInTheDocument();
+    expect(screen.queryByText("5.00")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /edit|delete|save|add/i })).not.toBeInTheDocument();
   });
 });

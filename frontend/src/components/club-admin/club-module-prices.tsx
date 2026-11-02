@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
+import { visibleMinimumAmount } from "@/lib/module-fee-display";
 import type { TableSort } from "@/lib/table-sort";
 
 function euro(amount: string | null | undefined): string {
@@ -80,7 +81,8 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
               header: t("modulePricesColumnMinimum"),
               sortable: true,
               sortValue: (row) => Number(row.minimum_amount ?? 0),
-              render: (row) => row.minimum_amount ?? "—",
+              render: (row) =>
+                visibleMinimumAmount(row.pricing_type, row.amount, row.minimum_amount) ?? "—",
             },
             {
               key: "estimate",

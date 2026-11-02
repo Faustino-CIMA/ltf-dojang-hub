@@ -233,6 +233,84 @@ class ModuleOrderTests(APITestCase):
         row = next(offer for offer in catalog.data["offers"] if offer["key"] == CLUB_MANAGEMENT_MODULE_ID)
         self.assertEqual(row["state"], "on")
         self.assertIsNone(row["ends_at"])
+        pack = next(offer for offer in catalog.data["offers"] if offer["key"] == f"bundle:{self.bundle_id}")
+        self.assertEqual(pack["state"], "blocked")
+        self.assertIsNone(pack["ends_at"])
+        self.assertEqual(pack["blocked_module_names"], ["Club management"])
+
+    def test_a_bought_bundle_is_on_with_its_own_end_and_an_overlap_is_not(self):
+        self._member()
+        self.client.force_authenticate(user=self.club_admin)
+        ordered = self.client.post(
+            f"/api/clubs/{self.club.id}/module-orders/",
+            {"modules": [COMPETITION_MODULE_ID]},
+            format="json",
+        )
+        self.assertEqual(ordered.status_code, status.HTTP_201_CREATED, ordered.content)
+        invoice = Invoice.objects.get(id=ordered.data["invoice_id"])
+        self.assertEqual(invoice.order.items.count(), 1)
+        self.assertTrue(invoice.order.items.get().description.startswith("Competition"))
+        self.client.force_authenticate(user=self.finance)
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            paid = self.client.post(
+                f"/api/orders/{invoice.order_id}/confirm-payment/",
+                {
+                    "payment_method": "bank_transfer",
+                    "payment_provider": "manual",
+                    "payment_reference": invoice.invoice_number,
+                },
+                format="json",
+            )
+        self.assertEqual(paid.status_code, status.HTTP_200_OK, paid.content)
+        catalog = self.client.get(f"/api/clubs/{self.club.id}/module-order-catalog/")
+        competition = next(offer for offer in catalog.data["offers"] if offer["key"] == COMPETITION_MODULE_ID)
+        pack = next(offer for offer in catalog.data["offers"] if offer["key"] == f"bundle:{self.bundle_id}")
+        expected_end = add_subscription_months(timezone.localdate(), 12).isoformat()
+        self.assertEqual(competition["state"], "on")
+        self.assertEqual(competition["ends_at"], expected_end)
+        self.assertEqual(pack["state"], "blocked")
+        self.assertIsNone(pack["ends_at"])
+        self.assertEqual(pack["blocked_module_names"], ["Competition"])
+        self.client.force_authenticate(user=self.club_admin)
+        refused = self.client.post(
+            f"/api/clubs/{self.club.id}/module-orders/",
+            {"bundles": [self.bundle_id]},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Invoice.objects.count(), 1)
+
+    def test_paying_for_a_bundle_marks_that_bundle_on(self):
+        self.client.force_authenticate(user=self.club_admin)
+        ordered = self.client.post(
+            f"/api/clubs/{self.club.id}/module-orders/",
+            {"bundles": [self.calendar_bundle]},
+            format="json",
+        )
+        self.assertEqual(ordered.status_code, status.HTTP_201_CREATED, ordered.content)
+        invoice = Invoice.objects.get(id=ordered.data["invoice_id"])
+        self.client.force_authenticate(user=self.finance)
+        with patch("licenses.tasks.send_invoice_email.delay"):
+            paid = self.client.post(
+                f"/api/orders/{invoice.order_id}/confirm-payment/",
+                {
+                    "payment_method": "bank_transfer",
+                    "payment_provider": "manual",
+                    "payment_reference": invoice.invoice_number,
+                },
+                format="json",
+            )
+        self.assertEqual(paid.status_code, status.HTTP_200_OK, paid.content)
+        catalog = self.client.get(f"/api/clubs/{self.club.id}/module-order-catalog/")
+        bought = next(offer for offer in catalog.data["offers"] if offer["bundle_id"] == self.calendar_bundle)
+        overlap = next(offer for offer in catalog.data["offers"] if offer["bundle_id"] == self.bundle_id)
+        expected_end = add_subscription_months(timezone.localdate(), 12).isoformat()
+        self.assertEqual(bought["state"], "on")
+        self.assertEqual(bought["ends_at"], expected_end)
+        self.assertEqual(bought["blocked_module_names"], [])
+        self.assertEqual(overlap["state"], "blocked")
+        self.assertIsNone(overlap["ends_at"])
+        self.assertIn("Club management", overlap["blocked_module_names"])
 
     def test_an_open_invoice_blocks_a_second_order(self):
         self.client.force_authenticate(user=self.club_admin)

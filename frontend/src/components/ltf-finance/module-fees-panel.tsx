@@ -16,6 +16,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDate } from "@/lib/date-display";
 import type { ClubFeePrice, ClubFeeType, ModuleFeePricingType } from "@/lib/ltf-finance-api";
+import { flatMinimumCanApply, visibleMinimumAmount } from "@/lib/module-fee-display";
 import type { TableSort } from "@/lib/table-sort";
 
 export const BILLABLE_MODULE_IDS = ["club_management", "competition", "event_calendar"] as const;
@@ -202,7 +203,9 @@ export function ModuleFeesPanel({
               header: t("moduleFeeMinimumLabel"),
               sortable: true,
               sortValue: (fee) => Number(fee.current_minimum_amount ?? 0),
-              render: (fee) => fee.current_minimum_amount ?? t("moduleFeeNoMinimum"),
+              render: (fee) =>
+                visibleMinimumAmount(fee.current_pricing_type, fee.current_amount, fee.current_minimum_amount) ??
+                t("moduleFeeNoMinimum"),
             },
             {
               key: "from",
@@ -330,6 +333,15 @@ export function ModuleFeesPanel({
               onChange={(event) => setDraft((current) => ({ ...current, minimum: event.target.value }))}
             />
             <p className="text-xs text-muted">{t("moduleFeeMinimumHint")}</p>
+            {draft.pricingType === "flat" &&
+            draft.minimum.trim() &&
+            !flatMinimumCanApply(
+              "flat",
+              draft.amount.trim() || editing?.current_amount || "",
+              draft.minimum,
+            ) ? (
+              <p className="text-xs text-muted">{t("moduleFeeMinimumNeverApplies")}</p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="module-fee-from">{t("moduleFeeValidFromLabel")}</Label>
@@ -371,7 +383,9 @@ export function ModuleFeesPanel({
                     {
                       key: "minimum",
                       header: t("moduleFeeMinimumLabel"),
-                      render: (row: ClubFeePrice) => row.minimum_amount ?? t("moduleFeeNoMinimum"),
+                      render: (row: ClubFeePrice) =>
+                        visibleMinimumAmount(row.pricing_type, row.amount, row.minimum_amount) ??
+                        t("moduleFeeNoMinimum"),
                     },
                     {
                       key: "from",
