@@ -77,6 +77,7 @@ def _coverage(club) -> dict:
     active_until: dict[str, date | None] = {}
     open_for_module: dict[str, Invoice] = {}
     open_for_bundle: dict[int, Invoice] = {}
+    active_for_bundle: dict[int, date | None] = {}
     purchases = (
         ModulePurchase.objects.filter(club=club)
         .exclude(status=ModulePurchase.Status.CANCELLED)
@@ -113,12 +114,23 @@ def _coverage(club) -> dict:
                 active_until[module_id] = None
             elif current is not None and purchase.ends_at > current:
                 active_until[module_id] = purchase.ends_at
+        if purchase.bundle_id:
+            bundle_id = purchase.bundle_id
+            if bundle_id not in active_for_bundle:
+                active_for_bundle[bundle_id] = purchase.ends_at
+            elif purchase.ends_at is None:
+                active_for_bundle[bundle_id] = None
+            else:
+                current_end = active_for_bundle[bundle_id]
+                if current_end is not None and purchase.ends_at > current_end:
+                    active_for_bundle[bundle_id] = purchase.ends_at
     return {
         "assigned": assigned,
         "ever_purchased": ever_purchased,
         "active_until": active_until,
         "open_for_module": open_for_module,
         "open_for_bundle": open_for_bundle,
+        "active_for_bundle": active_for_bundle,
     }
 
 
@@ -235,6 +247,7 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 "ends_at": ends_at.isoformat() if ends_at else None,
                 "invoice_id": invoice.id if invoice else None,
                 "invoice_number": invoice.invoice_number if invoice else None,
+                "blocked_module_names": [],
                 "comparison": None,
             }
         )
@@ -250,22 +263,18 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
         invoice = coverage["open_for_bundle"].get(bundle.id)
         state = "available"
         ends_at = None
+        blocking_names = [
+            module_label(module_id)
+            for module_id in module_ids
+            if _module_state(module_id, coverage)[0] in {"on", "open_invoice"}
+        ]
         if invoice is not None:
             state = "open_invoice"
-        else:
-            blocked = False
-            for module_id in module_ids:
-                module_state, module_end, module_invoice = _module_state(module_id, coverage)
-                if module_invoice is not None:
-                    invoice = module_invoice
-                    state = "open_invoice"
-                    blocked = True
-                    break
-                if module_state == "on":
-                    blocked = True
-                    ends_at = module_end if ends_at is None else ends_at
-            if state != "open_invoice" and blocked:
-                state = "blocked"
+        elif bundle.id in coverage["active_for_bundle"]:
+            state = "on"
+            ends_at = coverage["active_for_bundle"][bundle.id]
+        elif blocking_names:
+            state = "blocked"
         if not entitled and state == "available":
             state = "not_entitled"
         elif state == "available" and price is None:
@@ -289,6 +298,7 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 "ends_at": ends_at.isoformat() if ends_at else None,
                 "invoice_id": invoice.id if invoice else None,
                 "invoice_number": invoice.invoice_number if invoice else None,
+                "blocked_module_names": blocking_names if state == "blocked" else [],
                 "comparison": _comparison(
                     module_ids,
                     fees,

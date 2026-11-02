@@ -74,11 +74,22 @@ export function ClubModuleOrderPanel({
   const [created, setCreated] = useState<ModuleOrderResult | null>(null);
 
   const renewals = catalog.renewals ?? [];
-  const held = catalog.offers.filter((offer) => ["on", "blocked", "open_invoice"].includes(offer.state));
+  const held = catalog.offers.filter((offer) => offer.state === "on" || offer.state === "open_invoice");
   const unpriced = catalog.offers.filter((offer) => offer.state === "no_price");
-  const choices = catalog.offers.filter((offer) => selectable(offer, allowUnentitled));
+  const choices = catalog.offers.filter((offer) => selectable(offer, allowUnentitled) || offer.state === "blocked");
   const visibleChoices = choices.filter((offer) => offer.name.toLowerCase().includes(query.trim().toLowerCase()));
   const { shared, dropped, charge, total } = resolveSelection(catalog, selectedKeys);
+
+  const overlapNote = (offer: ModuleOrderOffer) => {
+    const names = offer.blocked_module_names ?? [];
+    if (names.length === 0) {
+      return t("moduleOrderBlocked");
+    }
+    if (names.length === 1) {
+      return t("moduleOrderModuleOn", { name: names[0] });
+    }
+    return t("moduleOrderModulesOn", { names: names.join(", ") });
+  };
 
   const toggle = (key: string) => {
     setSelectedKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
@@ -226,16 +237,25 @@ export function ClubModuleOrderPanel({
               <div className="space-y-1">
                 {visibleChoices.map((offer) => {
                   const selected = selectedKeys.includes(offer.key);
+                  const unavailable = offer.state === "blocked";
                   return (
                     <div
                       key={offer.key}
-                      role="checkbox"
-                      aria-checked={selected}
+                      role={unavailable ? "group" : "checkbox"}
+                      aria-checked={unavailable ? undefined : selected}
+                      aria-disabled={unavailable || undefined}
                       aria-label={offer.name}
-                      tabIndex={0}
-                      className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-form)] px-2 py-1.5 text-sm text-foreground hover:bg-secondary"
-                      onClick={() => toggle(offer.key)}
+                      tabIndex={unavailable ? -1 : 0}
+                      className={
+                        unavailable
+                          ? "flex items-center gap-2 rounded-[var(--radius-form)] px-2 py-1.5 text-sm text-muted"
+                          : "flex cursor-pointer items-center gap-2 rounded-[var(--radius-form)] px-2 py-1.5 text-sm text-foreground hover:bg-secondary"
+                      }
+                      onClick={() => {
+                        if (!unavailable) toggle(offer.key);
+                      }}
                       onKeyDown={(event) => {
+                        if (unavailable) return;
                         if (event.key === " " || event.key === "Enter") {
                           event.preventDefault();
                           toggle(offer.key);
@@ -245,19 +265,23 @@ export function ClubModuleOrderPanel({
                       <span
                         aria-hidden
                         className={
-                          selected
-                            ? "h-4 w-4 rounded-[var(--radius-form)] border border-primary bg-primary"
-                            : "h-4 w-4 rounded-[var(--radius-form)] border border-[var(--checkbox-border)] bg-[var(--surface)]"
+                          unavailable
+                            ? "h-4 w-4 rounded-[var(--radius-form)] border border-[var(--checkbox-border)] bg-[var(--surface)] opacity-50"
+                            : selected
+                              ? "h-4 w-4 rounded-[var(--radius-form)] border border-primary bg-primary"
+                              : "h-4 w-4 rounded-[var(--radius-form)] border border-[var(--checkbox-border)] bg-[var(--surface)]"
                         }
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block">{offer.name}</span>
                         <span className="block text-xs text-muted">
-                          {offer.state === "not_entitled"
-                            ? t("moduleOrderNotEntitled")
-                            : offer.estimated_amount
-                              ? `${offer.estimated_amount} ${offer.currency}`
-                              : t("moduleOrderNoPrice")}
+                          {unavailable
+                            ? overlapNote(offer)
+                            : offer.state === "not_entitled"
+                              ? t("moduleOrderNotEntitled")
+                              : offer.estimated_amount
+                                ? `${offer.estimated_amount} ${offer.currency}`
+                                : t("moduleOrderNoPrice")}
                         </span>
                       </span>
                     </div>

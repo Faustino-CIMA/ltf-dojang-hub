@@ -27,6 +27,7 @@ function offer(overrides: Partial<ModuleOrderOffer> = {}): ModuleOrderOffer {
     invoice_id: null,
     invoice_number: null,
     comparison: null,
+    blocked_module_names: [],
     ...overrides,
   };
 }
@@ -198,5 +199,68 @@ describe("Club module order", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Calendar pack" }));
     expect(screen.getByText("moduleOrderShared")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "moduleOrderReview" })).toBeDisabled();
+  });
+
+  it("keeps a bundle that only overlaps an active module out of Already on", () => {
+    render(
+      <ClubModuleOrderPanel
+        catalog={catalog([
+          offer({
+            key: "competition",
+            module_id: "competition",
+            name: "Competition",
+            module_ids: ["competition"],
+            module_names: ["Competition"],
+            state: "on",
+            ends_at: "2027-11-02",
+          }),
+          offer({
+            kind: "bundle",
+            key: "bundle:4",
+            module_id: null,
+            bundle_id: 4,
+            name: "Club Compete",
+            module_ids: ["competition"],
+            module_names: ["Competition"],
+            state: "blocked",
+            ends_at: null,
+            blocked_module_names: ["Competition"],
+          }),
+        ])}
+        invoicePath={(id) => `/en/dashboard/club/invoices/${id}`}
+        onOrder={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("moduleOrderUntil 02 Nov 2027")).toBeInTheDocument();
+    expect(screen.getAllByText("Competition")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "moduleOrderChoose" }));
+    expect(screen.queryByRole("checkbox", { name: "Club Compete" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Club Compete" })).toBeInTheDocument();
+    expect(screen.getByText("moduleOrderModuleOn Competition")).toBeInTheDocument();
+  });
+
+  it("lists a bundle under Already on only after that bundle was bought", () => {
+    render(
+      <ClubModuleOrderPanel
+        catalog={catalog([
+          offer({
+            kind: "bundle",
+            key: "bundle:4",
+            module_id: null,
+            bundle_id: 4,
+            name: "Club Compete",
+            state: "on",
+            ends_at: "2027-11-02",
+          }),
+        ])}
+        invoicePath={(id) => `/en/dashboard/club/invoices/${id}`}
+        onOrder={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("Club Compete")).toBeInTheDocument();
+    expect(screen.getByText("moduleOrderUntil 02 Nov 2027")).toBeInTheDocument();
+    expect(screen.getByText("moduleOrderEmpty")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Club Compete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Club Compete" })).not.toBeInTheDocument();
   });
 });
