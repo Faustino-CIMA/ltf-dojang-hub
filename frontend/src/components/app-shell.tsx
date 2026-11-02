@@ -10,15 +10,21 @@ import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import {
+  activateOpsDesk,
+  clearOpsServerSync,
   defaultDesk,
   deskHeaderValue,
+  displayedDeskHeader,
   grantForPath,
-  headerMatchesPath,
+  markOpsServerSyncPending,
+  opsServerSyncPending,
   pathNeedsDesk,
+  planOpsDeskAlign,
   readActiveDeskHeader,
   rememberActiveDesk,
   rememberDeskLevel,
   clearActiveDesk,
+  shouldAskDeskSwitch,
   type DeskChoice,
 } from "@/lib/active-desk";
 import { logout, selectDesk } from "@/lib/auth-api";
@@ -26,7 +32,7 @@ import { clearToken, getToken, type MfaStatus } from "@/lib/auth";
 import { MfaSecurityPanel } from "@/components/mfa-security-panel";
 import { presentAuthError } from "@/lib/auth-errors";
 import { getDashboardRouteForRole, routeForDesk, showFederationDashboardLink } from "@/lib/dashboard-routing";
-import { isLeavingDeepLink, showLegacyClubPicker } from "@/lib/desk-switch";
+import { showLegacyClubPicker, switchNeedsConfirm } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
 import { ViewOnlyScope } from "@/components/view-only-scope";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
@@ -169,6 +175,8 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null);
   const stopCelebration = useRef<(() => void) | null>(null);
   const enrolToastTimer = useRef<number | null>(null);
+  const deskChosenHere = useRef(false);
+  const opsAligned = useRef(false);
   const [switchNotice, setSwitchNotice] = useState<string | null>(null);
   const suppressAsk = useRef(false);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
@@ -286,7 +294,9 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   };
 
   const desks = me?.desks ?? [];
-  const activeDesk = desks.find((desk) => deskHeaderValue(desk) === (activeHeader ?? readActiveDeskHeader())) ?? null;
+  const storedHeader = activeHeader ?? readActiveDeskHeader();
+  const shownHeader = displayedDeskHeader(pathname, storedHeader, desks);
+  const activeDesk = desks.find((desk) => deskHeaderValue(desk) === shownHeader) ?? null;
   const deskReadOnly = activeDesk?.level === "read_only";
 
   useEffect(() => {
@@ -294,10 +304,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   }, [activeDesk]);
   const needed = pathNeedsDesk(pathname);
   const neededGrant = grantForPath(desks, needed);
-  const askToSwitch =
-    desks.length > 1 &&
-    neededGrant != null &&
-    !headerMatchesPath(activeHeader ?? readActiveDeskHeader(), needed);
+  const askToSwitch = shouldAskDeskSwitch({ pathname, header: storedHeader, desks });
 
   useEffect(() => {
     const sync = () => {
@@ -326,7 +333,40 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     ops: t("roleSuperuser"),
   };
 
+  useEffect(() => {
+    if (deskChosenHere.current || opsAligned.current || pathNeedsDesk(pathname) !== "ops") {
+      return;
+    }
+    const desksNow = me?.desks ?? [];
+    if (!grantForPath(desksNow, "ops")) {
+      return;
+    }
+    const plan = planOpsDeskAlign({
+      pathname,
+      header: readActiveDeskHeader(),
+      activeHeader,
+      desks: desksNow,
+      serverPending: opsServerSyncPending(),
+    });
+    opsAligned.current = true;
+    if (plan.writeHeader) {
+      rememberActiveDesk(plan.writeHeader, { silent: true });
+    }
+    if (!plan.sync) {
+      return;
+    }
+    clearOpsServerSync();
+    void selectDesk(plan.sync).catch((error) => {
+      markOpsServerSyncPending();
+      if (!deskChosenHere.current) {
+        setSwitchNotice(error instanceof Error ? error.message : "");
+      }
+    });
+  }, [pathname, me, activeHeader]);
+
   const applySwitch = async (desk: DeskChoice) => {
+    deskChosenHere.current = true;
+    clearOpsServerSync();
     suppressAsk.current = true;
     setSwitchNotice(null);
     try {
@@ -352,7 +392,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   };
 
   const requestSwitch = (desk: DeskChoice) => {
-    if (activeDesk && isLeavingDeepLink(pathname, activeDesk.desk, locale)) {
+    if (activeDesk && switchNeedsConfirm(pathname, activeDesk.desk, locale)) {
       setPendingDesk(desk);
       return;
     }
@@ -624,7 +664,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
 
               {showOpsConsoleButton ? (
                 <Button asChild variant="outline">
-                  <Link href={`/${locale}/dashboard/ops`}>{t("openOpsConsole")}</Link>
+                  <Link
+                    href={`/${locale}/dashboard/ops`}
+                    onClick={() => {
+                      activateOpsDesk(desks);
+                    }}
+                  >
+                    {t("openOpsConsole")}
+                  </Link>
                 </Button>
               ) : null}
               {showFederationDashboardButton && federationHref ? (
