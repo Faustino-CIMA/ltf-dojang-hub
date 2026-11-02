@@ -135,6 +135,9 @@ export function MemberAccountPanel({
       footer={
         result ? (
           <>
+            {result.csv || result.pdf_base64 ? (
+              <p className="w-full text-sm text-muted">{t("accountFileWarning")}</p>
+            ) : null}
             {result.pdf_base64 ? (
               <Button type="button" variant="outline" onClick={() => downloadFile("pdf", result)}>
                 {t("accountDownloadPdf")}
@@ -184,7 +187,6 @@ export function MemberAccountPanel({
             </p>
           ))}
         {!canConfirm && result === null && rows.length > 0 ? <p>{t("accountNothingToCreate")}</p> : null}
-        {canConfirm ? <p>{t("accountSensitiveWarning")}</p> : null}
         {error ? <p className="text-destructive">{error}</p> : null}
       </div>
     </SidePanel>

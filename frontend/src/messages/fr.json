@@ -1867,7 +1867,7 @@
     "accountStaffLoginSkip": "{count} correspondent à une connexion du personnel. Utilisez la fusion des comptes.",
     "accountLinkedElsewhereSkip": "{count} correspondent à une connexion déjà liée à quelqu'un d'autre. Utilisez la fusion des comptes.",
     "accountNothingToCreate": "Aucun compte à créer.",
-    "accountSensitiveWarning": "Ce fichier contient des liens actifs. Quiconque l'a peut définir ces mots de passe jusqu'à l'expiration. Il ne sera pas envoyé par e-mail. Supprimez-le quand vous avez fini.",
+    "accountFileWarning": "Ce fichier contient les liens de première connexion. Quiconque l'a peut utiliser un lien jusqu'à expiration. Supprimez le fichier quand vous avez fini.",
     "accountDownloadPdf": "Télécharger le PDF",
     "accountCopyLink": "Copier le lien",
     "accountConfirm": "Confirmer"
@@ -3017,7 +3017,7 @@
     "accountStaffLoginSkip": "{count} correspondent à une connexion du personnel. Utilisez la fusion des comptes.",
     "accountLinkedElsewhereSkip": "{count} correspondent à une connexion déjà liée à quelqu'un d'autre. Utilisez la fusion des comptes.",
     "accountNothingToCreate": "Aucun compte à créer.",
-    "accountSensitiveWarning": "Ce fichier contient des liens actifs. Quiconque l'a peut définir ces mots de passe jusqu'à l'expiration. Il ne sera pas envoyé par e-mail. Supprimez-le quand vous avez fini.",
+    "accountFileWarning": "Ce fichier contient les liens de première connexion. Quiconque l'a peut utiliser un lien jusqu'à expiration. Supprimez le fichier quand vous avez fini.",
     "accountDownloadPdf": "Télécharger le PDF",
     "accountCopyLink": "Copier le lien",
     "accountConfirm": "Confirmer"

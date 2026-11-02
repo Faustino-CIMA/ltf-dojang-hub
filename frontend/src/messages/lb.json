@@ -2203,7 +2203,7 @@
     "accountStaffLoginSkip": "{count} passen op e Personal-Login. Benotzt d'Konten zesummeleeën.",
     "accountLinkedElsewhereSkip": "{count} passen op e Login, deen schonn mat engem anere verbonnen ass. Benotzt d'Konten zesummeleeën.",
     "accountNothingToCreate": "Kee Kont unzeleeën.",
-    "accountSensitiveWarning": "Dëse Fichier huet aktiv Linken. Wien e huet, kann dës Passwierder setzen, bis d'Linken oflafen. E gëtt net per E-Mail geschéckt. Läscht en, wann s du fäerdeg bass.",
+    "accountFileWarning": "Dëse Fichier huet d'Linke fir déi éischt Umeldung. Wien en huet, kann e Link benotzen, bis en ofleeft. Läscht de Fichier, wann s du fäerdeg bass.",
     "accountDownloadPdf": "PDF eroflueden",
     "accountCopyLink": "Link kopéieren",
     "accountConfirm": "Confirméieren"
@@ -3979,7 +3979,7 @@
     "accountStaffLoginSkip": "{count} passen op e Personal-Login. Benotzt d'Konten zesummeleeën.",
     "accountLinkedElsewhereSkip": "{count} passen op e Login, deen schonn mat engem anere verbonnen ass. Benotzt d'Konten zesummeleeën.",
     "accountNothingToCreate": "Kee Kont unzeleeën.",
-    "accountSensitiveWarning": "Dëse Fichier huet aktiv Linken. Wien e huet, kann dës Passwierder setzen, bis d'Linken oflafen. E gëtt net per E-Mail geschéckt. Läscht en, wann s du fäerdeg bass.",
+    "accountFileWarning": "Dëse Fichier huet d'Linke fir déi éischt Umeldung. Wien en huet, kann e Link benotzen, bis en ofleeft. Läscht de Fichier, wann s du fäerdeg bass.",
     "accountDownloadPdf": "PDF eroflueden",
     "accountCopyLink": "Link kopéieren",
     "accountConfirm": "Confirméieren"

@@ -72,7 +72,7 @@ describe("member account confirm", () => {
     HTMLAnchorElement.prototype.click = jest.fn();
   });
 
-  it("shows the count and the sensitive-file warning, and a second download does not create again", async () => {
+  it("shows the count, and the file warning only after the links file exists", async () => {
     previewMemberAccounts.mockResolvedValue({
       results: [
         {
@@ -120,9 +120,11 @@ describe("member account confirm", () => {
     );
     expect(await screen.findByText("accountWillCreate:1")).toBeInTheDocument();
     expect(screen.getByText("accountUnder16Skip:1")).toBeInTheDocument();
-    expect(screen.getByText("accountSensitiveWarning")).toBeInTheDocument();
+    expect(screen.queryByText("accountFileWarning")).not.toBeInTheDocument();
+    expect(screen.queryByText("accountSensitiveWarning")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "accountConfirm" }));
     await waitFor(() => expect(postMemberAccounts).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("accountFileWarning")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "accountDownloadPdf" }));
     expect(postMemberAccounts).toHaveBeenCalledTimes(1);
     expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
@@ -165,6 +167,7 @@ describe("member account confirm", () => {
     );
     expect(await screen.findByRole("dialog", { name: "linkExistingLogin" })).toBeInTheDocument();
     expect(screen.getByText("accountLinkedPrompt:ada-existing")).toBeInTheDocument();
+    expect(screen.queryByText("accountFileWarning")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "accountConfirm" }));
     await waitFor(() =>
       expect(postMemberAccounts).toHaveBeenCalledWith({
@@ -173,5 +176,6 @@ describe("member account confirm", () => {
         locale: "en",
       }),
     );
+    expect(screen.queryByText("accountFileWarning")).not.toBeInTheDocument();
   });
 });
