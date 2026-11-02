@@ -12,6 +12,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .fields import EncryptedCharField
+from .stripe_ids import stripe_session_lookup
 from simple_history.models import HistoricalRecords  # pyright: ignore[reportMissingImports]
 from django.utils.text import slugify
 
@@ -647,8 +648,21 @@ class Order(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     stripe_payment_intent_id = EncryptedCharField(max_length=255, blank=True)
     stripe_checkout_session_id = EncryptedCharField(max_length=255, blank=True)
+    # HMAC of stripe_checkout_session_id. The encrypted column cannot be queried.
+    stripe_session_lookup = models.CharField(max_length=64, blank=True, default="", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or "stripe_checkout_session_id" in update_fields:
+            self.stripe_session_lookup = stripe_session_lookup(self.stripe_checkout_session_id)
+            if update_fields is not None:
+                fields = list(update_fields)
+                if "stripe_session_lookup" not in fields:
+                    fields.append("stripe_session_lookup")
+                kwargs["update_fields"] = fields
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [

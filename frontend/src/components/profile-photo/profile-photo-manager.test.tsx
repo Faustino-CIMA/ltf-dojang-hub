@@ -3,6 +3,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { ProfilePhotoManager } from "./profile-photo-manager";
 
+jest.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
 jest.mock("react-easy-crop", () => {
   return {
     __esModule: true,

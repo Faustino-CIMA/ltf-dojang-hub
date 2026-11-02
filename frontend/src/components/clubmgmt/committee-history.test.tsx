@@ -117,7 +117,7 @@ describe("CommitteeTermPanel", () => {
         onDelete={onDelete}
       />,
     );
-    fireEvent.change(screen.getByLabelText("committeeColumnStart"), { target: { value: "2026-03-12" } });
+    fireEvent.change(screen.getByLabelText(/committeeColumnStart/), { target: { value: "2026-03-12" } });
     fireEvent.click(screen.getByRole("button", { name: "committeeReplaceTerm" }));
     expect(onReplace).toHaveBeenCalledWith(president, { member: 12, started_on: "2026-03-12" });
   });

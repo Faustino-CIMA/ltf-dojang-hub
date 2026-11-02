@@ -2917,6 +2917,11 @@ class StripeWebhookView(APIView):
         except (ValueError, stripe.error.SignatureVerificationError):  # type: ignore[attr-defined]
             return Response(status=HTTP_400_BAD_REQUEST)
 
+        # Signature verification already succeeded. stripe-python 14+ returns an
+        # Event that is not a dict; .get() raises. Convert after the check.
+        if not isinstance(event, dict) and hasattr(event, "to_dict"):
+            event = event.to_dict()
+
         event_type = event.get("type")
         data_object = event.get("data", {}).get("object", {}) or {}
         card_details = {}
@@ -2938,6 +2943,8 @@ class StripeWebhookView(APIView):
                         payment_intent_id,
                         expand=["charges.data.payment_method_details"],
                     )
+                    if not isinstance(payment_intent, dict) and hasattr(payment_intent, "to_dict"):
+                        payment_intent = payment_intent.to_dict()
                     charges = payment_intent.get("charges", {}).get("data", [])
                     if charges:
                         card = (
