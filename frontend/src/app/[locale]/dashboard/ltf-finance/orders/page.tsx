@@ -18,15 +18,15 @@ import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageNotice,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { FinanceOrder, getFinanceOrdersPage } from "@/lib/ltf-finance-api";
@@ -58,7 +58,6 @@ export default function LtfFinanceOrdersPage() {
   const [orders, setOrders] = useState<FinanceOrder[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
   const [totalOrderCount, setTotalOrderCount] = useState(0);
@@ -73,6 +72,9 @@ export default function LtfFinanceOrdersPage() {
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
   const { selectedClubId } = useClubSelection();
+  const [currentPage, setCurrentPage] = useListPage(
+    [selectedClubId ?? "", searchQuery, pageSize, statusFilter, pendingLicenseIssue ? "issue" : ""].join("|"),
+  );
 
   const loadOrders = useCallback(
     async (options?: { silent?: boolean; includeStatic?: boolean }) => {
@@ -93,16 +95,18 @@ export default function LtfFinanceOrdersPage() {
           q: searchQuery || undefined,
           clubId: selectedClubId ?? undefined,
         };
-        const ordersPromise = getFinanceOrdersPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: searchQuery || undefined,
-            status: pendingLicenseIssue ? undefined : orderStatusQuery(statusFilter),
-            clubId: selectedClubId ?? undefined,
-            issue: pendingLicenseIssue ? "paid_pending_licenses" : undefined,
-          },
-          { signal: controller.signal }
+        const ordersPromise = readListPage(pageSize, currentPage, (page, size) =>
+          getFinanceOrdersPage(
+            {
+              page,
+              pageSize: size,
+              q: searchQuery || undefined,
+              status: pendingLicenseIssue ? undefined : orderStatusQuery(statusFilter),
+              clubId: selectedClubId ?? undefined,
+              issue: pendingLicenseIssue ? "paid_pending_licenses" : undefined,
+            },
+            { signal: controller.signal },
+          ),
         );
         if (includeStatic) {
           const [ordersResponse, allCountRes, receivedCountRes, deliveredCountRes, cancelledCountRes] =
@@ -160,10 +164,6 @@ export default function LtfFinanceOrdersPage() {
   }, [loadOrders]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedClubId, searchQuery, pageSize, statusFilter, pendingLicenseIssue]);
-
-  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
     }, 250);
@@ -215,14 +215,14 @@ export default function LtfFinanceOrdersPage() {
     [t]
   );
 
-  const resolvedPageSize = resolveListPageSize(pageSize, totalOrderCount);
+  const resolvedPageSize = displayPageSize(pageSize, totalOrderCount);
   const totalPages = Math.max(1, Math.ceil(totalOrderCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const columns = useMemo(
     () => [

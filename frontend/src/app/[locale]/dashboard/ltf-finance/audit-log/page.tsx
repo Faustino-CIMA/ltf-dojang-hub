@@ -14,14 +14,14 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices,
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { auditActionLabel } from "@/lib/audit-log";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import {
@@ -38,8 +38,8 @@ export default function LtfFinanceAuditLogPage() {
   const [logs, setLogs] = useState<FinanceAuditLog[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
+  const [currentPage, setCurrentPage] = useListPage([searchQuery, pageSize].join("|"));
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,13 +73,15 @@ export default function LtfFinanceAuditLogPage() {
         setLogs(response);
         setTotalCount(response.length);
       } else {
-        const response = await getFinanceAuditLogsPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: normalizedSearch,
-          },
-          { signal: controller.signal }
+        const response = await readListPage(pageSize, currentPage, (page, size) =>
+          getFinanceAuditLogsPage(
+            {
+              page,
+              pageSize: size,
+              q: normalizedSearch,
+            },
+            { signal: controller.signal },
+          ),
         );
         if (requestAbortRef.current !== controller) {
           return;
@@ -110,19 +112,14 @@ export default function LtfFinanceAuditLogPage() {
     };
   }, []);
 
-  const resolvedPageSize = resolveListPageSize(pageSize, totalCount);
-  const totalPages =
-    pageSize === "all" ? 1 : Math.max(1, Math.ceil(totalCount / resolvedPageSize));
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, pageSize]);
+  const resolvedPageSize = displayPageSize(pageSize, totalCount);
+  const totalPages = Math.max(1, Math.ceil(totalCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const columns = [
     {

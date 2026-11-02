@@ -24,6 +24,7 @@ import {
   SelectionMeta,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
@@ -46,13 +47,22 @@ export default function LtfAdminClubsPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [federationFilter, setFederationFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedClubId } = useClubSelection();
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      federationFilter,
+      searchQuery,
+      pageSize,
+      selectedClubId ?? "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+    ].join("|"),
+  );
 
   const loadClubs = useCallback(async () => {
     setIsLoading(true);
@@ -122,10 +132,6 @@ export default function LtfAdminClubsPage() {
     const startIndex = (currentPage - 1) * resolvedPageSize;
     return sortedClubs.slice(startIndex, startIndex + resolvedPageSize);
   }, [currentPage, sortedClubs, resolvedPageSize]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [federationFilter, searchQuery, pageSize, selectedClubId, tableSort]);
 
   const filteredIds = useMemo(() => searchedClubs.map((club) => club.id), [searchedClubs]);
   const visibleIds = useMemo(() => pagedClubs.map((club) => club.id), [pagedClubs]);

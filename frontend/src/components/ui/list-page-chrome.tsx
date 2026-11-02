@@ -6,6 +6,7 @@ import { useDeskAccess } from "@/components/desk-access";
 import { RequiredForm } from "@/components/ui/label";
 import { presentAuthError } from "@/lib/auth-errors";
 import { cn } from "@/lib/utils";
+import { LIST_PAGE_SIZE_OPTIONS } from "@/lib/list-page";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,19 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const LIST_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
-export const LIST_PAGE_SIZE_CAP = 200;
-
-export function resolveListPageSize(pageSize: string, totalCount: number, cap = LIST_PAGE_SIZE_CAP) {
-  if (pageSize === "all") {
-    return Math.min(Math.max(totalCount, 1), cap);
-  }
-  const n = Number(pageSize);
-  if (!Number.isFinite(n) || n <= 0) {
-    return 50;
-  }
-  return Math.min(n, cap);
-}
+export {
+  LIST_PAGE_SIZE_OPTIONS,
+  LIST_SERVER_PAGE_CAP as LIST_PAGE_SIZE_CAP,
+  displayPageSize,
+  readListPage,
+  resolveListPageSize,
+} from "@/lib/list-page";
 
 export function ListToolbarPanel({
   search,
@@ -132,8 +127,8 @@ export function PageSizeSelect({
   allLabel: string;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[150px]" aria-label={ariaLabel}>
+    <Select browsing value={value} onValueChange={onChange}>
+      <SelectTrigger browsing className="w-[150px]" aria-label={ariaLabel}>
         <SelectValue placeholder={ariaLabel} />
       </SelectTrigger>
       <SelectContent>

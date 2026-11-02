@@ -17,14 +17,14 @@ import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { FinanceIncome, getFinanceIncomesPage } from "@/lib/ltf-finance-api";
@@ -39,9 +39,9 @@ export default function LtfFinanceIncomePage() {
   const [incomes, setIncomes] = useState<FinanceIncome[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<IncomeStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useListPage([searchQuery, pageSize, statusFilter].join("|"));
   const [totalCount, setTotalCount] = useState(0);
   const [facetCounts, setFacetCounts] = useState({ all: 0, received: 0, void: 0 });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -72,14 +72,16 @@ export default function LtfFinanceIncomePage() {
     try {
       const query = { q: searchQuery || undefined };
       const [pageResponse, allRes, receivedRes, voidRes] = await Promise.all([
-        getFinanceIncomesPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: searchQuery || undefined,
-            status: statusFilter === "all" ? undefined : statusFilter,
-          },
-          { signal: controller.signal }
+        readListPage(pageSize, currentPage, (page, size) =>
+          getFinanceIncomesPage(
+            {
+              page,
+              pageSize: size,
+              q: searchQuery || undefined,
+              status: statusFilter === "all" ? undefined : statusFilter,
+            },
+            { signal: controller.signal },
+          ),
         ),
         getFinanceIncomesPage({ page: 1, pageSize: 1, ...query }, { signal: controller.signal }),
         getFinanceIncomesPage(
@@ -122,18 +124,14 @@ export default function LtfFinanceIncomePage() {
     return () => requestAbortRef.current?.abort();
   }, []);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, pageSize, statusFilter]);
-
-  const resolvedPageSize = resolveListPageSize(pageSize, totalCount);
+  const resolvedPageSize = displayPageSize(pageSize, totalCount);
   const totalPages = Math.max(1, Math.ceil(totalCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const statusMeta = useMemo(
     () => (status: FinanceIncome["status"]) => {

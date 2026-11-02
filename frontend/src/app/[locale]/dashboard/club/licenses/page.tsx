@@ -10,7 +10,9 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageSizeSelect } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
 import {
   License,
@@ -31,18 +33,8 @@ import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type LicenseStatusFilter = "all" | "active" | "pending" | "expired";
-
-/** Matches backend `API_PAGINATION_MAX_PAGE_SIZE`. */
-const LICENSES_LIST_PAGE_SIZE_CAP = 200;
 
 export default function ClubAdminLicensesPage() {
   const t = useTranslations("ClubAdmin");
@@ -57,7 +49,6 @@ export default function ClubAdminLicensesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [licenseStatusFilter, setLicenseStatusFilter] = useState<LicenseStatusFilter>("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -74,19 +65,18 @@ export default function ClubAdminLicensesPage() {
     expired: 0,
   });
 
-  const pageSizeOptions = ["50", "150", "300", "all"];
   const statusFilterParam = licenseStatusFilter === "all" ? undefined : licenseStatusFilter;
-
-  const licensesListPageSize = useMemo(() => {
-    if (pageSize === "all") {
-      return Math.min(Math.max(totalCount, 1), LICENSES_LIST_PAGE_SIZE_CAP);
-    }
-    const n = Number(pageSize);
-    if (!Number.isFinite(n) || n <= 0) {
-      return 50;
-    }
-    return Math.min(n, LICENSES_LIST_PAGE_SIZE_CAP);
-  }, [pageSize, totalCount]);
+  const licensesListPageSize = displayPageSize(pageSize, totalCount);
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      searchQuery,
+      selectedClubId ?? "",
+      pageSize,
+      licenseStatusFilter,
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+    ].join("|"),
+  );
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -112,14 +102,16 @@ export default function ClubAdminLicensesPage() {
       const q = searchQuery || undefined;
       const [licensesResponse, allCountRes, activeCountRes, pendingCountRes, expiredCountRes] =
         await Promise.all([
-          getLicensesPage({
-            page: currentPage,
-            pageSize: licensesListPageSize,
-            clubId: effectiveClubId,
-            q,
-            status: statusFilterParam,
-            ordering,
-          }),
+          readListPage(pageSize, currentPage, (page, size) =>
+            getLicensesPage({
+              page,
+              pageSize: size,
+              clubId: effectiveClubId,
+              q,
+              status: statusFilterParam,
+              ordering,
+            }),
+          ),
           getLicensesPage({
             page: 1,
             pageSize: 1,
@@ -177,7 +169,7 @@ export default function ClubAdminLicensesPage() {
     }
   }, [
     currentPage,
-    licensesListPageSize,
+    pageSize,
     searchQuery,
     selectedClubId,
     setSelectedClubId,
@@ -245,10 +237,6 @@ export default function ClubAdminLicensesPage() {
   );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / licensesListPageSize));
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, licenseStatusFilter, tableSort]);
 
   const getStatusLabel = (status: License["status"]) => {
     if (status === "active") {
@@ -366,20 +354,12 @@ export default function ClubAdminLicensesPage() {
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
               </div>
-              <div>
-                <Select value={pageSize} onValueChange={setPageSize}>
-                  <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
-                    <SelectValue placeholder={common("rowsPerPageLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option === "all" ? common("rowsPerPageAll") : option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
+              />
             </div>
 
             <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
