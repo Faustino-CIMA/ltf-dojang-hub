@@ -80,6 +80,14 @@ class Person(models.Model):
             self.last_name = " ".join(formatted_words)
         super().save(*args, **kwargs)
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        from accounts.offices import remember_loaded_user
+
+        remember_loaded_user(instance, field_names)
+        return instance
+
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}"
 

@@ -10,7 +10,7 @@ from rest_framework import response, status, views
 
 from accounts.duties import MAX_EXCEPTION_DAYS, OWN_CLUB, OWN_INVOICE, exception_span_ok
 from accounts.models import DeskGrant, OfficeDeskMap, User
-from accounts.offices import sync_office, sync_person
+from accounts.offices import sync_office
 from clubmgmt.models import CommitteeMandate, Person
 
 from .models import OpsAuditLog
@@ -216,8 +216,8 @@ class OpsContactLinkView(views.APIView):
             return response.Response({"detail": "That login is already linked to a contact."}, status=status.HTTP_400_BAD_REQUEST)
         previous = person.user_id
         person.user = user
+        person._office_actor = request.user
         person.save(update_fields=["user"])
-        sync_person(person.id, actor=request.user)
         _audit(
             request,
             "desk.contact_linked",
