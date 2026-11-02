@@ -52,6 +52,25 @@ def euro_amount(amount) -> str:
     return f"{sign}{abs(value):.2f}".replace(".", ",") + " €"
 
 
+def _settlement(invoice: Invoice) -> dict:
+    from clubs.communications import invoice_copy_for_club
+
+    copy = invoice_copy_for_club(invoice.club)
+    settled = invoice.status == Invoice.Status.PAID or (invoice.outstanding() <= 0 and invoice.total > 0)
+    if settled:
+        return {
+            "settlement_label": copy["paid_label"],
+            "settlement_amount": euro_amount(invoice.total),
+        }
+    due = invoice.outstanding()
+    if due <= 0:
+        due = invoice.total
+    return {
+        "settlement_label": copy["due_label"],
+        "settlement_amount": euro_amount(due),
+    }
+
+
 def invoice_balance_due_text(invoice: Invoice) -> str:
     """Remainder after credit notes and payments, in the same format as the PDF total."""
     return euro_amount(invoice.outstanding())
@@ -524,6 +543,7 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "recipient_lines": recipient_lines,
         "total_qty": total_qty,
         "total_amount": euro_amount(invoice.total),
+        **_settlement(invoice),
         "issued_on": _short_date(invoice.issued_at),
         "paid_on": _short_date(invoice.paid_at),
         "ordered_on": _short_date(order.created_at),

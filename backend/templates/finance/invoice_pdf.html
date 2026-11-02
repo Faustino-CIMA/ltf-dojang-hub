@@ -169,11 +169,11 @@
         <span>Credits</span>
         <span>- {{ credited_total }}</span>
       </div>
-      <div class="totals-row total">
-        <span>Amount due</span>
-        <span>{{ outstanding }}</span>
-      </div>
       {% endif %}
+      <div class="totals-row total">
+        <span>{{ settlement_label }}</span>
+        <span>{{ settlement_amount }}</span>
+      </div>
     </div>
 
     <div class="qr-section">

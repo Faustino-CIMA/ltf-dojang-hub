@@ -67,13 +67,17 @@ class InvoiceEmailAmountTests(TestCase):
             status=Payment.Status.PAID,
         )
         self.assertEqual(invoice.outstanding(), Decimal("0.00"))
-        printed = build_invoice_context(invoice)["total_amount"]
+        context = build_invoice_context(invoice)
+        printed = context["total_amount"]
+        self.assertEqual(context["settlement_label"], "Amount paid")
+        self.assertEqual(context["settlement_amount"], printed)
 
         send_invoice_email(invoice.id)
 
         text = self._sent_text(send)
-        self.assertIn(f"Total due: {printed}", text)
+        self.assertIn(f"Amount paid: {printed}", text)
         self.assertIn("80,00 €", text)
+        self.assertNotIn("Amount due:", text)
         self.assertNotIn("Total due: 0,00 €", text)
         self.assertNotIn("0.00", text)
 
@@ -86,13 +90,16 @@ class InvoiceEmailAmountTests(TestCase):
             delivery_method=Invoice.DeliveryMethod.EMAIL,
             bill_to_email="payer@example.com",
         )
-        printed = build_invoice_context(invoice)["total_amount"]
+        context = build_invoice_context(invoice)
+        printed = context["total_amount"]
+        self.assertEqual(context["settlement_label"], "Amount due")
 
         send_invoice_email(invoice.id, ["payer@example.com"])
 
         text = self._sent_text(send)
-        self.assertIn(f"Total due: {printed}", text)
+        self.assertIn(f"Amount due: {printed}", text)
         self.assertIn("45,50 €", text)
+        self.assertNotIn("Amount paid:", text)
         self.assertEqual(send.call_args.args[0], "payer@example.com")
 
     @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
@@ -127,14 +134,14 @@ class InvoiceEmailAmountTests(TestCase):
         Club.objects.filter(pk=self.club.pk).update(communication_language="lb")
 
         send_invoice_email(invoice.id)
-        self.assertIn("Total ze bezuelen: 80,00 €", self._sent_text(send))
+        self.assertIn("Bezuelt: 80,00 €", self._sent_text(send))
 
         send.reset_mock()
         Club.objects.filter(pk=self.club.pk).update(communication_language="fr")
         send_invoice_email(invoice.id)
-        self.assertIn("Montant dû : 80,00 €", self._sent_text(send))
+        self.assertIn("Montant payé : 80,00 €", self._sent_text(send))
 
         send.reset_mock()
         Club.objects.filter(pk=self.club.pk).update(communication_language="de")
         send_invoice_email(invoice.id)
-        self.assertIn("Fälliger Betrag: 80,00 €", self._sent_text(send))
+        self.assertIn("Bezahlter Betrag: 80,00 €", self._sent_text(send))

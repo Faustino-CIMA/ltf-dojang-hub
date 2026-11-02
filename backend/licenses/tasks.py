@@ -351,10 +351,19 @@ def _dispatch_invoice_email(
     # The invoice PDF prints total_amount. outstanding() is already 0 when a
     # license invoice is mailed in the same step that records the payment.
     amount = invoice_balance_due_text(invoice) if balance else context["total_amount"]
+    settled = (not balance) and (
+        invoice.status == Invoice.Status.PAID or (invoice.outstanding() <= 0 and invoice.total > 0)
+    )
+    if balance:
+        amount_line = copy["total"]
+    elif settled:
+        amount_line = copy["paid"]
+    else:
+        amount_line = copy["due"]
     context["copy"] = {
         "hello": copy["hello"],
         "ready": copy["ready"].format(number=invoice.invoice_number),
-        "total": copy["total"].format(total=amount),
+        "total": amount_line.format(total=amount),
         "pdf": copy["pdf"],
         "note": copy.get("note") or "",
         "thanks": copy["thanks"],
