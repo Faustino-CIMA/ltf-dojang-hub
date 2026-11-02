@@ -103,6 +103,8 @@ export default function ClubAdminSettingsPage() {
   const [moduleFees, setModuleFees] = useState<ClubModuleFeeQuote | null>(null);
   const [languages, setLanguages] = useState<ClubCommunicationLanguage[]>([
     { code: "en", name: "English" },
+    { code: "fr", name: "Français" },
+    { code: "de", name: "Deutsch" },
     { code: "lb", name: "Lëtzebuergesch" },
   ]);
 

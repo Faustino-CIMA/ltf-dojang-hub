@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
-    <title>Invoice {{ invoice.invoice_number }}</title>
+    <title>{{ labels.invoice }} {{ invoice.invoice_number }}</title>
     <style>
       @page {
         size: A4;
@@ -200,7 +200,7 @@
       <p>{{ recipient_name }}</p>
       {% for line in recipient_lines %}<p>{{ line }}</p>{% endfor %}
     </div>
-    <p class="subject">Subject: {{ invoice.invoice_number }}</p>
+    <p class="subject">{{ labels.subject }}: {{ invoice.invoice_number }}</p>
     <div class="fold"></div>
     <div class="lead"></div>
 
@@ -214,10 +214,10 @@
       </colgroup>
       <thead>
         <tr>
-          <th>Item</th>
-          <th class="num">Qty</th>
-          <th class="num">Unit</th>
-          <th class="num">Subtotal</th>
+          <th>{{ labels.item }}</th>
+          <th class="num">{{ labels.qty }}</th>
+          <th class="num">{{ labels.unit }}</th>
+          <th class="num">{{ labels.subtotal }}</th>
         </tr>
       </thead>
     </table>
@@ -253,12 +253,12 @@
       </colgroup>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>License</th>
-          <th>License ID</th>
-          <th class="num">Qty</th>
-          <th class="num">Unit</th>
-          <th class="num">Subtotal</th>
+          <th>{{ labels.name }}</th>
+          <th>{{ labels.license }}</th>
+          <th>{{ labels.license_id }}</th>
+          <th class="num">{{ labels.qty }}</th>
+          <th class="num">{{ labels.unit }}</th>
+          <th class="num">{{ labels.subtotal }}</th>
         </tr>
       </thead>
     </table>
@@ -287,33 +287,33 @@
       </table>
     </div>
     {% endif %}
-    <p class="grand"><span>Total Qty : {{ total_qty }}</span><span>Total : {{ total_amount }}</span></p>
+    <p class="grand"><span>{{ labels.total_qty }} : {{ total_qty }}</span><span>{{ labels.total }} : {{ total_amount }}</span></p>
     <p class="grand">{{ settlement_label }} : {{ settlement_amount }}</p>
 
     <div class="closing">
       <table class="sheet-meta">
         <tr>
-          <td class="label">Invoice :</td>
+          <td class="label">{{ labels.invoice }} :</td>
           <td class="value">{{ invoice.invoice_number }}</td>
-          <td class="label">Order :</td>
+          <td class="label">{{ labels.order }} :</td>
           <td class="value">{{ order.order_number }}</td>
         </tr>
         <tr>
-          <td class="label">Issued :</td>
+          <td class="label">{{ labels.issued }} :</td>
           <td class="value">{{ issued_on }}</td>
-          <td class="label">Placed :</td>
+          <td class="label">{{ labels.placed }} :</td>
           <td class="value">{{ ordered_on }}</td>
         </tr>
         <tr>
-          <td class="label">Paid :</td>
+          <td class="label">{{ labels.paid }} :</td>
           <td class="value">{{ paid_on }}</td>
-          <td class="label">Delivered :</td>
+          <td class="label">{{ labels.delivered }} :</td>
           <td class="value">{{ fulfilled_on }}</td>
         </tr>
         <tr>
-          <td class="label">Status :</td>
+          <td class="label">{{ labels.status }} :</td>
           <td class="value">{% if invoice_status_done %}<span class="badge">{{ invoice_status_label }}</span>{% else %}{{ invoice_status_label }}{% endif %}</td>
-          <td class="label">Status :</td>
+          <td class="label">{{ labels.status }} :</td>
           <td class="value">{% if order_status_done %}<span class="badge">{{ order_status_label }}</span>{% else %}{{ order_status_label }}{% endif %}</td>
         </tr>
       </table>

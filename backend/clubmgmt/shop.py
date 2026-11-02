@@ -570,9 +570,13 @@ def render_stickers_pdf(
         cursor += 1
     if page:
         pages.append(page)
+    from clubs.document_copy import resolve_document_language, shop_labels
+
+    shop_copy = shop_labels(resolve_document_language(club=item.club))
     html = render_to_string(
         "shop/stickers.html",
         {
+            "labels": shop_copy,
             "item": item,
             "pages": pages,
             "sheet_width_mm": f"{L7121_SHEET_WIDTH_MM:.2f}",
@@ -617,9 +621,16 @@ def render_catalogue_pdf(club, *, base_url: str) -> bytes | None:
                 "sizes": ", ".join(row.label for row in active if row.label != "Standard"),
             }
         )
+    from clubs.document_copy import resolve_document_language, shop_labels
+
     html = render_to_string(
         "shop/catalogue.html",
-        {"club": club, "cards": cards, "generated_at": timezone.localtime()},
+        {
+            "club": club,
+            "cards": cards,
+            "generated_at": timezone.localtime(),
+            "labels": shop_labels(resolve_document_language(club=club)),
+        },
     )
     return HTML(string=html, base_url=base_url).write_pdf()
 
@@ -630,9 +641,12 @@ def render_snapshot_pdf(snapshot: ShopSnapshot, *, base_url: str) -> bytes | Non
     lines = list(snapshot.lines.all())
     units = sum(row.quantity for row in lines)
     value = sum((row.sale_price or Decimal("0")) * row.quantity for row in lines)
+    from clubs.document_copy import resolve_document_language, shop_labels
+
     html = render_to_string(
         "shop/snapshot.html",
         {
+            "labels": shop_labels(resolve_document_language(club=snapshot.club)),
             "snapshot": snapshot,
             "club": snapshot.club,
             "lines": lines,

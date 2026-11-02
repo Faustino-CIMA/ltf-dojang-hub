@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
-    <title>Membership invoices {{ year }}</title>
+    <title>{{ labels.title }}</title>
     <style>
       body { font-family: "DejaVu Sans", Arial, sans-serif; color: #1f2937; margin: 32px; font-size: 14px; }
       h1 { font-size: 20px; margin: 0 0 8px; }
@@ -23,16 +23,16 @@
   </head>
   <body>
     <div class="page">
-      <h1>Membership invoices {{ year }}</h1>
-      <div class="muted">{{ count }} invoice{{ count|pluralize }} to print and deliver.</div>
+      <h1>{{ labels.title }}</h1>
+      <div class="muted">{{ labels.intro }}</div>
       <table>
         <thead>
           <tr>
-            <th>Invoice</th>
-            <th>Payer</th>
-            <th>Delivery</th>
-            <th>Address / note</th>
-            <th>Amount</th>
+            <th>{{ labels.invoice }}</th>
+            <th>{{ labels.payer }}</th>
+            <th>{{ labels.delivery }}</th>
+            <th>{{ labels.address }}</th>
+            <th>{{ labels.amount }}</th>
           </tr>
         </thead>
         <tbody>
@@ -44,8 +44,8 @@
             <td>
               {% if page.bill_to and page.bill_to.address_lines %}
                 {{ page.bill_to.address_lines|join:", " }}
-              {% elif page.delivery_label == "In person" %}
-                Hand to the member
+              {% elif page.invoice.delivery_method == "hand" %}
+                {{ labels.hand }}
               {% endif %}
             </td>
             <td>{{ page.outstanding }} {{ page.invoice.currency }}</td>

@@ -310,6 +310,72 @@ class AuthApiTests(TestCase):
         self.assertEqual(recipient["address_lines"], [])
         self.assertEqual(_member_invoice_lines(self.member), [])
 
+    def test_admin_user_delete_removes_only_this_users_addresses(self):
+        from clubmgmt.models import MemberAddress, Person, PersonAddress
+        from licenses.models import Invoice, Order
+
+        MemberAddress.objects.create(
+            member=self.member,
+            street="Example Street",
+            house_number="1",
+            postal_code="1234",
+            locality="Musterstadt",
+            use_for_invoice=True,
+        )
+        converted = Person.objects.create(
+            club=self.club,
+            first_name="Mia",
+            last_name="Stone",
+            converted_member=self.member,
+        )
+        PersonAddress.objects.create(
+            person=converted,
+            street="Example Street",
+            house_number="1",
+            postal_code="1234",
+            locality="Musterstadt",
+        )
+        guardian = Person.objects.create(club=self.club, first_name="Lars", last_name="Keller")
+        guardian_address = PersonAddress.objects.create(
+            person=guardian,
+            street="Quai des Lanternes",
+            house_number="4",
+            postal_code="6776",
+            locality="Grevenmacher",
+        )
+        other_user = User.objects.create_user(username="nia-admin-delete", password="pass12345")
+        other_member = Member.objects.create(
+            user=other_user,
+            club=self.club,
+            first_name="Nia",
+            last_name="Keller",
+        )
+        other_address = MemberAddress.objects.create(
+            member=other_member,
+            street="Chemin de la Vallée",
+            house_number="21",
+            postal_code="9516",
+            locality="Wiltz",
+        )
+        order = Order.objects.create(club=self.club, member=self.member)
+        issued = Invoice.objects.create(
+            order=order,
+            club=self.club,
+            member=self.member,
+            bill_to_name="STONE Mia",
+            bill_to_address="1, Example Street\nL-1234 Musterstadt",
+        )
+
+        User.objects.filter(pk=self.user.pk).delete()
+
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+        self.assertFalse(MemberAddress.objects.filter(member=self.member).exists())
+        self.assertFalse(PersonAddress.objects.filter(person=converted).exists())
+        self.assertTrue(PersonAddress.objects.filter(pk=guardian_address.pk).exists())
+        self.assertTrue(MemberAddress.objects.filter(pk=other_address.pk).exists())
+        issued.refresh_from_db()
+        self.assertEqual(issued.bill_to_address, "1, Example Street\nL-1234 Musterstadt")
+
 
 class FinancePermissionTests(TestCase):
     def setUp(self):

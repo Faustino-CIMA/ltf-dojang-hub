@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
-    <title>Invoice {{ invoice.invoice_number }}</title>
+    <title>{{ labels.invoice }} {{ invoice.invoice_number }}</title>
     <style>
       @page {
         size: A4;
@@ -246,7 +246,7 @@
       <p>{{ recipient_name }}</p>
       {% for line in recipient_lines %}<p>{{ line }}</p>{% endfor %}
     </div>
-    <p class="subject">Subject: {{ invoice.invoice_number }}</p>
+    <p class="subject">{{ labels.subject }}: {{ invoice.invoice_number }}</p>
     <div class="fold"></div>
     <div class="lead"></div>
 
@@ -260,11 +260,11 @@
       </colgroup>
       <thead>
         <tr>
-          <th>Item / service</th>
-          <th>Size</th>
-          <th>Qty</th>
-          <th>Unit</th>
-          <th>Total</th>
+          <th>{{ labels.item_service }}</th>
+          <th>{{ labels.size }}</th>
+          <th>{{ labels.qty }}</th>
+          <th>{{ labels.unit }}</th>
+          <th>{{ labels.total }}</th>
         </tr>
       </thead>
     </table>
@@ -290,7 +290,7 @@
         </tbody>
       </table>
     </div>
-    <p class="grand"><span>Total Qty : {{ total_qty }}</span><span>Total : {{ total_amount }}</span></p>
+    <p class="grand"><span>{{ labels.total_qty }} : {{ total_qty }}</span><span>{{ labels.total }} : {{ total_amount }}</span></p>
     <p class="grand">{{ settlement_label }} : {{ settlement_amount }}</p>
 
     <div class="closing">
@@ -299,10 +299,10 @@
         {% if footer_logos.europe %}<img class="logo-etu" src="{{ footer_logos.europe }}" alt="" />{% endif %}
         {% if footer_logos.ltf %}<img class="logo-ltf" src="{{ footer_logos.ltf }}" alt="" />{% endif %}
         <div class="meta">
-          <p><span class="label">Invoice :</span>{{ invoice.invoice_number }}</p>
-          <p><span class="label">Issued :</span>{{ issued_on }}</p>
-          <p><span class="label">Paid :</span>{{ paid_on }}</p>
-          <p><span class="label">Status :</span>{% if invoice_status_done %}<span class="badge">{{ invoice_status_label }}</span>{% else %}{{ invoice_status_label }}{% endif %}</p>
+          <p><span class="label">{{ labels.invoice }} :</span>{{ invoice.invoice_number }}</p>
+          <p><span class="label">{{ labels.issued }} :</span>{{ issued_on }}</p>
+          <p><span class="label">{{ labels.paid }} :</span>{{ paid_on }}</p>
+          <p><span class="label">{{ labels.status }} :</span>{% if invoice_status_done %}<span class="badge">{{ invoice_status_label }}</span>{% else %}{{ invoice_status_label }}{% endif %}</p>
         </div>
       </div>
     </div>

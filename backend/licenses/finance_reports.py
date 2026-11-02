@@ -670,14 +670,17 @@ def _autosize(ws, min_width=12, max_width=42):
         ws.column_dimensions[letter].width = min(max(length + 2, min_width), max_width)
 
 
-def render_finance_report_xlsx(report: dict) -> bytes:
+def render_finance_report_xlsx(report: dict, language: str | None = None) -> bytes:
+    from clubs.document_copy import report_labels
+
+    copy = report_labels(language)
     wb = Workbook()
 
     cover = wb.active
-    cover.title = "Cover"
+    cover.title = copy["cover"][:31]
     cover["A1"] = report["organization_name"]
     cover["A1"].font = TITLE_FONT
-    cover["A2"] = f"Annual financial report {report['year']}"
+    cover["A2"] = copy["annual"].format(year=report["year"])
     cover["A2"].font = SECTION_FONT
     cover["A4"] = "Period start"
     cover["B4"] = report["period_start"]
@@ -693,7 +696,7 @@ def render_finance_report_xlsx(report: dict) -> bytes:
     cover["A10"].alignment = Alignment(wrap_text=True, vertical="top")
     cover.merge_cells("A10:F13")
     cover.row_dimensions[10].height = 72
-    cover["A15"] = "Surplus / (deficit)"
+    cover["A15"] = copy["surplus"]
     _money_cell(cover, 15, 2, report["income_statement"]["surplus"])
     cover["A16"] = "Cash at period end"
     _money_cell(cover, 16, 2, report["balance_sheet"]["assets"]["cash"])
@@ -701,24 +704,24 @@ def render_finance_report_xlsx(report: dict) -> bytes:
     _money_cell(cover, 17, 2, report["balance_sheet"]["equity"]["net_assets"])
     _autosize(cover)
 
-    pnl = wb.create_sheet("Income statement")
-    pnl["A1"] = "Income statement"
+    pnl = wb.create_sheet(copy["income_sheet"][:31])
+    pnl["A1"] = copy["income_title"]
     pnl["A1"].font = TITLE_FONT
     pnl["A2"] = f"{report['organization_name']} · {report['period_start']} to {report['as_of']}"
     _write_header_row(pnl, 4, ["Line", "Amount (EUR)"])
-    _text_cell(pnl, 5, 1, "License fee income")
+    _text_cell(pnl, 5, 1, copy["license_income"])
     _money_cell(pnl, 5, 2, report["income_statement"]["revenue_license_fees"])
     _text_cell(pnl, 6, 1, "Other income (subsidies, donations, sponsoring)")
     _money_cell(pnl, 6, 2, report["income_statement"]["other_income"])
     _text_cell(pnl, 7, 1, "Operating expenses")
     _money_cell(pnl, 7, 2, report["income_statement"]["expenses_total"])
-    _text_cell(pnl, 8, 1, "Surplus / (deficit)", bold=True)
+    _text_cell(pnl, 8, 1, copy["surplus"], bold=True)
     total_cell = _money_cell(pnl, 8, 2, report["income_statement"]["surplus"])
     total_cell.font = BOLD_FONT
     pnl["A5"].fill = PatternFill("solid", fgColor="F6F8FA")
     pnl["A8"].fill = TOTAL_FILL
     pnl["B8"].fill = TOTAL_FILL
-    pnl["A10"] = "License income by club"
+    pnl["A10"] = copy["license_by_club"]
     pnl["A10"].font = SECTION_FONT
     _write_header_row(pnl, 11, ["Club", "Amount (EUR)"])
     row = 12
@@ -754,8 +757,8 @@ def render_finance_report_xlsx(report: dict) -> bytes:
         _text_cell(pnl, row, 1, "No expenses in this period")
     _autosize(pnl)
 
-    bs = wb.create_sheet("Balance sheet")
-    bs["A1"] = "Balance sheet"
+    bs = wb.create_sheet(copy["balance_sheet"][:31])
+    bs["A1"] = copy["balance_title"]
     bs["A1"].font = TITLE_FONT
     bs["A2"] = f"{report['organization_name']} as of {report['as_of']}"
     _write_header_row(bs, 4, ["Assets", "Amount (EUR)"])

@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.template.loader import render_to_string
 from django.test import TestCase
 
 from accounts.models import User
@@ -101,6 +102,10 @@ class InvoiceEmailAmountTests(TestCase):
         self.assertIn("45,50 €", text)
         self.assertNotIn("Amount paid:", text)
         self.assertEqual(send.call_args.args[0], "payer@example.com")
+        for language, pdf_label in (("fr", "Montant dû"), ("de", "Fälliger Betrag"), ("lb", "Ze bezuelen")):
+            Club.objects.filter(pk=self.club.pk).update(communication_language=language)
+            invoice.club.refresh_from_db()
+            self.assertEqual(build_invoice_context(invoice)["settlement_label"], pdf_label)
 
     @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
     @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
@@ -131,17 +136,20 @@ class InvoiceEmailAmountTests(TestCase):
             amount=Decimal("80.00"),
             status=Payment.Status.PAID,
         )
-        Club.objects.filter(pk=self.club.pk).update(communication_language="lb")
-
-        send_invoice_email(invoice.id)
-        self.assertIn("Bezuelt: 80,00 €", self._sent_text(send))
-
-        send.reset_mock()
-        Club.objects.filter(pk=self.club.pk).update(communication_language="fr")
-        send_invoice_email(invoice.id)
-        self.assertIn("Montant payé : 80,00 €", self._sent_text(send))
-
-        send.reset_mock()
-        Club.objects.filter(pk=self.club.pk).update(communication_language="de")
-        send_invoice_email(invoice.id)
-        self.assertIn("Bezahlter Betrag: 80,00 €", self._sent_text(send))
+        expected = (
+            ("lb", "Bezuelt: 80,00 €", "Bezuelt", "Lizenz-ID"),
+            ("fr", "Montant payé : 80,00 €", "Montant payé", "N° de licence"),
+            ("de", "Bezahlter Betrag: 80,00 €", "Bezahlter Betrag", "Lizenz-ID"),
+        )
+        for language, email_line, pdf_label, column in expected:
+            Club.objects.filter(pk=self.club.pk).update(communication_language=language)
+            invoice.club.refresh_from_db()
+            send.reset_mock()
+            send_invoice_email(invoice.id)
+            self.assertIn(email_line, self._sent_text(send))
+            context = build_invoice_context(invoice)
+            self.assertEqual(context["settlement_label"], pdf_label)
+            html = render_to_string("finance/ltf_license_invoice_pdf.html", context)
+            self.assertIn(pdf_label, html)
+            self.assertIn(column, html)
+            self.assertIn(context["labels"]["total"], html)
