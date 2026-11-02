@@ -245,7 +245,11 @@ An der Kappzeil gëtt et ausserdeem [[Common.themeLabel]]: [[Common.themeLight]]
 
 ## Rollen: wie dierf wat? {#roles}
 
-Är Roll bestëmmt, wéi ee Menü Dir gesitt. All Login huet genee eng Roll.
+Är Roll bestëmmt, wéi ee Menü Dir gesitt. Een Login kann méi wéi ee Schreifdësch hunn, zum Beispill Club-Admin vum eegene Veräin an LTF-Admin. D'Kappzeil weist de Schreifdësch, deen op ass. Maacht d'Lëscht op a wielt en aneren. E Schreifdësch nëmme liesen kann d'Lëschte liesen a kann net späicheren, läschen oder importéieren. E Superuser mécht [[Common.openOpsConsole]] aus der Kappzeil op a kënnt iwwer déi selwecht Lëscht zréck.
+
+Personal-Schreifdëscher (LTF-Admin, LTF-Finanzen, Club-Admin an Ops) froen eng Authenticator-App. Déi éischt 14 Deeg freet en Hinweis, se anzeriichten. Duerno bleift de Schreifdësch zou, bis dat gemaach ass.
+
+De Sproochmenü bitt English, Français, Deutsch a Lëtzebuergesch. Englesch bleift d'Virastellung.
 
 | Rollen-Badge | Typesch Persoun | Haaptaarbecht |
 |---|---|---|
@@ -286,6 +290,8 @@ Verschidden Deeler vun der App schalt d'LTF pro Veräin als Moduler fräi:
 Och ouni Modul hutt Dir d'Säiten ënner [[Common.navGroupClub]]: Memberen, Lizenzen, Drécken an Transferten. Wann Iech e Modul feelt, frot d'LTF.
 
 D'LTF leet e Jorespräis fir d'Clubverwaltung an de Kalenner fest. Eng onbezuelt Rechnung schalt e Modul net aus. Club-Admins kënnen d'Schätzung am Veräinsprofil liesen. Kuckt [Käschte fir d'Veräiner](#club-fees) a [Profil](#profile-tab).
+
+E Pak bënnt mindestens zwee vun dëse Moduler zu engem Pauschalpräis. Ënner Scho un erschéngt e Pak nëmmen, wann dee Pak selwer kaf gouf. E Pak, deen nëmmen e Modul enthält, deen scho un ass, bleift an der Bestelllëscht a seet, datt dee Modul scho un ass. E kann net nach eng Kéier bestallt ginn.
 
 # Trainer {#coaches}
 
@@ -367,6 +373,8 @@ Trainer gesinn d'ëffentlech Evenementer vum Veräin an och déi mat [[calendarV
 ![De Memberemenü: uleeën oder importéieren](fig:members-menu)
 
 D'Kolonn [[sexLabel]] ass e klengt ♂ oder ♀, keen grousst Badge. E Klick op e Kolonnentitel sortéiert. [[membersMenuLabel]] an d'Zeilemenü ginn als kleng Panneaue op.
+
+D'Sich bleift op der Säit. Déi aner Filtere ginn iwwer Status, Benotzer a Persoun op. Status ass aktiv, inaktiv oder all. Benotzer ass kee Kont, waart, aktiv oder ausgeschalt. Op der LTF-Lëscht ass Persoun jiddereen, Veräinsmemberen oder LTF-Personal. Op der Veräinslëscht ass Persoun den Ekippefilter, wann d'Competitioun un ass. Filteren zrécksetzen bréngt de gewinnten Ufank. En Hoken bleift beim Sichen, Filtere oder Bliederen, bis Dir en ewechhuelt oder d'Aktioun fäerdeg maacht. D'Zuel zielt och Persounen, déi net op dëser Säit stinn. D'Zeile pro Säit kënnen 50, 150, 300 oder all sinn. Lizenzlëschten hunn eng Kolonn Oflaf. En Datum bannent 30 Deeg ass eng Warnung. En Datum, deen scho laanscht ass, ass gedämpt.
 
 Wann de Competitiounsmodul un ass, gehéiert [[teamsFilterNone]] bei d'Filter.
 
@@ -495,7 +503,7 @@ D'Bestellung an hir Rechnung erschéngen ënner [[navFinance]] › [[navOrders]]
 
 ## D'Lizenzlëscht {#licences}
 
-[[navLicenses]] weist all Lizenz vum Veräin mat hirem Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]]. Sicht no Member, Joer oder Status. Klickt op e Kolonnentitel, fir ze sortéieren. Op der eegener Lizenzlëscht vun der Federatioun stinn Änneren a Läschen am Zeilemenü, an de Formulaire geet an engem Säitepanneau op. Kuckt [Memberen, Lizenzen an Transferten](#ltf-licences).
+[[navLicenses]] weist all Lizenz vum Veräin mat hirem Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]]. Sicht no Member, Joer oder Status. Klickt op e Kolonnentitel, fir ze sortéieren. D'Kolonn Oflaf benotzt déi selwecht Datumen wéi de Rescht vun der App. En Datum bannent 30 Deeg ass eng Warnung. En Datum, deen scho laanscht ass, ass gedämpt. E Club-Admin kann e Login fir d'Membere vum eegene Veräin uleeën. Et gëtt keng E-Mail geschéckt. Ënner 16 gëtt et kee Login. D'Lëscht weist e Kont-Badge: keen, waart, aktiv oder aus. Op der eegener Lizenzlëscht vun der Federatioun stinn Änneren a Läschen am Zeilemenü, an de Formulaire geet an engem Säitepanneau op. Kuckt [Memberen, Lizenzen an Transferten](#ltf-licences).
 
 ![D'Lizenzlëscht](fig:licences)
 
@@ -753,7 +761,7 @@ Dat maacht Dir eng Kéier am Ufank vun der Saison. All Cours widderhëlt sech da
 {: .lead}
 
 1. Maacht [[trainingTimetable]] op.
-2. Gitt ënner [[trainingAddClass]] [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] an [[trainingEnds]] an, an och d'Saison [[subsidiesFrom]] / [[subsidiesTo]].
+2. Gitt ënner [[trainingAddClass]] [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] an [[trainingEnds]] an, an och d'Saison [[subsidiesFrom]] / [[subsidiesTo]]. Wielt d'Trainingsplaz aus de Veräinsastellungen. D'Plaz ass fakultativ. E Cours, deen éischter nëmmen e Plaznumm hat, behält dësen Numm.
 3. Loosst [[trainingSkipPublic]] an [[trainingSkipSchool]] ugekräizt, wann de Veräin da Paus mécht.
 4. Kräizt [[trainingCountsUnder16]] bei de Couren un, déi op d'Qualité+-Trainingslëscht gehéieren.
 5. Wielt d'[[trainingUsualCoaches]] an d'[[trainingRegulars]]. Déi gewéinlech Schüler si bei all Präsenz schonn ausgewielt.
