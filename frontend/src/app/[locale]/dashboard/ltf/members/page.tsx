@@ -13,7 +13,7 @@ import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MemberFilterBar } from "@/components/members/member-filter-bar";
+import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -476,13 +476,27 @@ export default function LtfAdminMembersPage() {
         <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
-              <Input
-                className="w-full max-w-xs"
-                placeholder={t("searchMembersPlaceholder")}
-                aria-label={t("searchMembersPlaceholder")}
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-              />
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <Input
+                  className="w-full max-w-xs"
+                  placeholder={t("searchMembersPlaceholder")}
+                  aria-label={t("searchMembersPlaceholder")}
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                />
+                {issue ? (
+                  <MemberIssueChip
+                    label={issue === "no_valid_license" ? common("issueChipNoLicense") : common("issueChipMissingId")}
+                    detail={
+                      issue === "no_valid_license"
+                        ? t("membersWithoutValidLicenseFilterMessage")
+                        : t("membersMissingLtfLicenseIdFilterMessage")
+                    }
+                    dismissLabel={common("filterLicensesClear")}
+                    onDismiss={dismissIssueFilter}
+                  />
+                ) : null}
+              </div>
             }
             pageSize={
               <PageSizeSelect
@@ -528,67 +542,49 @@ export default function LtfAdminMembersPage() {
                     ),
                   },
                   {
-                    id: "licenses",
-                    label: common("filterGroupLicenses"),
-                    count: issue ? 1 : 0,
+                    id: "user",
+                    label: common("filterGroupUser"),
+                    count: accountFilter === "all" ? 0 : 1,
                     pressedLabel: common("filterGroupCountLabel", {
-                      label: common("filterGroupLicenses"),
-                      count: issue ? 1 : 0,
+                      label: common("filterGroupUser"),
+                      count: accountFilter === "all" ? 0 : 1,
                     }),
-                    children: issue ? (
-                      <div className="space-y-2">
-                        <p className="text-sm text-[var(--foreground)]">
-                          {issue === "no_valid_license"
-                            ? t("membersWithoutValidLicenseFilterMessage")
-                            : t("membersMissingLtfLicenseIdFilterMessage")}
-                        </p>
-                        <button
-                          type="button"
-                          className="inline-flex h-[var(--control-height)] items-center text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
-                          onClick={dismissIssueFilter}
-                        >
-                          {common("filterLicensesClear")}
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-[var(--muted)]">{common("filterLicensesNone")}</p>
+                    children: (
+                      <FilterPills
+                        ariaLabel={t("accountFilterAria")}
+                        layout="wrap"
+                        value={accountFilter}
+                        onChange={setAccountFilter}
+                        options={[
+                          { value: "all", title: t("accountFilterAll") },
+                          { value: "none", title: t("accountFilterNone") },
+                          { value: "pending", title: t("accountFilterPending") },
+                          { value: "active", title: t("accountFilterActive") },
+                          { value: "disabled", title: t("accountFilterDisabled") },
+                        ]}
+                      />
                     ),
                   },
                   {
                     id: "person",
                     label: common("filterGroupPerson"),
-                    count: (roster === "all" ? 0 : 1) + (accountFilter === "all" ? 0 : 1),
+                    count: roster === "all" ? 0 : 1,
                     pressedLabel: common("filterGroupCountLabel", {
                       label: common("filterGroupPerson"),
-                      count: (roster === "all" ? 0 : 1) + (accountFilter === "all" ? 0 : 1),
+                      count: roster === "all" ? 0 : 1,
                     }),
                     children: (
-                      <div className="space-y-3">
-                        <FilterPills
-                          ariaLabel={t("staffFilterAriaLabel")}
-                          layout="wrap"
-                          value={roster}
-                          onChange={setRoster}
-                          options={[
-                            { value: "all", title: t("staffFilterAll") },
-                            { value: "club", title: t("staffFilterClub") },
-                            { value: "staff", title: t("staffFilterStaff") },
-                          ]}
-                        />
-                        <FilterPills
-                          ariaLabel={t("accountFilterAria")}
-                          layout="wrap"
-                          value={accountFilter}
-                          onChange={setAccountFilter}
-                          options={[
-                            { value: "all", title: t("accountFilterAll") },
-                            { value: "none", title: t("accountFilterNone") },
-                            { value: "pending", title: t("accountFilterPending") },
-                            { value: "active", title: t("accountFilterActive") },
-                            { value: "disabled", title: t("accountFilterDisabled") },
-                          ]}
-                        />
-                      </div>
+                      <FilterPills
+                        ariaLabel={t("staffFilterAriaLabel")}
+                        layout="wrap"
+                        value={roster}
+                        onChange={setRoster}
+                        options={[
+                          { value: "all", title: t("staffFilterAll") },
+                          { value: "club", title: t("staffFilterClub") },
+                          { value: "staff", title: t("staffFilterStaff") },
+                        ]}
+                      />
                     ),
                   },
                 ]}
