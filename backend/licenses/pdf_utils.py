@@ -36,10 +36,11 @@ except Exception:  # pragma: no cover - handled at runtime
     qrcode = None
 
 
-def license_product_label(name: str, year) -> str:
+def license_product_label(name: str, year, fallback: str = "License") -> str:
     """Annual Standard 2026 is printed as Annual St 2026. Standard is always St."""
-    label = re.sub(r"\bstandard\b", "St", (name or "License").strip(), flags=re.IGNORECASE)
-    label = re.sub(r"\s+", " ", label).strip() or "License"
+    word = fallback or "License"
+    label = re.sub(r"\bstandard\b", "St", (name or word).strip(), flags=re.IGNORECASE)
+    label = re.sub(r"\s+", " ", label).strip() or word
     year_text = str(year or "").strip()
     if year_text and year_text not in label.split():
         return f"{label} {year_text}"
@@ -307,7 +308,7 @@ def _club_item_rows(items) -> list[dict]:
     return rows
 
 
-def _license_rows(items) -> list[dict]:
+def _license_rows(items, *, license_fallback: str = "License") -> list[dict]:
     rows = []
     for item in items:
         license_row = item.license if item.license_id else None
@@ -323,7 +324,11 @@ def _license_rows(items) -> list[dict]:
         rows.append(
             {
                 "name": _member_name(member) or (item.description or ""),
-                "license": license_product_label(type_name or item.description or "License", year),
+                "license": license_product_label(
+                    type_name or item.description or license_fallback,
+                    year,
+                    fallback=license_fallback,
+                ),
                 "license_id": license_id,
                 "quantity": item.quantity,
                 "unit_price": euro_amount(item.price_snapshot),
@@ -426,6 +431,11 @@ def build_invoice_context(invoice: Invoice) -> dict:
 
     payconiq_qr = build_qr_base64(payconiq_url) if payconiq_url else ""
     sepa_qr = build_qr_base64(sepa_payload) if sepa_payload else ""
+    from clubs.document_copy import delivery_label as delivery_word
+    from clubs.document_copy import invoice_labels, license_word, resolve_document_language
+
+    doc_language = resolve_document_language(club=invoice.club)
+    labels = invoice_labels(doc_language)
     bill_to = None
     delivery_label = ""
     if invoice.member_id:
@@ -445,15 +455,11 @@ def build_invoice_context(invoice: Invoice) -> dict:
                 "email": invoice.member.email or "",
                 "address_lines": [],
             }
-        delivery_label = {
-            Invoice.DeliveryMethod.EMAIL: "Email",
-            Invoice.DeliveryMethod.POST: "Post",
-            Invoice.DeliveryMethod.HAND: "In person",
-        }.get(invoice.delivery_method, "")
+        delivery_label = delivery_word(doc_language, invoice.delivery_method)
     license_invoice = _is_ltf_license_invoice(invoice)
     module_invoice = not license_invoice and _is_module_purchase_invoice(invoice)
     club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice and not module_invoice
-    license_rows = _license_rows(items) if license_invoice else []
+    license_rows = _license_rows(items, license_fallback=license_word(doc_language)) if license_invoice else []
     module_rows = _module_rows(items) if module_invoice else []
     club_rows = _club_item_rows(items) if club_invoice else []
     order_delivered = order.status == Order.Status.PAID
@@ -533,6 +539,8 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "invoice_status_done": invoice_paid,
         "order_status_done": order_delivered,
         "pad_table": (len(license_rows) if license_invoice else len(club_rows)) <= 12,
+        "labels": labels,
+        "doc_lang": labels["doc_lang"],
         "footer_logos": {
             "world": _bundled_logo_uri("world-taekwondo.png"),
             "europe": _bundled_logo_uri("european-taekwondo.png"),
@@ -549,10 +557,18 @@ def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -
         return None
     from pypdf import PdfWriter
 
+    from clubs.document_copy import pack_labels, resolve_document_language
+
     pages = [build_invoice_context(invoice) for invoice in invoices]
+    club = invoices[0].club if invoices else None
     cover_html = render_to_string(
         "finance/billing_print_pack.html",
-        {"year": year, "pages": pages, "count": len(pages)},
+        {
+            "year": year,
+            "pages": pages,
+            "count": len(pages),
+            "labels": pack_labels(resolve_document_language(club=club), year=year, count=len(pages)),
+        },
     )
     writer = PdfWriter()
     writer.append(BytesIO(HTML(string=cover_html, base_url=base_url).write_pdf()))
@@ -568,7 +584,11 @@ def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -
 def render_statement_pdf(context: dict, *, base_url: str) -> bytes | None:
     if HTML is None:
         return None
-    html = render_to_string("finance/statement_pdf.html", context)
+    from clubs.document_copy import statement_labels
+
+    payload = dict(context)
+    payload.setdefault("labels", statement_labels("en"))
+    html = render_to_string("finance/statement_pdf.html", payload)
     return HTML(string=html, base_url=base_url).write_pdf()
 
 
