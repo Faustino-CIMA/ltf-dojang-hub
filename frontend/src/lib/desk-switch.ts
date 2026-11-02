@@ -9,6 +9,13 @@ export function pathIsDeskHome(pathname: string, desk: string, locale: string): 
   return path === root;
 }
 
+export function switchNeedsConfirm(pathname: string | null, desk: string | null, locale: string): boolean {
+  if (desk === "ops") {
+    return false;
+  }
+  return isLeavingDeepLink(pathname, desk, locale);
+}
+
 export function isLeavingDeepLink(pathname: string | null, desk: string | null, locale: string): boolean {
   if (!pathname || !desk) {
     return false;
