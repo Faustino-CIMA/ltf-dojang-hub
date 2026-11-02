@@ -249,11 +249,6 @@ export default function LtfAdminLicensesPage() {
   const headerCheck = visibleHeaderCheck(selectedIds, allFilteredIds);
   const otherPageCount = offPageSelectedCount(selectedIds, allFilteredIds);
 
-  useEffect(() => {
-    setSelectedIds([]);
-    lastSelectedLicenseIdRef.current = null;
-  }, [headerClubId, searchQuery, licenseStatusFilter]);
-
   const toggleSelectAll = () => {
     setSelectedIds((current) => togglePageSelection(current, allFilteredIds));
     lastSelectedLicenseIdRef.current = null;

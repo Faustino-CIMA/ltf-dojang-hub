@@ -22,7 +22,8 @@ import {
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  ActionNotices
+  ActionNotices,
+  SelectionMeta,
 } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
 import { displayPageSize, readListPage } from "@/lib/list-page";
@@ -50,7 +51,7 @@ import { displayClubName } from "@/lib/club-label";
 import { staffActionErrorMessage } from "@/lib/staff-action-error";
 import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
 import { formatFullName } from "@/lib/person-name";
-import { togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 function parseMemberIssue(value: string | null): MemberIssueFilter | null {
@@ -213,16 +214,13 @@ export default function LtfAdminMembersPage() {
   const canManageStaff = role === "ltf_admin";
   const visibleIds = useMemo(() => members.map((member) => member.id), [members]);
   const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
   const accountLabel = (state: AccountState | undefined) => {
     if (state === "pending") return t("accountBadgePending");
     if (state === "active") return t("accountBadgeActive");
     if (state === "disabled") return t("accountBadgeDisabled");
     return t("accountBadgeNone");
   };
-
-  useEffect(() => {
-    setSelectedIds([]);
-  }, [searchQuery, selectedClubId, memberStatusFilter, issue, roster, accountFilter]);
 
   const openPanel = useCallback(async (mode: StaffPanelMode, member: Member | null) => {
     setPanelMember(member);
@@ -614,6 +612,16 @@ export default function LtfAdminMembersPage() {
                     ]}
                   />
                 ) : null}
+                {canManageStaff ? (
+                  <SelectionMeta
+                    count={selectedIds.length}
+                    countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+                    offPageCount={otherPageCount}
+                    offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
+                    clearLabel={t("clearSelection")}
+                    onClear={() => setSelectedIds([])}
+                  />
+                ) : null}
                 <ActionMenu
                   label={t("membersMenuLabel")}
                   actions={[
@@ -662,6 +670,7 @@ export default function LtfAdminMembersPage() {
         intent={accountPanel?.intent ?? "create"}
         onClose={() => setAccountPanel(null)}
         onDone={() => {
+          setSelectedIds([]);
           void loadData();
         }}
       />

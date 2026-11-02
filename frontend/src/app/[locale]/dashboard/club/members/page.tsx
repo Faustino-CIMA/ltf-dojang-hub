@@ -428,11 +428,6 @@ export default function ClubAdminMembersPage() {
   }, [issue, searchParams, statusSwitchesStorageKey]);
 
   useEffect(() => {
-    setSelectedIds([]);
-    lastSelectedMemberIdRef.current = null;
-  }, [searchQuery, selectedClubId, memberStatusFilter, issue, teamFilter, accountFilter]);
-
-  useEffect(() => {
     if (!statusFilterHydrated || typeof window === "undefined") {
       return;
     }
@@ -450,18 +445,13 @@ export default function ClubAdminMembersPage() {
     const selectedOnPage = members.filter((member) => selectedIds.includes(member.id));
     const activeCount = selectedOnPage.filter((member) => member.is_active).length;
     const inactiveCount = selectedOnPage.filter((member) => !member.is_active).length;
-    const unknownCount = Math.max(0, selectedIds.length - selectedOnPage.length);
-    const unknownLikelyActive = memberStatusFilter === "active";
-    const unknownLikelyInactive = memberStatusFilter === "inactive";
-    const effectiveActive = activeCount + (unknownLikelyActive ? unknownCount : 0);
-    const effectiveInactive = inactiveCount + (unknownLikelyInactive ? unknownCount : 0);
-    const unknownMixed = unknownCount > 0 && memberStatusFilter === "all";
+    const hiddenCount = Math.max(0, selectedIds.length - selectedOnPage.length);
     return {
       total: selectedIds.length,
-      showActivate: effectiveInactive > 0 || unknownMixed,
-      showDeactivate: effectiveActive > 0 || unknownMixed,
+      showActivate: inactiveCount > 0 || hiddenCount > 0,
+      showDeactivate: activeCount > 0 || hiddenCount > 0,
     };
-  }, [memberStatusFilter, members, selectedIds]);
+  }, [members, selectedIds]);
 
   const toggleSelectAll = () => {
     if (!canManageMembers) {
@@ -722,6 +712,9 @@ export default function ClubAdminMembersPage() {
       }
       if (failed > 0) {
         setErrorMessage(t("bulkStatusPartialResult", { ok, failed }));
+      } else {
+        setSelectedIds([]);
+        lastSelectedMemberIdRef.current = null;
       }
       await loadData();
     } finally {
@@ -1212,6 +1205,8 @@ export default function ClubAdminMembersPage() {
         intent={accountPanel?.intent ?? "create"}
         onClose={() => setAccountPanel(null)}
         onDone={() => {
+          setSelectedIds([]);
+          lastSelectedMemberIdRef.current = null;
           void loadData();
         }}
       />

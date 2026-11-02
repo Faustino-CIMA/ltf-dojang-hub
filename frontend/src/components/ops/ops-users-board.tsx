@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { ActionNotices, ListToolbarPanel } from "@/components/ui/list-page-chrome";
+import { ActionNotices, ListToolbarPanel, SelectionMeta } from "@/components/ui/list-page-chrome";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -19,7 +19,7 @@ import {
   type BulkLinkType,
   type OpsUser,
 } from "@/lib/ops-api";
-import { pruneSelection, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 
 function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
@@ -59,19 +59,22 @@ export function OpsUsersBoard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [linkType, setLinkType] = useState<BulkLinkType | null>(null);
+  const [pendingIds, setPendingIds] = useState<number[]>([]);
   const [file, setFile] = useState<BulkLoginLinkFile | null>(null);
   const [busy, setBusy] = useState(false);
 
   const visibleIds = useMemo(() => users.map((user) => user.id), [users]);
-
-  useEffect(() => {
-    setSelectedIds((current) => pruneSelection(current, visibleIds));
-  }, [visibleIds]);
-
-  const chosen = users.filter((user) => selectedIds.includes(user.id));
+  const knownUsers = useRef(new Map<number, OpsUser>());
+  for (const user of users) {
+    knownUsers.current.set(user.id, user);
+  }
+  const chosen = (linkType ? pendingIds : selectedIds)
+    .map((id) => knownUsers.current.get(id))
+    .filter((user): user is OpsUser => Boolean(user));
   const createCount = chosen.filter((user) => user.is_active).length;
   const skipCount = chosen.length - createCount;
   const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
 
   const act = async (user: OpsUser, action: string) => {
     try {
@@ -93,11 +96,13 @@ export function OpsUsersBoard({
 
   const openLinks = (type: BulkLinkType) => {
     setFile(null);
+    setPendingIds(selectedIds);
     setLinkType(type);
   };
 
   const closeLinks = () => {
     setLinkType(null);
+    setPendingIds([]);
     setFile(null);
   };
 
@@ -112,11 +117,12 @@ export function OpsUsersBoard({
         file ??
         (await createBulkLoginLinks({
           link_type: linkType,
-          user_ids: selectedIds,
+          user_ids: pendingIds,
           locale,
         }));
       if (!file) {
         setFile(ready);
+        setSelectedIds([]);
         setSuccessMessage(t("bulkDownloaded", { count: ready.created_count }));
       }
       downloadFile(kind, ready);
@@ -159,6 +165,14 @@ export function OpsUsersBoard({
             <Button type="button" variant="outline" disabled={selectedIds.length === 0} onClick={() => openLinks("reset_password")}>
               {t("bulkResetPassword")}
             </Button>
+            <SelectionMeta
+              count={selectedIds.length}
+              countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+              offPageCount={otherPageCount}
+              offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
+              clearLabel={t("clearSelection")}
+              onClear={() => setSelectedIds([])}
+            />
           </div>
         }
       />

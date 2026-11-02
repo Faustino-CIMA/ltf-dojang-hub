@@ -62,9 +62,11 @@ describe("ops login link selection", () => {
     expect(screen.queryByRole("checkbox", { name: "hidden" })).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "ada" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "idle" })).toBeChecked();
+    expect(screen.getByText("selectedCountLabel:3")).toBeInTheDocument();
+    expect(screen.getByText("selectedOnOtherPagesLabel:1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "bulkFirstLogin" }));
-    expect(screen.getByRole("dialog", { name: "bulkConfirmFirstLogin:1" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "bulkConfirmFirstLogin:2" })).toBeInTheDocument();
     expect(screen.getByText("bulkSensitiveWarning")).toBeInTheDocument();
     expect(screen.getByText("bulkSkippedInactive:1")).toBeInTheDocument();
 
@@ -78,7 +80,7 @@ describe("ops login link selection", () => {
     await waitFor(() => expect(createBulkLoginLinks).toHaveBeenCalledTimes(1));
     expect(createBulkLoginLinks).toHaveBeenCalledWith({
       link_type: "first_login",
-      user_ids: [1, 2],
+      user_ids: [1, 2, 3],
       locale: "en",
     });
     expect(await screen.findByText("bulkDownloaded:1")).toBeInTheDocument();

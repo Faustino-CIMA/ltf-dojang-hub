@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
@@ -29,7 +29,7 @@ import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { sortRowsByKey, type TableSort } from "@/lib/table-sort";
-import { offPageSelectedCount, pruneSelection, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 
 export default function LtfAdminClubsPage() {
   const t = useTranslations("LtfAdmin");
@@ -133,14 +133,9 @@ export default function LtfAdminClubsPage() {
     return sortedClubs.slice(startIndex, startIndex + resolvedPageSize);
   }, [currentPage, sortedClubs, resolvedPageSize]);
 
-  const filteredIds = useMemo(() => searchedClubs.map((club) => club.id), [searchedClubs]);
   const visibleIds = useMemo(() => pagedClubs.map((club) => club.id), [pagedClubs]);
   const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
   const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
-
-  useEffect(() => {
-    setSelectedIds((current) => pruneSelection(current, filteredIds));
-  }, [filteredIds]);
 
   const toggleSelectAll = () => {
     setSelectedIds((current) => togglePageSelection(current, visibleIds));
@@ -169,11 +164,17 @@ export default function LtfAdminClubsPage() {
     }
   };
 
-  const selectedClubs = clubs.filter((club) => selectedIds.includes(club.id));
+  const knownClubs = useRef(new Map<number, Club>());
+  for (const club of clubs) {
+    knownClubs.current.set(club.id, club);
+  }
+  const selectedClubs = selectedIds
+    .map((id) => knownClubs.current.get(id))
+    .filter((club): club is Club => Boolean(club));
 
   const confirmBatchDelete = async () => {
     try {
-      await Promise.all(selectedClubs.map((club) => deleteClub(club.id)));
+      await Promise.all(selectedIds.map((id) => deleteClub(id)));
       setSelectedIds([]);
       await loadClubs();
     } catch (error) {

@@ -8,7 +8,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, SelectionMeta } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -25,6 +25,7 @@ import {
   type ParkedMember,
 } from "@/lib/parked-members";
 import { formatFullName } from "@/lib/person-name";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import type { TableSort } from "@/lib/table-sort";
 
 const LTF_STAFF = "__ltf_staff__";
@@ -52,7 +53,6 @@ export function ParkedMembersDesk() {
     const [listed, clubRows] = await Promise.all([listParkedMembers(reason), getClubs()]);
     setRows(listed.results);
     setClubs(clubRows);
-    setSelected((current) => current.filter((id) => listed.results.some((row) => row.id === id)));
   }, [reason]);
 
   useEffect(() => {
@@ -66,7 +66,8 @@ export function ParkedMembersDesk() {
   }, [load, t]);
 
   const visibleIds = rows.map((row) => row.id);
-  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
+  const headerCheck = visibleHeaderCheck(selected, visibleIds);
+  const otherPageCount = offPageSelectedCount(selected, visibleIds);
 
   const openRow = (row: ParkedMember) => {
     setOpen(row);
@@ -189,6 +190,14 @@ export function ParkedMembersDesk() {
         <Button type="button" variant="outline" disabled={busy || selected.length === 0} onClick={() => setConfirmDelete(true)}>
           {t("parkedBulkDelete")}
         </Button>
+        <SelectionMeta
+          count={selected.length}
+          countLabel={t("selectedCountLabel", { count: selected.length })}
+          offPageCount={otherPageCount}
+          offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
+          clearLabel={t("clearSelection")}
+          onClear={() => setSelected([])}
+        />
       </div>
       {rows.length === 0 ? (
         <p className="rounded-[var(--radius-form)] border border-border bg-card px-3 py-6 text-sm text-muted">{t("parkedEmpty")}</p>
@@ -204,8 +213,8 @@ export function ParkedMembersDesk() {
               key: "select",
               header: (
                 <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={(checked) => setSelected(checked === true ? visibleIds : [])}
+                  checked={headerCheck}
+                  onCheckedChange={() => setSelected((current) => togglePageSelection(current, visibleIds))}
                   aria-label={t("parkedSelectAll")}
                 />
               ),
@@ -339,7 +348,7 @@ export function ParkedMembersDesk() {
           </div>
         ) : null}
       </SidePanel>
-      <Modal title={t("parkedBulkDelete")} description={t("parkedBulkDeleteConfirm")} isOpen={confirmDelete} onClose={() => setConfirmDelete(false)}>
+      <Modal title={t("parkedBulkDelete")} description={t("parkedBulkDeleteConfirm", { count: selected.length })} isOpen={confirmDelete} onClose={() => setConfirmDelete(false)}>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)}>
             {common("deleteCancelButton")}
