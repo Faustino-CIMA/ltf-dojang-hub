@@ -4,14 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-### Added
-- **License validity:** A license type can last until 31 December of its year, or for a number of years and days. The expiry is stored on the license when it becomes active and is not moved if the type changes later. Reminder settings can be saved. No reminder is sent yet.
-
-### Changed
-- **Training timetable:** The class form picks a training venue from club settings instead of a free-text place. The place stays optional. A class saved earlier with its own place text still shows that text. Renaming a linked venue updates the class. Deleting the venue leaves the last name on the class.
-- **Extra classes:** Adding a one-off class, and the session page opened from the week, month, or year view, use the same venue picker. Older sessions have no place stored, so they keep showing without one until a venue is chosen. A new class generated from the timetable copies that class’s venue.
-
-## [0.13.0] - 2026-10-27
+## [0.13.0] - 2026-11-02
 
 ### Added
 - **First-run setup:** A superuser imports clubs, then members and LTF staff, then club admins, from CSV. Nothing is emailed during the import. A row with an empty club, an unknown club, or an unreadable membership end date can be parked and still confirmed. “No club yet” is a choice on a member row. The Member ID column maps to both license ids. Active or inactive follows the membership end year.
@@ -30,6 +23,18 @@ All notable changes to this project are documented in this file.
 - **Coach pay:** On Coach pay, a club admin sets each coach to an hourly rate or to one amount per held class. A held class counts in full for every coach on it. The period shows hours, units, training pay, tournament coaching, fuel, hotel, and the total. A tournament, fuel, or hotel row uses its date to pick the period. Leave the coaching fee empty to use the coach's rate. Enter a fee, including 0, when that day is not paid at the rate. Coaches still see hours and units. Only a club admin sees and edits the amounts. A new rate recalculates the open periods. Membership invoices already issued stay as they are.
 - **Calendar audiences:** A club date can stay inside the club. Private is that club’s admins only. Internal is that club’s admins and coaches, for a staff outing such as Europapark. Public stays with that club’s members and with LTF Admin. All clubs and the LTF puts the date on the LTF calendar and on every club calendar, with the kind and the club name, so another club can see a Kyorugi or Poomsae day. A Club presidents meeting is an LTF event. Tick the clubs. Only LTF Admins and the current president of each ticked club can see it. The president needs a login on their member record. The calendar does not block a second event on the same day.
 - **Calendar link:** The Calendar link shows how many events fall in the next two months. It also shows “new” until each of those events has been opened. A club admin can set a reminder on an event, including the day it should appear. On that day a reminder shows Snooze for a day and Got it. Snooze hides it until the next day. Got it does not show that reminder again.
+- **Desks:** One person can hold more than one desk and switch among them in the header. A full desk can change records. A view-only desk opens the same pages and cannot save. An office can grant a desk. The person who may approve a payment and the person who records it can be different.
+- **Two-step sign-in:** Staff desks ask for an authenticator app or a passkey. Setup shows a clear success across the window. Replacing an authenticator keeps the old one until a new code is accepted. Account security is a set of cards, one feature each.
+- **Module bundles:** LTF Finance keeps bundles on the Module fees tab. A club orders modules and bundles together on one invoice, printed on the federation letterhead. A daily job renews modules. LTF Admin can correct a purchase, and that change is kept in the audit. Ops can mint a product code for the competition module.
+- **Ops login links:** On the ops user list, a full ops desk can download first-login links and password-reset links as one file. Nothing is emailed. A new link replaces the older unused one. The file is not stored in the audit log.
+- **Member accounts:** A full club-admin desk can create a login for a member of that club. A full LTF-admin desk can do it for any member, including someone with no club. No email is sent. The person gets a first-login link. There is no login under 16. A missing date of birth is refused until one is saved. Inactive members are skipped. An email that already belongs to a member login is linked, after one confirm that shows that login. Both member lists and the member overview show an Account badge: no account, waiting for first login, active, or disabled.
+- **License expiry:** Club and LTF license lists have an Expires column. A date within 30 days, including today, is marked. A date already past is quiet, not a warning colour.
+- **Photos:** A photo of a member starts on the rear camera. You can switch when the device has more than one camera. A photo of yourself still starts on the front camera. The shop scan can switch too.
+- **Languages:** French and German are in the language menu, with English and Luxembourgish. Emails and PDFs stay in English and Luxembourgish for now.
+- **Committee:** An LTF admin can hand a federation office to any adult, including a member of another club or someone with no club.
+- **Club fee:** Finance can edit a club fee that already exists. Invoices already sent stay as they are.
+- **License validity:** A license type can last until 31 December of its year, or for a number of years and days. The expiry is stored on the license when it becomes active and is not moved if the type changes later. Reminder settings can be saved. No reminder is sent yet.
+- **Account merge:** A superuser who has passed the second factor can fold extra logins into the one account that should remain. Nothing is matched by name alone.
 
 ### Changed
 - **Name:** The application is called LTF Dojang Hub. The front page, sign-in, welcome back, and the club, federation, and member overviews describe the desk: members, licenses, training, billing, the shop, and the shared calendar.
@@ -39,10 +44,19 @@ All notable changes to this project are documented in this file.
 - **List menus:** Members and Actions on the club members list, Clubs and Actions on the LTF clubs list, and Licenses and Actions on the LTF licenses list open as popovers. Those labels use the normal field text color. The print-job, LTF clubs, and LTF licenses trash buttons match the outline trash button on the members list.
 - **Member import:** Import from the members list can update a matched person. An empty cell does not wipe a value already stored. This is separate from first-run setup.
 - **Club expenses:** The club expense list and form subtitles refer to the club ledger (`clubExpensesSubtitle`, `clubExpenseFormSubtitle`).
+- **Training timetable:** The class form picks a training venue from club settings instead of a free-text place. The place stays optional. A class saved earlier with its own place text still shows that text. Renaming a linked venue updates the class. Deleting the venue leaves the last name on the class.
+- **Extra classes:** Adding a one-off class, and the session page opened from the week, month, or year view, use the same venue picker. Older sessions have no place stored, so they keep showing without one until a venue is chosen. A new class generated from the timetable copies that class’s venue.
+- **English spelling:** English screens say license. French still says licence. German still says Lizenz. The German income statement is the Gewinn- und Verlustrechnung.
+- **Federation dashboard:** The extra “Open federation dashboard” button stays hidden when the desk switcher already opens that desk. It remains for a superuser who has no matching desk.
+- **Member lists:** A bulk action uses only the members you can see. The header tick is the current page. Ticks on other pages stay. A new search or filter drops ticks that are no longer on the list.
+- **Sign-in:** Two-step setup is a notice. The desk switcher is the only place to pick a desk.
 
 ### Fixed
 - **Invoice emails:** The amount in the email is the same total as on the PDF, including a license invoice that is mailed in the same step that records the payment.
 - **After card checkout:** Pay now opens card checkout. On the success page and the cancel page, the button returns to the desk you left: club, LTF, finance, or member.
+- **Authenticator setup:** A correct code is accepted. The old authenticator keeps working until the new one does.
+- **View-only desk:** Opening a page on a view-only desk loads that page. Saving is still refused, including when the person is also a superuser on that request.
+- **Module renewal:** The daily renewal job runs in Luxembourg time, and its migration can be applied when the app is deployed.
 
 ### Technical
 - `ClubFeeType.module_id` and module price rows (`pricing_type`, `minimum_amount`) are migration `licenses.0048_module_fees`. An active member is a member of the club with an active or pending license for the billing year (`licenses.module_fees.active_member_count`). A per-member invoice line stores that count and says when the minimum fee applied. `GET /api/clubs/{id}/module-fees/` is readable by that club's admin without any module switched on. Only LTF Finance can change the prices.
@@ -55,8 +69,9 @@ All notable changes to this project are documented in this file.
 - Card checkout stores a same-origin dashboard path before the redirect. The confirm response also returns `return_area` (`club`, `ltf`, `ltf-finance`, `member`, or `ops`). The button uses the stored path first.
 
 ### Documentation
-- The multilingual EN/DE/FR/LB set in `docs/user-manual/` replaces the previous manuals. That set describes the 0.12.0 edition. It is maintained separately from these 0.13.0 notes.
-- Public notes for this version, suitable to paste into a GitHub release later: `docs/releases/v0.13.0.md`.
+- The manuals in `docs/user-manual/` describe this edition. Later desks, languages, and member accounts are in the notes above.
+- Public notes for this version, suitable to paste into a GitHub release: `docs/releases/v0.13.0.md`.
+- Version **0.13.0** is set in `frontend/package.json`, `frontend/src/lib/app-version.ts` (sidebar and About), and `LTF_APP_VERSION` in `backend/config/settings.py`.
 
 ## [0.12.0] - 2026-10-02
 
