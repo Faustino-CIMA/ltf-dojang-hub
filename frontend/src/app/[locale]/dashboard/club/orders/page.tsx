@@ -5,13 +5,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
-import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
+import { ClubFinanceTabs, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { ActionNotices, PageSizeSelect } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -234,14 +235,18 @@ export default function ClubAdminOrdersPage() {
                 ariaLabel={common("rowsPerPageLabel")}
                 allLabel={common("rowsPerPageAll")}
               />
-              <div className="ml-auto shrink-0">
-                <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
-              </div>
             </div>
 
             <div className="min-w-0 border-t border-[var(--border)] pt-3">
+              <FinanceListFilters
+                statusActive={orderStatusFilter !== "all"}
+                onResetStatus={() => setOrderStatusFilter("all")}
+                ledger={ledgerFilter}
+                onLedgerChange={setLedgerFilter}
+                status={
               <FilterPills
                 ariaLabel={t("ordersStatusFilterAriaLabel")}
+                layout="wrap"
                 value={orderStatusFilter}
                 onChange={setOrderStatusFilter}
                 options={[
@@ -258,6 +263,8 @@ export default function ClubAdminOrdersPage() {
                     count: orderFacetCounts.cancelled,
                   },
                 ]}
+              />
+                }
               />
             </div>
           </div>

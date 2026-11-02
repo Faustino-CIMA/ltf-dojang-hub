@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { SummaryCard } from "@/components/club-admin/summary-card";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
@@ -301,8 +302,18 @@ export default function LtfFinanceOrdersPage() {
             />
           }
           filters={
+            <FinanceListFilters
+              statusActive={!pendingLicenseIssue && statusFilter !== "all"}
+              onResetStatus={() => {
+                setStatusFilter("all");
+                if (pendingLicenseIssue) {
+                  router.replace(`/${locale}/dashboard/ltf-finance/orders`);
+                }
+              }}
+              status={
             <FilterPills
               ariaLabel={t("ordersStatusFilterAriaLabel")}
+              layout="wrap"
               value={statusFilter}
               onChange={setStatusFilter}
               options={[
@@ -323,6 +334,8 @@ export default function LtfFinanceOrdersPage() {
                   count: orderFacetCounts.cancelled,
                 },
               ]}
+            />
+              }
             />
           }
         />

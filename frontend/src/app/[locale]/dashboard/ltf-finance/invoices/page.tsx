@@ -17,6 +17,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { SummaryCard } from "@/components/club-admin/summary-card";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
@@ -386,8 +387,18 @@ export default function LtfFinanceInvoicesPage() {
             />
           }
           filters={
+            <FinanceListFilters
+              statusActive={overdueIssue || statusFilter !== "all"}
+              onResetStatus={() => {
+                setStatusFilter("all");
+                if (overdueIssue) {
+                  router.replace(`/${locale}/dashboard/ltf-finance/invoices`);
+                }
+              }}
+              status={
             <FilterPills
               ariaLabel={t("invoicesStatusFilterAriaLabel")}
+              layout="wrap"
               value={overdueIssue ? "issued" : statusFilter}
               onChange={setStatusFilter}
               disabled={overdueIssue}
@@ -398,6 +409,8 @@ export default function LtfFinanceInvoicesPage() {
                 { value: "paid", title: common("statusPaid"), count: invoiceFacetCounts.paid },
                 { value: "void", title: common("statusVoid"), count: invoiceFacetCounts.void },
               ]}
+            />
+              }
             />
           }
         />

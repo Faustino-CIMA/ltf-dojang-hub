@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
@@ -322,8 +323,18 @@ export default function LtfFinancePaymentsPage() {
             />
           }
           filters={
+            <FinanceListFilters
+              statusActive={failedPaymentIssue || statusFilter !== "all"}
+              onResetStatus={() => {
+                setStatusFilter("all");
+                if (failedPaymentIssue) {
+                  router.replace(`/${locale}/dashboard/ltf-finance/payments`);
+                }
+              }}
+              status={
             <FilterPills
               ariaLabel={t("paymentsStatusFilterAriaLabel")}
+              layout="wrap"
               value={statusFilter}
               onChange={setStatusFilter}
               options={[
@@ -345,6 +356,8 @@ export default function LtfFinancePaymentsPage() {
                   count: paymentFacetCounts.cancelled,
                 },
               ]}
+            />
+              }
             />
           }
         />
