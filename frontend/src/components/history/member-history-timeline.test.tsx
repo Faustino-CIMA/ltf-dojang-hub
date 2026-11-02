@@ -186,7 +186,7 @@ describe("MemberHistoryTimeline", () => {
     );
 
     fireEvent.click(screen.getByLabelText("Add grade"));
-    fireEvent.click(screen.getByRole("combobox", { name: "New grade" }));
+    fireEvent.click(screen.getByRole("button", { name: "New grade" }));
     fireEvent.click(screen.getByRole("option", { name: "1st Dan" }));
     await act(async () => {
       fireEvent.click(screen.getByText("Save promotion"));
@@ -226,7 +226,7 @@ describe("MemberHistoryTimeline", () => {
     );
 
     fireEvent.click(screen.getByLabelText("Add grade"));
-    fireEvent.click(screen.getByRole("combobox", { name: "New grade" }));
+    fireEvent.click(screen.getByRole("button", { name: "New grade" }));
     expect(screen.queryByRole("option", { name: "DAN 1" })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "1st Dan" })).toBeInTheDocument();
   });

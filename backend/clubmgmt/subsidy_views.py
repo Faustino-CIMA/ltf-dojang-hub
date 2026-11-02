@@ -16,6 +16,7 @@ from members.models import Member
 
 from .models import CoachQualification, ExtraordinarySubsidy, MemberRecord, SubsidySeason, validate_luxembourg_ssn
 from .subsidies import (
+    _licensed_ids,
     build_dossier,
     fill_extraordinary_pdf,
     get_or_create_season,
@@ -399,15 +400,23 @@ def _optional_decimal(value):
 
 
 def _adult_official_ids(club, year: int, ids: list[int]) -> list[int]:
+    """Keep licensed adults. Anyone without a licence for the year is refused.
+
+    A licensed child is left out, as before, so a mixed list still saves the
+    adults. The stored ids are then the same ones the dossier shows.
+    """
     if not ids:
         return []
+    licensed = _licensed_ids(club.id, year)
+    if any(member_id not in licensed for member_id in ids):
+        raise ValidationError({"official_ids": "Officials must have a license for this year."})
     cutoff = date(year, 12, 31)
-    allowed = {
+    adults = {
         member.id
-        for member in Member.objects.filter(club=club, id__in=ids, is_active=True)
+        for member in Member.objects.filter(club=club, id__in=ids)
         if is_adult(member.date_of_birth, cutoff)
     }
-    return [member_id for member_id in ids if member_id in allowed]
+    return [member_id for member_id in ids if member_id in adults]
 
 
 def _id_list(value) -> list[int]:

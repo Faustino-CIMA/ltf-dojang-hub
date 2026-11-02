@@ -1535,6 +1535,7 @@ class OrderApiTests(TestCase):
         self.assertEqual(payment.provider, Payment.Provider.MANUAL)
         self.assertEqual(payment.method, Payment.Method.BANK_TRANSFER)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
     @patch("licenses.views.stripe.checkout.Session.create")
     def test_checkout_allows_member_without_consent(self, session_create_mock):
         member_user = User.objects.create_user(
@@ -2183,6 +2184,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(activated_count, 0)
         self.assertEqual(pending_license.status, License.Status.PENDING)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
     @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
     def test_reconcile_pending_stripe_orders_uses_payment_intent(self, payment_intent_mock):
         today = timezone.localdate()
@@ -2235,6 +2237,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(payment.provider, Payment.Provider.STRIPE)
         self.assertEqual(payment.method, Payment.Method.CARD)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
     @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
     def test_reconcile_pending_stripe_orders_reuses_payment_intent_lookup(
         self, payment_intent_mock
@@ -2294,6 +2297,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(processed_count, 2)
         self.assertEqual(payment_intent_mock.call_count, 1)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
     @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
     @patch("licenses.tasks.stripe.checkout.Session.retrieve")
     def test_reconcile_pending_stripe_orders_uses_checkout_session(
@@ -2395,6 +2399,7 @@ class ClubOrderCheckoutTests(TestCase):
             quantity=1,
         )
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
     @patch("licenses.views.stripe.checkout.Session.create")
     def test_club_checkout_requires_consent_confirmation(self, session_create_mock):
         session_create_mock.return_value = type(
@@ -2420,6 +2425,7 @@ class ClubOrderCheckoutTests(TestCase):
         self.assertNotIn("items", row)
         self.assertNotIn("stripe_payment_intent_id", row)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
     @patch("licenses.views.stripe.checkout.Session.create")
     def test_club_checkout_success_url_includes_session_id(self, session_create_mock):
         session_create_mock.return_value = type(

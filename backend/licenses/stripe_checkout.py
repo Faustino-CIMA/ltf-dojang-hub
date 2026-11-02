@@ -9,6 +9,7 @@ import stripe
 from accounts.models import User
 from .models import Invoice, Order
 from .services import apply_payment_and_activate
+from .stripe_ids import stripe_session_lookup
 
 
 def checkout_success_url() -> str:
@@ -139,7 +140,8 @@ def fulfill_checkout_session(session_id: str, *, actor: User) -> CheckoutFulfill
         raise ValueError("session_id is required.")
 
     session = None
-    order = _order_queryset().filter(stripe_checkout_session_id=session_id).first()
+    lookup = stripe_session_lookup(session_id)
+    order = _order_queryset().filter(stripe_session_lookup=lookup).first() if lookup else None
     if order is None:
         session = _retrieve_checkout_session(session_id)
         order_id = _metadata_order_id(_stripe_field(session, "metadata"))
