@@ -10,7 +10,10 @@ export function useConsumeSearchParam(key: string, onValue: (value: string) => v
   const pathname = usePathname();
   const value = searchParams.get(key);
   const onValueRef = useRef(onValue);
-  onValueRef.current = onValue;
+
+  useEffect(() => {
+    onValueRef.current = onValue;
+  }, [onValue]);
 
   useEffect(() => {
     if (!enabled || !value) {

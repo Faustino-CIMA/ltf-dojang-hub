@@ -58,10 +58,11 @@ export function CommitteeTermPanel({
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!panel) {
-      return;
-    }
-    setFormError(null);
+    const sync = () => {
+      if (!panel) {
+        return;
+      }
+      setFormError(null);
     if (panel.mode === "past") {
       setRole("president");
       setTitle("");
@@ -81,7 +82,9 @@ export function CommitteeTermPanel({
     );
     setStartedOn(panel.mode === "replace" ? todayIso() : mandate.started_on);
     setEndedOn(panel.mode === "end" ? todayIso() : mandate.ended_on ?? "");
-    setNotes(mandate.notes ?? "");
+      setNotes(mandate.notes ?? "");
+    };
+    sync();
   }, [members, panel]);
 
   if (!panel) {

@@ -18,20 +18,23 @@ export default function ClubPreviewPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (selectedClubId == null) {
-      setAllowed(false);
-      return;
-    }
-    getPreviewModule(selectedClubId)
-      .then(() => {
-        if (!cancelled) setAllowed(true);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAllowed(false);
-          router.replace(`/${locale}/dashboard/club`);
-        }
-      });
+    const sync = () => {
+      if (selectedClubId == null) {
+        setAllowed(false);
+        return;
+      }
+      getPreviewModule(selectedClubId)
+        .then(() => {
+          if (!cancelled) setAllowed(true);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAllowed(false);
+            router.replace(`/${locale}/dashboard/club`);
+          }
+        });
+    };
+    sync();
     return () => {
       cancelled = true;
     };

@@ -271,12 +271,13 @@ function Stat({ value, label, locale }: { value: number; label: string; locale: 
 function useCountUp(target: number) {
   const [shown, setShown] = useState(target);
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setShown(target);
-      return;
-    }
     let frame = 0;
+    const sync = () => {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduce) {
+        setShown(target);
+        return;
+      }
     const start = performance.now();
     const duration = 800;
     const tick = (now: number) => {
@@ -287,7 +288,9 @@ function useCountUp(target: number) {
         frame = requestAnimationFrame(tick);
       }
     };
-    frame = requestAnimationFrame(tick);
+      frame = requestAnimationFrame(tick);
+    };
+    sync();
     return () => cancelAnimationFrame(frame);
   }, [target]);
   return shown;

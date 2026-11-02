@@ -87,11 +87,12 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
 
   useEffect(() => {
     let cancelled = false;
-    if (variant === "club" && selectedClubId == null) {
-      setModuleOn(null);
-      return;
-    }
-    getModuleStatus()
+    const sync = () => {
+      if (variant === "club" && selectedClubId == null) {
+        setModuleOn(null);
+        return;
+      }
+      getModuleStatus()
       .then((status) => {
         if (cancelled) return;
         const enabled =
@@ -103,6 +104,8 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
       .catch(() => {
         if (!cancelled) setModuleOn(calendarModuleAvailable({ ok: false }));
       });
+    };
+    sync();
     return () => {
       cancelled = true;
     };
@@ -152,7 +155,10 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   }, [moduleOn, range.from, range.to, selectedClubId, t, variant]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load]);
 
   useEffect(() => {

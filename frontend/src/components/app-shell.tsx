@@ -195,8 +195,11 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   }, [allowAllClubs, visibleClubId, selectedClubId, setSelectedClubId]);
 
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
-    setCollapseReady(true);
+    const sync = () => {
+      setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+      setCollapseReady(true);
+    };
+    sync();
   }, []);
 
   useEffect(() => {
@@ -241,14 +244,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   }, []);
 
   useEffect(() => {
-    const raw = window.sessionStorage.getItem("ltf_recovery_remaining");
-    if (raw == null) {
-      return;
-    }
-    const count = Number(raw);
-    if (Number.isInteger(count) && count >= 0) {
-      setRecoveryLeft(count);
-    }
+    const sync = () => {
+      const raw = window.sessionStorage.getItem("ltf_recovery_remaining");
+      if (raw == null) {
+        return;
+      }
+      const count = Number(raw);
+      if (Number.isInteger(count) && count >= 0) {
+        setRecoveryLeft(count);
+      }
+    };
+    sync();
   }, []);
 
   useEffect(() => {
@@ -294,11 +300,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     !headerMatchesPath(activeHeader ?? readActiveDeskHeader(), needed);
 
   useEffect(() => {
-    if (suppressAsk.current) {
-      suppressAsk.current = false;
-      return;
-    }
-    setPendingDesk(askToSwitch ? neededGrant : null);
+    const sync = () => {
+      if (suppressAsk.current) {
+        suppressAsk.current = false;
+        return;
+      }
+      setPendingDesk(askToSwitch ? neededGrant : null);
+    };
+    sync();
   }, [askToSwitch, neededGrant]);
 
   useEffect(() => {

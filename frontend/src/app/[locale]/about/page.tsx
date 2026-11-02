@@ -24,27 +24,30 @@ export default function AboutPage() {
   const [dashboardHref, setDashboardHref] = useState(`/${locale}`);
 
   useEffect(() => {
-    if (!getToken()) {
-      setDashboardHref(`/${locale}`);
-      return;
-    }
     let cancelled = false;
-    const load = async () => {
-      try {
-        const me = await apiRequest<MeResponse>("/api/auth/me/");
-        const target = getDashboardRouteForRole(me.role, locale, {
-          isSuperuser: Boolean(me.is_superuser),
-        });
-        if (!cancelled) {
-          setDashboardHref(target ?? `/${locale}/dashboard`);
-        }
-      } catch {
-        if (!cancelled) {
-          setDashboardHref(`/${locale}`);
-        }
+    const sync = () => {
+      if (!getToken()) {
+        setDashboardHref(`/${locale}`);
+        return;
       }
+      const load = async () => {
+        try {
+          const me = await apiRequest<MeResponse>("/api/auth/me/");
+          const target = getDashboardRouteForRole(me.role, locale, {
+            isSuperuser: Boolean(me.is_superuser),
+          });
+          if (!cancelled) {
+            setDashboardHref(target ?? `/${locale}/dashboard`);
+          }
+        } catch {
+          if (!cancelled) {
+            setDashboardHref(`/${locale}`);
+          }
+        }
+      };
+      void load();
     };
-    void load();
+    sync();
     return () => {
       cancelled = true;
     };

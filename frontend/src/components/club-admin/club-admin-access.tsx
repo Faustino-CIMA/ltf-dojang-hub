@@ -242,10 +242,13 @@ export function ClubAdminAccessPanel({
   const [confirmChange, setConfirmChange] = useState<"email" | "copy" | null>(null);
 
   useEffect(() => {
-    setEmail(admin?.email ?? "");
-    setChosenLocale(locale);
-    setEmailError(null);
-    setConfirmChange(null);
+    const sync = () => {
+      setEmail(admin?.email ?? "");
+      setChosenLocale(locale);
+      setEmailError(null);
+      setConfirmChange(null);
+    };
+    sync();
   }, [admin?.id, admin?.email, locale]);
 
   if (!admin) {

@@ -38,7 +38,10 @@ export function IncomingTransferNotice() {
   const [dismissedIds, setDismissedIds] = useState<number[]>([]);
 
   useEffect(() => {
-    setDismissedIds(readDismissedIds());
+    const sync = () => {
+      setDismissedIds(readDismissedIds());
+    };
+    sync();
   }, []);
 
   useEffect(() => {

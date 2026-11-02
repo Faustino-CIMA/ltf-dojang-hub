@@ -27,7 +27,10 @@ export default function OpsJobsPage() {
   }, [t]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load]);
 
   const retry = async (id: number) => {

@@ -125,8 +125,11 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
     if (!lookupEnabled) return;
     const postal = value.postal_code.replace(/\D/g, "");
     const street = value.street.trim();
-    setStreetHouses([]);
-    setStreetHouseQuery("");
+    const clearHouses = () => {
+      setStreetHouses([]);
+      setStreetHouseQuery("");
+    };
+    clearHouses();
     if (postal.length !== postalDigits || street.length < 2) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {

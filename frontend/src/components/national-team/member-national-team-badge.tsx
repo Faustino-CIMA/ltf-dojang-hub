@@ -17,18 +17,21 @@ export function MemberNationalTeamBadge({
   const [data, setData] = useState<NationalTeamBadge | null>(preview ?? null);
 
   useEffect(() => {
-    if (preview !== undefined) {
-      setData(preview);
-      return;
-    }
     let cancelled = false;
-    getNationalTeamBadge(memberId)
-      .then((payload) => {
-        if (!cancelled) setData(payload);
-      })
-      .catch(() => {
-        if (!cancelled) setData(null);
-      });
+    const sync = () => {
+      if (preview !== undefined) {
+        setData(preview);
+        return;
+      }
+      getNationalTeamBadge(memberId)
+        .then((payload) => {
+          if (!cancelled) setData(payload);
+        })
+        .catch(() => {
+          if (!cancelled) setData(null);
+        });
+    };
+    sync();
     return () => {
       cancelled = true;
     };

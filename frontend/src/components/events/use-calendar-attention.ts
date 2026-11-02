@@ -48,7 +48,10 @@ export function useCalendarAttention(options: {
   }, [clubId, enabled, scope]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load, pathname]);
 
   useEffect(() => {
