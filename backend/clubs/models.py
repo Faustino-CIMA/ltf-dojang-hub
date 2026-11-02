@@ -128,6 +128,10 @@ class Club(models.Model):
         except ValidationError as exc:
             raise ValidationError({"website": exc.messages}) from exc
 
+    def save(self, *args, **kwargs):
+        self.communication_language = normalize_club_language(self.communication_language)
+        super().save(*args, **kwargs)
+
     @property
     def formatted_address(self) -> str:
         lines = []

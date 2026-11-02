@@ -1,8 +1,8 @@
-A club admin of {{ from_club }} requested to transfer {{ member_name }} to {{ to_club }}.
-{% if has_fee %}Proposed transfer fee: {{ fee_amount }} {{ fee_currency }}.
-{% else %}This is a free transfer.
-{% endif %}{% if note %}Note: {{ note }}
+{{ copy.body }}
+{% if has_fee %}{{ copy.fee }}
+{% else %}{{ copy.free }}
+{% endif %}{% if note %}{{ copy.note }}
 {% endif %}
-Review: {{ action_url }}
+{{ copy.action }} {{ action_url }}
 
 LTF Dojang Hub

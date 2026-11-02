@@ -212,6 +212,8 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en"
 LANGUAGES = [
     ("en", "English"),
+    ("fr", "French"),
+    ("de", "German"),
     ("lb", "Luxembourgish"),
 ]
 TIME_ZONE = "Europe/Luxembourg"

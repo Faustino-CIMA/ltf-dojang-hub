@@ -241,9 +241,13 @@ def publication_pdf(club, *, base_url: str, rows: list[dict] | None = None, scop
                 "marks": [_yes_no(row[field]) for field, _label in CHANNELS],
             }
         )
+    from clubs.document_copy import channel_label, consent_labels, resolve_document_language
+
+    doc_language = resolve_document_language(club=club)
     html = render_to_string(
         "finance/publication_consent_pdf.html",
         {
+            "labels": consent_labels(doc_language),
             "issuer": _club_issuer(club),
             "invoice_fonts": _invoice_sans_uris(),
             "footer_logos": {
@@ -251,7 +255,7 @@ def publication_pdf(club, *, base_url: str, rows: list[dict] | None = None, scop
                 "europe": _bundled_logo_uri("european-taekwondo.png"),
                 "ltf": _bundled_logo_uri("ltf-letterhead-logo.jpg"),
             },
-            "channels": [label for _field, label in CHANNELS],
+            "channels": [channel_label(doc_language, label) for _field, label in CHANNELS],
             "rows": prepared,
             "printed_on": _short_date(today),
             "count": len(prepared),

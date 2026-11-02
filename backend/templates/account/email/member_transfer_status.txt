@@ -1,5 +1,5 @@
-The transfer of {{ member_name }} from {{ from_club }} to {{ to_club }} was {{ kind }}.
+{{ copy.body }}
 
-Open: {{ action_url }}
+{{ copy.action }} {{ action_url }}
 
 LTF Dojang Hub
