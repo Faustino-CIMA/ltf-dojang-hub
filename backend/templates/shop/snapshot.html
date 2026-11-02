@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
-    <title>Stock snapshot</title>
+    <title>{{ labels.snapshot }}</title>
     <style>
       @page { size: A4; margin: 12mm; }
       html, body { margin: 0; padding: 0; font-family: "DejaVu Sans", Arial, sans-serif; color: #111827; }
@@ -19,7 +19,7 @@
     </style>
   </head>
   <body>
-    <h1>{{ club.name }} — stock snapshot</h1>
+    <h1>{{ club.name }} — {{ labels.snapshot_heading }}</h1>
     <p class="meta">
       Taken {{ snapshot.taken_at|date:"d.m.Y H:i" }}
       {% if snapshot.note %} · {{ snapshot.note }}{% endif %}
@@ -27,11 +27,11 @@
     <table>
       <thead>
         <tr>
-          <th>SKU</th>
-          <th>Item</th>
-          <th>Size</th>
-          <th class="num">Qty</th>
-          <th class="num">Price</th>
+          <th>{{ labels.sku }}</th>
+          <th>{{ labels.item }}</th>
+          <th>{{ labels.size }}</th>
+          <th class="num">{{ labels.quantity }}</th>
+          <th class="num">{{ labels.price }}</th>
           <th class="num">Value</th>
         </tr>
       </thead>

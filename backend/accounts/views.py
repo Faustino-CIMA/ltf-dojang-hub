@@ -281,7 +281,7 @@ class DataDeleteView(views.APIView):
     serializer_class = EmptySerializer
 
     def delete(self, request):
-        from clubmgmt.models import MemberAddress, PersonAddress
+        from .privacy import clear_private_addresses_for_user
 
         user_id = request.user.id
         members = list(Member.all_objects.filter(user=request.user))
@@ -293,12 +293,7 @@ class DataDeleteView(views.APIView):
                     proof_ref="",
                     metadata={"anonymized": True},
                 )
-                MemberAddress.objects.filter(member=member).delete()
-            if members:
-                # Person has no user column. The only link is the member this
-                # person was converted into. Guardian contacts of other people
-                # stay untouched.
-                PersonAddress.objects.filter(person__converted_member__in=members).delete()
+            clear_private_addresses_for_user(request.user)
             request.user.delete()
         return response.Response({"deleted_user_id": user_id}, status=status.HTTP_200_OK)
 

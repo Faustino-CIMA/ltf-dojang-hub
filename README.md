@@ -8,7 +8,7 @@ Day-to-day work happens on `develop`. `main` receives a release when that releas
 
 ## Release Notes
 
-The displayed version is **0.13.0** (2026-11-02): first-run setup, Luxembourg addresses, club teams and the national team desk, more than one desk with a second factor for staff, module bundles, member logins, and French and German in the app. Emails and PDFs stay in English and Luxembourgish. Notes for a GitHub release are in `docs/releases/v0.13.0.md`.
+The displayed version is **0.13.0** (2026-11-02): first-run setup, Luxembourg addresses, club teams and the national team desk, more than one desk with a second factor for staff, module bundles, member logins, and French and German in the app, in emails, and on PDFs. Notes for a GitHub release are in `docs/releases/v0.13.0.md`.
 
 - See `CHANGELOG.md` **0.13.0** for this version, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
 - The last published GitHub release tag is `v0.11.0` (2026-09-27). Version 0.12.0 was recorded on 2026-10-02 and was not tagged. Version 0.13.0 is recorded on `develop` (2026-11-02). Merging it to `main` and creating the tag are separate steps.
