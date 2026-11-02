@@ -1866,7 +1866,7 @@
     "accountStaffLoginSkip": "{count} passen zu einer Mitarbeiter-Anmeldung. Nutzen Sie die Kontenzusammenführung.",
     "accountLinkedElsewhereSkip": "{count} passen zu einer Anmeldung, die schon mit jemand anderem verknüpft ist. Nutzen Sie die Kontenzusammenführung.",
     "accountNothingToCreate": "Kein Konto anzulegen.",
-    "accountSensitiveWarning": "Diese Datei enthält aktive Links. Wer sie hat, kann diese Passwörter setzen, bis die Links ablaufen. Sie wird nicht per E-Mail gesendet. Löschen Sie sie, wenn Sie fertig sind.",
+    "accountFileWarning": "Diese Datei enthält die Links für die erste Anmeldung. Wer sie hat, kann einen Link nutzen, bis er abläuft. Löschen Sie die Datei, wenn Sie fertig sind.",
     "accountDownloadPdf": "PDF herunterladen",
     "accountCopyLink": "Link kopieren",
     "accountConfirm": "Bestätigen"
@@ -3016,7 +3016,7 @@
     "accountStaffLoginSkip": "{count} passen zu einer Mitarbeiter-Anmeldung. Nutzen Sie die Kontenzusammenführung.",
     "accountLinkedElsewhereSkip": "{count} passen zu einer Anmeldung, die schon mit jemand anderem verknüpft ist. Nutzen Sie die Kontenzusammenführung.",
     "accountNothingToCreate": "Kein Konto anzulegen.",
-    "accountSensitiveWarning": "Diese Datei enthält aktive Links. Wer sie hat, kann diese Passwörter setzen, bis die Links ablaufen. Sie wird nicht per E-Mail gesendet. Löschen Sie sie, wenn Sie fertig sind.",
+    "accountFileWarning": "Diese Datei enthält die Links für die erste Anmeldung. Wer sie hat, kann einen Link nutzen, bis er abläuft. Löschen Sie die Datei, wenn Sie fertig sind.",
     "accountDownloadPdf": "PDF herunterladen",
     "accountCopyLink": "Link kopieren",
     "accountConfirm": "Bestätigen"

@@ -2201,7 +2201,7 @@
     "accountStaffLoginSkip": "{count} match a staff login. Use the ops account merge.",
     "accountLinkedElsewhereSkip": "{count} match a login already linked to someone else. Use the ops account merge.",
     "accountNothingToCreate": "No account to create.",
-    "accountSensitiveWarning": "This file contains live links. Anyone who has the file can set these passwords until the links expire. It will not be emailed. Delete it when you are finished.",
+    "accountFileWarning": "This file holds the first-login links. Anyone who has it can use a link until it expires. Delete the file when you are finished.",
     "accountDownloadPdf": "Download PDF",
     "accountCopyLink": "Copy link",
     "accountConfirm": "Confirm"
@@ -3977,7 +3977,7 @@
     "accountStaffLoginSkip": "{count} match a staff login. Use the ops account merge.",
     "accountLinkedElsewhereSkip": "{count} match a login already linked to someone else. Use the ops account merge.",
     "accountNothingToCreate": "No account to create.",
-    "accountSensitiveWarning": "This file contains live links. Anyone who has the file can set these passwords until the links expire. It will not be emailed. Delete it when you are finished.",
+    "accountFileWarning": "This file holds the first-login links. Anyone who has it can use a link until it expires. Delete the file when you are finished.",
     "accountDownloadPdf": "Download PDF",
     "accountCopyLink": "Copy link",
     "accountConfirm": "Confirm"
