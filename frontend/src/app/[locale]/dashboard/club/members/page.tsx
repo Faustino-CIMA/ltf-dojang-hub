@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, X } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 
+import { MemberFilterBar } from "@/components/members/member-filter-bar";
+import { PageSizeSelect } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { MemberFormPanel } from "@/components/club-admin/member-form-panel";
@@ -23,13 +26,6 @@ import { Input } from "@/components/ui/input";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { apiRequest } from "@/lib/api";
@@ -49,6 +45,7 @@ import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { getClubTeams, type ClubTeam } from "@/lib/club-teams-api";
+import { displayPageSize, LIST_PAGE_SIZE_OPTIONS, readListPage } from "@/lib/list-page";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 type AuthMeResponse = { role: string };
@@ -85,10 +82,6 @@ function memberStatusFilterFromLegacySwitches(parsed: {
   }
   return "active";
 }
-
-/** Matches backend `API_PAGINATION_MAX_PAGE_SIZE` (see `backend/config/pagination.py`). */
-const MEMBERS_LIST_PAGE_SIZE_CAP = 200;
-const MEMBERS_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
 
 const ORDER_LICENSE_STORAGE_KEY = "club_members_order_license_payload";
 
@@ -130,7 +123,6 @@ export default function ClubAdminMembersPage() {
   const [accountFilter, setAccountFilter] = useState<"all" | AccountState>("all");
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [accountPanel, setAccountPanel] = useState<{ intent: "create" | "copy" | "link"; ids: number[] } | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [pageSizeHydrated, setPageSizeHydrated] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -151,19 +143,7 @@ export default function ClubAdminMembersPage() {
   const [bulkStatusBusy, setBulkStatusBusy] = useState(false);
   const issue = parseMemberIssue(searchParams.get("issue"), searchParams.get("filter"));
 
-  const pageSizeOptions = MEMBERS_PAGE_SIZE_OPTIONS;
-
-  const membersListPageSize = useMemo(() => {
-    if (pageSize === "all") {
-      const count = totalCount > 0 ? totalCount : MEMBERS_LIST_PAGE_SIZE_CAP;
-      return Math.min(count, MEMBERS_LIST_PAGE_SIZE_CAP);
-    }
-    const n = Number(pageSize);
-    if (!Number.isFinite(n) || n <= 0) {
-      return 50;
-    }
-    return Math.min(n, MEMBERS_LIST_PAGE_SIZE_CAP);
-  }, [pageSize, totalCount]);
+  const membersListPageSize = displayPageSize(pageSize, totalCount);
 
   const isActiveFilter = useMemo(() => {
     if (issue) {
@@ -177,6 +157,20 @@ export default function ClubAdminMembersPage() {
     }
     return false;
   }, [issue, memberStatusFilter]);
+
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      searchQuery,
+      selectedClubId ?? "",
+      pageSize,
+      String(isActiveFilter),
+      issue ?? "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+      teamFilter === "none" ? "none" : teamFilter.join(","),
+      accountFilter,
+    ].join("|"),
+  );
 
   const [memberFacetCounts, setMemberFacetCounts] = useState({
     all: 0,
@@ -193,18 +187,20 @@ export default function ClubAdminMembersPage() {
       const [clubsResponse, membersResponse, allCountRes, activeCountRes, inactiveCountRes] =
         await Promise.all([
           getClubs(),
-          getMembersPage({
-            page: currentPage,
-            pageSize: membersListPageSize,
-            q,
-            clubId,
-            isActive: isActiveFilter,
-            issue: issue ?? undefined,
-            ordering,
-            account: accountFilter === "all" ? undefined : accountFilter,
-            teamIds: teamFilter === "none" ? undefined : teamFilter,
-            teamNone: teamFilter === "none",
-          }),
+          readListPage(pageSize, currentPage, (page, size) =>
+            getMembersPage({
+              page,
+              pageSize: size,
+              q,
+              clubId,
+              isActive: isActiveFilter,
+              issue: issue ?? undefined,
+              ordering,
+              account: accountFilter === "all" ? undefined : accountFilter,
+              teamIds: teamFilter === "none" ? undefined : teamFilter,
+              teamNone: teamFilter === "none",
+            }),
+          ),
           getMembersPage({
             page: 1,
             pageSize: 1,
@@ -245,7 +241,7 @@ export default function ClubAdminMembersPage() {
     }
   }, [
     currentPage,
-    membersListPageSize,
+    pageSize,
     searchQuery,
     selectedClubId,
     setSelectedClubId,
@@ -354,10 +350,6 @@ export default function ClubAdminMembersPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / membersListPageSize));
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue, tableSort, teamFilter, accountFilter]);
-
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/club/members`);
   };
@@ -371,7 +363,7 @@ export default function ClubAdminMembersPage() {
     const storedPageSize = window.sessionStorage.getItem(pageSizeStorageKey);
     if (
       storedPageSize &&
-      (MEMBERS_PAGE_SIZE_OPTIONS as readonly string[]).includes(storedPageSize)
+      (LIST_PAGE_SIZE_OPTIONS as readonly string[]).includes(storedPageSize)
     ) {
       setPageSize(storedPageSize);
     }
@@ -806,8 +798,8 @@ export default function ClubAdminMembersPage() {
 
       <div className="space-y-3">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
-            <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
                   className="w-full max-w-xs"
@@ -817,84 +809,104 @@ export default function ClubAdminMembersPage() {
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
               </div>
-              {showTeams ? (
-                <TeamFilter teams={clubTeams} value={teamFilter} onChange={setTeamFilter} />
-              ) : null}
-              <div>
-                <Select value={pageSize} onValueChange={setPageSize}>
-                  <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
-                    <SelectValue placeholder={common("rowsPerPageLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option === "all" ? common("rowsPerPageAll") : option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
-              <FilterPills
-                ariaLabel={t("membersStatusFilterAriaLabel")}
-                disabled={!statusFilterHydrated || Boolean(issue)}
-                value={memberStatusFilter}
-                onChange={setMemberStatusFilter}
-                options={[
-                  {
-                    value: "all",
-                    title: t("filterAllTitle"),
-                    count: memberFacetCounts.all,
-                  },
-                  {
-                    value: "active",
-                    title: t("filterActiveTitle"),
-                    count: memberFacetCounts.active,
-                  },
-                  {
-                    value: "inactive",
-                    title: t("filterInactiveTitle"),
-                    count: memberFacetCounts.inactive,
-                  },
-                ]}
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
               />
-              <div className="mt-2">
-              <FilterPills
-                ariaLabel={t("accountFilterAria")}
-                layout="wrap"
-                value={accountFilter}
-                onChange={setAccountFilter}
-                options={[
-                  { value: "all", title: t("accountFilterAll") },
-                  { value: "none", title: t("accountFilterNone") },
-                  { value: "pending", title: t("accountFilterPending") },
-                  { value: "active", title: t("accountFilterActive") },
-                  { value: "disabled", title: t("accountFilterDisabled") },
-                ]}
-              />
-              </div>
             </div>
+            <MemberFilterBar
+              resetLabel={common("resetFilters")}
+              onReset={() => {
+                setMemberStatusFilter("active");
+                setAccountFilter("all");
+                setTeamFilter([]);
+                if (issue) {
+                  dismissIssueFilter();
+                }
+              }}
+              groups={[
+                {
+                  id: "status",
+                  label: common("filterGroupStatus"),
+                  count: memberStatusFilter === "all" ? 0 : 1,
+                  pressedLabel: common("filterGroupCountLabel", {
+                    label: common("filterGroupStatus"),
+                    count: memberStatusFilter === "all" ? 0 : 1,
+                  }),
+                  children: (
+                    <FilterPills
+                      ariaLabel={t("membersStatusFilterAriaLabel")}
+                      layout="wrap"
+                      disabled={!statusFilterHydrated || Boolean(issue)}
+                      value={memberStatusFilter}
+                      onChange={setMemberStatusFilter}
+                      options={[
+                        { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
+                        { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
+                        { value: "inactive", title: t("filterInactiveTitle"), count: memberFacetCounts.inactive },
+                      ]}
+                    />
+                  ),
+                },
+                {
+                  id: "licenses",
+                  label: common("filterGroupLicenses"),
+                  count: issue ? 1 : 0,
+                  pressedLabel: common("filterGroupCountLabel", {
+                    label: common("filterGroupLicenses"),
+                    count: issue ? 1 : 0,
+                  }),
+                  children: issue ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-[var(--foreground)]">
+                        {issue === "missing_ltf_licenseid"
+                          ? t("membersMissingLtfLicenseIdFilterMessage")
+                          : t("membersWithoutValidLicenseFilterMessage")}
+                      </p>
+                      <button
+                        type="button"
+                        className="inline-flex h-[var(--control-height)] items-center text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
+                        onClick={dismissIssueFilter}
+                      >
+                        {common("filterLicensesClear")}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[var(--muted)]">{common("filterLicensesNone")}</p>
+                  ),
+                },
+                {
+                  id: "person",
+                  label: common("filterGroupPerson"),
+                  count: (accountFilter === "all" ? 0 : 1) + (showTeams && teamFilter !== "none" && teamFilter.length > 0 ? 1 : 0) + (showTeams && teamFilter === "none" ? 1 : 0),
+                  pressedLabel: common("filterGroupCountLabel", {
+                    label: common("filterGroupPerson"),
+                    count: (accountFilter === "all" ? 0 : 1) + (showTeams && (teamFilter === "none" || teamFilter.length > 0) ? 1 : 0),
+                  }),
+                  children: (
+                    <div className="space-y-3">
+                      <FilterPills
+                        ariaLabel={t("accountFilterAria")}
+                        layout="wrap"
+                        value={accountFilter}
+                        onChange={setAccountFilter}
+                        options={[
+                          { value: "all", title: t("accountFilterAll") },
+                          { value: "none", title: t("accountFilterNone") },
+                          { value: "pending", title: t("accountFilterPending") },
+                          { value: "active", title: t("accountFilterActive") },
+                          { value: "disabled", title: t("accountFilterDisabled") },
+                        ]}
+                      />
+                      {showTeams ? <TeamFilter teams={clubTeams} value={teamFilter} onChange={setTeamFilter} /> : null}
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
-
-          {issue ? (
-            <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
-              <p className="min-w-0 flex-1">
-                {issue === "missing_ltf_licenseid"
-                  ? t("membersMissingLtfLicenseIdFilterMessage")
-                  : t("membersWithoutValidLicenseFilterMessage")}
-              </p>
-              <button
-                type="button"
-                className="inline-flex h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-form)]"
-                aria-label={common("modalClose")}
-                onClick={dismissIssueFilter}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             {canManageMembers ? (

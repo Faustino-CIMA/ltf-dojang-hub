@@ -20,15 +20,15 @@ import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageNotice,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices,
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
@@ -53,7 +53,6 @@ export default function LtfFinanceInvoicesPage() {
   const [invoices, setInvoices] = useState<FinanceInvoice[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatusFilter>("all");
   const [totalInvoiceCount, setTotalInvoiceCount] = useState(0);
@@ -74,6 +73,17 @@ export default function LtfFinanceInvoicesPage() {
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
   const { selectedClubId } = useClubSelection();
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      selectedClubId ?? "",
+      searchQuery,
+      pageSize,
+      statusFilter,
+      overdueIssue ? "issue" : "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+    ].join("|"),
+  );
 
   const loadInvoices = useCallback(
     async (options?: { silent?: boolean; includeStatic?: boolean }) => {
@@ -94,17 +104,19 @@ export default function LtfFinanceInvoicesPage() {
           q: searchQuery || undefined,
           clubId: selectedClubId ?? undefined,
         };
-        const invoicesPromise = getFinanceInvoicesPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: searchQuery || undefined,
-            status: overdueIssue ? "issued" : statusFilter === "all" ? undefined : statusFilter,
-            clubId: selectedClubId ?? undefined,
-            issue: overdueIssue ? "overdue_7d" : undefined,
-            ordering,
-          },
-          { signal: controller.signal }
+        const invoicesPromise = readListPage(pageSize, currentPage, (page, size) =>
+          getFinanceInvoicesPage(
+            {
+              page,
+              pageSize: size,
+              q: searchQuery || undefined,
+              status: overdueIssue ? "issued" : statusFilter === "all" ? undefined : statusFilter,
+              clubId: selectedClubId ?? undefined,
+              issue: overdueIssue ? "overdue_7d" : undefined,
+              ordering,
+            },
+            { signal: controller.signal },
+          ),
         );
         if (includeStatic) {
           const [
@@ -177,10 +189,6 @@ export default function LtfFinanceInvoicesPage() {
   }, [loadInvoices]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedClubId, searchQuery, pageSize, statusFilter, overdueIssue, tableSort]);
-
-  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
     }, 250);
@@ -214,14 +222,14 @@ export default function LtfFinanceInvoicesPage() {
     };
   }, [loadInvoices]);
 
-  const resolvedPageSize = resolveListPageSize(pageSize, totalInvoiceCount);
+  const resolvedPageSize = displayPageSize(pageSize, totalInvoiceCount);
   const totalPages = Math.max(1, Math.ceil(totalInvoiceCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const getInvoiceStatusMeta = (status: string) => {
     switch (status) {

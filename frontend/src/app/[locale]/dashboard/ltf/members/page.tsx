@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { X } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -14,6 +13,7 @@ import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MemberFilterBar } from "@/components/members/member-filter-bar";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -22,9 +22,10 @@ import {
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -91,7 +92,6 @@ export default function LtfAdminMembersPage() {
   const [panelMember, setPanelMember] = useState<Member | null>(null);
   const [panelBusy, setPanelBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -105,10 +105,7 @@ export default function LtfAdminMembersPage() {
   });
   const { selectedClubId } = useClubSelection();
 
-  const membersListPageSize = useMemo(
-    () => resolveListPageSize(pageSize, totalCount),
-    [pageSize, totalCount]
-  );
+  const membersListPageSize = displayPageSize(pageSize, totalCount);
 
   const isActiveFilter = useMemo(() => {
     if (memberStatusFilter === "all") {
@@ -116,6 +113,20 @@ export default function LtfAdminMembersPage() {
     }
     return memberStatusFilter === "active";
   }, [memberStatusFilter]);
+
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      selectedClubId ?? "",
+      pageSize,
+      searchQuery,
+      String(isActiveFilter),
+      issue ?? "",
+      roster,
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+      accountFilter,
+    ].join("|"),
+  );
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -126,17 +137,19 @@ export default function LtfAdminMembersPage() {
       const [clubsResponse, membersResponse, allCountRes, activeCountRes, inactiveCountRes, me] =
         await Promise.all([
           getClubs(),
-          getMembersPage({
-            page: currentPage,
-            pageSize: membersListPageSize,
-            q,
-            clubId,
-            isActive: isActiveFilter,
-            issue: issue ?? undefined,
-            roster,
-            ordering,
-            account: accountFilter === "all" ? undefined : accountFilter,
-          }),
+          readListPage(pageSize, currentPage, (page, size) =>
+            getMembersPage({
+              page,
+              pageSize: size,
+              q,
+              clubId,
+              isActive: isActiveFilter,
+              issue: issue ?? undefined,
+              roster,
+              ordering,
+              account: accountFilter === "all" ? undefined : accountFilter,
+            }),
+          ),
           getMembersPage({
             page: 1,
             pageSize: 1,
@@ -181,15 +194,11 @@ export default function LtfAdminMembersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountFilter, currentPage, isActiveFilter, issue, membersListPageSize, ordering, roster, searchQuery, selectedClubId]);
+  }, [accountFilter, currentPage, isActiveFilter, issue, ordering, pageSize, roster, searchQuery, selectedClubId]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedClubId, pageSize, searchQuery, isActiveFilter, issue, roster, tableSort, accountFilter]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -464,24 +473,6 @@ export default function LtfAdminMembersPage() {
       />
 
       <div className="space-y-3">
-        {issue ? (
-          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
-            <p className="min-w-0 flex-1">
-              {issue === "no_valid_license"
-                ? t("membersWithoutValidLicenseFilterMessage")
-                : t("membersMissingLtfLicenseIdFilterMessage")}
-            </p>
-            <button
-              type="button"
-              className="inline-flex h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-form)]"
-              aria-label={common("modalClose")}
-              onClick={dismissIssueFilter}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
         <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
@@ -502,47 +493,106 @@ export default function LtfAdminMembersPage() {
               />
             }
             filters={
-              issue ? undefined : (
-                <div className="flex flex-col gap-2">
-                  <FilterPills
-                    ariaLabel={t("staffFilterAriaLabel")}
-                    value={roster}
-                    onChange={setRoster}
-                    options={[
-                      { value: "all", title: t("staffFilterAll") },
-                      { value: "club", title: t("staffFilterClub") },
-                      { value: "staff", title: t("staffFilterStaff") },
-                    ]}
-                  />
-                  <FilterPills
-                    ariaLabel={t("accountFilterAria")}
-                    layout="wrap"
-                    value={accountFilter}
-                    onChange={setAccountFilter}
-                    options={[
-                      { value: "all", title: t("accountFilterAll") },
-                      { value: "none", title: t("accountFilterNone") },
-                      { value: "pending", title: t("accountFilterPending") },
-                      { value: "active", title: t("accountFilterActive") },
-                      { value: "disabled", title: t("accountFilterDisabled") },
-                    ]}
-                  />
-                  <FilterPills
-                    ariaLabel={t("membersStatusFilterAriaLabel")}
-                    value={memberStatusFilter}
-                    onChange={setMemberStatusFilter}
-                    options={[
-                      { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
-                      { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
-                      {
-                        value: "inactive",
-                        title: t("filterInactiveTitle"),
-                        count: memberFacetCounts.inactive,
-                      },
-                    ]}
-                  />
-                </div>
-              )
+              <MemberFilterBar
+                resetLabel={common("resetFilters")}
+                onReset={() => {
+                  setMemberStatusFilter("all");
+                  setRoster("all");
+                  setAccountFilter("all");
+                  if (issue) {
+                    dismissIssueFilter();
+                  }
+                }}
+                groups={[
+                  {
+                    id: "status",
+                    label: common("filterGroupStatus"),
+                    count: memberStatusFilter === "all" ? 0 : 1,
+                    pressedLabel: common("filterGroupCountLabel", {
+                      label: common("filterGroupStatus"),
+                      count: memberStatusFilter === "all" ? 0 : 1,
+                    }),
+                    children: (
+                      <FilterPills
+                        ariaLabel={t("membersStatusFilterAriaLabel")}
+                        layout="wrap"
+                        disabled={Boolean(issue)}
+                        value={memberStatusFilter}
+                        onChange={setMemberStatusFilter}
+                        options={[
+                          { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
+                          { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
+                          { value: "inactive", title: t("filterInactiveTitle"), count: memberFacetCounts.inactive },
+                        ]}
+                      />
+                    ),
+                  },
+                  {
+                    id: "licenses",
+                    label: common("filterGroupLicenses"),
+                    count: issue ? 1 : 0,
+                    pressedLabel: common("filterGroupCountLabel", {
+                      label: common("filterGroupLicenses"),
+                      count: issue ? 1 : 0,
+                    }),
+                    children: issue ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-[var(--foreground)]">
+                          {issue === "no_valid_license"
+                            ? t("membersWithoutValidLicenseFilterMessage")
+                            : t("membersMissingLtfLicenseIdFilterMessage")}
+                        </p>
+                        <button
+                          type="button"
+                          className="inline-flex h-[var(--control-height)] items-center text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
+                          onClick={dismissIssueFilter}
+                        >
+                          {common("filterLicensesClear")}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-[var(--muted)]">{common("filterLicensesNone")}</p>
+                    ),
+                  },
+                  {
+                    id: "person",
+                    label: common("filterGroupPerson"),
+                    count: (roster === "all" ? 0 : 1) + (accountFilter === "all" ? 0 : 1),
+                    pressedLabel: common("filterGroupCountLabel", {
+                      label: common("filterGroupPerson"),
+                      count: (roster === "all" ? 0 : 1) + (accountFilter === "all" ? 0 : 1),
+                    }),
+                    children: (
+                      <div className="space-y-3">
+                        <FilterPills
+                          ariaLabel={t("staffFilterAriaLabel")}
+                          layout="wrap"
+                          value={roster}
+                          onChange={setRoster}
+                          options={[
+                            { value: "all", title: t("staffFilterAll") },
+                            { value: "club", title: t("staffFilterClub") },
+                            { value: "staff", title: t("staffFilterStaff") },
+                          ]}
+                        />
+                        <FilterPills
+                          ariaLabel={t("accountFilterAria")}
+                          layout="wrap"
+                          value={accountFilter}
+                          onChange={setAccountFilter}
+                          options={[
+                            { value: "all", title: t("accountFilterAll") },
+                            { value: "none", title: t("accountFilterNone") },
+                            { value: "pending", title: t("accountFilterPending") },
+                            { value: "active", title: t("accountFilterActive") },
+                            { value: "disabled", title: t("accountFilterDisabled") },
+                          ]}
+                        />
+                      </div>
+                    ),
+                  },
+                ]}
+              />
             }
           />
 

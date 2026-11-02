@@ -50,6 +50,9 @@ export function lockViewOnlyTree(root: HTMLElement, label: string) {
     field.setAttribute("contenteditable", "false");
   });
   root.querySelectorAll<HTMLElement>("[role='switch'], [role='combobox'], [data-slot='checkbox']").forEach((field) => {
+    if (field.getAttribute("data-browse") === "true") {
+      return;
+    }
     if (field instanceof HTMLButtonElement) {
       field.disabled = true;
     }

@@ -32,9 +32,10 @@ import {
   ListToolbarPanel,
   PageSizeSelect,
   SelectionMeta,
-  resolveListPageSize,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
 import {
@@ -92,7 +93,6 @@ export default function LtfAdminLicensesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [licenseStatusFilter, setLicenseStatusFilter] = useState<LicenseStatusFilter>("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -109,11 +109,11 @@ export default function LtfAdminLicensesPage() {
   const rowSelectModifierRef = useRef({ shiftKey: false });
   const { selectedClubId: headerClubId } = useClubSelection();
 
-  const licensesListPageSize = useMemo(
-    () => resolveListPageSize(pageSize, totalCount),
-    [pageSize, totalCount]
-  );
+  const licensesListPageSize = displayPageSize(pageSize, totalCount);
   const statusFilterParam = licenseStatusFilter === "all" ? undefined : licenseStatusFilter;
+  const [currentPage, setCurrentPage] = useListPage(
+    [headerClubId ?? "", searchQuery, pageSize, statusFilterParam ?? "", tableSort?.key ?? "", tableSort?.direction ?? ""].join("|"),
+  );
 
   const {
     handleSubmit,
@@ -149,14 +149,16 @@ export default function LtfAdminLicensesPage() {
         expiredCountRes,
       ] = await Promise.all([
         getClubs(),
-        getLicensesPage({
-          page: currentPage,
-          pageSize: licensesListPageSize,
-          q,
-          clubId,
-          status: statusFilterParam,
-          ordering,
-        }),
+        readListPage(pageSize, currentPage, (page, size) =>
+          getLicensesPage({
+            page,
+            pageSize: size,
+            q,
+            clubId,
+            status: statusFilterParam,
+            ordering,
+          }),
+        ),
         getLicenseTypes(),
         getLicensesPage({ page: 1, pageSize: 1, q, clubId }),
         getLicensesPage({ page: 1, pageSize: 1, q, clubId, status: "active" }),
@@ -193,15 +195,11 @@ export default function LtfAdminLicensesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, headerClubId, licensesListPageSize, ordering, searchQuery, setValue, statusFilterParam, watch]);
+  }, [currentPage, headerClubId, ordering, pageSize, searchQuery, setValue, statusFilterParam, watch]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [headerClubId, searchQuery, pageSize, statusFilterParam, tableSort]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

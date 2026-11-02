@@ -5,7 +5,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import { DeskAccessContext } from "@/components/desk-access";
 import { Input } from "@/components/ui/input";
-import { ViewOnlyScope } from "@/components/view-only-scope";
+import { lockViewOnlyTree, ViewOnlyScope } from "@/components/view-only-scope";
 
 function dashboardRoutes(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -75,6 +75,16 @@ describe("view-only desks", () => {
     );
     expect(editable).toHaveLength(0);
     unmount();
+  });
+
+  it("leaves the rows-per-page combobox usable", () => {
+    const root = document.createElement("div");
+    root.innerHTML =
+      '<button type="button" role="combobox" data-browse="true">Rows per page</button><button type="button" role="combobox">Club</button>';
+    lockViewOnlyTree(root, "View only on this desk");
+    const [rows, club] = root.querySelectorAll("button");
+    expect(rows.disabled).toBe(false);
+    expect(club.disabled).toBe(true);
   });
 
   it("still lets a full desk edit", () => {

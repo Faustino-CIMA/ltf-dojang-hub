@@ -14,14 +14,14 @@ import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices,
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getClubExpensesPage } from "@/lib/club-finance-api";
 import { formatDisplayDate } from "@/lib/date-display";
@@ -40,9 +40,11 @@ export default function ClubExpensesPage() {
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<ExpenseStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useListPage(
+    [searchQuery, pageSize, statusFilter, selectedClubId ?? ""].join("|"),
+  );
   const [totalCount, setTotalCount] = useState(0);
   const [facetCounts, setFacetCounts] = useState({ all: 0, recorded: 0, paid: 0, void: 0 });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -71,12 +73,17 @@ export default function ClubExpensesPage() {
     const query = { q: searchQuery || undefined, clubId };
     try {
       const [pageResponse, allRes, recordedRes, paidRes, voidRes] = await Promise.all([
-        getClubExpensesPage({
-          page: currentPage,
-          pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-          status: statusFilter === "all" ? undefined : statusFilter,
-          ...query,
-        }, { signal: controller.signal }),
+        readListPage(pageSize, currentPage, (page, size) =>
+          getClubExpensesPage(
+            {
+              page,
+              pageSize: size,
+              status: statusFilter === "all" ? undefined : statusFilter,
+              ...query,
+            },
+            { signal: controller.signal },
+          ),
+        ),
         getClubExpensesPage({ page: 1, pageSize: 1, ...query }, { signal: controller.signal }),
         getClubExpensesPage({ page: 1, pageSize: 1, ...query, status: "recorded" }, { signal: controller.signal }),
         getClubExpensesPage({ page: 1, pageSize: 1, ...query, status: "paid" }, { signal: controller.signal }),
@@ -96,8 +103,7 @@ export default function ClubExpensesPage() {
 
   useEffect(() => { void loadExpenses(); }, [loadExpenses]);
   useEffect(() => () => requestAbortRef.current?.abort(), []);
-  useEffect(() => setCurrentPage(1), [searchQuery, pageSize, statusFilter, selectedClubId]);
-  const totalPages = Math.max(1, Math.ceil(totalCount / resolveListPageSize(pageSize, totalCount)));
+  const totalPages = Math.max(1, Math.ceil(totalCount / displayPageSize(pageSize, totalCount)));
 
   return (
     <ClubAdminLayout title={t("expensesTitle")} subtitle={t("clubExpensesSubtitle")}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
@@ -14,16 +14,11 @@ import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Input } from "@/components/ui/input";
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageSizeSelect } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import {
   FinanceInvoice,
   createClubCheckoutSession,
@@ -38,9 +33,6 @@ import { isClubLedger } from "@/lib/ltf-finance-api";
 const AUTO_REFRESH_INTERVAL_MS = 30000;
 
 type InvoiceStatusFilter = "all" | "draft" | "issued" | "paid" | "void";
-
-/** Matches backend `API_PAGINATION_MAX_PAGE_SIZE`. */
-const INVOICES_LIST_PAGE_SIZE_CAP = 200;
 
 export default function ClubAdminInvoicesPage() {
   const t = useTranslations("ClubAdmin");
@@ -57,7 +49,6 @@ export default function ClubAdminInvoicesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>("all");
   const [ledgerFilter, setLedgerFilter] = useState<ClubLedgerFilterValue>("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -77,23 +68,25 @@ export default function ClubAdminInvoicesPage() {
   const requestAbortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
 
-  const pageSizeOptions = ["50", "150", "300", "all"];
   const statusFilterParam = overdueIssue
     ? "issued"
     : invoiceStatusFilter === "all"
       ? undefined
       : invoiceStatusFilter;
 
-  const invoicesListPageSize = useMemo(() => {
-    if (pageSize === "all") {
-      return Math.min(Math.max(totalCount, 1), INVOICES_LIST_PAGE_SIZE_CAP);
-    }
-    const n = Number(pageSize);
-    if (!Number.isFinite(n) || n <= 0) {
-      return 50;
-    }
-    return Math.min(n, INVOICES_LIST_PAGE_SIZE_CAP);
-  }, [pageSize, totalCount]);
+  const invoicesListPageSize = displayPageSize(pageSize, totalCount);
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      searchQuery,
+      pageSize,
+      selectedClubId ?? "",
+      invoiceStatusFilter,
+      ledgerFilter,
+      overdueIssue ? "issue" : "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+    ].join("|"),
+  );
 
   const loadData = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -115,18 +108,20 @@ export default function ClubAdminInvoicesPage() {
       try {
         const [invoiceResponse, allCountRes, draftCountRes, issuedCountRes, paidCountRes, voidCountRes] =
           await Promise.all([
-            getClubInvoicesPage(
-              {
-                page: currentPage,
-                pageSize: invoicesListPageSize,
-                clubId,
-                q,
-                status: statusFilterParam,
-                issue: overdueIssue ? "overdue_7d" : undefined,
-                ledger,
-                ordering,
-              },
-              { signal: controller.signal }
+            readListPage(pageSize, currentPage, (page, size) =>
+              getClubInvoicesPage(
+                {
+                  page,
+                  pageSize: size,
+                  clubId,
+                  q,
+                  status: statusFilterParam,
+                  issue: overdueIssue ? "overdue_7d" : undefined,
+                  ledger,
+                  ordering,
+                },
+                { signal: controller.signal },
+              ),
             ),
             getClubInvoicesPage({ page: 1, pageSize: 1, clubId, q, ledger }, { signal: controller.signal }),
             getClubInvoicesPage(
@@ -173,7 +168,7 @@ export default function ClubAdminInvoicesPage() {
         }
       }
     },
-    [currentPage, invoicesListPageSize, ledgerFilter, ordering, overdueIssue, searchQuery, selectedClubId, statusFilterParam, t]
+    [currentPage, ledgerFilter, ordering, overdueIssue, pageSize, searchQuery, selectedClubId, statusFilterParam, t]
   );
 
   useEffect(() => {
@@ -264,10 +259,6 @@ export default function ClubAdminInvoicesPage() {
   }, []);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / invoicesListPageSize));
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId, invoiceStatusFilter, ledgerFilter, overdueIssue, tableSort]);
 
   const columns = [
     { key: "invoice_number", header: t("invoiceNumberLabel"), sortable: true },
@@ -386,20 +377,12 @@ export default function ClubAdminInvoicesPage() {
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
               </div>
-              <div>
-                <Select value={pageSize} onValueChange={setPageSize}>
-                  <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
-                    <SelectValue placeholder={common("rowsPerPageLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option === "all" ? common("rowsPerPageAll") : option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
+              />
               <div className="ml-auto shrink-0">
                 <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
               </div>

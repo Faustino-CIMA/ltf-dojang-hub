@@ -8,11 +8,12 @@ import { useDeskAccess } from "@/components/desk-access"
 import { cn } from "@/lib/utils"
 
 function Select({
+  browsing = false,
   disabled,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+}: React.ComponentProps<typeof SelectPrimitive.Root> & { browsing?: boolean }) {
   const { readOnly } = useDeskAccess()
-  return <SelectPrimitive.Root data-slot="select" disabled={readOnly || disabled} {...props} />
+  return <SelectPrimitive.Root data-slot="select" disabled={(readOnly && !browsing) || disabled} {...props} />
 }
 
 function SelectGroup({
@@ -33,17 +34,21 @@ function SelectTrigger({
   children,
   title,
   disabled,
+  browsing = false,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
+  browsing?: boolean
 }) {
   const { readOnly, viewOnlyLabel } = useDeskAccess()
+  const locked = readOnly && !browsing
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
+      data-browse={browsing ? "true" : undefined}
       data-size={size}
-      disabled={readOnly || disabled}
-      title={readOnly ? viewOnlyLabel : title}
+      disabled={locked || disabled}
+      title={locked ? viewOnlyLabel : title}
       className={cn(
         "border-[var(--border)] data-[placeholder]:text-[var(--field-placeholder)] [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex w-fit items-center justify-between gap-2 rounded-[var(--radius-form)] border bg-[var(--field-background)] px-3 py-0 text-sm text-[var(--field-foreground)] whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-[var(--control-height)] data-[size=default]:min-h-[var(--control-height)] data-[size=sm]:h-[var(--control-height-sm)] data-[size=sm]:min-h-[var(--control-height-sm)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
