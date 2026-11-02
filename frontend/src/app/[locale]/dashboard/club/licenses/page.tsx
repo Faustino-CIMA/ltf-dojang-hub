@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ActionNotices, PageSizeSelect } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageSizeSelect, SelectionMeta } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
 import { displayPageSize, readListPage } from "@/lib/list-page";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
@@ -204,10 +204,6 @@ export default function ClubAdminLicensesPage() {
   const headerCheck = visibleHeaderCheck(selectedLicenseIds, visibleLicenseIds);
   const otherPageCount = offPageSelectedCount(selectedLicenseIds, visibleLicenseIds);
 
-  useEffect(() => {
-    setSelectedLicenseIds([]);
-  }, [searchQuery, licenseStatusFilter, selectedClubId]);
-
   const toggleSelectAll = () => {
     setSelectedLicenseIds((current) => togglePageSelection(current, visibleLicenseIds));
   };
@@ -395,16 +391,14 @@ export default function ClubAdminLicensesPage() {
                     },
                   ]}
                 />
-                {selectedLicenseIds.length > 0 ? (
-                  <span className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className="font-medium text-foreground">
-                      {t("selectedMembersCountLabel", { count: selectedLicenseIds.length })}
-                    </span>
-                    {otherPageCount > 0 ? (
-                      <span className="text-muted">{t("selectedOnOtherPagesLabel", { count: otherPageCount })}</span>
-                    ) : null}
-                  </span>
-                ) : null}
+                <SelectionMeta
+                  count={selectedLicenseIds.length}
+                  countLabel={t("selectedMembersCountLabel", { count: selectedLicenseIds.length })}
+                  offPageCount={otherPageCount}
+                  offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
+                  clearLabel={t("clearSelection")}
+                  onClear={() => setSelectedLicenseIds([])}
+                />
               </div>
             ) : (
               <span />

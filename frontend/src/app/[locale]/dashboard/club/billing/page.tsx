@@ -165,7 +165,7 @@ export default function ClubBillingPage() {
     });
   }, [preview, search, statusFilter]);
 
-  const selectedRows = rows.filter((row) => selected.has(row.id) && row.status === "ready");
+  const selectedRows = (preview?.households ?? []).filter((row) => selected.has(row.id) && row.status === "ready");
   const selectedTotal = selectedRows.reduce((sum, row) => sum + Number(row.total), 0);
   const canPickFee = (status: BillingHousehold["status"]) => status === "ready" || status === "confirmed";
 
