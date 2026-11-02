@@ -17,7 +17,7 @@ export type AppRelease = {
 export const APP_RELEASES: AppRelease[] = [
   {
     version: "0.13.0",
-    date: "2026-10-27",
+    date: "2026-11-02",
     titleKey: "release0130Title",
     itemKeys: [
       "release0130Setup",
