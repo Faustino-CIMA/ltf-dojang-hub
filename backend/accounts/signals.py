@@ -2,7 +2,7 @@ from allauth.account.signals import email_confirmed, password_reset
 from allauth.mfa.models import Authenticator
 from allauth.mfa.signals import authenticator_added, authenticator_removed, authenticator_used
 from django.contrib.auth.signals import user_logged_in
-from django.db.models.signals import m2m_changed, post_save
+from django.db.models.signals import m2m_changed, post_save, pre_delete
 from django.dispatch import receiver
 
 from clubs.models import Club
@@ -83,6 +83,13 @@ def mark_user_email_verified(request, email_address, **kwargs):
     if not user.is_email_verified:
         user.is_email_verified = True
         user.save(update_fields=["is_email_verified"])
+
+
+@receiver(pre_delete, sender=User)
+def clear_addresses_before_user_delete(sender, instance, **kwargs):
+    from .privacy import clear_private_addresses_for_user
+
+    clear_private_addresses_for_user(instance)
 
 
 @receiver(post_save, sender=User)
