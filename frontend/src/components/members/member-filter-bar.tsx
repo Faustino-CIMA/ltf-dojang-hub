@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { X } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,35 @@ export type MemberFilterGroup = {
 
 const triggerClassName =
   "inline-flex h-[var(--control-height)] min-h-[var(--control-height)] items-center gap-2 rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm font-medium text-[var(--field-foreground)] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+
+export function MemberIssueChip({
+  label,
+  detail,
+  dismissLabel,
+  onDismiss,
+}: {
+  label: string;
+  detail: string;
+  dismissLabel: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <span
+      title={detail}
+      className="inline-flex h-[var(--control-height)] max-w-full items-center gap-1 rounded-[var(--radius-chip)] border border-[var(--border)] bg-[var(--accent-soft)] pl-3 pr-1 text-sm text-[var(--foreground)]"
+    >
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-form)] text-[var(--foreground)]"
+        aria-label={dismissLabel}
+        onClick={onDismiss}
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+    </span>
+  );
+}
 
 export function MemberFilterBar({
   groups,

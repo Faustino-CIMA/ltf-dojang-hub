@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CircleAlert } from "lucide-react";
 
-import { MemberFilterBar } from "@/components/members/member-filter-bar";
+import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
@@ -800,7 +800,7 @@ export default function ClubAdminMembersPage() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <div className="min-w-[10rem] flex-1">
+              <div className="flex min-w-[10rem] flex-1 flex-wrap items-center gap-2">
                 <Input
                   className="w-full max-w-xs"
                   placeholder={t("searchMembersPlaceholder")}
@@ -808,6 +808,18 @@ export default function ClubAdminMembersPage() {
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
+                {issue ? (
+                  <MemberIssueChip
+                    label={issue === "missing_ltf_licenseid" ? common("issueChipMissingId") : common("issueChipNoLicense")}
+                    detail={
+                      issue === "missing_ltf_licenseid"
+                        ? t("membersMissingLtfLicenseIdFilterMessage")
+                        : t("membersWithoutValidLicenseFilterMessage")
+                    }
+                    dismissLabel={common("filterLicensesClear")}
+                    onDismiss={dismissIssueFilter}
+                  />
+                ) : null}
               </div>
               <PageSizeSelect
                 value={pageSize}
@@ -851,59 +863,43 @@ export default function ClubAdminMembersPage() {
                   ),
                 },
                 {
-                  id: "licenses",
-                  label: common("filterGroupLicenses"),
-                  count: issue ? 1 : 0,
+                  id: "user",
+                  label: common("filterGroupUser"),
+                  count: accountFilter === "all" ? 0 : 1,
                   pressedLabel: common("filterGroupCountLabel", {
-                    label: common("filterGroupLicenses"),
-                    count: issue ? 1 : 0,
-                  }),
-                  children: issue ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-[var(--foreground)]">
-                        {issue === "missing_ltf_licenseid"
-                          ? t("membersMissingLtfLicenseIdFilterMessage")
-                          : t("membersWithoutValidLicenseFilterMessage")}
-                      </p>
-                      <button
-                        type="button"
-                        className="inline-flex h-[var(--control-height)] items-center text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
-                        onClick={dismissIssueFilter}
-                      >
-                        {common("filterLicensesClear")}
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-[var(--muted)]">{common("filterLicensesNone")}</p>
-                  ),
-                },
-                {
-                  id: "person",
-                  label: common("filterGroupPerson"),
-                  count: (accountFilter === "all" ? 0 : 1) + (showTeams && teamFilter !== "none" && teamFilter.length > 0 ? 1 : 0) + (showTeams && teamFilter === "none" ? 1 : 0),
-                  pressedLabel: common("filterGroupCountLabel", {
-                    label: common("filterGroupPerson"),
-                    count: (accountFilter === "all" ? 0 : 1) + (showTeams && (teamFilter === "none" || teamFilter.length > 0) ? 1 : 0),
+                    label: common("filterGroupUser"),
+                    count: accountFilter === "all" ? 0 : 1,
                   }),
                   children: (
-                    <div className="space-y-3">
-                      <FilterPills
-                        ariaLabel={t("accountFilterAria")}
-                        layout="wrap"
-                        value={accountFilter}
-                        onChange={setAccountFilter}
-                        options={[
-                          { value: "all", title: t("accountFilterAll") },
-                          { value: "none", title: t("accountFilterNone") },
-                          { value: "pending", title: t("accountFilterPending") },
-                          { value: "active", title: t("accountFilterActive") },
-                          { value: "disabled", title: t("accountFilterDisabled") },
-                        ]}
-                      />
-                      {showTeams ? <TeamFilter teams={clubTeams} value={teamFilter} onChange={setTeamFilter} /> : null}
-                    </div>
+                    <FilterPills
+                      ariaLabel={t("accountFilterAria")}
+                      layout="wrap"
+                      value={accountFilter}
+                      onChange={setAccountFilter}
+                      options={[
+                        { value: "all", title: t("accountFilterAll") },
+                        { value: "none", title: t("accountFilterNone") },
+                        { value: "pending", title: t("accountFilterPending") },
+                        { value: "active", title: t("accountFilterActive") },
+                        { value: "disabled", title: t("accountFilterDisabled") },
+                      ]}
+                    />
                   ),
                 },
+                ...(showTeams
+                  ? [
+                      {
+                        id: "person",
+                        label: common("filterGroupPerson"),
+                        count: teamFilter === "none" || teamFilter.length > 0 ? 1 : 0,
+                        pressedLabel: common("filterGroupCountLabel", {
+                          label: common("filterGroupPerson"),
+                          count: teamFilter === "none" || teamFilter.length > 0 ? 1 : 0,
+                        }),
+                        children: <TeamFilter teams={clubTeams} value={teamFilter} onChange={setTeamFilter} />,
+                      },
+                    ]
+                  : []),
               ]}
             />
           </div>
