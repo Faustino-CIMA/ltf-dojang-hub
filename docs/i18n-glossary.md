@@ -1,6 +1,6 @@
 # Translation glossary
 
-Use these words in the French and German interface. Luxembourgish already has its own catalogue. French and German are selectable in the application. Emails, PDFs, and the backend language list stay as they are until a later pass.
+Use these words in the French and German interface, and in emails and PDFs. Luxembourgish already has its own catalogue. French and German are selectable in the application and can be saved as a club's language. English is the fallback.
 
 The audience is a sports federation in Luxembourg. Write the way a club secretary would read a form: clear, polite, and short.
 

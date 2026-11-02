@@ -402,7 +402,10 @@ class ClubFinanceReportExportView(APIView):
         except (TypeError, ValueError):
             return Response({"detail": "Enter a valid year."}, status=HTTP_400_BAD_REQUEST)
         report = build_club_finance_report(club_id, year)
-        payload = render_finance_report_xlsx(report)
+        from clubs.document_copy import resolve_document_language
+
+        club = Club.objects.filter(id=club_id).first()
+        payload = render_finance_report_xlsx(report, resolve_document_language(club=club))
         filename = f"club_financial_report_{year}.xlsx"
         response = HttpResponse(
             payload,
@@ -476,9 +479,15 @@ class ClubStatementView(APIView):
                 }
             )
         club = Club.objects.filter(id=club_id).first()
+        from clubs.document_copy import resolve_document_language, statement_labels
+
+        doc_language = resolve_document_language(club=club)
+        if title == "Account statement":
+            title = statement_labels(doc_language)["account"]
         pdf = render_statement_pdf(
             {
                 "title": title,
+                "labels": statement_labels(doc_language),
                 "club_name": club.name if club else "",
                 "year": year,
                 "rows": rows,

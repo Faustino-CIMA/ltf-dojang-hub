@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
-    <title>Shop catalogue</title>
+    <title>{{ labels.catalogue }}</title>
     <style>
       @page { size: A4; margin: 12mm; }
       html, body { margin: 0; padding: 0; font-family: "DejaVu Sans", Arial, sans-serif; color: #111827; }
@@ -30,7 +30,7 @@
     </style>
   </head>
   <body>
-    <h1>{{ club.name }} — equipment catalogue</h1>
+    <h1>{{ club.name }} — {{ labels.catalogue_heading }}</h1>
     <p class="meta">{{ generated_at|date:"d.m.Y H:i" }} · {{ cards|length }} items · Prices in EUR</p>
     <div class="grid">
       {% for card in cards %}

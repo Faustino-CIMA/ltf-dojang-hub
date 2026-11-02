@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
-    <title>Publication consent</title>
+    <title>{{ labels.title }}</title>
     <style>
       @page {
         size: A4;
@@ -152,10 +152,10 @@
       {% if issuer.website %}<p>{{ issuer.website }}</p>{% endif %}
     </div>
     <div class="lead"></div>
-    <h1>Publication consent</h1>
+    <h1>{{ labels.title }}</h1>
     <p class="scope">{{ scope }}</p>
     <p class="intro">{{ count }} member{{ count|pluralize }} · {{ printed_on }}</p>
-    {% if count == 0 %}<p class="intro">No members match this list.</p>{% endif %}
+    {% if count == 0 %}<p class="intro">{{ labels.empty }}</p>{% endif %}
     <table>
       <colgroup>
         <col style="width: 18%" />
@@ -171,10 +171,10 @@
       </colgroup>
       <thead>
         <tr>
-          <th class="name">Last name</th>
-          <th class="name">First name</th>
-          <th>Date of birth</th>
-          <th>Age</th>
+          <th class="name">{{ labels.last_name }}</th>
+          <th class="name">{{ labels.first_name }}</th>
+          <th>{{ labels.birth }}</th>
+          <th>{{ labels.age }}</th>
           {% for label in channels %}<th>{{ label }}</th>{% endfor %}
         </tr>
       </thead>
@@ -196,8 +196,8 @@
         {% if footer_logos.europe %}<img class="logo-etu" src="{{ footer_logos.europe }}" alt="" />{% endif %}
         {% if footer_logos.ltf %}<img class="logo-ltf" src="{{ footer_logos.ltf }}" alt="" />{% endif %}
         <div class="meta">
-          <p><span class="label">Document :</span>Publication consent</p>
-          <p><span class="label">Date :</span>{{ printed_on }}</p>
+          <p><span class="label">{{ labels.document }} :</span>{{ labels.title }}</p>
+          <p><span class="label">{{ labels.date }} :</span>{{ printed_on }}</p>
         </div>
       </div>
     </div>

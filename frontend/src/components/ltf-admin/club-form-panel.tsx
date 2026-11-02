@@ -83,6 +83,8 @@ export function ClubFormPanel({
   const [values, setValues] = useState<ClubFormValues>(EMPTY_VALUES);
   const [languages, setLanguages] = useState<ClubCommunicationLanguage[]>([
     { code: "en", name: "English" },
+    { code: "fr", name: "Français" },
+    { code: "de", name: "Deutsch" },
     { code: "lb", name: "Lëtzebuergesch" },
   ]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
