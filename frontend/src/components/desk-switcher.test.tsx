@@ -5,6 +5,7 @@ import { DeskSwitchAsk, DeskSwitcher } from "@/components/desk-switcher";
 const names = {
   club_admin: "Club Admin",
   ltf_admin: "LTF Admin",
+  ops: "Ops",
 };
 
 const desks = [
@@ -44,6 +45,27 @@ describe("DeskSwitcher", () => {
     expect(screen.getByText("View only")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /LTF Admin/ }));
     expect(onSelect).toHaveBeenCalledWith(desks[1]);
+  });
+
+  it("keeps Ops current and opens another desk in one click", () => {
+    const ops = { desk: "ops", level: "full", club_id: null, club_name: "" };
+    const onSelect = jest.fn();
+    render(
+      <DeskSwitcher
+        desks={[desks[0], ops]}
+        active={ops}
+        names={names}
+        viewOnlyLabel="View only"
+        menuLabel="Desks"
+        onSelect={onSelect}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Desks" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ops" }));
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Desks" }));
+    fireEvent.click(screen.getByRole("button", { name: /Club Admin/ }));
+    expect(onSelect).toHaveBeenCalledWith(desks[0]);
   });
 });
 
