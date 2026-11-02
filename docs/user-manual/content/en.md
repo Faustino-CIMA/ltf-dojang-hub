@@ -245,7 +245,11 @@ The header also has [[Common.themeLabel]]: [[Common.themeLight]], [[Common.theme
 
 ## Roles: who can do what {#roles}
 
-Your {{role}} decides which menu you see. One person can have only one role per login.
+Your {{role}} decides which menu you see. One login can hold more than one desk, for example club admin of your club and LTF admin. The header shows the current desk. Open the desk list and choose another. A view-only desk can read the lists and cannot save, delete, or import. A superuser opens [[Common.openOpsConsole]] from the header and uses the same list to come back.
+
+Staff desks (LTF admin, LTF finance, club admin, and ops) ask for an authenticator app. For the first 14 days a notice asks you to set it up. After that the desk stays closed until you do.
+
+The language menu offers English, Français, Deutsch, and Lëtzebuergesch. English is the default.
 
 | Role badge | Typical person | Main work |
 |---|---|---|
@@ -286,6 +290,8 @@ Parts of the app are switched on per club by the LTF as {{modules}}:
 If your club has no module, you still have the [[Common.navGroupClub]] pages: members, licenses, printing and transfers. Ask the LTF if you are missing a module you need.
 
 The LTF sets a yearly price for club management and the calendar. An unpaid invoice does not switch a module off. Club admins can read the estimate on the club profile. See [Club fees](#club-fees) and [Profile](#profile-tab).
+
+A bundle is at least two of those modules at one flat price. Under Already on, a bundle appears only when that bundle itself was bought. A bundle that only contains a module you already have stays in the list you order from, and it says that module is already on. It cannot be ordered again.
 
 # Coaches {#coaches}
 
@@ -367,6 +373,8 @@ Coaches see public club events and also [[calendarVisibility_internal]] ones, so
 ![The members menu: create or import](fig:members-menu)
 
 The [[sexLabel]] column is a small ♂ or ♀, not a large badge. Click a column heading to sort. [[membersMenuLabel]] and the row menu open as small panels.
+
+Search stays on the page. The other filters open from Status, User, and Person. Status is active, inactive, or all. User is no account, waiting, active, or disabled. On the LTF list, Person is everyone, club members, or LTF staff. On the club list, Person is the team filter when competition is on. Reset filters returns them to the usual start. A tick stays when you search, filter, or change page, until you clear it or finish the action. The count includes people who are not on this page. Rows per page can be 50, 150, 300, or all. License tables have an Expires column. A date within 30 days is a warning. A date already past is muted.
 
 When the competition module is on, the filters include [[teamsFilterNone]].
 
@@ -495,7 +503,7 @@ The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navIn
 
 ## The licenses list {#licences}
 
-[[navLicenses]] shows every license of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Click a column heading to sort. On the federation's own license list, edit and delete sit in the row menu and the form opens in a side panel. See [Members, licenses and transfers](#ltf-licences).
+[[navLicenses]] shows every license of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Click a column heading to sort. The Expires column uses the same dates as the rest of the app. A date within 30 days is a warning. A date already past is muted. A club admin can create a login for the club's own members. Nothing is emailed. There is no login under 16. The list shows an Account badge: none, waiting, active, or disabled. On the federation's own license list, edit and delete sit in the row menu and the form opens in a side panel. See [Members, licenses and transfers](#ltf-licences).
 
 ![The licenses list](fig:licences)
 
@@ -753,7 +761,7 @@ Do this once at the start of the season. Each class then repeats every week unti
 {: .lead}
 
 1. Open [[trainingTimetable]].
-2. Under [[trainingAddClass]], enter [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] and [[trainingEnds]], and the season [[subsidiesFrom]] / [[subsidiesTo]].
+2. Under [[trainingAddClass]], enter [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] and [[trainingEnds]], and the season [[subsidiesFrom]] / [[subsidiesTo]]. Choose the training venue from club settings. The place is optional. A class saved earlier with only a place name keeps that name.
 3. Keep [[trainingSkipPublic]] and [[trainingSkipSchool]] ticked if the club pauses then.
 4. Tick [[trainingCountsUnder16]] for classes that belong on the Qualité+ training list.
 5. Choose the [[trainingUsualCoaches]] and the [[trainingRegulars]]. The regulars are pre-selected on every roll.

@@ -245,7 +245,11 @@ L'en-tête propose aussi [[Common.themeLabel]] : [[Common.themeLight]], [[Common
 
 ## Les rôles : qui peut faire quoi ? {#roles}
 
-Votre rôle détermine le menu que vous voyez. Chaque identifiant a un seul rôle.
+Votre rôle détermine le menu que vous voyez. Un même identifiant peut ouvrir plusieurs bureaux, par exemple admin de club de votre club et admin LTF. L'en-tête montre le bureau en cours. Ouvrez la liste des bureaux et choisissez-en un autre. Un bureau en lecture seule peut lire les listes et ne peut pas enregistrer, supprimer ni importer. Un superutilisateur ouvre [[Common.openOpsConsole]] depuis l'en-tête et revient par la même liste.
+
+Les bureaux du personnel (admin LTF, finances LTF, admin de club et ops) demandent une application d'authentification. Pendant les 14 premiers jours, un avis demande de la mettre en place. Ensuite le bureau reste fermé tant que ce n'est pas fait.
+
+Le menu de langue propose English, Français, Deutsch et Lëtzebuergesch. L'anglais reste le défaut.
 
 | Badge de rôle | Personne type | Travail principal |
 |---|---|---|
@@ -286,6 +290,8 @@ Des parties de l'application sont activées par club par la LTF sous forme de mo
 Même sans module, vous disposez des pages [[Common.navGroupClub]] : membres, licences, impression et transferts. Demandez à la LTF s'il vous manque un module.
 
 La LTF fixe un prix annuel pour la gestion du club et le calendrier. Une facture impayée ne désactive pas un module. Les administrateurs de club peuvent lire l'estimation sur le profil du club. Voir [Frais des clubs](#club-fees) et [Profil](#profile-tab).
+
+Un lot réunit au moins deux de ces modules à un prix forfaitaire. Sous Déjà actif, un lot n'apparaît que s'il a été acheté comme lot. Un lot qui contient seulement un module déjà actif reste dans la liste à commander, et il indique que ce module est déjà actif. Il ne peut pas être commandé à nouveau.
 
 # Entraîneurs {#coaches}
 
@@ -367,6 +373,8 @@ Les entraîneurs voient les événements publics du club et aussi les événemen
 ![Le menu des membres : créer ou importer](fig:members-menu)
 
 La colonne [[sexLabel]] est un petit ♂ ou ♀, pas un grand badge. Cliquez sur un en-tête de colonne pour trier. [[membersMenuLabel]] et le menu de ligne s'ouvrent en petits panneaux.
+
+La recherche reste sur la page. Les autres filtres s'ouvrent depuis Statut, Utilisateur et Personne. Statut est actif, inactif ou tous. Utilisateur est sans compte, en attente, actif ou désactivé. Sur la liste LTF, Personne est tout le monde, les membres de club ou le personnel LTF. Sur la liste du club, Personne est le filtre d'équipe quand la compétition est activée. Réinitialiser les filtres les ramène au départ habituel. Une coche reste quand vous cherchez, filtrez ou changez de page, jusqu'à ce que vous l'enleviez ou terminiez l'action. Le compte inclut les personnes qui ne sont pas sur cette page. Le nombre de lignes peut être 50, 150, 300 ou toutes. Les tableaux de licences ont une colonne Expire. Une date dans les 30 jours est un avertissement. Une date déjà passée est atténuée.
 
 Quand le module compétition est activé, les filtres comprennent [[teamsFilterNone]].
 
@@ -495,7 +503,7 @@ La commande et sa facture apparaissent dans [[navFinance]] › [[navOrders]] et 
 
 ## La liste des licences {#licences}
 
-[[navLicenses]] affiche toutes les licences du club avec leur statut : [[filterActiveTitle]], [[filterPendingTitle]] ou [[filterExpiredTitle]] (active, en attente, expirée). Recherchez par membre, année ou statut. Cliquez sur un en-tête de colonne pour trier. Dans la liste des licences de la fédération, modifier et supprimer sont dans le menu de ligne, et le formulaire s'ouvre dans un panneau latéral. Voir [Membres, licences et transferts](#ltf-licences).
+[[navLicenses]] affiche toutes les licences du club avec leur statut : [[filterActiveTitle]], [[filterPendingTitle]] ou [[filterExpiredTitle]] (active, en attente, expirée). Recherchez par membre, année ou statut. Cliquez sur un en-tête de colonne pour trier. La colonne Expire utilise les mêmes dates que le reste de l'application. Une date dans les 30 jours est un avertissement. Une date déjà passée est atténuée. Un admin de club peut créer un identifiant pour les membres de son club. Aucun e-mail n'est envoyé. Il n'y a pas d'identifiant avant 16 ans. La liste montre un badge Compte : aucun, en attente, actif ou désactivé. Dans la liste des licences de la fédération, modifier et supprimer sont dans le menu de ligne, et le formulaire s'ouvre dans un panneau latéral. Voir [Membres, licences et transferts](#ltf-licences).
 
 ![La liste des licences](fig:licences)
 
@@ -753,7 +761,7 @@ Pour un déplacement à un championnat ou une coupe internationale, utilisez [[s
 {: .lead}
 
 1. Ouvrez [[trainingTimetable]].
-2. Sous [[trainingAddClass]], saisissez [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] et [[trainingEnds]], ainsi que la saison [[subsidiesFrom]] / [[subsidiesTo]].
+2. Sous [[trainingAddClass]], saisissez [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] et [[trainingEnds]], ainsi que la saison [[subsidiesFrom]] / [[subsidiesTo]]. Choisissez le lieu d'entraînement dans les paramètres du club. Le lieu est facultatif. Un cours enregistré plus tôt avec seulement un nom de lieu garde ce nom.
 3. Laissez cochés [[trainingSkipPublic]] et [[trainingSkipSchool]] si le club fait une pause à ces moments-là.
 4. Cochez [[trainingCountsUnder16]] pour les cours qui figurent sur la liste d'entraînements Qualité+.
 5. Choisissez les [[trainingUsualCoaches]] et les [[trainingRegulars]]. Les élèves habituels sont présélectionnés à chaque appel.

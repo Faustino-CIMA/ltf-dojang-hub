@@ -92,7 +92,7 @@ All notable changes to this project are documented in this file.
 - Checkout session lookup is `licenses.0058_order_stripe_session_lookup` and the backfill `licenses.0059_backfill_stripe_session_lookup` (#106). The column stores an HMAC of the session id. The encrypted session id is unchanged. The backend suite for this version passes with 0 failures and 0 errors.
 
 ### Documentation
-- The manuals in `docs/user-manual/` are a separate October 2026 edition for app version 0.13.0. They do not describe pull requests #64 through #104.
+- The manuals in `docs/user-manual/` (#114) are the 0.13.0 edition, in English, French, German, and Luxembourgish. They now also describe desks, the authenticator, the language menu, member-list filters and row selection, the Expires column, member logins, module bundles, and training venues. No new screenshots.
 - Public notes for this version, ready to paste into a GitHub release: `docs/releases/v0.13.0.md`. They cover every pull request merged into `develop` from #64 through #104 (#99 recorded these notes). #100 is the open release pull request into `main`. It is not a separate change.
 
 

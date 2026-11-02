@@ -245,7 +245,11 @@ In der Kopfzeile gibt es außerdem [[Common.themeLabel]]: [[Common.themeLight]],
 
 ## Rollen: wer darf was? {#roles}
 
-Ihre Rolle bestimmt, welches Menü Sie sehen. Pro Login gibt es genau eine Rolle.
+Ihre Rolle bestimmt, welches Menü Sie sehen. Ein Login kann mehr als einen Schreibtisch haben, zum Beispiel Club-Admin des eigenen Vereins und LTF-Admin. Die Kopfzeile zeigt den aktuellen Schreibtisch. Öffnen Sie die Liste und wählen Sie einen anderen. Ein nur lesender Schreibtisch kann die Listen lesen und nicht speichern, löschen oder importieren. Ein Superuser öffnet [[Common.openOpsConsole]] aus der Kopfzeile und kommt über dieselbe Liste zurück.
+
+Personal-Schreibtische (LTF-Admin, LTF-Finanzen, Club-Admin und Ops) verlangen eine Authenticator-App. In den ersten 14 Tagen bittet ein Hinweis um die Einrichtung. Danach bleibt der Schreibtisch zu, bis das erledigt ist.
+
+Das Sprachmenü bietet English, Français, Deutsch und Lëtzebuergesch. Englisch bleibt die Vorgabe.
 
 | Rollenabzeichen | Typische Person | Hauptaufgaben |
 |---|---|---|
@@ -286,6 +290,8 @@ Teile der App schaltet die LTF pro Verein als Module frei:
 Auch ohne Modul haben Sie die Seiten unter [[Common.navGroupClub]]: Mitglieder, Lizenzen, Druck und Transfers. Fehlt Ihnen ein Modul, fragen Sie die LTF.
 
 Die LTF legt einen Jahrespreis für die Vereinsverwaltung und den Kalender fest. Eine unbezahlte Rechnung schaltet ein Modul nicht aus. Club-Admins können die Schätzung im Vereinsprofil lesen. Siehe [Vereinsgebühren](#club-fees) und [Profil](#profile-tab).
+
+Ein Paket bündelt mindestens zwei dieser Module zu einem Pauschalpreis. Unter Bereits an erscheint ein Paket nur, wenn dieses Paket selbst gekauft wurde. Ein Paket, das nur ein bereits aktives Modul enthält, bleibt in der Bestellliste und sagt, dass dieses Modul bereits an ist. Es kann nicht noch einmal bestellt werden.
 
 # Trainer {#coaches}
 
@@ -367,6 +373,8 @@ Trainer sehen öffentliche Vereinstermine und zusätzlich [[calendarVisibility_i
 ![Das Mitgliedermenü: anlegen oder importieren](fig:members-menu)
 
 Die Spalte [[sexLabel]] ist ein kleines ♂ oder ♀, kein großes Abzeichen. Ein Klick auf eine Spaltenüberschrift sortiert. [[membersMenuLabel]] und das Zeilenmenü öffnen sich als kleine Felder.
+
+Die Suche bleibt auf der Seite. Die anderen Filter öffnen sich über Status, Benutzer und Person. Status ist aktiv, inaktiv oder alle. Benutzer ist kein Konto, wartend, aktiv oder deaktiviert. In der LTF-Liste ist Person alle, Vereinsmitglieder oder LTF-Personal. In der Vereinsliste ist Person der Mannschaftsfilter, wenn Wettkampf an ist. Filter zurücksetzen stellt den üblichen Anfang her. Ein Haken bleibt beim Suchen, Filtern oder Blättern, bis Sie ihn löschen oder die Aktion beenden. Die Zahl zählt auch Personen, die nicht auf dieser Seite stehen. Die Zeilen pro Seite können 50, 150, 300 oder alle sein. Lizenzlisten haben eine Spalte Ablauf. Ein Datum innerhalb von 30 Tagen ist eine Warnung. Ein bereits vergangenes Datum ist gedämpft.
 
 Ist das Wettkampfmodul an, gibt es unter den Filtern auch [[teamsFilterNone]].
 
@@ -495,7 +503,7 @@ Bestellung und Rechnung erscheinen unter [[navFinance]] › [[navOrders]] und [[
 
 ## Die Lizenzliste {#licences}
 
-[[navLicenses]] zeigt alle Lizenzen des Vereins mit Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]] (aktiv, ausstehend, abgelaufen). Suchen Sie nach Mitglied, Jahr oder Status. Ein Klick auf eine Spaltenüberschrift sortiert. In der Lizenzliste des Verbands sitzen Bearbeiten und Löschen im Zeilenmenü, und das Formular öffnet sich in einem Seitenfeld. Siehe [Mitglieder, Lizenzen und Transfers](#ltf-licences).
+[[navLicenses]] zeigt alle Lizenzen des Vereins mit Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]] (aktiv, ausstehend, abgelaufen). Suchen Sie nach Mitglied, Jahr oder Status. Ein Klick auf eine Spaltenüberschrift sortiert. Die Spalte Ablauf nutzt dieselben Daten wie der Rest der App. Ein Datum innerhalb von 30 Tagen ist eine Warnung. Ein bereits vergangenes Datum ist gedämpft. Ein Club-Admin kann ein Login für die eigenen Vereinsmitglieder anlegen. Es wird keine E-Mail gesendet. Unter 16 gibt es kein Login. Die Liste zeigt ein Konto-Abzeichen: keines, wartend, aktiv oder deaktiviert. In der Lizenzliste des Verbands sitzen Bearbeiten und Löschen im Zeilenmenü, und das Formular öffnet sich in einem Seitenfeld. Siehe [Mitglieder, Lizenzen und Transfers](#ltf-licences).
 
 ![Die Lizenzliste](fig:licences)
 
@@ -753,7 +761,7 @@ Das erledigen Sie einmal zu Saisonbeginn. Jede Einheit wiederholt sich dann wöc
 {: .lead}
 
 1. Öffnen Sie [[trainingTimetable]].
-2. Geben Sie unter [[trainingAddClass]] [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] und [[trainingEnds]] sowie die Saison [[subsidiesFrom]] / [[subsidiesTo]] ein.
+2. Geben Sie unter [[trainingAddClass]] [[trainingClassName]], [[trainingAudience]], [[trainingWeekday]], [[trainingStarts]] und [[trainingEnds]] sowie die Saison [[subsidiesFrom]] / [[subsidiesTo]] ein. Wählen Sie die Trainingsstätte aus den Vereinseinstellungen. Der Ort ist optional. Ein früher gespeicherter Kurs, der nur einen Ortsnamen hatte, behält diesen Namen.
 3. Lassen Sie [[trainingSkipPublic]] und [[trainingSkipSchool]] angehakt, wenn der Verein dann pausiert.
 4. Haken Sie [[trainingCountsUnder16]] bei Einheiten an, die auf die Qualité+-Trainingsliste gehören.
 5. Wählen Sie die [[trainingUsualCoaches]] und die [[trainingRegulars]]. Die Stammschüler sind bei jeder Anwesenheitsliste vorausgewählt.
