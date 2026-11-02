@@ -1,10 +1,14 @@
-import { isLeavingDeepLink, pathIsDeskHome, showLegacyClubPicker } from "./desk-switch";
+import { isLeavingDeepLink, pathIsDeskHome, showLegacyClubPicker, switchNeedsConfirm } from "./desk-switch";
 
 describe("desk switch", () => {
   it("asks before leaving a page under the current desk", () => {
     expect(isLeavingDeepLink("/en/dashboard/club/members/4", "club_admin", "en")).toBe(true);
     expect(isLeavingDeepLink("/en/dashboard/club", "club_admin", "en")).toBe(false);
     expect(isLeavingDeepLink("/en/dashboard/ltf-finance", "ltf_finance", "en")).toBe(false);
+    expect(isLeavingDeepLink("/en/dashboard/ops", "ops", "en")).toBe(false);
+    expect(isLeavingDeepLink("/en/dashboard/ops/users", "ops", "en")).toBe(true);
+    expect(switchNeedsConfirm("/en/dashboard/ops/users", "ops", "en")).toBe(false);
+    expect(switchNeedsConfirm("/en/dashboard/club/members/4", "club_admin", "en")).toBe(true);
   });
 
   it("does not treat the finance desk as the admin desk", () => {
