@@ -474,6 +474,15 @@ class SubsidyTests(TestCase):
             date_of_birth=date(1990, 1, 1),
             sex=Member.Sex.FEMALE,
         )
+        License.objects.create(
+            member=adult,
+            club=self.club,
+            license_type=LicenseType.objects.get(code="ath-sub"),
+            year=2026,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+            status=License.Status.ACTIVE,
+        )
         created = self.client.post(
             f"/api/club-management/subsidies/cases/?club={self.club.id}&year=2026",
             {
@@ -488,3 +497,25 @@ class SubsidyTests(TestCase):
         officials = [row for row in created.data["members"] if row["adult"]]
         self.assertIn(adult.id, [row["id"] for row in officials])
         self.assertNotIn(self.youth.id, [row["id"] for row in officials])
+
+        unlicensed = Member.objects.create(
+            club=self.club,
+            first_name="Una",
+            last_name="Visitor",
+            date_of_birth=date(1988, 4, 2),
+            sex=Member.Sex.FEMALE,
+        )
+        refused = self.client.post(
+            f"/api/club-management/subsidies/cases/?club={self.club.id}&year=2026",
+            {
+                "kind": "championship",
+                "title": "Closed",
+                "official_ids": [unlicensed.id],
+            },
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertIn("license", str(refused.data["official_ids"]).lower())
+        self.assertFalse(
+            self.club.extraordinary_subsidies.filter(year=2026, title="Closed").exists()
+        )

@@ -214,23 +214,6 @@ def build_dossier(club, year: int) -> dict:
     members = list(
         Member.objects.filter(club=club, id__in=licensed).select_related("club_record")
     )
-    # Headcount stays on the licensed snapshot above. The form's people list
-    # also includes active adults, so an official who is not in that snapshot
-    # can be chosen and still comes back after save. Under-18s stay out.
-    picker = {member.id: member for member in members}
-    adult_cutoff = date(year - 18, 12, 31)
-    for member in (
-        Member.objects.filter(
-            club=club,
-            is_active=True,
-            date_of_birth__isnull=False,
-            date_of_birth__lte=adult_cutoff,
-        )
-        .exclude(id__in=picker)
-        .select_related("club_record")
-    ):
-        picker[member.id] = member
-    picker_members = list(picker.values())
     bands = {
         "male_under_16": 0,
         "female_under_16": 0,
@@ -357,7 +340,7 @@ def build_dossier(club, year: int) -> dict:
         "coaches": coaches,
         "headcount_rows": headcount_rows(club, year, season, members, licensed),
         "youth": youth,
-        "members": _member_rows(picker_members, cutoff),
+        "members": _member_rows(members, cutoff),
         "cases": [
             {
                 "id": row.id,
@@ -371,7 +354,7 @@ def build_dossier(club, year: int) -> dict:
                 "official_ids": [
                     member_id
                     for member_id in row.official_ids or []
-                    if member_id in _adult_ids(picker_members, cutoff)
+                    if member_id in _adult_ids(members, cutoff)
                 ],
                 "travel_mode": row.travel_mode,
                 "travel_units": str(row.travel_units) if row.travel_units is not None else "",
