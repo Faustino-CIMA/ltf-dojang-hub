@@ -64,6 +64,22 @@ describe("Module fees panel", () => {
     expect(items.map((item) => item.textContent)).toEqual(["moduleFeeEdit", "moduleFeeDelete"]);
   });
 
+  it("hints when a flat minimum can never apply and hides it in the table", () => {
+    renderPanel([
+      fee({
+        current_amount: "50.00",
+        current_pricing_type: "flat",
+        current_minimum_amount: "5.00",
+      }),
+    ]);
+    expect(screen.getByText("moduleFeeNoMinimum")).toBeInTheDocument();
+    expect(screen.queryByText("5.00")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "moduleFeeRowActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "moduleFeeEdit" }));
+    expect(screen.getByText("moduleFeeMinimumNeverApplies")).toBeInTheDocument();
+    expect(screen.getByText("moduleFeeMinimumNeverApplies").className).toContain("text-muted");
+  });
+
   it("switches off instead of deleting a fee that was already invoiced", () => {
     renderPanel([fee({ has_invoices: true })]);
     fireEvent.click(screen.getByRole("button", { name: "moduleFeeRowActions" }));

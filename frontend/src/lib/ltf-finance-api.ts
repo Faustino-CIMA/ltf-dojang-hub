@@ -979,6 +979,7 @@ export type ModuleOrderOffer = {
   active_member_count: number | null;
   state: "available" | "on" | "open_invoice" | "not_entitled" | "no_price" | "blocked";
   ends_at: string | null;
+  blocked_module_names?: string[];
   invoice_id: number | null;
   invoice_number: string | null;
   comparison: {
