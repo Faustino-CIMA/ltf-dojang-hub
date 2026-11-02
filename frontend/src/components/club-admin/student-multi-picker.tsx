@@ -46,11 +46,14 @@ export function StudentMultiPicker({
   const optionKey = options.map((option) => option.id).join(",");
 
   useEffect(() => {
-    const allowed = new Set(optionKey ? optionKey.split(",").map(Number) : []);
-    setChecked((current) => {
-      const next = current.filter((id) => allowed.has(id));
-      return next.length === current.length ? current : next;
-    });
+    const sync = () => {
+      const allowed = new Set(optionKey ? optionKey.split(",").map(Number) : []);
+      setChecked((current) => {
+        const next = current.filter((id) => allowed.has(id));
+        return next.length === current.length ? current : next;
+      });
+    };
+    sync();
   }, [optionKey]);
 
   const visible = useMemo(

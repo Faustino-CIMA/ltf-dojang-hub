@@ -487,7 +487,7 @@ export function TeamRoster({
       licence,
       actions,
     ];
-  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, team?.pss_system, team?.egear_daedo, team?.egear_kpnp, teamId]);
+  }, [applyTeam, archived, locale, poomsae, rows, selectedIds, setCode, t, team, teamId]);
 
   const saveGear = (memberId: number, saved: MemberGear) => {
     setTeam((current) =>

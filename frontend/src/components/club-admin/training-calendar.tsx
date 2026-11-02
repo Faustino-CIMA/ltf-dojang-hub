@@ -70,7 +70,10 @@ function useSessions(from: string, to: string) {
   }, [from, selectedClubId, t, to]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load]);
 
   return { selectedClubId, rows, errorMessage, setErrorMessage };

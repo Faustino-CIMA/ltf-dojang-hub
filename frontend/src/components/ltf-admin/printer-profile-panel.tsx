@@ -67,7 +67,10 @@ export function PrinterProfilePanel({
     defaultValues: initialValues,
   });
   const initialRef = useRef(initialValues);
-  initialRef.current = initialValues;
+
+  useEffect(() => {
+    initialRef.current = initialValues;
+  }, [initialValues]);
 
   useEffect(() => {
     if (open) {

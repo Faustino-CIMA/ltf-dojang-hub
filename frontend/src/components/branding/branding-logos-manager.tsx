@@ -119,8 +119,11 @@ function AuthenticatedLogoPreview({
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
-    setBlobUrl("");
-    setFailed(false);
+    const sync = () => {
+      setBlobUrl("");
+      setFailed(false);
+    };
+    sync();
 
     const load = async () => {
       const token = getToken();

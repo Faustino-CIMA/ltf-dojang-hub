@@ -43,24 +43,27 @@ export default function ClubOrderDetailPage() {
   }, [params]);
 
   useEffect(() => {
-    if (!orderId || Number.isNaN(orderId)) {
-      setErrorMessage(t("ordersLoadError"));
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setErrorMessage(null);
-    Promise.all([getClubOrder(orderId), getMembers()])
-      .then(([orderResponse, membersResponse]) => {
-        setOrder(orderResponse);
-        setMembers(membersResponse);
-      })
-      .catch((error) => {
-        setErrorMessage(error instanceof Error ? error.message : t("ordersLoadError"));
-      })
-      .finally(() => {
+    const sync = () => {
+      if (!orderId || Number.isNaN(orderId)) {
+        setErrorMessage(t("ordersLoadError"));
         setIsLoading(false);
-      });
+        return;
+      }
+      setIsLoading(true);
+      setErrorMessage(null);
+      Promise.all([getClubOrder(orderId), getMembers()])
+        .then(([orderResponse, membersResponse]) => {
+          setOrder(orderResponse);
+          setMembers(membersResponse);
+        })
+        .catch((error) => {
+          setErrorMessage(error instanceof Error ? error.message : t("ordersLoadError"));
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    };
+    sync();
   }, [orderId, t]);
 
   const statusMeta = useMemo(() => {

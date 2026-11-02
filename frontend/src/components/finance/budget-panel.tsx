@@ -34,7 +34,10 @@ export function BudgetPanel({
   const rows = useMemo(() => budget.lines, [budget.lines]);
 
   useEffect(() => {
-    setAmounts(Object.fromEntries(budget.lines.map((line) => [lineKey(line), line.budget])));
+    const sync = () => {
+      setAmounts(Object.fromEntries(budget.lines.map((line) => [lineKey(line), line.budget])));
+    };
+    sync();
   }, [budget]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

@@ -35,24 +35,25 @@ export function TeamHistoryPanel({
   const [eventSort, setEventSort] = useState<TableSort>({ key: "when", direction: "desc" });
 
   useEffect(() => {
-    if (preview !== undefined) {
-      setData(preview);
-      return;
-    }
     let cancelled = false;
-    void getTeamHistory(teamId, on)
+    const sync = () => {
+      if (preview !== undefined) {
+        setData(preview);
+        return;
+      }
+      void getTeamHistory(teamId, on)
       .then((payload) => {
         if (!cancelled) setData(payload);
       })
       .catch(() => {
         if (!cancelled) setData(null);
       });
+    };
+    sync();
     return () => {
       cancelled = true;
     };
   }, [on, preview, teamId]);
-
-  const roleLabel = (role: string) => (role === "coach" ? t("teamRoleCoach") : t("teamRoleAthlete"));
 
   const rosterColumns = useMemo<Array<EntityTableColumn<TeamHistoryPerson>>>(
     () => [
@@ -68,7 +69,7 @@ export function TeamHistoryPanel({
         header: t("teamRoleLabel"),
         sortable: true,
         sortValue: (row) => row.role,
-        render: (row) => roleLabel(row.role),
+        render: (row) => (row.role === "coach" ? t("teamRoleCoach") : t("teamRoleAthlete")),
       },
     ],
     [t],
@@ -98,7 +99,11 @@ export function TeamHistoryPanel({
         render: (row) => {
           if (row.action === "already") return t("teamHistoryAlready");
           if (row.action === "removed") return t("teamHistoryRemoved");
-          if (row.action === "role_changed") return t("teamHistoryRoleChanged", { role: roleLabel(row.role) });
+          if (row.action === "role_changed") {
+            return t("teamHistoryRoleChanged", {
+              role: row.role === "coach" ? t("teamRoleCoach") : t("teamRoleAthlete"),
+            });
+          }
           if (row.note) return t("teamHistoryCopied", { name: row.note });
           return t("teamHistoryAdded");
         },

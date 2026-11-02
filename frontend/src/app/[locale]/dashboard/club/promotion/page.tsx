@@ -79,7 +79,10 @@ export default function PromotionPage() {
   }, [selectedClubId, t]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load]);
 
   const audienceLabel = (value: string) => (value ? t(`trainingAudience_${value as TrainingAudience}`) : t("trainingHoursAll"));

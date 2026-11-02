@@ -346,18 +346,21 @@ export function MemberGearCard({ memberId, preview }: { memberId: number; previe
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (preview !== undefined) {
-      setGear(preview);
-      return;
-    }
     let cancelled = false;
-    void getMemberGear(memberId)
-      .then((payload) => {
-        if (!cancelled) setGear(payload);
-      })
-      .catch(() => {
-        if (!cancelled) setGear(blankGear(memberId));
-      });
+    const sync = () => {
+      if (preview !== undefined) {
+        setGear(preview);
+        return;
+      }
+      void getMemberGear(memberId)
+        .then((payload) => {
+          if (!cancelled) setGear(payload);
+        })
+        .catch(() => {
+          if (!cancelled) setGear(blankGear(memberId));
+        });
+    };
+    sync();
     return () => {
       cancelled = true;
     };
@@ -367,7 +370,10 @@ export function MemberGearCard({ memberId, preview }: { memberId: number; previe
   const brands = egearBrandsFrom(shown);
   const tabs = gearTabOptions(brands);
   useEffect(() => {
-    if (!tabs.some((item) => item.id === tab)) setTab("protectors");
+    const sync = () => {
+      if (!tabs.some((item) => item.id === tab)) setTab("protectors");
+    };
+    sync();
   }, [tab, brands.daedo, brands.kpnp, tabs]);
   return (
     <section className="app-panel p-3" aria-labelledby="member-gear-title">

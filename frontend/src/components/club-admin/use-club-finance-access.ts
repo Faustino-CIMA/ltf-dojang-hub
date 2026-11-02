@@ -14,27 +14,30 @@ export function useClubFinanceAccess(clubId?: number | null) {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoaded(false);
-    getClubFinanceAccess(resolvedClubId)
-      .then((access) => {
-        if (cancelled) {
-          return;
-        }
-        setCanRecordPayments(Boolean(access.can_record_payments));
-        setMandateRole(access.mandate_role);
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-        setCanRecordPayments(false);
-        setMandateRole(null);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoaded(true);
-        }
-      });
+    const sync = () => {
+      setIsLoaded(false);
+      getClubFinanceAccess(resolvedClubId)
+        .then((access) => {
+          if (cancelled) {
+            return;
+          }
+          setCanRecordPayments(Boolean(access.can_record_payments));
+          setMandateRole(access.mandate_role);
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+          setCanRecordPayments(false);
+          setMandateRole(null);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoaded(true);
+          }
+        });
+    };
+    sync();
     return () => {
       cancelled = true;
     };
