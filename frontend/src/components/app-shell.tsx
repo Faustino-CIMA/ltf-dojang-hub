@@ -3,15 +3,40 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
-import { logout } from "@/lib/auth-api";
-import { clearToken, getToken } from "@/lib/auth";
-import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import {
+  activateOpsDesk,
+  clearOpsServerSync,
+  defaultDesk,
+  deskHeaderValue,
+  displayedDeskHeader,
+  grantForPath,
+  markOpsServerSyncPending,
+  opsServerSyncPending,
+  pathNeedsDesk,
+  planOpsDeskAlign,
+  readActiveDeskHeader,
+  rememberActiveDesk,
+  rememberDeskLevel,
+  clearActiveDesk,
+  shouldAskDeskSwitch,
+  type DeskChoice,
+} from "@/lib/active-desk";
+import { logout, selectDesk } from "@/lib/auth-api";
+import { clearToken, getToken, type MfaStatus } from "@/lib/auth";
+import { MfaSecurityPanel } from "@/components/mfa-security-panel";
+import { presentAuthError } from "@/lib/auth-errors";
+import { getDashboardRouteForRole, routeForDesk, showFederationDashboardLink } from "@/lib/dashboard-routing";
+import { showLegacyClubPicker, switchNeedsConfirm } from "@/lib/desk-switch";
+import { DeskAccessContext } from "@/components/desk-access";
+import { ViewOnlyScope } from "@/components/view-only-scope";
+import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   ALL_CLUBS_SELECT_VALUE,
   allowsAllClubsSelection,
@@ -21,16 +46,12 @@ import {
   useClubSelection,
 } from "@/components/club-selection-provider";
 import { AppVersionLink } from "@/components/app-version-link";
+import { ClubSwitcher } from "@/components/club-switcher";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { FloatingNotice, PageNotice } from "@/components/ui/list-page-chrome";
+import { playMfaCelebration } from "@/lib/mfa-celebration";
 import { cn } from "@/lib/utils";
 
 export type AppNavGroup = {
@@ -58,6 +79,7 @@ type AppShellProps = {
   navItems: AppNavItem[];
   children: React.ReactNode;
   variant?: "default" | "workspace";
+  tone?: "default" | "brand" | "overview";
 };
 
 type AuthMeResponse = {
@@ -65,7 +87,42 @@ type AuthMeResponse = {
   first_name: string;
   role: string;
   is_superuser?: boolean;
+  demo_mode?: boolean;
+  home_club_id?: number | null;
+  desks?: DeskChoice[];
+  last_desk?: { desk: string; level: string; club_id: number | null } | null;
+  mfa?: MfaStatus;
 };
+
+function SwitchRefusal({
+  message,
+  setupLabel,
+  onSetup,
+}: {
+  message: string;
+  setupLabel: string;
+  onSetup: () => void;
+}) {
+  const shown = presentAuthError(message);
+  const offerSetup = shown.code === "mfa_enrol_required" || shown.code === "mfa_required" || shown.code === "mfa_recovery_required";
+  return (
+    <div className="space-y-3">
+      <PageNotice tone={shown.tone}>{shown.text}</PageNotice>
+      {offerSetup ? (
+        <Button type="button" variant="primary" onClick={onSetup}>
+          {setupLabel}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function daysUntil(until: string): number {
+  const end = new Date(`${until.slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((end.getTime() - today.getTime()) / 86400000));
+}
 
 function pathMatches(pathname: string, href: string, matchMode: AppNavItem["matchMode"]) {
   if (matchMode === "exact") {
@@ -81,7 +138,7 @@ function itemMatches(pathname: string, item: AppNavItem) {
   return (item.extraMatchHrefs ?? []).some((href) => pathMatches(pathname, href, "prefix"));
 }
 
-function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
+export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   if (!pathname) {
     return null;
   }
@@ -101,8 +158,9 @@ function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   return best?.id ?? null;
 }
 
-export function AppShell({ title, subtitle, navItems, children, variant = "default" }: AppShellProps) {
+export function AppShell({ title, subtitle, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
   const t = useTranslations("Common");
+  const authCopy = useTranslations("Auth");
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -110,6 +168,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const [collapsed, setCollapsed] = useState(false);
   const [collapseReady, setCollapseReady] = useState(false);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
+  const [activeHeader, setActiveHeader] = useState<string | null>(null);
+  const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [enrolToast, setEnrolToast] = useState(false);
+  const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null);
+  const stopCelebration = useRef<(() => void) | null>(null);
+  const enrolToastTimer = useRef<number | null>(null);
+  const deskChosenHere = useRef(false);
+  const opsAligned = useRef(false);
+  const [switchNotice, setSwitchNotice] = useState<string | null>(null);
+  const suppressAsk = useRef(false);
   const { clubs, selectedClubId, setSelectedClubId } = useClubSelection();
   const allowAllClubs = allowsAllClubsSelection(pathname);
   const visibleClubId = resolveAssignedClubId(clubs, selectedClubId);
@@ -134,8 +203,11 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   }, [allowAllClubs, visibleClubId, selectedClubId, setSelectedClubId]);
 
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
-    setCollapseReady(true);
+    const sync = () => {
+      setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+      setCollapseReady(true);
+    };
+    sync();
   }, []);
 
   useEffect(() => {
@@ -155,6 +227,17 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
         const response = await apiRequest<AuthMeResponse>("/api/auth/me/");
         if (!cancelled) {
           setMe(response);
+          const desks = response.desks ?? [];
+          if (!readActiveDeskHeader()) {
+            const chosen = defaultDesk(desks, response.last_desk ?? null, response.role, response.home_club_id ?? null);
+            if (chosen) {
+              rememberActiveDesk(deskHeaderValue(chosen));
+              if (chosen.club_id) {
+                persistSelectedClubId(chosen.club_id);
+              }
+            }
+          }
+          setActiveHeader(readActiveDeskHeader());
         }
       } catch {
         if (!cancelled) {
@@ -168,12 +251,152 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     };
   }, []);
 
+  useEffect(() => {
+    const sync = () => {
+      const raw = window.sessionStorage.getItem("ltf_recovery_remaining");
+      if (raw == null) {
+        return;
+      }
+      const count = Number(raw);
+      if (Number.isInteger(count) && count >= 0) {
+        setRecoveryLeft(count);
+      }
+    };
+    sync();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopCelebration.current?.();
+      if (enrolToastTimer.current) {
+        window.clearTimeout(enrolToastTimer.current);
+      }
+    };
+  }, []);
+
+  const showEnrolmentSuccess = () => {
+    setSecurityOpen(false);
+    setEnrolToast(true);
+    stopCelebration.current = playMfaCelebration();
+    if (enrolToastTimer.current) {
+      window.clearTimeout(enrolToastTimer.current);
+    }
+    enrolToastTimer.current = window.setTimeout(() => setEnrolToast(false), 4000);
+  };
+
   const handleSignOut = async () => {
     await logout();
     clearToken();
+    clearActiveDesk();
     persistSelectedClubId(null);
     setMe(null);
     router.push(`/${locale}/login`);
+  };
+
+  const desks = me?.desks ?? [];
+  const storedHeader = activeHeader ?? readActiveDeskHeader();
+  const shownHeader = displayedDeskHeader(pathname, storedHeader, desks);
+  const activeDesk = desks.find((desk) => deskHeaderValue(desk) === shownHeader) ?? null;
+  const deskReadOnly = activeDesk?.level === "read_only";
+
+  useEffect(() => {
+    rememberDeskLevel(activeDesk?.level ?? null);
+  }, [activeDesk]);
+  const needed = pathNeedsDesk(pathname);
+  const neededGrant = grantForPath(desks, needed);
+  const askToSwitch = shouldAskDeskSwitch({ pathname, header: storedHeader, desks });
+
+  useEffect(() => {
+    const sync = () => {
+      if (suppressAsk.current) {
+        suppressAsk.current = false;
+        return;
+      }
+      setPendingDesk(askToSwitch ? neededGrant : null);
+    };
+    sync();
+  }, [askToSwitch, neededGrant]);
+
+  useEffect(() => {
+    if (desks.length < 2 || !activeDesk?.club_id || activeDesk.club_id === selectedClubId) {
+      return;
+    }
+    setSelectedClubId(activeDesk.club_id);
+  }, [activeDesk, desks.length, selectedClubId, setSelectedClubId]);
+
+  const deskNames: Record<string, string> = {
+    ltf_admin: t("roleLtfAdmin"),
+    ltf_finance: t("roleLtfFinance"),
+    club_admin: t("roleClubAdmin"),
+    coach: t("roleCoach"),
+    member: t("roleMember"),
+    ops: t("roleSuperuser"),
+  };
+
+  useEffect(() => {
+    if (deskChosenHere.current || opsAligned.current || pathNeedsDesk(pathname) !== "ops") {
+      return;
+    }
+    const desksNow = me?.desks ?? [];
+    if (!grantForPath(desksNow, "ops")) {
+      return;
+    }
+    const plan = planOpsDeskAlign({
+      pathname,
+      header: readActiveDeskHeader(),
+      activeHeader,
+      desks: desksNow,
+      serverPending: opsServerSyncPending(),
+    });
+    opsAligned.current = true;
+    if (plan.writeHeader) {
+      rememberActiveDesk(plan.writeHeader, { silent: true });
+    }
+    if (!plan.sync) {
+      return;
+    }
+    clearOpsServerSync();
+    void selectDesk(plan.sync).catch((error) => {
+      markOpsServerSyncPending();
+      if (!deskChosenHere.current) {
+        setSwitchNotice(error instanceof Error ? error.message : "");
+      }
+    });
+  }, [pathname, me, activeHeader]);
+
+  const applySwitch = async (desk: DeskChoice) => {
+    deskChosenHere.current = true;
+    clearOpsServerSync();
+    suppressAsk.current = true;
+    setSwitchNotice(null);
+    try {
+      const saved = await selectDesk(desk);
+      const header = deskHeaderValue(saved);
+      if (saved.club_id) {
+        persistSelectedClubId(saved.club_id);
+        setSelectedClubId(saved.club_id);
+      }
+      rememberActiveDesk(header);
+      setActiveHeader(header);
+      const route = routeForDesk(saved.desk, locale);
+      if (route && pathname !== route) {
+        router.push(route);
+      }
+      setPendingDesk(null);
+      const response = await apiRequest<AuthMeResponse>("/api/auth/me/");
+      setMe(response);
+    } catch (error) {
+      suppressAsk.current = false;
+      setSwitchNotice(error instanceof Error ? error.message : "");
+    }
+  };
+
+  const requestSwitch = (desk: DeskChoice) => {
+    if (activeDesk && switchNeedsConfirm(pathname, activeDesk.desk, locale)) {
+      setPendingDesk(desk);
+      return;
+    }
+    void applySwitch(desk);
   };
 
   const displayName = me?.first_name?.trim() || me?.username || t("welcomeFallbackName");
@@ -201,12 +424,12 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     ? getDashboardRouteForRole(me.role, locale)
     : null;
   const showOpsConsoleButton = Boolean(me?.is_superuser && !isOpsDashboard);
-  const showFederationDashboardButton = Boolean(
-    me?.is_superuser &&
-      isOpsDashboard &&
-      federationHref &&
-      !federationHref.includes("/dashboard/ops"),
-  );
+  const showFederationDashboardButton = showFederationDashboardLink({
+    isSuperuser: Boolean(me?.is_superuser),
+    onOpsDashboard: isOpsDashboard,
+    role: me?.role ?? "",
+    desks,
+  });
 
   const renderSidebar = (iconOnly: boolean, showCollapse: boolean) => {
     const blocks: Array<{ key: string; group: AppNavGroup | null; items: AppNavItem[] }> = [];
@@ -222,25 +445,29 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
 
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div className={cn("flex items-center gap-3 py-5", iconOnly ? "justify-center px-2" : "px-5")}>
-          <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[oklch(22%_0.06_232)]">
-            <Image src="/ltf-logo.svg" alt="LTF" width={88} height={28} className="h-6 w-auto" />
-          </div>
+        <div className={cn("flex items-center gap-2 py-3", iconOnly ? "justify-center px-2" : "px-3")}>
+          <Image
+            src="/brand/ltf-logo-transparent.png"
+            alt="LTF"
+            width={113}
+            height={34}
+            className={iconOnly ? "brand-logo-compact" : "brand-logo-sidebar"}
+          />
           {iconOnly ? null : (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight text-foreground">{t("appTitle")}</p>
-              <p className="truncate text-meta">{t("appTagline")}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-tight text-foreground">{t("appTitle")}</p>
+              <p className="text-meta leading-tight">{t("appTagline")}</p>
             </div>
           )}
         </div>
-        <nav aria-label={t("navigationLabel")} className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-4", iconOnly ? "px-2" : "px-3")}>
+        <nav aria-label={t("navigationLabel")} className={cn("sidebar-scroll flex min-h-0 flex-1 flex-col gap-1 pb-4", iconOnly ? "px-2" : "px-3")}>
           {blocks.map((block, index) => (
             <div key={block.key} className="flex flex-col gap-1">
               {index > 0 ? (
                 <div className={cn("mx-2 border-t border-border", iconOnly ? "my-1" : "mt-3")} role="presentation" />
               ) : null}
               {block.group && !iconOnly ? (
-                <p className={cn("px-3 pb-1 text-center text-sm font-normal italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}>
+                <p className={cn("sidebar-group-label px-3 pb-1 text-center text-sm italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}>
                   {block.group.label}
                 </p>
               ) : null}
@@ -258,20 +485,20 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                     title={iconOnly ? accessibleName ?? item.label : undefined}
                     aria-label={accessibleName}
                     aria-current={isActive ? "page" : undefined}
+                    data-has-badge={item.badgeCount || item.badgeNew ? "true" : undefined}
                     onClick={() => setNavOpen(false)}
                     className={cn(
-                      "relative flex min-h-[var(--control-height)] items-center rounded-[var(--radius-control)] text-sm font-medium transition-colors",
-                      iconOnly ? "justify-center px-0" : "gap-3 px-3",
-                      item.badgeCount || item.badgeNew ? "pt-3" : "",
+                      "sidebar-nav-link relative transition-colors",
+                      iconOnly && "sidebar-nav-link-icon",
                       isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-primary text-primary-foreground"
                         : "text-muted hover:bg-secondary hover:text-foreground"
                     )}
                   >
                     {item.badgeNew ? (
                       <span
                         className={cn(
-                          "pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-[10px] font-semibold leading-none",
+                          "pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 text-xs font-semibold leading-none",
                           isActive ? "text-primary-foreground" : "text-primary"
                         )}
                       >
@@ -281,14 +508,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                     {countLabel ? (
                       <span
                         className={cn(
-                          "pointer-events-none absolute right-1 top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-4",
+                          "pointer-events-none absolute right-1 top-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-chip)] px-1.5 text-xs font-semibold",
                           isActive ? "bg-surface text-primary" : "bg-primary text-primary-foreground"
                         )}
                       >
                         {countLabel}
                       </span>
                     ) : null}
-                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <Icon className="sidebar-nav-icon size-4 shrink-0" aria-hidden />
                     <span className={cn("truncate", iconOnly && "sr-only")}>{item.label}</span>
                   </Link>
                 );
@@ -300,7 +527,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           {showCollapse ? (
             <button
               type="button"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
+              className="inline-flex size-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
               aria-pressed={iconOnly}
               aria-label={iconOnly ? t("sidebarExpand") : t("sidebarCollapse")}
               onClick={() => setCollapsed((current) => !current)}
@@ -317,7 +544,11 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
   const isWorkspace = variant === "workspace";
 
   return (
-    <div className={cn("bg-background", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}>
+    <DeskAccessContext.Provider value={{ readOnly: deskReadOnly, viewOnlyLabel: t("deskViewOnlyAction") }}>
+    <div
+      data-tone={tone === "brand" ? "brand" : undefined}
+      className={cn("bg-background text-foreground", isWorkspace ? "flex h-screen overflow-hidden" : "min-h-screen lg:flex")}
+    >
       {isWorkspace ? null : (
         <aside
           className={cn(
@@ -340,7 +571,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           <aside className="relative h-full w-[min(var(--sidebar-width),86vw)] bg-surface shadow-[var(--shadow-float)]">
             <button
               type="button"
-              className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
+              className="absolute right-3 top-3 inline-flex size-[var(--control-height)] items-center justify-center rounded-[var(--radius-control)] text-muted hover:bg-secondary hover:text-foreground"
               onClick={() => setNavOpen(false)}
               aria-label={t("navClose")}
             >
@@ -356,7 +587,7 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           <div
             className={cn(
               "flex min-h-[var(--topbar-height)] flex-wrap items-center justify-between gap-3",
-              isWorkspace ? "px-3 py-2" : "px-4 py-3 lg:px-8"
+              isWorkspace ? "px-3 py-1.5" : "px-[var(--page-padding-x)] py-1.5"
             )}
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -373,33 +604,52 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 </Button>
               )}
               <div className="min-w-0">
-                <h1 className="text-title truncate text-foreground">{title}</h1>
-                {subtitle && !isWorkspace ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {tone === "brand" || tone === "overview" ? (
+                  <h1 className="sr-only">{title}</h1>
+                ) : (
+                  <h1 className="text-title truncate text-foreground">{title}</h1>
+                )}
+                {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {deskReadOnly ? (
+                  <span className="mt-0.5 inline-flex" title={t("deskViewOnlyHint")}>
+                    <StatusBadge label={t("deskViewOnly")} tone="info" />
+                  </span>
+                ) : null}
               </div>
             </div>
 
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
-              {showClubSelector ? (
-                <Select
+              {showLegacyClubPicker(desks.length) && showClubSelector ? (
+                <ClubSwitcher
+                  clubs={clubs}
                   value={clubSelectValue}
                   onValueChange={(value) =>
                     setSelectedClubId(value === ALL_CLUBS_SELECT_VALUE ? null : Number(value))
                   }
-                >
-                  <SelectTrigger className="min-w-[180px] sm:min-w-[240px]" aria-label={t("selectedClubLabel")}>
-                    <SelectValue placeholder={t("selectedClubPlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowAllClubs ? (
-                      <SelectItem value={ALL_CLUBS_SELECT_VALUE}>{t("allClubsOption")}</SelectItem>
-                    ) : null}
-                    {clubs.map((club) => (
-                      <SelectItem key={club.id} value={String(club.id)}>
-                        {club.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  allowAllClubs={allowAllClubs}
+                  allClubsLabel={t("allClubsOption")}
+                  placeholder={t("selectedClubPlaceholder")}
+                  ariaLabel={t("selectedClubLabel")}
+                  searchPlaceholder={t("clubSearchPlaceholder")}
+                  emptyMessage={t("clubSearchEmpty")}
+                />
+              ) : null}
+
+              {me?.demo_mode ? (
+                <p className="rounded-[var(--radius-control)] border border-border bg-secondary px-2.5 py-1 text-meta text-foreground">
+                  {t("demoBadge")}
+                </p>
+              ) : null}
+
+              {desks.length > 1 ? (
+                <DeskSwitcher
+                  desks={desks}
+                  active={activeDesk}
+                  names={deskNames}
+                  viewOnlyLabel={t("deskViewOnly")}
+                  menuLabel={t("deskSwitcherLabel")}
+                  onSelect={requestSwitch}
+                />
               ) : null}
 
               {me ? (
@@ -414,7 +664,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
 
               {showOpsConsoleButton ? (
                 <Button asChild variant="outline">
-                  <Link href={`/${locale}/dashboard/ops`}>{t("openOpsConsole")}</Link>
+                  <Link
+                    href={`/${locale}/dashboard/ops`}
+                    onClick={() => {
+                      activateOpsDesk(desks);
+                    }}
+                  >
+                    {t("openOpsConsole")}
+                  </Link>
                 </Button>
               ) : null}
               {showFederationDashboardButton && federationHref ? (
@@ -422,7 +679,11 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                   <Link href={federationHref}>{t("openFederationDashboard")}</Link>
                 </Button>
               ) : null}
+              <ThemeToggle />
               <LanguageSwitcher compact />
+              <Button variant="outline" onClick={() => setSecurityOpen(true)}>
+                {authCopy("mfaSecurity")}
+              </Button>
               <Button variant="outline" onClick={handleSignOut}>
                 {t("signOut")}
               </Button>
@@ -430,21 +691,111 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           </div>
         </header>
 
+        {recoveryLeft != null ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
+            <PageNotice tone={recoveryLeft <= 0 ? "danger" : recoveryLeft <= 3 ? "warning" : "info"}>
+              {recoveryLeft <= 0 ? authCopy("mfaRecoveryUsedNone") : authCopy("mfaRecoveryUsed", { count: recoveryLeft })}
+            </PageNotice>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => setSecurityOpen(true)}
+            >
+              {authCopy("mfaMakeNewSet")}
+            </Button>
+          </div>
+        ) : null}
+        {me?.mfa?.grace && me.mfa.grace_until && !me.mfa.desk_block && !me.mfa.blocked ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
+            <PageNotice tone="info">{authCopy("mfaEnrolGrace", { days: daysUntil(me.mfa.grace_until) })}</PageNotice>
+            <Button type="button" variant="primary" onClick={() => setSecurityOpen(true)}>
+              {authCopy("mfaEnrolAction")}
+            </Button>
+          </div>
+        ) : null}
+        <MfaSecurityPanel
+          open={securityOpen}
+          status={me?.mfa ?? null}
+          onClose={() => setSecurityOpen(false)}
+          onEnrolled={showEnrolmentSuccess}
+          onChanged={(next) => {
+            setMe((current) => (current ? { ...current, mfa: next } : current));
+            void apiRequest<AuthMeResponse>("/api/auth/me/")
+              .then((fresh) => setMe(fresh))
+              .catch(() => undefined);
+          }}
+        />
+        <FloatingNotice
+          open={enrolToast}
+          token="mfa-enabled"
+          tone="success"
+          dismissLabel={authCopy("mfaClose")}
+          onDismiss={() => setEnrolToast(false)}
+        >
+          {authCopy("mfaEnabled")}
+        </FloatingNotice>
         <main
           className={cn(
             "min-w-0 flex-1",
             isWorkspace
               ? "flex min-h-0 flex-col overflow-hidden p-0"
-              : "px-4 py-6 lg:px-8 lg:py-8"
+              : "px-[var(--page-padding-x)] py-[var(--page-padding-y)]"
           )}
         >
-          {isWorkspace ? (
-            children
+          {pendingDesk ? (
+            <DeskSwitchAsk
+              title={t("deskSwitchTitle")}
+              message={
+                pendingDesk.desk === "ltf_admin"
+                  ? t("deskSwitchAskAdmin")
+                  : t("deskSwitchAsk", { desk: deskLabel(pendingDesk, deskNames) })
+              }
+              confirmLabel={t("deskSwitchConfirm")}
+              stayLabel={t("deskSwitchStay")}
+              onConfirm={() => void applySwitch(pendingDesk)}
+              onStay={() => {
+                const home = activeDesk ? routeForDesk(activeDesk.desk, locale) : getDashboardRouteForRole(me?.role ?? "", locale);
+                setPendingDesk(null);
+                if (home && pathname !== home) {
+                  router.push(home);
+                }
+              }}
+            />
+          ) : me?.mfa?.blocked || me?.mfa?.desk_block ? (
+            <div className="mx-auto max-w-xl space-y-3 py-8">
+              <PageNotice tone="info">
+                {me?.mfa?.desk_block === "mfa_required"
+                  ? authCopy("mfaSessionNotice")
+                  : me?.mfa?.desk_block === "mfa_recovery_required"
+                    ? authCopy("mfaRecoveryNotice")
+                    : me?.mfa?.grace && me?.mfa?.grace_until
+                      ? authCopy("mfaEnrolGrace", { days: daysUntil(me?.mfa?.grace_until ?? "") })
+                      : authCopy("mfaEnrolClosed")}
+              </PageNotice>
+              <Button type="button" variant="primary" onClick={() => setSecurityOpen(true)}>
+                {authCopy("mfaEnrolAction")}
+              </Button>
+            </div>
+          ) : isWorkspace ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              {switchNotice ? (
+                <div className="p-3">
+                  <SwitchRefusal message={switchNotice} setupLabel={authCopy("mfaEnrolAction")} onSetup={() => setSecurityOpen(true)} />
+                </div>
+              ) : null}
+              <ViewOnlyScope>{children}</ViewOnlyScope>
+            </div>
           ) : (
-            <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+            <div className="w-full space-y-3">
+              {switchNotice ? (
+                <SwitchRefusal message={switchNotice} setupLabel={authCopy("mfaEnrolAction")} onSetup={() => setSecurityOpen(true)} />
+              ) : null}
+              <ViewOnlyScope>{children}</ViewOnlyScope>
+            </div>
           )}
         </main>
       </div>
     </div>
+    </DeskAccessContext.Provider>
   );
 }

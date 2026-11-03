@@ -16,21 +16,23 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { SummaryCard } from "@/components/club-admin/summary-card";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
-import { Button } from "@/components/ui/button";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageNotice,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices,
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { openInvoicePdf } from "@/lib/invoice-pdf";
 import {
   FinanceInvoice,
@@ -52,7 +54,6 @@ export default function LtfFinanceInvoicesPage() {
   const [invoices, setInvoices] = useState<FinanceInvoice[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatusFilter>("all");
   const [totalInvoiceCount, setTotalInvoiceCount] = useState(0);
@@ -68,9 +69,22 @@ export default function LtfFinanceInvoicesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
   const { selectedClubId } = useClubSelection();
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      selectedClubId ?? "",
+      searchQuery,
+      pageSize,
+      statusFilter,
+      overdueIssue ? "issue" : "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+    ].join("|"),
+  );
 
   const loadInvoices = useCallback(
     async (options?: { silent?: boolean; includeStatic?: boolean }) => {
@@ -91,16 +105,19 @@ export default function LtfFinanceInvoicesPage() {
           q: searchQuery || undefined,
           clubId: selectedClubId ?? undefined,
         };
-        const invoicesPromise = getFinanceInvoicesPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: searchQuery || undefined,
-            status: overdueIssue ? "issued" : statusFilter === "all" ? undefined : statusFilter,
-            clubId: selectedClubId ?? undefined,
-            issue: overdueIssue ? "overdue_7d" : undefined,
-          },
-          { signal: controller.signal }
+        const invoicesPromise = readListPage(pageSize, currentPage, (page, size) =>
+          getFinanceInvoicesPage(
+            {
+              page,
+              pageSize: size,
+              q: searchQuery || undefined,
+              status: overdueIssue ? "issued" : statusFilter === "all" ? undefined : statusFilter,
+              clubId: selectedClubId ?? undefined,
+              issue: overdueIssue ? "overdue_7d" : undefined,
+              ordering,
+            },
+            { signal: controller.signal },
+          ),
         );
         if (includeStatic) {
           const [
@@ -165,16 +182,12 @@ export default function LtfFinanceInvoicesPage() {
         }
       }
     },
-    [currentPage, overdueIssue, pageSize, searchQuery, selectedClubId, statusFilter, t]
+    [currentPage, ordering, overdueIssue, pageSize, searchQuery, selectedClubId, statusFilter, t]
   );
 
   useEffect(() => {
     void loadInvoices();
   }, [loadInvoices]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedClubId, searchQuery, pageSize, statusFilter, overdueIssue]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -210,14 +223,14 @@ export default function LtfFinanceInvoicesPage() {
     };
   }, [loadInvoices]);
 
-  const resolvedPageSize = resolveListPageSize(pageSize, totalInvoiceCount);
+  const resolvedPageSize = displayPageSize(pageSize, totalInvoiceCount);
   const totalPages = Math.max(1, Math.ceil(totalInvoiceCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const getInvoiceStatusMeta = (status: string) => {
     switch (status) {
@@ -245,15 +258,17 @@ export default function LtfFinanceInvoicesPage() {
 
   const columns = useMemo(
     () => [
-      { key: "invoice_number", header: t("invoiceNumberLabel") },
+      { key: "invoice_number", header: t("invoiceNumberLabel"), sortable: true },
       {
         key: "club",
         header: t("clubLabel"),
+        sortable: true,
         render: (row: FinanceInvoice) => row.club_name || String(row.club),
       },
       {
         key: "status",
         header: t("statusLabel"),
+        sortable: true,
         render: (row: FinanceInvoice) => {
           const meta = getInvoiceStatusMeta(row.status);
           return <StatusBadge label={meta.label} tone={meta.tone} />;
@@ -262,22 +277,26 @@ export default function LtfFinanceInvoicesPage() {
       {
         key: "quantity",
         header: common("qtyLabel"),
+        sortable: true,
         render: (row: FinanceInvoice) =>
           typeof row.item_quantity === "number" ? row.item_quantity : "-",
       },
       {
         key: "total",
         header: t("totalLabel"),
+        sortable: true,
         render: (row: FinanceInvoice) => `${row.total} ${row.currency}`,
       },
       {
         key: "outstanding",
         header: t("outstandingLabel"),
+        sortable: true,
         render: (row: FinanceInvoice) => `${row.outstanding ?? row.total} ${row.currency}`,
       },
       {
         key: "issued_at",
         header: t("issuedAtLabel"),
+        sortable: true,
         render: (row: FinanceInvoice) => formatDisplayDateTime(row.issued_at),
       },
       {
@@ -287,22 +306,26 @@ export default function LtfFinanceInvoicesPage() {
           const outstanding = Number(row.outstanding ?? row.total);
           const canRecord = row.status !== "paid" && row.status !== "void" && outstanding > 0;
           return (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => handleInvoicePdf(row.id)}>
-                {common("invoicePdfLabel")}
-              </Button>
-              {canRecord ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    router.push(`/${locale}/dashboard/ltf-finance/payments/${row.id}/record`)
-                  }
-                >
-                  {t("recordPaymentButton")}
-                </Button>
-              ) : null}
-            </div>
+            <RowActionMenu
+              label={common("rowActionsLabel")}
+              actions={[
+                {
+                  key: "pdf",
+                  label: common("invoicePdfLabel"),
+                  onSelect: () => handleInvoicePdf(row.id),
+                },
+                ...(canRecord
+                  ? [
+                      {
+                        key: "record",
+                        label: t("recordPaymentButton"),
+                        onSelect: () =>
+                          router.push(`/${locale}/dashboard/ltf-finance/payments/${row.id}/record`),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           );
         },
       },
@@ -344,7 +367,7 @@ export default function LtfFinanceInvoicesPage() {
         <SummaryCard title={t("invoicesPaidCountLabel")} value={String(invoiceFacetCounts.paid)} />
       </section>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input
@@ -364,8 +387,18 @@ export default function LtfFinanceInvoicesPage() {
             />
           }
           filters={
+            <FinanceListFilters
+              statusActive={overdueIssue || statusFilter !== "all"}
+              onResetStatus={() => {
+                setStatusFilter("all");
+                if (overdueIssue) {
+                  router.replace(`/${locale}/dashboard/ltf-finance/invoices`);
+                }
+              }}
+              status={
             <FilterPills
               ariaLabel={t("invoicesStatusFilterAriaLabel")}
+              layout="wrap"
               value={overdueIssue ? "issued" : statusFilter}
               onChange={setStatusFilter}
               disabled={overdueIssue}
@@ -376,6 +409,8 @@ export default function LtfFinanceInvoicesPage() {
                 { value: "paid", title: common("statusPaid"), count: invoiceFacetCounts.paid },
                 { value: "void", title: common("statusVoid"), count: invoiceFacetCounts.void },
               ]}
+            />
+              }
             />
           }
         />
@@ -402,6 +437,8 @@ export default function LtfFinanceInvoicesPage() {
         <EntityTable
           columns={columns}
           rows={invoices}
+          sort={tableSort}
+          onSortChange={setTableSort}
           onRowClick={(invoice) =>
             router.push(`/${locale}/dashboard/ltf-finance/invoices/${invoice.id}`)
           }

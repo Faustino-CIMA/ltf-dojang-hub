@@ -48,7 +48,7 @@ export function FilterPills<T extends string>({
                 ? "w-auto shrink-0 px-3 py-1.5"
                 : "min-w-0 flex-1 justify-start px-4 py-2",
               selected
-                ? "border-transparent bg-primary text-primary-foreground shadow-sm"
+                ? "border-transparent bg-primary text-primary-foreground"
                 : "border-border bg-surface text-foreground hover:bg-secondary"
             )}
           >

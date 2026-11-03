@@ -14,8 +14,9 @@ import stripe
 from accounts.email_utils import send_resend_email
 
 from .history import expire_outdated_licenses, log_license_status_change
+from .validity import placeholder_activation_block, unlocked_duration_q
 from .models import FinanceAuditLog, Invoice, License, Order, PrintJob
-from .pdf_utils import build_invoice_context, render_invoice_pdf
+from .pdf_utils import build_invoice_context, invoice_balance_due_text, render_invoice_pdf
 from .print_jobs import execute_print_job_now
 from .services import apply_payment_and_activate
 
@@ -285,7 +286,8 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
             )
         )
     collected: list[str] = []
-    ledger = invoice.order.ledger if invoice.order_id else Order.Ledger.FEDERATION
+    order_id = getattr(invoice, "order_id", None)
+    ledger = invoice.order.ledger if order_id else Order.Ledger.FEDERATION
     if ledger == Order.Ledger.CLUB:
         if invoice.delivery_method and invoice.delivery_method != Invoice.DeliveryMethod.EMAIL:
             return []
@@ -310,7 +312,13 @@ def invoice_recipient_emails(invoice: Invoice, recipients: list[str] | None = No
     return list(dict.fromkeys(email for email in collected if email))
 
 
-def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] | None = None) -> None:
+def _dispatch_invoice_email(
+    invoice: Invoice,
+    copy: dict,
+    recipients: list[str] | None = None,
+    *,
+    balance: bool = False,
+) -> bool:
     recipient_list = invoice_recipient_emails(invoice, recipients)
     if not recipient_list:
         FinanceAuditLog.objects.create(
@@ -323,7 +331,7 @@ def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] 
             invoice=invoice,
             metadata={"reason": "no_recipients"},
         )
-        return
+        return True
 
     pdf_bytes = render_invoice_pdf(invoice, base_url=settings.FRONTEND_BASE_URL)
     if not pdf_bytes:
@@ -337,15 +345,27 @@ def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] 
             invoice=invoice,
             metadata={"reason": "pdf_generation_failed"},
         )
-        return
+        return False
 
     context = build_invoice_context(invoice)
-    outstanding = invoice.outstanding()
+    # The invoice PDF prints total_amount. outstanding() is already 0 when a
+    # license invoice is mailed in the same step that records the payment.
+    amount = invoice_balance_due_text(invoice) if balance else context["total_amount"]
+    settled = (not balance) and (
+        invoice.status == Invoice.Status.PAID or (invoice.outstanding() <= 0 and invoice.total > 0)
+    )
+    if balance:
+        amount_line = copy["total"]
+    elif settled:
+        amount_line = copy["paid"]
+    else:
+        amount_line = copy["due"]
     context["copy"] = {
         "hello": copy["hello"],
         "ready": copy["ready"].format(number=invoice.invoice_number),
-        "total": copy["total"].format(total=outstanding, currency=invoice.currency),
+        "total": amount_line.format(total=amount),
         "pdf": copy["pdf"],
+        "note": copy.get("note") or "",
         "thanks": copy["thanks"],
     }
     html = render_to_string("finance/invoice_email.html", context)
@@ -354,6 +374,7 @@ def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] 
         "filename": f"invoice_{invoice.invoice_number}.pdf",
         "content": base64.b64encode(pdf_bytes).decode("ascii"),
     }
+    sent = True
     for recipient in recipient_list:
         success, error = send_resend_email(
             recipient,
@@ -376,6 +397,8 @@ def _dispatch_invoice_email(invoice: Invoice, copy: dict, recipients: list[str] 
                 "error": error if not success else "",
             },
         )
+        sent = sent and success
+    return sent
 
 
 @shared_task
@@ -405,7 +428,14 @@ def send_invoice_reminder_email(invoice_id: int, recipients: list[str] | None = 
         return
     from clubs.communications import reminder_copy_for_club
 
-    _dispatch_invoice_email(invoice, reminder_copy_for_club(invoice.club), recipients)
+    _dispatch_invoice_email(invoice, reminder_copy_for_club(invoice.club), recipients, balance=True)
+
+
+@shared_task
+def run_module_renewals() -> int:
+    from .module_renewals import run_module_renewal_job
+
+    return run_module_renewal_job()
 
 
 @shared_task
@@ -434,12 +464,14 @@ def reconcile_expired_licenses() -> int:
 def activate_eligible_paid_licenses() -> int:
     today = timezone.localdate()
     now = timezone.now()
+    expire_outdated_licenses(actor=None)
     eligible_licenses = (
-        License.objects.filter(
-            status=License.Status.PENDING,
-            start_date__lte=today,
-            end_date__gte=today,
-            order_items__order__status=Order.Status.PAID,
+        License.objects.filter(status=License.Status.PENDING)
+        .filter(Q(start_date__lte=today, end_date__gte=today) | unlocked_duration_q())
+        .filter(
+            # A club license waits for a paid order. A staff license has no
+            # order; issuing it is the authorisation, and club may be empty.
+            Q(order_items__order__status=Order.Status.PAID) | Q(club__isnull=True)
         )
         .select_related("member", "club")
         .distinct()
@@ -449,6 +481,9 @@ def activate_eligible_paid_licenses() -> int:
     activated_license_ids = []
     conflict_license_ids = []
     for license_record in eligible_licenses:
+        blocked = placeholder_activation_block(license_record, today)
+        if blocked:
+            continue
         has_conflict = License.objects.filter(
             member=license_record.member,
             status=License.Status.ACTIVE,

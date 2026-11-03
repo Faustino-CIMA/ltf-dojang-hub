@@ -149,9 +149,14 @@ class ClubExpenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Expense.objects.none()
         user = self.request.user
-        queryset = (
-            Expense.objects.select_related("category", "club", "created_by")
-            .filter(ledger=Order.Ledger.CLUB, club__admins=user)
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(
+            self.request,
+            Expense.objects.select_related("category", "club", "created_by").filter(
+                ledger=Order.Ledger.CLUB, club__admins=user
+            ),
+            "club_id",
         )
         club_id = self.request.query_params.get("club_id") or self.request.query_params.get("club")
         if club_id:
@@ -272,9 +277,14 @@ class ClubIncomeViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Income.objects.none()
         user = self.request.user
-        queryset = (
-            Income.objects.select_related("category", "club", "created_by")
-            .filter(ledger=Order.Ledger.CLUB, club__admins=user)
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(
+            self.request,
+            Income.objects.select_related("category", "club", "created_by").filter(
+                ledger=Order.Ledger.CLUB, club__admins=user
+            ),
+            "club_id",
         )
         club_id = self.request.query_params.get("club_id") or self.request.query_params.get("club")
         if club_id:
@@ -392,7 +402,10 @@ class ClubFinanceReportExportView(APIView):
         except (TypeError, ValueError):
             return Response({"detail": "Enter a valid year."}, status=HTTP_400_BAD_REQUEST)
         report = build_club_finance_report(club_id, year)
-        payload = render_finance_report_xlsx(report)
+        from clubs.document_copy import resolve_document_language
+
+        club = Club.objects.filter(id=club_id).first()
+        payload = render_finance_report_xlsx(report, resolve_document_language(club=club))
         filename = f"club_financial_report_{year}.xlsx"
         response = HttpResponse(
             payload,
@@ -429,7 +442,7 @@ class ClubStatementView(APIView):
                 member_ids.append(family.invoice_member_id)
             title = f"{family.name} — {year}"
         elif member_id:
-            member = Member.objects.filter(id=member_id, club_id=club_id).first()
+            member = Member.all_objects.filter(id=member_id, club_id=club_id).first()
             if member is None:
                 return Response({"detail": "Member not found."}, status=status.HTTP_404_NOT_FOUND)
             member_ids = [member.id]
@@ -466,9 +479,15 @@ class ClubStatementView(APIView):
                 }
             )
         club = Club.objects.filter(id=club_id).first()
+        from clubs.document_copy import resolve_document_language, statement_labels
+
+        doc_language = resolve_document_language(club=club)
+        if title == "Account statement":
+            title = statement_labels(doc_language)["account"]
         pdf = render_statement_pdf(
             {
                 "title": title,
+                "labels": statement_labels(doc_language),
                 "club_name": club.name if club else "",
                 "year": year,
                 "rows": rows,

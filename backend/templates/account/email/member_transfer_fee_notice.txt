@@ -1,9 +1,7 @@
-A member transfer with a fee was requested.
+{{ copy.body }}
+{{ copy.fee }}
+{{ copy.review }}
 
-{{ member_name }} from {{ from_club }} to {{ to_club }}.
-Proposed fee: {{ fee_amount }} {{ fee_currency }}.
-
-This notice is so LTF can review unusual transfer fees.
-Open: {{ action_url }}
+{{ copy.action }} {{ action_url }}
 
 LTF Dojang Hub

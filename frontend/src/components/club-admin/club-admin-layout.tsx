@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
 import {
@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Award,
   Timer,
+  Trophy,
   UsersRound,
   FileText,
   IdCard,
@@ -30,9 +31,12 @@ import { useCalendarAttention } from "@/components/events/use-calendar-attention
 import { ClubPrintingTabs } from "@/components/club-admin/club-printing-tabs";
 import { ClubTrainingTabs } from "@/components/club-admin/club-training-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
-import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
+import { clubSidebarGroup } from "@/lib/sidebar-groups";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
+  COMPETITION_MODULE_ID,
   EVENT_CALENDAR_MODULE_ID,
   getModuleStatus,
   isClubModuleAssigned,
@@ -41,9 +45,10 @@ import {
 } from "@/lib/modules-api";
 
 type ClubAdminLayoutProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  persistent?: boolean;
 };
 
 type NavMatchMode = "exact" | "prefix";
@@ -69,7 +74,8 @@ type ClubNavDef = Readonly<{
     | "navFamilies"
     | "navShop"
     | "navTraining"
-    | "navPromotion";
+    | "navPromotion"
+    | "navTeams";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 }>;
@@ -153,6 +159,13 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     icon: Timer,
   } satisfies ClubNavDef),
   Object.freeze({
+    id: "teams",
+    routePath: "dashboard/club/teams",
+    labelKey: "navTeams",
+    matchMode: "prefix",
+    icon: Trophy,
+  } satisfies ClubNavDef),
+  Object.freeze({
     id: "promotion",
     routePath: "dashboard/club/promotion",
     labelKey: "navPromotion",
@@ -192,27 +205,13 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
 const CLUB_GROUP_RANK: Record<string, number> = {
   club: 0,
   clubManagement: 1,
-  calendar: 2,
-  preview: 3,
+  competition: 2,
+  calendar: 3,
+  preview: 4,
 };
 
-function clubNavGroup(id: string, label: (key: "navGroupClub" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
-  if (id === "admins" || id === "settings") {
-    return undefined;
-  }
-  if (id === "finance" || id === "families" || id === "shop" || id === "training" || id === "promotion") {
-    return { id: "clubManagement", label: label("navGroupClubManagement") };
-  }
-  if (id === "calendar") {
-    return { id: "calendar", label: label("navGroupCalendar") };
-  }
-  if (id === "preview") {
-    return { id: "preview", label: label("navGroupPreview") };
-  }
-  return { id: "club", label: label("navGroupClub") };
-}
-
-export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutProps) {
+function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle });
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -245,6 +244,7 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
   const previewAssigned = isClubModuleAssigned(modules, PREVIEW_MODULE_ID, selectedClubId);
   const calendarAssigned = isClubModuleAssigned(modules, EVENT_CALENDAR_MODULE_ID, selectedClubId);
   const clubMgmtAssigned = isClubModuleAssigned(modules, CLUB_MANAGEMENT_MODULE_ID, selectedClubId);
+  const competitionAssigned = isClubModuleAssigned(modules, COMPETITION_MODULE_ID, selectedClubId);
   const calendarAttention = useCalendarAttention({
     enabled: calendarAssigned,
     scope: "club",
@@ -259,60 +259,89 @@ export function ClubAdminLayout({ title, subtitle, children }: ClubAdminLayoutPr
         if (def.id === "calendar") return calendarAssigned;
         if (def.id === "families" || def.id === "shop") return role === "club_admin" && clubMgmtAssigned;
         if (def.id === "training" || def.id === "promotion") return (role === "club_admin" || role === "coach") && clubMgmtAssigned;
+        if (def.id === "teams") return (role === "club_admin" || role === "coach") && competitionAssigned;
         if (def.id === "finance") return role === "club_admin" && clubMgmtAssigned;
         if (def.id === "orders" || def.id === "invoices") return !clubMgmtAssigned;
         return true;
-      }).map((def, index) => ({
-        index,
-        item: {
-          id: def.id,
-          href: `/${locale}/${def.routePath}`,
-          label: t(def.labelKey),
-          icon: def.icon,
-          matchMode: def.matchMode,
-          group: clubNavGroup(def.id, (key) => common(key)),
-          ...(def.id === "calendar" ? calendarAttention : {}),
-          extraMatchHrefs:
-            def.id === "finance"
-              ? [
-                  `/${locale}/dashboard/club/orders`,
-                  `/${locale}/dashboard/club/invoices`,
-                  `/${locale}/dashboard/club/payments`,
-                  `/${locale}/dashboard/club/income`,
-                  `/${locale}/dashboard/club/expenses`,
-                  `/${locale}/dashboard/club/reports`,
-                ]
-              : def.id === "printing"
-                ? [`/${locale}/dashboard/club/printer-profiles`]
-                : undefined,
-        },
-      }))
+      }).map((def, index) => {
+        const group = clubSidebarGroup(def.id);
+        return {
+          index,
+          item: {
+            id: def.id,
+            href: `/${locale}/${def.routePath}`,
+            label: t(def.labelKey),
+            icon: def.icon,
+            matchMode: def.matchMode,
+            group: group ? { id: group.id, label: common(group.labelKey) } : undefined,
+            ...(def.id === "calendar" ? calendarAttention : {}),
+            extraMatchHrefs:
+              def.id === "finance"
+                ? [
+                    `/${locale}/dashboard/club/orders`,
+                    `/${locale}/dashboard/club/invoices`,
+                    `/${locale}/dashboard/club/payments`,
+                    `/${locale}/dashboard/club/income`,
+                    `/${locale}/dashboard/club/expenses`,
+                    `/${locale}/dashboard/club/reports`,
+                  ]
+                : def.id === "printing"
+                  ? [`/${locale}/dashboard/club/printer-profiles`]
+                  : undefined,
+          },
+        };
+      })
       .sort((left, right) => {
         const leftRank = left.item.group ? (CLUB_GROUP_RANK[left.item.group.id] ?? 9) : 10;
         const rightRank = right.item.group ? (CLUB_GROUP_RANK[right.item.group.id] ?? 9) : 10;
         return leftRank - rightRank || left.index - right.index;
       })
       .map((entry) => entry.item),
-    [calendarAssigned, calendarAttention, clubMgmtAssigned, common, locale, previewAssigned, role, t]
+    [calendarAssigned, calendarAttention, clubMgmtAssigned, common, competitionAssigned, locale, previewAssigned, role, t]
   );
 
   const isPrinting =
     pathname?.includes("/dashboard/club/print-jobs") || pathname?.includes("/dashboard/club/printer-profiles");
   const isTraining = pathname?.includes("/dashboard/club/training");
+  const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
+  const titleText = pageHeader.title || activeLabel;
+  const isWelcome = pathname === `/${locale}/dashboard/club`;
 
   return (
-    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      <IncomingTransferNotice />
-      {role === "club_admin" ? <EventReminderToasts /> : null}
-      {isPrinting || isTraining ? (
-        <div className="space-y-6">
-          {isPrinting ? <ClubPrintingTabs /> : null}
-          {isTraining ? <ClubTrainingTabs /> : null}
-          {children}
-        </div>
-      ) : (
-        children
-      )}
-    </AppShell>
+    <DashboardShellContext.Provider value={pageHeader.shell}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems} tone={isWelcome ? "overview" : "default"}>
+        <IncomingTransferNotice />
+        {role === "club_admin" && calendarAssigned ? <EventReminderToasts /> : null}
+        {isPrinting || isTraining ? (
+          <div className="space-y-3">
+            {isPrinting ? <ClubPrintingTabs /> : null}
+            {isTraining ? <ClubTrainingTabs /> : null}
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </AppShell>
+    </DashboardShellContext.Provider>
   );
+}
+
+export function ClubAdminLayout({ title = "", subtitle, children, persistent = false }: ClubAdminLayoutProps) {
+  const shell = useDashboardShellContext();
+  if (persistent || !shell) {
+    return (
+      <ClubAdminShell title={title} subtitle={subtitle}>
+        {children}
+      </ClubAdminShell>
+    );
+  }
+  return (
+    <DashboardHeaderSync title={title} subtitle={subtitle}>
+      {children}
+    </DashboardHeaderSync>
+  );
+}
+
+function useDashboardShellContext() {
+  return useContext(DashboardShellContext);
 }

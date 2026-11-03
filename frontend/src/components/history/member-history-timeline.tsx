@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { ActionNotices } from "@/components/ui/list-page-chrome";
@@ -11,7 +12,9 @@ import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
+import { displayClubName } from "@/lib/club-label";
 import { GradeHistoryEntry, LicenseHistoryEvent } from "@/lib/ltf-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
 
@@ -79,7 +82,8 @@ type HistoryTimelineProps = {
   cancelLabel?: string;
   previousPageLabel?: string;
   nextPageLabel?: string;
-  pageLabel?: string;
+  /** Called with the visible page. The label is translated here so ICU placeholders receive values. */
+  pageLabel?: (current: number, total: number) => string;
   onPromote?: (input: GradeFormInput) => Promise<void>;
   onUpdateGrade?: (id: number, input: GradeFormInput) => Promise<void>;
   onDeleteGrade?: (id: number) => Promise<void>;
@@ -186,12 +190,12 @@ function HistoryEntityTable<T extends { id: number | string }>({
   cellClassName: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card shadow-sm">
-      <table className="min-w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card">
+      <table className="app-data-table min-w-full text-left text-sm">
         <thead className="border-b border-border bg-secondary text-xs uppercase text-muted">
           <tr>
             {columns.map((column) => (
-              <th key={column.key} className="px-4 py-3 font-medium">
+              <th key={column.key} className="px-[var(--control-padding-x)] py-1 font-medium">
                 {column.header}
               </th>
             ))}
@@ -220,6 +224,7 @@ function HistoryPagination({
   onNext,
   previousPageLabel,
   nextPageLabel,
+  pageLabel,
 }: {
   currentPage: number;
   totalPages: number;
@@ -227,6 +232,7 @@ function HistoryPagination({
   onNext: () => void;
   previousPageLabel: string;
   nextPageLabel: string;
+  pageLabel?: (current: number, total: number) => string;
 }) {
   return (
     <div className="mt-3 flex items-center justify-between gap-2">
@@ -240,7 +246,7 @@ function HistoryPagination({
         {previousPageLabel}
       </Button>
       <span className="flex-1 text-center text-xs text-muted">
-        {currentPage} / {totalPages}
+        {pageLabel ? pageLabel(currentPage, totalPages) : `${currentPage} / ${totalPages}`}
       </span>
       <Button
         type="button"
@@ -280,6 +286,7 @@ function GradeInlineForm({
   onIssuedByOtherChange,
   onSubmit,
   onCancel,
+  open,
 }: {
   editingGradeId: number | null;
   gradeFormTitle?: string;
@@ -305,60 +312,72 @@ function GradeInlineForm({
   onIssuedByOtherChange: (value: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  open: boolean;
 }) {
+  const title = editingGradeId !== null ? editGradeFormTitle ?? gradeFormTitle ?? "" : gradeFormTitle ?? "";
   return (
-    <div className="rounded-[var(--radius-form)] border border-border bg-secondary/20 p-4">
-      <p className="text-sm font-semibold text-foreground">
-        {editingGradeId !== null ? editGradeFormTitle ?? gradeFormTitle : gradeFormTitle}
-      </p>
-      <div className="mt-3 grid gap-4 md:grid-cols-2">
+    <SidePanel
+      open={open}
+      wide
+      title={title}
+      closeLabel={cancelLabel ?? "Close"}
+      onClose={onCancel}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            {cancelLabel}
+          </Button>
+          <Button type="button" disabled={isSubmitting} onClick={onSubmit}>
+            {promoteSubmitLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="grade-promotion-date">{promoteDateLabel}</Label>
           <Input
             id="grade-promotion-date"
             type="date"
-            className="rounded-[var(--radius-form)]"
             value={promotionDate}
             onChange={(event) => onPromotionDateChange(event.target.value)}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="grade-to-rank">{promoteToGradeLabel}</Label>
-          <Select value={toGrade || undefined} onValueChange={onToGradeChange}>
-            <SelectTrigger id="grade-to-rank" className="rounded-[var(--radius-form)]">
-              <SelectValue placeholder={promoteToGradeLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              {gradeOptions.map((grade) => (
-                <SelectItem key={grade} value={grade}>
-                  {grade}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="grade-to-rank" required>
+            {promoteToGradeLabel}
+          </Label>
+          <PopoverSelect
+            className="w-full"
+            value={toGrade}
+            onValueChange={onToGradeChange}
+            ariaLabel={promoteToGradeLabel ?? "Grade"}
+            placeholder={promoteToGradeLabel}
+            options={gradeOptions.map((grade) => ({ value: grade, label: grade }))}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="grade-issued-by">{issuedByLabel}</Label>
-          <Select
+          <PopoverSelect
+            className="w-full"
             value={issuedByOption}
             onValueChange={(value) => onIssuedByOptionChange(value as IssuedByOption)}
-          >
-            <SelectTrigger id="grade-issued-by" className="rounded-[var(--radius-form)]">
-              <SelectValue placeholder={issuedByLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="club">{issuedByClubOption}</SelectItem>
-              <SelectItem value="ltf">{issuedByLtfOption}</SelectItem>
-              <SelectItem value="other">{issuedByOtherOption}</SelectItem>
-            </SelectContent>
-          </Select>
+            ariaLabel={issuedByLabel ?? "Issued by"}
+            placeholder={issuedByLabel}
+            options={[
+              { value: "club", label: issuedByClubOption ?? "Club" },
+              { value: "ltf", label: issuedByLtfOption ?? "LTF" },
+              { value: "other", label: issuedByOtherOption ?? "Other" },
+            ]}
+          />
         </div>
         {issuedByOption === "other" ? (
           <div className="space-y-2">
-            <Label htmlFor="grade-issued-by-other">{issuedByOtherPlaceholder}</Label>
+            <Label htmlFor="grade-issued-by-other" required>
+              {issuedByOtherPlaceholder}
+            </Label>
             <Input
               id="grade-issued-by-other"
-              className="rounded-[var(--radius-form)]"
               value={issuedByOther}
               onChange={(event) => onIssuedByOtherChange(event.target.value)}
               placeholder={issuedByOtherPlaceholder}
@@ -366,15 +385,7 @@ function GradeInlineForm({
           </div>
         ) : null}
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="outline" className="h-[var(--control-height)] min-h-[var(--control-height)]" onClick={onCancel}>
-          {cancelLabel}
-        </Button>
-        <Button type="button" className="h-[var(--control-height)] min-h-[var(--control-height)]" disabled={isSubmitting} onClick={onSubmit}>
-          {promoteSubmitLabel}
-        </Button>
-      </div>
-    </div>
+    </SidePanel>
   );
 }
 
@@ -408,6 +419,7 @@ export function MemberHistoryTimeline({
   cancelLabel,
   previousPageLabel = "Previous page",
   nextPageLabel = "Next page",
+  pageLabel,
   onPromote,
   onUpdateGrade,
   onDeleteGrade,
@@ -415,6 +427,7 @@ export function MemberHistoryTimeline({
   gradeHistory,
   visibleSection = "all",
 }: HistoryTimelineProps) {
+  const t = useTranslations("LtfAdmin");
   const [licensePage, setLicensePage] = useState(1);
   const [gradePage, setGradePage] = useState(1);
   const [gradeFormOpen, setGradeFormOpen] = useState(false);
@@ -498,7 +511,7 @@ export function MemberHistoryTimeline({
         header: <span className="sr-only">Select</span>,
         render: (row) => (
           <span
-            className="inline-flex min-h-11 min-w-11 items-center justify-center"
+            className="inline-flex"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -626,7 +639,7 @@ export function MemberHistoryTimeline({
   const showSectionTitles = visibleSection === "all";
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       {showLicenses ? (
       <div>
@@ -640,6 +653,15 @@ export function MemberHistoryTimeline({
             <HistoryEntityTable
               columns={[
                 { key: "year", header: licenseYearLabel, render: (row) => row.license_year },
+                {
+                  key: "club",
+                  header: t("clubLabel"),
+                  render: (row) =>
+                    displayClubName(row.club, row.club ? row.club_name_snapshot : "", {
+                      noClub: t("noClub"),
+                      unknownClub: t("unknownClub"),
+                    }),
+                },
                 {
                   key: "type",
                   header: licenseTypeLabel,
@@ -658,7 +680,7 @@ export function MemberHistoryTimeline({
               ]}
               rows={paginatedLicenses}
               rowClassName="h-[var(--table-row-height)]"
-              cellClassName="box-border h-[var(--table-row-height)] px-4 py-0 align-middle"
+              cellClassName="box-border h-[var(--table-row-height)] px-[var(--control-padding-x)] py-0 align-middle"
             />
             {sortedLicenses.length > ROWS_PER_PAGE ? (
               <HistoryPagination
@@ -668,6 +690,7 @@ export function MemberHistoryTimeline({
                 onNext={() => setLicensePage((page) => Math.min(licenseTotalPages, page + 1))}
                 previousPageLabel={previousPageLabel}
                 nextPageLabel={nextPageLabel}
+                pageLabel={pageLabel}
               />
             ) : null}
           </div>
@@ -728,36 +751,7 @@ export function MemberHistoryTimeline({
           ) : null}
         </div>
         ) : null}
-        {gradeFormOpen ? (
-          <div className="mt-3">
-            <GradeInlineForm
-              editingGradeId={editingGradeId}
-              gradeFormTitle={gradeFormTitle}
-              editGradeFormTitle={editGradeFormTitle}
-              promoteDateLabel={promoteDateLabel}
-              promoteToGradeLabel={promoteToGradeLabel}
-              issuedByLabel={issuedByLabel}
-              issuedByClubOption={issuedByClubOption}
-              issuedByLtfOption={issuedByLtfOption}
-              issuedByOtherOption={issuedByOtherOption}
-              issuedByOtherPlaceholder={issuedByOtherPlaceholder}
-              promoteSubmitLabel={promoteSubmitLabel}
-              cancelLabel={cancelLabel}
-              gradeOptions={gradeOptions}
-              toGrade={toGrade}
-              promotionDate={promotionDate}
-              issuedByOption={issuedByOption}
-              issuedByOther={issuedByOther}
-              isSubmitting={isSubmitting}
-              onToGradeChange={setToGrade}
-              onPromotionDateChange={setPromotionDate}
-              onIssuedByOptionChange={setIssuedByOption}
-              onIssuedByOtherChange={setIssuedByOther}
-              onSubmit={submitGradeForm}
-              onCancel={closeGradeForm}
-            />
-          </div>
-        ) : sortedGrades.length === 0 ? (
+        {sortedGrades.length === 0 ? (
           <p className="mt-2 text-sm text-muted">{emptyLabel}</p>
         ) : (
           <div className="mt-3">
@@ -765,7 +759,7 @@ export function MemberHistoryTimeline({
               columns={gradeTableColumns}
               rows={paginatedGrades}
               rowClassName="h-[var(--table-row-height)]"
-              cellClassName="box-border h-[var(--table-row-height)] px-4 py-0 align-middle"
+              cellClassName="box-border h-[var(--table-row-height)] px-[var(--control-padding-x)] py-0 align-middle"
             />
             {sortedGrades.length > ROWS_PER_PAGE ? (
               <HistoryPagination
@@ -775,10 +769,38 @@ export function MemberHistoryTimeline({
                 onNext={() => setGradePage((page) => Math.min(gradeTotalPages, page + 1))}
                 previousPageLabel={previousPageLabel}
                 nextPageLabel={nextPageLabel}
+                pageLabel={pageLabel}
               />
             ) : null}
           </div>
         )}
+        <GradeInlineForm
+          open={gradeFormOpen}
+          editingGradeId={editingGradeId}
+          gradeFormTitle={gradeFormTitle}
+          editGradeFormTitle={editGradeFormTitle}
+          promoteDateLabel={promoteDateLabel}
+          promoteToGradeLabel={promoteToGradeLabel}
+          issuedByLabel={issuedByLabel}
+          issuedByClubOption={issuedByClubOption}
+          issuedByLtfOption={issuedByLtfOption}
+          issuedByOtherOption={issuedByOtherOption}
+          issuedByOtherPlaceholder={issuedByOtherPlaceholder}
+          promoteSubmitLabel={promoteSubmitLabel}
+          cancelLabel={cancelLabel}
+          gradeOptions={gradeOptions}
+          toGrade={toGrade}
+          promotionDate={promotionDate}
+          issuedByOption={issuedByOption}
+          issuedByOther={issuedByOther}
+          isSubmitting={isSubmitting}
+          onToGradeChange={setToGrade}
+          onPromotionDateChange={setPromotionDate}
+          onIssuedByOptionChange={setIssuedByOption}
+          onIssuedByOtherChange={setIssuedByOther}
+          onSubmit={submitGradeForm}
+          onCancel={closeGradeForm}
+        />
       </div>
       ) : null}
       <DeleteConfirmModal

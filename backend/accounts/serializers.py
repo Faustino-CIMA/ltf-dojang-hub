@@ -1,12 +1,17 @@
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    home_club_id = serializers.SerializerMethodField()
+    demo_mode = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -20,7 +25,18 @@ class UserSerializer(serializers.ModelSerializer):
             "is_email_verified",
             "consent_given",
             "consent_given_at",
+            "home_club_id",
+            "demo_mode",
         ]
+
+    def get_demo_mode(self, obj):
+        return bool(getattr(settings, "DEMO_MODE", False))
+
+    def get_home_club_id(self, obj):
+        try:
+            return obj.member_profile.club_id
+        except ObjectDoesNotExist:
+            return None
 
 
 class EmptySerializer(serializers.Serializer):
@@ -86,11 +102,13 @@ class LoginSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         request = self.context.get("request")
-        user = authenticate(
-            request,
-            username=attrs.get("username"),
-            password=attrs.get("password"),
-        )
+        login_name = str(attrs.get("username") or "").strip()
+        password = attrs.get("password")
+        user = authenticate(request, username=login_name, password=password)
+        if user is None and "@" in login_name:
+            matched = User.objects.filter(email__iexact=login_name).only("username").first()
+            if matched is not None:
+                user = authenticate(request, username=matched.username, password=password)
         if not user:
             raise serializers.ValidationError("Invalid credentials")
         if not user.is_active:

@@ -1,4 +1,4 @@
-import { formatFirstName, formatLastName } from "@/lib/person-name";
+import { formatFirstName, formatFullName, formatLastName, fullNameSortKey } from "@/lib/person-name";
 import {
   addressCountryConfig,
   nationalityCodeFromStored,
@@ -16,6 +16,19 @@ describe("person name formatting", () => {
   it("uppercases last names including hyphens", () => {
     expect(formatLastName("dupont-schmit")).toBe("DUPONT-SCHMIT");
     expect(formatLastName("  member ")).toBe("MEMBER");
+  });
+
+  it("formats a full name as last name then first name", () => {
+    expect(formatFullName({ first_name: "jean-pierre", last_name: "dupont" })).toBe("DUPONT Jean-Pierre");
+    expect(formatFullName({ first_name: "  ADA ", last_name: "" })).toBe("Ada");
+    expect(formatFullName(null)).toBe("");
+  });
+
+  it("sorts full names by last name, then first name", () => {
+    const ada = fullNameSortKey({ first_name: "Ada", last_name: "Lovelace" });
+    const ann = fullNameSortKey({ first_name: "Ann", last_name: "Lovelace" });
+    const grace = fullNameSortKey({ first_name: "Grace", last_name: "Hopper" });
+    expect([ann, grace, ada].sort()).toEqual([grace, ada, ann]);
   });
 });
 

@@ -8,7 +8,7 @@ WEB = "http://localhost:3000"
 ROUTES = {
  "anne.reding": ["dashboard/club", "dashboard/club/members", "dashboard/club/members/60", "dashboard/club/members/new",
    "dashboard/club/members/import", "dashboard/club/members/order-licenses", "dashboard/club/licenses",
-   "dashboard/club/print-jobs", "dashboard/club/print-jobs/quick-print", "dashboard/club/printer-profiles",
+   "dashboard/club/print-jobs", "dashboard/club/printer-profiles",
    "dashboard/club/transfers", "dashboard/club/invoices", "dashboard/club/orders", "dashboard/club/payments",
    "dashboard/club/billing", "dashboard/club/fees", "dashboard/club/income", "dashboard/club/expenses",
    "dashboard/club/bank", "dashboard/club/reports", "dashboard/club/subsidies", "dashboard/club/families",

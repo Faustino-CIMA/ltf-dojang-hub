@@ -4,6 +4,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/:locale/dashboard/ltf/import",
+        has: [{ type: "query", key: "type", value: "members" }],
+        destination: "/:locale/dashboard/ltf/members/import",
+        permanent: false,
+      },
+    ];
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

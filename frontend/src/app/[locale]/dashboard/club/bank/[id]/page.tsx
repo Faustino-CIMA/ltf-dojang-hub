@@ -78,7 +78,7 @@ export default function ClubBankStatementDetailPage() {
 
   return (
     <ClubAdminLayout title={t("bankDetailTitle")} subtitle={t("bankDetailSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <Button asChild variant="outline" className="w-fit">
           <Link href={`/${locale}/dashboard/club/bank`}>{t("backToBank")}</Link>

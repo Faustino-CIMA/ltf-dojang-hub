@@ -11,16 +11,29 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
 
+import {
+  AccessBadges,
+  ClubAdminAccessMenu,
+  ClubAdminAccessPanel,
+  accessIsReset,
+  useClubAdminAccessCopy,
+} from "@/components/club-admin/club-admin-access";
+
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { FloatingNotice, FormPanel, PageNotice } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { formatFullName } from "@/lib/person-name";
+import { downloadClubAdminAccessLinks, sendClubAdminAccessLink } from "@/lib/club-access-links";
 import { cn } from "@/lib/utils";
 import {
   AddClubAdminResponse,
@@ -42,12 +55,11 @@ type PendingAssign = {
 };
 
 function displayMemberName(member: AssignmentMember) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function displayAdminName(admin: AssignmentAdmin) {
-  const full = `${admin.first_name} ${admin.last_name}`.trim();
-  return admin.member_name || full || admin.username;
+  return formatFullName(admin) || admin.member_name || admin.username;
 }
 
 function matchesQuery(haystack: string, query: string) {
@@ -128,6 +140,7 @@ function pinAndLimit<T extends { id: number }>(items: T[], limit: number, pinned
 
 export default function ClubAdminsBoardPage() {
   const t = useTranslations("LtfAdmin");
+  const access = useClubAdminAccessCopy();
   const common = useTranslations("Common");
   const locale = useLocale();
   const searchParams = useSearchParams();
@@ -173,6 +186,10 @@ export default function ClubAdminsBoardPage() {
     admin: AssignmentAdmin;
     club: AssignmentAdminClub | AssignmentClub;
   } | null>(null);
+  const [accessAdmin, setAccessAdmin] = useState<AssignmentAdmin | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [selectedLinkIds, setSelectedLinkIds] = useState<number[]>([]);
+  const [downloadOpen, setDownloadOpen] = useState(false);
 
   const loadBoard = useCallback(async () => {
     setErrorMessage(null);
@@ -433,7 +450,81 @@ export default function ClubAdminsBoardPage() {
     if (message === "Club admin limit reached.") {
       return t("adminLimitReached");
     }
+    if (message === "actor_home_club" || message === "Not allowed.") {
+      return t("actorHomeClubOnly");
+    }
+    if (message === "email_change_forbidden") {
+      return access.emailChangeForbidden;
+    }
+    if (message === "rate_limited") {
+      return access.rateLimited;
+    }
     return message;
+  };
+
+  const explainAccessError = (message: string) => {
+    if (message === "email_in_use") return access.emailInUse;
+    if (message === "email_required") return access.emailRequired;
+    return mapAssignError(message);
+  };
+
+  const issueAccess = async (
+    admin: AssignmentAdmin,
+    body: { delivery: "email" | "copy" | "both"; email?: string; locale: string },
+  ) => {
+    setIsSaving(true);
+    setAccessError(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setInviteResetUrl(null);
+    try {
+      const result = await sendClubAdminAccessLink(admin.id, body);
+      if (result.link) {
+        try {
+          await navigator.clipboard.writeText(result.link);
+        } catch {
+          // The notice still shows the link when the clipboard is unavailable.
+        }
+        setInviteResetUrl(result.link);
+      }
+      const reset = accessIsReset(admin);
+      if (body.delivery !== "copy" && result.email_sent) {
+        setSuccessMessage(access.sent(reset, body.email || admin.email));
+      } else if (body.delivery !== "copy" && !result.email_sent) {
+        setSuccessMessage(access.emailFailed);
+      } else {
+        setSuccessMessage(access.copied(reset));
+      }
+      setAccessAdmin(null);
+      await loadBoard();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      setAccessError(explainAccessError(message));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const downloadLinks = async () => {
+    if (selectedLinkIds.length === 0) {
+      setErrorMessage(access.downloadEmpty);
+      return;
+    }
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      const result = await downloadClubAdminAccessLinks(selectedLinkIds, locale);
+      setDownloadOpen(false);
+      setSuccessMessage(
+        result.skipped > 0 ? access.downloadSkipped(result.skipped) : access.downloadDone,
+      );
+      await loadBoard();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      setErrorMessage(explainAccessError(message));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const completeAssign = async (pending: PendingAssign, email?: string) => {
@@ -618,7 +709,7 @@ export default function ClubAdminsBoardPage() {
 
   return (
     <LtfAdminLayout title={t("clubAdminsBoardTitle")} subtitle={t("clubAdminsBoardSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : (
@@ -844,7 +935,9 @@ export default function ClubAdminsBoardPage() {
                                 {displayMemberName(member)}
                               </p>
                               <p className="mt-0.5 text-xs text-muted">
-                                {t("memberHomeClubLabel", { club: member.club_name })}
+                                {t("memberHomeClubLabel", {
+                                  club: member.club_id ? member.club_name : t("noClub"),
+                                })}
                               </p>
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                 {member.has_valid_license ? (
@@ -878,8 +971,15 @@ export default function ClubAdminsBoardPage() {
             </FormPanel>
 
             <FormPanel>
-              <h2 className="text-section text-foreground">{t("rosterBoardTitle")}</h2>
-              <p className="mt-1 text-sm text-muted">{t("rosterBoardSubtitle")}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-section text-foreground">{t("rosterBoardTitle")}</h2>
+                  <p className="mt-1 text-sm text-muted">{t("rosterBoardSubtitle")}</p>
+                </div>
+                <Button type="button" variant="outline" onClick={() => setDownloadOpen(true)} disabled={selectedLinkIds.length === 0}>
+                  {access.download}
+                </Button>
+              </div>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <div className="flex flex-col rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-3">
                   <Input
@@ -914,12 +1014,45 @@ export default function ClubAdminsBoardPage() {
                             }
                             className={cn(CARD_BASE, selected ? CARD_SELECTED : CARD_IDLE)}
                           >
-                            <p className="font-medium text-foreground">{displayAdminName(admin)}</p>
-                            <p className="mt-0.5 text-xs text-muted">
-                              {admin.username}
-                              {admin.email ? ` · ${admin.email}` : ""}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-2">
+                                <span
+                                  onClick={(event) => event.stopPropagation()}
+                                  onPointerDown={(event) => event.stopPropagation()}
+                                >
+                                  <Checkbox
+                                    checked={selectedLinkIds.includes(admin.id)}
+                                    aria-label={access.select(displayAdminName(admin))}
+                                    onCheckedChange={(checked) => {
+                                      setSelectedLinkIds((current) =>
+                                        checked ? [...current, admin.id] : current.filter((id) => id !== admin.id),
+                                      );
+                                    }}
+                                  />
+                                </span>
+                                <div>
+                                  <p className="font-medium text-foreground">{displayAdminName(admin)}</p>
+                                  <p className="mt-0.5 text-xs text-muted">
+                                    {admin.username}
+                                    {admin.email ? ` · ${admin.email}` : ""}
+                                  </p>
+                                </div>
+                              </div>
+                              <span onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                                <ClubAdminAccessMenu
+                                  admin={admin}
+                                  menuLabel={access.menuLabel(displayAdminName(admin))}
+                                  copy={access.copy}
+                                  onOpen={() => {
+                                    setAccessError(null);
+                                    setAccessAdmin(admin);
+                                  }}
+                                  onCopy={() => void issueAccess(admin, { delivery: "copy", locale })}
+                                  onRemove={(club) => setPendingRemove({ admin, club })}
+                                />
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               {!admin.member_id ? (
                                 <StatusBadge label={t("unlinkedLoginBadge")} tone="warning" />
                               ) : admin.home_club_name ? (
@@ -928,9 +1061,7 @@ export default function ClubAdminsBoardPage() {
                                   tone="info"
                                 />
                               ) : null}
-                              {!admin.email ? (
-                                <StatusBadge label={t("noEmailBadge")} tone="warning" />
-                              ) : null}
+                              <AccessBadges admin={admin} labels={access.badges} />
                             </div>
                             <div className="mt-3 flex flex-wrap gap-1.5">
                               {admin.clubs.map((club) => (
@@ -1015,35 +1146,37 @@ export default function ClubAdminsBoardPage() {
         ) : null}
       </FloatingNotice>
 
-      <Modal
+      <SidePanel
+        open={showEmailModal}
         title={t("emailRequiredTitle")}
         description={t("emailRequiredDescription")}
-        isOpen={showEmailModal}
+        closeLabel={common("modalClose")}
         onClose={resetConnect}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("emailInputLabel")}</label>
-            <Input
-              type="email"
-              value={emailValue}
-              onChange={(event) => setEmailValue(event.target.value)}
-              placeholder={t("emailInputPlaceholder")}
-              autoFocus
-            />
-            {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
-            {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={confirmEmailAssign} disabled={isSaving}>
-              {t("emailConfirmAction")}
-            </Button>
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={resetConnect}>
               {t("emailCancelAction")}
             </Button>
-          </div>
+            <Button type="button" onClick={confirmEmailAssign} disabled={isSaving}>
+              {t("emailConfirmAction")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="ltf-club-admin-email" required>{t("emailInputLabel")}</Label>
+          <Input
+            id="ltf-club-admin-email"
+            type="email"
+            value={emailValue}
+            onChange={(event) => setEmailValue(event.target.value)}
+            placeholder={t("emailInputPlaceholder")}
+            autoFocus
+          />
+          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
+          {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
         </div>
-      </Modal>
+      </SidePanel>
 
       <Modal
         title={t("crossClubTitle")}
@@ -1068,6 +1201,37 @@ export default function ClubAdminsBoardPage() {
           </Button>
           <Button type="button" variant="outline" onClick={resetConnect}>
             {t("emailCancelAction")}
+          </Button>
+        </div>
+      </Modal>
+
+      <ClubAdminAccessPanel
+        admin={accessAdmin}
+        open={Boolean(accessAdmin)}
+        allowEmailChange
+        locale={locale}
+        busy={isSaving}
+        error={accessError}
+        closeLabel={common("modalClose")}
+        copy={access.copy}
+        onClose={() => {
+          setAccessAdmin(null);
+          setAccessError(null);
+        }}
+        onSubmit={(body) => {
+          if (!accessAdmin) return;
+          void issueAccess(accessAdmin, body);
+        }}
+      />
+
+      <Modal isOpen={downloadOpen} onClose={() => setDownloadOpen(false)} title={access.downloadTitle}>
+        <p className="text-sm text-foreground">{access.downloadWarning}</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setDownloadOpen(false)}>
+            {t("emailCancelAction")}
+          </Button>
+          <Button type="button" onClick={() => void downloadLinks()} disabled={isSaving}>
+            {access.downloadAction}
           </Button>
         </div>
       </Modal>

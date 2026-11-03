@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from clubs.models import Club
+from clubs.models import Club, TrainingVenue
 from events.access import is_club_coach
 
 from .access import can_manage_club_records, club_mgmt_entitled, is_ltf_manager
@@ -78,7 +78,7 @@ class TrainingSeriesView(APIView):
 
     def get(self, request):
         club = _club(request)
-        rows = TrainingSeries.objects.filter(club=club).prefetch_related("coaches", "regulars")
+        rows = TrainingSeries.objects.filter(club=club).select_related("venue").prefetch_related("coaches", "regulars")
         return Response([serialize_series(row) for row in rows])
 
     def post(self, request):
@@ -147,7 +147,7 @@ class TrainingSessionView(APIView):
         start_time = _parse_time(request.data.get("start_time"))
         end_time = _parse_time(request.data.get("end_time"))
         _require_period(start_time, end_time)
-        session = TrainingSession.objects.create(
+        session = TrainingSession(
             club=club,
             name=str(request.data.get("name") or "Training").strip() or "Training",
             audience=audience,
@@ -156,6 +156,9 @@ class TrainingSessionView(APIView):
             end_time=end_time,
             notes=str(request.data.get("notes") or ""),
         )
+        if "venue_id" in request.data or "place" in request.data:
+            _apply_place_venue(session, request.data)
+        session.save()
         _set_session_coaches(session, request.data.get("coach_ids"), club)
         return Response(serialize_session(session), status=201)
 
@@ -180,6 +183,10 @@ class TrainingSessionDetailView(APIView):
             session.start_time = _parse_time(data.get("start_time"))
         if data.get("end_time"):
             session.end_time = _parse_time(data.get("end_time"))
+        if "venue_id" in data:
+            _apply_place_venue(session, data)
+        elif "place" in data:
+            session.place = str(data.get("place") or "").strip()[:120]
         _require_period(session.start_time, session.end_time)
         session.save()
         if "coach_ids" in data:
@@ -417,10 +424,29 @@ class CoachOutingDetailView(APIView):
 
 def _session(request, session_id: int, *, admin: bool = False) -> TrainingSession:
     club_id = _require_admin(request) if admin else _require_training_club(request)
-    session = TrainingSession.objects.filter(club_id=club_id, id=session_id).first()
+    session = TrainingSession.objects.filter(club_id=club_id, id=session_id).select_related("venue").first()
     if session is None:
         raise ValidationError({"detail": "Session not found."})
     return session
+
+
+def _apply_place_venue(row, data) -> None:
+    """Link a class or session to one of its club's venues, or keep a legacy place string."""
+    raw = data.get("venue_id")
+    if raw in (None, ""):
+        row.venue = None
+        if "place" in data:
+            row.place = str(data.get("place") or "").strip()[:120]
+        return
+    try:
+        venue_id = int(raw)
+    except (TypeError, ValueError) as error:
+        raise ValidationError({"venue_id": "Choose a training venue for this club."}) from error
+    venue = TrainingVenue.objects.filter(pk=venue_id, club_id=row.club_id).first()
+    if venue is None:
+        raise ValidationError({"venue_id": "Choose a training venue for this club."})
+    row.venue = venue
+    row.place = str(venue.name or "").strip()[:120]
 
 
 def _apply_series(series: TrainingSeries, data, *, partial: bool = False) -> None:
@@ -455,7 +481,9 @@ def _apply_series(series: TrainingSeries, data, *, partial: bool = False) -> Non
         series.counts_for_under_16 = bool(data.get("counts_for_under_16"))
     elif not partial:
         series.counts_for_under_16 = series.audience == TrainingSeries.Audience.KIDS
-    if "place" in data:
+    if "venue_id" in data:
+        _apply_place_venue(series, data)
+    elif "place" in data:
         series.place = str(data.get("place") or "").strip()[:120]
     if "active" in data:
         series.active = bool(data.get("active"))

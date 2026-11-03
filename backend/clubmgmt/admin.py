@@ -15,6 +15,7 @@ from .models import (
     ShopSale,
     ShopSnapshot,
 )
+from .teams import WeightCategoryBand, WeightCategorySet
 
 
 @admin.register(MemberRecord)
@@ -64,7 +65,7 @@ class CommitteeAdmin(admin.ModelAdmin):
 
 @admin.register(CommitteeMandate)
 class CommitteeMandateAdmin(admin.ModelAdmin):
-    list_display = ("committee", "role", "member", "person", "started_on", "ended_on")
+    list_display = ("committee", "role", "member", "person", "started_on", "ended_on", "recorded_by")
 
 
 @admin.register(ShopItem)
@@ -80,3 +81,14 @@ class ShopSaleAdmin(admin.ModelAdmin):
 @admin.register(ShopSnapshot)
 class ShopSnapshotAdmin(admin.ModelAdmin):
     list_display = ("club", "taken_at", "note")
+
+
+class WeightCategoryBandInline(admin.TabularInline):
+    model = WeightCategoryBand
+    extra = 0
+
+
+@admin.register(WeightCategorySet)
+class WeightCategorySetAdmin(admin.ModelAdmin):
+    list_display = ("code", "age_basis", "position", "source_note")
+    inlines = [WeightCategoryBandInline]

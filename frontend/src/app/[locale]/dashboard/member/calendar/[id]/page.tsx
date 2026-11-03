@@ -1,11 +1,16 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
-import { EventFormPage } from "@/components/events/event-form-page";
-
-export default function MemberCalendarEventPage() {
+export default function MemberCalendarEventRedirect() {
+  const router = useRouter();
   const params = useParams();
-  const eventId = Number(params.id);
-  return <EventFormPage variant="member" eventId={eventId} />;
+  useEffect(() => {
+    const locale = typeof params.locale === "string" ? params.locale : "en";
+    const rawId = params.id;
+    const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
+    router.replace(`/${locale}/dashboard/member/calendar?edit=${id}`);
+  }, [params, router]);
+  return null;
 }

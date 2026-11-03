@@ -119,6 +119,18 @@ class AuthApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("token", response.data)
 
+    def test_login_accepts_the_registered_email(self):
+        EmailAddress.objects.create(
+            user=self.user, email=self.user.email, verified=True, primary=True
+        )
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "verify@example.com", "password": "pass12345"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("token", response.data)
+
     def test_resend_verification(self):
         EmailAddress.objects.create(
             user=self.user, email=self.user.email, verified=False, primary=True
@@ -218,6 +230,152 @@ class AuthApiTests(TestCase):
         self.assertFalse(self.member.profile_picture_processed)
         self.assertFalse(self.member.profile_picture_thumbnail)
 
+    def test_data_delete_removes_only_this_users_addresses(self):
+        from clubmgmt.billing import invoice_address, member_recipient
+        from clubmgmt.models import MemberAddress, MemberContact, Person, PersonAddress
+        from licenses.models import Invoice, Order
+        from licenses.pdf_utils import _member_invoice_lines
+
+        MemberAddress.objects.create(
+            member=self.member,
+            street="Example Street",
+            house_number="1",
+            postal_code="1234",
+            locality="Musterstadt",
+            use_for_invoice=True,
+        )
+        converted = Person.objects.create(
+            club=self.club,
+            first_name="Mia",
+            last_name="Stone",
+            converted_member=self.member,
+        )
+        PersonAddress.objects.create(
+            person=converted,
+            street="Example Street",
+            house_number="1",
+            postal_code="1234",
+            locality="Musterstadt",
+            use_for_invoice=True,
+        )
+        guardian = Person.objects.create(club=self.club, first_name="Lars", last_name="Keller")
+        guardian_address = PersonAddress.objects.create(
+            person=guardian,
+            street="Quai des Lanternes",
+            house_number="4",
+            postal_code="6776",
+            locality="Grevenmacher",
+            use_for_invoice=True,
+        )
+        MemberContact.objects.create(member=self.member, person=guardian, relation="father")
+        other_user = User.objects.create_user(username="nia", password="pass12345")
+        other_club = Club.objects.create(name="Other Club", created_by=self.admin)
+        other_member = Member.objects.create(
+            user=other_user,
+            club=other_club,
+            first_name="Nia",
+            last_name="Keller",
+        )
+        other_address = MemberAddress.objects.create(
+            member=other_member,
+            street="Chemin de la Vallée",
+            house_number="21",
+            postal_code="9516",
+            locality="Wiltz",
+            use_for_invoice=True,
+        )
+        order = Order.objects.create(club=self.club, member=self.member)
+        issued = Invoice.objects.create(
+            order=order,
+            club=self.club,
+            member=self.member,
+            bill_to_name="STONE Mia",
+            bill_to_address="1, Example Street\nL-1234 Musterstadt",
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.delete("/api/auth/data-delete/")
+        self.assertEqual(response.status_code, 200)
+
+        self.member.refresh_from_db()
+        self.assertIsNone(self.member.user_id)
+        self.assertFalse(MemberAddress.objects.filter(member=self.member).exists())
+        self.assertFalse(PersonAddress.objects.filter(person=converted).exists())
+        self.assertTrue(Person.objects.filter(pk=converted.pk).exists())
+        self.assertTrue(PersonAddress.objects.filter(pk=guardian_address.pk).exists())
+        self.assertTrue(MemberAddress.objects.filter(pk=other_address.pk, member=other_member).exists())
+        issued.refresh_from_db()
+        self.assertEqual(issued.bill_to_address, "1, Example Street\nL-1234 Musterstadt")
+        self.assertIsNone(invoice_address(self.member))
+        recipient = member_recipient(self.member)
+        self.assertEqual(recipient["address_lines"], [])
+        self.assertEqual(_member_invoice_lines(self.member), [])
+
+    def test_admin_user_delete_removes_only_this_users_addresses(self):
+        from clubmgmt.models import MemberAddress, Person, PersonAddress
+        from licenses.models import Invoice, Order
+
+        MemberAddress.objects.create(
+            member=self.member,
+            street="Example Street",
+            house_number="1",
+            postal_code="1234",
+            locality="Musterstadt",
+            use_for_invoice=True,
+        )
+        converted = Person.objects.create(
+            club=self.club,
+            first_name="Mia",
+            last_name="Stone",
+            converted_member=self.member,
+        )
+        PersonAddress.objects.create(
+            person=converted,
+            street="Example Street",
+            house_number="1",
+            postal_code="1234",
+            locality="Musterstadt",
+        )
+        guardian = Person.objects.create(club=self.club, first_name="Lars", last_name="Keller")
+        guardian_address = PersonAddress.objects.create(
+            person=guardian,
+            street="Quai des Lanternes",
+            house_number="4",
+            postal_code="6776",
+            locality="Grevenmacher",
+        )
+        other_user = User.objects.create_user(username="nia-admin-delete", password="pass12345")
+        other_member = Member.objects.create(
+            user=other_user,
+            club=self.club,
+            first_name="Nia",
+            last_name="Keller",
+        )
+        other_address = MemberAddress.objects.create(
+            member=other_member,
+            street="Chemin de la Vallée",
+            house_number="21",
+            postal_code="9516",
+            locality="Wiltz",
+        )
+        order = Order.objects.create(club=self.club, member=self.member)
+        issued = Invoice.objects.create(
+            order=order,
+            club=self.club,
+            member=self.member,
+            bill_to_name="STONE Mia",
+            bill_to_address="1, Example Street\nL-1234 Musterstadt",
+        )
+
+        User.objects.filter(pk=self.user.pk).delete()
+
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+        self.assertFalse(MemberAddress.objects.filter(member=self.member).exists())
+        self.assertFalse(PersonAddress.objects.filter(person=converted).exists())
+        self.assertTrue(PersonAddress.objects.filter(pk=guardian_address.pk).exists())
+        self.assertTrue(MemberAddress.objects.filter(pk=other_address.pk).exists())
+        issued.refresh_from_db()
+        self.assertEqual(issued.bill_to_address, "1, Example Street\nL-1234 Musterstadt")
+
 
 class FinancePermissionTests(TestCase):
     def setUp(self):
@@ -261,3 +419,43 @@ class CustomAccountAdapterTests(TestCase):
     def test_signup_is_closed(self):
         adapter = CustomAccountAdapter()
         self.assertFalse(adapter.is_open_for_signup(request=None))
+
+
+class AccountSetupClosedLinkTests(TestCase):
+    def test_closed_links_name_the_reason_and_not_the_person(self):
+        from datetime import timedelta
+
+        from accounts.setup_invites import NEUTRAL_DETAIL, issue_setup_invite
+
+        user = User.objects.create_user(username="ada-ng", password="temp-pass-123")
+        user.set_unusable_password()
+        user.email = "ada@example.com"
+        user.first_name = "Ada"
+        user.save()
+        actor = User.objects.create_user(username="issuer", password="pass12345")
+        invite, raw = issue_setup_invite(user, actor)
+        public = APIClient()
+
+        invite.expires_at = timezone.now() - timedelta(minutes=1)
+        invite.save(update_fields=["expires_at"])
+        expired = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(expired.status_code, 400)
+        self.assertEqual(expired.data, {"detail": NEUTRAL_DETAIL, "reason": "expired"})
+
+        invite.expires_at = timezone.now() + timedelta(days=1)
+        invite.revoked_at = timezone.now()
+        invite.save(update_fields=["expires_at", "revoked_at"])
+        revoked = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(revoked.data["reason"], "revoked")
+        self.assertNotIn("ada-ng", str(revoked.data))
+        self.assertNotIn("ada@example.com", str(revoked.data))
+
+        invite.revoked_at = None
+        invite.used_at = timezone.now()
+        invite.save(update_fields=["revoked_at", "used_at"])
+        used = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(used.data["reason"], "used")
+        self.assertNotIn("username", used.data)
+
+        missing = public.get("/api/auth/account-setup/", {"token": "not-a-real-token"})
+        self.assertEqual(missing.data["reason"], "invalid")

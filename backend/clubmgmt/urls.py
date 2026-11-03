@@ -42,6 +42,21 @@ from .promotion_views import (
     PromotionRuleDetailView,
     PromotionRuleView,
 )
+from .clothing_views import ClubClothingDetailView, ClubClothingListView, ClubClothingReorderView
+from .egear_views import EgearBrandsView
+from .gear_views import MemberGearView
+from .measurement_views import BodyMeasurementDetailView, BodyMeasurementListView
+from .team_views import (
+    ClubTeamDetailView,
+    ClubTeamDuplicateView,
+    ClubTeamHistoryView,
+    ClubTeamGroupView,
+    ClubTeamListView,
+    ClubTeamMemberBulkView,
+    ClubTeamMemberView,
+    ClubTeamSheetView,
+    ClubTeamWeighInView,
+)
 from .training_views import (
     TrainingAttendanceView,
     TrainingGenerateView,
@@ -117,6 +132,28 @@ urlpatterns = [
     path("subsidies/cases/", ExtraordinarySubsidyView.as_view(), name="clubmgmt-subsidy-cases"),
     path("subsidies/cases/<int:case_id>/", ExtraordinarySubsidyDetailView.as_view(), name="clubmgmt-subsidy-case"),
     path("subsidies/cases/<int:case_id>/form.pdf", ExtraordinarySubsidyPdfView.as_view(), name="clubmgmt-subsidy-pdf"),
+    path("teams/", ClubTeamListView.as_view(), name="clubmgmt-teams"),
+    path("teams/<int:team_id>/", ClubTeamDetailView.as_view(), name="clubmgmt-team"),
+    path("teams/<int:team_id>/duplicate/", ClubTeamDuplicateView.as_view(), name="clubmgmt-team-duplicate"),
+    path("teams/<int:team_id>/history/", ClubTeamHistoryView.as_view(), name="clubmgmt-team-history"),
+    path("teams/<int:team_id>/members/", ClubTeamMemberView.as_view(), name="clubmgmt-team-members"),
+    path("teams/<int:team_id>/members/bulk/", ClubTeamMemberBulkView.as_view(), name="clubmgmt-team-members-bulk"),
+    path("teams/<int:team_id>/weigh-in/", ClubTeamWeighInView.as_view(), name="clubmgmt-team-weigh-in"),
+    path("teams/<int:team_id>/groups/", ClubTeamGroupView.as_view(), name="clubmgmt-team-groups"),
+    path("teams/<int:team_id>/groups/<int:group_id>/", ClubTeamGroupView.as_view(), name="clubmgmt-team-group"),
+    path("teams/<int:team_id>/sheet.<str:export_format>", ClubTeamSheetView.as_view(), name="clubmgmt-team-sheet"),
+    path(
+        "teams/<int:team_id>/members/<int:member_id>/",
+        ClubTeamMemberView.as_view(),
+        name="clubmgmt-team-member",
+    ),
+    path("gear/", MemberGearView.as_view(), name="clubmgmt-gear"),
+    path("egear-brands/", EgearBrandsView.as_view(), name="clubmgmt-egear-brands"),
+    path("clothing/", ClubClothingListView.as_view(), name="clubmgmt-clothing"),
+    path("clothing/reorder/", ClubClothingReorderView.as_view(), name="clubmgmt-clothing-reorder"),
+    path("clothing/<int:item_id>/", ClubClothingDetailView.as_view(), name="clubmgmt-clothing-detail"),
+    path("measurements/", BodyMeasurementListView.as_view(), name="clubmgmt-measurements"),
+    path("measurements/<int:measurement_id>/", BodyMeasurementDetailView.as_view(), name="clubmgmt-measurement"),
     path("training/series/", TrainingSeriesView.as_view(), name="clubmgmt-training-series"),
     path("training/series/<int:series_id>/", TrainingSeriesDetailView.as_view(), name="clubmgmt-training-series-detail"),
     path("training/series/<int:series_id>/generate/", TrainingGenerateView.as_view(), name="clubmgmt-training-generate"),

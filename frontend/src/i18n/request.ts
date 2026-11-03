@@ -1,6 +1,6 @@
 import { getRequestConfig } from "next-intl/server";
 
-const supportedLocales = ["en", "lb"] as const;
+const supportedLocales = ["en", "fr", "de", "lb"] as const;
 
 async function loadBundled(locale: string) {
   return (await import(`../messages/${locale}.json`)).default;

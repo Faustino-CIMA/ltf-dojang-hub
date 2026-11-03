@@ -1,3 +1,5 @@
+import { readActiveDeskHeader } from "./active-desk";
+import { AuthApiError, presentAuthError } from "./auth-errors";
 import { getToken } from "./auth";
 
 type RequestOptions = Omit<RequestInit, "headers"> & {
@@ -97,6 +99,33 @@ function buildRequestSignal(externalSignal?: AbortSignal | null) {
   };
 }
 
+function collectJsonMessage(value: unknown): string {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(collectJsonMessage).filter(Boolean).join(" ");
+  }
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+  const record = value as Record<string, unknown>;
+  const preferred = ["non_field_errors", "detail", "message", "error"];
+  for (const key of preferred) {
+    const found = collectJsonMessage(record[key]);
+    if (found) {
+      return found;
+    }
+  }
+  for (const nested of Object.values(record)) {
+    const found = collectJsonMessage(nested);
+    if (found) {
+      return found;
+    }
+  }
+  return "";
+}
+
 async function executeApiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getToken();
   const requestUrl = `${API_URL}${path}`;
@@ -106,9 +135,13 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
     path.startsWith("/api/auth/login/") ||
     path.startsWith("/api/auth/verify-email/") ||
     path.startsWith("/api/auth/resend-verification/") ||
-    path.startsWith("/api/auth/password-reset/");
+    path.startsWith("/api/auth/password-reset/") ||
+    path.startsWith("/api/auth/account-setup/") ||
+    path.startsWith("/api/module-renewals/");
+  const deskHeader = !skipAuthHeader ? readActiveDeskHeader() : null;
   const defaultHeaders: Record<string, string> = {
     ...(token && !skipAuthHeader ? { Authorization: `Token ${token}` } : {}),
+    ...(deskHeader ? { "X-Desk": deskHeader } : {}),
   };
   if (!isFormDataRequest) {
     defaultHeaders["Content-Type"] = "application/json";
@@ -161,20 +194,19 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
           message?: string;
           error?: string;
         };
-        if (Array.isArray(parsed?.non_field_errors) && parsed.non_field_errors.length > 0) {
-          normalizedMessage = parsed.non_field_errors.join(" ");
-        } else if (typeof parsed?.detail === "string") {
-          normalizedMessage = parsed.detail;
-        } else if (typeof parsed?.message === "string") {
-          normalizedMessage = parsed.message;
-        } else if (typeof parsed?.error === "string") {
-          normalizedMessage = parsed.error;
+        const fieldMessage = collectJsonMessage(parsed);
+        if (fieldMessage) {
+          normalizedMessage = fieldMessage;
         }
       } catch {
         normalizedMessage = message;
       }
     }
-    throw new Error(normalizedMessage || `Request failed with ${response.status}`);
+    const presented = presentAuthError(normalizedMessage || `Request failed with ${response.status}`);
+    if (presented.code) {
+      throw new AuthApiError(presented.code, presented.text, presented.tone);
+    }
+    throw new Error(presented.text);
   }
 
   if (response.status === 204) {

@@ -21,7 +21,15 @@ MEMBER_HEADER_ALIASES = {
     "email": ["e-mail", "email address", "e mail"],
     "date_of_birth": ["date of birth", "dob", "birth date", "birthday", "birthdate"],
     "belt_rank": ["belt rank", "belt", "grade", "rank"],
-    "wt_licenseid": ["wt license id", "wt license", "wt id", "world taekwondo id"],
+    "wt_licenseid": [
+        "wt license id",
+        "wt license",
+        "wt id",
+        "world taekwondo id",
+        "wt lizenz id",
+        "wt lizenz",
+        "wt-lizenz-id",
+    ],
     "ltf_licenseid": [
         "ltf license id",
         "ltf license",
@@ -37,6 +45,7 @@ MEMBER_HEADER_ALIASES = {
     ],
     "secondary_license_role": ["secondary license role", "secondary role"],
     "is_active": ["is active", "active"],
+    "club_name": ["club name", "club", "organization name", "organisation name"],
 }
 
 MEMBERSHIP_END_DATE_ALIASES = [
@@ -61,6 +70,7 @@ MEMBER_MAPPING_FIELDS = [
     "primary_license_role",
     "secondary_license_role",
     "is_active",
+    "club_name",
 ]
 
 

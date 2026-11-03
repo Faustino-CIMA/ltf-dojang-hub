@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 
 export type StudentPick = {
@@ -45,11 +46,14 @@ export function StudentMultiPicker({
   const optionKey = options.map((option) => option.id).join(",");
 
   useEffect(() => {
-    const allowed = new Set(optionKey ? optionKey.split(",").map(Number) : []);
-    setChecked((current) => {
-      const next = current.filter((id) => allowed.has(id));
-      return next.length === current.length ? current : next;
-    });
+    const sync = () => {
+      const allowed = new Set(optionKey ? optionKey.split(",").map(Number) : []);
+      setChecked((current) => {
+        const next = current.filter((id) => allowed.has(id));
+        return next.length === current.length ? current : next;
+      });
+    };
+    sync();
   }, [optionKey]);
 
   const visible = useMemo(
@@ -103,8 +107,8 @@ export function StudentMultiPicker({
       />
       <div className="mt-2 overflow-hidden rounded-[var(--radius-form)] border border-border">
         <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary/60 px-3 py-2">
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input type="checkbox" checked={allVisibleChecked} onChange={toggleShown} disabled={visible.length === 0} />
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={allVisibleChecked} onCheckedChange={() => toggleShown()} disabled={visible.length === 0} />
             {t("trainingSelectShownStudents")}
           </label>
           <span className="text-xs text-muted">{t("trainingSelectedCount", { count: checked.length })}</span>
@@ -117,8 +121,8 @@ export function StudentMultiPicker({
           ) : (
             visible.map((option) => (
               <li key={option.id} className="border-b border-border last:border-0">
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-accent">
-                  <input type="checkbox" checked={checked.includes(option.id)} onChange={() => toggle(option.id)} />
+                <label className="flex cursor-pointer items-center gap-2 px-3 py-1 text-sm hover:bg-[var(--accent-soft)] hover:text-foreground">
+                  <Checkbox checked={checked.includes(option.id)} onCheckedChange={() => toggle(option.id)} />
                   <span>
                     {option.label}
                     {option.age !== null && option.age !== undefined ? ` · ${option.age}` : ""}

@@ -9,6 +9,7 @@ import stripe
 from accounts.models import User
 from .models import Invoice, Order
 from .services import apply_payment_and_activate
+from .stripe_ids import stripe_session_lookup
 
 
 def checkout_success_url() -> str:
@@ -40,6 +41,40 @@ def user_can_confirm_order(user: User | None, order: Order) -> bool:
     if member is not None and getattr(member, "user_id", None) == user.id:
         return True
     return False
+
+
+def checkout_return_area(user: User, order: Order) -> str:
+    """Dashboard area that matches this order and the person confirming it.
+
+    A superuser who is also the club admin for the order stays in the club
+    area. Ops is only the fallback when no order area applies.
+    """
+    role = getattr(user, "role", "") or ""
+    member = getattr(order, "member", None)
+    club = getattr(order, "club", None)
+    if role == User.Roles.CLUB_ADMIN and club is not None and club.admins.filter(id=user.id).exists():
+        return "club"
+    if getattr(order, "ledger", "") == Order.Ledger.CLUB and role in {
+        User.Roles.CLUB_ADMIN,
+        User.Roles.COACH,
+    }:
+        return "club"
+    if member is not None and getattr(member, "user_id", None) == getattr(user, "id", None):
+        if role == User.Roles.MEMBER:
+            return "member"
+        if role == User.Roles.COACH:
+            return "club"
+    if role == User.Roles.LTF_FINANCE:
+        return "ltf-finance"
+    if role == User.Roles.LTF_ADMIN:
+        return "ltf"
+    if role == User.Roles.MEMBER:
+        return "member"
+    if role in {User.Roles.CLUB_ADMIN, User.Roles.COACH}:
+        return "club"
+    if getattr(user, "is_superuser", False):
+        return "ops"
+    return ""
 
 
 def _order_queryset():
@@ -105,7 +140,8 @@ def fulfill_checkout_session(session_id: str, *, actor: User) -> CheckoutFulfill
         raise ValueError("session_id is required.")
 
     session = None
-    order = _order_queryset().filter(stripe_checkout_session_id=session_id).first()
+    lookup = stripe_session_lookup(session_id)
+    order = _order_queryset().filter(stripe_session_lookup=lookup).first() if lookup else None
     if order is None:
         session = _retrieve_checkout_session(session_id)
         order_id = _metadata_order_id(_stripe_field(session, "metadata"))

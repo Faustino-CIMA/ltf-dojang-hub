@@ -56,7 +56,7 @@ export function ClubLedgerFilter({
               className={cn(
                 "inline-flex min-w-[3.5rem] items-center justify-center rounded-[calc(var(--radius-form)-2px)] px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-secondary",
                 selected
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted hover:text-foreground"
               )}
             >

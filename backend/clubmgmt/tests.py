@@ -15,7 +15,16 @@ from modules.codes import build_payload, sign_payload
 from modules.entitlements import install_id_str, redeem_product_code, set_club_assignment
 from modules.registry import CLUB_MANAGEMENT_MODULE_ID
 
-from .models import Committee, CommitteeMandate, MemberEmail, MemberRecord, Person, validate_luxembourg_ssn
+from .models import (
+    Committee,
+    CommitteeMandate,
+    MemberAddress,
+    MemberEmail,
+    MemberRecord,
+    Person,
+    PersonAddress,
+    validate_luxembourg_ssn,
+)
 
 
 @override_settings(DEBUG=True, MODULE_CODE_PUBLIC_KEY="", MODULE_CODE_PRIVATE_KEY="")
@@ -2333,4 +2342,97 @@ class ClubShopTests(TestCase):
             f"?club={self.club.id}&printer_profile=99999"
         )
         self.assertEqual(missing.status_code, 400)
+
+
+class OneInvoiceAddressTests(TestCase):
+    def setUp(self):
+        ClubManagementTests.setUp(self)
+
+    def test_migration_keeps_the_address_billing_already_uses(self):
+        import importlib
+
+        from django.apps import apps
+
+        migration = importlib.import_module("clubmgmt.migrations.0036_one_invoice_address")
+        rows = [
+            (1, 10, False),
+            (1, 11, True),
+            (1, 12, True),
+            (2, 20, True),
+            (2, 21, False),
+        ]
+        self.assertEqual(migration.ids_to_unflag(rows), [12])
+
+        MemberAddress.objects.create(member=self.member, street="Old", use_for_invoice=False)
+        kept = MemberAddress.objects.create(member=self.member, street="Kept", use_for_invoice=True)
+        person = Person.objects.create(club=self.club, first_name="Lars", last_name="Keller")
+        person_kept = PersonAddress.objects.create(person=person, street="Kept", use_for_invoice=True)
+        migration.keep_first_invoice_address(apps, None)
+        kept.refresh_from_db()
+        person_kept.refresh_from_db()
+        self.assertTrue(kept.use_for_invoice)
+        self.assertTrue(person_kept.use_for_invoice)
+        from clubmgmt.billing import invoice_address
+
+        chosen = invoice_address(self.member)
+        self.assertEqual(chosen["street"], "Kept")
+
+    def test_second_invoice_address_is_rejected(self):
+        from django.db import IntegrityError, transaction
+
+        MemberAddress.objects.create(member=self.member, street="Example Street", use_for_invoice=True)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                MemberAddress.objects.create(member=self.member, street="Other Street", use_for_invoice=True)
+        person = Person.objects.create(club=self.club, first_name="Lars", last_name="Keller")
+        PersonAddress.objects.create(person=person, street="Example Street", use_for_invoice=True)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PersonAddress.objects.create(person=person, street="Other Street", use_for_invoice=True)
+
+    def test_serializer_rejects_two_invoice_addresses(self):
+        from django.utils import translation
+
+        ClubManagementTests._unlock(self)
+        ClubManagementTests._auth(self, self.club_admin)
+        payload = {
+            "addresses": [
+                {"street": "Example Street", "postal_code": "1234", "locality": "Musterstadt", "use_for_invoice": True},
+                {"street": "Other Street", "postal_code": "2345", "locality": "Beispielhausen", "use_for_invoice": True},
+            ]
+        }
+        saved = self.client.put(
+            f"/api/club-management/records/for-member/{self.member.id}/",
+            payload,
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 400)
+        self.assertIn("Only one address can be used for invoices.", str(saved.data))
+        self.assertEqual(MemberAddress.objects.filter(member=self.member).count(), 0)
+
+        person = Person.objects.create(club=self.club, first_name="Lars", last_name="Keller")
+        with translation.override("fr"):
+            french = self.client.patch(
+                f"/api/club-management/people/{person.id}/?club={self.club.id}",
+                payload,
+                format="json",
+            )
+        self.assertEqual(french.status_code, 400)
+        self.assertIn("Une seule adresse peut être utilisée pour les factures.", str(french.data))
+        with translation.override("de"):
+            german = self.client.patch(
+                f"/api/club-management/people/{person.id}/?club={self.club.id}",
+                payload,
+                format="json",
+            )
+        self.assertEqual(german.status_code, 400)
+        self.assertIn("Nur eine Adresse darf für Rechnungen verwendet werden.", str(german.data))
+        with translation.override("lb"):
+            luxembourgish = self.client.patch(
+                f"/api/club-management/people/{person.id}/?club={self.club.id}",
+                payload,
+                format="json",
+            )
+        self.assertEqual(luxembourgish.status_code, 400)
+        self.assertIn("Nëmmen eng Adress däerf fir Rechnungen benotzt ginn.", str(luxembourgish.data))
 

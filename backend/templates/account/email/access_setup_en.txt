@@ -1,0 +1,13 @@
+Hello {{ name }},
+
+A club admin account is ready for you at LTF Dojang Hub.
+
+Username: {{ username }}
+Clubs: {{ clubs }}
+
+This link works once and expires on {{ expires }}. Open it to choose your email and password:
+{{ url }}
+
+If you did not expect this, you can ignore this email.
+
+LTF Dojang Hub

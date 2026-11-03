@@ -1,18 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { lookupLuAddress, type AddressLookup } from "@/lib/clubmgmt-api";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { lookupLuAddress } from "@/lib/clubmgmt-api";
+  applyAddressSuggestion,
+  applyPostalLookup,
+  houseNumberOptions,
+  lookupStreetNames,
+  splitAddressSuggestion,
+} from "@/lib/address-suggestion";
 import {
   ADDRESS_COUNTRIES,
   addressCountryConfig,
@@ -33,14 +35,28 @@ export type AddressValue = {
 type Props = {
   value: AddressValue;
   onChange: (next: AddressValue) => void;
+  idPrefix?: string;
+  showCountry?: boolean;
 };
 
-export function LuAddressFields({ value, onChange }: Props) {
+type HouseSuggestion = AddressLookup["houses"][number];
+type StreetRow = { street: string; locality: string };
+
+export function LuAddressFields({ value, onChange, idPrefix = "address", showCountry = true }: Props) {
   const t = useTranslations("ClubMgmt");
   const locale = useLocale();
+  const listId = useId();
+  const valueRef = useRef(value);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
   const [streets, setStreets] = useState<string[]>([]);
-  const [houses, setHouses] = useState<Array<{ house_number: string; street: string }>>([]);
+  const [streetRows, setStreetRows] = useState<StreetRow[]>([]);
+  const [houses, setHouses] = useState<HouseSuggestion[]>([]);
+  const [streetHouses, setStreetHouses] = useState<HouseSuggestion[]>([]);
+  const [streetHouseQuery, setStreetHouseQuery] = useState("");
   const [localities, setLocalities] = useState<string[]>([]);
+  const [streetFocused, setStreetFocused] = useState(false);
 
   const country = normalizeAddressCountry(value.country);
   const countryConfig = addressCountryConfig(country);
@@ -52,21 +68,93 @@ export function LuAddressFields({ value, onChange }: Props) {
     return listed;
   }, [country]);
 
-  const lookup = async (postal: string, street = "") => {
+  const streetNames = useMemo(() => lookupStreetNames(streets, houses), [houses, streets]);
+  const knownLocalities = useMemo(() => {
+    const names = new Set<string>();
+    streetRows.forEach((row) => {
+      const locality = row.locality.trim().toLowerCase();
+      if (locality) names.add(locality);
+    });
+    return names;
+  }, [streetRows]);
+  const suggestions = useMemo(() => {
+    const needle = value.street.trim().toLowerCase();
+    const locality = value.locality.trim().toLowerCase();
+    const matches = (name: string) => !needle || name.toLowerCase().includes(needle);
+    if (streetRows.length > 0) {
+      const limitToLocality = Boolean(locality) && knownLocalities.has(locality);
+      const names = streetRows
+        .filter((row) => !limitToLocality || row.locality.trim().toLowerCase() === locality)
+        .map((row) => row.street.trim())
+        .filter(matches);
+      return [...new Set(names)];
+    }
+    return streetNames.filter(matches);
+  }, [knownLocalities, streetNames, streetRows, value.locality, value.street]);
+
+  const lookup = async (postal: string) => {
     if (!countryConfig.lookup) return;
     if (postal.replace(/\D/g, "").length !== countryConfig.postalDigits) return;
     try {
-      const result = await lookupLuAddress(postal, street);
+      const result = await lookupLuAddress(postal);
       setLocalities(result.localities);
       setStreets(result.streets);
-      setHouses(result.houses.map((row) => ({ house_number: row.house_number, street: row.street })));
-      if (result.localities.length === 1 && !value.locality) {
-        onChange({ ...value, postal_code: result.postal_code, locality: result.localities[0], country });
+      setStreetRows(result.street_rows ?? []);
+      setHouses(result.houses);
+      const current = valueRef.current;
+      if (result.localities.length === 1) {
+        onChange(
+          applyPostalLookup(
+            { ...current, country },
+            { postal_code: result.postal_code, locality: result.localities[0] },
+          ),
+        );
       }
     } catch {
       setStreets([]);
+      setStreetRows([]);
       setHouses([]);
+      setStreetHouses([]);
+      setStreetHouseQuery("");
     }
+  };
+
+  const lookupEnabled = countryConfig.lookup;
+  const postalDigits = countryConfig.postalDigits;
+  useEffect(() => {
+    if (!lookupEnabled) return;
+    const postal = value.postal_code.replace(/\D/g, "");
+    const street = value.street.trim();
+    const clearHouses = () => {
+      setStreetHouses([]);
+      setStreetHouseQuery("");
+    };
+    clearHouses();
+    if (postal.length !== postalDigits || street.length < 2) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void lookupLuAddress(postal, street)
+        .then((result) => {
+          if (cancelled) return;
+          setStreetHouses(result.houses);
+          setStreetHouseQuery(street);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setStreetHouses([]);
+          setStreetHouseQuery("");
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [lookupEnabled, postalDigits, value.postal_code, value.street]);
+
+  const pickSuggestion = (suggestion: string) => {
+    const current = valueRef.current;
+    onChange(applyAddressSuggestion({ ...current, country }, suggestion));
+    setStreetFocused(false);
   };
 
   const setCountry = (nextCountry: string) => {
@@ -74,7 +162,10 @@ export function LuAddressFields({ value, onChange }: Props) {
     const nextConfig = addressCountryConfig(next);
     setLocalities([]);
     setStreets([]);
+    setStreetRows([]);
     setHouses([]);
+    setStreetHouses([]);
+    setStreetHouseQuery("");
     onChange({
       ...value,
       country: next,
@@ -82,31 +173,41 @@ export function LuAddressFields({ value, onChange }: Props) {
     });
   };
 
+  const numberSource =
+    streetHouseQuery.trim().toLowerCase() === value.street.trim().toLowerCase() && streetHouses.length > 0
+      ? streetHouses
+      : houses;
+  const localityKey = value.locality.trim().toLowerCase();
+  const scopedNumbers =
+    localityKey && knownLocalities.has(localityKey)
+      ? numberSource.filter((row) => {
+          const rowLocality = (row.locality || "").trim().toLowerCase();
+          return !rowLocality || rowLocality === localityKey;
+        })
+      : numberSource;
+  const houseNumbers = houseNumberOptions(scopedNumbers, value.street);
+
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <div className="md:col-span-2">
-        <Label>{t("country")}</Label>
-        <div className="mt-1">
-          <Select value={country} onValueChange={setCountry} modal={false}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("country")} />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {countryOptions.map((name) => {
-                const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
-                return (
-                  <SelectItem key={name} value={name}>
-                    {code ? nationalityLabel(code, locale) : name}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+      {showCountry ? (
+        <div className="md:col-span-2">
+          <Label htmlFor={`${idPrefix}-country`}>{t("country")}</Label>
+          <PopoverSelect
+            className="mt-1 w-full"
+            value={country}
+            onValueChange={setCountry}
+            ariaLabel={t("country")}
+            options={countryOptions.map((name) => {
+              const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
+              return { value: name, label: code ? nationalityLabel(code, locale) : name };
+            })}
+          />
         </div>
-      </div>
+      ) : null}
       <div>
-        <Label>{t("postalCode")}</Label>
+        <Label htmlFor={`${idPrefix}-postal`}>{t("postalCode")}</Label>
         <Input
+          id={`${idPrefix}-postal`}
           value={value.postal_code}
           inputMode="numeric"
           maxLength={countryConfig.postalDigits}
@@ -114,69 +215,105 @@ export function LuAddressFields({ value, onChange }: Props) {
           placeholder={countryConfig.code ? `${countryConfig.code}-` : ""}
           onChange={(event) => {
             const postal_code = event.target.value.replace(/\D/g, "").slice(0, countryConfig.postalDigits);
-            onChange({ ...value, country, postal_code });
+            const current = valueRef.current;
+            onChange({ ...current, country, postal_code });
             if (countryConfig.lookup && postal_code.length === countryConfig.postalDigits) {
               void lookup(postal_code);
+            } else {
+              setStreets([]);
+              setStreetRows([]);
+              setHouses([]);
+              setStreetHouses([]);
+              setStreetHouseQuery("");
+              setLocalities([]);
             }
           }}
         />
       </div>
       <div>
-        <Label>{t("locality")}</Label>
+        <Label htmlFor={`${idPrefix}-locality`}>{t("locality")}</Label>
         <Input
+          id={`${idPrefix}-locality`}
           className="mt-1"
-          list="club-address-localities"
+          list={`${listId}-localities`}
           value={value.locality}
-          onChange={(event) => onChange({ ...value, country, locality: event.target.value })}
+          onChange={(event) => onChange({ ...valueRef.current, country, locality: event.target.value })}
         />
-        <datalist id="club-address-localities">
+        <datalist id={`${listId}-localities`}>
           {localities.map((item) => (
             <option key={item} value={item} />
           ))}
         </datalist>
       </div>
       <div>
-        <Label>{t("street")}</Label>
+        <Label htmlFor={`${idPrefix}-street`}>{t("street")}</Label>
+        <Popover open={streetFocused && suggestions.length > 0}>
+          <PopoverAnchor asChild>
+            <Input
+              id={`${idPrefix}-street`}
+              className="mt-1"
+              value={value.street}
+              autoComplete="off"
+              onFocus={() => setStreetFocused(true)}
+              onBlur={() => setStreetFocused(false)}
+              onChange={(event) => {
+                const text = event.target.value;
+                const current = { ...valueRef.current, country };
+                const parsed = splitAddressSuggestion(text);
+                if (parsed.postal_code || (parsed.house_number && text.includes(","))) {
+                  onChange(applyAddressSuggestion(current, text));
+                  return;
+                }
+                onChange({ ...current, street: text });
+              }}
+            />
+          </PopoverAnchor>
+          <PopoverContent
+            className="max-h-64 overflow-y-auto p-1"
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            onCloseAutoFocus={(event) => event.preventDefault()}
+          >
+            <ul aria-label={t("street")}>
+              {suggestions.map((suggestion) => (
+                <li key={suggestion}>
+                  <button
+                    type="button"
+                    className="flex min-h-[var(--control-height)] w-full items-center rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => pickSuggestion(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-number`}>{t("houseNumber")}</Label>
         <Input
+          id={`${idPrefix}-number`}
           className="mt-1"
-          list="club-address-streets"
-          value={value.street}
-          onChange={(event) => {
-            onChange({ ...value, country, street: event.target.value });
-            if (countryConfig.lookup && value.postal_code.length === countryConfig.postalDigits) {
-              void lookup(value.postal_code, event.target.value);
-            }
-          }}
+          list={`${listId}-houses`}
+          autoComplete="off"
+          value={value.house_number}
+          onChange={(event) => onChange({ ...valueRef.current, country, house_number: event.target.value })}
         />
-        <datalist id="club-address-streets">
-          {streets.map((item) => (
-            <option key={item} value={item} />
+        <datalist id={`${listId}-houses`}>
+          {houseNumbers.map((number) => (
+            <option key={number} value={number} />
           ))}
         </datalist>
       </div>
-      <div>
-        <Label>{t("houseNumber")}</Label>
-        <Input
-          className="mt-1"
-          list="club-address-houses"
-          value={value.house_number}
-          onChange={(event) => onChange({ ...value, country, house_number: event.target.value })}
-        />
-        <datalist id="club-address-houses">
-          {houses
-            .filter((row) => !value.street || row.street === value.street)
-            .map((row) => (
-              <option key={`${row.street}-${row.house_number}`} value={row.house_number} />
-            ))}
-        </datalist>
-      </div>
       <div className="md:col-span-2">
-        <Label>{t("addressLine2")}</Label>
+        <Label htmlFor={`${idPrefix}-line2`}>{t("addressLine2")}</Label>
         <Input
+          id={`${idPrefix}-line2`}
           className="mt-1"
           value={value.line2}
           placeholder={t("addressLine2Placeholder")}
-          onChange={(event) => onChange({ ...value, country, line2: event.target.value })}
+          onChange={(event) => onChange({ ...valueRef.current, country, line2: event.target.value })}
         />
       </div>
     </div>

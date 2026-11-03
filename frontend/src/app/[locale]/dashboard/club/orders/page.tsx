@@ -1,33 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
-import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
+import { ClubFinanceTabs, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageSizeSelect } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { FinanceOrder, getClubOrdersPage } from "@/lib/club-finance-api";
 
 type OrderStatusFilter = "all" | "placed" | "delivered" | "cancelled";
-
-/** Matches backend `API_PAGINATION_MAX_PAGE_SIZE`. */
-const ORDERS_LIST_PAGE_SIZE_CAP = 200;
 
 function statusQueryForFilter(filter: OrderStatusFilter): string | undefined {
   if (filter === "placed") {
@@ -53,7 +46,6 @@ export default function ClubAdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatusFilter>("all");
   const [ledgerFilter, setLedgerFilter] = useState<ClubLedgerFilterValue>("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -67,19 +59,11 @@ export default function ClubAdminOrdersPage() {
   const requestAbortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
 
-  const pageSizeOptions = ["50", "150", "300", "all"];
   const statusFilterParam = statusQueryForFilter(orderStatusFilter);
-
-  const ordersListPageSize = useMemo(() => {
-    if (pageSize === "all") {
-      return Math.min(Math.max(totalCount, 1), ORDERS_LIST_PAGE_SIZE_CAP);
-    }
-    const n = Number(pageSize);
-    if (!Number.isFinite(n) || n <= 0) {
-      return 50;
-    }
-    return Math.min(n, ORDERS_LIST_PAGE_SIZE_CAP);
-  }, [pageSize, totalCount]);
+  const ordersListPageSize = displayPageSize(pageSize, totalCount);
+  const [currentPage, setCurrentPage] = useListPage(
+    [searchQuery, pageSize, selectedClubId ?? "", orderStatusFilter, ledgerFilter].join("|"),
+  );
 
   const loadData = useCallback(async () => {
     const keepVisible = hasLoadedRef.current;
@@ -96,16 +80,18 @@ export default function ClubAdminOrdersPage() {
     try {
       const [ordersResponse, allCountRes, placedCountRes, deliveredCountRes, cancelledCountRes] =
         await Promise.all([
-          getClubOrdersPage(
-            {
-              page: currentPage,
-              pageSize: ordersListPageSize,
-              clubId,
-              q,
-              status: statusFilterParam,
-              ledger,
-            },
-            { signal: controller.signal }
+          readListPage(pageSize, currentPage, (page, size) =>
+            getClubOrdersPage(
+              {
+                page,
+                pageSize: size,
+                clubId,
+                q,
+                status: statusFilterParam,
+                ledger,
+              },
+              { signal: controller.signal },
+            ),
           ),
           getClubOrdersPage({ page: 1, pageSize: 1, clubId, q, ledger }, { signal: controller.signal }),
           getClubOrdersPage(
@@ -157,7 +143,7 @@ export default function ClubAdminOrdersPage() {
         }
       }
     }
-  }, [currentPage, ledgerFilter, ordersListPageSize, searchQuery, selectedClubId, statusFilterParam, t]);
+  }, [currentPage, ledgerFilter, pageSize, searchQuery, selectedClubId, statusFilterParam, t]);
 
   useEffect(() => {
     void loadData();
@@ -202,10 +188,6 @@ export default function ClubAdminOrdersPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / ordersListPageSize));
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId, orderStatusFilter, ledgerFilter]);
-
   const columns = [
     { key: "order_number", header: t("orderNumberLabel") },
     {
@@ -231,12 +213,12 @@ export default function ClubAdminOrdersPage() {
 
   return (
     <ClubAdminLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
             <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
               <div className="min-w-[10rem] flex-1">
                 <Input
@@ -247,28 +229,24 @@ export default function ClubAdminOrdersPage() {
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
               </div>
-              <div>
-                <Select value={pageSize} onValueChange={setPageSize}>
-                  <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
-                    <SelectValue placeholder={common("rowsPerPageLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option === "all" ? common("rowsPerPageAll") : option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="ml-auto shrink-0">
-                <ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />
-              </div>
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
+              />
             </div>
 
-            <div className="min-w-0 border-t border-[var(--border)] pt-4">
+            <div className="min-w-0 border-t border-[var(--border)] pt-3">
+              <FinanceListFilters
+                statusActive={orderStatusFilter !== "all"}
+                onResetStatus={() => setOrderStatusFilter("all")}
+                ledger={ledgerFilter}
+                onLedgerChange={setLedgerFilter}
+                status={
               <FilterPills
                 ariaLabel={t("ordersStatusFilterAriaLabel")}
+                layout="wrap"
                 value={orderStatusFilter}
                 onChange={setOrderStatusFilter}
                 options={[
@@ -286,10 +264,12 @@ export default function ClubAdminOrdersPage() {
                   },
                 ]}
               />
+                }
+              />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
               <span>{t("pageLabel", { current: currentPage, total: totalPages })}</span>
               <Button

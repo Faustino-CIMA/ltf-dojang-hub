@@ -1,4 +1,5 @@
 import { apiRequest } from "./api";
+import type { DeskChoice } from "./active-desk";
 import type { AuthResponse } from "./auth";
 
 type LoginInput = {
@@ -37,6 +38,13 @@ export function login(input: LoginInput) {
   return apiRequest<AuthResponse>("/api/auth/login/", {
     method: "POST",
     body,
+  });
+}
+
+export function selectDesk(desk: Pick<DeskChoice, "desk" | "club_id">) {
+  return apiRequest<DeskChoice>("/api/auth/desk/", {
+    method: "POST",
+    body: JSON.stringify({ desk: desk.desk, club_id: desk.club_id }),
   });
 }
 

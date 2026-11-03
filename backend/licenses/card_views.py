@@ -70,15 +70,20 @@ from .models import (
     PrintJob,
     PrintJobItem,
 )
+from .print_filenames import content_disposition_attachment, print_job_pdf_filename
 from .tasks import execute_print_job_task
 
 
 def _is_ltf_admin(user) -> bool:
-    return bool(user and user.is_authenticated and user.role == "ltf_admin")
+    from accounts.desks import holds_desk
+
+    return bool(user and user.is_authenticated and holds_desk(user, "ltf_admin"))
 
 
 def _is_club_admin(user) -> bool:
-    return bool(user and user.is_authenticated and user.role == "club_admin")
+    from accounts.desks import holds_desk
+
+    return bool(user and user.is_authenticated and holds_desk(user, "club_admin"))
 
 
 class IsLtfAdminOrClubAdminReadOnly(permissions.BasePermission):
@@ -855,6 +860,10 @@ class PrintJobViewSet(
         if not (_is_ltf_admin(user) or _is_club_admin(user)):
             return PrintJob.objects.none()
 
+        from accounts.desks import scope_to_active_club
+
+        queryset = scope_to_active_club(self.request, queryset, "club_id")
+
         if self.action != "list":
             return queryset.order_by("-created_at", "-id")
 
@@ -1270,9 +1279,12 @@ class PrintJobViewSet(
                 status=status.HTTP_404_NOT_FOUND,
             )
         response = FileResponse(artifact_stream, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="{print_job.job_number.lower()}-artifact.pdf"'
+        filename = print_job_pdf_filename(
+            club_name=print_job.club.name,
+            job_id=print_job.id,
+            created_at=print_job.created_at,
         )
+        response["Content-Disposition"] = content_disposition_attachment(filename)
         if print_job.artifact_size_bytes:
             response["Content-Length"] = str(print_job.artifact_size_bytes)
         self._log_print_job_event(
@@ -1337,7 +1349,10 @@ class CardDesignerMembersLookupView(APIView):
             {
                 "id": int(member.id),
                 "label": f"{member.first_name} {member.last_name}".strip(),
-                "subtitle": f"{member.club.name} · {member.ltf_licenseid or 'No LTF ID'}",
+                "subtitle": (
+                    f"{member.club.name if member.club_id else '{{no_club}}'}"
+                    f" · {member.ltf_licenseid or 'No LTF ID'}"
+                ),
             }
             for member in members
         ]
@@ -1380,7 +1395,10 @@ class CardDesignerLicensesLookupView(APIView):
                     f"{license_record.member.first_name} {license_record.member.last_name}"
                     f" · {license_record.license_type.name} {license_record.year}"
                 ),
-                "subtitle": f"{license_record.club.name} · {license_record.status}",
+                "subtitle": (
+                    f"{license_record.club.name if license_record.club_id else '{{no_club}}'}"
+                    f" · {license_record.status}"
+                ),
             }
             for license_record in licenses
         ]

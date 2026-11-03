@@ -9,7 +9,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatFullName } from "@/lib/person-name";
 import {
   convertPersonToMember,
   findContactMemberMatches,
@@ -28,6 +32,12 @@ import {
   type MemberContactRow,
   type MemberRecord,
 } from "@/lib/clubmgmt-api";
+import {
+  InvoiceAddressChoices,
+  InvoiceAddressMark,
+  invoiceAddressSaveMessage,
+  markSingleInvoiceAddress,
+} from "@/components/clubmgmt/invoice-address-mark";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
 import {
   nationalityCodeFromStored,
@@ -180,6 +190,7 @@ function phoneLabelText(label: string, t: ReturnType<typeof useTranslations>) {
 
 export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: Props) {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
   const [record, setRecord] = useState<MemberRecord | null>(null);
@@ -206,6 +217,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     also_family: false,
   });
   const [contactAddress, setContactAddress] = useState<AddressValue>(emptyAddress());
+  const [guardianAddresses, setGuardianAddresses] = useState<AddressValue[]>([]);
   const [memberMatches, setMemberMatches] = useState<ContactMemberMatch[]>([]);
   const [differentPerson, setDifferentPerson] = useState(false);
   const [chosenMemberId, setChosenMemberId] = useState<number | null>(null);
@@ -295,6 +307,20 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     return cleaned;
   };
 
+  const chooseInvoiceAddress = async (index: number, checked: boolean) => {
+    if (!record) return;
+    const previous = record;
+    const addresses = markSingleInvoiceAddress(record.addresses, index, checked);
+    setRecord({ ...record, addresses });
+    setErrorMessage(null);
+    try {
+      await persist({ ...record, addresses });
+    } catch (error) {
+      setRecord(previous);
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
+    }
+  };
+
   if (!record) {
     return <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />;
   }
@@ -304,7 +330,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     try {
       await persist(record);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
     }
   };
 
@@ -362,7 +388,8 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         phone: "",
         also_family: Boolean(record.family_name),
       });
-      setContactAddress(emptyAddress());
+      setContactAddress({ ...emptyAddress(), use_for_invoice: true });
+      setGuardianAddresses([]);
     }
     setAdding(kind);
     setEditingIndex(null);
@@ -403,7 +430,17 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     setEditingIndex(index);
     const email = row.person_detail.emails?.find((item) => item.use_for_invoice)?.email || row.person_detail.emails?.[0]?.email || "";
     const phone = row.person_detail.phones?.[0]?.number || "";
-    const address = row.person_detail.addresses?.find((item) => item.use_for_invoice) || row.person_detail.addresses?.[0];
+    const storedAddresses = (row.person_detail.addresses || []).map((item) => ({
+      street: item.street,
+      house_number: item.house_number,
+      line2: item.line2,
+      postal_code: item.postal_code,
+      locality: item.locality,
+      country: item.country || "Luxembourg",
+      use_for_invoice: item.use_for_invoice,
+    }));
+    setGuardianAddresses(storedAddresses);
+    const address = storedAddresses.find((item) => item.use_for_invoice) || storedAddresses[0];
     setContactDraft({
       first_name: row.person_detail.first_name,
       last_name: row.person_detail.last_name,
@@ -422,9 +459,9 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
             postal_code: address.postal_code,
             locality: address.locality,
             country: address.country || "Luxembourg",
-            use_for_invoice: true,
+            use_for_invoice: address.use_for_invoice,
           }
-        : emptyAddress(),
+        : { ...emptyAddress(), use_for_invoice: true },
     );
   };
 
@@ -515,7 +552,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       });
       closeDraft();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
     } finally {
       setSavingDraft(false);
     }
@@ -529,16 +566,22 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       return;
     }
     const parentDetails = record.is_underage || PARENT_RELATIONS.has(contactDraft.relation);
+    const severalGuardianAddresses = guardianAddresses.length > 1;
     const detailPayload = parentDetails
       ? {
           email: contactDraft.email.trim(),
           phone: contactDraft.phone.trim(),
-          street: contactAddress.street,
-          house_number: contactAddress.house_number,
-          line2: contactAddress.line2,
-          postal_code: contactAddress.postal_code,
-          locality: contactAddress.locality,
-          country: contactAddress.country,
+          ...(severalGuardianAddresses
+            ? {}
+            : {
+                street: contactAddress.street,
+                house_number: contactAddress.house_number,
+                line2: contactAddress.line2,
+                postal_code: contactAddress.postal_code,
+                locality: contactAddress.locality,
+                country: contactAddress.country,
+                use_for_invoice: contactAddress.use_for_invoice,
+              }),
         }
       : {};
     setSavingDraft(true);
@@ -546,7 +589,27 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
     try {
       if (editingIndex !== null) {
         const row = contacts[editingIndex];
-        await updatePerson(row.person, { first_name: firstName, last_name: lastName });
+        const personPayload: Record<string, unknown> = { first_name: firstName, last_name: lastName };
+        if (severalGuardianAddresses) {
+          const target = Math.max(
+            guardianAddresses.findIndex((item) => item.use_for_invoice),
+            0,
+          );
+          personPayload.addresses = guardianAddresses.map((item, index) =>
+            index === target
+              ? {
+                  street: contactAddress.street,
+                  house_number: contactAddress.house_number,
+                  line2: contactAddress.line2,
+                  postal_code: contactAddress.postal_code,
+                  locality: contactAddress.locality,
+                  country: contactAddress.country,
+                  use_for_invoice: contactAddress.use_for_invoice,
+                }
+              : { ...item, use_for_invoice: false },
+          );
+        }
+        await updatePerson(row.person, personPayload);
         await updateContact(row.id, {
           relation: contactDraft.relation,
           is_emergency: contactDraft.is_emergency,
@@ -579,7 +642,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       setSuccessMessage(t("saved"));
       await load();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+      setErrorMessage(invoiceAddressSaveMessage(error, t("oneInvoiceAddress"), t("saveError")));
     } finally {
       setSavingDraft(false);
     }
@@ -587,13 +650,20 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
 
   const emailEditor = (
     <div className="space-y-3">
-      <Input
-        type="email"
-        autoFocus
-        value={emailDraft.email}
-        placeholder={t("emails")}
-        onChange={(event) => setEmailDraft({ ...emailDraft, email: event.target.value })}
-      />
+      <div>
+        <Label htmlFor="record-email" required>
+          {t("emails")}
+        </Label>
+        <Input
+          id="record-email"
+          type="email"
+          className="mt-1"
+          value={emailDraft.email}
+          placeholder={t("emails")}
+          onChange={(event) => setEmailDraft({ ...emailDraft, email: event.target.value })}
+          required
+        />
+      </div>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox
           checked={emailDraft.use_for_invoice}
@@ -601,68 +671,46 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         />
         {t("useForInvoice")}
       </label>
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onCancel={closeDraft}
-        onSave={() => void saveEmailDraft()}
-      />
     </div>
   );
 
   const phoneEditor = (
-    <div className="space-y-3">
-      <div className="grid gap-2 md:grid-cols-2">
+    <div className="grid gap-3 md:grid-cols-2">
+      <div>
+        <Label htmlFor="record-phone" required>
+          {t("phone")}
+        </Label>
         <Input
-          autoFocus
+          id="record-phone"
+          className="mt-1"
           value={phoneDraft.number}
           placeholder={t("phone")}
           onChange={(event) => setPhoneDraft({ ...phoneDraft, number: event.target.value })}
+          required
         />
-        <Select
+      </div>
+      <div>
+        <Label>{t("phoneLabel")}</Label>
+        <PopoverSelect
+          className="mt-1 w-full"
           value={normalizePhoneLabel(phoneDraft.label) || "mobile"}
           onValueChange={(value) => setPhoneDraft({ ...phoneDraft, label: value })}
-          modal={false}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t("phoneLabel")} />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            {PHONE_LABELS.map((label) => (
-              <SelectItem key={label} value={label}>
-                {t(`phoneLabel_${label}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          ariaLabel={t("phoneLabel")}
+          options={PHONE_LABELS.map((label) => ({ value: label, label: t(`phoneLabel_${label}`) }))}
+        />
       </div>
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onSave={() => void savePhoneDraft()}
-        onCancel={closeDraft}
-      />
     </div>
   );
 
   const addressEditor = (
     <div className="space-y-3">
       <LuAddressFields value={addressDraft} onChange={setAddressDraft} />
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={addressDraft.use_for_invoice}
-          onCheckedChange={(checked) => setAddressDraft({ ...addressDraft, use_for_invoice: Boolean(checked) })}
-        />
-        {t("useForInvoice")}
-      </label>
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onSave={() => void saveAddressDraft()}
-        onCancel={closeDraft}
+      <InvoiceAddressMark
+        checked={addressDraft.use_for_invoice}
+        label={t("useForInvoice")}
+        hint={t("oneInvoiceAddressHint")}
+        hintId="member-address-invoice-hint"
+        onCheckedChange={(checked) => setAddressDraft({ ...addressDraft, use_for_invoice: checked })}
       />
     </div>
   );
@@ -670,41 +718,50 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
   const contactEditor = (
     <div className="space-y-3">
       <div className="grid gap-2 md:grid-cols-2">
-        <Input
-          autoFocus
-          placeholder={t("firstName")}
-          value={contactDraft.first_name}
-          onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
-          onBlur={() =>
-            setContactDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))
-          }
-        />
-        <Input
-          placeholder={t("lastName")}
-          value={contactDraft.last_name}
-          onChange={(event) =>
-            setContactDraft({ ...contactDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })
-          }
-          onBlur={() =>
-            setContactDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))
-          }
-        />
-        <Select
-          value={contactDraft.relation}
-          onValueChange={(value) => setContactDraft({ ...contactDraft, relation: value })}
-          modal={false}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            {RELATIONS.map((rel) => (
-              <SelectItem key={rel} value={rel}>
-                {t(`relation_${rel}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div>
+          <Label htmlFor="contact-first-name" required>
+            {t("firstName")}
+          </Label>
+          <Input
+            id="contact-first-name"
+            className="mt-1"
+            placeholder={t("firstName")}
+            value={contactDraft.first_name}
+            onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
+            onBlur={() =>
+              setContactDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))
+            }
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="contact-last-name" required>
+            {t("lastName")}
+          </Label>
+          <Input
+            id="contact-last-name"
+            className="mt-1"
+            placeholder={t("lastName")}
+            value={contactDraft.last_name}
+            onChange={(event) =>
+              setContactDraft({ ...contactDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })
+            }
+            onBlur={() =>
+              setContactDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))
+            }
+            required
+          />
+        </div>
+        <div>
+          <Label>{t("relationLabel")}</Label>
+          <PopoverSelect
+            className="mt-1 w-full"
+            value={contactDraft.relation}
+            onValueChange={(value) => setContactDraft({ ...contactDraft, relation: value })}
+            ariaLabel={t("relationLabel")}
+            options={RELATIONS.map((rel) => ({ value: rel, label: t(`relation_${rel}`) }))}
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={contactDraft.is_emergency}
@@ -728,6 +785,33 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
               onChange={(event) => setContactDraft({ ...contactDraft, phone: event.target.value })}
             />
           </div>
+          {guardianAddresses.length > 1 ? (
+            <InvoiceAddressChoices
+              rows={guardianAddresses}
+              hint={t("oneInvoiceAddressHint")}
+              hintId="guardian-address-invoice-hint"
+              labelFor={(row) =>
+                [row.street, row.house_number, row.postal_code, row.locality].filter(Boolean).join(" ") || t("addresses")
+              }
+              onChange={(next) => {
+                setGuardianAddresses(next);
+                const chosen = next.find((row) => row.use_for_invoice);
+                if (chosen) {
+                  setContactAddress(chosen);
+                } else {
+                  setContactAddress((current) => ({ ...current, use_for_invoice: false }));
+                }
+              }}
+            />
+          ) : (
+            <InvoiceAddressMark
+              checked={contactAddress.use_for_invoice}
+              label={t("useForInvoice")}
+              hint={t("oneInvoiceAddressHint")}
+              hintId="guardian-address-invoice-hint"
+              onCheckedChange={(checked) => setContactAddress({ ...contactAddress, use_for_invoice: checked })}
+            />
+          )}
           <LuAddressFields value={contactAddress} onChange={setContactAddress} />
           {record.family_name && editingIndex === null ? (
             <label className="flex items-center gap-2 text-sm">
@@ -769,18 +853,11 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
           {t("contactDifferentPerson")}
         </label>
       ) : null}
-      <DraftActions
-        saving={savingDraft}
-        saveLabel={savingDraft ? t("saving") : t("saveItem")}
-        cancelLabel={t("cancel")}
-        onSave={() => void saveContactDraft()}
-        onCancel={closeDraft}
-      />
     </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ActionNotices
         error={errorMessage}
         success={successMessage}
@@ -906,45 +983,33 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-3 space-y-2">
             {record.emails.map((row, index) => (
-              <li key={`${row.id}-${row.email}`} className="rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                {adding === "email" && editingIndex === index ? (
-                  emailEditor
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {row.email}
-                      {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditEmail(index)}>
-                        {t("editItem")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setErrorMessage(null);
-                          try {
-                            await persist({ ...record, emails: record.emails.filter((_, i) => i !== index) });
-                          } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                          }
-                        }}
-                      >
-                        {t("removeItem")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <li key={`${row.id}-${row.email}`} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
+                <span>
+                  {row.email}
+                  {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditEmail(index) },
+                    {
+                      key: "delete",
+                      label: t("removeItem"),
+                      destructive: true,
+                      onSelect: () => {
+                        setErrorMessage(null);
+                        void persist({ ...record, emails: record.emails.filter((_, i) => i !== index) }).catch((error) => {
+                          setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                        });
+                      },
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "email" && editingIndex === null ? (
-          <div className="mt-3">{emailEditor}</div>
-        ) : adding === "email" ? null : (
-          <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
             {trimmedOverview && !overviewEmailInUse ? (
               <Button type="button" variant="outline" onClick={() => void handleReuseOverviewEmail()}>
                 {t("reuseOverviewEmail", { email: trimmedOverview })}
@@ -954,7 +1019,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
               {t("addEmail")}
             </Button>
           </div>
-        )}
       </FormPanel>
 
       <FormPanel>
@@ -964,101 +1028,83 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-3 space-y-2">
             {record.phones.map((row, index) => (
-              <li key={`${row.id}-${row.number}`} className="rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                {adding === "phone" && editingIndex === index ? (
-                  phoneEditor
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {row.number}
-                      {phoneLabelText(row.label, t) ? ` · ${phoneLabelText(row.label, t)}` : ""}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditPhone(index)}>
-                        {t("editItem")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setErrorMessage(null);
-                          try {
-                            await persist({ ...record, phones: record.phones.filter((_, i) => i !== index) });
-                          } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                          }
-                        }}
-                      >
-                        {t("removeItem")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <li key={`${row.id}-${row.number}`} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
+                <span>
+                  {row.number}
+                  {phoneLabelText(row.label, t) ? ` · ${phoneLabelText(row.label, t)}` : ""}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditPhone(index) },
+                    {
+                      key: "delete",
+                      label: t("removeItem"),
+                      destructive: true,
+                      onSelect: () => {
+                        setErrorMessage(null);
+                        void persist({ ...record, phones: record.phones.filter((_, i) => i !== index) }).catch((error) => {
+                          setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                        });
+                      },
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "phone" && editingIndex === null ? (
-          <div className="mt-3">{phoneEditor}</div>
-        ) : adding === "phone" ? null : (
-          <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("phone")}>
-            {t("addPhone")}
-          </Button>
-        )}
+        <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("phone")}>
+          {t("addPhone")}
+        </Button>
       </FormPanel>
 
       <FormPanel>
         <h3 className="text-section text-foreground">{t("addresses")}</h3>
+        <p className="mt-1 text-sm text-muted">{t("oneInvoiceAddressHint")}</p>
         {record.addresses.length === 0 && adding !== "address" ? (
           <p className="mt-2 text-sm text-muted">{t("noAddressesYet")}</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {record.addresses.map((row, index) => (
-              <li key={`${row.id}-${row.postal_code}-${row.street}`} className="rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
-                {adding === "address" && editingIndex === index ? (
-                  addressEditor
-                ) : (
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <span>
-                      {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
-                        .filter(Boolean)
-                        .join(" ")}
-                      {row.use_for_invoice ? <span className="ml-2 text-xs text-muted">{t("useForInvoice")}</span> : null}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditAddress(index)}>
-                        {t("editItem")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          setErrorMessage(null);
-                          try {
-                            await persist({ ...record, addresses: record.addresses.filter((_, i) => i !== index) });
-                          } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                          }
-                        }}
-                      >
-                        {t("removeItem")}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <li key={`${row.id}-${row.postal_code}-${row.street}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p>
+                    {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </p>
+                  <InvoiceAddressMark
+                    checked={row.use_for_invoice}
+                    label={t("useForInvoice")}
+                    ariaLabel={`${t("useForInvoice")}: ${[row.street, row.house_number, row.postal_code, row.locality].filter(Boolean).join(" ")}`}
+                    onCheckedChange={(checked) => void chooseInvoiceAddress(index, checked)}
+                  />
+                </div>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditAddress(index) },
+                    {
+                      key: "delete",
+                      label: t("removeItem"),
+                      destructive: true,
+                      onSelect: () => {
+                        setErrorMessage(null);
+                        void persist({ ...record, addresses: record.addresses.filter((_, i) => i !== index) }).catch((error) => {
+                          setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                        });
+                      },
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "address" && editingIndex === null ? (
-          <div className="mt-3">{addressEditor}</div>
-        ) : adding === "address" ? null : (
-          <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("address")}>
-            {t("addAddress")}
-          </Button>
-        )}
+        <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("address")}>
+          {t("addAddress")}
+        </Button>
       </FormPanel>
 
       <FormPanel>
@@ -1183,65 +1229,123 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         ) : (
           <ul className="mt-2 space-y-2 text-sm">
             {contacts.map((row, index) => (
-              <li key={row.id} className="rounded-[var(--radius-form)] border border-border px-3 py-2">
-                {adding === "contact" && editingIndex === index ? (
-                  contactEditor
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>
-                      {row.person_detail.first_name} {row.person_detail.last_name} ({t(`relation_${row.relation}`)})
-                      {row.is_primary ? ` · ${t("primaryContact")}` : ""}
-                      {row.is_emergency ? ` · ${t("emergency")}` : ""}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => startEditContact(index)}>
-                        {t("editItem")}
-                      </Button>
-                      {row.person_detail.converted_member ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/${locale}/dashboard/club/members/${row.person_detail.converted_member}`)}
-                        >
-                          {t("openMember")}
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={convertingPersonId === row.person}
-                          onClick={async () => {
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-form)] border border-border px-3 py-2">
+                <span>
+                  {formatFullName(row.person_detail)} ({t(`relation_${row.relation}`)})
+                  {row.is_primary ? ` · ${t("primaryContact")}` : ""}
+                  {row.is_emergency ? ` · ${t("emergency")}` : ""}
+                </span>
+                <RowActionMenu
+                  label={common("rowActionsLabel")}
+                  actions={[
+                    { key: "edit", label: t("editItem"), onSelect: () => startEditContact(index) },
+                    row.person_detail.converted_member
+                      ? {
+                          key: "open",
+                          label: t("openMember"),
+                          onSelect: () => router.push(`/${locale}/dashboard/club/members/${row.person_detail.converted_member}`),
+                        }
+                      : {
+                          key: "member",
+                          label: t("makeMember"),
+                          disabled: convertingPersonId === row.person,
+                          onSelect: () => {
                             setConvertingPersonId(row.person);
                             setErrorMessage(null);
-                            try {
-                              const converted = await convertPersonToMember(row.person);
-                              router.push(`/${locale}/dashboard/club/members/${converted.member_id}`);
-                            } catch (error) {
-                              setErrorMessage(error instanceof Error ? error.message : t("saveError"));
-                              setConvertingPersonId(null);
-                            }
-                          }}
-                        >
-                          {t("makeMember")}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
+                            void convertPersonToMember(row.person)
+                              .then((converted) => {
+                                router.push(`/${locale}/dashboard/club/members/${converted.member_id}`);
+                              })
+                              .catch((error) => {
+                                setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+                                setConvertingPersonId(null);
+                              });
+                          },
+                        },
+                  ]}
+                />
               </li>
             ))}
           </ul>
         )}
-        {adding === "contact" && editingIndex === null ? (
-          <div className="mt-3">{contactEditor}</div>
-        ) : adding === "contact" ? null : (
-          <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("contact")}>
-            {t("addContact")}
-          </Button>
-        )}
+        <Button className="mt-3" type="button" variant="outline" onClick={() => startAdd("contact")}>
+          {t("addContact")}
+        </Button>
       </FormPanel>
+      <SidePanel
+        open={adding === "email"}
+        title={editingIndex !== null ? t("editItem") : t("addEmail")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void saveEmailDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {emailEditor}
+      </SidePanel>
+      <SidePanel
+        open={adding === "phone"}
+        title={editingIndex !== null ? t("editItem") : t("addPhone")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void savePhoneDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {phoneEditor}
+      </SidePanel>
+      <SidePanel
+        open={adding === "address"}
+        wide
+        title={editingIndex !== null ? t("editItem") : t("addAddress")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void saveAddressDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {addressEditor}
+      </SidePanel>
+      <SidePanel
+        open={adding === "contact"}
+        wide
+        title={editingIndex !== null ? t("editItem") : t("addContact")}
+        closeLabel={t("cancel")}
+        onClose={closeDraft}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={() => void saveContactDraft()} disabled={savingDraft}>
+              {savingDraft ? t("saving") : t("saveItem")}
+            </Button>
+          </>
+        }
+      >
+        {contactEditor}
+      </SidePanel>
 
       <Button type="button" variant="primary" onClick={() => void saveIdentity()}>
         {t("saveRecord")}

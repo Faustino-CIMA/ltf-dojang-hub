@@ -1,22 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { EventFormPanel } from "@/components/events/event-form-page";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { MemberLayout } from "@/components/member/member-layout";
 import { notifyCalendarAttention, notifyCalendarReminders } from "@/components/events/use-calendar-attention";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiRequest } from "@/lib/api";
+import { calendarModuleAvailable } from "@/lib/calendar-module";
 import { formatDisplayDateTime } from "@/lib/date-display";
-import { listEvents, markEventSeen, setEventReminder, type CalendarEvent } from "@/lib/events-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
+import { deleteEvent, listEvents, markEventSeen, setEventReminder, type CalendarEvent } from "@/lib/events-api";
+import {
+  EVENT_CALENDAR_MODULE_ID,
+  getModuleStatus,
+  isClubModuleAssigned,
+  isInstallEntitled,
+} from "@/lib/modules-api";
 
 type CalendarVariant = "ltf" | "club" | "member";
 
@@ -60,6 +70,7 @@ function visibilityTone(visibility: CalendarEvent["visibility"]): "success" | "w
 
 export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   const t = useTranslations("Events");
+  const common = useTranslations("Common");
   const locale = useLocale();
   const { selectedClubId } = useClubSelection();
   const now = new Date();
@@ -70,6 +81,35 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
   const [isClubAdmin, setIsClubAdmin] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(isoDate(now));
+  const [panel, setPanel] = useState<{ eventId?: number } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; title: string } | null>(null);
+  const [moduleOn, setModuleOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const sync = () => {
+      if (variant === "club" && selectedClubId == null) {
+        setModuleOn(null);
+        return;
+      }
+      getModuleStatus()
+      .then((status) => {
+        if (cancelled) return;
+        const enabled =
+          variant === "club"
+            ? isClubModuleAssigned(status, EVENT_CALENDAR_MODULE_ID, selectedClubId)
+            : isInstallEntitled(status, EVENT_CALENDAR_MODULE_ID);
+        setModuleOn(calendarModuleAvailable({ ok: true, enabled }));
+      })
+      .catch(() => {
+        if (!cancelled) setModuleOn(calendarModuleAvailable({ ok: false }));
+      });
+    };
+    sync();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId, variant]);
 
   const range = useMemo(() => {
     const from = startOfMonth(year, month);
@@ -78,13 +118,18 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
     return { from: isoDate(from), to: isoDate(to) };
   }, [month, year]);
 
-  const canWrite = variant === "ltf" || variant === "club";
-  const newHref =
-    variant === "ltf"
-      ? `/${locale}/dashboard/ltf/calendar/new`
-      : `/${locale}/dashboard/club/calendar/new`;
+  const canWrite = moduleOn === true && (variant === "ltf" || variant === "club");
+  useConsumeSearchParam("create", () => setPanel({}), canWrite);
+  useConsumeSearchParam("edit", (value) => {
+    const id = Number(value);
+    if (Number.isFinite(id) && id > 0) setPanel({ eventId: id });
+  }, moduleOn === true);
 
   const load = useCallback(async () => {
+    if (moduleOn !== true) {
+      setEvents([]);
+      return;
+    }
     setErrorMessage(null);
     if (variant === "club" && selectedClubId == null) {
       setEvents([]);
@@ -107,10 +152,13 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
       setErrorMessage(error instanceof Error ? error.message : t("calendarLoadError"));
       setEvents([]);
     }
-  }, [range.from, range.to, selectedClubId, t, variant]);
+  }, [moduleOn, range.from, range.to, selectedClubId, t, variant]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load]);
 
   useEffect(() => {
@@ -176,7 +224,14 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
     }),
   );
 
-  const content = (
+  const waitingForClub = variant === "club" && selectedClubId == null;
+  const content = moduleOn === false ? (
+    <EmptyState title={t("calendarModuleOffTitle")} description={t("calendarModuleOffBody")} />
+  ) : waitingForClub ? (
+    <EmptyState title={t("calendarNeedClub")} description={t("calendarSubtitle")} />
+  ) : moduleOn !== true ? (
+    <EmptyState title={t("calendarTitle")} description={t("calendarSubtitle")} loading />
+  ) : (
     <>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -210,11 +265,9 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
           </Button>
         </div>
         {canWrite ? (
-          <Button asChild variant="primary">
-            <Link href={newHref}>
-              <Plus className="size-4" aria-hidden />
-              {t("calendarNew")}
-            </Link>
+          <Button type="button" variant="primary" onClick={() => setPanel({})}>
+            <Plus className="size-4" aria-hidden />
+            {t("calendarNew")}
           </Button>
         ) : null}
       </div>
@@ -280,63 +333,111 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
         ) : (
           <ul className="mt-3 space-y-2">
             {selectedEvents.map((event) => {
-              const href =
-                variant === "member"
-                  ? `/${locale}/dashboard/member/calendar/${event.id}`
-                  : variant === "ltf"
-                    ? `/${locale}/dashboard/ltf/calendar/${event.id}`
-                    : `/${locale}/dashboard/club/calendar/${event.id}`;
+              const canEditEvent = variant !== "member" && event.can_edit;
               return (
-                <li key={event.id}>
-                  <Link
-                    href={href}
-                    className="app-panel block p-4 hover:bg-secondary/50"
-                    onClick={() => {
-                      void markEventSeen(event.id).then(() => notifyCalendarAttention());
-                    }}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-foreground">{event.title}</p>
-                      <StatusBadge
-                        label={t(`calendarVisibility_${event.visibility}`)}
-                        tone={visibilityTone(event.visibility)}
-                      />
-                    </div>
-                    <p className="mt-1 text-sm text-muted">
-                      {event.all_day ? t("calendarAllDay") : formatDisplayDateTime(event.starts_at)}
-                      {event.kind !== "calendar" ? ` · ${t(`calendarKind_${event.kind}`)}` : ""}
-                      {event.club_name ? ` · ${event.club_name}` : ""}
-                      {event.venue_name ? ` · ${event.venue_name}` : ""}
-                    </p>
-                    {variant === "club" && isClubAdmin ? (
-                      <div className="mt-3">
-                        {armedReminders[event.id] ? (
-                          <p className="text-sm text-muted">{t("calendarReminderSet")}</p>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={(click) => {
-                              click.preventDefault();
-                              click.stopPropagation();
-                              void armReminder(event).catch((error) => {
-                                setErrorMessage(error instanceof Error ? error.message : t("calendarSaveError"));
-                              });
-                            }}
-                          >
-                            {t("calendarRemindMe")}
-                          </Button>
-                        )}
+                <li key={event.id} className="app-panel p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => {
+                        void markEventSeen(event.id).then(() => notifyCalendarAttention());
+                        setPanel({ eventId: event.id });
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-semibold text-foreground">{event.title}</p>
+                        <StatusBadge
+                          label={t(`calendarVisibility_${event.visibility}`)}
+                          tone={visibilityTone(event.visibility)}
+                        />
                       </div>
+                      <p className="mt-1 text-sm text-muted">
+                        {event.all_day ? t("calendarAllDay") : formatDisplayDateTime(event.starts_at)}
+                        {event.kind !== "calendar" ? ` · ${t(`calendarKind_${event.kind}`)}` : ""}
+                        {event.club_name ? ` · ${event.club_name}` : ""}
+                        {event.venue_name ? ` · ${event.venue_name}` : ""}
+                      </p>
+                    </button>
+                    {canEditEvent ? (
+                      <RowActionMenu
+                        label={common("rowActionsLabel")}
+                        actions={[
+                          {
+                            key: "delete",
+                            label: t("calendarDelete"),
+                            destructive: true,
+                            onSelect: () => setPendingDelete({ id: event.id, title: event.title }),
+                          },
+                        ]}
+                      />
                     ) : null}
-                  </Link>
+                  </div>
+                  {variant === "club" && isClubAdmin ? (
+                    <div className="mt-3">
+                      {armedReminders[event.id] ? (
+                        <p className="text-sm text-muted">{t("calendarReminderSet")}</p>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            void armReminder(event).catch((error) => {
+                              setErrorMessage(error instanceof Error ? error.message : t("calendarSaveError"));
+                            });
+                          }}
+                        >
+                          {t("calendarRemindMe")}
+                        </Button>
+                      )}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
           </ul>
         )}
       </section>
+      <EventFormPanel
+        open={panel !== null}
+        variant={variant}
+        eventId={panel?.eventId}
+        onClose={() => setPanel(null)}
+        onSaved={() => {
+          setPanel(null);
+          void load();
+        }}
+        onRequestDelete={
+          variant === "member"
+            ? undefined
+            : (title) => {
+                if (!panel?.eventId) return;
+                setPendingDelete({ id: panel.eventId, title: title || t("calendarEditTitle") });
+              }
+        }
+      />
+      <DeleteConfirmModal
+        isOpen={pendingDelete !== null}
+        title={t("calendarDelete")}
+        description={common("deleteDescriptionWithName", { name: pendingDelete?.title ?? "" })}
+        confirmLabel={common("deleteConfirmButton")}
+        cancelLabel={common("deleteCancelButton")}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          void deleteEvent(pendingDelete.id)
+            .then(() => {
+              setPendingDelete(null);
+              setPanel(null);
+              return load();
+            })
+            .catch((error) => {
+              setPendingDelete(null);
+              setErrorMessage(error instanceof Error ? error.message : t("calendarSaveError"));
+            });
+        }}
+      />
     </>
   );
 

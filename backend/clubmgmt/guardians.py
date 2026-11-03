@@ -108,13 +108,18 @@ def remember_person_invoice_details(person: Person, *, email: str, phone: str, a
         "locality": str(address.get("locality") or "").strip(),
         "country": str(address.get("country") or "").strip() or "Luxembourg",
     }
+    flag = _wants_invoice_address(address)
     current = person.addresses.filter(use_for_invoice=True).first() or person.addresses.first()
     if current is None:
-        PersonAddress.objects.create(person=person, use_for_invoice=True, **fields)
+        created = PersonAddress.objects.create(person=person, use_for_invoice=flag, **fields)
+        if flag:
+            person.addresses.exclude(pk=created.pk).update(use_for_invoice=False)
         return
     for key, value in fields.items():
         setattr(current, key, value)
-    current.use_for_invoice = True
+    if flag:
+        person.addresses.exclude(pk=current.pk).update(use_for_invoice=False)
+    current.use_for_invoice = flag
     current.save()
 
 
@@ -145,13 +150,19 @@ def remember_member_invoice_details(member: Member, *, email: str, phone: str, a
         "locality": str(address.get("locality") or "").strip(),
         "country": str(address.get("country") or "").strip() or "Luxembourg",
     }
+    flag = _wants_invoice_address(address)
     flagged_address = member.club_addresses.filter(use_for_invoice=True).first()
     if flagged_address is not None and replace:
         for key, value in fields.items():
             setattr(flagged_address, key, value)
+        if flag:
+            member.club_addresses.exclude(pk=flagged_address.pk).update(use_for_invoice=False)
+        flagged_address.use_for_invoice = flag
         flagged_address.save()
     elif flagged_address is None:
-        MemberAddress.objects.create(member=member, use_for_invoice=True, **fields)
+        created = MemberAddress.objects.create(member=member, use_for_invoice=flag, **fields)
+        if flag:
+            member.club_addresses.exclude(pk=created.pk).update(use_for_invoice=False)
 
 
 def set_primary_contact(contact: MemberContact, *, force: bool) -> None:
@@ -180,7 +191,7 @@ def _link_contact(member: Member, person: Person, relation: str, is_emergency: b
 
 
 def _address_from_data(data: dict) -> dict:
-    return {
+    address = {
         "street": data.get("street") or "",
         "house_number": data.get("house_number") or "",
         "line2": data.get("line2") or "",
@@ -188,6 +199,15 @@ def _address_from_data(data: dict) -> dict:
         "locality": data.get("locality") or "",
         "country": data.get("country") or "Luxembourg",
     }
+    if "use_for_invoice" in data:
+        address["use_for_invoice"] = bool(data.get("use_for_invoice"))
+    return address
+
+
+def _wants_invoice_address(address: dict) -> bool:
+    if "use_for_invoice" not in address:
+        return True
+    return bool(address.get("use_for_invoice"))
 
 
 def families_for_member(member: Member) -> list[Family]:

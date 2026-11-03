@@ -74,7 +74,41 @@ describe("MemberHistoryTimeline", () => {
     expect(screen.getByText("2026")).toBeInTheDocument();
     expect(screen.getByText("Athlete")).toBeInTheDocument();
     expect(screen.getByText("7th Kup")).toBeInTheDocument();
-    expect(screen.getByText("Club")).toBeInTheDocument();
+    expect(screen.getAllByText("Club").length).toBeGreaterThan(0);
+  });
+
+  it("shows No club on a license that has no club", () => {
+    render(
+      <MemberHistoryTimeline
+        {...baseProps}
+        visibleSection="licenses"
+        licenseHistory={[
+          {
+            id: 2,
+            member: 1,
+            license: 2,
+            club: null,
+            order: null,
+            payment: null,
+            actor: null,
+            event_type: "issued",
+            event_at: "2026-03-01T00:00:00Z",
+            reason: "LTF staff license issued without an invoice.",
+            metadata: {},
+            license_year: 2026,
+            status_before: "",
+            status_after: "active",
+            club_name_snapshot: "",
+            license_type_name: "Federation",
+            created_at: "2026-03-01T00:00:00Z",
+          },
+        ]}
+        gradeHistory={[]}
+      />
+    );
+    expect(screen.getByText("noClub")).toBeInTheDocument();
+    expect(screen.queryByText("unknownClub")).toBeNull();
+    expect(screen.queryByText("LTF")).toBeNull();
   });
 
   it("can show only the licenses or grades section", () => {
@@ -152,7 +186,7 @@ describe("MemberHistoryTimeline", () => {
     );
 
     fireEvent.click(screen.getByLabelText("Add grade"));
-    fireEvent.click(screen.getByRole("combobox", { name: "New grade" }));
+    fireEvent.click(screen.getByRole("button", { name: "New grade" }));
     fireEvent.click(screen.getByRole("option", { name: "1st Dan" }));
     await act(async () => {
       fireEvent.click(screen.getByText("Save promotion"));
@@ -192,7 +226,7 @@ describe("MemberHistoryTimeline", () => {
     );
 
     fireEvent.click(screen.getByLabelText("Add grade"));
-    fireEvent.click(screen.getByRole("combobox", { name: "New grade" }));
+    fireEvent.click(screen.getByRole("button", { name: "New grade" }));
     expect(screen.queryByRole("option", { name: "DAN 1" })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "1st Dan" })).toBeInTheDocument();
   });
@@ -236,5 +270,48 @@ describe("MemberHistoryTimeline", () => {
 
     expect(onDeleteGrade).toHaveBeenCalledTimes(1);
     expect(onDeleteGrade).toHaveBeenCalledWith(7);
+  });
+
+  it("formats the page label with the current and total page", () => {
+    const licenseHistory = Array.from({ length: 6 }, (_, index) => ({
+      id: index + 1,
+      member: 1,
+      license: index + 1,
+      club: 1,
+      order: null,
+      payment: null,
+      actor: null,
+      event_type: "issued" as const,
+      event_at: `2026-0${index + 1}-01T00:00:00Z`,
+      reason: "Created",
+      metadata: {},
+      license_year: 2020 + index,
+      status_before: "",
+      status_after: "active",
+      club_name_snapshot: "Club",
+      license_type_name: `Type ${index + 1}`,
+      created_at: `2026-0${index + 1}-01T00:00:00Z`,
+    }));
+
+    render(
+      <MemberHistoryTimeline
+        {...baseProps}
+        visibleSection="licenses"
+        previousPageLabel="Previous"
+        nextPageLabel="Next"
+        pageLabel={(current, total) => `Page ${current} of ${total}`}
+        licenseHistory={licenseHistory}
+      />
+    );
+
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByText("2025")).toBeInTheDocument();
+    expect(screen.queryByText("2020")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+    expect(screen.getByText("2020")).toBeInTheDocument();
+    expect(screen.queryByText("2025")).not.toBeInTheDocument();
   });
 });

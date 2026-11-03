@@ -1,5 +1,6 @@
 import { API_URL, apiRequest } from "./api";
 import { getToken } from "./auth";
+import type { PaginatedResponse } from "./pagination";
 
 export const CLUB_MANAGEMENT_MODULE_ID = "club_management";
 
@@ -42,6 +43,7 @@ export type AddressLookup = {
   postal_code: string;
   localities: string[];
   streets: string[];
+  street_rows?: Array<{ street: string; locality: string }>;
   houses: Array<{ house_number: string; street: string; locality: string; postal_code: string; label: string }>;
 };
 
@@ -59,7 +61,7 @@ export function saveMemberRecord(memberId: number, payload: Record<string, unkno
 export function lookupLuAddress(postalCode: string, street = "") {
   const q = new URLSearchParams({ postal_code: postalCode });
   if (street) q.set("street", street);
-  return apiRequest<AddressLookup>(`/api/club-management/addresses/?${q.toString()}`);
+  return apiRequest<AddressLookup>(`/api/addresses/lu/?${q.toString()}`);
 }
 
 export function listCheckups(memberId: number) {
@@ -629,11 +631,58 @@ export function getClubFinanceAccess(clubId: number | null) {
   );
 }
 
+export type CommitteeMandateDto = {
+  id: number;
+  role: string;
+  title: string;
+  member: number | null;
+  member_name: string;
+  member_first_name: string;
+  member_last_name: string;
+  person: number | null;
+  person_name: string;
+  person_first_name: string;
+  person_last_name: string;
+  started_on: string;
+  ended_on: string | null;
+  notes: string;
+};
+
+export type CommitteeDto = {
+  id: number;
+  name: string;
+  scope: string;
+  mandates: CommitteeMandateDto[];
+};
+
 export function listCommittees(params: { scope: string; club?: number }) {
   const q = new URLSearchParams({ scope: params.scope });
   if (params.club) q.set("club", String(params.club));
-  return apiRequest<Array<{ id: number; name: string; scope: string; mandates: Array<{ id: number; role: string; title: string; member: number | null; member_name: string; person: number | null; person_name: string; started_on: string; ended_on: string | null }> }>>(
-    `/api/club-management/committees/?${q.toString()}`,
+  return apiRequest<CommitteeDto[]>(`/api/club-management/committees/?${q.toString()}`);
+}
+
+export type CommitteeHolderChoice = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  club_id: number | null;
+  club_name: string;
+};
+
+export function searchCommitteeHolders(
+  params: { q?: string; page: number; pageSize: number },
+  options?: { signal?: AbortSignal },
+) {
+  const search = new URLSearchParams();
+  search.set("page", String(params.page));
+  search.set("page_size", String(params.pageSize));
+  const query = params.q?.trim();
+  if (query) {
+    search.set("q", query);
+  }
+  return apiRequest<PaginatedResponse<CommitteeHolderChoice>>(
+    `/api/club-management/committees/holder-choices/?${search.toString()}`,
+    { signal: options?.signal },
   );
 }
 
@@ -655,6 +704,13 @@ export function updateMandate(id: number, payload: Record<string, unknown>) {
 export function deleteMandate(id: number) {
   return apiRequest<void>(`/api/club-management/mandates/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export function replaceMandate(id: number, payload: { member: number; started_on: string }) {
+  return apiRequest<CommitteeMandateDto>(`/api/club-management/mandates/${id}/replace/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

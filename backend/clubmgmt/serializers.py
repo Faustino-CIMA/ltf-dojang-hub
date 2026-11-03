@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from members.models import Member
@@ -29,6 +31,19 @@ from .models import (
     ShopSnapshotLine,
     ShopVariant,
 )
+
+
+def assert_single_invoice_address(rows):
+    if not isinstance(rows, list):
+        return
+    flagged = 0
+    for row in rows:
+        if isinstance(row, dict) and bool(row.get("use_for_invoice")):
+            flagged += 1
+    if flagged > 1:
+        raise serializers.ValidationError(
+            {"addresses": _("Only one address can be used for invoices.")}
+        )
 
 
 class PersonEmailSerializer(serializers.ModelSerializer):
@@ -67,6 +82,11 @@ class PersonSerializer(serializers.ModelSerializer):
             "phones",
             "addresses",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        assert_single_invoice_address(getattr(self, "initial_data", {}).get("addresses"))
+        return attrs
 
 
 class MemberEmailSerializer(serializers.ModelSerializer):
@@ -167,6 +187,11 @@ class MemberRecordSerializer(serializers.ModelSerializer):
         if member is not None and value.club_id != member.club_id:
             raise serializers.ValidationError("Choose a membership fee from this club.")
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        assert_single_invoice_address(getattr(self, "initial_data", {}).get("addresses"))
+        return attrs
 
 
 class FamilyMemberSerializer(serializers.ModelSerializer):
@@ -346,9 +371,23 @@ class MembershipFeeSerializer(serializers.ModelSerializer):
         return value
 
 
+def _display_name(first_name: str, last_name: str) -> str:
+    last = (last_name or "").strip()
+    first = (first_name or "").strip()
+    if last:
+        last = last.upper()
+    if first:
+        first = first[:1].upper() + first[1:]
+    return " ".join(part for part in (last, first) if part)
+
+
 class CommitteeMandateSerializer(serializers.ModelSerializer):
     member_name = serializers.SerializerMethodField()
+    member_first_name = serializers.SerializerMethodField()
+    member_last_name = serializers.SerializerMethodField()
     person_name = serializers.SerializerMethodField()
+    person_first_name = serializers.SerializerMethodField()
+    person_last_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CommitteeMandate
@@ -359,22 +398,38 @@ class CommitteeMandateSerializer(serializers.ModelSerializer):
             "title",
             "member",
             "member_name",
+            "member_first_name",
+            "member_last_name",
             "person",
             "person_name",
+            "person_first_name",
+            "person_last_name",
             "started_on",
             "ended_on",
             "notes",
         ]
 
+    def get_member_first_name(self, obj):
+        return obj.member.first_name if obj.member_id else ""
+
+    def get_member_last_name(self, obj):
+        return obj.member.last_name if obj.member_id else ""
+
+    def get_person_first_name(self, obj):
+        return obj.person.first_name if obj.person_id else ""
+
+    def get_person_last_name(self, obj):
+        return obj.person.last_name if obj.person_id else ""
+
     def get_member_name(self, obj):
         if not obj.member_id:
             return ""
-        return f"{obj.member.first_name} {obj.member.last_name}"
+        return _display_name(obj.member.first_name, obj.member.last_name)
 
     def get_person_name(self, obj):
         if not obj.person_id:
             return ""
-        return f"{obj.person.first_name} {obj.person.last_name}"
+        return _display_name(obj.person.first_name, obj.person.last_name)
 
     def validate(self, attrs):
         member = attrs.get("member", getattr(self.instance, "member", None) if self.instance else None)
@@ -422,6 +477,38 @@ class CommitteeMandateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class CommitteeTermHistorySerializer(serializers.ModelSerializer):
+    """A member's own committee terms. Read-only, and hidden from finance."""
+
+    scope = serializers.CharField(source="committee.scope", read_only=True)
+    committee_name = serializers.CharField(source="committee.name", read_only=True)
+    club_id = serializers.IntegerField(source="committee.club_id", read_only=True)
+    club_name = serializers.SerializerMethodField()
+    is_current = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommitteeMandate
+        fields = [
+            "id",
+            "role",
+            "title",
+            "scope",
+            "committee_name",
+            "club_id",
+            "club_name",
+            "started_on",
+            "ended_on",
+            "is_current",
+        ]
+
+    def get_club_name(self, obj):
+        club = obj.committee.club
+        return club.name if club is not None else ""
+
+    def get_is_current(self, obj):
+        return obj.is_active_on(timezone.localdate())
+
+
 class CommitteeSerializer(serializers.ModelSerializer):
     mandates = CommitteeMandateSerializer(many=True, read_only=True)
 
@@ -429,6 +516,16 @@ class CommitteeSerializer(serializers.ModelSerializer):
         model = Committee
         fields = ["id", "scope", "club", "name", "mandates", "created_at"]
         read_only_fields = ["created_at"]
+
+
+class CommitteeHolderChoiceSerializer(serializers.Serializer):
+    """A person an LTF admin can hand a federation office to. Names and club only."""
+
+    id = serializers.IntegerField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    club_id = serializers.IntegerField(allow_null=True)
+    club_name = serializers.CharField(allow_blank=True)
 
 
 class ShopVariantSerializer(serializers.ModelSerializer):

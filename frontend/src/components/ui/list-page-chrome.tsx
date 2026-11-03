@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
+import { useDeskAccess } from "@/components/desk-access";
+import { RequiredForm } from "@/components/ui/label";
+import { presentAuthError } from "@/lib/auth-errors";
 import { cn } from "@/lib/utils";
+import { LIST_PAGE_SIZE_OPTIONS } from "@/lib/list-page";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -12,19 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const LIST_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
-export const LIST_PAGE_SIZE_CAP = 200;
-
-export function resolveListPageSize(pageSize: string, totalCount: number, cap = LIST_PAGE_SIZE_CAP) {
-  if (pageSize === "all") {
-    return Math.min(Math.max(totalCount, 1), cap);
-  }
-  const n = Number(pageSize);
-  if (!Number.isFinite(n) || n <= 0) {
-    return 50;
-  }
-  return Math.min(n, cap);
-}
+export {
+  LIST_PAGE_SIZE_OPTIONS,
+  LIST_SERVER_PAGE_CAP as LIST_PAGE_SIZE_CAP,
+  displayPageSize,
+  readListPage,
+  resolveListPageSize,
+} from "@/lib/list-page";
 
 export function ListToolbarPanel({
   search,
@@ -44,8 +42,8 @@ export function ListToolbarPanel({
     <div
       className={
         stackFilters
-          ? "flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
-          : "flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
+          ? "flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3"
+          : "flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3"
       }
     >
       <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
@@ -57,8 +55,8 @@ export function ListToolbarPanel({
         <div
           className={
             stackFilters
-              ? "min-w-0 border-t border-[var(--border)] pt-4"
-              : "min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0"
+              ? "min-w-0 border-t border-[var(--border)] pt-3"
+              : "min-w-0 flex-1 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0"
           }
         >
           {filters}
@@ -76,7 +74,7 @@ export function ListActionsRow({
   pagination?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
         {actions}
       </div>
@@ -129,8 +127,8 @@ export function PageSizeSelect({
   allLabel: string;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[150px]" aria-label={ariaLabel}>
+    <Select browsing value={value} onValueChange={onChange}>
+      <SelectTrigger browsing className="w-[150px]" aria-label={ariaLabel}>
         <SelectValue placeholder={ariaLabel} />
       </SelectTrigger>
       <SelectContent>
@@ -149,6 +147,8 @@ export function SelectionMeta({
   hiddenCount = 0,
   countLabel,
   hiddenLabel,
+  offPageCount = 0,
+  offPageLabel,
   clearLabel,
   onClear,
 }: {
@@ -156,6 +156,8 @@ export function SelectionMeta({
   hiddenCount?: number;
   countLabel: string;
   hiddenLabel?: string;
+  offPageCount?: number;
+  offPageLabel?: string;
   clearLabel: string;
   onClear: () => void;
 }) {
@@ -165,6 +167,7 @@ export function SelectionMeta({
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
       <span className="font-medium text-[var(--foreground)]">{countLabel}</span>
+      {offPageCount > 0 && offPageLabel ? <span className="text-muted">{offPageLabel}</span> : null}
       {hiddenCount > 0 && hiddenLabel ? (
         <span className="font-medium text-warning">{hiddenLabel}</span>
       ) : null}
@@ -195,7 +198,7 @@ export function PageNotice({
           ? "banner-warning"
           : "banner-info";
   return (
-    <p className={cn("rounded-[var(--radius-form)] border px-4 py-3 text-sm", toneClass)}>{children}</p>
+    <p className={cn("rounded-[var(--radius-form)] border px-3 py-2 text-sm", toneClass)}>{children}</p>
   );
 }
 
@@ -252,15 +255,8 @@ export function FloatingNotice({
     <div
       role="status"
       aria-live="polite"
-      className="fixed right-4 z-[60] w-[min(24rem,calc(100vw-2rem))]"
-      style={{
-        top: "calc(var(--topbar-height, 4rem) + 0.75rem)",
-        transform: shown ? "translateX(0)" : "translateX(calc(100% + 1.5rem))",
-        opacity: shown ? 1 : 0,
-        transition: shown
-          ? "transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 280ms ease-out"
-          : "transform 340ms cubic-bezier(0.4, 0, 1, 1), opacity 220ms ease-in",
-      }}
+      data-shown={shown ? "true" : "false"}
+      className="app-toast fixed right-4 z-[60] w-[min(24rem,calc(100vw-2rem))]"
       onTransitionEnd={(event) => {
         if (event.target !== event.currentTarget) {
           return;
@@ -275,7 +271,7 @@ export function FloatingNotice({
     >
       <div
         className={cn(
-          "flex items-start gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm shadow-[var(--shadow-float,0_12px_32px_rgb(15_23_42/0.16))]",
+          "flex items-start gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm shadow-[var(--shadow-float)]",
           toneClass
         )}
       >
@@ -308,9 +304,11 @@ export function ActionNotices({
   onDismiss: () => void;
   dismissLabel?: string;
 }) {
-  const message = error || success || null;
+  const raw = error || success || null;
+  const presented = raw ? presentAuthError(raw) : null;
+  const message = presented?.text ?? null;
   const open = Boolean(message);
-  const tone = error ? "danger" : "success";
+  const tone = error ? (presented?.tone === "info" ? "info" : "danger") : "success";
   const onDismissRef = useRef(onDismiss);
 
   useEffect(() => {
@@ -345,7 +343,11 @@ export function FormPanel({
   children: ReactNode;
   className?: string;
 }) {
-  return <section className={cn("app-panel p-6", className)}>{children}</section>;
+  return (
+    <section className={cn("app-panel p-3", className)}>
+      <RequiredForm>{children}</RequiredForm>
+    </section>
+  );
 }
 
 export function ExpandableTable({ children }: { children: ReactNode }) {
@@ -363,19 +365,22 @@ export function NestedTable({ children, className }: { children: ReactNode; clas
 export const dataTableClass = "min-w-full text-left text-sm";
 export const dataTheadClass =
   "border-b border-border bg-secondary/70 text-xs uppercase tracking-wide text-muted";
-export const dataThClass = "px-4 py-3 font-medium";
-export const dataTdClass = "px-4 py-3";
+export const dataThClass = "px-[var(--control-padding-x)] py-1 font-medium";
+export const dataTdClass = "px-[var(--control-padding-x)] py-1";
 export const dataRowClass =
-  "h-[var(--table-row-height)] text-foreground transition-colors hover:bg-[color-mix(in_oklab,var(--accent)_6%,white)]";
+  "h-[var(--table-row-height)] text-foreground transition-colors hover:bg-[var(--accent-soft)]";
 export const dataRowClickableClass = `${dataRowClass} cursor-pointer`;
 
-export function AppTextarea({ className, ...props }: ComponentProps<"textarea">) {
+export function AppTextarea({ className, readOnly, ...props }: ComponentProps<"textarea">) {
+  const { readOnly: viewOnly } = useDeskAccess()
   return (
     <textarea
+      readOnly={viewOnly ? true : readOnly}
+      aria-readonly={viewOnly ? true : undefined}
       className={cn(
-        "placeholder:text-[var(--field-placeholder)] min-h-[7.5rem] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] shadow-xs outline-none transition-[color,box-shadow]",
+        "placeholder:text-[var(--field-placeholder)] min-h-[7.5rem] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)] outline-none transition-[color,box-shadow]",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "disabled:cursor-not-allowed disabled:opacity-50 read-only:cursor-text read-only:opacity-100",
         className
       )}
       {...props}

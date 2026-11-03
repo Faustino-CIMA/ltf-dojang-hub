@@ -3,37 +3,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Trash2, X } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 
+import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
+import { PageSizeSelect } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { MemberFormPanel } from "@/components/club-admin/member-form-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { TeamFilter } from "@/components/club-admin/club-teams-desk";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
+import { PrintLicenceCardsPanel } from "@/components/club-admin/print-licence-cards-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
+import { SexMark } from "@/components/ui/sex-mark";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Modal } from "@/components/ui/modal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
+import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { apiRequest } from "@/lib/api";
+import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import {
   Member,
   MemberIssueFilter,
+  deleteMember,
   getClubs,
+  getLicensesList,
   getMember,
   getMembersPage,
   updateMember,
 } from "@/lib/club-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName } from "@/lib/person-name";
+import { COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { getClubTeams, type ClubTeam } from "@/lib/club-teams-api";
+import { displayPageSize, LIST_PAGE_SIZE_OPTIONS, readListPage } from "@/lib/list-page";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 type AuthMeResponse = { role: string };
 
@@ -70,13 +83,7 @@ function memberStatusFilterFromLegacySwitches(parsed: {
   return "active";
 }
 
-/** Matches backend `API_PAGINATION_MAX_PAGE_SIZE` (see `backend/config/pagination.py`). */
-const MEMBERS_LIST_PAGE_SIZE_CAP = 200;
-const MEMBERS_PAGE_SIZE_OPTIONS = ["50", "150", "300", "all"] as const;
-
-const BATCH_DELETE_STORAGE_KEY = "club_members_batch_delete_payload";
 const ORDER_LICENSE_STORAGE_KEY = "club_members_order_license_payload";
-const QUICK_PRINT_STORAGE_KEY = "club_quick_print_payload";
 
 function memberToUpdateBody(member: Member, is_active: boolean) {
   return {
@@ -113,35 +120,30 @@ export default function ClubAdminMembersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("active");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [accountFilter, setAccountFilter] = useState<"all" | AccountState>("all");
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [accountPanel, setAccountPanel] = useState<{ intent: "create" | "copy" | "link"; ids: number[] } | null>(null);
   const [pageSize, setPageSize] = useState("50");
   const [pageSizeHydrated, setPageSizeHydrated] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectionHydrated, setSelectionHydrated] = useState(false);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [statusFilterHydrated, setStatusFilterHydrated] = useState(false);
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [competitionOn, setCompetitionOn] = useState(false);
+  const [clubTeams, setClubTeams] = useState<ClubTeam[]>([]);
+  const [teamFilter, setTeamFilter] = useState<number[] | "none">([]);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [printCardsOpen, setPrintCardsOpen] = useState(false);
   const [actionsHintOpen, setActionsHintOpen] = useState(false);
   const [bulkStatusBusy, setBulkStatusBusy] = useState(false);
   const issue = parseMemberIssue(searchParams.get("issue"), searchParams.get("filter"));
 
-  const pageSizeOptions = MEMBERS_PAGE_SIZE_OPTIONS;
-
-  const membersListPageSize = useMemo(() => {
-    if (pageSize === "all") {
-      const count = totalCount > 0 ? totalCount : MEMBERS_LIST_PAGE_SIZE_CAP;
-      return Math.min(count, MEMBERS_LIST_PAGE_SIZE_CAP);
-    }
-    const n = Number(pageSize);
-    if (!Number.isFinite(n) || n <= 0) {
-      return 50;
-    }
-    return Math.min(n, MEMBERS_LIST_PAGE_SIZE_CAP);
-  }, [pageSize, totalCount]);
+  const membersListPageSize = displayPageSize(pageSize, totalCount);
 
   const isActiveFilter = useMemo(() => {
     if (issue) {
@@ -155,6 +157,20 @@ export default function ClubAdminMembersPage() {
     }
     return false;
   }, [issue, memberStatusFilter]);
+
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      searchQuery,
+      selectedClubId ?? "",
+      pageSize,
+      String(isActiveFilter),
+      issue ?? "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+      teamFilter === "none" ? "none" : teamFilter.join(","),
+      accountFilter,
+    ].join("|"),
+  );
 
   const [memberFacetCounts, setMemberFacetCounts] = useState({
     all: 0,
@@ -171,14 +187,20 @@ export default function ClubAdminMembersPage() {
       const [clubsResponse, membersResponse, allCountRes, activeCountRes, inactiveCountRes] =
         await Promise.all([
           getClubs(),
-          getMembersPage({
-            page: currentPage,
-            pageSize: membersListPageSize,
-            q,
-            clubId,
-            isActive: isActiveFilter,
-            issue: issue ?? undefined,
-          }),
+          readListPage(pageSize, currentPage, (page, size) =>
+            getMembersPage({
+              page,
+              pageSize: size,
+              q,
+              clubId,
+              isActive: isActiveFilter,
+              issue: issue ?? undefined,
+              ordering,
+              account: accountFilter === "all" ? undefined : accountFilter,
+              teamIds: teamFilter === "none" ? undefined : teamFilter,
+              teamNone: teamFilter === "none",
+            }),
+          ),
           getMembersPage({
             page: 1,
             pageSize: 1,
@@ -219,12 +241,15 @@ export default function ClubAdminMembersPage() {
     }
   }, [
     currentPage,
-    membersListPageSize,
+    pageSize,
     searchQuery,
     selectedClubId,
     setSelectedClubId,
     isActiveFilter,
     issue,
+    ordering,
+    accountFilter,
+    teamFilter,
   ]);
 
   useEffect(() => {
@@ -247,9 +272,10 @@ export default function ClubAdminMembersPage() {
     let isMounted = true;
     const loadCurrentUserRole = async () => {
       try {
-        const me = await apiRequest<AuthMeResponse>("/api/auth/me/");
+        const me = await apiRequest<AuthMeResponse & { id: number }>("/api/auth/me/");
         if (isMounted) {
           setCurrentRole(me.role);
+          setCurrentUserId(me.id);
         }
       } catch {
         if (isMounted) {
@@ -264,11 +290,50 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
+  const accountLabel = (state: AccountState | undefined) => {
+    if (state === "pending") return t("accountBadgePending");
+    if (state === "active") return t("accountBadgeActive");
+    if (state === "disabled") return t("accountBadgeDisabled");
+    return t("accountBadgeNone");
+  };
+  const openAccount = (member: Member, action: "create" | "copy") => {
+    setAccountPanel({ intent: action, ids: [member.id] });
+  };
+  const showTeams = competitionOn && (currentRole === "club_admin" || currentRole === "coach");
 
-  const selectedIdsStorageKey = useMemo(
-    () => `club_members_selected_ids:${selectedClubId ?? "all"}`,
-    [selectedClubId]
-  );
+  useEffect(() => {
+    if (!showTeams || selectedClubId == null) {
+      return;
+    }
+    let cancelled = false;
+    getClubTeams(selectedClubId)
+      .then((rows) => {
+        if (cancelled) return;
+        setClubTeams(rows);
+        setTeamFilter((current) => (current === "none" ? current : current.filter((id) => rows.some((team) => team.id === id))));
+      })
+      .catch(() => {
+        if (!cancelled) setClubTeams([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId, showTeams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getModuleStatus()
+      .then((status) => {
+        if (!cancelled) setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
+      })
+      .catch(() => {
+        if (!cancelled) setCompetitionOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
+
   const pageSizeStorageKey = useMemo(
     () => `club_members_page_size:${selectedClubId ?? "all"}`,
     [selectedClubId]
@@ -285,10 +350,6 @@ export default function ClubAdminMembersPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / membersListPageSize));
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedClubId, pageSize, isActiveFilter, issue]);
-
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/club/members`);
   };
@@ -302,7 +363,7 @@ export default function ClubAdminMembersPage() {
     const storedPageSize = window.sessionStorage.getItem(pageSizeStorageKey);
     if (
       storedPageSize &&
-      (MEMBERS_PAGE_SIZE_OPTIONS as readonly string[]).includes(storedPageSize)
+      (LIST_PAGE_SIZE_OPTIONS as readonly string[]).includes(storedPageSize)
     ) {
       setPageSize(storedPageSize);
     }
@@ -315,38 +376,6 @@ export default function ClubAdminMembersPage() {
     }
     window.sessionStorage.setItem(pageSizeStorageKey, pageSize);
   }, [pageSize, pageSizeHydrated, pageSizeStorageKey]);
-
-  useEffect(() => {
-    setSelectionHydrated(false);
-    if (typeof window === "undefined") {
-      setSelectionHydrated(true);
-      return;
-    }
-    try {
-      const storedValue = window.sessionStorage.getItem(selectedIdsStorageKey);
-      if (!storedValue) {
-        setSelectedIds([]);
-        lastSelectedMemberIdRef.current = null;
-        return;
-      }
-      const parsedValue = JSON.parse(storedValue);
-      if (Array.isArray(parsedValue)) {
-        const restoredIds = parsedValue
-          .map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value > 0);
-        setSelectedIds(restoredIds);
-        lastSelectedMemberIdRef.current = restoredIds.at(-1) ?? null;
-        return;
-      }
-      setSelectedIds([]);
-      lastSelectedMemberIdRef.current = null;
-    } catch {
-      setSelectedIds([]);
-      lastSelectedMemberIdRef.current = null;
-    } finally {
-      setSelectionHydrated(true);
-    }
-  }, [selectedIdsStorageKey]);
 
   useEffect(() => {
     setStatusFilterHydrated(false);
@@ -399,17 +428,6 @@ export default function ClubAdminMembersPage() {
   }, [issue, searchParams, statusSwitchesStorageKey]);
 
   useEffect(() => {
-    if (!selectionHydrated || typeof window === "undefined") {
-      return;
-    }
-    if (selectedIds.length > 0) {
-      window.sessionStorage.setItem(selectedIdsStorageKey, JSON.stringify(selectedIds));
-    } else {
-      window.sessionStorage.removeItem(selectedIdsStorageKey);
-    }
-  }, [selectedIds, selectedIdsStorageKey, selectionHydrated]);
-
-  useEffect(() => {
     if (!statusFilterHydrated || typeof window === "undefined") {
       return;
     }
@@ -419,46 +437,28 @@ export default function ClubAdminMembersPage() {
     );
   }, [memberStatusFilter, statusFilterHydrated, statusSwitchesStorageKey]);
 
-  const allFilteredIds = useMemo(
-    () => members.map((member) => member.id),
-    [members]
-  );
-  const selectedVisibleCount = useMemo(
-    () => allFilteredIds.filter((id) => selectedIds.includes(id)).length,
-    [allFilteredIds, selectedIds]
-  );
-  const hiddenSelectedCount = Math.max(selectedIds.length - selectedVisibleCount, 0);
-  const allSelected =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
+  const visibleIds = useMemo(() => members.map((member) => member.id), [members]);
+  const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
 
   const selectedStatusBreakdown = useMemo(() => {
     const selectedOnPage = members.filter((member) => selectedIds.includes(member.id));
     const activeCount = selectedOnPage.filter((member) => member.is_active).length;
     const inactiveCount = selectedOnPage.filter((member) => !member.is_active).length;
-    const unknownCount = Math.max(0, selectedIds.length - selectedOnPage.length);
-    const unknownLikelyActive = memberStatusFilter === "active";
-    const unknownLikelyInactive = memberStatusFilter === "inactive";
-    const effectiveActive = activeCount + (unknownLikelyActive ? unknownCount : 0);
-    const effectiveInactive = inactiveCount + (unknownLikelyInactive ? unknownCount : 0);
-    const unknownMixed = unknownCount > 0 && memberStatusFilter === "all";
+    const hiddenCount = Math.max(0, selectedIds.length - selectedOnPage.length);
     return {
       total: selectedIds.length,
-      showActivate: effectiveInactive > 0 || unknownMixed,
-      showDeactivate: effectiveActive > 0 || unknownMixed,
+      showActivate: inactiveCount > 0 || hiddenCount > 0,
+      showDeactivate: activeCount > 0 || hiddenCount > 0,
     };
-  }, [memberStatusFilter, members, selectedIds]);
+  }, [members, selectedIds]);
 
   const toggleSelectAll = () => {
     if (!canManageMembers) {
       return;
     }
-    if (allSelected) {
-      setSelectedIds([]);
-      lastSelectedMemberIdRef.current = null;
-    } else {
-      setSelectedIds(allFilteredIds);
-      lastSelectedMemberIdRef.current = allFilteredIds.at(-1) ?? null;
-    }
+    setSelectedIds((current) => togglePageSelection(current, visibleIds));
+    lastSelectedMemberIdRef.current = visibleIds.at(-1) ?? null;
   };
 
   const clearSelection = () => {
@@ -509,35 +509,126 @@ export default function ClubAdminMembersPage() {
     lastSelectedMemberIdRef.current = id;
   };
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Member | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<string[]>([]);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchTargets, setBatchTargets] = useState<Member[]>([]);
+  const [batchImpact, setBatchImpact] = useState<string[]>([]);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const licenseImpactLine = useCallback(
+    (year: number | string, status: string) => {
+      const statusLabel =
+        status === "active" ? t("statusActive") : status === "expired" ? t("statusExpired") : t("statusPending");
+      return t("yearLabel") + ` ${year} · ${statusLabel}`;
+    },
+    [t],
+  );
+
+  const openMemberDelete = useCallback(
+    async (member: Member) => {
+      setPendingDelete(member);
+      setDeleteImpact([]);
+      try {
+        const licenses = await getLicensesList({ memberId: member.id });
+        setDeleteImpact(
+          licenses
+            .filter((license) => license.member === member.id)
+            .map((license) => licenseImpactLine(license.year, license.status)),
+        );
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : t("singleDeleteMemberLoadError"));
+      }
+    },
+    [licenseImpactLine, t],
+  );
+
+  const openBatchDelete = useCallback(async () => {
+    if (!canManageMembers || selectedIds.length === 0) {
+      return;
+    }
+    setBatchDeleteOpen(true);
+    setBatchTargets([]);
+    setBatchImpact([]);
+    try {
+      const roster = [];
+      for (const id of selectedIds) {
+        const known = members.find((member) => member.id === id);
+        roster.push(known ?? (await getMember(id)));
+      }
+      let licenses = [];
+      try {
+        licenses = await getLicensesList({
+          clubId: selectedClubId ?? undefined,
+          memberIds: selectedIds,
+        });
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : t("batchDeleteMembersLoadError"));
+      }
+      const counts = new Map<number, number>();
+      licenses.forEach((license) => counts.set(license.member, (counts.get(license.member) ?? 0) + 1));
+      setBatchTargets(roster);
+      setBatchImpact(
+        roster.map((member) => {
+          const count = counts.get(member.id) ?? 0;
+          return `${formatFullName(member)} · ${member.ltf_licenseid || "—"} · ${t("batchDeleteMembersCascadeColumnLabel")} ${count}`;
+        }),
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("batchDeleteMembersLoadError"));
+    }
+  }, [canManageMembers, members, selectedClubId, selectedIds, t]);
+
   const startCreate = () => {
     if (!canManageMembers) {
       return;
     }
-    router.push(`/${locale}/dashboard/club/members/new`);
+    setCreateOpen(true);
   };
 
-  const handleDelete = (member: Member) => {
-    if (!canManageMembers) {
-      return;
-    }
-    router.push(`/${locale}/dashboard/club/members/${member.id}/delete`);
-  };
+  const dropQuery = useCallback(
+    (key: string) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (!next.has(key)) {
+        return;
+      }
+      next.delete(key);
+      const query = next.toString();
+      router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
-  const openBatchDeletePage = () => {
-    if (!canManageMembers || selectedIds.length === 0) {
+  useEffect(() => {
+    if (searchParams.get("create") === "1" && canManageMembers) {
+      setCreateOpen(true);
+      dropQuery("create");
+    }
+  }, [canManageMembers, dropQuery, searchParams]);
+
+  useEffect(() => {
+    const rawId = Number(searchParams.get("delete"));
+    if (!canManageMembers || !Number.isInteger(rawId) || rawId <= 0) {
       return;
     }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        BATCH_DELETE_STORAGE_KEY,
-        JSON.stringify({
-          selectedIds,
-          selectedClubId,
-        })
-      );
+    dropQuery("delete");
+    const known = members.find((member) => member.id === rawId);
+    if (known) {
+      void openMemberDelete(known);
+      return;
     }
-    router.push(`/${locale}/dashboard/club/members/batch-delete`);
-  };
+    void getMember(rawId)
+      .then((member) => openMemberDelete(member))
+      .catch(() => undefined);
+  }, [canManageMembers, dropQuery, members, openMemberDelete, searchParams]);
+
+  useEffect(() => {
+    if (searchParams.get("batchDelete") === "1" && canManageMembers && selectedIds.length > 0 && !batchDeleteOpen) {
+      dropQuery("batchDelete");
+      void openBatchDelete();
+    }
+  }, [batchDeleteOpen, canManageMembers, dropQuery, openBatchDelete, searchParams, selectedIds.length]);
 
   const openOrderPage = () => {
     if (!canManageMembers || selectedIds.length === 0) {
@@ -554,25 +645,6 @@ export default function ClubAdminMembersPage() {
       );
     }
     router.push(`/${locale}/dashboard/club/members/order-licenses`);
-  };
-
-  const openQuickPrintPage = () => {
-    if (!canManageMembers || selectedIds.length === 0 || !selectedClubId) {
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        QUICK_PRINT_STORAGE_KEY,
-        JSON.stringify({
-          source: "members",
-          selectedClubId,
-          memberIds: selectedIds,
-          licenseIds: [],
-          printerProfileId: null,
-        })
-      );
-    }
-    router.push(`/${locale}/dashboard/club/print-jobs/quick-print`);
   };
 
   const applyMemberStatus = async (member: Member, nextIsActive: boolean) => {
@@ -640,6 +712,9 @@ export default function ClubAdminMembersPage() {
       }
       if (failed > 0) {
         setErrorMessage(t("bulkStatusPartialResult", { ok, failed }));
+      } else {
+        setSelectedIds([]);
+        lastSelectedMemberIdRef.current = null;
       }
       await loadData();
     } finally {
@@ -659,7 +734,7 @@ export default function ClubAdminMembersPage() {
         description={
           pendingRowStatusMember
             ? t("memberRowStatusConfirmDescription", {
-                name: `${pendingRowStatusMember.first_name} ${pendingRowStatusMember.last_name}`.trim(),
+                name: formatFullName(pendingRowStatusMember),
                 nextStatus: pendingRowStatusMember.is_active ? t("inactiveLabel") : t("activeLabel"),
               })
             : undefined
@@ -685,7 +760,7 @@ export default function ClubAdminMembersPage() {
               : t("bulkChangeStatusMixedDescription", { count: selectedStatusBreakdown.total })
         }
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             variant="outline"
             disabled={bulkStatusBusy}
@@ -714,11 +789,11 @@ export default function ClubAdminMembersPage() {
         </div>
       </Modal>
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
-            <div className="flex min-w-[12rem] flex-1 flex-wrap items-end gap-3">
-              <div className="min-w-[10rem] flex-1">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <div className="flex min-w-[10rem] flex-1 flex-wrap items-center gap-2">
                 <Input
                   className="w-full max-w-xs"
                   placeholder={t("searchMembersPlaceholder")}
@@ -726,69 +801,103 @@ export default function ClubAdminMembersPage() {
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
+                {issue ? (
+                  <MemberIssueChip
+                    label={issue === "missing_ltf_licenseid" ? common("issueChipMissingId") : common("issueChipNoLicense")}
+                    detail={
+                      issue === "missing_ltf_licenseid"
+                        ? t("membersMissingLtfLicenseIdFilterMessage")
+                        : t("membersWithoutValidLicenseFilterMessage")
+                    }
+                    dismissLabel={common("filterLicensesClear")}
+                    onDismiss={dismissIssueFilter}
+                  />
+                ) : null}
               </div>
-              <div>
-                <Select value={pageSize} onValueChange={setPageSize}>
-                  <SelectTrigger className="w-[150px]" aria-label={common("rowsPerPageLabel")}>
-                    <SelectValue placeholder={common("rowsPerPageLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pageSizeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option === "all" ? common("rowsPerPageAll") : option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="min-w-0 flex-1 border-t border-[var(--border)] pt-4 sm:border-t-0 sm:pt-0">
-              <FilterPills
-                ariaLabel={t("membersStatusFilterAriaLabel")}
-                disabled={!statusFilterHydrated || Boolean(issue)}
-                value={memberStatusFilter}
-                onChange={setMemberStatusFilter}
-                options={[
-                  {
-                    value: "all",
-                    title: t("filterAllTitle"),
-                    count: memberFacetCounts.all,
-                  },
-                  {
-                    value: "active",
-                    title: t("filterActiveTitle"),
-                    count: memberFacetCounts.active,
-                  },
-                  {
-                    value: "inactive",
-                    title: t("filterInactiveTitle"),
-                    count: memberFacetCounts.inactive,
-                  },
-                ]}
+              <PageSizeSelect
+                value={pageSize}
+                onChange={setPageSize}
+                ariaLabel={common("rowsPerPageLabel")}
+                allLabel={common("rowsPerPageAll")}
               />
             </div>
+            <MemberFilterBar
+              resetLabel={common("resetFilters")}
+              onReset={() => {
+                setMemberStatusFilter("active");
+                setAccountFilter("all");
+                setTeamFilter([]);
+                if (issue) {
+                  dismissIssueFilter();
+                }
+              }}
+              groups={[
+                {
+                  id: "status",
+                  label: common("filterGroupStatus"),
+                  count: memberStatusFilter === "all" ? 0 : 1,
+                  pressedLabel: common("filterGroupCountLabel", {
+                    label: common("filterGroupStatus"),
+                    count: memberStatusFilter === "all" ? 0 : 1,
+                  }),
+                  children: (
+                    <FilterPills
+                      ariaLabel={t("membersStatusFilterAriaLabel")}
+                      layout="wrap"
+                      disabled={!statusFilterHydrated || Boolean(issue)}
+                      value={memberStatusFilter}
+                      onChange={setMemberStatusFilter}
+                      options={[
+                        { value: "all", title: t("filterAllTitle"), count: memberFacetCounts.all },
+                        { value: "active", title: t("filterActiveTitle"), count: memberFacetCounts.active },
+                        { value: "inactive", title: t("filterInactiveTitle"), count: memberFacetCounts.inactive },
+                      ]}
+                    />
+                  ),
+                },
+                {
+                  id: "user",
+                  label: common("filterGroupUser"),
+                  count: accountFilter === "all" ? 0 : 1,
+                  pressedLabel: common("filterGroupCountLabel", {
+                    label: common("filterGroupUser"),
+                    count: accountFilter === "all" ? 0 : 1,
+                  }),
+                  children: (
+                    <FilterPills
+                      ariaLabel={t("accountFilterAria")}
+                      layout="wrap"
+                      value={accountFilter}
+                      onChange={setAccountFilter}
+                      options={[
+                        { value: "all", title: t("accountFilterAll") },
+                        { value: "none", title: t("accountFilterNone") },
+                        { value: "pending", title: t("accountFilterPending") },
+                        { value: "active", title: t("accountFilterActive") },
+                        { value: "disabled", title: t("accountFilterDisabled") },
+                      ]}
+                    />
+                  ),
+                },
+                ...(showTeams
+                  ? [
+                      {
+                        id: "person",
+                        label: common("filterGroupPerson"),
+                        count: teamFilter === "none" || teamFilter.length > 0 ? 1 : 0,
+                        pressedLabel: common("filterGroupCountLabel", {
+                          label: common("filterGroupPerson"),
+                          count: teamFilter === "none" || teamFilter.length > 0 ? 1 : 0,
+                        }),
+                        children: <TeamFilter teams={clubTeams} value={teamFilter} onChange={setTeamFilter} />,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           </div>
 
-          {issue ? (
-            <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
-              <p className="min-w-0 flex-1">
-                {issue === "missing_ltf_licenseid"
-                  ? t("membersMissingLtfLicenseIdFilterMessage")
-                  : t("membersWithoutValidLicenseFilterMessage")}
-              </p>
-              <button
-                type="button"
-                className="inline-flex h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 items-center justify-center rounded-[var(--radius-form)]"
-                aria-label={common("modalClose")}
-                onClick={dismissIssueFilter}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {canManageMembers ? (
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
                 <ActionMenu
@@ -807,14 +916,23 @@ export default function ClubAdminMembersPage() {
                   label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
                   actions={[
-                    { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
+                    { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete() },
                     {
-                      key: "print-cards",
-                      label: t("actionPrintCards"),
-                      disabled: !selectedClubId,
-                      onSelect: openQuickPrintPage,
+                      key: "accounts",
+                      label: t("createUserAccounts"),
+                      disabled: !canBulkCreateAccounts(selectedIds, members),
+                      onSelect: () => setAccountPanel({ intent: "create", ids: selectedIds }),
                     },
                     { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
+                    {
+                      key: "print-cards",
+                      label: t("printLicenceCardsAction"),
+                      onSelect: () => {
+                        if (selectedIds.length > 0) {
+                          setPrintCardsOpen(true);
+                        }
+                      },
+                    },
                     {
                       key: "change-status",
                       label: t("actionChangeStatus"),
@@ -832,9 +950,9 @@ export default function ClubAdminMembersPage() {
                     <span className="font-medium text-[var(--foreground)]">
                       {t("selectedMembersCountLabel", { count: selectedIds.length })}
                     </span>
-                    {hiddenSelectedCount > 0 ? (
-                      <span className="font-medium text-warning">
-                        {t("hiddenSelectedMembersCountLabel", { count: hiddenSelectedCount })}
+                    {otherPageCount > 0 ? (
+                      <span className="text-muted">
+                        {t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                       </span>
                     ) : null}
                     <button
@@ -903,17 +1021,15 @@ export default function ClubAdminMembersPage() {
                     {
                       key: "select",
                       header: (
-                        <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
-                          <Checkbox
-                            aria-label={common("selectAllLabel")}
-                            checked={allSelected}
-                            onCheckedChange={() => toggleSelectAll()}
-                          />
-                        </span>
+                        <Checkbox
+                          aria-label={common("selectAllLabel")}
+                          checked={headerCheck}
+                          onCheckedChange={() => toggleSelectAll()}
+                        />
                       ),
                       render: (member: Member) => (
                         <span
-                          className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+                          className="inline-flex"
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
                         >
@@ -936,23 +1052,33 @@ export default function ClubAdminMembersPage() {
                     },
                   ]
                 : []),
-              { key: "first_name", header: t("firstNameLabel") },
-              { key: "last_name", header: t("lastNameLabel") },
+              {
+                key: "name",
+                header: common("fullNameLabel"),
+                sortable: true,
+                render: (member: Member) => formatFullName(member),
+              },
+              {
+                key: "account",
+                header: t("accountColumn"),
+                sortable: true,
+                render: (member: Member) => (
+                  <MemberAccountBadge
+                    state={member.account_state ?? "none"}
+                    label={accountLabel(member.account_state)}
+                  />
+                ),
+              },
               {
                 key: "sex",
                 header: t("sexLabel"),
+                sortable: true,
                 render: (member) => (
-                  <span
-                    className="inline-flex h-[var(--control-height)] w-[var(--control-height)] items-center justify-center text-2xl font-semibold leading-none"
-                    aria-label={member.sex === "F" ? "Female" : "Male"}
-                    title={member.sex === "F" ? "Female" : "Male"}
-                  >
-                    {member.sex === "F" ? "♀" : "♂"}
-                  </span>
+                  <SexMark sex={member.sex} label={member.sex === "F" ? "Female" : "Male"} />
                 ),
               },
-              { key: "belt_rank", header: t("beltRankLabel") },
-              { key: "ltf_licenseid", header: t("ltfLicenseLabel") },
+              { key: "belt_rank", header: t("beltRankLabel"), sortable: true },
+              { key: "ltf_licenseid", header: t("ltfLicenseLabel"), sortable: true },
               {
                 key: "current_licenses",
                 header: t("licensesColumnLabel"),
@@ -977,11 +1103,13 @@ export default function ClubAdminMembersPage() {
               {
                 key: "date_of_birth",
                 header: t("dobLabel"),
+                sortable: true,
                 render: (member) => formatDisplayDate(member.date_of_birth),
               },
               {
                 key: "is_active",
                 header: t("isActiveLabel"),
+                sortable: true,
                 render: (member) => {
                   const isUpdating = statusUpdatingSet.has(member.id);
                   if (!canManageMembers) {
@@ -997,7 +1125,7 @@ export default function ClubAdminMembersPage() {
                       type="button"
                       disabled={isUpdating}
                       aria-label={t("actionChangeStatus")}
-                      className={`inline-flex min-h-[var(--control-height)] min-w-[5.5rem] items-center justify-center rounded-[var(--radius-chip)] border px-2.5 text-xs font-semibold hover:opacity-80 ${
+                      className={`inline-flex h-5 items-center justify-center rounded-[var(--radius-chip)] border border-[var(--border)] px-1.5 text-xs font-medium hover:opacity-80 ${
                         member.is_active ? "badge-success" : "bg-secondary text-[var(--default-foreground)]"
                       } ${isUpdating ? "cursor-wait opacity-70" : ""}`}
                       onClick={(e) => {
@@ -1016,19 +1144,47 @@ export default function ClubAdminMembersPage() {
                       key: "actions",
                       header: t("actionsLabel"),
                       render: (member: Member) => (
-                        <div
-                          className="flex flex-wrap items-center gap-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            aria-label={t("deleteAction")}
-                            onClick={() => handleDelete(member)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div onClick={(event) => event.stopPropagation()}>
+                          <RowActionMenu
+                            label={common("rowActionsLabel")}
+                            actions={[
+                              {
+                                key: "edit",
+                                label: t("editAction"),
+                                onSelect: () => router.push(`/${locale}/dashboard/club/members/${member.id}?edit=1`),
+                              },
+                              ...(accountRowAction(
+                                member.account_state,
+                                member.user != null && member.user === currentUserId,
+                              ) === "create"
+                                ? [
+                                    {
+                                      key: "create",
+                                      label: t("createUserAccount"),
+                                      onSelect: () => openAccount(member, "create"),
+                                    },
+                                  ]
+                                : []),
+                              ...(accountRowAction(
+                                member.account_state,
+                                member.user != null && member.user === currentUserId,
+                              ) === "copy"
+                                ? [
+                                    {
+                                      key: "copy",
+                                      label: t("copyFirstLoginLink"),
+                                      onSelect: () => openAccount(member, "copy"),
+                                    },
+                                  ]
+                                : []),
+                              {
+                                key: "delete",
+                                label: t("deleteAction"),
+                                destructive: true,
+                                onSelect: () => void openMemberDelete(member),
+                              },
+                            ]}
+                          />
                         </div>
                       ),
                     },
@@ -1036,10 +1192,112 @@ export default function ClubAdminMembersPage() {
                 : []),
             ]}
             rows={members}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(member) => router.push(`/${locale}/dashboard/club/members/${member.id}`)}
           />
         )}
       </div>
+      <MemberAccountPanel
+        open={accountPanel !== null}
+        namespace="ClubAdmin"
+        memberIds={accountPanel?.ids ?? []}
+        intent={accountPanel?.intent ?? "create"}
+        onClose={() => setAccountPanel(null)}
+        onDone={() => {
+          setSelectedIds([]);
+          lastSelectedMemberIdRef.current = null;
+          void loadData();
+        }}
+      />
+      <MemberFormPanel
+        open={createOpen}
+        mode="create"
+        clubs={[]}
+        selectedClubId={selectedClubId}
+        onClose={() => setCreateOpen(false)}
+        onSaved={async () => {
+          setCreateOpen(false);
+          await loadData();
+        }}
+      />
+      <DeleteConfirmModal
+        isOpen={pendingDelete !== null}
+        title={t("singleDeleteMemberTitle")}
+        description={
+          pendingDelete
+            ? `${formatFullName(pendingDelete)} · ${pendingDelete.ltf_licenseid || "—"} · ${pendingDelete.is_active ? t("activeLabel") : t("inactiveLabel")}. ${t("singleDeleteMemberWarning")}`
+            : t("singleDeleteMemberWarning")
+        }
+        listTitle={deleteImpact.length > 0 ? t("singleDeleteMemberCascadeTitle") : undefined}
+        listItems={deleteImpact}
+        confirmLabel={t("singleDeleteMemberConfirmAction")}
+        cancelLabel={t("singleDeleteMemberBackAction")}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setPendingDelete(null);
+          }
+        }}
+        onConfirm={() => {
+          if (!pendingDelete) {
+            return;
+          }
+          setDeleteBusy(true);
+          void deleteMember(pendingDelete.id)
+            .then(async () => {
+              setPendingDelete(null);
+              setSelectedIds((current) => current.filter((id) => id !== pendingDelete.id));
+              await loadData();
+            })
+            .catch((error) => {
+              setErrorMessage(error instanceof Error ? error.message : t("singleDeleteMemberDeleteError"));
+            })
+            .finally(() => setDeleteBusy(false));
+        }}
+      />
+      <DeleteConfirmModal
+        isOpen={batchDeleteOpen}
+        title={t("batchDeleteMembersTitle")}
+        description={t("batchDeleteMembersWarning")}
+        listTitle={t("batchDeleteMembersPreviewTitle")}
+        listItems={batchImpact}
+        confirmLabel={t("batchDeleteMembersConfirmAction")}
+        cancelLabel={t("batchDeleteMembersBackAction")}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setBatchDeleteOpen(false);
+          }
+        }}
+        onConfirm={() => {
+          const targets = batchTargets.length > 0 ? batchTargets : members.filter((member) => selectedIds.includes(member.id));
+          setDeleteBusy(true);
+          void (async () => {
+            const failed: string[] = [];
+            for (const member of targets) {
+              try {
+                await deleteMember(member.id);
+              } catch {
+                failed.push(formatFullName(member));
+              }
+            }
+            setBatchDeleteOpen(false);
+            setBatchTargets([]);
+            setSelectedIds([]);
+            if (failed.length > 0) {
+              setErrorMessage(t("batchDeleteMembersResultLabel", { deleted: targets.length - failed.length, failed: failed.length }));
+            }
+            await loadData();
+          })().finally(() => setDeleteBusy(false));
+        }}
+      />
+      <PrintLicenceCardsPanel
+        open={printCardsOpen}
+        onClose={() => setPrintCardsOpen(false)}
+        locale={locale}
+        clubId={selectedClubId}
+        source="members"
+        memberIds={selectedIds}
+      />
     </ClubAdminLayout>
   );
 }

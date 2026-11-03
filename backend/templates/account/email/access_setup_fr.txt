@@ -1,0 +1,13 @@
+Bonjour {{ name }},
+
+Un compte d'admin de club est prêt pour vous sur LTF Dojang Hub.
+
+Nom d'utilisateur : {{ username }}
+Clubs : {{ clubs }}
+
+Ce lien fonctionne une seule fois et expire le {{ expires }}. Ouvrez-le pour choisir votre e-mail et votre mot de passe :
+{{ url }}
+
+Si vous n'attendiez pas ce message, vous pouvez l'ignorer.
+
+LTF Dojang Hub

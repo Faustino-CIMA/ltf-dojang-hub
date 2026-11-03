@@ -20,7 +20,7 @@ export function Modal({ title, description, isOpen, onClose, children }: ModalPr
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--modal-backdrop)]">
       <div className="flex min-h-full items-center justify-center px-4 py-6">
-      <div className="w-full max-w-xl rounded-[var(--radius-modal)] border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--surface-foreground)] shadow-lg">
+      <div className="w-full max-w-xl rounded-[var(--radius-modal)] border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--surface-foreground)] shadow-[var(--shadow-float)]">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">{title}</h2>

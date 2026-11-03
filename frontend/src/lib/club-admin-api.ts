@@ -23,10 +23,14 @@ export type Club = {
   email: string;
   website: string;
   is_active: boolean;
+  federation: "WT" | "ITF";
+  rcs_number: string;
+  external_ref: string;
   communication_language: string;
   max_admins: number;
   created_by: number;
   admins: number[];
+  is_home?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -80,11 +84,18 @@ export type Member = {
   photo_consent_attested_at?: string | null;
   photo_consent_attested_by?: number | null;
   is_active: boolean;
+  account_state?: "none" | "pending" | "active" | "disabled";
+  linked_user?: { id: number; username: string; role: string } | null;
   created_at: string;
   updated_at: string;
   current_licenses?: CurrentLicense[];
   completed_transfer_count?: number;
   is_club_tourist?: boolean;
+  latest_weight_kg?: string | null;
+  latest_weight_on?: string | null;
+  latest_height_cm?: number | null;
+  latest_height_on?: string | null;
+  teams?: { id: number; name: string; discipline: "kyorugi" | "poomsae"; role?: "athlete" | "coach" }[];
 };
 
 export type CurrentLicense = {
@@ -172,10 +183,24 @@ export type GradeHistoryEntry = {
   created_at: string;
 };
 
+export type CommitteeTerm = {
+  id: number;
+  role: string;
+  title: string;
+  scope: string;
+  committee_name: string;
+  club_id: number | null;
+  club_name: string;
+  started_on: string;
+  ended_on: string | null;
+  is_current: boolean;
+};
+
 export type MemberHistoryResponse = {
   member_id: number;
   license_history: LicenseHistoryEvent[];
   grade_history: GradeHistoryEntry[];
+  committee_history?: CommitteeTerm[];
 };
 
 export type MemberInput = {
@@ -222,6 +247,9 @@ export type ClubInput = {
   email?: string;
   website?: string;
   is_active?: boolean;
+  federation?: "WT" | "ITF";
+  rcs_number?: string;
+  external_ref?: string;
   communication_language?: string;
 };
 
@@ -335,6 +363,10 @@ type MemberListQueryParams = {
   isActive?: boolean;
   ids?: number[];
   issue?: MemberIssueFilter;
+  ordering?: string;
+  account?: "none" | "pending" | "active" | "disabled";
+  teamIds?: number[];
+  teamNone?: boolean;
 };
 
 type MemberPageParams = MemberListQueryParams & {
@@ -358,6 +390,17 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.issue) {
     search.set("issue", params.issue);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
+  }
+  if (params?.account) {
+    search.set("account", params.account);
+  }
+  if (params?.teamNone) {
+    search.set("teams", "none");
+  } else if (params?.teamIds && params.teamIds.length > 0) {
+    search.set("teams", params.teamIds.join(","));
   }
   return search;
 }
@@ -438,8 +481,8 @@ export type TransferMovementMonitor = {
     first_name: string;
     last_name: string;
     ltf_licenseid: string;
-    club_id: number;
-    club_name: string;
+    club_id: number | null;
+    club_name: string | null;
     completed_transfer_count: number;
     is_club_tourist: boolean;
   }>;
@@ -577,6 +620,7 @@ type LicenseListQueryParams = {
   memberId?: number;
   memberIds?: number[];
   clubId?: number;
+  ordering?: string;
 };
 
 type LicensePageParams = LicenseListQueryParams & {
@@ -603,6 +647,9 @@ function buildLicenseListQuery(params?: LicenseListQueryParams) {
   }
   if (typeof params?.clubId === "number") {
     search.set("club_id", String(params.clubId));
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }
@@ -836,6 +883,11 @@ export type ClubAdminAssignmentAdmin = {
   home_club_id: number | null;
   home_club_name: string;
   clubs: ClubAdminAssignmentAdminClub[];
+  password_set?: boolean;
+  link_status?: string;
+  link_sent_at?: string | null;
+  link_expires_at?: string | null;
+  access_kind?: "setup" | "reset";
 };
 
 export type ClubAdminAssignmentMember = {
@@ -843,7 +895,7 @@ export type ClubAdminAssignmentMember = {
   first_name: string;
   last_name: string;
   email: string;
-  club_id: number;
+  club_id: number | null;
   club_name: string;
   has_valid_license: boolean;
   user_id: number | null;

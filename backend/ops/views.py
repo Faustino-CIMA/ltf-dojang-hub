@@ -5,10 +5,12 @@ import io
 import json
 
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import permissions, response, status, views
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
 from accounts.email_utils import build_password_reset_url, send_password_reset_email
@@ -25,7 +27,8 @@ from .i18n import (
 )
 from .jobs import collect_jobs, retry_print_job
 from .models import AuthEvent, AuthTokenMeta, OpsAuditLog, SecurityAlert, TranslationOverride
-from .permissions import IsSuperuser
+from .login_links import build_login_link_file
+from .permissions import IsFullOpsDesk, IsSuperuser
 from .queries import QueryError, catalog_public, run_query
 from .request_utils import client_ip, write_ops_audit
 from .serializers import (
@@ -266,6 +269,24 @@ class OpsUserActionView(views.APIView):
             user.is_superuser = True
             user.is_staff = True
             user.save(update_fields=["is_superuser", "is_staff"])
+            from accounts.mfa import note_new_elevated_user
+
+            note_new_elevated_user(user)
+        elif action == "reset_authenticator":
+            from accounts.mfa import reset_authenticators
+
+            reset_authenticators(request.user, user)
+        elif action == "remove_passkeys":
+            from accounts.mfa import remove_passkeys
+
+            remove_passkeys(request.user, user)
+        elif action == "extend_mfa_grace":
+            from accounts.mfa import extend_grace
+
+            try:
+                extend_grace(request.user, user)
+            except ValidationError as exc:
+                return response.Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
         elif action == "revoke_superuser":
             if User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk).count() == 0:
                 return response.Response(
@@ -295,6 +316,69 @@ class OpsUserActionView(views.APIView):
             message=f"{action} on {user.username}",
         )
         return response.Response(OpsUserSerializer(user).data)
+
+
+class OpsBulkLoginLinksView(views.APIView):
+    permission_classes = [IsFullOpsDesk]
+
+    def post(self, request):
+        link_type = str(request.data.get("link_type") or "").strip()
+        if link_type not in {"first_login", "reset_password"}:
+            return response.Response({"detail": "Choose a link type."}, status=status.HTTP_400_BAD_REQUEST)
+        raw_ids = request.data.get("user_ids")
+        if not isinstance(raw_ids, list) or not raw_ids:
+            return response.Response({"detail": "Choose at least one person."}, status=status.HTTP_400_BAD_REQUEST)
+        ordered: list[int] = []
+        seen: set[int] = set()
+        for value in raw_ids:
+            try:
+                user_id = int(value)
+            except (TypeError, ValueError):
+                continue
+            if user_id in seen:
+                continue
+            seen.add(user_id)
+            ordered.append(user_id)
+        if not ordered:
+            return response.Response({"detail": "Choose at least one person."}, status=status.HTTP_400_BAD_REQUEST)
+        locale = str(request.data.get("locale") or "en").strip()[:8]
+        found = {user.id: user for user in User.objects.filter(id__in=ordered)}
+        chosen = [found[user_id] for user_id in ordered if user_id in found]
+        with transaction.atomic():
+            built = build_login_link_file(
+                users=chosen,
+                link_type=link_type,
+                locale=locale,
+                actor=request.user,
+            )
+            action = (
+                "users.bulk_first_login_links"
+                if link_type == "first_login"
+                else "users.bulk_password_reset_links"
+            )
+            write_ops_audit(
+                request,
+                action=action,
+                target_type="user",
+                message=built["message"],
+                metadata={
+                    "actor_id": request.user.id,
+                    "link_type": link_type,
+                    "expiry": built["expiry"],
+                    "created_user_ids": built["created_user_ids"],
+                    "skipped": built["skipped"],
+                },
+            )
+        payload = response.Response(
+            {
+                "created_count": built["created_count"],
+                "skipped_count": built["skipped_count"],
+                "csv": built["csv"],
+                "pdf_base64": built["pdf_base64"],
+            }
+        )
+        payload["Cache-Control"] = "no-store"
+        return payload
 
 
 class OpsQueryCatalogView(views.APIView):

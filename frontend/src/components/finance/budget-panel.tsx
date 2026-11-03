@@ -34,7 +34,10 @@ export function BudgetPanel({
   const rows = useMemo(() => budget.lines, [budget.lines]);
 
   useEffect(() => {
-    setAmounts(Object.fromEntries(budget.lines.map((line) => [lineKey(line), line.budget])));
+    const sync = () => {
+      setAmounts(Object.fromEntries(budget.lines.map((line) => [lineKey(line), line.budget])));
+    };
+    sync();
   }, [budget]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -52,7 +55,7 @@ export function BudgetPanel({
     <FormPanel>
       <h2 className="text-section text-foreground">{t("budgetTitle")}</h2>
       <p className="mt-1 text-sm text-muted">{t("budgetSubtitle")}</p>
-      <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+      <form className="mt-3 space-y-3" onSubmit={handleSubmit}>
         <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-secondary/70 text-xs uppercase tracking-wide text-muted">

@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Modal } from "@/components/ui/modal";
+import { Label } from "@/components/ui/label";
+import { SidePanel } from "@/components/ui/side-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
   addClubTrainer,
@@ -80,6 +83,7 @@ function isAdultMember(dateOfBirth: string | null) {
 
 export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPanelProps) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const boardRef = useRef<HTMLDivElement | null>(null);
   const memberCardRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const targetRef = useRef<HTMLDivElement | null>(null);
@@ -228,7 +232,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
   };
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
       <h2 className="text-lg font-semibold text-foreground">{t("trainersTitle")}</h2>
       <p className="mt-2 text-sm text-muted">{t("trainersSubtitle")}</p>
       {isLoading ? (
@@ -239,7 +243,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
         <div className="mt-6">
           <p className="text-sm text-muted">
             {selectedMember
-              ? t("trainersConnectingHint", { name: `${selectedMember.first_name} ${selectedMember.last_name}`.trim() })
+              ? t("trainersConnectingHint", { name: formatFullName(selectedMember) })
               : t("trainersIdleHint")}
           </p>
           {selectedMember ? (
@@ -280,7 +284,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
                         className={cn(CARD_BASE, selected ? "border-primary" : "border-border hover:border-primary/50")}
                       >
                         <p className="font-medium text-foreground">
-                          {member.first_name} {member.last_name}
+                          {formatFullName(member)}
                         </p>
                         <p className="mt-0.5 text-xs text-muted">{member.email || t("trainerNoEmail")}</p>
                       </button>
@@ -310,16 +314,14 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
                   {trainers.map((trainer) => (
                     <li key={trainer.user_id} className="flex items-center justify-between gap-3 rounded-[var(--radius-form)] border border-border bg-[var(--surface)] px-3 py-2">
                       <label className="flex min-w-0 items-start gap-2" onClick={(event) => event.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          className="mt-1"
+                        <Checkbox
+                          className="mt-0.5"
                           checked={trainer.include_in_qualite !== false}
                           disabled={isSaving}
                           aria-label={t("trainerQualite")}
-                          onChange={(event) => {
-                            event.stopPropagation();
+                          onCheckedChange={(checked) => {
                             setIsSaving(true);
-                            setClubTrainerQualite(clubId, trainer.user_id, event.target.checked)
+                            setClubTrainerQualite(clubId, trainer.user_id, checked === true)
                               .then((result) => {
                                 setTrainers(result.trainers);
                                 onSuccess(t("trainerQualiteSaved"));
@@ -330,7 +332,7 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
                         />
                         <span>
                           <p className="text-sm font-medium text-foreground">
-                            {trainer.first_name} {trainer.last_name}
+                            {formatFullName(trainer)}
                           </p>
                           <p className="text-xs text-muted">{t("trainerQualite")}</p>
                         </span>
@@ -365,24 +367,17 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
           </div>
         </div>
       )}
-      <Modal
+      <SidePanel
+        open={pendingMember != null}
         title={t("trainerEmailRequired")}
-        description={pendingMember ? `${pendingMember.first_name} ${pendingMember.last_name}` : undefined}
-        isOpen={pendingMember != null}
+        description={pendingMember ? formatFullName(pendingMember) : undefined}
+        closeLabel={common("modalClose")}
         onClose={() => {
           setPendingMember(null);
           setEmail("");
           setEmailError(null);
         }}
-      >
-        <div className="space-y-3">
-          <Input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder={t("trainerEmailPlaceholder")}
-          />
-          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
+        footer={
           <Button
             type="button"
             variant="primary"
@@ -398,8 +393,21 @@ export function ClubTrainersPanel({ clubId, onError, onSuccess }: ClubTrainersPa
           >
             {t("trainerAdd")}
           </Button>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="trainer-email" required>{t("emailLabel")}</Label>
+          <Input
+            id="trainer-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder={t("trainerEmailPlaceholder")}
+            autoFocus
+          />
+          {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
         </div>
-      </Modal>
+      </SidePanel>
     </section>
   );
 }

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Boxes,
+  GitMerge,
+  KeyRound,
   Database,
   Languages,
   LayoutDashboard,
@@ -17,6 +20,7 @@ import {
 import { AppShell, type AppNavItem } from "@/components/app-shell";
 import { apiRequest } from "@/lib/api";
 import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import { getSetupStatus } from "@/lib/setup-api";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
 
 type OpsLayoutProps = {
@@ -41,7 +45,9 @@ const OPS_NAV: Array<{
     | "navTranslations"
     | "navJobs"
     | "navAudit"
-    | "navModules";
+    | "navModules"
+    | "navDesks"
+    | "navMerges";
   matchMode: AppNavItem["matchMode"];
   icon: AppNavItem["icon"];
 }> = [
@@ -52,6 +58,8 @@ const OPS_NAV: Array<{
   { id: "translations", href: (l) => `/${l}/dashboard/ops/translations`, labelKey: "navTranslations", matchMode: "prefix", icon: Languages },
   { id: "jobs", href: (l) => `/${l}/dashboard/ops/jobs`, labelKey: "navJobs", matchMode: "prefix", icon: Printer },
   { id: "modules", href: (l) => `/${l}/dashboard/ops/modules`, labelKey: "navModules", matchMode: "prefix", icon: Boxes },
+  { id: "desks", href: (l) => `/${l}/dashboard/ops/desks`, labelKey: "navDesks", matchMode: "prefix", icon: KeyRound },
+  { id: "merges", href: (l) => `/${l}/dashboard/ops/merges`, labelKey: "navMerges", matchMode: "prefix", icon: GitMerge },
   { id: "audit", href: (l) => `/${l}/dashboard/ops/audit`, labelKey: "navAudit", matchMode: "prefix", icon: ScrollText },
 ];
 
@@ -60,7 +68,10 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
   const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
+  const pathname = usePathname();
+  const setupT = useTranslations("Setup");
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +99,25 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
     };
   }, [locale, router]);
 
+  useEffect(() => {
+    if (allowed !== true) {
+      return;
+    }
+    let cancelled = false;
+    getSetupStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setSetupOpen(status.available);
+        if (status.available && pathname === `/${locale}/dashboard/ops`) {
+          router.replace(`/${locale}/setup`);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [allowed, locale, pathname, router]);
+
   const navItems = useMemo<AppNavItem[]>(
     () =>
       OPS_NAV.map((def) => ({
@@ -113,7 +143,17 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
 
   return (
     <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      {children}
+      <div className="space-y-3">
+        {setupOpen ? (
+          <Link
+            href={`/${locale}/setup`}
+            className="block rounded-[var(--radius-form)] border border-border bg-card px-3 py-2 text-sm text-foreground"
+          >
+            {setupT("finishSetupBanner")}
+          </Link>
+        ) : null}
+        {children}
+      </div>
     </AppShell>
   );
 }

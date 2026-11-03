@@ -2,15 +2,21 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
-import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Scale, ScrollText, Wallet } from "lucide-react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { BadgeDollarSign, Banknote, CircleDollarSign, FileText, HandCoins, Landmark, LayoutDashboard, Medal, Scale, ScrollText, Wallet } from "lucide-react";
 
-import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { EmptyState } from "@/components/club-admin/empty-state";
+import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
+import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { apiRequest } from "@/lib/api";
+import { ltfFinanceSidebarGroup } from "@/lib/sidebar-groups";
 
 type LtfFinanceLayoutProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  persistent?: boolean;
 };
 
 type NavMatchMode = "exact" | "prefix";
@@ -28,7 +34,8 @@ type LtfFinanceNavDef = {
     | "navBank"
     | "navReports"
     | "navAuditLog"
-    | "navLicenseSettings";
+    | "navLicenseSettings"
+    | "navNationalTeam";
   matchMode: NavMatchMode;
   icon: AppNavItem["icon"];
 };
@@ -98,13 +105,37 @@ const LTF_FINANCE_NAV_DEFINITIONS: LtfFinanceNavDef[] = [
     matchMode: "prefix",
     icon: CircleDollarSign,
   },
+  {
+    id: "national-team",
+    href: (l) => `/${l}/dashboard/ltf-finance/national-team`,
+    labelKey: "navNationalTeam",
+    matchMode: "prefix",
+    icon: Medal,
+  },
 ];
 
-export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayoutProps) {
+function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle });
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
+  const [access, setAccess] = useState<"loading" | "allowed" | "denied">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest<{ role: string; desks?: Array<{ desk: string }> }>("/api/auth/me/")
+      .then((me) => {
+        const granted = (me.desks ?? []).some((desk) => desk.desk === "ltf_finance");
+        if (!cancelled) setAccess(me.role === "ltf_finance" || granted ? "allowed" : "denied");
+      })
+      .catch(() => {
+        if (!cancelled) setAccess("denied");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const navItems = useMemo<AppNavItem[]>(
     () =>
@@ -114,14 +145,50 @@ export function LtfFinanceLayout({ title, subtitle, children }: LtfFinanceLayout
         label: t(def.labelKey),
         icon: def.icon,
         matchMode: def.matchMode,
-        group: { id: "finance", label: common("navGroupFinance") },
+        group: {
+          id: ltfFinanceSidebarGroup().id,
+          label: common(ltfFinanceSidebarGroup().labelKey),
+        },
       })),
     [common, locale, t]
   );
 
+  const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
+  const titleText = pageHeader.title || activeLabel;
+
+  if (access !== "allowed") {
+    return (
+      <LtfAdminLayout persistent title={access === "denied" ? t("roleDeniedTitle") : t("overviewTitle")}>
+        <EmptyState
+          title={access === "denied" ? t("roleDeniedTitle") : t("overviewTitle")}
+          description={access === "denied" ? t("roleDeniedBody") : undefined}
+          loading={access === "loading"}
+        />
+      </LtfAdminLayout>
+    );
+  }
+
   return (
-    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
-      <div className="space-y-6">{children}</div>
-    </AppShell>
+    <DashboardShellContext.Provider value={pageHeader.shell}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems}>
+        <div className="space-y-3">{children}</div>
+      </AppShell>
+    </DashboardShellContext.Provider>
+  );
+}
+
+export function LtfFinanceLayout({ title = "", subtitle, children, persistent = false }: LtfFinanceLayoutProps) {
+  const shell = useContext(DashboardShellContext);
+  if (persistent || !shell) {
+    return (
+      <LtfFinanceShell title={title} subtitle={subtitle}>
+        {children}
+      </LtfFinanceShell>
+    );
+  }
+  return (
+    <DashboardHeaderSync title={title} subtitle={subtitle}>
+      {children}
+    </DashboardHeaderSync>
   );
 }

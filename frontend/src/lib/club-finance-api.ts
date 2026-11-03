@@ -25,6 +25,7 @@ type ClubListQueryParams = {
   status?: string;
   issue?: string;
   ledger?: string;
+  ordering?: string;
 };
 
 type ClubPageParams = ClubListQueryParams & {
@@ -48,6 +49,9 @@ function buildClubListQuery(params?: ClubListQueryParams) {
   }
   if (params?.ledger) {
     search.set("ledger", params.ledger);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }
@@ -254,6 +258,7 @@ export type ConfirmStripeCheckoutResult = {
   invoice_id: number | null;
   order_status?: string | null;
   invoice_status?: string | null;
+  return_area?: "club" | "ltf" | "ltf-finance" | "member" | "ops" | "";
 };
 
 export function confirmStripeCheckout(sessionId: string) {

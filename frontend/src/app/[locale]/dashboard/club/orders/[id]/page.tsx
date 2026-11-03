@@ -43,24 +43,27 @@ export default function ClubOrderDetailPage() {
   }, [params]);
 
   useEffect(() => {
-    if (!orderId || Number.isNaN(orderId)) {
-      setErrorMessage(t("ordersLoadError"));
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setErrorMessage(null);
-    Promise.all([getClubOrder(orderId), getMembers()])
-      .then(([orderResponse, membersResponse]) => {
-        setOrder(orderResponse);
-        setMembers(membersResponse);
-      })
-      .catch((error) => {
-        setErrorMessage(error instanceof Error ? error.message : t("ordersLoadError"));
-      })
-      .finally(() => {
+    const sync = () => {
+      if (!orderId || Number.isNaN(orderId)) {
+        setErrorMessage(t("ordersLoadError"));
         setIsLoading(false);
-      });
+        return;
+      }
+      setIsLoading(true);
+      setErrorMessage(null);
+      Promise.all([getClubOrder(orderId), getMembers()])
+        .then(([orderResponse, membersResponse]) => {
+          setOrder(orderResponse);
+          setMembers(membersResponse);
+        })
+        .catch((error) => {
+          setErrorMessage(error instanceof Error ? error.message : t("ordersLoadError"));
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    };
+    sync();
   }, [orderId, t]);
 
   const statusMeta = useMemo(() => {
@@ -128,7 +131,7 @@ export default function ClubOrderDetailPage() {
 
   return (
     <ClubAdminLayout title={t("orderDetailTitle")} subtitle={t("orderDetailSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
       <ClubFinanceTabs />
       <div>
         <Button asChild variant="outline">
@@ -136,7 +139,7 @@ export default function ClubOrderDetailPage() {
         </Button>
       </div>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("orderNumberLabel")}</span>

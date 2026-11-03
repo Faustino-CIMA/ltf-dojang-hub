@@ -49,7 +49,7 @@ export default function OpsAuditDetailPage() {
         <LoadingCardGrid title={t("auditDetailTitle")} description={t("auditSubtitle")} />
       ) : null}
       {entry ? (
-        <div className="app-panel space-y-3 p-6 text-sm">
+        <div className="app-panel space-y-3 p-3 text-sm">
           <p>
             <span className="text-muted">{t("colCreated")}: </span>
             {formatDisplayDateTime(entry.created_at)}

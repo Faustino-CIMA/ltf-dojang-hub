@@ -1,5 +1,7 @@
 CLUB_COMMUNICATION_LANGUAGES = (
     ("en", "English"),
+    ("fr", "Français"),
+    ("de", "Deutsch"),
     ("lb", "Lëtzebuergesch"),
 )
 

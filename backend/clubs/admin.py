@@ -1,11 +1,22 @@
 from django.contrib import admin
 
-from .models import BrandingAsset, Club, FederationProfile
+from .models import BrandingAsset, Club, FederationProfile, TrainingVenue
 
 
 @admin.register(Club)
 class ClubAdmin(admin.ModelAdmin):
-    list_display = ("name", "locality", "postal_code", "email", "website", "iban", "bank_name", "created_by")
+    list_display = (
+        "name",
+        "federation",
+        "rcs_number",
+        "locality",
+        "postal_code",
+        "email",
+        "website",
+        "iban",
+        "bank_name",
+        "created_by",
+    )
     search_fields = (
         "name",
         "locality",
@@ -19,10 +30,18 @@ class ClubAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(TrainingVenue)
+class TrainingVenueAdmin(admin.ModelAdmin):
+    list_display = ("name", "club", "locality", "postal_code", "is_active", "sort_order")
+    list_filter = ("is_active", "country")
+    search_fields = ("name", "street", "locality", "postal_code", "club__name")
+
+
 @admin.register(FederationProfile)
 class FederationProfileAdmin(admin.ModelAdmin):
     list_display = (
         "name",
+        "rcs_number",
         "locality",
         "postal_code",
         "iban",
@@ -30,7 +49,7 @@ class FederationProfileAdmin(admin.ModelAdmin):
         "club_tourist_transfer_threshold",
         "updated_at",
     )
-    search_fields = ("name", "locality", "postal_code", "address_line1", "iban", "bank_name")
+    search_fields = ("name", "rcs_number", "locality", "postal_code", "address_line1", "iban", "bank_name")
 
 
 @admin.register(BrandingAsset)

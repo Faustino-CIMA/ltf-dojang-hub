@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -30,7 +30,17 @@ import {
   getPayconiqPaymentStatus,
   sendClubInvoiceReminder,
 } from "@/lib/club-finance-api";
-import { isClubLedger, orderItemLabel, orderItemMemberDisplay, orderItemsAreClubFees, orderItemYearLabel } from "@/lib/ltf-finance-api";
+import { rememberCheckoutReturn } from "@/lib/checkout-return";
+import {
+  isClubLedger,
+  modulePurchaseLineTotal,
+  modulePurchaseUnitPrice,
+  orderItemLabel,
+  orderItemMemberDisplay,
+  orderItemsAreClubFees,
+  orderItemsAreModulePurchases,
+  orderItemYearLabel,
+} from "@/lib/ltf-finance-api";
 
 type InvoiceItemRow = {
   id: number;
@@ -39,12 +49,15 @@ type InvoiceItemRow = {
   ltfLicenseId: string;
   year: string;
   quantity: number;
+  unitPrice: string;
+  lineTotal: string;
 };
 
 export default function ClubInvoiceDetailPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const locale = useLocale();
+  const pathname = usePathname();
   const params = useParams();
   const [invoice, setInvoice] = useState<FinanceInvoice | null>(null);
   const [order, setOrder] = useState<FinanceOrder | null>(null);
@@ -150,12 +163,22 @@ export default function ClubInvoiceDetailPage() {
         ltfLicenseId: display.ltfLicenseId,
         year: orderItemYearLabel(item),
         quantity: item.quantity,
+        unitPrice: modulePurchaseUnitPrice(item, order.currency),
+        lineTotal: modulePurchaseLineTotal(item, order.currency),
       };
     });
   }, [order, members, t]);
 
+  const modulePurchase = orderItemsAreModulePurchases(order?.items);
   const feeOnly = orderItemsAreClubFees(order?.items);
-  const columns = feeOnly
+  const columns = modulePurchase
+    ? [
+        { key: "itemLabel", header: t("invoiceItemLabel") },
+        { key: "quantity", header: t("qtyLabel") },
+        { key: "unitPrice", header: t("invoiceUnitLabel") },
+        { key: "lineTotal", header: t("invoiceLineTotalLabel") },
+      ]
+    : feeOnly
     ? [
         { key: "itemLabel", header: t("invoiceItemLabel") },
         { key: "quantity", header: t("qtyLabel") },
@@ -204,6 +227,7 @@ export default function ClubInvoiceDetailPage() {
     try {
       const response = await createClubCheckoutSession(linkedOrderId);
       if (response.url) {
+        rememberCheckoutReturn(pathname ?? "", locale);
         window.location.href = response.url;
         return;
       }
@@ -265,7 +289,7 @@ export default function ClubInvoiceDetailPage() {
 
   return (
     <ClubAdminLayout title={t("invoiceDetailTitle")} subtitle={t("invoiceDetailSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
       <ClubFinanceTabs />
       <ActionNotices
         error={paymentError || payconiqError}
@@ -287,7 +311,7 @@ export default function ClubInvoiceDetailPage() {
         ) : null}
       </div>
 
-      <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
         <div className="grid gap-4 text-sm text-foreground md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted">{t("invoiceNumberLabel")}</span>

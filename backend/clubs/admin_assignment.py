@@ -58,7 +58,7 @@ def _serialize_assignment_member(member: Member) -> dict:
         "last_name": member.last_name,
         "email": member.email or "",
         "club_id": member.club_id,
-        "club_name": member.club.name,
+        "club_name": member.club.name if member.club_id else "",
         "has_valid_license": bool(getattr(member, "has_valid_license", False)),
         "user_id": member.user_id,
         "username": member.user.username if member.user_id else "",
@@ -131,12 +131,52 @@ def search_assignment_members(
     }
 
 
-def build_assignment_board(*, actor=None) -> dict:
+def home_club_id(user) -> int | None:
+    """Club the user belongs to as a member. None when there is no linked member."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+    member = Member.all_objects.filter(user_id=user.id).only("club_id").first()
+    return member.club_id if member else None
+
+
+def actor_may_assign_club(user, club) -> tuple[bool, str]:
+    """LTF admins and superusers may assign any club. A club admin only his own club."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False, "Not allowed."
+    if user.is_superuser or user.role == User.Roles.LTF_ADMIN:
+        return True, ""
+    if user.role == User.Roles.CLUB_ADMIN and club.admins.filter(id=user.id).exists():
+        if home_club_id(user) != club.id and not _grant_names_club(user, club.id):
+            return False, "actor_home_club"
+        return True, ""
+    if _grant_names_club(user, club.id):
+        return True, ""
+    return False, "Not allowed."
+
+
+def _grant_names_club(user, club_id: int) -> bool:
+    """A Club Admin grant for this club lifts the home-club-only block."""
+    from django.db.models import Q
+    from django.utils import timezone
+
+    from accounts.models import DeskGrant
+
+    today = timezone.localdate()
+    return DeskGrant.objects.filter(
+        user_id=user.id,
+        desk=DeskGrant.Desk.CLUB_ADMIN,
+        club_id=club_id,
+        level=DeskGrant.Level.FULL,
+        valid_from__lte=today,
+    ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=today)).exists()
+
+
+def build_assignment_board(*, club_ids=None) -> dict:
     clubs_qs = Club.objects.annotate(admin_count=Count("admins", distinct=True)).prefetch_related(
         "admins"
     )
-    if actor is not None and getattr(actor, "role", None) == User.Roles.CLUB_ADMIN:
-        clubs_qs = clubs_qs.filter(admins=actor)
+    if club_ids is not None:
+        clubs_qs = clubs_qs.filter(id__in=list(club_ids))
     clubs = list(clubs_qs.order_by("name"))
     club_ids = [club.id for club in clubs]
     club_payload = []
@@ -161,10 +201,13 @@ def build_assignment_board(*, actor=None) -> dict:
             Prefetch(
                 "clubs_administered",
                 queryset=Club.objects.only("id", "name").order_by("name"),
-            )
+            ),
+            "account_setup_invites",
         )
         .order_by("last_name", "first_name", "username")
     )
+    from .access_links import access_state
+
     admin_payload = []
     for user in admin_users:
         member = getattr(user, "member_profile", None)
@@ -176,12 +219,13 @@ def build_assignment_board(*, actor=None) -> dict:
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "role": user.role,
+                **access_state(user),
                 "member_id": member.id if member else None,
                 "member_name": (
                     f"{member.first_name} {member.last_name}".strip() if member else ""
                 ),
                 "home_club_id": member.club_id if member else None,
-                "home_club_name": member.club.name if member else "",
+                "home_club_name": member.club.name if member and member.club_id else "",
                 "clubs": [
                     {"id": club.id, "name": club.name}
                     for club in user.clubs_administered.all()

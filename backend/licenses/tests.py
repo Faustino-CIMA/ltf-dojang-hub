@@ -40,6 +40,7 @@ from .models import (
 )
 from .pdf_utils import build_invoice_context, invoice_item_label, license_product_label, render_invoice_pdf
 from .services import apply_payment_and_activate
+from .stripe_checkout import checkout_return_area
 from .tasks import (
     activate_eligible_paid_licenses,
     reconcile_expired_licenses,
@@ -308,6 +309,48 @@ class LicenseTypeApiTests(TestCase):
         self.assertFalse(policy.allow_current_year_order)
         self.assertTrue(policy.allow_next_year_preorder)
 
+    def test_saved_type_policy_is_still_there_after_reload(self):
+        license_type = LicenseType.objects.create(name="Renewal", code="renewal")
+        self.client.force_authenticate(user=self.ltf_finance)
+        saved = self.client.patch(
+            f"/api/license-types/{license_type.id}/",
+            {
+                "name": "Renewal",
+                "policy": {
+                    "allow_next_year_preorder": True,
+                    "next_start_month": 11,
+                    "next_start_day": 2,
+                    "next_end_month": 12,
+                    "next_end_day": 15,
+                    "reminders_enabled": True,
+                    "reminder_offsets": [60, 30, 7],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.content)
+        stored = LicenseTypePolicy.objects.get(license_type=license_type)
+        self.assertTrue(stored.allow_next_year_preorder)
+        self.assertEqual((stored.next_start_month, stored.next_start_day), (11, 2))
+        self.assertEqual((stored.next_end_month, stored.next_end_day), (12, 15))
+        self.assertTrue(stored.reminders_enabled)
+
+        def assert_saved(policy):
+            self.assertTrue(policy["allow_next_year_preorder"])
+            self.assertEqual(policy["next_start_month"], 11)
+            self.assertEqual(policy["next_start_day"], 2)
+            self.assertEqual(policy["next_end_month"], 12)
+            self.assertEqual(policy["next_end_day"], 15)
+            self.assertTrue(policy["reminders_enabled"])
+
+        assert_saved(saved.data["policy"])
+        again = self.client.get(f"/api/license-types/{license_type.id}/")
+        self.assertEqual(again.status_code, status.HTTP_200_OK)
+        assert_saved(again.data["policy"])
+        listed = self.client.get("/api/license-types/")
+        row = next(item for item in listed.data if item["id"] == license_type.id)
+        assert_saved(row["policy"])
+
     def test_ltf_admin_cannot_update_policy(self):
         license_type = LicenseType.objects.create(name="Locked", code="locked")
         self.client.force_authenticate(user=self.ltf_admin)
@@ -317,6 +360,179 @@ class LicenseTypeApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class LicenseValidityTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.finance = User.objects.create_user(
+            username="validity-finance",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.admin = User.objects.create_user(
+            username="validity-admin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club_admin = User.objects.create_user(
+            username="validity-club",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+        )
+        self.club = Club.objects.create(name="Validity Club", created_by=self.finance)
+        self.member = Member.objects.create(club=self.club, first_name="Noa", last_name="Keller")
+        self.client.force_authenticate(user=self.finance)
+
+    def _duration_type(self, years=1, days=0, name="Season pass"):
+        created = self.client.post(
+            "/api/license-types/",
+            {
+                "name": name,
+                "initial_price_amount": "10.00",
+                "policy": {
+                    "validity_mode": "duration",
+                    "duration_years": years,
+                    "duration_days": days,
+                    "reminders_enabled": False,
+                    "reminder_offsets": [60, 30, 7],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        return LicenseType.objects.get(pk=created.data["id"])
+
+    def test_calendar_year_stays_31_december_when_the_type_changes(self):
+        created = self.client.post("/api/license-types/", {"name": "Annual"}, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        license_type = LicenseType.objects.get(pk=created.data["id"])
+        self.assertEqual(license_type.policy.validity_mode, "calendar_year")
+        licence = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=license_type,
+            year=2026,
+        )
+        self.assertEqual(licence.start_date, date(2026, 1, 1))
+        self.assertEqual(licence.end_date, date(2026, 12, 31))
+        self.assertTrue(licence.expiry_locked)
+        saved = self.client.patch(
+            f"/api/license-types/{license_type.id}/",
+            {
+                "name": "Annual",
+                "policy": {
+                    "validity_mode": "duration",
+                    "duration_years": 2,
+                    "duration_days": 10,
+                    "reminders_enabled": True,
+                    "reminder_offsets": [60, 30, 7],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.data)
+        licence.refresh_from_db()
+        self.assertEqual(licence.start_date, date(2026, 1, 1))
+        self.assertEqual(licence.end_date, date(2026, 12, 31))
+        self.assertTrue(
+            FinanceAuditLog.objects.filter(action="license_type.policy_saved").exists()
+        )
+
+    def test_duration_from_29_february_locks_on_first_activation(self):
+        license_type = self._duration_type(years=1, days=0, name="Leap pass")
+        pending = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=license_type,
+            year=2024,
+        )
+        self.assertEqual(pending.start_date, date(2024, 1, 1))
+        self.assertEqual(pending.end_date, date(2024, 12, 31))
+        self.assertFalse(pending.expiry_locked)
+        pending.status = License.Status.ACTIVE
+        pending.issued_at = timezone.make_aware(datetime(2024, 2, 29, 9, 0))
+        pending.save()
+        pending.refresh_from_db()
+        self.assertTrue(pending.expiry_locked)
+        self.assertEqual(pending.start_date, date(2024, 2, 29))
+        self.assertEqual(pending.end_date, date(2025, 2, 28))
+        license_type.policy.duration_years = 4
+        license_type.policy.save()
+        pending.save()
+        pending.refresh_from_db()
+        self.assertEqual(pending.end_date, date(2025, 2, 28))
+
+    def test_zero_duration_is_rejected_and_does_not_leave_a_type(self):
+        before = LicenseType.objects.count()
+        response = self.client.post(
+            "/api/license-types/",
+            {
+                "name": "Empty duration",
+                "initial_price_amount": "12.00",
+                "policy": {
+                    "validity_mode": "duration",
+                    "duration_years": 0,
+                    "duration_days": 0,
+                    "reminders_enabled": False,
+                    "reminder_offsets": [30],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+        self.assertEqual(LicenseType.objects.count(), before)
+        self.assertFalse(LicensePrice.objects.filter(amount=Decimal("12.00")).exists())
+
+    def test_club_admin_and_ltf_admin_cannot_save_validity(self):
+        license_type = LicenseType.objects.create(name="Guarded", code="guarded")
+        payload = {
+            "validity_mode": "duration",
+            "duration_years": 1,
+            "duration_days": 0,
+        }
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(
+            self.client.patch(f"/api/license-types/{license_type.id}/policy/", payload, format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        self.assertEqual(
+            self.client.patch(f"/api/license-types/{license_type.id}/policy/", payload, format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_activation_expires_a_finished_license_before_the_renewal_starts(self):
+        license_type = self._duration_type(years=1, days=0, name="Renewal pass")
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+        current = License.objects.create(
+            member=self.member,
+            club=None,
+            license_type=license_type,
+            year=yesterday.year,
+            status=License.Status.ACTIVE,
+        )
+        current.end_date = yesterday
+        current.expiry_locked = True
+        current.save(update_fields=["end_date", "expiry_locked", "updated_at"])
+        renewal = License.objects.create(
+            member=self.member,
+            club=None,
+            license_type=license_type,
+            year=today.year,
+        )
+        self.assertFalse(renewal.expiry_locked)
+        activated = activate_eligible_paid_licenses()
+        current.refresh_from_db()
+        renewal.refresh_from_db()
+        self.assertGreaterEqual(activated, 1)
+        self.assertEqual(current.status, License.Status.EXPIRED)
+        self.assertEqual(renewal.status, License.Status.ACTIVE)
+        self.assertEqual(renewal.start_date, today)
+        self.assertEqual(renewal.start_date, current.end_date + timedelta(days=1))
+        self.assertTrue(renewal.expiry_locked)
+        self.assertEqual(renewal.end_date, date(today.year + 1, today.month, today.day) if not (today.month == 2 and today.day == 29) else date(today.year + 1, 2, 28))
 
 
 class ClubFeeApiTests(TestCase):
@@ -380,6 +596,70 @@ class ClubFeeApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_ltf_finance_can_update_club_fee(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        created = self.client.post(
+            "/api/club-fee-types/",
+            {
+                "name": "Affiliation",
+                "cadence": "annual",
+                "description": "Yearly club affiliation",
+                "is_active": True,
+                "initial_amount": "150.00",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        fee_id = created.data["id"]
+        response = self.client.patch(
+            f"/api/club-fee-types/{fee_id}/",
+            {
+                "name": "Club affiliation",
+                "cadence": "one_off",
+                "description": "Charged once",
+                "is_active": False,
+                "initial_amount": "175.00",
+                "initial_currency": "EUR",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        self.assertEqual(response.data["name"], "Club affiliation")
+        self.assertEqual(response.data["cadence"], "one_off")
+        self.assertEqual(response.data["description"], "Charged once")
+        self.assertFalse(response.data["is_active"])
+        self.assertEqual(response.data["current_amount"], "175.00")
+        fee = ClubFeeType.objects.get(id=fee_id)
+        self.assertEqual(fee.prices.count(), 2)
+        self.assertEqual(fee.code, "affiliation")
+
+        blank = self.client.patch(
+            f"/api/club-fee-types/{fee_id}/",
+            {"name": "   "},
+            format="json",
+        )
+        self.assertEqual(blank.status_code, status.HTTP_400_BAD_REQUEST)
+        fee.refresh_from_db()
+        self.assertEqual(fee.name, "Club affiliation")
+
+    def test_club_admin_and_ltf_admin_cannot_update_club_fee(self):
+        fee = ClubFeeType.objects.create(name="Insurance", code="insurance", cadence="annual")
+        ltf_admin = User.objects.create_user(
+            username="ltfadmin-club-fees",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        for user in (self.club_admin, ltf_admin):
+            self.client.force_authenticate(user=user)
+            response = self.client.patch(
+                f"/api/club-fee-types/{fee.id}/",
+                {"name": "Changed", "cadence": "one_off"},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        fee.refresh_from_db()
+        self.assertEqual(fee.name, "Insurance")
 
     def test_ltf_finance_can_bill_active_clubs(self):
         from clubs.models import Club
@@ -642,6 +922,36 @@ class LicenseApiPermissionTests(TestCase):
         returned_ids = {item["id"] for item in response.data}
         self.assertIn(self.license_record.id, returned_ids)
 
+    def test_license_list_sorts_by_end_date_and_ignores_writes(self):
+        from datetime import date
+
+        self.license_record.end_date = date(2026, 12, 31)
+        self.license_record.save(update_fields=["end_date"])
+        sooner = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=self.license_type,
+            year=2025,
+            status=License.Status.ACTIVE,
+        )
+        sooner.end_date = date(2025, 3, 1)
+        sooner.save(update_fields=["end_date"])
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/licenses/?ordering=end_date")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        ids = [row["id"] for row in rows]
+        self.assertLess(ids.index(sooner.id), ids.index(self.license_record.id))
+        self.assertEqual(rows[ids.index(sooner.id)]["end_date"], "2025-03-01")
+        patched = self.client.patch(
+            f"/api/licenses/{self.license_record.id}/",
+            {"end_date": "2030-01-01"},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, status.HTTP_200_OK)
+        self.license_record.refresh_from_db()
+        self.assertEqual(self.license_record.end_date, date(2026, 12, 31))
+
     def test_club_admin_cannot_create_license(self):
         self.client.force_authenticate(user=self.club_admin)
         response = self.client.post("/api/licenses/", self._payload(), format="json")
@@ -882,6 +1192,12 @@ class OrderApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         order_id = create_response.data["id"]
+        payer = User.objects.create_user(
+            username="finance-payer",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.client.force_authenticate(user=payer)
         response = self.client.post(
             f"/api/orders/{order_id}/confirm-payment/",
             {"stripe_payment_intent_id": "pi_123", "club_admin_consent_confirmed": True},
@@ -1196,6 +1512,12 @@ class OrderApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         order_id = create_response.data["id"]
+        payer = User.objects.create_user(
+            username="finance-payer-manual",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.client.force_authenticate(user=payer)
         response = self.client.post(
             f"/api/orders/{order_id}/confirm-payment/",
             {
@@ -1213,6 +1535,7 @@ class OrderApiTests(TestCase):
         self.assertEqual(payment.provider, Payment.Provider.MANUAL)
         self.assertEqual(payment.method, Payment.Method.BANK_TRANSFER)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
     @patch("licenses.views.stripe.checkout.Session.create")
     def test_checkout_allows_member_without_consent(self, session_create_mock):
         member_user = User.objects.create_user(
@@ -1250,6 +1573,12 @@ class OrderApiTests(TestCase):
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         order_id = create_response.data["id"]
+        payer = User.objects.create_user(
+            username="finance-payer-consent",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.client.force_authenticate(user=payer)
         response = self.client.post(
             f"/api/orders/{order_id}/confirm-payment/",
             {"stripe_payment_intent_id": "pi_123"},
@@ -1855,6 +2184,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(activated_count, 0)
         self.assertEqual(pending_license.status, License.Status.PENDING)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
     @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
     def test_reconcile_pending_stripe_orders_uses_payment_intent(self, payment_intent_mock):
         today = timezone.localdate()
@@ -1907,6 +2237,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(payment.provider, Payment.Provider.STRIPE)
         self.assertEqual(payment.method, Payment.Method.CARD)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
     @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
     def test_reconcile_pending_stripe_orders_reuses_payment_intent_lookup(
         self, payment_intent_mock
@@ -1966,6 +2297,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(processed_count, 2)
         self.assertEqual(payment_intent_mock.call_count, 1)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
     @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
     @patch("licenses.tasks.stripe.checkout.Session.retrieve")
     def test_reconcile_pending_stripe_orders_uses_checkout_session(
@@ -2067,6 +2399,7 @@ class ClubOrderCheckoutTests(TestCase):
             quantity=1,
         )
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
     @patch("licenses.views.stripe.checkout.Session.create")
     def test_club_checkout_requires_consent_confirmation(self, session_create_mock):
         session_create_mock.return_value = type(
@@ -2092,6 +2425,7 @@ class ClubOrderCheckoutTests(TestCase):
         self.assertNotIn("items", row)
         self.assertNotIn("stripe_payment_intent_id", row)
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
     @patch("licenses.views.stripe.checkout.Session.create")
     def test_club_checkout_success_url_includes_session_id(self, session_create_mock):
         session_create_mock.return_value = type(
@@ -2108,6 +2442,82 @@ class ClubOrderCheckoutTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         success_url = session_create_mock.call_args.kwargs["success_url"]
         self.assertIn("session_id={CHECKOUT_SESSION_ID}", success_url)
+
+
+class CheckoutReturnAreaTests(TestCase):
+    def setUp(self):
+        self.ltf_admin = User.objects.create_user(
+            username="return-ltf-admin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.ltf_finance = User.objects.create_user(
+            username="return-ltf-finance",
+            password="pass12345",
+            role=User.Roles.LTF_FINANCE,
+        )
+        self.club_admin = User.objects.create_user(
+            username="return-club-admin",
+            password="pass12345",
+            role=User.Roles.CLUB_ADMIN,
+            is_superuser=True,
+        )
+        self.member_user = User.objects.create_user(
+            username="return-member",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        self.club = Club.objects.create(name="Return Club", created_by=self.ltf_admin)
+        self.club.admins.add(self.club_admin)
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Nora",
+            last_name="Klein",
+            user=self.member_user,
+        )
+        self.order = Order.objects.create(
+            club=self.club,
+            member=self.member,
+            ledger=Order.Ledger.FEDERATION,
+            status=Order.Status.PENDING,
+            subtotal=Decimal("10.00"),
+            tax_total=Decimal("0.00"),
+            total=Decimal("10.00"),
+        )
+
+    def test_superuser_club_admin_returns_to_the_club_area(self):
+        self.assertTrue(self.club_admin.is_superuser)
+        self.assertEqual(checkout_return_area(self.club_admin, self.order), "club")
+
+    def test_ltf_finance_returns_to_finance_area(self):
+        self.assertEqual(checkout_return_area(self.ltf_finance, self.order), "ltf-finance")
+
+    def test_ltf_admin_returns_to_ltf_area_even_when_superuser(self):
+        self.ltf_admin.is_superuser = True
+        self.ltf_admin.save(update_fields=["is_superuser"])
+        self.assertEqual(checkout_return_area(self.ltf_admin, self.order), "ltf")
+
+    def test_member_on_the_order_returns_to_the_member_area(self):
+        self.assertEqual(checkout_return_area(self.member_user, self.order), "member")
+
+    def test_club_ledger_order_returns_to_the_club_area(self):
+        coach = User.objects.create_user(
+            username="return-coach",
+            password="pass12345",
+            role=User.Roles.COACH,
+        )
+        self.order.ledger = Order.Ledger.CLUB
+        self.order.save(update_fields=["ledger", "updated_at"])
+        self.assertEqual(checkout_return_area(coach, self.order), "club")
+
+    def test_superuser_without_a_dashboard_role_falls_back_to_ops(self):
+        operator = User.objects.create_user(
+            username="return-ops",
+            password="pass12345",
+            role="operator",
+            is_superuser=True,
+        )
+        self.assertEqual(checkout_return_area(operator, self.order), "ops")
 
 
 class StripeConfirmCheckoutTests(TestCase):
@@ -2193,6 +2603,7 @@ class StripeConfirmCheckoutTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], "paid")
         self.assertEqual(response.data["order_id"], self.order.id)
+        self.assertEqual(response.data["return_area"], "club")
         self.order.refresh_from_db()
         self.invoice.refresh_from_db()
         self.license_record.refresh_from_db()

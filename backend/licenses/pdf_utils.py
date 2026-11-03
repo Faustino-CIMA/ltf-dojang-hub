@@ -9,7 +9,7 @@ from pathlib import Path
 from django.conf import settings
 from django.template.loader import render_to_string
 
-from .models import Invoice, Order
+from .models import Invoice, ModulePurchase, Order
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _ZERO_FAMILY_REBATE = re.compile(
@@ -36,10 +36,11 @@ except Exception:  # pragma: no cover - handled at runtime
     qrcode = None
 
 
-def license_product_label(name: str, year) -> str:
+def license_product_label(name: str, year, fallback: str = "License") -> str:
     """Annual Standard 2026 is printed as Annual St 2026. Standard is always St."""
-    label = re.sub(r"\bstandard\b", "St", (name or "License").strip(), flags=re.IGNORECASE)
-    label = re.sub(r"\s+", " ", label).strip() or "License"
+    word = fallback or "License"
+    label = re.sub(r"\bstandard\b", "St", (name or word).strip(), flags=re.IGNORECASE)
+    label = re.sub(r"\s+", " ", label).strip() or word
     year_text = str(year or "").strip()
     if year_text and year_text not in label.split():
         return f"{label} {year_text}"
@@ -50,6 +51,30 @@ def euro_amount(amount) -> str:
     value = Decimal(amount or 0).quantize(Decimal("0.01"))
     sign = "-" if value < 0 else ""
     return f"{sign}{abs(value):.2f}".replace(".", ",") + " €"
+
+
+def _settlement(invoice: Invoice) -> dict:
+    from clubs.communications import invoice_copy_for_club
+
+    copy = invoice_copy_for_club(invoice.club)
+    settled = invoice.status == Invoice.Status.PAID or (invoice.outstanding() <= 0 and invoice.total > 0)
+    if settled:
+        return {
+            "settlement_label": copy["paid_label"],
+            "settlement_amount": euro_amount(invoice.total),
+        }
+    due = invoice.outstanding()
+    if due <= 0:
+        due = invoice.total
+    return {
+        "settlement_label": copy["due_label"],
+        "settlement_amount": euro_amount(due),
+    }
+
+
+def invoice_balance_due_text(invoice: Invoice) -> str:
+    """Remainder after credit notes and payments, in the same format as the PDF total."""
+    return euro_amount(invoice.outstanding())
 
 
 def _short_date(value) -> str:
@@ -296,13 +321,13 @@ def _club_item_rows(items) -> list[dict]:
                 "size": size,
                 "quantity": item.quantity,
                 "unit_price": euro_amount(item.price_snapshot),
-                "line_total": euro_amount(item.price_snapshot * item.quantity),
+                "line_total": euro_amount(item.line_amount()),
             }
         )
     return rows
 
 
-def _license_rows(items) -> list[dict]:
+def _license_rows(items, *, license_fallback: str = "License") -> list[dict]:
     rows = []
     for item in items:
         license_row = item.license if item.license_id else None
@@ -318,11 +343,15 @@ def _license_rows(items) -> list[dict]:
         rows.append(
             {
                 "name": _member_name(member) or (item.description or ""),
-                "license": license_product_label(type_name or item.description or "License", year),
+                "license": license_product_label(
+                    type_name or item.description or license_fallback,
+                    year,
+                    fallback=license_fallback,
+                ),
                 "license_id": license_id,
                 "quantity": item.quantity,
                 "unit_price": euro_amount(item.price_snapshot),
-                "line_total": euro_amount(item.price_snapshot * item.quantity),
+                "line_total": euro_amount(item.line_amount()),
                 "sort_name": _member_name(member).casefold(),
             }
         )
@@ -337,7 +366,39 @@ def _is_ltf_license_invoice(invoice: Invoice) -> bool:
     return order.items.filter(license__isnull=False).exists()
 
 
+def _is_module_purchase_invoice(invoice: Invoice) -> bool:
+    """Federation invoice for a module or bundle purchase, including a renewal."""
+    order = invoice.order
+    if order.ledger != Order.Ledger.FEDERATION:
+        return False
+    if order.items.filter(license__isnull=False).exists():
+        return False
+    return (
+        ModulePurchase.objects.filter(order_item__order_id=order.id).exists()
+        or ModulePurchase.objects.filter(renewal_order_item__order_id=order.id).exists()
+    )
+
+
+def _module_rows(items) -> list[dict]:
+    """One row per order line. A bundle stays one line."""
+    rows = []
+    for item in items:
+        rows.append(
+            {
+                "label": invoice_item_label(item),
+                "quantity": item.quantity,
+                "unit_price": euro_amount(item.price_snapshot),
+                "line_total": euro_amount(item.line_amount()),
+            }
+        )
+    return rows
+
+
 def invoice_item_label(item) -> str:
+    if getattr(item, "active_member_count", None) is not None or getattr(item, "minimum_applied", False):
+        description = (item.description or "").strip()
+        if description:
+            return description
     if item.license_id and item.license is not None:
         license_type = item.license.license_type
         name = license_type.name if license_type is not None else (item.description or "License")
@@ -365,7 +426,7 @@ def build_invoice_context(invoice: Invoice) -> dict:
                 "label": invoice_item_label(item),
                 "quantity": item.quantity,
                 "unit_price": item.price_snapshot,
-                "line_total": item.price_snapshot * item.quantity,
+                "line_total": item.line_amount(),
             }
         )
     payconiq_url = ""
@@ -389,6 +450,11 @@ def build_invoice_context(invoice: Invoice) -> dict:
 
     payconiq_qr = build_qr_base64(payconiq_url) if payconiq_url else ""
     sepa_qr = build_qr_base64(sepa_payload) if sepa_payload else ""
+    from clubs.document_copy import delivery_label as delivery_word
+    from clubs.document_copy import invoice_labels, license_word, resolve_document_language
+
+    doc_language = resolve_document_language(club=invoice.club)
+    labels = invoice_labels(doc_language)
     bill_to = None
     delivery_label = ""
     if invoice.member_id:
@@ -408,22 +474,20 @@ def build_invoice_context(invoice: Invoice) -> dict:
                 "email": invoice.member.email or "",
                 "address_lines": [],
             }
-        delivery_label = {
-            Invoice.DeliveryMethod.EMAIL: "Email",
-            Invoice.DeliveryMethod.POST: "Post",
-            Invoice.DeliveryMethod.HAND: "In person",
-        }.get(invoice.delivery_method, "")
+        delivery_label = delivery_word(doc_language, invoice.delivery_method)
     license_invoice = _is_ltf_license_invoice(invoice)
-    club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice
-    license_rows = _license_rows(items) if license_invoice else []
+    module_invoice = not license_invoice and _is_module_purchase_invoice(invoice)
+    club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice and not module_invoice
+    license_rows = _license_rows(items, license_fallback=license_word(doc_language)) if license_invoice else []
+    module_rows = _module_rows(items) if module_invoice else []
     club_rows = _club_item_rows(items) if club_invoice else []
     order_delivered = order.status == Order.Status.PAID
     invoice_paid = invoice.status == Invoice.Status.PAID
-    if license_invoice:
+    if license_invoice or module_invoice:
         issuer = _issuer()
         recipient_name = invoice.club.name if invoice.club_id else ""
         recipient_lines = _club_lines(invoice.club)
-        total_qty = sum(row["quantity"] for row in license_rows)
+        total_qty = sum(row["quantity"] for row in (module_rows if module_invoice else license_rows))
         sepa_slot_qr = build_qr_base64("SEPA", fill_color="#1d4e89")
         wero_slot_qr = build_qr_base64("WERO", fill_color="#1d4e89")
     elif club_invoice:
@@ -475,14 +539,17 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "credited_total": invoice.credited_total(),
         "outstanding": invoice.outstanding(),
         "license_invoice": license_invoice,
+        "module_invoice": module_invoice,
         "club_invoice": club_invoice,
         "license_rows": license_rows,
+        "module_rows": module_rows,
         "club_rows": club_rows,
         "issuer": issuer,
         "recipient_name": recipient_name,
         "recipient_lines": recipient_lines,
         "total_qty": total_qty,
         "total_amount": euro_amount(invoice.total),
+        **_settlement(invoice),
         "issued_on": _short_date(invoice.issued_at),
         "paid_on": _short_date(invoice.paid_at),
         "ordered_on": _short_date(order.created_at),
@@ -492,6 +559,8 @@ def build_invoice_context(invoice: Invoice) -> dict:
         "invoice_status_done": invoice_paid,
         "order_status_done": order_delivered,
         "pad_table": (len(license_rows) if license_invoice else len(club_rows)) <= 12,
+        "labels": labels,
+        "doc_lang": labels["doc_lang"],
         "footer_logos": {
             "world": _bundled_logo_uri("world-taekwondo.png"),
             "europe": _bundled_logo_uri("european-taekwondo.png"),
@@ -508,10 +577,18 @@ def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -
         return None
     from pypdf import PdfWriter
 
+    from clubs.document_copy import pack_labels, resolve_document_language
+
     pages = [build_invoice_context(invoice) for invoice in invoices]
+    club = invoices[0].club if invoices else None
     cover_html = render_to_string(
         "finance/billing_print_pack.html",
-        {"year": year, "pages": pages, "count": len(pages)},
+        {
+            "year": year,
+            "pages": pages,
+            "count": len(pages),
+            "labels": pack_labels(resolve_document_language(club=club), year=year, count=len(pages)),
+        },
     )
     writer = PdfWriter()
     writer.append(BytesIO(HTML(string=cover_html, base_url=base_url).write_pdf()))
@@ -527,7 +604,11 @@ def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -
 def render_statement_pdf(context: dict, *, base_url: str) -> bytes | None:
     if HTML is None:
         return None
-    html = render_to_string("finance/statement_pdf.html", context)
+    from clubs.document_copy import statement_labels
+
+    payload = dict(context)
+    payload.setdefault("labels", statement_labels("en"))
+    html = render_to_string("finance/statement_pdf.html", payload)
     return HTML(string=html, base_url=base_url).write_pdf()
 
 
@@ -535,7 +616,7 @@ def render_invoice_pdf(invoice: Invoice, *, base_url: str) -> bytes | None:
     if HTML is None:
         return None
     context = build_invoice_context(invoice)
-    if context["license_invoice"]:
+    if context["license_invoice"] or context["module_invoice"]:
         template = "finance/ltf_license_invoice_pdf.html"
     elif context["club_invoice"]:
         template = "finance/club_member_invoice_pdf.html"

@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { apiRequest } from "@/lib/api";
+import { defaultDesk, deskHeaderValue, rememberActiveDesk, type DeskChoice } from "@/lib/active-desk";
 import { logout } from "@/lib/auth-api";
 import { clearToken } from "@/lib/auth";
-import { getDashboardRouteForRole } from "@/lib/dashboard-routing";
+import { routeAfterSignIn } from "@/lib/dashboard-routing";
+import { persistSelectedClubId } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 
@@ -17,6 +19,9 @@ type MeResponse = {
   email: string;
   role: string;
   is_superuser?: boolean;
+  home_club_id?: number | null;
+  desks?: DeskChoice[];
+  last_desk?: { desk: string; level: string; club_id: number | null } | null;
 };
 
 export default function DashboardPage() {
@@ -31,8 +36,21 @@ export default function DashboardPage() {
       try {
         const response = await apiRequest<MeResponse>("/api/auth/me/");
         setUser(response);
-        const targetRoute = getDashboardRouteForRole(response.role, locale, {
+        const chosen = defaultDesk(
+          response.desks ?? [],
+          response.last_desk ?? null,
+          response.role,
+          response.home_club_id ?? null,
+        );
+        if (chosen) {
+          rememberActiveDesk(deskHeaderValue(chosen));
+          if (chosen.club_id) {
+            persistSelectedClubId(chosen.club_id);
+          }
+        }
+        const targetRoute = routeAfterSignIn(response.role, locale, {
           isSuperuser: Boolean(response.is_superuser),
+          lastDesk: response.last_desk ?? null,
         });
         if (targetRoute) {
           router.push(targetRoute);
@@ -54,7 +72,7 @@ export default function DashboardPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="app-panel w-full max-w-xl p-10">
+      <div className="app-panel w-full max-w-xl p-3">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
@@ -68,7 +86,7 @@ export default function DashboardPage() {
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {user ? (
-          <div className="mt-6 rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-6">
+          <div className="mt-6 rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary)] p-3">
             <p className="text-sm text-muted">Signed in as</p>
             <p className="mt-1 text-lg font-semibold text-foreground">{user.username}</p>
             <p className="mt-2 text-sm text-muted">Role: {user.role}</p>

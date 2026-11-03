@@ -15,6 +15,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config("DJANGO_SECRET_KEY", default="change-me")
 DEBUG = config("DJANGO_DEBUG", cast=bool, default=False)
+# Explicit opt-in for the separate demo app. Seed commands refuse to run when this is off.
+DEMO_MODE = config("DEMO_MODE", default="false").strip().lower() in {"1", "true", "yes"}
+SETUP_SKIP_ADMIN_IDS = ["LUX-10"]
 FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:3000")
 FRONTEND_DEFAULT_LOCALE = config("FRONTEND_DEFAULT_LOCALE", default="en")
 def split_csv(value: str) -> list[str]:
@@ -103,6 +106,8 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.headless",
+    "allauth.mfa",
     "accounts.apps.AccountsConfig",
     "clubs",
     "members",
@@ -111,6 +116,8 @@ INSTALLED_APPS = [
     "modules.apps.ModulesConfig",
     "events.apps.EventsConfig",
     "clubmgmt.apps.ClubmgmtConfig",
+    "nationalteam.apps.NationalteamConfig",
+    "setup.apps.SetupConfig",
 ]
 
 MIDDLEWARE = [
@@ -125,6 +132,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "accounts.desk_middleware.DeskExportAuditMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -204,6 +212,8 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en"
 LANGUAGES = [
     ("en", "English"),
+    ("fr", "French"),
+    ("de", "German"),
     ("lb", "Luxembourgish"),
 ]
 TIME_ZONE = "Europe/Luxembourg"
@@ -360,6 +370,21 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_ADAPTER = "accounts.adapter.CustomAccountAdapter"
+HEADLESS_ONLY = False
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
+MFA_PASSKEY_LOGIN_ENABLED = True
+MFA_TOTP_ISSUER = "LTF Dojang Hub"
+# One step each side of the current 30s window, so a phone clock that is slightly off still matches.
+MFA_TOTP_TOLERANCE = 1
+MFA_TOTP_DIGITS = 6
+MFA_TOTP_PERIOD = 30
+MFA_ADAPTER = "accounts.mfa_adapter.LtfMFAAdapter"
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = config(
+    "MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN",
+    default=DEBUG,
+    cast=bool,
+)
+WEBAUTHN_RP_ID = config("WEBAUTHN_RP_ID", default="")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -419,6 +444,17 @@ CORS_ALLOWED_ORIGINS = split_csv(
         default="http://localhost:3000,http://127.0.0.1:3000",
     )
 )
+CORS_EXPOSE_HEADERS = ["Content-Disposition", "X-Access-Links-Skipped"]
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-desk",
+    "x-session-token",
+]
 CORS_ALLOWED_ORIGIN_REGEXES = split_regex_list(
     config(
         "CORS_ALLOWED_ORIGIN_REGEXES",
@@ -530,6 +566,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "licenses.tasks.run_club_fee_billing_schedules",
         "schedule": crontab(hour=6, minute=15),
     },
+    "run-module-renewals-daily": {
+        "task": "licenses.tasks.run_module_renewals",
+        "schedule": crontab(hour=6, minute=10),
+    },
+    # The public register is republished on the 5th. Refresh the next morning.
+    "refresh-luxembourg-address-register-monthly": {
+        "task": "clubmgmt.tasks.refresh_luxembourg_addresses",
+        "schedule": crontab(day_of_month="6", hour=3, minute=40),
+    },
 }
 CELERY_TASK_ROUTES = {
     "licenses.tasks.execute_print_job_task": {"queue": CELERY_PRINT_JOB_QUEUE},
@@ -572,7 +617,7 @@ INVOICE_SEPA_IBAN = config("INVOICE_SEPA_IBAN", default="")
 INVOICE_SEPA_BIC = config("INVOICE_SEPA_BIC", default="")
 INVOICE_SEPA_REMITTANCE_PREFIX = config("INVOICE_SEPA_REMITTANCE_PREFIX", default="Invoice")
 
-LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.12.0")
+LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.13.0")
 OPS_LOCKOUT_FAILURES = config("OPS_LOCKOUT_FAILURES", cast=int, default=10)
 OPS_LOCKOUT_WINDOW_MINUTES = config("OPS_LOCKOUT_WINDOW_MINUTES", cast=int, default=15)
 OPS_STUFFING_DISTINCT_USERNAMES = config("OPS_STUFFING_DISTINCT_USERNAMES", cast=int, default=5)
@@ -581,4 +626,3 @@ OPS_TOKEN_TOUCH_INTERVAL_SECONDS = config("OPS_TOKEN_TOUCH_INTERVAL_SECONDS", ca
 OPS_QUERY_TIMEOUT_MS = config("OPS_QUERY_TIMEOUT_MS", cast=int, default=5000)
 OPS_QUERY_MAX_ROWS = config("OPS_QUERY_MAX_ROWS", cast=int, default=500)
 OPS_I18N_DIR = config("OPS_I18N_DIR", default="/app/i18n_frontend")
-OPS_DOCKER_SOCKET = config("OPS_DOCKER_SOCKET", default="")

@@ -69,7 +69,7 @@ export default function ClubBankStatementsPage() {
 
   return (
     <ClubAdminLayout title={t("bankTitle")} subtitle={t("bankSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         {canRecordPayments ? (

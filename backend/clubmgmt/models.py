@@ -44,6 +44,13 @@ class Person(models.Model):
         blank=True,
         related_name="converted_from_person",
     )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="committee_contact",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,6 +79,14 @@ class Person(models.Model):
                     formatted_words.append(word.upper())
             self.last_name = " ".join(formatted_words)
         super().save(*args, **kwargs)
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        from accounts.offices import remember_loaded_user
+
+        remember_loaded_user(instance, field_names)
+        return instance
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}"
@@ -107,6 +122,13 @@ class PersonAddress(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person"],
+                condition=Q(use_for_invoice=True),
+                name="clubmgmt_person_one_invoice_address",
+            ),
+        ]
 
 
 class MemberRecord(models.Model):
@@ -189,6 +211,13 @@ class MemberAddress(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member"],
+                condition=Q(use_for_invoice=True),
+                name="clubmgmt_member_one_invoice_address",
+            ),
+        ]
 
 
 class MemberContact(models.Model):
@@ -467,8 +496,19 @@ class CommitteeMandate(models.Model):
         related_name="committee_mandates",
     )
     started_on = models.DateField()
+    # Exclusive: the person holds the office while started_on <= day < ended_on.
+    # An empty end date means the term is still open. On a handover, the old
+    # end date equals the new start date, so the new holder has the office that day.
     ended_on = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_committee_mandates",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
 
     UNIQUE_CURRENT_ROLES = frozenset(
         {
@@ -482,6 +522,18 @@ class CommitteeMandate(models.Model):
 
     class Meta:
         ordering = ["-started_on", "id"]
+
+    @classmethod
+    def active_q(cls, day: date) -> Q:
+        """Offices held on day: start <= day and (no end, or end is after day)."""
+        return Q(started_on__lte=day) & (Q(ended_on__isnull=True) | Q(ended_on__gt=day))
+
+    def is_active_on(self, day: date) -> bool:
+        if self.started_on > day:
+            return False
+        if self.ended_on is None:
+            return True
+        return self.ended_on > day
 
     @staticmethod
     def member_is_adult(member, as_of: date | None = None) -> bool:
@@ -516,9 +568,10 @@ class CommitteeMandate(models.Model):
             qs = qs.filter(title=title or "")
         if exclude_pk:
             qs = qs.exclude(pk=exclude_pk)
-        qs = qs.filter(Q(ended_on__isnull=True) | Q(ended_on__gte=started_on))
+        # Ranges are [start, end). Touching at the handover date is allowed.
+        qs = qs.filter(Q(ended_on__isnull=True) | Q(ended_on__gt=started_on))
         if ended_on is not None:
-            qs = qs.filter(started_on__lte=ended_on)
+            qs = qs.filter(started_on__lt=ended_on)
         return qs.exists()
 
     def clean(self):
@@ -844,4 +897,47 @@ class ExtraordinarySubsidy(models.Model):
         ordering = ["-starts_on", "-id"]
 
 
+class LuxembourgRegisteredStreet(models.Model):
+    """One current street in the public CACLR register, for one postcode and locality."""
+
+    postal_code = models.CharField(max_length=4)
+    locality = models.CharField(max_length=80)
+    street = models.CharField(max_length=80)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["postal_code", "locality", "street"],
+                name="lu_registered_street_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["postal_code"], name="lu_registered_street_postal"),
+        ]
+
+
+class LuxembourgRegisteredHouse(models.Model):
+    """One current house number on a registered Luxembourg street."""
+
+    postal_code = models.CharField(max_length=4)
+    locality = models.CharField(max_length=80)
+    street = models.CharField(max_length=80)
+    house_number = models.CharField(max_length=16)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["postal_code", "locality", "street", "house_number"],
+                name="lu_registered_house_uniq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["postal_code", "street"], name="lu_registered_house_street"),
+        ]
+
+
+from . import body_measurements as _body_measurements  # noqa: E402,F401
+from . import clothing as _clothing  # noqa: E402,F401
+from . import gear as _gear  # noqa: E402,F401
+from . import teams as _teams  # noqa: E402,F401
 from . import training_models as _training_models  # noqa: E402,F401

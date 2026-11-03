@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { Button } from "@/components/ui/button";
 import { Member, getMember, uploadMemberProfilePicture } from "@/lib/club-admin-api";
+import { formatFullName } from "@/lib/person-name";
 
 export default function ClubMemberPhotoPage() {
   const t = useTranslations("ClubAdmin");
@@ -49,12 +50,12 @@ export default function ClubMemberPhotoPage() {
   }, [loadMember]);
 
   const title = member
-    ? t("memberDetailTitle", { name: `${member.first_name} ${member.last_name}` })
+    ? t("memberDetailTitle", { name: formatFullName(member) })
     : t("memberDetailTitleFallback");
 
   return (
     <ClubAdminLayout title={title} subtitle={t("photoModalDescription")}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Button variant="outline" size="sm" asChild>
           <Link href={backHref}>{t("backToMembers")}</Link>
         </Button>
@@ -86,6 +87,7 @@ export default function ClubMemberPhotoPage() {
               cameraUnavailable: t("photoCameraUnavailable"),
               cameraPermissionDenied: t("photoCameraPermissionDenied"),
               cameraStartError: t("photoCameraStartError"),
+              cameraSwitchButton: t("photoCameraSwitch"),
               zoomLabel: t("photoZoomLabel"),
               backgroundColorLabel: t("photoBackgroundColorLabel"),
               removeBackgroundButton: t("photoRemoveBackgroundButton"),

@@ -24,27 +24,30 @@ export default function AboutPage() {
   const [dashboardHref, setDashboardHref] = useState(`/${locale}`);
 
   useEffect(() => {
-    if (!getToken()) {
-      setDashboardHref(`/${locale}`);
-      return;
-    }
     let cancelled = false;
-    const load = async () => {
-      try {
-        const me = await apiRequest<MeResponse>("/api/auth/me/");
-        const target = getDashboardRouteForRole(me.role, locale, {
-          isSuperuser: Boolean(me.is_superuser),
-        });
-        if (!cancelled) {
-          setDashboardHref(target ?? `/${locale}/dashboard`);
-        }
-      } catch {
-        if (!cancelled) {
-          setDashboardHref(`/${locale}`);
-        }
+    const sync = () => {
+      if (!getToken()) {
+        setDashboardHref(`/${locale}`);
+        return;
       }
+      const load = async () => {
+        try {
+          const me = await apiRequest<MeResponse>("/api/auth/me/");
+          const target = getDashboardRouteForRole(me.role, locale, {
+            isSuperuser: Boolean(me.is_superuser),
+          });
+          if (!cancelled) {
+            setDashboardHref(target ?? `/${locale}/dashboard`);
+          }
+        } catch {
+          if (!cancelled) {
+            setDashboardHref(`/${locale}`);
+          }
+        }
+      };
+      void load();
     };
-    void load();
+    sync();
     return () => {
       cancelled = true;
     };
@@ -52,9 +55,9 @@ export default function AboutPage() {
 
   return (
     <main className="bg-background px-4 py-10 lg:px-8 lg:py-14">
-      <div className="mx-auto w-full max-w-3xl space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">{t("kicker")}</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{t("kicker")}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{t("title")}</h1>
           <p className="mt-2 text-sm text-muted">{t("subtitle")}</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">

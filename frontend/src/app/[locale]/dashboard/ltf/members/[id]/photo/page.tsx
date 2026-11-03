@@ -19,7 +19,7 @@ export default function LtfMemberPhotoPage() {
 
   return (
     <LtfAdminLayout title={t("memberDetailTitleFallback")} subtitle={t("membersReadOnlyHint")}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Button variant="outline" size="sm" asChild>
           <Link href={backHref}>{t("backToMembers")}</Link>
         </Button>

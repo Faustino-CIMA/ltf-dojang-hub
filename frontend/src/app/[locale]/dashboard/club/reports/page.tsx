@@ -95,10 +95,10 @@ export default function ClubFinanceReportsPage() {
 
   return (
     <ClubAdminLayout title={t("reportsTitle")} subtitle={t("reportsSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
-        <div className="flex flex-wrap items-end justify-between gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+        <div className="flex flex-wrap items-end justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
           <div className="space-y-2">
             <label className="text-sm font-medium">{t("reportYearLabel")}</label>
             <Select value={year} onValueChange={setYear}>
@@ -147,13 +147,13 @@ export default function ClubFinanceReportsPage() {
               <h2 className="text-section">{t("openingCashTitle")}</h2>
               <form className="mt-4 grid gap-4 md:grid-cols-3" onSubmit={handleSaveOpening}>
                 <Input value={openingCash} onChange={(e) => setOpeningCash(e.target.value)} disabled={!canRecordPayments} />
-                <AppTextarea className="md:col-span-2 min-h-[2.75rem]" value={openingNotes} onChange={(e) => setOpeningNotes(e.target.value)} disabled={!canRecordPayments} />
+                <AppTextarea className="md:col-span-2 min-h-[var(--control-height)]" value={openingNotes} onChange={(e) => setOpeningNotes(e.target.value)} disabled={!canRecordPayments} />
                 {canRecordPayments ? (
                   <Button type="submit" disabled={isSavingOpening}>{isSavingOpening ? t("savingAction") : t("saveOpeningCashAction")}</Button>
                 ) : null}
               </form>
             </FormPanel>
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               <FormPanel>
                 <h2 className="text-section">{t("incomeStatementTitle")}</h2>
                 <dl className="mt-4 space-y-3 text-sm">

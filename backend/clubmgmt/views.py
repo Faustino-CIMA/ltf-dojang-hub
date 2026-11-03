@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -15,6 +16,7 @@ from members.transfers import list_member_club_transfers
 from modules.registry import CLUB_MANAGEMENT_MODULE_ID
 
 from .access import (
+    can_edit_committee,
     can_manage_club_records,
     can_record_club_payments,
     club_mgmt_entitled,
@@ -51,6 +53,8 @@ from .models import (
     PersonPhone,
 )
 from .serializers import (
+    assert_single_invoice_address,
+    CommitteeHolderChoiceSerializer,
     CommitteeMandateSerializer,
     CommitteeSerializer,
     FamilyRebateRuleSerializer,
@@ -77,6 +81,13 @@ class ClubMgmtPermission(permissions.BasePermission):
             return False
         if is_ltf_manager(user):
             return True
+        from accounts.desks import current_desk
+
+        if current_desk() == "club_admin":
+            club_id = _club_id(request)
+            if club_id is None:
+                return True
+            return can_manage_club_records(user, club_id)
         if user.role != "club_admin":
             return False
         club_id = _club_id(request)
@@ -138,7 +149,9 @@ class MemberRecordViewSet(viewsets.ModelViewSet):
             qs = qs.filter(member__club_id=club_id)
         elif self.request.user.role == "club_admin":
             qs = qs.filter(member__club__in=self.request.user.clubs_administered.all())
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "member__club_id")
 
     def perform_create(self, serializer):
         member = serializer.validated_data["member"]
@@ -203,6 +216,7 @@ def _sync_member_contacts_lists(member, data):
                     label=row.get("label") or "",
                 )
     if "addresses" in data:
+        assert_single_invoice_address(data.get("addresses"))
         MemberAddress.objects.filter(member=member).delete()
         for row in data.get("addresses") or []:
             MemberAddress.objects.create(
@@ -226,7 +240,9 @@ class PersonViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         club_id = _require_club(self.request)
@@ -326,6 +342,7 @@ def _sync_person_lists(person, data):
             if row.get("number"):
                 PersonPhone.objects.create(person=person, number=row["number"], label=row.get("label") or "")
     if "addresses" in data:
+        assert_single_invoice_address(data.get("addresses"))
         PersonAddress.objects.filter(person=person).delete()
         for row in data.get("addresses") or []:
             PersonAddress.objects.create(
@@ -349,7 +366,9 @@ class MemberContactViewSet(viewsets.ModelViewSet):
         member_id = self.request.query_params.get("member")
         if member_id:
             qs = qs.filter(member_id=member_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "member__club_id")
 
     def list(self, request, *args, **kwargs):
         contacts = list(self.filter_queryset(self.get_queryset()))
@@ -433,7 +452,9 @@ class MedicalCheckupViewSet(viewsets.ModelViewSet):
         member_id = self.request.query_params.get("member")
         if member_id:
             qs = qs.filter(member_id=member_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "member__club_id")
 
 
 class FamilyViewSet(viewsets.ModelViewSet):
@@ -450,7 +471,9 @@ class FamilyViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         club_id = _require_club(self.request)
@@ -586,7 +609,9 @@ class FamilyRebateRuleViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
 
 class MembershipFeeViewSet(viewsets.ModelViewSet):
@@ -598,7 +623,9 @@ class MembershipFeeViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         fee = serializer.save()
@@ -659,6 +686,8 @@ class CommitteeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Committee.objects.prefetch_related("mandates__member", "mandates__person")
+        if not is_ltf_manager(self.request.user):
+            qs = qs.filter(club__admins=self.request.user)
         scope = self.request.query_params.get("scope")
         club_id = _club_id(self.request)
         if scope:
@@ -667,18 +696,78 @@ class CommitteeViewSet(viewsets.ModelViewSet):
             qs = qs.filter(club_id=club_id)
         elif scope == Committee.Scope.FEDERATION:
             qs = qs.filter(scope=Committee.Scope.FEDERATION)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def perform_create(self, serializer):
         scope = serializer.validated_data.get("scope")
-        club_id = serializer.validated_data.get("club").id if serializer.validated_data.get("club") else None
         if scope == Committee.Scope.FEDERATION:
             if not is_ltf_manager(self.request.user):
                 raise PermissionDenied(detail="This module is not available.")
+            if Committee.objects.filter(scope=Committee.Scope.FEDERATION).exists():
+                raise ValidationError({"scope": "The federation already has a committee."})
             serializer.save(club=None)
             return
-        _require_club(self.request)
-        serializer.save(club_id=club_id or _club_id(self.request))
+        club = serializer.validated_data.get("club")
+        club_id = club.id if club is not None else _require_club(self.request)
+        if not can_manage_club_records(self.request.user, club_id):
+            raise PermissionDenied(detail="This module is not available.")
+        if Committee.objects.filter(scope=Committee.Scope.CLUB, club_id=club_id).exists():
+            raise ValidationError({"club": "This club already has a committee."})
+        serializer.save(club_id=club_id)
+
+    def perform_update(self, serializer):
+        if not can_edit_committee(self.request.user, serializer.instance):
+            raise PermissionDenied(detail="This module is not available.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not can_edit_committee(self.request.user, instance):
+            raise PermissionDenied(detail="This module is not available.")
+        instance.delete()
+
+    @action(detail=False, methods=["get"], url_path="holder-choices")
+    def holder_choices(self, request):
+        """Adults an LTF admin can hand a federation office to.
+
+        Club members and people with no club are both included. The list is
+        paged and searched here so the picker never downloads the whole roster.
+        """
+        from django.db.models import Q
+
+        from accounts.desks import holds_desk
+        from config.pagination import OptionalPageNumberPagination
+
+        if not holds_desk(request.user, "ltf_admin"):
+            raise PermissionDenied(detail="This module is not available.")
+        today = timezone.localdate()
+        try:
+            cutoff = today.replace(year=today.year - 18)
+        except ValueError:
+            cutoff = today.replace(year=today.year - 18, day=28)
+        queryset = (
+            Member.objects.filter(is_active=True, date_of_birth__isnull=False, date_of_birth__lte=cutoff)
+            .select_related("club")
+            .only("id", "first_name", "last_name", "club_id", "club__id", "club__name")
+            .order_by("last_name", "first_name", "id")
+        )
+        raw_query = (request.query_params.get("q") or "").strip()[:80]
+        for token in raw_query.split()[:5]:
+            queryset = queryset.filter(Q(first_name__icontains=token) | Q(last_name__icontains=token))
+        paginator = OptionalPageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        rows = [
+            {
+                "id": member.id,
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+                "club_id": member.club_id,
+                "club_name": member.club.name if member.club_id else "",
+            }
+            for member in page
+        ]
+        return paginator.get_paginated_response(CommitteeHolderChoiceSerializer(rows, many=True).data)
 
 
 class CommitteeMandateViewSet(viewsets.ModelViewSet):
@@ -686,8 +775,82 @@ class CommitteeMandateViewSet(viewsets.ModelViewSet):
     permission_classes = [ClubMgmtPermission]
 
     def get_queryset(self):
-        qs = CommitteeMandate.objects.select_related("member", "person", "committee")
+        qs = CommitteeMandate.objects.select_related("member", "person", "committee", "committee__club")
+        if not is_ltf_manager(self.request.user):
+            qs = qs.filter(committee__club__admins=self.request.user)
         committee_id = self.request.query_params.get("committee")
         if committee_id:
             qs = qs.filter(committee_id=committee_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "committee__club_id")
+
+    def perform_create(self, serializer):
+        committee = serializer.validated_data.get("committee")
+        if committee is None or not can_edit_committee(self.request.user, committee):
+            raise PermissionDenied(detail="This module is not available.")
+        serializer.save(recorded_by=self.request.user)
+
+    def perform_update(self, serializer):
+        if not can_edit_committee(self.request.user, serializer.instance.committee):
+            raise PermissionDenied(detail="This module is not available.")
+        serializer.save(recorded_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        if not can_edit_committee(self.request.user, instance.committee):
+            raise PermissionDenied(detail="This module is not available.")
+        instance.delete()
+
+    @action(detail=True, methods=["post"])
+    def replace(self, request, pk=None):
+        """Close the current term and open the next one together.
+
+        The old end date equals the new start date. On that day the new
+        holder has the office and the previous holder does not.
+        """
+        old = self.get_object()
+        if not can_edit_committee(request.user, old.committee):
+            raise PermissionDenied(detail="This module is not available.")
+        if not old.member_id and not old.person_id:
+            raise ValidationError({"detail": "This office is vacant. Assign a member instead."})
+        today = timezone.localdate()
+        if old.ended_on is not None and old.ended_on <= today:
+            raise ValidationError({"detail": "Only the current term can be replaced."})
+        member_raw = request.data.get("member")
+        started_raw = request.data.get("started_on")
+        if member_raw in (None, "") or not started_raw:
+            raise ValidationError({"detail": "Choose the new member and the day they take over."})
+        try:
+            started_on = date.fromisoformat(str(started_raw)[:10])
+        except ValueError as exc:
+            raise ValidationError({"started_on": "Use a date."}) from exc
+        try:
+            member = Member.objects.get(pk=int(member_raw))
+        except (Member.DoesNotExist, TypeError, ValueError) as exc:
+            raise ValidationError({"member": "Choose a member of this club."}) from exc
+        if old.committee.scope == Committee.Scope.CLUB and member.club_id != old.committee.club_id:
+            raise ValidationError({"member": "Member must belong to this club."})
+        if started_on < old.started_on:
+            raise ValidationError({"started_on": "The new term cannot start before the current one."})
+        if not CommitteeMandate.member_is_adult(member, started_on):
+            raise ValidationError({"member": "Committee members must be 18 or older."})
+        try:
+            with transaction.atomic():
+                old.ended_on = started_on
+                old.recorded_by = request.user
+                old.full_clean()
+                old.save()
+                created = CommitteeMandate(
+                    committee=old.committee,
+                    role=old.role,
+                    title=old.title,
+                    member=member,
+                    started_on=started_on,
+                    recorded_by=request.user,
+                )
+                created.full_clean()
+                created.save()
+        except DjangoValidationError as exc:
+            detail = getattr(exc, "message_dict", None) or {"detail": exc.messages}
+            raise ValidationError(detail) from exc
+        return Response(CommitteeMandateSerializer(created).data, status=status.HTTP_201_CREATED)

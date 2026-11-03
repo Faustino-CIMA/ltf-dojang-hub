@@ -122,6 +122,20 @@ export default function OpsModulesPage() {
     }
   };
 
+  const mintCompetition = async () => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const minted = await mintProductCode(["competition"]);
+      setCode(minted.code);
+      setSuccessMessage(t("modulesMintedCompetition"));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggleAssignment = async (clubId: number, moduleId: string, enabled: boolean) => {
     setErrorMessage(null);
     try {
@@ -155,7 +169,7 @@ export default function OpsModulesPage() {
         <LoadingCardGrid title={t("modulesTitle")} description={t("modulesSubtitle")} />
       ) : (
       <>
-      <section className="app-panel p-4">
+      <section className="app-panel p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-foreground">{t("modulesInstallId")}</p>
@@ -175,7 +189,7 @@ export default function OpsModulesPage() {
         </div>
       </section>
 
-      <section className="mt-6 app-panel p-4">
+      <section className="app-panel p-3">
         <div className="mb-3 flex items-center gap-2">
           <KeyRound className="size-4 text-muted" aria-hidden />
           <h2 className="text-lg font-semibold text-foreground">{t("modulesRedeemTitle")}</h2>
@@ -200,6 +214,9 @@ export default function OpsModulesPage() {
               <Button type="button" variant="outline" onClick={() => void mintCalendar()} disabled={busy}>
                 {t("modulesMintCalendar")}
               </Button>
+              <Button type="button" variant="outline" onClick={() => void mintCompetition()} disabled={busy}>
+                {t("modulesMintCompetition")}
+              </Button>
               <Button type="button" variant="outline" onClick={() => void mintClubMgmt()} disabled={busy}>
                 {t("modulesMintClubMgmt")}
               </Button>
@@ -208,10 +225,10 @@ export default function OpsModulesPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("modulesCatalogTitle")}</h2>
         <p className="mt-1 text-sm text-muted">{t("modulesCatalogHint")}</p>
-        <div className="mt-4">
+        <div className="mt-3">
           <EntityTable
             columns={[
               { key: "label", header: t("modulesColModule") },
@@ -244,13 +261,13 @@ export default function OpsModulesPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("modulesMatrixTitle")}</h2>
         <p className="mt-1 text-sm text-muted">{t("modulesMatrixHint")}</p>
         {perClubEntitled.length === 0 ? (
-          <p className="mt-4 text-sm text-muted">{t("modulesMatrixEmpty")}</p>
+          <p className="mt-3 text-sm text-muted">{t("modulesMatrixEmpty")}</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[40rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)] text-left">
@@ -287,9 +304,9 @@ export default function OpsModulesPage() {
         )}
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("modulesRedemptionsTitle")}</h2>
-        <div className="mt-4">
+        <div className="mt-3">
           <EntityTable
             columns={[
               { key: "fingerprint_suffix", header: t("modulesColFingerprint") },

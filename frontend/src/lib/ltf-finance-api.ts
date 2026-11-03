@@ -1,5 +1,6 @@
 import { API_URL, apiRequest } from "./api";
 import { getToken } from "./auth";
+import { formatFullName } from "./person-name";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
 
 type ApiCallOptions = {
@@ -14,6 +15,8 @@ export type FinanceOrderItem = {
   billing_year?: number | null;
   price_snapshot: string;
   quantity: number;
+  charged_amount?: string | null;
+  module_purchase?: boolean;
   member_id?: number | null;
   member_first_name?: string | null;
   member_last_name?: string | null;
@@ -25,7 +28,10 @@ export function orderItemMemberDisplay(
   membersById?: Record<number, { first_name: string; last_name: string; ltf_licenseid?: string }>,
   unknownLabel = "Unknown member"
 ): { name: string; ltfLicenseId: string } {
-  const fromItem = `${item.member_first_name ?? ""} ${item.member_last_name ?? ""}`.trim();
+  const fromItem = formatFullName({
+    first_name: item.member_first_name,
+    last_name: item.member_last_name,
+  });
   if (fromItem) {
     return {
       name: fromItem,
@@ -35,7 +41,7 @@ export function orderItemMemberDisplay(
   const memberId = item.member_id ?? item.license?.member ?? null;
   const member = memberId != null ? membersById?.[memberId] : undefined;
   if (member) {
-    const name = `${member.first_name} ${member.last_name}`.trim();
+    const name = formatFullName(member);
     return {
       name: name || unknownLabel,
       ltfLicenseId: (member.ltf_licenseid ?? "").trim() || "-",
@@ -79,6 +85,19 @@ export function isClubFeeItem(item: FinanceOrderItem): boolean {
 
 export function orderItemsAreClubFees(items: FinanceOrderItem[] | undefined): boolean {
   return Boolean(items?.length) && items!.every((item) => isClubFeeItem(item));
+}
+
+export function orderItemsAreModulePurchases(items: FinanceOrderItem[] | undefined): boolean {
+  return Boolean(items?.length) && items!.every((item) => item.module_purchase === true);
+}
+
+export function modulePurchaseUnitPrice(item: FinanceOrderItem, currency: string): string {
+  return `${item.price_snapshot} ${currency}`.trim();
+}
+
+export function modulePurchaseLineTotal(item: FinanceOrderItem, currency: string): string {
+  const amount = item.charged_amount || item.price_snapshot;
+  return `${amount} ${currency}`.trim();
 }
 
 export type FinanceLedger = "federation" | "club";
@@ -260,11 +279,35 @@ export type LicenseTypePolicy = {
   next_start_day: number;
   next_end_month: number;
   next_end_day: number;
+  validity_mode?: "calendar_year" | "duration";
+  duration_years?: number;
+  duration_days?: number;
+  reminders_enabled?: boolean;
+  reminder_offsets?: number[];
   created_at: string;
   updated_at: string;
 };
 
+export type LicenseTypePolicyInput = {
+  allow_current_year_order: boolean;
+  current_start_month: number;
+  current_start_day: number;
+  current_end_month: number;
+  current_end_day: number;
+  allow_next_year_preorder: boolean;
+  next_start_month: number;
+  next_start_day: number;
+  next_end_month: number;
+  next_end_day: number;
+  validity_mode: "calendar_year" | "duration";
+  duration_years: number;
+  duration_days: number;
+  reminders_enabled: boolean;
+  reminder_offsets: number[];
+};
+
 export type ClubFeeCadence = "one_off" | "annual" | "per_member" | "per_event";
+export type ModuleFeePricingType = "flat" | "per_active_member";
 
 export type ClubFeeType = {
   id: number;
@@ -273,9 +316,14 @@ export type ClubFeeType = {
   description: string;
   cadence: ClubFeeCadence;
   year: number | null;
+  module_id?: string | null;
   is_active: boolean;
+  has_invoices?: boolean;
   current_amount: string | null;
   current_currency: string | null;
+  current_pricing_type?: ModuleFeePricingType | null;
+  current_minimum_amount?: string | null;
+  current_effective_from?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -284,10 +332,36 @@ export type ClubFeePrice = {
   id: number;
   fee_type: number;
   amount: string;
+  pricing_type?: ModuleFeePricingType;
+  minimum_amount?: string | null;
   currency: string;
   effective_from: string;
   created_by: number | null;
   created_at: string;
+};
+
+export type ClubModuleFeeRow = {
+  module_id: string;
+  name: string;
+  enabled: boolean;
+  has_price: boolean;
+  pricing_type: ModuleFeePricingType | null;
+  amount: string | null;
+  currency: string;
+  minimum_amount: string | null;
+  effective_from: string | null;
+  active_member_count: number;
+  calculated_amount: string | null;
+  estimated_amount: string | null;
+  minimum_applied: boolean;
+};
+
+export type ClubModuleFeeQuote = {
+  club_id: number;
+  year: number;
+  active_member_count: number;
+  estimate: boolean;
+  modules: ClubModuleFeeRow[];
 };
 
 export type FinanceLicenseType = {
@@ -456,6 +530,7 @@ type FinanceInvoiceQueryParams = {
   status?: string;
   clubId?: number;
   issue?: string;
+  ordering?: string;
 };
 
 type FinanceInvoicePageParams = FinanceInvoiceQueryParams & {
@@ -476,6 +551,9 @@ function buildFinanceInvoiceQuery(params?: FinanceInvoiceQueryParams) {
   }
   if (params?.issue) {
     search.set("issue", params.issue);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }
@@ -727,6 +805,7 @@ export function createFinanceLicenseType(input: {
   initial_price_amount?: string;
   initial_price_currency?: string;
   initial_price_effective_from?: string;
+  policy?: LicenseTypePolicyInput;
 }) {
   return apiRequest<FinanceLicenseType>("/api/license-types/", {
     method: "POST",
@@ -734,7 +813,10 @@ export function createFinanceLicenseType(input: {
   });
 }
 
-export function updateFinanceLicenseType(id: number, input: { name: string }) {
+export function updateFinanceLicenseType(
+  id: number,
+  input: { name: string; policy?: LicenseTypePolicyInput },
+) {
   return apiRequest<FinanceLicenseType>(`/api/license-types/${id}/`, {
     method: "PATCH",
     body: JSON.stringify(input),
@@ -754,14 +836,17 @@ export function getClubFeeTypes(options?: ApiCallOptions) {
 }
 
 export function createClubFeeType(input: {
-  name: string;
+  name?: string;
   description?: string;
   cadence?: ClubFeeCadence;
   year?: number | null;
+  module_id?: string | null;
   is_active?: boolean;
   initial_amount?: string;
   initial_currency?: string;
   initial_effective_from?: string;
+  initial_pricing_type?: ModuleFeePricingType;
+  initial_minimum_amount?: string | null;
 }) {
   return apiRequest<ClubFeeType>("/api/club-fee-types/", {
     method: "POST",
@@ -769,9 +854,209 @@ export function createClubFeeType(input: {
   });
 }
 
+export function updateClubFeeType(
+  id: number,
+  input: {
+    name?: string;
+    description?: string;
+    cadence?: ClubFeeCadence;
+    is_active?: boolean;
+    initial_amount?: string;
+    initial_currency?: string;
+    initial_effective_from?: string;
+  },
+) {
+  return apiRequest<ClubFeeType>(`/api/club-fee-types/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export type ModuleBundle = {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  is_active: boolean;
+  module_ids: string[];
+  current_amount: string | null;
+  current_currency: string | null;
+  current_effective_from: string | null;
+  has_invoices: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ModuleSubscriptionSettings = {
+  subscription_months: number;
+  renewal_notice_days: number;
+  payment_window_days: number;
+  payment_warning_days: number;
+  updated_at: string;
+};
+
+export function getModuleBundles() {
+  return apiRequest<ModuleBundle[]>("/api/module-bundles/");
+}
+
+export function createModuleBundle(input: {
+  name: string;
+  description?: string;
+  is_active?: boolean;
+  modules: string[];
+  initial_amount: string;
+  initial_currency?: string;
+  initial_effective_from?: string;
+}) {
+  return apiRequest<ModuleBundle>("/api/module-bundles/", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateModuleBundle(
+  id: number,
+  input: {
+    name?: string;
+    description?: string;
+    is_active?: boolean;
+    modules?: string[];
+    initial_amount?: string;
+    initial_currency?: string;
+    initial_effective_from?: string;
+  },
+) {
+  return apiRequest<ModuleBundle>(`/api/module-bundles/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteModuleBundle(id: number) {
+  return apiRequest<ModuleBundle | null>(`/api/module-bundles/${id}/`, { method: "DELETE" });
+}
+
+export function getModuleSubscriptionSettings() {
+  return apiRequest<ModuleSubscriptionSettings>("/api/module-subscription-settings/");
+}
+
+export function updateModuleSubscriptionSettings(input: Partial<Omit<ModuleSubscriptionSettings, "updated_at">>) {
+  return apiRequest<ModuleSubscriptionSettings>("/api/module-subscription-settings/", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export function deleteClubFeeType(id: number) {
-  return apiRequest<void>(`/api/club-fee-types/${id}/`, {
+  return apiRequest<ClubFeeType | null>(`/api/club-fee-types/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export function getClubModuleFees(clubId: number) {
+  return apiRequest<ClubModuleFeeQuote>(`/api/clubs/${clubId}/module-fees/`);
+}
+
+export type ModuleOrderComparisonLine = {
+  module_id: string;
+  name: string;
+  kind: "flat" | "per_member" | "missing";
+  amount: string | null;
+};
+
+export type ModuleOrderOffer = {
+  kind: "module" | "bundle";
+  key: string;
+  module_id: string | null;
+  bundle_id: number | null;
+  name: string;
+  module_ids: string[];
+  module_names: string[];
+  amount: string | null;
+  estimated_amount: string | null;
+  currency: string;
+  pricing_type: "flat" | "per_active_member" | null;
+  active_member_count: number | null;
+  state: "available" | "on" | "open_invoice" | "not_entitled" | "no_price" | "blocked";
+  ends_at: string | null;
+  blocked_module_names?: string[];
+  invoice_id: number | null;
+  invoice_number: string | null;
+  comparison: {
+    lines: ModuleOrderComparisonLine[];
+    sum: string | null;
+    difference: string | null;
+  } | null;
+};
+
+export type ModuleRenewalRow = {
+  purchase_id: number;
+  name: string;
+  ends_at: string;
+  choice: "unanswered" | "continue" | "stop";
+  can_choose: boolean;
+  invoice_id: number | null;
+  invoice_number: string | null;
+  pay_until: string | null;
+};
+
+export type ModuleOrderCatalog = {
+  club_id: number;
+  active_member_count: number;
+  subscription_months: number;
+  offers: ModuleOrderOffer[];
+  renewals?: ModuleRenewalRow[];
+};
+
+export type ModuleOrderResult = {
+  invoice_id: number;
+  invoice_number: string;
+  order_id: number;
+  total: string;
+  currency: string;
+  lines: { purchase_id: number; description: string; amount: string }[];
+  notices: { code: string; module_id: string; bundle_name: string }[];
+};
+
+export function getModuleOrderCatalog(clubId: number) {
+  return apiRequest<ModuleOrderCatalog>(`/api/clubs/${clubId}/module-order-catalog/`);
+}
+
+export function chooseModuleRenewal(clubId: number, purchaseId: number, choice: "continue" | "stop") {
+  return apiRequest<{ purchase_id: number; choice: string }>(
+    `/api/clubs/${clubId}/module-purchases/${purchaseId}/choice/`,
+    { method: "POST", body: JSON.stringify({ choice }) },
+  );
+}
+
+export function previewModuleRenewal(token: string) {
+  const search = new URLSearchParams({ token });
+  return apiRequest<{
+    ok: boolean;
+    title: string;
+    body: string;
+    confirm: string;
+    done: boolean;
+    closed: boolean;
+    choice?: string;
+  }>(`/api/module-renewals/?${search.toString()}`);
+}
+
+export function confirmModuleRenewal(token: string) {
+  return apiRequest<{
+    ok: boolean;
+    title: string;
+    body: string;
+    confirm: string;
+    done: boolean;
+    closed: boolean;
+  }>("/api/module-renewals/", { method: "POST", body: JSON.stringify({ token }) });
+}
+
+export function createModuleOrder(clubId: number, input: { modules: string[]; bundles: number[] }) {
+  return apiRequest<ModuleOrderResult>(`/api/clubs/${clubId}/module-orders/`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
@@ -791,6 +1076,8 @@ export function createClubFeePrice(input: {
   amount: string;
   currency?: string;
   effective_from?: string;
+  pricing_type?: ModuleFeePricingType;
+  minimum_amount?: string | null;
 }) {
   return apiRequest<ClubFeePrice>("/api/club-fee-prices/", {
     method: "POST",

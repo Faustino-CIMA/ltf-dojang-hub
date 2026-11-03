@@ -6,7 +6,7 @@ import {
   Activity,
   AlertTriangle,
   CircleHelp,
-  Container,
+  Clock,
   Database,
   GitBranch,
   HardDrive,
@@ -31,9 +31,11 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
-import { getOpsOverview, getOpsSessions, type HealthCheck, type OpsOverview, type OpsSession } from "@/lib/ops-api";
+import { healthDetailText, orderOpsHealthChecks } from "@/lib/ops-health-cards";
+import { getOpsOverview, getOpsSessions, type OpsOverview, type OpsSession } from "@/lib/ops-api";
 
 const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
+  { key: "clock", icon: Clock },
   { key: "postgres", icon: Database },
   { key: "redis", icon: Zap },
   { key: "celery", icon: Workflow },
@@ -41,12 +43,7 @@ const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
   { key: "media", icon: HardDrive },
   { key: "migrations", icon: GitBranch },
   { key: "env_keys", icon: KeyRound },
-  { key: "docker", icon: Container },
 ];
-
-function toneForOk(ok: boolean): "success" | "danger" {
-  return ok ? "success" : "danger";
-}
 
 function checkLabel(t: ReturnType<typeof useTranslations>, name: string) {
   const key = `healthCheck_${name}`;
@@ -113,19 +110,15 @@ export default function OpsOverviewPage() {
     void load();
   }, [load]);
 
-  const checks = overview ? Object.entries(overview.health.checks) : [];
-  const orderedChecks = [
-    ...HEALTH_CHECKS.filter((row) => checks.some(([name]) => name === row.key)).map((row) => {
-      const found = checks.find(([name]) => name === row.key);
-      return [row.key, found?.[1]] as [string, HealthCheck | undefined];
-    }),
-    ...checks.filter(([name]) => !HEALTH_CHECKS.some((row) => row.key === name)),
-  ];
+  const orderedChecks = orderOpsHealthChecks(
+    overview?.health.checks,
+    HEALTH_CHECKS.map((row) => row.key),
+  ).filter((row) => row.key !== "docker");
 
   return (
     <OpsLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title={t("cardOnline")}
           value={isLoading ? "…" : String(overview?.online_sessions ?? "—")}
@@ -154,7 +147,7 @@ export default function OpsOverviewPage() {
         />
       </div>
 
-      <section className="mt-8">
+      <section>
         <div className="flex flex-wrap items-center gap-3">
           <HeartPulse className="size-5 text-[var(--accent)]" aria-hidden />
           <h2 className="text-lg font-semibold text-foreground">{t("healthTitle")}</h2>
@@ -175,12 +168,11 @@ export default function OpsOverviewPage() {
           aria-live={isLoading ? "polite" : undefined}
         >
           {isLoading
-            ? HEALTH_CHECKS.map((row, index) => {
+            ? HEALTH_CHECKS.map((row) => {
                 const Icon = row.icon;
                 return (
                   <LoadingCard
                     key={row.key}
-                    delayMs={index * 70}
                     header={
                       <HealthCheckTitle
                         name={row.key}
@@ -193,26 +185,30 @@ export default function OpsOverviewPage() {
                   />
                 );
               })
-            : orderedChecks.map(([name, check]) => {
-                const Icon = HEALTH_CHECKS.find((row) => row.key === name)?.icon ?? Server;
-                if (!check) {
-                  return null;
-                }
+            : orderedChecks.map(({ key, check }) => {
+                const Icon = HEALTH_CHECKS.find((row) => row.key === key)?.icon ?? Server;
                 return (
-                  <div key={name} className="app-panel relative p-4">
+                  <div key={key} className="app-panel relative p-4">
                     <HealthCheckTitle
-                      name={name}
+                      name={key}
                       icon={Icon}
-                      badge={<StatusBadge label={check.ok ? t("statusOk") : t("statusDown")} tone={toneForOk(check.ok)} />}
+                      badge={
+                        <StatusBadge
+                          label={check ? (check.ok ? t("statusOk") : t("statusDown")) : t("statusUnavailable")}
+                          tone={check ? (check.ok ? "success" : "danger") : "neutral"}
+                        />
+                      }
                     />
-                    <p className="mt-2 text-sm text-muted">{check.detail}</p>
+                    <p className="mt-2 text-sm text-muted">
+                      {check ? healthDetailText(check.detail) || t("healthMissing") : t("healthMissing")}
+                    </p>
                   </div>
                 );
               })}
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <div className="mb-3 flex items-center gap-2">
           <Server className="size-4 text-muted" aria-hidden />
           <h2 className="text-lg font-semibold text-foreground">{t("sessionsTitle")}</h2>

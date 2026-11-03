@@ -2,14 +2,19 @@
 
 The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, the shop, and a shared calendar.
 
+## Branches
+
+Day-to-day work happens on `develop`. `main` receives a release when that release is merged there. The live app deploys `develop`. GitHub Actions runs on push and pull requests to `main` (`.github/workflows/ci.yml`).
+
 ## Release Notes
 
-This working tree is **v0.12.0** on `main`: several membership billings a year, a license fee on the billing that opens the season, Billing as the invoice desk, publication consent, and coach pay. The calendar can keep a date inside a club, share it with every club and the LTF, or limit a presidents meeting to the invited presidents. The Calendar link counts the next two months and shows new until those events are opened. A club admin can set a reminder. The application is called LTF Dojang Hub. A club print from the members list includes that member’s current license year. A club admin can delete a finished print job from the club print-jobs table. Members, Clubs, and Licenses menus open as popovers, and those lists use the outline trash button. Coach pay, the calendar audiences, the Calendar link, reminders, the name, license-card printing, and these list controls are recorded under CHANGELOG Unreleased. The displayed version stays 0.12.0.
+The displayed version is **0.13.0** (2026-11-02): first-run setup, Luxembourg addresses, club teams and the national team desk, more than one desk with a second factor for staff, module bundles, member logins, and French and German in the app, in emails, and on PDFs. Notes for a GitHub release are in `docs/releases/v0.13.0.md`.
 
-- See `CHANGELOG.md` **Unreleased** for coach pay, calendar audiences, the Calendar link, reminders, the LTF Dojang Hub name, license-card printing, and the list menus, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
-- Current tagged release: `v0.11.0`. `main` carries v0.12.0 and the unreleased coach-pay, calendar, and rename work. No v0.12.0 tag has been created.
+- See `CHANGELOG.md` **0.13.0** for this version, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- The last published GitHub release tag is `v0.11.0` (2026-09-27). Version 0.12.0 was recorded on 2026-10-02 and was not tagged. Version 0.13.0 is recorded on `develop` (2026-11-02). Merging it to `main` and creating the tag are separate steps.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
-- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`.
+- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`. Those manuals describe the 0.12.0 edition and are updated separately.
+- Demo environment (a second app, fictional data only): `docs/demo-environment.md`. Never seed the live server.
 
 ## CI (GitHub Actions)
 
@@ -94,6 +99,16 @@ docker compose exec backend python manage.py mint_module_code --modules club_man
 ```
 
 Set `MODULE_CODE_PUBLIC_KEY` alone only when someone else signs codes for this server. Do not call a product code a license.
+
+## Demo accounts
+
+The live server holds real clubs and members, including minors. Do not run the demo seed on it, and do not point a demo login at the production database.
+
+The demo is a second app with its own empty Postgres database and only fictional data. Step-by-step Coolify instructions, the environment variables, and how to wipe and reseed are in [`docs/demo-environment.md`](docs/demo-environment.md).
+
+`seed_demo_data` and `seed_demo_accounts` both refuse to run unless `DEMO_MODE=true`. They also refuse when the database already contains a club or member that is not marked as demo data, unless you pass `--force-demo` together with `DEMO_MODE`. Even then they do not modify those rows. They are not part of container startup, so a redeploy does not change passwords.
+
+The fictional logins are `demo_ltf_admin`, `demo_ltf_finance`, `demo_club_admin`, `demo_club_finance`, `demo_coach`, and `demo_member`. Each other demo club also gets `demo_club_admin_<slug>` (`moselle`, `red_lion`, `three_acorns`, `valley`). Club finance is a club admin: the app has no separate club-finance role. Passwords come from `DEMO_LTF_ADMIN_PASSWORD`, `DEMO_LTF_FINANCE_PASSWORD`, `DEMO_CLUB_ADMIN_PASSWORD`, `DEMO_CLUB_FINANCE_PASSWORD`, `DEMO_COACH_PASSWORD`, `DEMO_MEMBER_PASSWORD`, and `DEMO_CLUB_ADMIN_<SLUG>_PASSWORD` for the extra club admins, or are printed once when an account is created. Do not commit the values.
 
 ## Verify Install
 
@@ -209,6 +224,8 @@ docker compose up -d --build --force-recreate backend frontend worker beat
 ```
 - After rollback, rerun the health verification commands above.
 
+6. After a production deploy, run `python manage.py refresh_lu_addresses` once on the backend. The monthly job on the morning of the 6th does the same refresh. Card-checkout return URLs follow the production rules in Environment Variables (`FRONTEND_BASE_URL`, `STRIPE_CHECKOUT_SUCCESS_URL`, `STRIPE_CHECKOUT_CANCEL_URL`).
+
 ## Screenshots
 
 Docker services (containers running):
@@ -251,6 +268,15 @@ Stripe + payments:
 - `STRIPE_API_VERSION` (default `2026-01-28.clover`)
 - `STRIPE_CHECKOUT_SUCCESS_URL` (session id is appended automatically if missing)
 - `STRIPE_CHECKOUT_CANCEL_URL`
+
+Production Stripe return URLs, using `https://app.ltkdf.org` as the live example:
+- `FRONTEND_BASE_URL` is the site origin only: `https`, no trailing slash, and no `/en` or `/lb`. Example: `https://app.ltkdf.org`.
+- `STRIPE_CHECKOUT_SUCCESS_URL` is `https://app.ltkdf.org/checkout/success?session_id={CHECKOUT_SESSION_ID}`.
+- `STRIPE_CHECKOUT_CANCEL_URL` is `https://app.ltkdf.org/checkout/cancel`.
+- `{CHECKOUT_SESSION_ID}` stays as those characters, braces included. Stripe replaces that token. Do not percent-encode the braces, and do not put a locale segment in the path.
+
+Luxembourg addresses after deploy:
+- Run `python manage.py refresh_lu_addresses` once on the backend so street lookup uses the official register. A monthly job also runs on the morning of the 6th. Until the table is filled, lookup falls back to the previous search.
 
 Payconiq (mock + aggregator):
 - `PAYCONIQ_MODE` (`mock` or `aggregator`, default `mock`)
@@ -323,7 +349,7 @@ Product codes (not member licenses):
 Stripe configuration:
 - Set `STRIPE_SECRET_KEY` and `STRIPE_API_VERSION` in `.env`.
 - Set `STRIPE_WEBHOOK_SECRET` to the signing secret for your Stripe webhook endpoint.
-- Ensure `STRIPE_CHECKOUT_SUCCESS_URL` and `STRIPE_CHECKOUT_CANCEL_URL` match your frontend URLs.
+- Set `STRIPE_CHECKOUT_SUCCESS_URL` and `STRIPE_CHECKOUT_CANCEL_URL` to the frontend origin: `https`, no trailing slash, and no `/en` or `/lb`. On the live site that origin is `https://app.ltkdf.org`. Keep `{CHECKOUT_SESSION_ID}` as literal braces in the success URL. The same rules are under Environment Variables above.
 - Club Admin checkout flow does not require an extra consent prompt; consent enforcement is handled in backend policy and user consent state.
 - Finance access: LTF Finance has full access to orders/invoices/audit logs; LTF Admin can only perform fallback actions (confirm payment or activate licenses).
 
@@ -395,7 +421,7 @@ Print artifact lifecycle:
 
 Role split:
 - LTF Admin: manages templates/versions, dual-side designer payloads, simulation previews, and can execute/retry/cancel any print job.
-- Club Admin: can quick-print from own-club members or licenses, execute/retry/cancel own-club print jobs, delete a draft, succeeded, failed, or cancelled own-club job, and view own-club print history. A queued or running job has to be cancelled before it can be deleted. A print started from the members list uses the member’s current license, so the license year is printed.
+- Club Admin: can execute/retry/cancel own-club print jobs, preview or download the PDF, delete a draft, succeeded, failed, or cancelled own-club job, and view own-club print history. A queued or running job has to be cancelled before it can be deleted. LTF Admin can do the same for any club's job.
 
 ### License Card v2.1.2 Quick Usage (v0.3.6)
 
@@ -403,16 +429,15 @@ LTF Admin flow:
 1. Open `/{locale}/dashboard/ltf/license-cards`.
 2. Create or select a template, then open the designer.
 3. Build both `front` and `back` sides, run side-aware previews (`preview-data`, live simulation HTML, card/sheet PDF), then publish.
-4. Validate print behavior from the print-jobs page (`create -> execute -> download PDF -> history`).
+4. Validate print behavior from the print-jobs page (`execute -> preview or download PDF -> history`). Printing is grouped with printer profiles under one Printing item.
 
 Club Admin flow:
-1. Open `/{locale}/dashboard/club/print-jobs/quick-print`.
-2. Select members/licenses and run quick print using the latest published template.
-3. Confirm job reaches `succeeded` and artifact download works from history.
+1. Open `/{locale}/dashboard/club/print-jobs`.
+2. Confirm a succeeded job can be previewed and downloaded, and that delete asks for confirmation.
 
 v0.3.6 Printer profiles (user-owned) notes:
 - Printer profiles are owner-scoped: each user (LTF Admin or Club Admin) sees and manages only their own profiles.
-- LTF Admin: full CRUD at `/{locale}/dashboard/ltf/printer-profiles`. Club Admin: select own profile when creating quick-print jobs (members, licenses, quick-print page).
+- LTF Admin: full CRUD at `/{locale}/dashboard/ltf/printer-profiles`, on the Printing tabs next to card print jobs. Club Admin: manage profiles at `/{locale}/dashboard/club/printer-profiles`.
 - Offsets (`x_offset_mm`, `y_offset_mm`) are applied only in the final PDF; designer canvas and live simulation are unchanged.
 - Sheet preview and print execution apply the selected `printer_profile` offsets in final PDF rendering.
 - LP798 geometry and sheet-slot placement remain locked (`85.00x55.00`, margins/gaps `15/10/15` and `10/0`) with guide neutrality preserved.

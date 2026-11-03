@@ -96,6 +96,25 @@ class EventCalendarTests(TestCase):
         response = self.client.get("/api/events/?scope=federation")
         self.assertEqual(response.status_code, 403)
 
+    def test_create_forbidden_without_entitlement(self):
+        self._auth(self.ltf_admin)
+        response = self.client.post("/api/events/", self._payload(), format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_club_write_refused_when_assignment_disabled(self):
+        self._entitle()
+        self._assign(self.club, enabled=False)
+        self._auth(self.club_admin)
+        response = self.client.post(
+            "/api/events/",
+            self._payload(
+                owner_scope=Event.OwnerScope.CLUB,
+                club=self.club.id,
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
     def test_ltf_admin_crud_federation_when_entitled(self):
         self._entitle()
         self._auth(self.ltf_admin)

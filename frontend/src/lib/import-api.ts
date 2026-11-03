@@ -19,17 +19,33 @@ type PreviewResponse = {
   ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
 };
 
-type ImportRow = {
+export type ImportIssue = {
+  code: "gender" | "duplicate" | "licence_taken" | string;
+  value?: string;
+  name?: string;
+  id?: string;
+};
+
+export type ImportRow = {
   row_index: number;
   data: Record<string, string | null>;
   errors: string[];
+  issues?: ImportIssue[];
   duplicate: boolean;
   existing_id: number | null;
+  disposition?: "create" | "update" | "skip";
+  changed_fields?: string[];
+  match_by?: "ltf_licenseid" | "wt_licenseid" | "name_dob" | null;
+  parkable?: boolean;
+  park_reasons?: string[];
+  park_club_text?: string;
 };
 
 type ConfirmResponse = {
   created: number;
+  updated?: number;
   skipped: number;
+  parked?: number;
   errors: Array<{ row_index: number; errors: string[] }>;
   club_id?: number;
   ltf_license_prefix_rewrite?: LtfLicensePrefixRewritePolicy;
@@ -42,7 +58,8 @@ export async function previewImport(
   file: File,
   mapping?: Record<string, string>,
   clubId?: number,
-  dateFormat?: string
+  dateFormat?: string,
+  updateMode?: string
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -54,6 +71,9 @@ export async function previewImport(
   }
   if (dateFormat) {
     formData.append("date_format", dateFormat);
+  }
+  if (updateMode) {
+    formData.append("update_mode", updateMode);
   }
 
   return upload<PreviewResponse>(`/api/imports/${type}/preview/`, formData);
@@ -78,11 +98,12 @@ export async function confirmImport(
   type: ImportType,
   file: File,
   mapping: Record<string, string>,
-  actions: Array<{ row_index: number; action: "create" | "skip" }>,
+  actions: Array<{ row_index: number; action: "create" | "update" | "skip" | "park" }>,
   clubId?: number,
   dateFormat?: string,
   rowOverrides?: ConfirmRowOverridePayload[],
-  membershipYearPolicies?: MembershipYearPoliciesPayload
+  membershipYearPolicies?: MembershipYearPoliciesPayload,
+  updateMode?: string
 ) {
   const formData = new FormData();
   formData.append("file", file);
@@ -99,6 +120,9 @@ export async function confirmImport(
   }
   if (membershipYearPolicies?.enabled) {
     formData.append("membership_year_policies", JSON.stringify(membershipYearPolicies));
+  }
+  if (updateMode) {
+    formData.append("update_mode", updateMode);
   }
 
   return upload<ConfirmResponse>(`/api/imports/${type}/confirm/`, formData);
@@ -120,4 +144,4 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
   return (await response.json()) as T;
 }
 
-export type { ConfirmResponse, ImportRow, PreviewResponse };
+export type { ConfirmResponse, PreviewResponse };

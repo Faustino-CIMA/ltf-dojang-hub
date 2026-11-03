@@ -1,0 +1,13 @@
+Hello {{ name }},
+
+We received a request to reset your LTF Dojang Hub password.
+
+Username: {{ username }}
+Clubs: {{ clubs }}
+
+Choose a new password:
+{{ url }}
+
+If you did not request this, you can ignore this email.
+
+LTF Dojang Hub

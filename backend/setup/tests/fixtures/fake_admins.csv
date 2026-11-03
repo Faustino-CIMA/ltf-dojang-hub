@@ -1,0 +1,11 @@
+Organization Name,Organization Type,Parent Organization Name,Parent Organization Type,Admin Id,Admin First Name,Admin Last Name
+LTF,Federation,,,LUX-2001,Kim,Beispiel
+Silver Crane Academy,Club,,,LUX-10,Skip,Person
+Silver Crane Academy,Club,,,LUX-1001,ERIKA,MUSTERFRAU
+Silver Crane Academy,Club,,,LUX-1002,MUSTERMANN,Max
+Taekwon-Do Beispielhausen,Club,,,LUX-1002,max,mustermann
+Silver Crane Academy,Club,,,LUX-1003,jan,janssen
+Taekwondo Club Musterstadt,Club,,,LUX-9000,Erika,MUSTERFRAU
+,,,,,,,
+No Such Club,Club,,,LUX-1001,Erika,MUSTERFRAU
+Taekwon-Do Beispielhausen,Club,,,LUX-1003,JAN,BEISPIEL

@@ -61,6 +61,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     member_first_name = serializers.SerializerMethodField()
     member_last_name = serializers.SerializerMethodField()
     member_ltf_licenseid = serializers.SerializerMethodField()
+    module_purchase = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -72,10 +73,14 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "billing_year",
             "price_snapshot",
             "quantity",
+            "active_member_count",
+            "minimum_applied",
+            "charged_amount",
             "member_id",
             "member_first_name",
             "member_last_name",
             "member_ltf_licenseid",
+            "module_purchase",
         ]
 
     def get_member_id(self, obj: OrderItem):
@@ -89,6 +94,24 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_member_ltf_licenseid(self, obj: OrderItem):
         return obj.license.member.ltf_licenseid if obj.license_id else ""
+
+    def get_module_purchase(self, obj: OrderItem) -> bool:
+        order = obj.order
+        cached = getattr(order, "_module_purchase_item_ids", None)
+        if cached is None:
+            from django.db.models import Q
+
+            from .models import ModulePurchase
+
+            cached = set(
+                ModulePurchase.objects.filter(
+                    Q(order_item__order_id=order.id) | Q(renewal_order_item__order_id=order.id)
+                ).values_list("order_item_id", "renewal_order_item_id")
+            )
+            item_ids = {item_id for pair in cached for item_id in pair if item_id}
+            order._module_purchase_item_ids = item_ids
+            cached = item_ids
+        return obj.id in cached
 
 
 class CreditNoteSerializer(serializers.ModelSerializer):
@@ -297,6 +320,10 @@ class OrderCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({"items": "At least one item is required."})
         if member is None:
             raise serializers.ValidationError({"member": "Member is required to create licenses."})
+        if member.club_id is None:
+            raise serializers.ValidationError(
+                {"member": "LTF staff without a club are licensed by the federation, not by a club order."}
+            )
         if member.club_id != club.id:
             raise serializers.ValidationError(
                 {"member": "Member does not belong to the specified club."}
@@ -487,6 +514,11 @@ class ConfirmCheckoutResultSerializer(serializers.Serializer):
     invoice_id = serializers.IntegerField(allow_null=True)
     order_status = serializers.CharField(allow_null=True, required=False)
     invoice_status = serializers.CharField(allow_null=True, required=False)
+    return_area = serializers.ChoiceField(
+        choices=["club", "ltf", "ltf-finance", "member", "ops"],
+        allow_blank=True,
+        required=False,
+    )
 
 
 class ActivateLicensesSerializer(serializers.Serializer):
@@ -770,6 +802,8 @@ class ClubFeePriceSerializer(serializers.ModelSerializer):
             "id",
             "fee_type",
             "amount",
+            "pricing_type",
+            "minimum_amount",
             "currency",
             "effective_from",
             "created_by",
@@ -782,10 +816,40 @@ class ClubFeePriceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Amount cannot be negative.")
         return value
 
+    def validate_minimum_amount(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Minimum fee cannot be negative.")
+        return value
+
+    def validate(self, attrs):
+        fee_type = attrs.get("fee_type") or getattr(self.instance, "fee_type", None)
+        pricing_type = attrs.get(
+            "pricing_type",
+            getattr(self.instance, "pricing_type", ClubFeePrice.PricingType.FLAT),
+        )
+        if "minimum_amount" in attrs:
+            minimum_amount = attrs.get("minimum_amount")
+        else:
+            minimum_amount = getattr(self.instance, "minimum_amount", None)
+        if fee_type is not None and not fee_type.module_id:
+            if pricing_type != ClubFeePrice.PricingType.FLAT:
+                raise serializers.ValidationError(
+                    {"pricing_type": "Only a module fee can use this pricing."}
+                )
+            if minimum_amount is not None:
+                raise serializers.ValidationError(
+                    {"minimum_amount": "Only a module fee can have a minimum."}
+                )
+        return attrs
+
 
 class ClubFeeTypeSerializer(serializers.ModelSerializer):
     current_amount = serializers.SerializerMethodField()
     current_currency = serializers.SerializerMethodField()
+    current_pricing_type = serializers.SerializerMethodField()
+    current_minimum_amount = serializers.SerializerMethodField()
+    current_effective_from = serializers.SerializerMethodField()
+    has_invoices = serializers.SerializerMethodField()
     initial_amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, write_only=True
     )
@@ -793,6 +857,19 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
         max_length=3, required=False, write_only=True, default="EUR"
     )
     initial_effective_from = serializers.DateField(required=False, write_only=True)
+    initial_pricing_type = serializers.ChoiceField(
+        choices=ClubFeePrice.PricingType.choices,
+        required=False,
+        write_only=True,
+        default=ClubFeePrice.PricingType.FLAT,
+    )
+    initial_minimum_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
 
     class Meta:
         model = ClubFeeType
@@ -803,44 +880,142 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             "description",
             "cadence",
             "year",
+            "module_id",
             "is_active",
+            "has_invoices",
             "current_amount",
             "current_currency",
+            "current_pricing_type",
+            "current_minimum_amount",
+            "current_effective_from",
             "initial_amount",
             "initial_currency",
             "initial_effective_from",
+            "initial_pricing_type",
+            "initial_minimum_amount",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
-        extra_kwargs = {"code": {"required": False, "allow_blank": True}}
+        extra_kwargs = {
+            "code": {"required": False, "allow_blank": True},
+            "name": {"required": False, "allow_blank": True},
+            "module_id": {"required": False, "allow_null": True, "allow_blank": True},
+        }
+
+    def _current_price(self, obj: ClubFeeType):
+        return ClubFeePrice.get_active_price(fee_type=obj)
 
     def get_current_amount(self, obj: ClubFeeType):
-        price = ClubFeePrice.get_active_price(fee_type=obj)
+        price = self._current_price(obj)
         return str(price.amount) if price else None
 
     def get_current_currency(self, obj: ClubFeeType):
-        price = ClubFeePrice.get_active_price(fee_type=obj)
+        price = self._current_price(obj)
         return price.currency if price else None
 
-    def create(self, validated_data):
-        initial_amount = validated_data.pop("initial_amount", None)
-        initial_currency = validated_data.pop("initial_currency", "EUR")
-        initial_effective_from = validated_data.pop("initial_effective_from", None)
-        fee_type = super().create(validated_data)
-        if initial_amount is not None:
-            request = self.context.get("request")
-            created_by = getattr(request, "user", None) if request else None
-            if created_by is not None and not getattr(created_by, "is_authenticated", False):
-                created_by = None
-            ClubFeePrice.objects.create(
-                fee_type=fee_type,
-                amount=initial_amount,
-                currency=initial_currency or "EUR",
-                effective_from=initial_effective_from or timezone.localdate(),
-                created_by=created_by,
-            )
+    def get_current_pricing_type(self, obj: ClubFeeType):
+        price = self._current_price(obj)
+        return price.pricing_type if price else None
+
+    def get_current_minimum_amount(self, obj: ClubFeeType):
+        price = self._current_price(obj)
+        if price is None or price.minimum_amount is None:
+            return None
+        return str(price.minimum_amount)
+
+    def get_current_effective_from(self, obj: ClubFeeType):
+        price = self._current_price(obj)
+        return price.effective_from.isoformat() if price else None
+
+    def get_has_invoices(self, obj: ClubFeeType):
+        annotated = getattr(obj, "invoice_count", None)
+        if annotated is not None:
+            return annotated > 0
+        return obj.order_items.exists()
+
+    def validate_module_id(self, value):
+        if not value:
+            return None
+        from .module_fees import BILLABLE_MODULE_IDS
+
+        if value not in BILLABLE_MODULE_IDS:
+            raise serializers.ValidationError("Choose a billable module.")
+        return value
+
+    def validate_initial_minimum_amount(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Minimum fee cannot be negative.")
+        return value
+
+    def validate(self, attrs):
+        from modules.registry import get_spec
+
+        module_id = attrs.get("module_id", getattr(self.instance, "module_id", None))
+        if "name" in attrs and isinstance(attrs.get("name"), str):
+            attrs["name"] = attrs["name"].strip()
+        name = attrs.get("name", getattr(self.instance, "name", ""))
+        if not module_id and not str(name or "").strip():
+            raise serializers.ValidationError({"name": "Name is required."})
+        if module_id:
+            clash = ClubFeeType.objects.filter(module_id=module_id)
+            if self.instance is not None:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError({"module_id": "This module already has a fee."})
+            if not attrs.get("name") and not getattr(self.instance, "name", ""):
+                spec = get_spec(module_id)
+                attrs["name"] = spec.label if spec else module_id
+            attrs["cadence"] = ClubFeeType.Cadence.ANNUAL
+        pricing_type = attrs.get("initial_pricing_type", ClubFeePrice.PricingType.FLAT)
+        minimum_amount = attrs.get("initial_minimum_amount")
+        if not module_id:
+            if pricing_type != ClubFeePrice.PricingType.FLAT:
+                raise serializers.ValidationError(
+                    {"initial_pricing_type": "Only a module fee can use this pricing."}
+                )
+            if minimum_amount is not None:
+                raise serializers.ValidationError(
+                    {"initial_minimum_amount": "Only a module fee can have a minimum."}
+                )
+        return attrs
+
+    def _take_initial_price(self, validated_data):
+        return {
+            "amount": validated_data.pop("initial_amount", None),
+            "currency": validated_data.pop("initial_currency", "EUR"),
+            "effective_from": validated_data.pop("initial_effective_from", None),
+            "pricing_type": validated_data.pop("initial_pricing_type", ClubFeePrice.PricingType.FLAT),
+            "minimum_amount": validated_data.pop("initial_minimum_amount", None),
+        }
+
+    def _store_initial_price(self, fee_type, price):
+        if price["amount"] is None:
+            return fee_type
+        request = self.context.get("request")
+        created_by = getattr(request, "user", None) if request else None
+        if created_by is not None and not getattr(created_by, "is_authenticated", False):
+            created_by = None
+        ClubFeePrice.objects.create(
+            fee_type=fee_type,
+            amount=price["amount"],
+            pricing_type=price["pricing_type"],
+            minimum_amount=price["minimum_amount"],
+            currency=price["currency"] or "EUR",
+            effective_from=price["effective_from"] or timezone.localdate(),
+            created_by=created_by,
+        )
         return fee_type
+
+    def create(self, validated_data):
+        price = self._take_initial_price(validated_data)
+        fee_type = super().create(validated_data)
+        return self._store_initial_price(fee_type, price)
+
+    def update(self, instance, validated_data):
+        price = self._take_initial_price(validated_data)
+        fee_type = super().update(instance, validated_data)
+        return self._store_initial_price(fee_type, price)
 
 
 class ClubFeeBillingScheduleSerializer(serializers.ModelSerializer):
@@ -879,7 +1054,6 @@ class ClubFeeBillingRequestSerializer(serializers.Serializer):
 
 
 class LicenseTypeSerializer(serializers.ModelSerializer):
-    policy = serializers.SerializerMethodField()
     initial_price_amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, write_only=True
     )
@@ -887,6 +1061,8 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
         max_length=3, required=False, write_only=True, default="EUR"
     )
     initial_price_effective_from = serializers.DateField(required=False, write_only=True)
+    # Written with the type. Read back in to_representation so a reload shows the saved policy.
+    policy = serializers.JSONField(required=False, write_only=True)
 
     class Meta:
         model = LicenseType
@@ -909,37 +1085,67 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name is required.")
         return normalized
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["policy"] = self.get_policy(instance)
+        return data
+
+    def _save_policy(self, license_type, policy_data):
+        policy = get_or_create_license_type_policy(license_type)
+        if not policy_data:
+            return policy
+        serializer = LicenseTypePolicySerializer(
+            policy,
+            data=policy_data,
+            partial=True,
+            context=self.context,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return serializer.instance
+
     def create(self, validated_data):
         initial_price_amount = validated_data.pop("initial_price_amount", None)
         initial_price_currency = validated_data.pop("initial_price_currency", "EUR")
         initial_price_effective_from = validated_data.pop("initial_price_effective_from", None)
+        policy_data = validated_data.pop("policy", None)
         name = validated_data["name"]
         code = slugify(name)
         if LicenseType.objects.filter(code=code).exists():
             raise serializers.ValidationError({"name": "A license type with this name already exists."})
-        license_type = LicenseType.objects.create(name=name, code=code)
-        get_or_create_license_type_policy(license_type)
-        if initial_price_amount is not None:
-            request = self.context.get("request")
-            actor = request.user if request and request.user.is_authenticated else None
-            LicensePrice.objects.create(
-                license_type=license_type,
-                amount=initial_price_amount,
-                currency=initial_price_currency,
-                effective_from=initial_price_effective_from or timezone.localdate(),
-                created_by=actor,
-            )
+        with transaction.atomic():
+            license_type = LicenseType.objects.create(name=name, code=code)
+            get_or_create_license_type_policy(license_type)
+            if policy_data:
+                self._save_policy(license_type, policy_data)
+                license_type._state.fields_cache.pop("policy", None)
+            if initial_price_amount is not None:
+                request = self.context.get("request")
+                actor = request.user if request and request.user.is_authenticated else None
+                LicensePrice.objects.create(
+                    license_type=license_type,
+                    amount=initial_price_amount,
+                    currency=initial_price_currency,
+                    effective_from=initial_price_effective_from or timezone.localdate(),
+                    created_by=actor,
+                )
         return license_type
 
     def update(self, instance, validated_data):
+        policy_data = validated_data.pop("policy", None)
         name = validated_data.get("name", instance.name)
         code = slugify(name)
         if LicenseType.objects.exclude(id=instance.id).filter(code=code).exists():
             raise serializers.ValidationError({"name": "A license type with this name already exists."})
-        instance.name = name
-        instance.code = code
-        instance.save()
-        get_or_create_license_type_policy(instance)
+        with transaction.atomic():
+            instance.name = name
+            instance.code = code
+            instance.save()
+            if policy_data is not None:
+                self._save_policy(instance, policy_data)
+                instance._state.fields_cache.pop("policy", None)
+            else:
+                get_or_create_license_type_policy(instance)
         return instance
 
     def get_policy(self, obj):
@@ -970,6 +1176,11 @@ class LicenseTypePolicySerializer(serializers.ModelSerializer):
             "next_start_day",
             "next_end_month",
             "next_end_day",
+            "validity_mode",
+            "duration_years",
+            "duration_days",
+            "reminders_enabled",
+            "reminder_offsets",
             "created_at",
             "updated_at",
         ]
@@ -1015,7 +1226,64 @@ class LicenseTypePolicySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"next_window": "Next-year preorder window start must be before end."}
             )
+
+        mode = resolved("validity_mode") or LicenseTypePolicy.ValidityMode.CALENDAR_YEAR
+        years = int(resolved("duration_years") or 0)
+        days = int(resolved("duration_days") or 0)
+        if mode == LicenseTypePolicy.ValidityMode.DURATION and years == 0 and days == 0:
+            raise serializers.ValidationError(
+                {"duration_days": "Enter a duration in years, days, or both."}
+            )
+        if years < 0 or days < 0 or days > 366:
+            raise serializers.ValidationError(
+                {"duration_days": "Days must be between 0 and 366."}
+            )
+        offsets = resolved("reminder_offsets")
+        if offsets is None:
+            offsets = []
+        if not isinstance(offsets, list):
+            raise serializers.ValidationError({"reminder_offsets": "Enter a list of days."})
+        if len(offsets) > 5:
+            raise serializers.ValidationError({"reminder_offsets": "Use at most five reminders."})
+        seen = set()
+        for offset in offsets:
+            try:
+                value = int(offset)
+            except (TypeError, ValueError) as exc:
+                raise serializers.ValidationError(
+                    {"reminder_offsets": "Each reminder must be a whole number of days."}
+                ) from exc
+            if value < 1 or value > 365 or value in seen:
+                raise serializers.ValidationError(
+                    {"reminder_offsets": "Use each offset once, between 1 and 365 days."}
+                )
+            seen.add(value)
+        if "reminder_offsets" in attrs:
+            attrs["reminder_offsets"] = [int(offset) for offset in offsets]
+        if resolved("reminders_enabled") and len(offsets) == 0:
+            raise serializers.ValidationError(
+                {"reminder_offsets": "Add at least one reminder, or turn reminders off."}
+            )
         return attrs
+
+    def update(self, instance, validated_data):
+        policy = super().update(instance, validated_data)
+        request = self.context.get("request")
+        actor = request.user if request and getattr(request.user, "is_authenticated", False) else None
+        FinanceAuditLog.objects.create(
+            action="license_type.policy_saved",
+            message=f"Saved validity and ordering for {policy.license_type.name}.",
+            actor=actor,
+            metadata={
+                "license_type_id": policy.license_type_id,
+                "validity_mode": policy.validity_mode,
+                "duration_years": policy.duration_years,
+                "duration_days": policy.duration_days,
+                "reminders_enabled": policy.reminders_enabled,
+                "reminder_offsets": policy.reminder_offsets,
+            },
+        )
+        return policy
 
 
 class PaymentSerializer(serializers.ModelSerializer):

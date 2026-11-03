@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Landmark, Newspaper, Settings, Users } from "lucide-react";
+import { Landmark, Newspaper, Settings, Shirt, Users } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,12 +29,23 @@ import {
 } from "@/lib/club-admin-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
+import { ClothingSizesDesk } from "@/components/club-admin/clothing-sizes-desk";
+import { EgearBrandsDesk } from "@/components/club-admin/egear-brands-desk";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
+import { ClubModuleOrder } from "@/components/club-admin/club-module-order";
+import { ClubModulePrices } from "@/components/club-admin/club-module-prices";
+import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
+import { TrainingVenuesSection } from "@/components/clubs/training-venues-section";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
 import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
-import { CLUB_MANAGEMENT_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
+import { getClubModuleFees, type ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
 import {
   Select,
   SelectContent,
@@ -45,7 +56,9 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 
 const clubSchema = z.object({
-  name: z.string().min(1, "Club name is required"),
+  name: z.string().min(1),
+  federation: z.enum(["WT", "ITF"]),
+  rcs_number: z.string().optional(),
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
@@ -58,7 +71,7 @@ const clubSchema = z.object({
 
 type ClubFormValues = z.infer<typeof clubSchema>;
 
-const SETTINGS_TABS = ["profile", "trainers", "committee", "publication"] as const;
+const SETTINGS_TABS = ["profile", "trainers", "committee", "publication", "equipment"] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 function parseSettingsTab(value: string | null): SettingsTab {
@@ -76,6 +89,7 @@ export default function ClubAdminSettingsPage() {
   const searchParams = useSearchParams();
   const { selectedClubId } = useClubSelection();
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
+  const [competitionOn, setCompetitionOn] = useState(false);
   const [activeTab, setActiveTabState] = useState<SettingsTab>(parseSettingsTab(searchParams.get("tab")));
   const requestIdRef = useRef(0);
   const logoRequestIdRef = useRef(0);
@@ -86,8 +100,11 @@ export default function ClubAdminSettingsPage() {
   const [isLoadingLogos, setIsLoadingLogos] = useState(false);
   const [logosLoadError, setLogosLoadError] = useState<string | null>(null);
   const [clubIsActive, setClubIsActive] = useState(true);
+  const [moduleFees, setModuleFees] = useState<ClubModuleFeeQuote | null>(null);
   const [languages, setLanguages] = useState<ClubCommunicationLanguage[]>([
     { code: "en", name: "English" },
+    { code: "fr", name: "Français" },
+    { code: "de", name: "Deutsch" },
     { code: "lb", name: "Lëtzebuergesch" },
   ]);
 
@@ -95,12 +112,15 @@ export default function ClubAdminSettingsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<ClubFormValues>({
     resolver: zodResolver(clubSchema),
     defaultValues: {
       name: "",
+      federation: "WT",
+      rcs_number: "",
       address_line1: "",
       address_line2: "",
       postal_code: "",
@@ -112,6 +132,10 @@ export default function ClubAdminSettingsPage() {
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
+  const addressLine1 = useWatch({ control, name: "address_line1", defaultValue: "" }) ?? "";
+  const addressLine2 = useWatch({ control, name: "address_line2", defaultValue: "" }) ?? "";
+  const postalCode = useWatch({ control, name: "postal_code", defaultValue: "" }) ?? "";
+  const localityValue = useWatch({ control, name: "locality", defaultValue: "" }) ?? "";
   const derivedBankName = useMemo(
     () => deriveBankNameFromIban(watchedIban),
     [watchedIban]
@@ -120,6 +144,8 @@ export default function ClubAdminSettingsPage() {
   const resetToEmpty = useCallback(() => {
     reset({
       name: "",
+      federation: "WT",
+      rcs_number: "",
       address_line1: "",
       address_line2: "",
       postal_code: "",
@@ -154,6 +180,8 @@ export default function ClubAdminSettingsPage() {
       }
       reset({
         name: club.name,
+        federation: club.federation === "ITF" ? "ITF" : "WT",
+        rcs_number: club.rcs_number ?? "",
         address_line1: club.address_line1 ?? club.address ?? "",
         address_line2: club.address_line2 ?? "",
         postal_code: club.postal_code ?? "",
@@ -220,15 +248,37 @@ export default function ClubAdminSettingsPage() {
   }, [loadLogos]);
 
   useEffect(() => {
+    if (!selectedClubId) {
+      setModuleFees(null);
+      return;
+    }
+    let cancelled = false;
+    getClubModuleFees(selectedClubId)
+      .then((quote) => {
+        if (!cancelled) setModuleFees(quote);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleFees(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClubId]);
+
+  useEffect(() => {
     let cancelled = false;
     getModuleStatus()
       .then((status) => {
         if (!cancelled) {
           setClubMgmtOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+          setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
         }
       })
       .catch(() => {
-        if (!cancelled) setClubMgmtOn(false);
+        if (!cancelled) {
+          setClubMgmtOn(false);
+          setCompetitionOn(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -261,8 +311,13 @@ export default function ClubAdminSettingsPage() {
       return;
     }
     const normalizedIban = values.iban?.trim() ?? "";
+    const rcsNumber = normalizeRcsNumber(values.rcs_number ?? "");
     if (normalizedIban && !isValidIban(normalizedIban)) {
       setErrorMessage("Enter a valid IBAN.");
+      return;
+    }
+    if (!isValidRcsNumber(rcsNumber)) {
+      setErrorMessage(t("rcsNumberInvalid"));
       return;
     }
     setErrorMessage(null);
@@ -270,6 +325,7 @@ export default function ClubAdminSettingsPage() {
     try {
       await updateClub(selectedClubId, {
         ...values,
+        rcs_number: rcsNumber,
         iban: normalizedIban,
         address: values.address_line1 ?? "",
         city: values.locality ?? "",
@@ -304,6 +360,9 @@ export default function ClubAdminSettingsPage() {
     await loadLogos();
   };
 
+  const managementHidden = (activeTab === "committee" || activeTab === "publication") && !clubMgmtOn;
+  const equipmentHidden = activeTab === "equipment" && !competitionOn;
+
   return (
     <ClubAdminLayout title={t("clubProfileTitle")} subtitle={t("clubProfileSubtitle")}>
       <ActionNotices
@@ -319,11 +378,11 @@ export default function ClubAdminSettingsPage() {
       ) : !selectedClubId ? (
         <EmptyState title={t("clubProfileTitle")} description={t("selectClubPlaceholder")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <UnderlineTabs
             idPrefix="club-settings"
             ariaLabel={t("clubSettingsTabsAriaLabel")}
-            value={(activeTab === "committee" || activeTab === "publication") && !clubMgmtOn ? "profile" : activeTab}
+            value={managementHidden || equipmentHidden ? "profile" : activeTab}
             onChange={setActiveTab}
             options={[
               { value: "profile", label: t("clubSettingsProfileTab"), icon: Settings },
@@ -334,11 +393,20 @@ export default function ClubAdminSettingsPage() {
                     { value: "publication" as const, label: t("clubSettingsPublicationTab"), icon: Newspaper },
                   ]
                 : []),
+              ...(competitionOn
+                ? [{ value: "equipment" as const, label: t("clubSettingsEquipmentTab"), icon: Shirt }]
+                : []),
             ]}
           />
 
           {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
           {activeTab === "publication" && clubMgmtOn ? <PublicationConsentPanel clubId={selectedClubId} /> : null}
+          {activeTab === "equipment" && competitionOn ? (
+            <div className="space-y-6">
+              <EgearBrandsDesk clubId={selectedClubId} />
+              <ClothingSizesDesk clubId={selectedClubId} />
+            </div>
+          ) : null}
 
           {activeTab === "trainers" ? (
             <ClubTrainersPanel
@@ -348,56 +416,93 @@ export default function ClubAdminSettingsPage() {
             />
           ) : null}
 
-          {activeTab === "profile" || ((activeTab === "committee" || activeTab === "publication") && !clubMgmtOn) ? (
+          {activeTab === "profile" || managementHidden || equipmentHidden ? (
           <>
-          <section className="rounded-[var(--radius-card)] border border-border bg-card p-6 shadow-sm">
+          <section className="rounded-[var(--radius-card)] border border-border bg-card p-3">
             <h2 className="text-lg font-semibold text-foreground">{t("clubFormTitle")}</h2>
             <p className="mt-2 text-sm text-muted">{t("clubFormSubtitle")}</p>
 
-            <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+            <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
+              <RequiredForm>
+                <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubNameLabel")}</label>
-                <Input placeholder="LTF Central Club" {...register("name")} />
-                {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+                <Label htmlFor="club-name" required>{t("clubNameLabel")}</Label>
+                <Input id="club-name" placeholder={t("clubNamePlaceholder")} {...register("name")} />
+                {errors.name ? <p className="text-sm text-destructive">{t("clubNameRequired")}</p> : null}
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("addressLine1Label")}</label>
-                <Input placeholder="12 Rue de la Gare" {...register("address_line1")} />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("addressLine2Label")}</label>
-                <Input
-                  placeholder="Building, floor, unit (optional)"
-                  {...register("address_line2")}
+              <div className="space-y-2">
+                <Label htmlFor="club-federation">{t("federationLabel")}</Label>
+                <Controller
+                  name="federation"
+                  control={control}
+                  render={({ field }) => (
+                    <PopoverSelect
+                      className="w-full"
+                      value={field.value || "WT"}
+                      onValueChange={field.onChange}
+                      ariaLabel={t("federationLabel")}
+                      options={[
+                        { value: "WT", label: t("federationWt") },
+                        { value: "ITF", label: t("federationItf") },
+                      ]}
+                    />
+                  )}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("postalCodeLabel")}</label>
-                <Input placeholder="1234" {...register("postal_code")} />
+                <Label htmlFor="club-rcs">{t("rcsNumberLabel")}</Label>
+                <Input id="club-rcs" placeholder={t("rcsNumberPlaceholder")} {...register("rcs_number")} />
+                <a
+                  href={LBR_SEARCH_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline-offset-2 hover:underline"
+                >
+                  {t("openLbrSearch")}
+                </a>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("localityLabel")}</label>
-                <Input placeholder="Luxembourg" {...register("locality")} />
+              <div className="md:col-span-2 space-y-2">
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">{t("headOfficeLabel")}</h3>
+                  <p className="text-xs text-muted">{t("headOfficeHint")}</p>
+                </div>
+                <LuAddressFields
+                  idPrefix="club"
+                  showCountry={false}
+                  value={{
+                    ...splitStreetLine(addressLine1, { postal_code: postalCode, locality: localityValue }),
+                    line2: addressLine2,
+                    postal_code: postalCode,
+                    locality: localityValue,
+                    country: "Luxembourg",
+                    use_for_invoice: false,
+                  }}
+                  onChange={(next) => {
+                    setValue("address_line1", joinStreetLine(next.house_number, next.street), { shouldDirty: true });
+                    setValue("address_line2", next.line2, { shouldDirty: true });
+                    setValue("postal_code", next.postal_code, { shouldDirty: true });
+                    setValue("locality", next.locality, { shouldDirty: true });
+                  }}
+                />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubEmailLabel")}</label>
-                <Input type="email" placeholder="club@example.com" {...register("email")} />
+                <Label htmlFor="club-email">{t("clubEmailLabel")}</Label>
+                <Input id="club-email" type="email" placeholder={t("clubEmailPlaceholder")} {...register("email")} />
                 <p className="text-xs text-muted">{t("clubEmailHint")}</p>
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubWebsiteLabel")}</label>
-                <Input type="url" placeholder="https://www.club.lu" {...register("website")} />
+                <Label htmlFor="club-website">{t("clubWebsiteLabel")}</Label>
+                <Input id="club-website" type="url" placeholder={t("clubWebsitePlaceholder")} {...register("website")} />
                 <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubStatusLabel")}</label>
+                <Label>{t("clubStatusLabel")}</Label>
                 <StatusBadge
                   label={clubIsActive ? t("clubStatusActive") : t("clubStatusInactive")}
                   tone={clubIsActive ? "success" : "neutral"}
@@ -406,13 +511,13 @@ export default function ClubAdminSettingsPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("clubLanguageLabel")}</label>
+                <Label htmlFor="club-language">{t("clubLanguageLabel")}</Label>
                 <Controller
                   name="communication_language"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value || "en"} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger id="club-language">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -429,13 +534,13 @@ export default function ClubAdminSettingsPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
-                <Input placeholder="LU00 0000 0000 0000" {...register("iban")} />
+                <Label htmlFor="club-iban">{t("ibanLabel")}</Label>
+                <Input id="club-iban" placeholder={t("ibanPlaceholder")} {...register("iban")} />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("bankNameLabel")}</label>
-                <Input value={derivedBankName || "-"} readOnly disabled />
+                <Label htmlFor="club-bank">{t("bankNameLabel")}</Label>
+                <Input id="club-bank" value={derivedBankName || "-"} readOnly disabled />
               </div>
 
               <div className="flex items-center gap-3">
@@ -443,8 +548,24 @@ export default function ClubAdminSettingsPage() {
                   {t("saveClub")}
                 </Button>
               </div>
+                </div>
+              </RequiredForm>
             </form>
           </section>
+
+          <div id="training-venues">
+            <TrainingVenuesSection
+              clubId={selectedClubId}
+              onError={setErrorMessage}
+              onSuccess={setSuccessMessage}
+            />
+          </div>
+
+          {moduleFees ? <ClubModulePrices quote={moduleFees} /> : null}
+          <ClubModuleOrder
+            clubId={selectedClubId}
+            invoicePath={(invoiceId) => `/${locale}/dashboard/club/invoices/${invoiceId}`}
+          />
 
           <BrandingLogosManager
             logos={clubLogos}

@@ -18,6 +18,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { ActionNotices, FormPanel, PageNotice } from "@/components/ui/list-page-chrome";
+import { formatFullName } from "@/lib/person-name";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Select,
@@ -575,7 +576,7 @@ export default function ClubMembersOrderLicensesPage() {
         const blocked = ineligibleByMemberId.get(member.id);
         return {
           id: member.id,
-          memberName: `${member.first_name} ${member.last_name}`,
+          memberName: formatFullName(member),
           status: blocked ? "blocked" : "ready",
           reason: blocked ? blocked.messages.join(" • ") : t("orderLicenseReadyReason"),
         };
@@ -627,8 +628,8 @@ export default function ClubMembersOrderLicensesPage() {
     return (
       <ClubAdminLayout title={t("orderLicenseModalTitle")} subtitle={t("orderLicensePageSubtitle")}>
         <FormPanel className="mx-auto max-w-xl text-center">
-          <span className="mx-auto mb-4 inline-flex size-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--success)_16%,white)] text-[color-mix(in_oklab,var(--success)_62%,black)]">
-            <CheckCircle2 className="size-6" aria-hidden />
+          <span className="mx-auto mb-3 inline-flex size-8 items-center justify-center rounded-[var(--radius-chip)] bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]">
+            <CheckCircle2 className="size-4" aria-hidden />
           </span>
           <h2 className="text-section text-foreground">{t("orderLicenseSuccessTitle")}</h2>
           <p className="mt-2 text-sm text-muted">{t("orderLicenseSuccessSubtitle")}</p>
@@ -669,7 +670,7 @@ export default function ClubMembersOrderLicensesPage() {
     <ClubAdminLayout title={t("orderLicenseModalTitle")} subtitle={t("orderLicensePageSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         <FormPanel>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
@@ -685,6 +686,16 @@ export default function ClubMembersOrderLicensesPage() {
               <p className="mt-1 text-sm font-medium text-foreground">
                 {t("orderLicenseMembersCountLabel", { count: validSelectedIds.length })}
               </p>
+              {selectedMembers.length > 0 ? (
+                <>
+                  <p className="mt-2 text-sm text-muted">{t("orderLicenseConfirmList")}</p>
+                  <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto text-sm text-foreground">
+                    {selectedMembers.map((member) => (
+                      <li key={member.id}>{formatFullName(member)}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-medium uppercase tracking-wide text-muted">
@@ -733,7 +744,7 @@ export default function ClubMembersOrderLicensesPage() {
                     className={cn(
                       "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
                       selected
-                        ? "border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_8%,white)] shadow-sm"
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                         : "border-border bg-surface hover:bg-secondary"
                     )}
                   >
@@ -764,7 +775,7 @@ export default function ClubMembersOrderLicensesPage() {
                     className={cn(
                       "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
                       selected
-                        ? "border-[var(--warning)] bg-[color-mix(in_oklab,var(--warning)_12%,white)] shadow-sm"
+                        ? "border-[var(--warning)] bg-[var(--badge-warning-bg)]"
                         : "border-border bg-surface hover:bg-secondary"
                     )}
                   >
@@ -911,7 +922,7 @@ export default function ClubMembersOrderLicensesPage() {
           </div>
 
           {selectedEligibleType || selectedReviewType ? (
-            <div className="mt-4">
+            <div className="mt-3">
               <EntityTable
                 columns={[
                   { key: "memberName", header: t("memberNameLabel") },
@@ -939,7 +950,7 @@ export default function ClubMembersOrderLicensesPage() {
           )}
         </FormPanel>
 
-        <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-border bg-[var(--surface)]/95 p-4 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             {selectedEligibleType ? (
               <p className="text-sm font-medium text-foreground">

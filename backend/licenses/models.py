@@ -12,6 +12,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .fields import EncryptedCharField
+from .stripe_ids import stripe_session_lookup
 from simple_history.models import HistoricalRecords  # pyright: ignore[reportMissingImports]
 from django.utils.text import slugify
 
@@ -34,6 +35,10 @@ class LicenseType(models.Model):
         return str(self.name)
 
 
+def default_reminder_offsets():
+    return [60, 30, 7]
+
+
 class LicenseTypePolicy(models.Model):
     license_type = models.OneToOneField(
         LicenseType, on_delete=models.CASCADE, related_name="policy"
@@ -48,6 +53,19 @@ class LicenseTypePolicy(models.Model):
     next_start_day = models.PositiveSmallIntegerField(default=1)  # pyright: ignore[reportArgumentType]
     next_end_month = models.PositiveSmallIntegerField(default=12)  # pyright: ignore[reportArgumentType]
     next_end_day = models.PositiveSmallIntegerField(default=31)  # pyright: ignore[reportArgumentType]
+    class ValidityMode(models.TextChoices):
+        CALENDAR_YEAR = "calendar_year", "Calendar year"
+        DURATION = "duration", "Duration"
+
+    validity_mode = models.CharField(
+        max_length=20,
+        choices=ValidityMode.choices,
+        default=ValidityMode.CALENDAR_YEAR,
+    )
+    duration_years = models.PositiveSmallIntegerField(default=0)
+    duration_days = models.PositiveSmallIntegerField(default=0)
+    reminders_enabled = models.BooleanField(default=False)
+    reminder_offsets = models.JSONField(default=default_reminder_offsets)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -117,12 +135,20 @@ class ClubFeeType(models.Model):
     description = models.TextField(blank=True)
     cadence = models.CharField(max_length=20, choices=Cadence.choices, default=Cadence.ONE_OFF)
     year = models.PositiveIntegerField(null=True, blank=True)
+    module_id = models.CharField(max_length=64, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["module_id"],
+                condition=Q(module_id__isnull=False) & ~Q(module_id=""),
+                name="uniq_club_fee_module",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -134,6 +160,10 @@ class ClubFeeType(models.Model):
 
 
 class ClubFeePrice(models.Model):
+    class PricingType(models.TextChoices):
+        FLAT = "flat", "Flat"
+        PER_ACTIVE_MEMBER = "per_active_member", "Per active member"
+
     objects = models.Manager()
     fee_type = models.ForeignKey(
         ClubFeeType,
@@ -141,6 +171,12 @@ class ClubFeePrice(models.Model):
         related_name="prices",
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    pricing_type = models.CharField(
+        max_length=32,
+        choices=PricingType.choices,
+        default=PricingType.FLAT,
+    )
+    minimum_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, default="EUR")
     effective_from = models.DateField(default=timezone.localdate)
     created_by = models.ForeignKey(
@@ -174,6 +210,252 @@ class ClubFeePrice(models.Model):
         )
 
 
+class ModuleBundle(models.Model):
+    """Several billable modules sold together at one flat price. Phase 1 is the catalog only."""
+
+    name = models.CharField(max_length=100, unique=True)
+    code = models.SlugField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return str(self.name)
+
+    def has_been_invoiced(self) -> bool:
+        return self.order_items.exists()
+
+
+class ModuleBundleModule(models.Model):
+    bundle = models.ForeignKey(ModuleBundle, on_delete=models.CASCADE, related_name="modules")
+    module_id = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["bundle", "module_id"], name="uniq_bundle_module"),
+        ]
+        ordering = ["module_id"]
+
+    def __str__(self) -> str:
+        return f"{self.bundle.name}: {self.module_id}"
+
+
+class ModuleBundlePrice(models.Model):
+    bundle = models.ForeignKey(ModuleBundle, on_delete=models.CASCADE, related_name="prices")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="EUR")
+    effective_from = models.DateField(default=timezone.localdate)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="module_bundle_prices",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_from", "-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.bundle.name}: {self.amount} {self.currency} ({self.effective_from})"
+
+    @classmethod
+    def get_active_price(cls, *, bundle: ModuleBundle, as_of=None):
+        date_value = as_of or timezone.localdate()
+        return (
+            cls.objects.filter(bundle=bundle, effective_from__lte=date_value)
+            .order_by("-effective_from", "-created_at")
+            .first()
+        )
+
+
+class ModuleSubscriptionSettings(models.Model):
+    """One row for the installation. Later phases read it. Phase 1 only stores it."""
+
+    subscription_months = models.PositiveSmallIntegerField(default=12)
+    renewal_notice_days = models.PositiveSmallIntegerField(default=30)
+    payment_window_days = models.PositiveSmallIntegerField(default=30)
+    payment_warning_days = models.PositiveSmallIntegerField(default=7)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def load(cls):
+        row, _created = cls.objects.get_or_create(pk=1)
+        return row
+
+    def __str__(self) -> str:
+        return "Module subscription settings"
+
+
+class ModulePurchase(models.Model):
+    """One module or bundle a club bought. Phase 2 creates these when an invoice is issued."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACTIVE = "active", "Active"
+        STOPPED = "stopped", "Stopped"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class Source(models.TextChoices):
+        ORDER = "order", "Order"
+        RENEWAL = "renewal", "Renewal"
+        LEGACY = "legacy", "Legacy"
+
+    class RenewalChoice(models.TextChoices):
+        UNANSWERED = "unanswered", "Unanswered"
+        CONTINUE = "continue", "Continue"
+        STOP = "stop", "Stop"
+
+    club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="module_purchases")
+    fee_type = models.ForeignKey(
+        "ClubFeeType",
+        on_delete=models.PROTECT,
+        related_name="module_purchases",
+        null=True,
+        blank=True,
+    )
+    bundle = models.ForeignKey(
+        ModuleBundle,
+        on_delete=models.PROTECT,
+        related_name="purchases",
+        null=True,
+        blank=True,
+    )
+    module_ids = models.JSONField(default=list)
+    description = models.CharField(max_length=255)
+    price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="EUR")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    renewal_choice = models.CharField(
+        max_length=20,
+        choices=RenewalChoice.choices,
+        default=RenewalChoice.UNANSWERED,
+    )
+    activated_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateField(null=True, blank=True)
+    order_item = models.OneToOneField(
+        "OrderItem",
+        on_delete=models.PROTECT,
+        related_name="module_purchase",
+        null=True,
+        blank=True,
+    )
+    renewal_order_item = models.ForeignKey(
+        "OrderItem",
+        on_delete=models.PROTECT,
+        related_name="renewal_purchases",
+        null=True,
+        blank=True,
+    )
+    switched_off_at = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.ORDER)
+    automation_hold = models.CharField(max_length=255, blank=True)
+    activation_error = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        indexes = [
+            models.Index(fields=["club", "status"], name="mod_purchase_club_status_idx"),
+            models.Index(fields=["status", "ends_at"], name="mod_purchase_status_end_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(fee_type__isnull=False, bundle__isnull=True)
+                    | Q(fee_type__isnull=True, bundle__isnull=False)
+                    | Q(source="legacy", fee_type__isnull=True, bundle__isnull=True)
+                ),
+                name="module_purchase_one_product",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.club_id} {self.description}"
+
+
+class ModuleRenewalJournal(models.Model):
+    """One successful stage for one purchase period. A second run finds the row and stops."""
+
+    class Stage(models.TextChoices):
+        RENEWAL_NOTICE = "renewal_notice", "Renewal notice"
+        NOTICE_REMINDER = "notice_reminder", "Notice reminder"
+        RENEWAL_INVOICE = "renewal_invoice", "Renewal invoice"
+        PAYMENT_WARNING = "payment_warning", "Payment warning"
+        SWITCHED_OFF = "switched_off", "Switched off"
+        STOPPED_AT_END = "stopped_at_end", "Stopped at end"
+        STOP_CONFIRMED = "stop_confirmed", "Stop confirmed"
+        LATE_REACTIVATED = "late_reactivated", "Late reactivated"
+
+    purchase = models.ForeignKey(ModulePurchase, on_delete=models.CASCADE, related_name="journal")
+    period_end = models.DateField()
+    stage = models.CharField(max_length=32, choices=Stage.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["purchase", "period_end", "stage"],
+                name="uniq_module_renewal_stage",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["purchase", "period_end"], name="mod_renewal_period_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purchase_id} {self.period_end} {self.stage}"
+
+
+class ModulePurchaseOverride(models.Model):
+    """One audited LTF Admin change. The daily job does not undo a held purchase."""
+
+    class Action(models.TextChoices):
+        SWITCH_ON = "switch_on", "Switch on"
+        SWITCH_OFF = "switch_off", "Switch off"
+        SET_END = "set_end", "Set end date"
+        KEEP_OPEN = "keep_open", "Keep on with no end date"
+        WAIVE = "waive", "Waive this period"
+        CANCEL = "cancel", "Cancel"
+        CLEAR_HOLD = "clear_hold", "Clear the hold"
+
+    purchase = models.ForeignKey(ModulePurchase, on_delete=models.CASCADE, related_name="overrides")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="module_purchase_overrides",
+    )
+    action = models.CharField(max_length=32, choices=Action.choices)
+    previous_ends_at = models.DateField(null=True, blank=True)
+    new_ends_at = models.DateField(null=True, blank=True)
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    reason = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        indexes = [
+            models.Index(fields=["purchase", "-created_at"], name="mod_override_purchase_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purchase_id} {self.action}"
+
+
 def generate_order_number() -> str:
     return f"ORD-{uuid4().hex[:12].upper()}"
 
@@ -194,7 +476,14 @@ class License(models.Model):
         REVOKED = "revoked", "Revoked"
 
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="licenses")
-    club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="licenses")
+    # Empty when the LTF issues a license for staff who are not in a club. No order is created.
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.PROTECT,
+        related_name="licenses",
+        null=True,
+        blank=True,
+    )
     license_type = models.ForeignKey(
         LicenseType,
         on_delete=models.PROTECT,
@@ -205,6 +494,7 @@ class License(models.Model):
     end_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     issued_at = models.DateTimeField(null=True, blank=True)
+    expiry_locked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     history = HistoricalRecords()
@@ -234,9 +524,12 @@ class License(models.Model):
             self.end_date = date(year, 12, 31)
         if self.status == self.Status.ACTIVE and self.issued_at is None:
             self.issued_at = timezone.now()
-            update_fields = kwargs.get("update_fields")
-            if update_fields is not None:
-                kwargs["update_fields"] = list({*update_fields, "issued_at"})
+        from .validity import stamp_expiry
+
+        stamped = stamp_expiry(self)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and stamped:
+            kwargs["update_fields"] = list({*update_fields, *stamped})
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -262,6 +555,8 @@ class LicenseHistoryEvent(models.Model):
         Club,
         on_delete=models.PROTECT,
         related_name="license_history_events",
+        null=True,
+        blank=True,
     )
     order = models.ForeignKey(
         "Order",
@@ -353,8 +648,21 @@ class Order(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     stripe_payment_intent_id = EncryptedCharField(max_length=255, blank=True)
     stripe_checkout_session_id = EncryptedCharField(max_length=255, blank=True)
+    # HMAC of stripe_checkout_session_id. The encrypted column cannot be queried.
+    stripe_session_lookup = models.CharField(max_length=64, blank=True, default="", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or "stripe_checkout_session_id" in update_fields:
+            self.stripe_session_lookup = stripe_session_lookup(self.stripe_checkout_session_id)
+            if update_fields is not None:
+                fields = list(update_fields)
+                if "stripe_session_lookup" not in fields:
+                    fields.append("stripe_session_lookup")
+                kwargs["update_fields"] = fields
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [
@@ -384,6 +692,13 @@ class OrderItem(models.Model):
         null=True,
         blank=True,
     )
+    bundle = models.ForeignKey(
+        "ModuleBundle",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
     description = models.CharField(max_length=255, blank=True)
     billing_year = models.PositiveIntegerField(null=True, blank=True)
     billing_installment = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -400,6 +715,9 @@ class OrderItem(models.Model):
     charge_active = models.BooleanField(default=False)
     price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)  # type: ignore[arg-type]
+    active_member_count = models.PositiveIntegerField(null=True, blank=True)
+    minimum_applied = models.BooleanField(default=False)
+    charged_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -409,6 +727,11 @@ class OrderItem(models.Model):
                 name="uniq_active_club_fee_period",
             )
         ]
+
+    def line_amount(self) -> Decimal:
+        if self.charged_amount is not None:
+            return self.charged_amount
+        return self.price_snapshot * self.quantity
 
     def __str__(self) -> str:
         if self.license_id:
@@ -1732,3 +2055,51 @@ class PrintJobItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.print_job.job_number} item {self.id}"
+
+
+class DutyException(models.Model):
+    """A superuser allowance for one separation rule, for one club or one invoice."""
+
+    class Rule(models.TextChoices):
+        OWN_CLUB = "own_club_override", "Own club override"
+        OWN_INVOICE = "own_invoice_payment", "Own invoice payment"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="duty_exceptions",
+    )
+    rule = models.CharField(max_length=32, choices=Rule.choices)
+    club = models.ForeignKey(
+        "clubs.Club",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="duty_exceptions",
+    )
+    invoice = models.ForeignKey(
+        "Invoice",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="duty_exceptions",
+    )
+    reason = models.CharField(max_length=255)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="duty_exceptions_given",
+    )
+    valid_from = models.DateField()
+    valid_until = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "rule", "valid_until"], name="duty_exc_user_rule_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} {self.rule}"

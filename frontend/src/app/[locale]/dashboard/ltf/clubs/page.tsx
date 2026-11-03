@@ -1,17 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Trash2, X } from "lucide-react";
+import { X } from "lucide-react";
 
+import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
+import { PopoverSelect } from "@/components/ui/popover-select";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,8 +24,12 @@ import {
   SelectionMeta,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Club, deleteClub, getClubs } from "@/lib/ltf-admin-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
+import { sortRowsByKey, type TableSort } from "@/lib/table-sort";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 
 export default function LtfAdminClubsPage() {
   const t = useTranslations("LtfAdmin");
@@ -40,11 +46,23 @@ export default function LtfAdminClubsPage() {
   const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [federationFilter, setFederationFilter] = useState("all");
   const [pageSize, setPageSize] = useState("50");
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedClubId } = useClubSelection();
+  const [currentPage, setCurrentPage] = useListPage(
+    [
+      federationFilter,
+      searchQuery,
+      pageSize,
+      selectedClubId ?? "",
+      tableSort?.key ?? "",
+      tableSort?.direction ?? "",
+    ].join("|"),
+  );
 
   const loadClubs = useCallback(async () => {
     setIsLoading(true);
@@ -63,14 +81,17 @@ export default function LtfAdminClubsPage() {
     void loadClubs();
   }, [loadClubs]);
 
+  useConsumeSearchParam("create", () => setCreateOpen(true));
+
   const dismissIssueFilter = () => {
     router.replace(`/${locale}/dashboard/ltf/clubs`);
   };
 
   const searchedClubs = useMemo(() => {
-    const scopedClubs = selectedClubId
+    const scopedClubs = (selectedClubId
       ? clubs.filter((club) => club.id === selectedClubId)
-      : clubs;
+      : clubs
+    ).filter((club) => federationFilter === "all" || club.federation === federationFilter);
     const normalizedQuery = searchQuery.trim().toLowerCase();
     if (!normalizedQuery) {
       return scopedClubs;
@@ -80,37 +101,44 @@ export default function LtfAdminClubsPage() {
       const locality = (club.locality || club.city || "").toLowerCase();
       const postalCode = (club.postal_code || "").toLowerCase();
       const address = (club.address_line1 || club.address || "").toLowerCase();
+      const rcs = (club.rcs_number || "").toLowerCase();
       return (
         name.includes(normalizedQuery) ||
         locality.includes(normalizedQuery) ||
         postalCode.includes(normalizedQuery) ||
-        address.includes(normalizedQuery)
+        address.includes(normalizedQuery) ||
+        rcs.includes(normalizedQuery) ||
+        (club.federation || "").toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [clubs, searchQuery, selectedClubId]);
+  }, [clubs, federationFilter, searchQuery, selectedClubId]);
+
+  const sortedClubs = useMemo(
+    () =>
+      sortRowsByKey(searchedClubs, tableSort, {
+        name: (club) => club.name,
+        federation: (club) => club.federation,
+        is_active: (club) => club.is_active,
+        postal_code: (club) => club.postal_code,
+        locality: (club) => club.locality || club.city || "",
+      }),
+    [searchedClubs, tableSort]
+  );
 
   const resolvedPageSize =
-    pageSize === "all" ? Math.max(searchedClubs.length, 1) : Number(pageSize);
-  const totalPages = Math.max(1, Math.ceil(searchedClubs.length / resolvedPageSize));
+    pageSize === "all" ? Math.max(sortedClubs.length, 1) : Number(pageSize);
+  const totalPages = Math.max(1, Math.ceil(sortedClubs.length / resolvedPageSize));
   const pagedClubs = useMemo(() => {
     const startIndex = (currentPage - 1) * resolvedPageSize;
-    return searchedClubs.slice(startIndex, startIndex + resolvedPageSize);
-  }, [currentPage, searchedClubs, resolvedPageSize]);
+    return sortedClubs.slice(startIndex, startIndex + resolvedPageSize);
+  }, [currentPage, sortedClubs, resolvedPageSize]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, pageSize, selectedClubId]);
-
-  const allFilteredIds = useMemo(() => searchedClubs.map((club) => club.id), [searchedClubs]);
-  const allSelected =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
+  const visibleIds = useMemo(() => pagedClubs.map((club) => club.id), [pagedClubs]);
+  const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(allFilteredIds);
-    }
+    setSelectedIds((current) => togglePageSelection(current, visibleIds));
   };
 
   const toggleSelectRow = (id: number) => {
@@ -136,11 +164,17 @@ export default function LtfAdminClubsPage() {
     }
   };
 
-  const selectedClubs = clubs.filter((club) => selectedIds.includes(club.id));
+  const knownClubs = useRef(new Map<number, Club>());
+  for (const club of clubs) {
+    knownClubs.current.set(club.id, club);
+  }
+  const selectedClubs = selectedIds
+    .map((id) => knownClubs.current.get(id))
+    .filter((club): club is Club => Boolean(club));
 
   const confirmBatchDelete = async () => {
     try {
-      await Promise.all(selectedClubs.map((club) => deleteClub(club.id)));
+      await Promise.all(selectedIds.map((id) => deleteClub(id)));
       setSelectedIds([]);
       await loadClubs();
     } catch (error) {
@@ -156,9 +190,9 @@ export default function LtfAdminClubsPage() {
     <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         {issue === "no_admin" ? (
-          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-4 py-3 text-sm banner-info">
+          <div className="flex items-start justify-between gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
             <p className="min-w-0 flex-1">{t("clubsWithoutAdminFilterMessage")}</p>
             <button
               type="button"
@@ -171,16 +205,28 @@ export default function LtfAdminClubsPage() {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
-              <Input
-                className="w-full max-w-xs"
-                placeholder={t("searchClubsPlaceholder")}
-                aria-label={t("searchClubsPlaceholder")}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
+              <div className="flex w-full max-w-xl flex-wrap gap-2">
+                <Input
+                  className="w-full max-w-xs"
+                  placeholder={t("searchClubsPlaceholder")}
+                  aria-label={t("searchClubsPlaceholder")}
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+                <PopoverSelect
+                  value={federationFilter}
+                  onValueChange={setFederationFilter}
+                  ariaLabel={t("federationFilterLabel")}
+                  options={[
+                    { value: "all", label: t("federationAll") },
+                    { value: "WT", label: t("federationWt") },
+                    { value: "ITF", label: t("federationItf") },
+                  ]}
+                />
+              </div>
             }
             pageSize={
               <PageSizeSelect
@@ -201,17 +247,12 @@ export default function LtfAdminClubsPage() {
                     {
                       key: "create",
                       label: t("createClub"),
-                      onSelect: () => router.push(`/${locale}/dashboard/ltf/clubs/new`),
+                      onSelect: () => setCreateOpen(true),
                     },
                     {
                       key: "import-clubs",
                       label: importT("importClubs"),
                       onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=clubs`),
-                    },
-                    {
-                      key: "import-members",
-                      label: importT("importMembers"),
-                      onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=members`),
                     },
                   ]}
                 />
@@ -229,6 +270,8 @@ export default function LtfAdminClubsPage() {
                 <SelectionMeta
                   count={selectedIds.length}
                   countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+                  offPageCount={otherPageCount}
+                  offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                   clearLabel={t("clearSelection")}
                   onClear={() => setSelectedIds([])}
                 />
@@ -258,17 +301,15 @@ export default function LtfAdminClubsPage() {
               {
                 key: "select",
                 header: (
-                  <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
-                    <Checkbox
-                      aria-label={common("selectAllLabel")}
-                      checked={allSelected}
-                      onCheckedChange={() => toggleSelectAll()}
-                    />
-                  </span>
+                  <Checkbox
+                    aria-label={common("selectAllLabel")}
+                    checked={headerCheck}
+                    onCheckedChange={() => toggleSelectAll()}
+                  />
                 ),
                 render: (club) => (
                   <span
-                    className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+                    className="inline-flex"
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
                   >
@@ -280,10 +321,22 @@ export default function LtfAdminClubsPage() {
                   </span>
                 ),
               },
-              { key: "name", header: t("clubNameLabel") },
+              { key: "name", header: t("clubNameLabel"), sortable: true },
+              {
+                key: "federation",
+                header: t("federationLabel"),
+                sortable: true,
+                render: (club) => (
+                  <StatusBadge
+                    label={club.federation === "ITF" ? t("federationItf") : t("federationWt")}
+                    tone="neutral"
+                  />
+                ),
+              },
               {
                 key: "is_active",
                 header: t("clubStatusLabel"),
+                sortable: true,
                 render: (club) => (
                   <StatusBadge
                     label={club.is_active ? t("clubStatusActive") : t("clubStatusInactive")}
@@ -291,35 +344,50 @@ export default function LtfAdminClubsPage() {
                   />
                 ),
               },
-              { key: "postal_code", header: t("postalCodeLabel") },
+              { key: "postal_code", header: t("postalCodeLabel"), sortable: true },
               {
                 key: "locality",
                 header: t("localityLabel"),
+                sortable: true,
                 render: (club) => club.locality || club.city,
               },
               {
                 key: "actions",
                 header: t("actionsLabel"),
                 render: (club) => (
-                  <div className="flex flex-wrap items-center gap-2" onClick={(event) => event.stopPropagation()}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={t("deleteAction")}
-                      onClick={() => handleDelete(club)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div onClick={(event) => event.stopPropagation()}>
+                    <RowActionMenu
+                      label={common("rowActionsLabel")}
+                      actions={[
+                        {
+                          key: "delete",
+                          label: t("deleteAction"),
+                          destructive: true,
+                          onSelect: () => handleDelete(club),
+                        },
+                      ]}
+                    />
                   </div>
                 ),
               },
             ]}
             rows={pagedClubs}
+            sort={tableSort}
+            onSortChange={setTableSort}
             onRowClick={(club) => router.push(`/${locale}/dashboard/ltf/clubs/${club.id}`)}
           />
         )}
       </div>
+
+      <ClubFormPanel
+        open={createOpen}
+        mode="create"
+        onClose={() => setCreateOpen(false)}
+        onSaved={async () => {
+          setCreateOpen(false);
+          await loadClubs();
+        }}
+      />
 
       <DeleteConfirmModal
         isOpen={isDeleteOpen}

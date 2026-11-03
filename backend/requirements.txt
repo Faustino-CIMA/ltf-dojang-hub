@@ -4,13 +4,16 @@ django-decouple>=2.1
 django-cors-headers>=4.4
 django-filter>=24.2
 drf-spectacular>=0.27
-django-allauth>=64.0
+django-allauth>=65.0,<66
+fido2>=2.0,<3
 gunicorn>=22.0
 psycopg[binary]>=3.1
 redis>=5.0
 whitenoise>=6.7
 resend
-celery>=5.3
+# The Redis extra pulls kombu[redis], which imports packaging.
+# Without it, queueing a webhook or a print job raises ModuleNotFoundError.
+celery[redis]>=5.3,<6
 stripe>=14.3.0
 cryptography>=42.0
 weasyprint>=62.3

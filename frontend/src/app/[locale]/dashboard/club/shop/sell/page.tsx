@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { ShopCameraScan } from "@/components/clubmgmt/shop-camera-scan";
 import { ClubShopTabs } from "@/components/clubmgmt/shop-tabs";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { formatFullName } from "@/lib/person-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -223,7 +224,7 @@ export default function ClubShopSellPage() {
 
   return (
     <ClubAdminLayout title={t("shopSellTitle")} subtitle={t("shopSellSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubShopTabs />
         <ActionNotices
           error={errorMessage}
@@ -249,8 +250,8 @@ export default function ClubShopSellPage() {
             }
           />
         ) : (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="space-y-4">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="space-y-3">
               {(overview?.low_stock.length ?? 0) > 0 ? (
                 <p className="text-sm text-muted">
                   {t("shopLowStockCount", { count: overview?.low_stock_count ?? 0 })}
@@ -379,7 +380,7 @@ export default function ClubShopSellPage() {
                   <Input
                     id="shop-sold-to"
                     className="mt-1"
-                    value={soldToMember ? `${soldToMember.first_name} ${soldToMember.last_name}` : memberQuery}
+                    value={soldToMember ? formatFullName(soldToMember) : memberQuery}
                     onChange={(event) => {
                       setMemberId("walkin");
                       setMemberQuery(event.target.value);
@@ -395,13 +396,13 @@ export default function ClubShopSellPage() {
                           <li key={member.id} className="border-b border-border last:border-0">
                             <button
                               type="button"
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--accent-soft)] hover:text-foreground"
                               onClick={() => {
                                 setMemberId(String(member.id));
                                 setMemberQuery("");
                               }}
                             >
-                              {member.first_name} {member.last_name}
+                              {formatFullName(member)}
                             </button>
                           </li>
                         ))

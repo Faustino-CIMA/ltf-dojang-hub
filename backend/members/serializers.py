@@ -48,6 +48,15 @@ class MemberSerializer(serializers.ModelSerializer):
     current_licenses = serializers.SerializerMethodField()
     completed_transfer_count = serializers.SerializerMethodField()
     is_club_tourist = serializers.SerializerMethodField()
+    is_ltf_staff = serializers.SerializerMethodField()
+    ltf_staff = serializers.SerializerMethodField()
+    linked_user = serializers.SerializerMethodField()
+    account_state = serializers.SerializerMethodField()
+    latest_weight_kg = serializers.SerializerMethodField()
+    latest_weight_on = serializers.SerializerMethodField()
+    latest_height_cm = serializers.SerializerMethodField()
+    latest_height_on = serializers.SerializerMethodField()
+    teams = serializers.SerializerMethodField()
     ltf_license_prefix = serializers.ChoiceField(
         choices=[("LUX", "LUX"), ("LTF", "LTF")],
         write_only=True,
@@ -77,6 +86,15 @@ class MemberSerializer(serializers.ModelSerializer):
             "current_licenses",
             "completed_transfer_count",
             "is_club_tourist",
+            "is_ltf_staff",
+            "ltf_staff",
+            "linked_user",
+            "account_state",
+            "latest_weight_kg",
+            "latest_weight_on",
+            "latest_height_cm",
+            "latest_height_on",
+            "teams",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -92,6 +110,15 @@ class MemberSerializer(serializers.ModelSerializer):
             "current_licenses",
             "completed_transfer_count",
             "is_club_tourist",
+            "is_ltf_staff",
+            "ltf_staff",
+            "linked_user",
+            "account_state",
+            "latest_weight_kg",
+            "latest_weight_on",
+            "latest_height_cm",
+            "latest_height_on",
+            "teams",
             "photo_edit_metadata",
             "photo_consent_attested_at",
             "photo_consent_attested_by",
@@ -123,13 +150,19 @@ class MemberSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"secondary_license_role": "Secondary role must differ from primary role."}
             )
+        if self.instance is None and not attrs.get("club"):
+            raise serializers.ValidationError({"club": "Club is required."})
+        if self.instance is not None and "club" in attrs and attrs.get("club") is None:
+            raise serializers.ValidationError(
+                {"club": "Use LTF staff to record someone with no club."}
+            )
         return attrs
 
     def validate_wt_licenseid(self, value):
         normalized_value = str(value or "").strip().upper()
         if not normalized_value:
             return ""
-        queryset = Member.objects.filter(wt_licenseid=normalized_value)
+        queryset = Member.all_objects.filter(wt_licenseid=normalized_value)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
@@ -140,7 +173,7 @@ class MemberSerializer(serializers.ModelSerializer):
         normalized_value = str(value or "").strip().upper()
         if not normalized_value:
             return ""
-        queryset = Member.objects.filter(ltf_licenseid=normalized_value)
+        queryset = Member.all_objects.filter(ltf_licenseid=normalized_value)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
@@ -215,6 +248,82 @@ class MemberSerializer(serializers.ModelSerializer):
 
     def get_is_club_tourist(self, obj: Member):
         return is_club_tourist(self.get_completed_transfer_count(obj), self._tourist_threshold())
+
+    def _current_staff_row(self, obj: Member):
+        rows = getattr(obj, "current_ltf_staff_rows", None)
+        if rows is not None:
+            return rows[0] if rows else None
+        from .ltf_staff import current_staff_function
+
+        return current_staff_function(obj)
+
+    def get_ltf_staff(self, obj: Member):
+        row = self._current_staff_row(obj)
+        if row is None:
+            return None
+        return {
+            "id": row.id,
+            "function": row.function,
+            "started_on": row.started_on,
+            "ended_on": row.ended_on,
+        }
+
+    def get_is_ltf_staff(self, obj: Member):
+        return self._current_staff_row(obj) is not None
+
+    def get_linked_user(self, obj: Member):
+        if not obj.user_id or obj.user is None:
+            return None
+        return {
+            "id": obj.user_id,
+            "username": obj.user.username,
+            "role": obj.user.role,
+        }
+
+    def get_account_state(self, obj: Member):
+        from .user_accounts import account_state_value
+
+        return account_state_value(obj)
+
+    def _measurements_visible(self, obj: Member) -> bool:
+        clubs = self.context.get("measurement_club_ids") or set()
+        return bool(obj.club_id and obj.club_id in clubs)
+
+    def get_latest_weight_kg(self, obj: Member):
+        value = getattr(obj, "latest_weight_kg", None)
+        if value is None:
+            return None
+        return f"{value:.1f}"
+
+    def get_latest_weight_on(self, obj: Member):
+        value = getattr(obj, "latest_weight_on", None)
+        return value.isoformat() if value else None
+
+    def get_latest_height_cm(self, obj: Member):
+        value = getattr(obj, "latest_height_cm", None)
+        return None if value is None else int(value)
+
+    def get_latest_height_on(self, obj: Member):
+        value = getattr(obj, "latest_height_on", None)
+        return value.isoformat() if value else None
+
+    def get_teams(self, obj: Member):
+        rows = getattr(obj, "club_team_rows", None)
+        if rows is None:
+            if not self._measurements_visible(obj):
+                return []
+            rows = obj.team_memberships.select_related("team").order_by("team__name", "team_id")
+        return [
+            {"id": row.team_id, "name": row.team.name, "discipline": row.team.discipline, "role": row.role}
+            for row in rows
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._measurements_visible(instance):
+            for key in ("latest_weight_kg", "latest_weight_on", "latest_height_cm", "latest_height_on", "teams"):
+                data.pop(key, None)
+        return data
 
     def get_current_licenses(self, obj: Member):
         prefetched = getattr(obj, "current_licenses_prefetched", None)

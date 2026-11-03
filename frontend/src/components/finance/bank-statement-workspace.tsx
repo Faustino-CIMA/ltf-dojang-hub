@@ -97,7 +97,7 @@ export function BankStatementWorkspace({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <FormPanel>
         <div className="grid gap-4 text-sm md:grid-cols-2">

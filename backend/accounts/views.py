@@ -1,6 +1,8 @@
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from django.conf import settings
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib.auth.password_validation import validate_password
+from .password_reset import ResetTokenGenerator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.encoding import force_str
@@ -15,7 +17,9 @@ from members.services import clear_member_profile_picture
 from licenses.models import License, LicenseHistoryEvent
 
 from .email_utils import build_password_reset_url, send_password_reset_email
-from .models import User
+from .desks import open_desk_summary, record_desk_switch
+from .models import AccountSetupInvite, DeskGrant, User
+from .setup_invites import NEUTRAL_DETAIL, account_setup_assignments, invite_for_token, invite_is_open
 from .serializers import (
     ConsentSerializer,
     DataDeleteResponseSerializer,
@@ -41,10 +45,10 @@ class LoginView(views.APIView):
     serializer_class = LoginSerializer
 
     def post(self, request):
-        from ops.detectors import run_failure_detectors, run_success_detectors
+        from ops.detectors import run_failure_detectors
         from ops.events import is_locked, record_auth_event
         from ops.models import AuthEvent
-        from ops.request_utils import client_ip, touch_token_meta
+        from ops.request_utils import client_ip
 
         username = str(request.data.get("username") or "").strip()
         ip = client_ip(request)
@@ -72,18 +76,13 @@ class LoginView(views.APIView):
                 run_failure_detectors(request, username=username, ip=ip)
             raise
         user = serializer.validated_data["user"]
-        user.last_login = timezone.now()
-        user.save(update_fields=["last_login"])
-        token, _ = Token.objects.get_or_create(user=user)
-        touch_token_meta(token, request)
-        record_auth_event(
-            request,
-            AuthEvent.EventType.LOGIN_SUCCESS,
-            username=user.username,
-            user=user,
-        )
-        run_success_detectors(request, user=user, ip=ip)
-        return response.Response({"token": token.key, "user": UserSerializer(user).data})
+        from .mfa import begin_password_login
+
+        try:
+            payload = begin_password_login(request._request, user)
+        except ValidationError as exc:
+            return response.Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+        return response.Response(payload)
 
 
 @extend_schema(
@@ -97,6 +96,9 @@ class LogoutView(views.APIView):
         from ops.events import record_auth_event
         from ops.models import AuthEvent
 
+        session = getattr(request._request, "_allauth_token_session", None)
+        if session is not None:
+            session.flush()
         Token.objects.filter(user=request.user).delete()
         record_auth_event(
             request,
@@ -115,7 +117,44 @@ class MeView(views.APIView):
     serializer_class = EmptySerializer
 
     def get(self, request):
-        return response.Response(UserSerializer(request.user).data)
+        from .mfa import public_mfa_status
+
+        payload = UserSerializer(request.user).data
+        payload.update(open_desk_summary(request.user))
+        payload["mfa"] = public_mfa_status(request.user, request)
+        return response.Response(payload)
+
+
+class DeskSelectView(views.APIView):
+    """Remember the desk the person chose. Does not grant a new one."""
+
+    def post(self, request):
+        desk = str(request.data.get("desk") or "").strip()
+        raw_club = request.data.get("club_id")
+        club_id = None
+        if raw_club not in (None, ""):
+            try:
+                club_id = int(raw_club)
+            except (TypeError, ValueError):
+                return response.Response({"detail": "desk_not_granted"}, status=status.HTTP_403_FORBIDDEN)
+        if desk not in set(DeskGrant.Desk.values) and desk != "ops":
+            return response.Response({"detail": "desk_not_granted"}, status=status.HTTP_403_FORBIDDEN)
+        from rest_framework.exceptions import PermissionDenied
+
+        try:
+            preference = record_desk_switch(request.user, desk=desk, club_id=club_id)
+        except PermissionDenied as exc:
+            return response.Response({"detail": exc.detail}, status=status.HTTP_403_FORBIDDEN)
+        summary = open_desk_summary(request.user)
+        current = next(
+            (
+                row
+                for row in summary["desks"]
+                if row["desk"] == preference.desk and row["club_id"] == preference.club_id
+            ),
+            {"desk": preference.desk, "level": DeskGrant.Level.FULL, "club_id": preference.club_id, "club_name": ""},
+        )
+        return response.Response(current)
 
 
 @extend_schema(
@@ -144,7 +183,7 @@ class DataExportView(views.APIView):
     serializer_class = EmptySerializer
 
     def get(self, request):
-        member = Member.objects.filter(user=request.user).first()
+        member = Member.all_objects.filter(user=request.user).first()
         licenses = License.objects.filter(member=member).values(
             "id",
             "year",
@@ -152,9 +191,15 @@ class DataExportView(views.APIView):
             "start_date",
             "end_date",
         )
-        license_history = LicenseHistoryEvent.objects.filter(member=member).values(
+        from licenses.history import no_club_label
+
+        locale = request.query_params.get("locale") or request.headers.get("Accept-Language")
+        missing_club = no_club_label(locale)
+        license_history = []
+        for row in LicenseHistoryEvent.objects.filter(member=member).values(
             "id",
             "license_id",
+            "club_id",
             "event_type",
             "event_at",
             "reason",
@@ -164,7 +209,10 @@ class DataExportView(views.APIView):
             "club_name_snapshot",
             "order_id",
             "payment_id",
-        )
+        ):
+            if row["club_id"] is None:
+                row["club_name_snapshot"] = missing_club
+            license_history.append(row)
         grade_history = GradePromotionHistory.objects.filter(member=member).values(
             "id",
             "from_grade",
@@ -233,16 +281,19 @@ class DataDeleteView(views.APIView):
     serializer_class = EmptySerializer
 
     def delete(self, request):
+        from .privacy import clear_private_addresses_for_user
+
         user_id = request.user.id
-        member = Member.objects.filter(user=request.user).first()
+        members = list(Member.all_objects.filter(user=request.user))
         with transaction.atomic():
-            if member:
+            for member in members:
                 clear_member_profile_picture(member, clear_consent_attestation=True)
                 GradePromotionHistory.objects.filter(member=member).update(
                     notes="",
                     proof_ref="",
                     metadata={"anonymized": True},
                 )
+            clear_private_addresses_for_user(request.user)
             request.user.delete()
         return response.Response({"deleted_user_id": user_id}, status=status.HTTP_200_OK)
 
@@ -346,7 +397,7 @@ class PasswordResetConfirmView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        token_ok = PasswordResetTokenGenerator().check_token(user, token)
+        token_ok = ResetTokenGenerator().check_token(user, token)
 
         if not token_ok:
             return response.Response(
@@ -357,7 +408,92 @@ class PasswordResetConfirmView(views.APIView):
         user.set_password(password)
         user.is_email_verified = True
         user.save(update_fields=["password", "is_email_verified"])
+        from allauth.account.signals import password_reset
+
+        password_reset.send(sender=user.__class__, request=request._request, user=user)
         return response.Response({"detail": "Password reset successfully."})
+
+
+class AccountSetupView(views.APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        invite, user = _open_setup_invite(request.query_params.get("token"))
+        if invite is None or user is None:
+            return _closed_setup_response(request.query_params.get("token"))
+        member = Member.all_objects.filter(user=user).first()
+        return response.Response(
+            {
+                "username": user.username,
+                "first_name": member.first_name if member else user.first_name,
+                "last_name": member.last_name if member else user.last_name,
+                "assignments": account_setup_assignments(user),
+            }
+        )
+
+    def post(self, request):
+        invite, user = _open_setup_invite(request.data.get("token"))
+        if invite is None or user is None:
+            return _closed_setup_response(request.data.get("token"))
+        email = str(request.data.get("email") or "").strip()
+        password = str(request.data.get("password") or "")
+        confirmation = str(request.data.get("password_confirm") or "")
+        if not email or "@" not in email:
+            return response.Response({"email": ["Enter a valid email address."]}, status=status.HTTP_400_BAD_REQUEST)
+        if password != confirmation:
+            return response.Response({"password_confirm": ["Passwords do not match."]}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists() or EmailAddress.objects.filter(email__iexact=email).exclude(user=user).exists():
+            return response.Response({"email": ["That email is already used."]}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(password, user=user)
+        except DjangoValidationError as exc:
+            return response.Response({"password": exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            locked = AccountSetupInvite.objects.select_for_update().get(pk=invite.pk)
+            if not invite_is_open(locked):
+                return _closed_setup_response(request.data.get("token"))
+            user.email = email
+            user.is_email_verified = True
+            user.set_password(password)
+            user.save(update_fields=["email", "is_email_verified", "password"])
+            address, _created = EmailAddress.objects.get_or_create(
+                user=user,
+                email=email,
+                defaults={"verified": True, "primary": True},
+            )
+            EmailAddress.objects.filter(user=user).exclude(pk=address.pk).update(primary=False)
+            if not address.verified or not address.primary:
+                address.verified = True
+                address.primary = True
+                address.save(update_fields=["verified", "primary"])
+            member = Member.all_objects.filter(user=user).first()
+            if member is not None:
+                member.email = email
+                member.save(update_fields=["email", "updated_at"])
+            locked.used_at = timezone.now()
+            locked.save(update_fields=["used_at"])
+        return response.Response({"detail": "Account ready."})
+
+
+def _open_setup_invite(raw):
+    invite = invite_for_token(str(raw or ""))
+    if not invite_is_open(invite):
+        return None, None
+    return invite, invite.user
+
+
+def _closed_setup_response(raw):
+    """Why a link cannot be used, without the person's name, email, or clubs."""
+    invite = invite_for_token(str(raw or ""))
+    if invite is None:
+        reason = "invalid"
+    elif invite.used_at:
+        reason = "used"
+    elif invite.revoked_at:
+        reason = "revoked"
+    else:
+        reason = "expired"
+    return response.Response({"detail": NEUTRAL_DETAIL, "reason": reason}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(

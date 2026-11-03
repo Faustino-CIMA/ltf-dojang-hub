@@ -20,3 +20,6 @@ msgstr "Wann Dir dëse Kont net ugefrot hutt, kënnt Dir dës E-Mail ignoréiere
 
 msgid "LTF Dojang Hub"
 msgstr "LTF Dojang Hub"
+
+msgid "Only one address can be used for invoices."
+msgstr "Nëmmen eng Adress däerf fir Rechnungen benotzt ginn."

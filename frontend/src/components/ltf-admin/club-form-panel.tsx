@@ -1,0 +1,328 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+
+import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
+import { getClubCommunicationLanguages, type ClubCommunicationLanguage } from "@/lib/club-admin-api";
+import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
+import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
+import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
+import { Club, createClub, updateClub } from "@/lib/ltf-admin-api";
+
+const FORM_ID = "club-form";
+
+type ClubFormValues = {
+  name: string;
+  federation: "WT" | "ITF";
+  rcs_number: string;
+  address_line1: string;
+  address_line2: string;
+  postal_code: string;
+  locality: string;
+  iban: string;
+  email: string;
+  website: string;
+  is_active: boolean;
+  communication_language: string;
+};
+
+const EMPTY_VALUES: ClubFormValues = {
+  name: "",
+  federation: "WT",
+  rcs_number: "",
+  address_line1: "",
+  address_line2: "",
+  postal_code: "",
+  locality: "",
+  iban: "",
+  email: "",
+  website: "",
+  is_active: true,
+  communication_language: "en",
+};
+
+function valuesFromClub(club: Club): ClubFormValues {
+  return {
+    name: club.name ?? "",
+    federation: club.federation === "ITF" ? "ITF" : "WT",
+    rcs_number: club.rcs_number ?? "",
+    address_line1: club.address_line1 || club.address || "",
+    address_line2: club.address_line2 ?? "",
+    postal_code: club.postal_code ?? "",
+    locality: club.locality || club.city || "",
+    iban: club.iban ?? "",
+    email: club.email ?? "",
+    website: club.website ?? "",
+    is_active: club.is_active !== false,
+    communication_language: club.communication_language || "en",
+  };
+}
+
+export function ClubFormPanel({
+  open,
+  mode,
+  club,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  mode: "create" | "edit";
+  club?: Club | null;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const t = useTranslations("LtfAdmin");
+  const common = useTranslations("Common");
+  const [values, setValues] = useState<ClubFormValues>(EMPTY_VALUES);
+  const [languages, setLanguages] = useState<ClubCommunicationLanguage[]>([
+    { code: "en", name: "English" },
+    { code: "fr", name: "Français" },
+    { code: "de", name: "Deutsch" },
+    { code: "lb", name: "Lëtzebuergesch" },
+  ]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setErrorMessage(null);
+    setValues(mode === "edit" && club ? valuesFromClub(club) : EMPTY_VALUES);
+  }, [open, mode, club]);
+
+  useEffect(() => {
+    if (!open || mode !== "edit") {
+      return;
+    }
+    void getClubCommunicationLanguages()
+      .then(setLanguages)
+      .catch(() => undefined);
+  }, [open, mode]);
+
+  const setField = (field: keyof ClubFormValues, value: string | boolean) => {
+    setValues((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const derivedBankName = deriveBankNameFromIban(values.iban);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = values.name.trim();
+    if (!name) {
+      setErrorMessage("Club name is required");
+      return;
+    }
+    const postalCode = values.postal_code.trim();
+    const normalizedIban = values.iban.trim();
+    if (postalCode && !/^\d{4}$/.test(postalCode)) {
+      setErrorMessage("Postal code must be 4 digits for Luxembourg.");
+      return;
+    }
+    if (normalizedIban && !isValidIban(normalizedIban)) {
+      setErrorMessage("Enter a valid IBAN.");
+      return;
+    }
+    const rcsNumber = normalizeRcsNumber(values.rcs_number);
+    if (!isValidRcsNumber(rcsNumber)) {
+      setErrorMessage(t("rcsNumberInvalid"));
+      return;
+    }
+    setIsSaving(true);
+    setErrorMessage(null);
+    const payload = {
+      name,
+      federation: values.federation,
+      rcs_number: rcsNumber,
+      address_line1: values.address_line1.trim(),
+      address_line2: values.address_line2.trim(),
+      postal_code: postalCode,
+      locality: values.locality.trim(),
+      iban: normalizedIban,
+      email: values.email.trim(),
+      website: values.website.trim(),
+      city: values.locality.trim(),
+      address: values.address_line1.trim(),
+      ...(mode === "edit"
+        ? {
+            is_active: values.is_active,
+            communication_language: values.communication_language,
+          }
+        : {}),
+    };
+    try {
+      if (mode === "edit" && club) {
+        await updateClub(club.id, payload);
+      } else {
+        await createClub(payload);
+      }
+      await onSaved();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to save club details.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <SidePanel
+      open={open}
+      wide
+      title={mode === "edit" ? t("editAction") : t("createClub")}
+      description={t("clubFormSubtitle")}
+      closeLabel={common("modalClose")}
+      onClose={onClose}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+            {t("cancelEdit")}
+          </Button>
+          <Button type="submit" form={FORM_ID} disabled={isSaving}>
+            {isSaving ? t("savingAction") : mode === "edit" ? t("saveChanges") : t("createClub")}
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+        {errorMessage ? <p className="text-sm text-destructive md:col-span-2">{errorMessage}</p> : null}
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="club-name" required>
+            {t("clubNameLabel")}
+          </Label>
+          <Input
+            id="club-name"
+            value={values.name}
+            placeholder={t("clubNamePlaceholder")}
+            onChange={(event) => setField("name", event.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="club-federation">{t("federationLabel")}</Label>
+          <PopoverSelect
+            className="w-full"
+            value={values.federation}
+            onValueChange={(value) => setField("federation", value === "ITF" ? "ITF" : "WT")}
+            ariaLabel={t("federationLabel")}
+            options={[
+              { value: "WT", label: t("federationWt") },
+              { value: "ITF", label: t("federationItf") },
+            ]}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="club-rcs">{t("rcsNumberLabel")}</Label>
+          <Input
+            id="club-rcs"
+            value={values.rcs_number}
+            placeholder={t("rcsNumberPlaceholder")}
+            onChange={(event) => setField("rcs_number", event.target.value)}
+          />
+          <a
+            href={LBR_SEARCH_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-primary underline-offset-2 hover:underline"
+          >
+            {t("openLbrSearch")}
+          </a>
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">{t("headOfficeLabel")}</h3>
+            <p className="text-xs text-muted">{t("headOfficeHint")}</p>
+          </div>
+          <LuAddressFields
+            idPrefix="club"
+            showCountry={false}
+            value={{
+              ...splitStreetLine(values.address_line1, {
+                postal_code: values.postal_code,
+                locality: values.locality,
+              }),
+              line2: values.address_line2,
+              postal_code: values.postal_code,
+              locality: values.locality,
+              country: "Luxembourg",
+              use_for_invoice: false,
+            }}
+            onChange={(next) => {
+              setValues((previous) => ({
+                ...previous,
+                address_line1: joinStreetLine(next.house_number, next.street),
+                address_line2: next.line2,
+                postal_code: next.postal_code,
+                locality: next.locality,
+              }));
+            }}
+          />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="club-email">{t("clubEmailLabel")}</Label>
+          <Input
+            id="club-email"
+            type="email"
+            value={values.email}
+            placeholder={t("clubEmailPlaceholder")}
+            onChange={(event) => setField("email", event.target.value)}
+          />
+          <p className="text-xs text-muted">{t("clubEmailHint")}</p>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="club-website">{t("clubWebsiteLabel")}</Label>
+          <Input
+            id="club-website"
+            type="url"
+            value={values.website}
+            placeholder={t("clubWebsitePlaceholder")}
+            onChange={(event) => setField("website", event.target.value)}
+          />
+          <p className="text-xs text-muted">{t("clubWebsiteHint")}</p>
+        </div>
+        {mode === "edit" ? (
+          <>
+            <div className="flex items-center gap-2 md:col-span-2">
+              <Checkbox
+                id="club-is-active"
+                checked={values.is_active}
+                onCheckedChange={(value) => setField("is_active", value === true)}
+              />
+              <Label htmlFor="club-is-active">{t("clubStatusActive")}</Label>
+              <p className="text-xs text-muted">{t("clubStatusHint")}</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="club-language">{t("clubLanguageLabel")}</Label>
+              <PopoverSelect
+                className="w-full"
+                value={values.communication_language}
+                onValueChange={(value) => setField("communication_language", value)}
+                ariaLabel={t("clubLanguageLabel")}
+                options={languages.map((language) => ({ value: language.code, label: language.name }))}
+              />
+              <p className="text-xs text-muted">{t("clubLanguageHint")}</p>
+            </div>
+          </>
+        ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="club-iban">{t("ibanLabel")}</Label>
+          <Input
+            id="club-iban"
+            value={values.iban}
+            placeholder={t("ibanPlaceholder")}
+            onChange={(event) => setField("iban", event.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="club-bank">{t("bankNameLabel")}</Label>
+          <Input id="club-bank" value={derivedBankName || "-"} readOnly />
+        </div>
+      </form>
+    </SidePanel>
+  );
+}

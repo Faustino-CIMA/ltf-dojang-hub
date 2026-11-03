@@ -7,6 +7,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { TrainingVenueField, useClubTrainingVenues } from "@/components/club-admin/training-venue-field";
+import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getClubTrainers } from "@/lib/club-admin-api";
+import { formatFullName } from "@/lib/person-name";
 import {
   createTrainingSession,
   getTrainingWeek,
@@ -54,6 +57,9 @@ export default function TrainingWeekPage() {
   const [startTime, setStartTime] = useState("17:00");
   const [endTime, setEndTime] = useState("18:30");
   const [coachIds, setCoachIds] = useState<number[]>([]);
+  const [venueId, setVenueId] = useState<number | null>(null);
+  const [place, setPlace] = useState("");
+  const { venues, loadFailed } = useClubTrainingVenues(selectedClubId, canManage);
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | TrainingSession["status"]>("all");
@@ -92,6 +98,8 @@ export default function TrainingWeekPage() {
         start_time: startTime,
         end_time: endTime,
         coach_ids: coachIds,
+        venue_id: venueId,
+        place: venueId == null ? place : "",
       });
       router.push(`/${locale}/dashboard/club/training/sessions/${created.id}`);
     } catch (error) {
@@ -109,6 +117,7 @@ export default function TrainingWeekPage() {
       return (
         row.name.toLowerCase().includes(needle) ||
         row.coach_names.join(" ").toLowerCase().includes(needle) ||
+        timetablePlaceText(row).toLowerCase().includes(needle) ||
         t(`trainingAudience_${row.audience}`).toLowerCase().includes(needle)
       );
     });
@@ -135,7 +144,7 @@ export default function TrainingWeekPage() {
       {!selectedClubId ? (
         <EmptyState title={t("selectClubPlaceholder")} description={t("trainingChooseClub")} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
           {canManage ? (
             <FormPanel>
@@ -143,7 +152,7 @@ export default function TrainingWeekPage() {
               <p className="mt-1 text-sm text-muted">{t("trainingAddSessionHint")}</p>
               <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={(event) => void onCreate(event)}>
                 <div>
-                  <Label>{t("trainingClassName")}</Label>
+                  <Label required>{t("trainingClassName")}</Label>
                   <Input className="mt-1" value={name} onChange={(event) => setName(event.target.value)} required />
                 </div>
                 <div>
@@ -158,18 +167,30 @@ export default function TrainingWeekPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>{t("trainingDate")}</Label>
+                  <Label required>{t("trainingDate")}</Label>
                   <Input className="mt-1" type="date" value={heldOn} onChange={(event) => setHeldOn(event.target.value)} required />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label>{t("trainingStarts")}</Label>
+                    <Label required>{t("trainingStarts")}</Label>
                     <Input className="mt-1" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required />
                   </div>
                   <div>
-                    <Label>{t("trainingEnds")}</Label>
+                    <Label required>{t("trainingEnds")}</Label>
                     <Input className="mt-1" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} required />
                   </div>
+                </div>
+                <div className="md:col-span-2">
+                  <TrainingVenueField
+                    venues={venues}
+                    loadFailed={loadFailed}
+                    venueId={venueId}
+                    place={place}
+                    onChange={(choice) => {
+                      setVenueId(choice.venueId);
+                      setPlace(choice.venueId == null ? choice.place : "");
+                    }}
+                  />
                 </div>
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium">{t("trainingSessionCoaches")}</p>
@@ -183,7 +204,7 @@ export default function TrainingWeekPage() {
                           onClick={() => setCoachIds((current) => (on ? current.filter((id) => id !== coach.user_id) : [...current, coach.user_id]))}
                           className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
                         >
-                          {coach.first_name} {coach.last_name}
+                          {formatFullName(coach)}
                         </button>
                       );
                     })}
@@ -203,7 +224,7 @@ export default function TrainingWeekPage() {
             <EmptyState title={t("trainingNoSessions")} description={t("trainingNoSessionsHint")} />
           ) : (
             <>
-              <div className="flex flex-wrap items-end gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+              <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-3">
                 <div className="min-w-[12rem] flex-1">
                   <Input
                     className="w-full max-w-xs"
@@ -245,7 +266,21 @@ export default function TrainingWeekPage() {
                       header: t("trainingTime"),
                       render: (row) => `${row.start_time}–${row.end_time}`,
                     },
-                    { key: "name", header: t("trainingClassName") },
+                    {
+                      key: "name",
+                      header: t("trainingClassName"),
+                      render: (row) => {
+                        const venue = timetablePlaceText(row);
+                        return venue ? (
+                          <span>
+                            <span className="block">{row.name}</span>
+                            <span className="block text-xs text-muted">{venue}</span>
+                          </span>
+                        ) : (
+                          row.name
+                        );
+                      },
+                    },
                     {
                       key: "audience",
                       header: t("trainingAudience"),

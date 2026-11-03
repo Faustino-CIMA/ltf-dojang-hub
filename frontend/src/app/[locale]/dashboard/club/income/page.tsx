@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { LedgerEntryPanel } from "@/components/finance/ledger-entry-panel";
 import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -14,17 +14,18 @@ import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices,
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getClubIncomesPage } from "@/lib/club-finance-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { FinanceIncome } from "@/lib/ltf-finance-api";
 
 type IncomeStatusFilter = "all" | "received" | "void";
@@ -33,21 +34,30 @@ export default function ClubIncomePage() {
   const t = useTranslations("LtfFinance");
   const clubT = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
-  const locale = useLocale();
-  const router = useRouter();
   const { selectedClubId } = useClubSelection();
+  const [entryPanel, setEntryPanel] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(null);
   const { canRecordPayments } = useClubFinanceAccess();
   const [incomes, setIncomes] = useState<FinanceIncome[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<IncomeStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useListPage(
+    [searchQuery, pageSize, statusFilter, selectedClubId ?? ""].join("|"),
+  );
   const [totalCount, setTotalCount] = useState(0);
   const [facetCounts, setFacetCounts] = useState({ all: 0, received: 0, void: 0 });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const requestAbortRef = useRef<AbortController | null>(null);
+
+  useConsumeSearchParam("create", () => setEntryPanel({ mode: "create" }));
+  useConsumeSearchParam("edit", (value) => {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) {
+      setEntryPanel({ mode: "edit", id });
+    }
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setSearchQuery(searchInput.trim()), 250);
@@ -64,14 +74,16 @@ export default function ClubIncomePage() {
     const query = { q: searchQuery || undefined, clubId };
     try {
       const [pageResponse, allRes, receivedRes, voidRes] = await Promise.all([
-        getClubIncomesPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            status: statusFilter === "all" ? undefined : statusFilter,
-            ...query,
-          },
-          { signal: controller.signal }
+        readListPage(pageSize, currentPage, (page, size) =>
+          getClubIncomesPage(
+            {
+              page,
+              pageSize: size,
+              status: statusFilter === "all" ? undefined : statusFilter,
+              ...query,
+            },
+            { signal: controller.signal },
+          ),
         ),
         getClubIncomesPage({ page: 1, pageSize: 1, ...query }, { signal: controller.signal }),
         getClubIncomesPage({ page: 1, pageSize: 1, ...query, status: "received" }, { signal: controller.signal }),
@@ -94,16 +106,15 @@ export default function ClubIncomePage() {
   }, [loadIncomes]);
 
   useEffect(() => () => requestAbortRef.current?.abort(), []);
-  useEffect(() => setCurrentPage(1), [searchQuery, pageSize, statusFilter, selectedClubId]);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / resolveListPageSize(pageSize, totalCount)));
+  const totalPages = Math.max(1, Math.ceil(totalCount / displayPageSize(pageSize, totalCount)));
 
   return (
     <ClubAdminLayout title={t("incomeTitle")} subtitle={t("incomeSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
               <Input
@@ -137,7 +148,7 @@ export default function ClubIncomePage() {
           <ListActionsRow
             actions={
               canRecordPayments ? (
-                <Button variant="primary" onClick={() => router.push(`/${locale}/dashboard/club/income/new`)}>
+                <Button variant="primary" onClick={() => setEntryPanel({ mode: "create" })}>
                   {t("recordIncomeAction")}
                 </Button>
               ) : null
@@ -188,10 +199,23 @@ export default function ClubIncomePage() {
               },
             ]}
             rows={incomes}
-            onRowClick={(row) => router.push(`/${locale}/dashboard/club/income/${row.id}`)}
+            onRowClick={(row) => setEntryPanel({ mode: "edit", id: row.id })}
           />
         )}
       </div>
+      <LedgerEntryPanel
+        open={entryPanel !== null}
+        kind="income"
+        desk="club"
+        mode={entryPanel?.mode ?? "create"}
+        entryId={entryPanel?.mode === "edit" ? entryPanel.id : null}
+        clubId={selectedClubId}
+        onClose={() => setEntryPanel(null)}
+        onSaved={async () => {
+          setEntryPanel(null);
+          await loadIncomes();
+        }}
+      />
     </ClubAdminLayout>
   );
 }

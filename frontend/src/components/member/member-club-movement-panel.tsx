@@ -53,9 +53,9 @@ export function MemberClubMovementPanel({
         <p className="mt-1 text-xs text-muted">{touristHint}</p>
       ) : null}
       {rows.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">{emptyLabel}</p>
+        <p className="mt-3 text-sm text-muted">{emptyLabel}</p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-3 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
               <tr>

@@ -9,11 +9,42 @@ export type AuthUser = {
   is_email_verified: boolean;
   consent_given: boolean;
   consent_given_at: string | null;
+  home_club_id?: number | null;
+};
+
+export type AuthDesk = {
+  desk: string;
+  level: string;
+  club_id: number | null;
+  club_name?: string;
+};
+
+export type MfaStatus = {
+  required: boolean;
+  enrolled: boolean;
+  recovery_codes: boolean;
+  recovery_codes_remaining?: number;
+  grace: boolean;
+  grace_until: string | null;
+  blocked: boolean;
+  desk_block?: string | null;
+  email_available: boolean;
+  email_enabled: boolean;
+  passkeys: number;
+  totp?: boolean;
+  totp_since?: string | null;
+  passkey_devices?: { id: number; name: string; added_on: string }[];
 };
 
 export type AuthResponse = {
   token: string;
-  user: AuthUser;
+  user?: AuthUser;
+  desks?: AuthDesk[];
+  last_desk?: { desk: string; level: string; club_id: number | null } | null;
+  mfa?: MfaStatus;
+  mfa_pending?: boolean;
+  mfa_methods?: string[];
+  recovery_codes_remaining?: number;
 };
 
 const TOKEN_KEY = "ltf_token";

@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, OuterRef, Q, Sum
+from django.db.models import Count, DecimalField, Exists, F, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
@@ -13,6 +13,7 @@ from drf_spectacular.utils import extend_schema
 import stripe
 from rest_framework import permissions, serializers, status, viewsets, mixins
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
 from django.http import HttpResponse
@@ -26,10 +27,12 @@ from accounts.permissions import (
     IsLtfFinanceOrLtfAdmin,
 )
 from clubmgmt.access import can_record_club_payments
+from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
 
 from clubs.models import Club
-from members.models import Member, MemberTransfer
+from members.ltf_staff import current_staff_q
+from members.models import LtfStaffFunction, Member, MemberTransfer
 
 from .club_fee_billing import ClubFeeBillingError, billing_status, create_billing_run
 from .ledgers import apply_optional_ledger, federation_q
@@ -37,6 +40,7 @@ from .models import (
     ClubFeeBillingSchedule,
     ClubFeePrice,
     ClubFeeType,
+    CreditNote,
     Expense,
     ExpenseCategory,
     FinanceAuditLog,
@@ -94,7 +98,7 @@ from .policy import (
     validate_member_license_order,
 )
 from .services import apply_payment_and_activate
-from .stripe_checkout import checkout_success_url, fulfill_checkout_session
+from .stripe_checkout import checkout_return_area, checkout_success_url, fulfill_checkout_session
 from .tasks import process_stripe_webhook_event
 from .payconiq import PayconiqServiceError, create_payment, get_status
 
@@ -228,6 +232,62 @@ def _apply_order_issue_filter(queryset, issue):
     ).distinct()
 
 
+INVOICE_LIST_ORDERING = {
+    "invoice_number": ("invoice_number", "id"),
+    "club": ("club__name", "id"),
+    "status": ("status", "id"),
+    "quantity": ("item_quantity", "id"),
+    "total": ("total", "id"),
+    "outstanding": ("outstanding_amount", "id"),
+    "issued_at": ("issued_at", "id"),
+}
+
+
+def _annotate_invoice_outstanding(queryset):
+    decimal_field = DecimalField(max_digits=12, decimal_places=2)
+    paid = (
+        Payment.objects.filter(invoice_id=OuterRef("pk"), status=Payment.Status.PAID)
+        .values("invoice_id")
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
+    credited = (
+        CreditNote.objects.filter(invoice_id=OuterRef("pk"))
+        .values("invoice_id")
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
+    return queryset.annotate(
+        paid_total_amount=Coalesce(
+            Subquery(paid[:1]),
+            Value(Decimal("0.00")),
+            output_field=decimal_field,
+        ),
+        credited_total_amount=Coalesce(
+            Subquery(credited[:1]),
+            Value(Decimal("0.00")),
+            output_field=decimal_field,
+        ),
+    ).annotate(
+        outstanding_amount=F("total") - F("credited_total_amount") - F("paid_total_amount")
+    )
+
+
+def _order_invoice_queryset(view, queryset):
+    if getattr(view, "action", None) != "list":
+        return queryset.order_by("-created_at", "-id")
+    ordering = (view.request.query_params.get("ordering") or "").strip()
+    key = ordering[1:] if ordering.startswith("-") else ordering
+    if key == "outstanding":
+        queryset = _annotate_invoice_outstanding(queryset)
+    return apply_list_ordering(
+        queryset,
+        ordering,
+        allowed=INVOICE_LIST_ORDERING,
+        default=("-created_at", "-id"),
+    )
+
+
 def _apply_payment_issue_filter(queryset, issue):
     if (issue or "").strip() != "failed_or_cancelled_30d":
         return queryset
@@ -254,7 +314,9 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return License.objects.none()
 
-        if user.role == "ltf_admin":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") or user.role == "ltf_admin":
             queryset = License.objects.select_related("member", "club", "license_type").all()
         elif user.role in ["club_admin", "coach"]:
             queryset = License.objects.select_related("member", "club", "license_type").filter(
@@ -317,9 +379,36 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 search_filter = search_filter | Q(year=int(search_value))
             queryset = queryset.filter(search_filter)
 
-        return queryset.order_by("-year", "-created_at")
+        ordering = self.request.query_params.get("ordering") if self.action == "list" else None
+        from accounts.desks import scope_to_active_club
+
+        return apply_list_ordering(
+            scope_to_active_club(self.request, queryset, "club_id"),
+            ordering,
+            allowed={
+                "member": ("member__last_name", "member__first_name", "id"),
+                "club": ("club__name", "member__last_name", "member__first_name", "id"),
+                "license_type": ("license_type__name", "member__last_name", "id"),
+                "year": ("year", "member__last_name", "member__first_name", "id"),
+                "status": ("status", "member__last_name", "id"),
+                "issued_at": ("issued_at", "id"),
+                "end_date": ("end_date", "id"),
+            },
+            default=("-year", "-created_at", "-id"),
+        )
 
     def perform_create(self, serializer):
+        member = serializer.validated_data.get("member")
+        club = serializer.validated_data.get("club")
+        if member is None or club is None or getattr(member, "club_id", None) != getattr(club, "id", None):
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Club licenses stay on the club order. "
+                        "LTF staff licenses are issued from the member."
+                    )
+                }
+            )
         license_record = serializer.save()
         log_license_created(
             license_record,
@@ -398,7 +487,9 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         user = self.request.user
         if not user or not user.is_authenticated:
             return Order.objects.none()
-        if user.role == "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance"):
             queryset = self._base_queryset().filter(federation_q())
 
             club_id = self.request.query_params.get("club_id")
@@ -438,7 +529,9 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 queryset, self.request.query_params.get("issue")
             )
             return queryset.order_by("-created_at")
-        if user.role == "ltf_admin" and self.action in ["confirm_payment", "activate_licenses"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") and self.action in ["confirm_payment", "activate_licenses"]:
             queryset = self._base_queryset().filter(federation_q())
             return queryset.order_by("-created_at")
         return Order.objects.none()
@@ -487,6 +580,11 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="confirm-payment")
     def confirm_payment(self, request, *args, **kwargs):
         order = self.get_object()
+        from accounts.duties import refuse_own_invoice_payment
+
+        refused = refuse_own_invoice_payment(request, order)
+        if refused:
+            return Response({"detail": refused}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if order.status == Order.Status.PAID:
@@ -652,13 +750,22 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             activated_license_ids = []
             deferred_license_ids = []
             conflict_license_ids = []
-            for item in order.items.select_related("license").all():
+            items = list(order.items.select_related("license").all())
+            from .history import expire_outdated_licenses
+            from .validity import placeholder_activation_block
+
+            expire_outdated_licenses(
+                actor=request.user if request.user.is_authenticated else None,
+                member_ids=[item.license.member_id for item in items if item.license_id and item.license],
+            )
+            for item in items:
                 license_record = item.license
                 if not license_record:
                     continue
                 license_status_before[license_record.id] = license_record.status
                 if license_record.status != License.Status.ACTIVE:
-                    if license_record.start_date > today or license_record.end_date < today:
+                    blocked = placeholder_activation_block(license_record, today)
+                    if blocked:
                         deferred_license_ids.append(license_record.id)
                         continue
                     has_conflict = License.objects.filter(
@@ -717,7 +824,9 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
         user = self.request.user
         if not user or not user.is_authenticated:
             return Invoice.objects.none()
-        if user.role == "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance"):
             queryset = (
                 Invoice.objects.select_related("club", "member", "order")
                 .prefetch_related("credit_notes", "payments")
@@ -763,7 +872,7 @@ class InvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
             queryset = _apply_invoice_issue_filter(
                 queryset, self.request.query_params.get("issue")
             )
-            return queryset.order_by("-created_at")
+            return _order_invoice_queryset(self, queryset)
         return Invoice.objects.none()
 
     def get_permissions(self):
@@ -844,7 +953,9 @@ class PaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSet)
         user = self.request.user
         if not user or not user.is_authenticated:
             return Payment.objects.none()
-        if user.role != "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if not holds_desk(user, "ltf_finance"):
             return Payment.objects.none()
         queryset = Payment.objects.select_related(
             "invoice", "order", "order__club", "created_by"
@@ -907,7 +1018,9 @@ class FinanceAuditLogViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModel
         user = self.request.user
         if not user or not user.is_authenticated:
             return FinanceAuditLog.objects.none()
-        if user.role == "ltf_finance":
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance"):
             queryset = (
                 FinanceAuditLog.objects.select_related(
                     "actor",
@@ -964,13 +1077,26 @@ class LtfAdminOverviewView(APIView):
     permission_classes = [IsLtfAdmin]
 
     def get(self, request):
-        cache_key = "dashboard:overview:ltf_admin:v4"
+        cache_key = "dashboard:overview:ltf_admin:v6"
         cached_payload = cache.get(cache_key)
         if cached_payload is not None:
             return Response(cached_payload, status=status.HTTP_200_OK)
 
         today = timezone.localdate()
-        active_members_queryset = Member.objects.filter(is_active=True)
+        # Club totals ignore staff who have no club. Those people are counted on ltf_staff.
+        active_members_queryset = Member.objects.filter(is_active=True, club__isnull=False)
+        licence_gap_members = Member.objects.filter(is_active=True)
+        ltf_staff = (
+            Member.objects.filter(is_active=True)
+            .filter(
+                Exists(
+                    LtfStaffFunction.objects.filter(member_id=OuterRef("pk")).filter(
+                        current_staff_q()
+                    )
+                )
+            )
+            .count()
+        )
         licenses_queryset = License.objects.all()
 
         status_counts = {
@@ -987,11 +1113,11 @@ class LtfAdminOverviewView(APIView):
             status__in=[License.Status.ACTIVE, License.Status.PENDING],
         )
         active_members_without_valid_license = (
-            active_members_queryset.annotate(has_valid_license=Exists(has_valid_license_subquery))
+            licence_gap_members.annotate(has_valid_license=Exists(has_valid_license_subquery))
             .filter(has_valid_license=False)
             .count()
         )
-        members_missing_ltf_licenseid = active_members_queryset.filter(
+        members_missing_ltf_licenseid = licence_gap_members.filter(
             Q(ltf_licenseid__isnull=True) | Q(ltf_licenseid="")
         ).count()
         clubs_without_admin = (
@@ -1001,11 +1127,24 @@ class LtfAdminOverviewView(APIView):
             status=MemberTransfer.Status.PENDING,
             fee_amount__gt=0,
         ).count()
-        expiring_in_30_days = licenses_queryset.filter(
+        expiring_window = licenses_queryset.filter(
             status=License.Status.ACTIVE,
             end_date__gte=today,
             end_date__lte=today + timedelta(days=30),
-        ).count()
+        )
+        expiring_in_30_days = expiring_window.count()
+        next_expiring_row = (
+            expiring_window.select_related("member")
+            .order_by("end_date", "member__last_name", "member__first_name", "id")
+            .first()
+        )
+        next_expiring = None
+        if next_expiring_row is not None and next_expiring_row.member_id:
+            next_expiring = {
+                "end_date": next_expiring_row.end_date.isoformat(),
+                "last_name": next_expiring_row.member.last_name,
+                "first_name": next_expiring_row.member.first_name,
+            }
 
         active_members_by_club = {
             row["club_id"]: row["total"]
@@ -1045,6 +1184,7 @@ class LtfAdminOverviewView(APIView):
             "cards": {
                 "total_clubs": Club.objects.count(),
                 "active_members": active_members_queryset.count(),
+                "ltf_staff": ltf_staff,
                 "active_licenses": active_licenses,
                 "pending_licenses": pending_licenses,
                 "expired_licenses": expired_licenses,
@@ -1097,6 +1237,7 @@ class LtfAdminOverviewView(APIView):
                     "revoked": revoked_licenses,
                 }
             },
+            "next_expiring": next_expiring,
             "top_clubs": top_clubs,
             "links": {
                 "clubs": _overview_link("LtfAdmin.navClubs", "/dashboard/ltf/clubs"),
@@ -1340,9 +1481,16 @@ class PayconiqPaymentViewSet(viewsets.GenericViewSet):
         return [permissions.IsAuthenticated()]
 
     def _ensure_club_access(self, user, order) -> bool:
-        if user.role in ["ltf_finance", "ltf_admin"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_finance") or holds_desk(user, "ltf_admin"):
             return True
         if user.role == "club_admin":
+            from accounts.desks import active_club_id
+
+            active = active_club_id(self.request)
+            if active is not None and order.club_id != active:
+                return False
             return order.club.admins.filter(id=user.id).exists()
         return False
 
@@ -1482,11 +1630,14 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
     permission_classes = [permissions.IsAuthenticated]
 
     def _base_queryset(self):
+        from accounts.desks import scope_to_active_club
+
         queryset = (
             Order.objects.select_related("club", "member", "invoice")
             .annotate(item_quantity=Coalesce(Sum("items__quantity"), 0))
             .filter(club__admins=self.request.user)
         )
+        queryset = scope_to_active_club(self.request, queryset, "club_id")
         if self.action != "list":
             queryset = queryset.prefetch_related("items__license__member")
         return queryset
@@ -2133,12 +2284,28 @@ class LicensePriceViewSet(
 
 class ClubFeeTypeViewSet(viewsets.ModelViewSet):
     serializer_class = ClubFeeTypeSerializer
-    queryset = ClubFeeType.objects.prefetch_related("prices").all().order_by("name")
+    queryset = (
+        ClubFeeType.objects.annotate(invoice_count=Count("order_items"))
+        .prefetch_related("prices")
+        .all()
+        .order_by("name")
+    )
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
             return [IsLtfFinanceOrLtfAdmin()]
         return [IsLtfFinance()]
+
+    def destroy(self, request, *args, **kwargs):
+        fee_type = self.get_object()
+        if fee_type.order_items.exists():
+            if fee_type.is_active:
+                fee_type.is_active = False
+                fee_type.save(update_fields=["is_active", "updated_at"])
+            fee_type.invoice_count = fee_type.order_items.count()
+            return Response(self.get_serializer(fee_type).data)
+        self.perform_destroy(fee_type)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ClubFeePriceViewSet(
@@ -2166,7 +2333,13 @@ class ClubFeePriceViewSet(
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+        fee_type = serializer.validated_data.get("fee_type")
+        user = self.request.user
+        from accounts.desks import holds_desk
+
+        if fee_type is not None and fee_type.module_id and not holds_desk(user, "ltf_finance"):
+            raise PermissionDenied("Only LTF Finance can set module fees.")
+        serializer.save(created_by=user if user.is_authenticated else None)
 
 
 class ClubFeeBillingScheduleViewSet(
@@ -2274,7 +2447,9 @@ class ClubInvoiceViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
         queryset = _apply_invoice_issue_filter(
             queryset, self.request.query_params.get("issue")
         )
-        return queryset.order_by("-created_at")
+        from accounts.desks import scope_to_active_club
+
+        return _order_invoice_queryset(self, scope_to_active_club(self.request, queryset, "club_id"))
 
     def get_permissions(self):
         return [IsClubAdmin()]
@@ -2378,7 +2553,9 @@ class ClubPaymentViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelView
         queryset = _apply_payment_issue_filter(
             queryset, self.request.query_params.get("issue")
         )
-        return queryset.order_by("-created_at")
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, queryset, "order__club_id").order_by("-created_at")
 
     def get_permissions(self):
         return [IsClubAdmin()]
@@ -2397,11 +2574,18 @@ class InvoicePdfView(APIView):
         if not invoice:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         user = request.user
-        if user.role not in ["ltf_finance", "club_admin"]:
+        from accounts.desks import holds_desk
+
+        if not holds_desk(user, "ltf_finance") and user.role != "club_admin":
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        if user.role == "ltf_finance" and invoice.order.ledger != Order.Ledger.FEDERATION:
+        if holds_desk(user, "ltf_finance") and invoice.order.ledger != Order.Ledger.FEDERATION:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         if user.role == "club_admin" and not invoice.club.admins.filter(id=user.id).exists():
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        from accounts.desks import active_club_id
+
+        active = active_club_id(request)
+        if active is not None and invoice.club_id != active:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         pdf_file = render_invoice_pdf(invoice, base_url=request.build_absolute_uri("/"))
         if not pdf_file:
@@ -2733,6 +2917,11 @@ class StripeWebhookView(APIView):
         except (ValueError, stripe.error.SignatureVerificationError):  # type: ignore[attr-defined]
             return Response(status=HTTP_400_BAD_REQUEST)
 
+        # Signature verification already succeeded. stripe-python 14+ returns an
+        # Event that is not a dict; .get() raises. Convert after the check.
+        if not isinstance(event, dict) and hasattr(event, "to_dict"):
+            event = event.to_dict()
+
         event_type = event.get("type")
         data_object = event.get("data", {}).get("object", {}) or {}
         card_details = {}
@@ -2754,6 +2943,8 @@ class StripeWebhookView(APIView):
                         payment_intent_id,
                         expand=["charges.data.payment_method_details"],
                     )
+                    if not isinstance(payment_intent, dict) and hasattr(payment_intent, "to_dict"):
+                        payment_intent = payment_intent.to_dict()
                     charges = payment_intent.get("charges", {}).get("data", [])
                     if charges:
                         card = (
@@ -2817,5 +3008,6 @@ class StripeConfirmCheckoutView(APIView):
             "invoice_id": invoice.id if invoice else None,
             "order_status": order.status,
             "invoice_status": invoice.status if invoice else None,
+            "return_area": checkout_return_area(request.user, order),
         }
         return Response(ConfirmCheckoutResultSerializer(payload).data, status=status.HTTP_200_OK)

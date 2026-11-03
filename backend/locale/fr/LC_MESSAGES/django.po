@@ -1,0 +1,7 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+
+msgid "Only one address can be used for invoices."
+msgstr "Une seule adresse peut être utilisée pour les factures."

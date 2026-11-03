@@ -10,15 +10,19 @@ import {
   BrandingLogoUploadPayload,
   BrandingLogosManager,
 } from "@/components/branding/branding-logos-manager";
+import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
+import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
 import { deriveBankNameFromIban, isValidIban } from "@/lib/iban";
+import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
 import {
   BrandingLogo,
   LtfLicensePrefixRewritePreview,
@@ -34,6 +38,10 @@ import {
 
 const federationSchema = z.object({
   name: z.string().min(1, "Federation name is required"),
+  rcs_number: z
+    .string()
+    .optional()
+    .refine((value) => isValidRcsNumber(value ?? ""), "invalid"),
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
@@ -69,12 +77,14 @@ export default function LtfAdminSettingsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<FederationFormValues>({
     resolver: zodResolver(federationSchema),
     defaultValues: {
       name: "",
+      rcs_number: "",
       address_line1: "",
       address_line2: "",
       postal_code: "",
@@ -84,6 +94,10 @@ export default function LtfAdminSettingsPage() {
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
+  const addressLine1 = useWatch({ control, name: "address_line1", defaultValue: "" }) ?? "";
+  const addressLine2 = useWatch({ control, name: "address_line2", defaultValue: "" }) ?? "";
+  const postalCode = useWatch({ control, name: "postal_code", defaultValue: "" }) ?? "";
+  const localityValue = useWatch({ control, name: "locality", defaultValue: "" }) ?? "";
   const derivedBankName = deriveBankNameFromIban(watchedIban);
 
   const loadProfile = useCallback(async () => {
@@ -93,6 +107,7 @@ export default function LtfAdminSettingsPage() {
       const profile = await getFederationProfile();
       reset({
         name: profile.name,
+        rcs_number: profile.rcs_number ?? "",
         address_line1: profile.address_line1 ?? "",
         address_line2: profile.address_line2 ?? "",
         postal_code: profile.postal_code ?? "",
@@ -197,9 +212,13 @@ export default function LtfAdminSettingsPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const saved = await updateFederationProfile(values);
+      const saved = await updateFederationProfile({
+        ...values,
+        rcs_number: normalizeRcsNumber(values.rcs_number ?? ""),
+      });
       reset({
         name: saved.name,
+        rcs_number: saved.rcs_number ?? "",
         address_line1: saved.address_line1 ?? "",
         address_line2: saved.address_line2 ?? "",
         postal_code: saved.postal_code ?? "",
@@ -248,7 +267,7 @@ export default function LtfAdminSettingsPage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <FormPanel>
           <h2 className="text-section text-foreground">
             {t("federationSettingsFormTitle")}
@@ -257,51 +276,66 @@ export default function LtfAdminSettingsPage() {
             {t("federationSettingsFormSubtitle")}
           </p>
 
-          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+          <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
+            <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("federationNameLabel")}</label>
-              <Input placeholder="Luxembourg Taekwondo Federation" {...register("name")} />
-              {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+              <Label htmlFor="federation-name" required>{t("federationNameLabel")}</Label>
+              <Input id="federation-name" placeholder={t("federationNamePlaceholder")} {...register("name")} />
+              {errors.name ? <p className="text-sm text-destructive">{t("federationNameRequired")}</p> : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="federation-rcs">{t("rcsNumberLabel")}</Label>
+              <Input id="federation-rcs" placeholder={t("rcsNumberPlaceholder")} {...register("rcs_number")} />
+              <a
+                href={LBR_SEARCH_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-primary underline-offset-2 hover:underline"
+              >
+                {t("openLbrSearch")}
+              </a>
+              {errors.rcs_number ? <p className="text-sm text-destructive">{t("rcsNumberInvalid")}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("addressLine1Label")}</label>
-              <Input placeholder="12 Rue de la Gare" {...register("address_line1")} />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">{t("addressLine2Label")}</label>
-              <Input
-                placeholder="Building, floor, unit (optional)"
-                {...register("address_line2")}
+              <h3 className="text-sm font-medium text-foreground">{t("headOfficeLabel")}</h3>
+              <p className="text-xs text-muted">{t("federationOfficeHint")}</p>
+              <LuAddressFields
+                idPrefix="federation"
+                showCountry={false}
+                value={{
+                  ...splitStreetLine(addressLine1, { postal_code: postalCode, locality: localityValue }),
+                  line2: addressLine2,
+                  postal_code: postalCode,
+                  locality: localityValue,
+                  country: "Luxembourg",
+                  use_for_invoice: false,
+                }}
+                onChange={(next) => {
+                  setValue("address_line1", joinStreetLine(next.house_number, next.street), { shouldDirty: true });
+                  setValue("address_line2", next.line2, { shouldDirty: true });
+                  setValue("postal_code", next.postal_code, { shouldDirty: true });
+                  setValue("locality", next.locality, { shouldDirty: true });
+                }}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("postalCodeLabel")}</label>
-              <Input placeholder="1234" {...register("postal_code")} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("localityLabel")}</label>
-              <Input placeholder="Luxembourg" {...register("locality")} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("ibanLabel")}</label>
-              <Input placeholder="LU28 0019 4006 4475 0000" {...register("iban")} />
+              <Label htmlFor="federation-iban">{t("ibanLabel")}</Label>
+              <Input id="federation-iban" placeholder={t("ibanPlaceholder")} {...register("iban")} />
               {errors.iban ? <p className="text-sm text-destructive">{errors.iban.message}</p> : null}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">{t("bankNameLabel")}</label>
-              <Input value={derivedBankName || "-"} readOnly />
+              <Label htmlFor="federation-bank">{t("bankNameLabel")}</Label>
+              <Input id="federation-bank" value={derivedBankName || "-"} readOnly />
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">
+              <Label required>
                 {t("clubTouristThresholdLabel")}
-              </label>
+              </Label>
               <Input
                 type="number"
                 min={1}
@@ -321,14 +355,15 @@ export default function LtfAdminSettingsPage() {
                 {t("saveFederationSettings")}
               </Button>
             </div>
+            </div>
           </form>
 
           </FormPanel>
 
-          <FormPanel className="space-y-4">
+          <FormPanel className="space-y-3">
             <h2 className="text-section text-foreground">{t("importPrefixRewriteTitle")}</h2>
             <p className="text-sm text-muted">{t("importPrefixRewriteHint")}</p>
-            <label className="flex items-start gap-3 text-sm text-foreground">
+            <label className="flex items-start gap-2 text-sm text-foreground">
               <Checkbox
                 checked={rewriteOnImport}
                 onCheckedChange={(checked) => {
@@ -348,7 +383,7 @@ export default function LtfAdminSettingsPage() {
             </Button>
           </FormPanel>
 
-          <FormPanel className="space-y-4">
+          <FormPanel className="space-y-3">
             <h2 className="text-section text-foreground">{t("existingPrefixRewriteTitle")}</h2>
             <p className="text-sm text-muted">{t("existingPrefixRewriteSubtitle")}</p>
             {isLoadingRewritePreview ? (

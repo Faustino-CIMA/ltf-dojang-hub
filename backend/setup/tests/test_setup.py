@@ -1,0 +1,924 @@
+import csv
+import io
+import json
+from datetime import date, timedelta
+from pathlib import Path
+from unittest.mock import patch
+
+from allauth.account.models import EmailAddress
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.utils import timezone
+from rest_framework.test import APIClient
+
+from accounts.models import AccountSetupInvite
+from accounts.setup_invites import NEUTRAL_DETAIL, hash_setup_token
+from clubs.models import Club, FederationProfile
+from licenses.models import License
+from members.models import LtfStaffFunction, Member
+from members.parking import NO_CLUB, decode_reasons
+from ops.models import OpsAuditLog
+from setup.dates import detect_column_format, parse_with_format
+from setup.models import SetupState
+from setup.names import normalize_club_name
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+User = get_user_model()
+
+
+def csv_file(name):
+    return SimpleUploadedFile(name, (FIXTURES / name).read_bytes(), content_type="text/csv")
+
+
+@override_settings(DEMO_MODE=False)
+class SetupAvailabilityTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.superuser = User.objects.create_superuser(username="setup-root", password="pass12345", email="")
+        self.superuser.role = User.Roles.MEMBER
+        self.superuser.save(update_fields=["role"])
+        self.other = User.objects.create_user(username="setup-other", password="pass12345", role=User.Roles.LTF_ADMIN)
+
+    def test_status_is_closed_for_non_superusers(self):
+        self.client.force_authenticate(user=self.other)
+        response = self.client.get("/api/setup/status/")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["available"])
+
+    def test_start_snapshot_and_finish_sets_ltf_admin(self):
+        self.client.force_authenticate(user=self.superuser)
+        started = self.client.post("/api/setup/start/")
+        self.assertEqual(started.status_code, 200, started.data)
+        self.assertTrue(started.data["available"])
+        self.assertEqual(started.data["current_step"], "clubs")
+        finished = self.client.post("/api/setup/finish/")
+        self.assertEqual(finished.status_code, 200, finished.data)
+        self.assertFalse(finished.data["available"])
+        self.superuser.refresh_from_db()
+        self.assertEqual(self.superuser.role, User.Roles.LTF_ADMIN)
+        self.assertTrue(self.superuser.is_superuser)
+        locked = self.client.post("/api/setup/start/")
+        self.assertEqual(locked.status_code, 410)
+
+    def test_start_refuses_when_data_exists(self):
+        Club.objects.create(name="Already There", created_by=self.superuser)
+        self.client.force_authenticate(user=self.superuser)
+        response = self.client.post("/api/setup/start/")
+        self.assertEqual(response.status_code, 409)
+
+    @override_settings(DEMO_MODE=True)
+    def test_demo_instance_is_never_available(self):
+        self.client.force_authenticate(user=self.superuser)
+        status = self.client.get("/api/setup/status/")
+        self.assertFalse(status.data["available"])
+        started = self.client.post("/api/setup/start/")
+        self.assertEqual(started.status_code, 403)
+
+
+@override_settings(DEMO_MODE=False)
+class SetupClubStepTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.superuser = User.objects.create_superuser(username="setup-clubs", password="pass12345", email="")
+        self.client.force_authenticate(user=self.superuser)
+        self.client.post("/api/setup/start/")
+
+    def test_federation_dedup_and_no_ltf_club(self):
+        preview = self.client.post("/api/setup/clubs/preview/", {"file": csv_file("fake_clubs.csv")}, format="multipart")
+        self.assertEqual(preview.status_code, 200, preview.data)
+        names = {row["name"]: row for row in preview.data["rows"]}
+        self.assertNotIn("LTF", names)
+        self.assertEqual(names["Taekwondo Club Musterstadt"]["federation"], "WT")
+        self.assertEqual(names["Taekwon-Do Beispielhausen"]["federation"], "ITF")
+        self.assertEqual(names["Taekwon Do Academy"]["federation"], "ITF")
+        self.assertEqual(names["Silver Crane Academy"]["federation"], "WT")
+        self.assertGreaterEqual(preview.data["blank_rows_ignored"], 1)
+        self.assertEqual(preview.data["ltf_rows_ignored"], 1)
+        self.assertNotIn("Taekwondo Club Musterstadt a.s.b.l.", names)
+        confirmed = self.client.post(
+            "/api/setup/clubs/confirm/",
+            {
+                "file": csv_file("fake_clubs.csv"),
+                "payload": json.dumps({"rows": {"2": {"rcs_number": "b 42", "federation": "ITF"}}}),
+            },
+            format="multipart",
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertFalse(Club.objects.filter(name__iexact="LTF").exists())
+        muster = Club.objects.get(external_ref=normalize_club_name("Taekwondo Club Musterstadt"))
+        self.assertEqual(muster.federation, Club.Federation.WT)
+        self.assertEqual(Club.objects.filter(external_ref=muster.external_ref).count(), 1)
+        beispiel = Club.objects.get(name="Taekwon-Do Beispielhausen")
+        self.assertEqual(beispiel.rcs_number, "B42")
+        self.assertEqual(beispiel.federation, "ITF")
+        again = self.client.post("/api/setup/clubs/confirm/", {"file": csv_file("fake_clubs.csv")}, format="multipart")
+        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(again.data["created"], 0)
+        self.assertEqual(Club.objects.filter(name="Taekwondo Club Musterstadt").count(), 1)
+
+    def test_invalid_rcs_blocks_confirm(self):
+        response = self.client.post(
+            "/api/setup/clubs/confirm/",
+            {"file": csv_file("fake_clubs.csv"), "payload": json.dumps({"rows": {"1": {"rcs_number": "12B"}}})},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Club.objects.filter(name="Taekwondo Club Musterstadt").exists())
+
+
+@override_settings(DEMO_MODE=False)
+class SetupMemberStepTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.superuser = User.objects.create_superuser(username="setup-members", password="pass12345", email="root@example.com")
+        self.client.force_authenticate(user=self.superuser)
+        self.client.post("/api/setup/start/")
+        self.client.post("/api/setup/clubs/confirm/", {"file": csv_file("fake_clubs.csv")}, format="multipart")
+        self.today = patch("setup.members_step.timezone.localdate", return_value=date(2026, 10, 25))
+        self.today.start()
+        self.addCleanup(self.today.stop)
+
+    def _preview(self, payload=None):
+        data = {"file": csv_file("fake_members.csv")}
+        if payload is not None:
+            data["payload"] = json.dumps(payload)
+        return self.client.post("/api/setup/members/preview/", data, format="multipart")
+
+    def _confirm(self, payload):
+        return self.client.post(
+            "/api/setup/members/confirm/",
+            {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+            format="multipart",
+        )
+
+    def test_supplied_mapping_is_honoured_and_email_stays_unmapped(self):
+        preview = self._preview(
+            {
+                "mapping": {
+                    "ltf_licenseid": "Member ID",
+                    "member_id": "Member ID",
+                    "id": "Member ID",
+                    "first_name": "Preferred Last Name",
+                    "last_name": "Preferred First Name",
+                    "club_name": "Club Name",
+                    "sex": "Gender",
+                    "email": "Preferred First Name",
+                }
+            }
+        )
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertNotIn("email", preview.data["mapping"])
+        self.assertNotIn("member_id", preview.data["mapping"])
+        self.assertNotIn("id", preview.data["mapping"])
+        self.assertNotIn("date_of_birth", preview.data["mapping"])
+        self.assertEqual(preview.data["mapping"]["first_name"], "Preferred Last Name")
+        erika = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-1001")
+        self.assertEqual(erika["first_name"], "Musterfrau")
+        self.assertEqual(erika["last_name"], "Erika")
+        self.assertTrue(preview.data["email_ignored"])
+        self.assertNotIn("wt_licenseid", preview.data["mapping"])
+        self.assertEqual(erika["wt_license_id"], "")
+        self.assertEqual(erika["ltf_license_id"], "LUX-1001")
+
+    def test_member_id_column_maps_to_wt_and_ltf_ids(self):
+        preview = self._preview()
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data["mapping"]["wt_licenseid"], "Member ID")
+        self.assertEqual(preview.data["mapping"]["ltf_licenseid"], "Member ID")
+        self.assertNotIn("member_id", preview.data["mapping"])
+        self.assertNotIn("id", preview.data["mapping"])
+        self.assertFalse(preview.data["ltf_license_prefix_rewrite"]["enabled"])
+        erika = next(row for row in preview.data["rows"] if row["row_index"] == 2)
+        self.assertEqual(erika["wt_license_id"], "LUX-1001")
+        self.assertEqual(erika["ltf_license_id"], "LUX-1001")
+        self.assertEqual(erika["member_id"], "LUX-1001")
+
+    def test_unresolved_gender_blocks_confirm(self):
+        preview = self._preview()
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertFalse(preview.data["can_confirm"])
+        self.assertTrue(preview.data["email_ignored"])
+        mapped = {item["value"]: item["mapped"] for item in preview.data["role_summary"]}
+        self.assertEqual(mapped["Coach"], "Coach")
+        self.assertIsNone(mapped["Trainer"])
+        self.assertIsNone(mapped["MNA President"])
+        blocked = self._confirm({})
+        self.assertEqual(blocked.status_code, 400)
+        self.assertEqual(blocked.data["error"], "sex_required")
+        self.assertFalse(Member.objects.exists())
+
+    def test_import_creates_club_members_and_staff_without_licenses_or_trainer_role(self):
+        payload = {
+            "sex_overrides": {"6": "F", "7": "skip"},
+            "active_overrides": {"15": True},
+            "club_name_overrides": {"tkd musterstadt": {"club_id": Club.objects.get(name="Silver Crane Academy").id}},
+            "club_choices": {"LUX-4001": Club.objects.get(name="Silver Crane Academy").id},
+            "allow_missing_id": [13],
+            "club_name_overrides_near": True,
+        }
+        payload["club_name_overrides"]["luxembourg taekwondo federation"] = {"staff": True}
+        preview = self._preview(payload)
+        self.assertTrue(preview.data["can_confirm"], preview.data)
+        confirmed = self._confirm(payload)
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(License.objects.count(), 0)
+        erika = Member.objects.get(ltf_licenseid="LUX-1001")
+        self.assertEqual(erika.wt_licenseid, "LUX-1001")
+        self.assertEqual(erika.club.name, "Silver Crane Academy")
+        self.assertEqual(erika.first_name, "Erika")
+        self.assertEqual(erika.last_name, "MUSTERFRAU")
+        self.assertTrue(erika.is_active)
+        self.assertTrue(erika.ltf_staff_functions.filter(function=LtfStaffFunction.Function.MEDIA, ended_on=None).exists())
+        coach = Member.objects.get(ltf_licenseid="LUX-1002")
+        self.assertEqual(coach.primary_license_role, "Coach")
+        self.assertEqual(coach.secondary_license_role, "")
+        self.assertFalse(coach.is_active)
+        self.assertFalse(coach.club.trainers.exists())
+        self.assertFalse(User.objects.filter(role=User.Roles.COACH).exists())
+        jan = Member.objects.get(ltf_licenseid="LUX-1003")
+        self.assertEqual(jan.primary_license_role, "Athlete")
+        self.assertTrue(jan.is_active)
+        self.assertFalse(Member.objects.filter(ltf_licenseid="LUX-1005").exists())
+        kim = Member.objects.get(ltf_licenseid="LUX-2001")
+        self.assertIsNone(kim.club_id)
+        self.assertEqual(kim.primary_license_role, "Coach")
+        self.assertTrue(kim.ltf_staff_functions.filter(function="coach", ended_on=None).exists())
+        self.assertFalse(kim.ltf_staff_functions.filter(function="secretary").exists())
+        self.assertIsNone(kim.user_id)
+        noa = Member.objects.get(ltf_licenseid="LUX-2002")
+        self.assertTrue(noa.ltf_staff_functions.filter(function="medic").exists())
+        self.assertEqual(noa.email, "")
+        self.assertEqual(Member.objects.filter(ltf_licenseid="LUX-1001").count(), 1)
+        again = self._confirm(payload)
+        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(again.data["created"], 0)
+        self.assertEqual(Member.objects.filter(ltf_licenseid="LUX-1001").count(), 1)
+
+    def test_membership_end_date_sets_status_like_the_regular_import(self):
+        content = (
+            "Member ID,Preferred First Name,Preferred Last Name,Club Name,Gender,Date of Birth,Primary Member Role,Membership End Date\n"
+            "LUX-9101,Ada,Past,Silver Crane Academy,Female,01/01/1990,Athlete,31/12/2025\n"
+            "LUX-9102,Ben,Future,Silver Crane Academy,Male,02/02/1991,Athlete,31/12/2027\n"
+            "LUX-9103,Cia,Empty,Silver Crane Academy,Female,03/03/1992,Athlete,\n"
+            "LUX-9104,Dan,Unread,Silver Crane Academy,Male,04/04/1993,Athlete,not-a-date\n"
+            "LUX-9105,Eve,Thisyear,Silver Crane Academy,Female,05/05/1994,Athlete,01/01/2026\n"
+            "LUX-9106,Fay,Iso,Silver Crane Academy,Female,06/06/1995,Athlete,2026-12-31\n"
+        )
+        payload = {"end_date_format": "DD/MM/YYYY"}
+
+        def upload():
+            return SimpleUploadedFile("status-members.csv", content.encode(), content_type="text/csv")
+
+        preview = self.client.post(
+            "/api/setup/members/preview/",
+            {"file": upload(), "payload": json.dumps(payload)},
+            format="multipart",
+        )
+        self.assertEqual(preview.status_code, 200, preview.data)
+        by_id = {row["member_id"]: row for row in preview.data["rows"]}
+        self.assertFalse(by_id["LUX-9101"]["is_active"])
+        self.assertEqual(by_id["LUX-9101"]["end_raw"], "31/12/2025")
+        self.assertTrue(by_id["LUX-9102"]["is_active"])
+        self.assertTrue(by_id["LUX-9103"]["is_active"])
+        self.assertEqual(by_id["LUX-9103"]["end_raw"], "")
+        self.assertIsNone(by_id["LUX-9104"]["is_active"])
+        self.assertTrue(by_id["LUX-9104"]["end_unparseable"])
+        self.assertIn("end_date", by_id["LUX-9104"]["park_reasons"])
+        self.assertTrue(by_id["LUX-9105"]["is_active"])
+        self.assertTrue(by_id["LUX-9106"]["is_active"])
+        self.assertFalse(preview.data["can_confirm"])
+
+        parked = {**payload, "parked_rows": [by_id["LUX-9104"]["row_index"]]}
+        confirmed = self.client.post(
+            "/api/setup/members/confirm/",
+            {"file": upload(), "payload": json.dumps(parked)},
+            format="multipart",
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertFalse(Member.objects.get(ltf_licenseid="LUX-9101").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9102").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9103").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9105").is_active)
+        self.assertTrue(Member.objects.get(ltf_licenseid="LUX-9106").is_active)
+        for licence in ("LUX-9101", "LUX-9102", "LUX-9103", "LUX-9105", "LUX-9106"):
+            self.assertEqual(Member.objects.get(ltf_licenseid=licence).email, "")
+        unread = Member.all_objects.get(ltf_licenseid="LUX-9104")
+        self.assertEqual(unread.import_status, Member.ImportStatus.PARKED)
+        self.assertFalse(unread.is_active)
+        self.assertEqual(decode_reasons(unread.park_reason), ["end_date"])
+        self.assertEqual(unread.email, "")
+        self.assertFalse(User.objects.filter(username__in=["LUX-9101", "LUX-9104"]).exists())
+
+    def test_a_resolved_club_is_not_a_choice_and_other_flags_name_their_cause(self):
+        esch = Club.objects.create(
+            name="Luxembourg Taekwondo Club Esch",
+            federation=Club.Federation.WT,
+            created_by=self.superuser,
+        )
+        Club.objects.create(name="Dualtown Dojang", federation=Club.Federation.WT, created_by=self.superuser)
+        Club.objects.create(
+            name="Dualtown Dojang a.s.b.l.",
+            federation=Club.Federation.ITF,
+            created_by=self.superuser,
+        )
+        raw = "\n".join(
+            [
+                "Member ID,Preferred First Name,Preferred Last Name,Club Name,Gender",
+                "LUX-9001,Erika,Musterfrau,Luxembourg Taekwondo Club Esch,Female",
+                "LUX-9002,Max,Mustermann,Luxembourg Taekwon-Do Club Esch,H",
+                "LUX-9003,Sam,Beispiel,Taekwondo Beispielhausen,Robot",
+                "LUX-9004,Noa,Beispiel,Nowhere Dojang,Female",
+                "LUX-9005,Kim,Beispiel,Dualtown Dojang,Female",
+                "LUX-9006,Jan,Janssen,Taekwon-Do Beispielhausen,Male",
+                "LUX-9006,Jan,Janssen,Silver Crane Academy,Male",
+            ]
+        )
+        upload = SimpleUploadedFile("choice.csv", raw.encode("utf-8"), content_type="text/csv")
+        preview = self.client.post("/api/setup/members/preview/", {"file": upload}, format="multipart")
+        self.assertEqual(preview.status_code, 200, preview.data)
+        rows = {row["member_id"] + str(row["row_index"]): row for row in preview.data["rows"]}
+        exact = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9001")
+        self.assertEqual(exact["resolution"]["kind"], "club")
+        self.assertEqual(exact["resolution"]["club_id"], esch.id)
+        self.assertFalse(exact["sex_blocking"])
+        self.assertFalse(exact["group_conflict"])
+        spelling = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9002")
+        self.assertEqual(spelling["resolution"]["kind"], "club")
+        self.assertEqual(spelling["resolution"]["club_id"], esch.id)
+        self.assertEqual(spelling["sex"], "M")
+        self.assertFalse(spelling["sex_blocking"])
+        robot = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9003")
+        self.assertEqual(robot["resolution"]["kind"], "club")
+        self.assertEqual(robot["resolution"]["club_name"], "Taekwon-Do Beispielhausen")
+        self.assertTrue(robot["sex_blocking"])
+        self.assertEqual(robot["sex_raw"], "Robot")
+        missing = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9004")
+        self.assertEqual(missing["resolution"]["kind"], "unknown")
+        self.assertEqual(missing["club_name"], "Nowhere Dojang")
+        ambiguous = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-9005")
+        self.assertEqual(ambiguous["resolution"]["kind"], "ambiguous")
+        self.assertIn("Dualtown Dojang (WT)", ambiguous["club_matches"])
+        self.assertIn("Dualtown Dojang a.s.b.l. (ITF)", ambiguous["club_matches"])
+        duplicate_rows = [row for row in preview.data["rows"] if row["member_id"] == "LUX-9006"]
+        self.assertTrue(all(row["group_conflict"] for row in duplicate_rows))
+        self.assertIn("Silver Crane Academy", duplicate_rows[0]["conflict_clubs"])
+        self.assertIn("Taekwon-Do Beispielhausen", duplicate_rows[0]["conflict_clubs"])
+        self.assertTrue(rows)
+
+    def test_empty_club_rows_park_through_preview_and_confirm_without_a_club(self):
+        raw = "\n".join(
+            [
+                "Member ID,First,Last,Club,Gender",
+                "LUX-1,Erika,Musterfrau,,Female",
+                "LUX-2,Max,Mustermann,Silver Crane Academy,Male",
+            ]
+        )
+        mapping = {
+            "wt_licenseid": "Member ID",
+            "ltf_licenseid": "Member ID",
+            "first_name": "First",
+            "last_name": "Last",
+            "club_name": "Club",
+            "sex": "Gender",
+        }
+
+        def post(path, payload):
+            upload = SimpleUploadedFile("empty-club.csv", raw.encode("utf-8"), content_type="text/csv")
+            return self.client.post(path, {"file": upload, "payload": json.dumps(payload)}, format="multipart")
+
+        preview = post("/api/setup/members/preview/", {"mapping": mapping})
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertFalse(preview.data["can_confirm"])
+        empty = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-1")
+        matched = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-2")
+        self.assertEqual(empty["resolution"]["kind"], "no_club")
+        self.assertTrue(empty["parkable"])
+        self.assertEqual(empty["park_reasons"], [NO_CLUB])
+        self.assertFalse(empty["parked"])
+        self.assertEqual(matched["resolution"]["kind"], "club")
+        self.assertEqual(matched["resolution"]["club_name"], "Silver Crane Academy")
+
+        parked_preview = post("/api/setup/members/preview/", {"mapping": mapping, "parked_rows": [empty["row_index"]]})
+        self.assertTrue(parked_preview.data["can_confirm"], parked_preview.data)
+        parked_row = next(row for row in parked_preview.data["rows"] if row["member_id"] == "LUX-1")
+        self.assertTrue(parked_row["parked"])
+
+        confirmed = post("/api/setup/members/confirm/", {"mapping": mapping, "parked_rows": [empty["row_index"]]})
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertTrue(confirmed.data["confirmed"])
+        self.assertEqual(confirmed.data["parked"], 1)
+        self.assertEqual(confirmed.data["created"], 1)
+        stored = Member.all_objects.get(ltf_licenseid="LUX-1")
+        self.assertEqual(stored.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(stored.club_id)
+        self.assertEqual(decode_reasons(stored.park_reason), [NO_CLUB])
+        self.assertFalse(Member.objects.filter(ltf_licenseid="LUX-1").exists())
+        created = Member.objects.get(ltf_licenseid="LUX-2")
+        self.assertEqual(created.club.name, "Silver Crane Academy")
+        self.assertEqual(created.import_status, Member.ImportStatus.ACTIVE)
+
+    def test_club_choice_is_per_row_and_no_club_yet_can_confirm(self):
+        raw = "\n".join(
+            [
+                "Member ID,First,Last,Club,Gender",
+                "LUX-11,Erika,Musterfrau,,Female",
+                "LUX-12,Noa,Beispiel,,Female",
+                "LUX-13,Max,Mustermann,Silver Crane Academy,Male",
+                "LUX-14,Sam,Beispiel,Nowhere Dojang,Female",
+                "LUX-15,Kim,Beispiel,Nowhere Dojang,Male",
+            ]
+        )
+        mapping = {
+            "wt_licenseid": "Member ID",
+            "ltf_licenseid": "Member ID",
+            "first_name": "First",
+            "last_name": "Last",
+            "club_name": "Club",
+            "sex": "Gender",
+        }
+        crane = Club.objects.get(name="Silver Crane Academy")
+
+        def post(path, payload):
+            upload = SimpleUploadedFile("per-row-club.csv", raw.encode("utf-8"), content_type="text/csv")
+            return self.client.post(path, {"file": upload, "payload": json.dumps(payload)}, format="multipart")
+
+        def row_for(payload, license_id):
+            preview = post("/api/setup/members/preview/", payload)
+            self.assertEqual(preview.status_code, 200, preview.data)
+            return preview, next(row for row in preview.data["rows"] if row["member_id"] == license_id)
+
+        shared_blank = {"mapping": mapping, "club_name_overrides": {"": {"club_id": crane.id}}}
+        preview, erika = row_for(shared_blank, "LUX-11")
+        noa = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-12")
+        self.assertEqual(erika["resolution"]["kind"], "no_club")
+        self.assertEqual(noa["resolution"]["kind"], "no_club")
+
+        one_blank = {
+            "mapping": mapping,
+            "club_row_overrides": {"1": {"club_id": crane.id}, "2": {"none": True}},
+        }
+        preview, erika = row_for(one_blank, "LUX-11")
+        noa = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-12")
+        self.assertEqual(erika["resolution"]["kind"], "club")
+        self.assertEqual(erika["resolution"]["club_id"], crane.id)
+        self.assertEqual(erika["resolution"]["club_name"], "Silver Crane Academy")
+        self.assertEqual(noa["resolution"]["kind"], "no_club")
+        self.assertIsNone(noa["resolution"]["club_id"])
+
+        one_name = {"mapping": mapping, "club_row_overrides": {"4": {"club_id": crane.id}}}
+        preview, sam = row_for(one_name, "LUX-14")
+        kim = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-15")
+        blank = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-11")
+        self.assertEqual(sam["resolution"]["kind"], "club")
+        self.assertEqual(sam["resolution"]["club_id"], crane.id)
+        self.assertEqual(kim["resolution"]["kind"], "unknown")
+        self.assertEqual(blank["resolution"]["kind"], "no_club")
+
+        both_names = {
+            "mapping": mapping,
+            "club_row_overrides": {"4": {"club_id": crane.id}, "5": {"club_id": crane.id}},
+        }
+        preview, sam = row_for(both_names, "LUX-14")
+        kim = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-15")
+        blank = next(row for row in preview.data["rows"] if row["member_id"] == "LUX-11")
+        self.assertEqual(sam["resolution"]["club_id"], crane.id)
+        self.assertEqual(kim["resolution"]["club_id"], crane.id)
+        self.assertEqual(blank["resolution"]["kind"], "no_club")
+
+        mixed = {
+            "mapping": mapping,
+            "club_row_overrides": {"1": {"club_id": crane.id}, "2": {"none": True}},
+            "parked_rows": [2],
+        }
+        preview, _erika = row_for(mixed, "LUX-11")
+        self.assertFalse(preview.data["can_confirm"])
+        parked = {
+            **mixed,
+            "club_row_overrides": {
+                "1": {"club_id": crane.id},
+                "2": {"none": True},
+                "4": {"club_id": crane.id},
+                "5": {"club_id": crane.id},
+            },
+        }
+        preview, noa = row_for(parked, "LUX-12")
+        self.assertTrue(noa["parked"])
+        self.assertEqual(noa["resolution"]["kind"], "no_club")
+        self.assertTrue(preview.data["can_confirm"], preview.data)
+        confirmed = post("/api/setup/members/confirm/", parked)
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(confirmed.data["created"], 4)
+        self.assertEqual(confirmed.data["parked"], 1)
+        assigned = Member.objects.get(ltf_licenseid="LUX-11")
+        self.assertEqual(assigned.club_id, crane.id)
+        left = Member.all_objects.get(ltf_licenseid="LUX-12")
+        self.assertEqual(left.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(left.club_id)
+        self.assertEqual(decode_reasons(left.park_reason), [NO_CLUB])
+        self.assertEqual(Member.objects.get(ltf_licenseid="LUX-13").club_id, crane.id)
+        self.assertEqual(Member.objects.get(ltf_licenseid="LUX-14").club_id, crane.id)
+        self.assertEqual(Member.objects.get(ltf_licenseid="LUX-15").club_id, crane.id)
+        self.assertFalse(Member.objects.filter(ltf_licenseid="LUX-12").exists())
+
+    def test_park_then_confirm_covers_unknown_club_and_unreadable_end_date(self):
+        raw = "\n".join(
+            [
+                "Member ID,First,Last,Club,Gender,End",
+                "LUX-21,Erika,Musterfrau,Nowhere Dojang,Female,31/12/2099",
+                "LUX-22,Max,Mustermann,Silver Crane Academy,Male,not-a-date",
+                "LUX-23,Noa,Beispiel,Missing Dojang,Female,not-a-date",
+                "LUX-24,Sam,Beispiel,Silver Crane Academy,Male,31/12/2099",
+            ]
+        )
+        mapping = {
+            "wt_licenseid": "Member ID",
+            "ltf_licenseid": "Member ID",
+            "first_name": "First",
+            "last_name": "Last",
+            "club_name": "Club",
+            "sex": "Gender",
+            "membership_end_date": "End",
+        }
+        base = {"mapping": mapping, "end_date_format": "DD/MM/YYYY"}
+
+        def post(path, payload):
+            upload = SimpleUploadedFile("park-reasons.csv", raw.encode("utf-8"), content_type="text/csv")
+            return self.client.post(path, {"file": upload, "payload": json.dumps(payload)}, format="multipart")
+
+        preview = post("/api/setup/members/preview/", base)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertFalse(preview.data["can_confirm"])
+        by_id = {row["member_id"]: row for row in preview.data["rows"]}
+        self.assertEqual(by_id["LUX-21"]["resolution"]["kind"], "unknown")
+        self.assertEqual(by_id["LUX-21"]["park_reasons"], ["club_not_found"])
+        self.assertTrue(by_id["LUX-21"]["parkable"])
+        self.assertFalse(by_id["LUX-21"]["end_unparseable"])
+        self.assertEqual(by_id["LUX-22"]["resolution"]["kind"], "club")
+        self.assertEqual(by_id["LUX-22"]["park_reasons"], ["end_date"])
+        self.assertTrue(by_id["LUX-22"]["parkable"])
+        self.assertTrue(by_id["LUX-22"]["end_unparseable"])
+        self.assertEqual(by_id["LUX-23"]["park_reasons"], ["club_not_found", "end_date"])
+        self.assertTrue(by_id["LUX-23"]["parkable"])
+        self.assertEqual(by_id["LUX-23"]["resolution"]["kind"], "unknown")
+        self.assertEqual(by_id["LUX-24"]["resolution"]["kind"], "club")
+        self.assertEqual(by_id["LUX-24"]["park_reasons"], [])
+        self.assertFalse(by_id["LUX-24"]["parkable"])
+
+        parked_indexes = [by_id["LUX-21"]["row_index"], by_id["LUX-22"]["row_index"], by_id["LUX-23"]["row_index"]]
+        parked_preview = post("/api/setup/members/preview/", {**base, "parked_rows": parked_indexes})
+        self.assertTrue(parked_preview.data["can_confirm"], parked_preview.data)
+        parked_by_id = {row["member_id"]: row for row in parked_preview.data["rows"]}
+        self.assertTrue(parked_by_id["LUX-21"]["parked"])
+        self.assertTrue(parked_by_id["LUX-22"]["parked"])
+        self.assertTrue(parked_by_id["LUX-23"]["parked"])
+        self.assertFalse(parked_by_id["LUX-24"]["parked"])
+
+        confirmed = post("/api/setup/members/confirm/", {**base, "parked_rows": parked_indexes})
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(confirmed.data["created"], 1)
+        self.assertEqual(confirmed.data["parked"], 3)
+        crane = Club.objects.get(name="Silver Crane Academy")
+        unknown = Member.all_objects.get(ltf_licenseid="LUX-21")
+        self.assertEqual(unknown.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(unknown.club_id)
+        self.assertEqual(decode_reasons(unknown.park_reason), ["club_not_found"])
+        bad_end = Member.all_objects.get(ltf_licenseid="LUX-22")
+        self.assertEqual(bad_end.import_status, Member.ImportStatus.PARKED)
+        self.assertEqual(bad_end.club_id, crane.id)
+        self.assertEqual(decode_reasons(bad_end.park_reason), ["end_date"])
+        both = Member.all_objects.get(ltf_licenseid="LUX-23")
+        self.assertEqual(both.import_status, Member.ImportStatus.PARKED)
+        self.assertIsNone(both.club_id)
+        self.assertEqual(decode_reasons(both.park_reason), ["club_not_found", "end_date"])
+        created = Member.objects.get(ltf_licenseid="LUX-24")
+        self.assertEqual(created.club_id, crane.id)
+        self.assertEqual(created.import_status, Member.ImportStatus.ACTIVE)
+        self.assertFalse(Member.objects.filter(ltf_licenseid__in=["LUX-21", "LUX-22", "LUX-23"]).exists())
+
+
+@override_settings(DEMO_MODE=False)
+class SetupMemberIdPrefixTests(TestCase):
+    def test_snapshot_rewrites_ltf_only_rerun_does_not_duplicate_and_admin_links(self):
+        profile = FederationProfile.objects.create(rewrite_lux_prefix_on_member_import=True)
+        client = APIClient()
+        superuser = User.objects.create_superuser(username="setup-prefix", password="pass12345", email="")
+        client.force_authenticate(user=superuser)
+        started = client.post("/api/setup/start/")
+        self.assertEqual(started.status_code, 200, started.data)
+        self.assertTrue(started.data["ltf_prefix_rewrite"])
+        profile.rewrite_lux_prefix_on_member_import = False
+        profile.save(update_fields=["rewrite_lux_prefix_on_member_import"])
+        self.assertTrue(SetupState.objects.get(pk=1).ltf_prefix_rewrite)
+
+        client.post("/api/setup/clubs/confirm/", {"file": csv_file("fake_clubs.csv")}, format="multipart")
+        crane = Club.objects.get(name="Silver Crane Academy")
+        payload = {
+            "sex_overrides": {"6": "F", "7": "skip"},
+            "active_overrides": {"15": True},
+            "club_name_overrides": {
+                "tkd musterstadt": {"club_id": crane.id},
+                "luxembourg taekwondo federation": {"staff": True},
+            },
+            "club_choices": {"LTF-4001": crane.id},
+            "allow_missing_id": [13],
+        }
+        with patch("setup.members_step.timezone.localdate", return_value=date(2026, 10, 25)):
+            preview = client.post(
+                "/api/setup/members/preview/",
+                {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+                format="multipart",
+            )
+            self.assertEqual(preview.status_code, 200, preview.data)
+            self.assertTrue(preview.data["ltf_license_prefix_rewrite"]["enabled"])
+            self.assertGreater(preview.data["ltf_license_prefix_rewrite"]["rewritten_count"], 0)
+            erika_row = next(row for row in preview.data["rows"] if row["row_index"] == 2)
+            self.assertEqual(erika_row["wt_license_id"], "LUX-1001")
+            self.assertEqual(erika_row["ltf_license_id"], "LTF-1001")
+            self.assertTrue(preview.data["can_confirm"], preview.data)
+            confirmed = client.post(
+                "/api/setup/members/confirm/",
+                {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+                format="multipart",
+            )
+            self.assertEqual(confirmed.status_code, 200, confirmed.data)
+            again = client.post(
+                "/api/setup/members/confirm/",
+                {"file": csv_file("fake_members.csv"), "payload": json.dumps(payload)},
+                format="multipart",
+            )
+        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(again.data["created"], 0)
+        erika = Member.objects.get(wt_licenseid="LUX-1001")
+        self.assertEqual(erika.ltf_licenseid, "LTF-1001")
+        self.assertEqual(Member.objects.filter(wt_licenseid="LUX-1001").count(), 1)
+        self.assertEqual(Member.objects.filter(ltf_licenseid="LTF-1001").count(), 1)
+        self.assertTrue(erika.ltf_staff_functions.filter(function=LtfStaffFunction.Function.MEDIA, ended_on=None).exists())
+        kim = Member.objects.get(ltf_licenseid="LTF-2001")
+        self.assertEqual(kim.wt_licenseid, "LUX-2001")
+        self.assertIsNone(kim.club_id)
+        self.assertTrue(kim.ltf_staff_functions.filter(function="coach", ended_on=None).exists())
+
+        admins = client.post("/api/setup/admins/preview/", {"file": csv_file("fake_admins.csv")}, format="multipart")
+        self.assertEqual(admins.status_code, 200, admins.data)
+        linked = next(row for row in admins.data["rows"] if row["admin_id"] == "LTF-1001" and row["organization"] == "Silver Crane Academy")
+        self.assertEqual(linked["status"], "ok")
+        self.assertEqual(linked["member_id"], erika.id)
+        saved = client.post("/api/setup/admins/confirm/", {"file": csv_file("fake_admins.csv")}, format="multipart")
+        self.assertEqual(saved.status_code, 200, saved.data)
+        erika.refresh_from_db()
+        self.assertIsNotNone(erika.user_id)
+        self.assertTrue(crane.admins.filter(id=erika.user_id).exists())
+
+
+def _member_import_payload():
+    crane = Club.objects.get(name="Silver Crane Academy")
+    return {
+        "sex_overrides": {"6": "F", "7": "skip"},
+        "active_overrides": {"15": True},
+        "club_name_overrides": {
+            "tkd musterstadt": {"club_id": crane.id},
+            "luxembourg taekwondo federation": {"staff": True},
+        },
+        "club_choices": {"LUX-4001": crane.id},
+        "allow_missing_id": [13],
+    }
+
+
+@override_settings(DEMO_MODE=False)
+class SetupAdminStepTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.superuser = User.objects.create_superuser(username="setup-admins", password="pass12345", email="")
+        self.client.force_authenticate(user=self.superuser)
+        self.client.post("/api/setup/start/")
+        self.client.post("/api/setup/clubs/confirm/", {"file": csv_file("fake_clubs.csv")}, format="multipart")
+        self.today = patch("setup.members_step.timezone.localdate", return_value=date(2026, 10, 25))
+        self.today.start()
+        self.addCleanup(self.today.stop)
+        confirmed = self.client.post(
+            "/api/setup/members/confirm/",
+            {"file": csv_file("fake_members.csv"), "payload": json.dumps(_member_import_payload())},
+            format="multipart",
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        crane = Club.objects.get(name="Silver Crane Academy")
+        crane.max_admins = 2
+        crane.save(update_fields=["max_admins"])
+
+    def _admins(self, path, extra=None):
+        data = {"file": csv_file("fake_admins.csv")}
+        if extra:
+            data.update(extra)
+        return self.client.post(path, data, format="multipart")
+
+    def test_preview_skips_ltf_and_lux_10_and_flags_rows(self):
+        preview = self._admins("/api/setup/admins/preview/")
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data["ltf_rows_ignored"], 1)
+        self.assertEqual(preview.data["skipped_admin_ids"], 1)
+        self.assertGreaterEqual(preview.data["blank_rows_ignored"], 1)
+        self.assertTrue(preview.data["can_confirm"])
+        rows = {(row["admin_id"], row["organization"]): row for row in preview.data["rows"]}
+        self.assertNotIn(("LUX-2001", "LTF"), rows)
+        self.assertNotIn(("LUX-10", "Silver Crane Academy"), rows)
+        self.assertEqual(rows[("LUX-1001", "Silver Crane Academy")]["status"], "ok")
+        self.assertEqual(rows[("LUX-1002", "Silver Crane Academy")]["status"], "likely_swapped")
+        self.assertEqual(rows[("LUX-1002", "Taekwon-Do Beispielhausen")]["status"], "ok")
+        self.assertEqual(rows[("LUX-1003", "Silver Crane Academy")]["status"], "club_admin_limit")
+        self.assertEqual(rows[("LUX-1003", "Taekwon-Do Beispielhausen")]["status"], "name_mismatch")
+        self.assertEqual(rows[("LUX-9000", "Taekwondo Club Musterstadt")]["status"], "member_not_found")
+        self.assertEqual(rows[("LUX-1001", "No Such Club")]["status"], "club_not_found")
+        self.assertEqual(
+            preview.data["not_imported"],
+            ["Not imported: no member with ID LUX-9000 (Erika MUSTERFRAU, Taekwondo Club Musterstadt)"],
+        )
+
+    def test_confirm_links_one_user_per_person_and_setup_links_are_one_time(self):
+        confirmed = self._admins("/api/setup/admins/confirm/")
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        self.assertEqual(
+            confirmed.data["not_imported"],
+            ["Not imported: no member with ID LUX-9000 (Erika MUSTERFRAU, Taekwondo Club Musterstadt)"],
+        )
+        erika = Member.objects.get(ltf_licenseid="LUX-1001")
+        max_member = Member.objects.get(ltf_licenseid="LUX-1002")
+        jan = Member.objects.get(ltf_licenseid="LUX-1003")
+        kim = Member.objects.get(ltf_licenseid="LUX-2001")
+        self.assertIsNone(kim.user_id)
+        self.assertFalse(AccountSetupInvite.objects.filter(user__member_profile=kim).exists())
+        self.assertFalse(erika.user.has_usable_password())
+        self.assertEqual(erika.user.role, User.Roles.CLUB_ADMIN)
+        self.assertEqual(erika.user.email, "")
+        self.assertEqual(erika.user.username, "emusterfra")
+        self.assertEqual(max_member.user_id, User.objects.get(username="mmusterman").id)
+        crane = Club.objects.get(name="Silver Crane Academy")
+        beispiel = Club.objects.get(name="Taekwon-Do Beispielhausen")
+        self.assertEqual(set(crane.admins.values_list("id", flat=True)), {erika.user_id, max_member.user_id})
+        self.assertEqual(set(beispiel.admins.values_list("id", flat=True)), {max_member.user_id, jan.user_id})
+        self.assertFalse(User.objects.filter(username="kbeispiel").exists())
+        again = self._admins("/api/setup/admins/confirm/")
+        self.assertEqual(again.status_code, 200, again.data)
+        self.assertEqual(User.objects.filter(username="emusterfra").count(), 1)
+        self.assertTrue(any(row["status"] == "already_admin" for row in again.data["rows"]))
+
+        issued = self.client.post(f"/api/setup/admins/{erika.user_id}/setup-link/", {"locale": "en"}, format="json")
+        self.assertEqual(issued.status_code, 200, issued.data)
+        raw = issued.data["setup_link"].split("token=", 1)[1]
+        invite = AccountSetupInvite.objects.get(user=erika.user)
+        self.assertNotEqual(invite.token_hash, raw)
+        self.assertGreater(invite.expires_at, timezone.now() + timedelta(days=6))
+        self.assertLess(invite.expires_at, timezone.now() + timedelta(days=8))
+        public = APIClient()
+        looked = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(looked.status_code, 200, looked.data)
+        self.assertEqual(looked.data["username"], "emusterfra")
+        self.assertEqual(
+            looked.data["assignments"],
+            [{"role": "club_admin", "organisation": "Silver Crane Academy"}],
+        )
+        weak = public.post(
+            "/api/auth/account-setup/",
+            {"token": raw, "email": "erika@example.com", "password": "short", "password_confirm": "short"},
+            format="json",
+        )
+        self.assertEqual(weak.status_code, 400)
+        ready = public.post(
+            "/api/auth/account-setup/",
+            {
+                "token": raw,
+                "email": "erika@example.com",
+                "password": "Wizard-setup-pass-1",
+                "password_confirm": "Wizard-setup-pass-1",
+            },
+            format="json",
+        )
+        self.assertEqual(ready.status_code, 200, ready.data)
+        erika.user.refresh_from_db()
+        erika.refresh_from_db()
+        self.assertEqual(erika.user.email, "erika@example.com")
+        self.assertEqual(erika.email, "erika@example.com")
+        self.assertTrue(erika.user.is_email_verified)
+        self.assertTrue(EmailAddress.objects.filter(user=erika.user, email="erika@example.com", verified=True, primary=True).exists())
+        invite.refresh_from_db()
+        self.assertIsNotNone(invite.used_at)
+        reused = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(reused.status_code, 400)
+        self.assertEqual(reused.data["detail"], NEUTRAL_DETAIL)
+        self.assertEqual(reused.data["reason"], "used")
+        self.assertEqual(set(reused.data.keys()), {"detail", "reason"})
+        self.assertNotIn("username", reused.data)
+        self.assertNotIn("email", reused.data)
+        logged = public.post("/api/auth/login/", {"username": "emusterfra", "password": "Wizard-setup-pass-1"}, format="json")
+        self.assertEqual(logged.status_code, 200, logged.data)
+
+        first = self.client.post(f"/api/setup/admins/{max_member.user_id}/setup-link/", {"locale": "en"}, format="json")
+        first_raw = first.data["setup_link"].split("token=", 1)[1]
+        second = self.client.post(f"/api/setup/admins/{max_member.user_id}/setup-link/", {"locale": "en"}, format="json")
+        self.assertNotEqual(first.data["setup_link"], second.data["setup_link"])
+        self.assertIsNotNone(AccountSetupInvite.objects.get(token_hash=hash_setup_token(first_raw)).revoked_at)
+        max_view = public.get("/api/auth/account-setup/", {"token": second.data["setup_link"].split("token=", 1)[1]})
+        self.assertEqual(
+            max_view.data["assignments"],
+            [
+                {"role": "club_admin", "organisation": "Silver Crane Academy"},
+                {"role": "club_admin", "organisation": "Taekwon-Do Beispielhausen"},
+            ],
+        )
+        stale = public.get("/api/auth/account-setup/", {"token": first_raw})
+        self.assertEqual(stale.data["detail"], NEUTRAL_DETAIL)
+        self.assertEqual(stale.data["reason"], "revoked")
+        self.assertNotIn("assignments", stale.data)
+        self.assertNotIn("organisation", str(stale.data))
+
+        csv_one = self.client.post("/api/setup/admins/setup-links.csv", {"locale": "en"}, format="json")
+        self.assertEqual(csv_one.status_code, 200, csv_one.content)
+        self.assertIn("setup-links-CONFIDENTIAL-", csv_one["Content-Disposition"])
+        parsed = list(csv.DictReader(io.StringIO(csv_one.content.decode())))
+        by_user = {row["username"]: row for row in parsed}
+        self.assertEqual(by_user["emusterfra"]["setup_link"], "")
+        self.assertTrue(by_user["mmusterman"]["setup_link"])
+        self.assertTrue(by_user["jjanssen"]["setup_link"])
+        audit = OpsAuditLog.objects.filter(action="setup_links_download").order_by("id").first()
+        self.assertEqual(audit.actor_id, self.superuser.id)
+        self.assertEqual(audit.metadata["count"], 2)
+        max_token = by_user["mmusterman"]["setup_link"].split("token=", 1)[1]
+        jan_token = by_user["jjanssen"]["setup_link"].split("token=", 1)[1]
+        csv_two = self.client.post("/api/setup/admins/setup-links.csv", {"locale": "en"}, format="json")
+        parsed_two = {row["username"]: row for row in csv.DictReader(io.StringIO(csv_two.content.decode()))}
+        self.assertNotEqual(parsed_two["mmusterman"]["setup_link"], by_user["mmusterman"]["setup_link"])
+        self.assertEqual(public.get("/api/auth/account-setup/", {"token": max_token}).data["detail"], NEUTRAL_DETAIL)
+        self.assertEqual(public.get("/api/auth/account-setup/", {"token": jan_token}).status_code, 400)
+        fresh_jan = parsed_two["jjanssen"]["setup_link"].split("token=", 1)[1]
+        finished = self.client.post("/api/setup/finish/")
+        self.assertEqual(finished.status_code, 200, finished.data)
+        self.assertEqual(self.client.post("/api/setup/admins/setup-links.csv", {}, format="json").status_code, 410)
+        done = public.post(
+            "/api/auth/account-setup/",
+            {
+                "token": fresh_jan,
+                "email": "jan@example.com",
+                "password": "Wizard-setup-pass-1",
+                "password_confirm": "Wizard-setup-pass-1",
+            },
+            format="json",
+        )
+        self.assertEqual(done.status_code, 200, done.data)
+        jan.refresh_from_db()
+        self.assertEqual(jan.email, "jan@example.com")
+
+    def test_ltf_staff_rows_do_not_create_user_accounts(self):
+        confirmed = self._admins("/api/setup/admins/confirm/")
+        self.assertEqual(confirmed.status_code, 200, confirmed.data)
+        kim = Member.objects.get(ltf_licenseid="LUX-2001")
+        self.assertIsNone(kim.club_id)
+        self.assertTrue(kim.ltf_staff_functions.filter(function=LtfStaffFunction.Function.COACH, ended_on=None).exists())
+        self.assertIsNone(kim.user_id)
+        self.assertFalse(User.objects.filter(first_name="Kim", last_name="Beispiel").exists())
+        self.assertFalse(AccountSetupInvite.objects.filter(user__first_name="Kim").exists())
+
+    def test_ltf_admin_link_names_the_federation_and_a_bad_token_stays_neutral(self):
+        from accounts.setup_invites import issue_setup_invite
+        from clubs.models import FederationProfile
+
+        FederationProfile.objects.create(name="Luxembourg Taekwondo Federation")
+        admin = User.objects.create_superuser(username="ltf-grant", password="pass12345", email="")
+        admin.role = User.Roles.LTF_ADMIN
+        admin.set_unusable_password()
+        admin.save()
+        club = Club.objects.get(name="Silver Crane Academy")
+        club.admins.add(admin)
+        _invite, raw = issue_setup_invite(admin, self.superuser)
+        public = APIClient()
+        looked = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(looked.status_code, 200, looked.data)
+        self.assertEqual(
+            looked.data["assignments"],
+            [
+                {"role": "ltf_admin", "organisation": "Luxembourg Taekwondo Federation"},
+                {"role": "club_admin", "organisation": "Silver Crane Academy"},
+            ],
+        )
+        missing = public.get("/api/auth/account-setup/", {"token": "not-a-real-token"})
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(missing.data, {"detail": NEUTRAL_DETAIL, "reason": "invalid"})
+
+
+class SetupParsingTests(TestCase):
+    def test_ambiguous_dates_default_to_day_first(self):
+        detected = detect_column_format(["03/04/2010", "05/06/2011"])
+        self.assertTrue(detected["ambiguous"])
+        self.assertEqual(detected["format"], "DD/MM/YYYY")
+        self.assertEqual(parse_with_format("03/04/2010", "DD/MM/YYYY"), date(2010, 4, 3))
+        forced = detect_column_format(["15/04/2010", "03/04/2010"])
+        self.assertFalse(forced["ambiguous"])
+        self.assertEqual(forced["format"], "DD/MM/YYYY")
+        serial = detect_column_format(["40179"])
+        self.assertEqual(serial["format"], "EXCEL")
+        self.assertEqual(parse_with_format("40179", "EXCEL"), date(1899, 12, 30) + __import__("datetime").timedelta(days=40179))
+
+    def test_name_normalisation_ignores_asbl(self):
+        self.assertEqual(
+            normalize_club_name("Taekwondo Club Musterstadt a.s.b.l."),
+            normalize_club_name("taekwondo club musterstadt"),
+        )

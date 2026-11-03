@@ -2,13 +2,15 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
+  Boxes,
   Building2,
   CalendarDays,
-  CreditCard,
+  Archive,
   Landmark,
+  Medal,
   IdCard,
   LayoutDashboard,
   Layers,
@@ -19,7 +21,10 @@ import {
   Users,
 } from "lucide-react";
 
-import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { AppShell, resolveActiveId, type AppNavItem } from "@/components/app-shell";
+import { DashboardHeaderSync, DashboardShellContext, useDashboardPageHeader } from "@/components/dashboard-shell-context";
+import { LtfPrintingTabs } from "@/components/ltf-admin/ltf-printing-tabs";
+import { ltfSidebarGroup } from "@/lib/sidebar-groups";
 import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import {
   CLUB_MANAGEMENT_MODULE_ID,
@@ -31,9 +36,10 @@ import {
 } from "@/lib/modules-api";
 
 type LtfAdminLayoutProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
+  persistent?: boolean;
 };
 
 type NavMatchMode = "exact" | "prefix";
@@ -44,14 +50,16 @@ type LtfNavDef = {
   labelKey:
     | "navOverview"
     | "navClubs"
+    | "navModulePurchases"
     | "navClubAdmins"
     | "navMemberTransfers"
     | "navMembers"
+    | "navParkedMembers"
+    | "navNationalTeam"
     | "navLicenses"
     | "navLicenseCards"
-    | "navLicenseCardPrintJobs"
+    | "navPrinting"
     | "navLicenseTypes"
-    | "navPrinterProfiles"
     | "navSettings"
     | "navPreview"
     | "navCalendar"
@@ -63,9 +71,18 @@ type LtfNavDef = {
 const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "overview", href: (l) => `/${l}/dashboard/ltf`, labelKey: "navOverview", matchMode: "exact", icon: LayoutDashboard },
   { id: "clubs", href: (l) => `/${l}/dashboard/ltf/clubs`, labelKey: "navClubs", matchMode: "prefix", icon: Building2 },
+  {
+    id: "module-purchases",
+    href: (l) => `/${l}/dashboard/ltf/module-purchases`,
+    labelKey: "navModulePurchases",
+    matchMode: "prefix",
+    icon: Boxes,
+  },
   { id: "club-admins", href: (l) => `/${l}/dashboard/ltf/club-admins`, labelKey: "navClubAdmins", matchMode: "prefix", icon: UserCog },
   { id: "member-transfers", href: (l) => `/${l}/dashboard/ltf/member-transfers`, labelKey: "navMemberTransfers", matchMode: "prefix", icon: ArrowLeftRight },
   { id: "members", href: (l) => `/${l}/dashboard/ltf/members`, labelKey: "navMembers", matchMode: "prefix", icon: Users },
+  { id: "parked-members", href: (l) => `/${l}/dashboard/ltf/parked-members`, labelKey: "navParkedMembers", matchMode: "prefix", icon: Archive },
+  { id: "national-team", href: (l) => `/${l}/dashboard/ltf/national-team`, labelKey: "navNationalTeam", matchMode: "prefix", icon: Medal },
   { id: "licenses", href: (l) => `/${l}/dashboard/ltf/licenses`, labelKey: "navLicenses", matchMode: "prefix", icon: IdCard },
   {
     id: "license-cards",
@@ -75,9 +92,9 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
     icon: Sparkles,
   },
   {
-    id: "license-card-print-jobs",
+    id: "printing",
     href: (l) => `/${l}/dashboard/ltf/license-cards/print-jobs`,
-    labelKey: "navLicenseCardPrintJobs",
+    labelKey: "navPrinting",
     matchMode: "prefix",
     icon: Printer,
   },
@@ -88,33 +105,14 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
     matchMode: "prefix",
     icon: Layers,
   },
-  {
-    id: "printer-profiles",
-    href: (l) => `/${l}/dashboard/ltf/printer-profiles`,
-    labelKey: "navPrinterProfiles",
-    matchMode: "prefix",
-    icon: CreditCard,
-  },
   { id: "settings", href: (l) => `/${l}/dashboard/ltf/settings`, labelKey: "navSettings", matchMode: "prefix", icon: Settings },
   { id: "calendar", href: (l) => `/${l}/dashboard/ltf/calendar`, labelKey: "navCalendar", matchMode: "prefix", icon: CalendarDays },
   { id: "committee", href: (l) => `/${l}/dashboard/ltf/committee`, labelKey: "navCommittee", matchMode: "prefix", icon: Landmark },
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
-function ltfNavGroup(id: string, label: (key: "navGroupFederation" | "navGroupClubManagement" | "navGroupCalendar" | "navGroupPreview") => string) {
-  if (id === "committee") {
-    return { id: "clubManagement", label: label("navGroupClubManagement") };
-  }
-  if (id === "calendar") {
-    return { id: "calendar", label: label("navGroupCalendar") };
-  }
-  if (id === "preview") {
-    return { id: "preview", label: label("navGroupPreview") };
-  }
-  return { id: "federation", label: label("navGroupFederation") };
-}
-
-export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProps) {
+function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle });
   const t = useTranslations("LtfAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -123,6 +121,9 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
   const isDesignerWorkspace = /\/dashboard\/ltf\/license-cards\/[^/]+\/designer(?:\/|$)/.test(
     pathname || ""
   );
+  const isPrinting =
+    pathname?.includes("/dashboard/ltf/license-cards/print-jobs") ||
+    pathname?.includes("/dashboard/ltf/printer-profiles");
 
   useEffect(() => {
     let cancelled = false;
@@ -161,26 +162,62 @@ export function LtfAdminLayout({ title, subtitle, children }: LtfAdminLayoutProp
           label: t(def.labelKey),
           icon: def.icon,
           matchMode: def.matchMode,
-          group: ltfNavGroup(def.id, (key) => common(key)),
+          group: {
+            id: ltfSidebarGroup(def.id).id,
+            label: common(ltfSidebarGroup(def.id).labelKey),
+          },
           ...(def.id === "calendar" ? calendarAttention : {}),
+          ...(def.id === "printing"
+            ? { extraMatchHrefs: [`/${locale}/dashboard/ltf/printer-profiles`] }
+            : {}),
         },
       }))
       .sort((left, right) => {
-        const rank = (id: string) => (id === "clubManagement" ? 1 : id === "calendar" ? 2 : id === "preview" ? 3 : 0);
+        const rank = (id: string) => (id === "calendar" ? 1 : id === "preview" ? 2 : 0);
         return rank(left.item.group?.id ?? "") - rank(right.item.group?.id ?? "") || left.index - right.index;
       })
       .map((entry) => entry.item),
     [calendarAttention, calendarEntitled, clubMgmtEntitled, common, locale, previewEntitled, t]
   );
 
+  const activeLabel = navItems.find((item) => item.id === resolveActiveId(pathname, navItems))?.label ?? "";
+  const titleText = pageHeader.title || activeLabel;
+  const isWelcome = pathname === `/${locale}/dashboard/ltf`;
+
   return (
-    <AppShell
-      title={title}
-      subtitle={subtitle}
-      navItems={navItems}
-      variant={isDesignerWorkspace ? "workspace" : "default"}
-    >
+    <DashboardShellContext.Provider value={pageHeader.shell}>
+      <AppShell
+        title={titleText}
+        subtitle={pageHeader.subtitle}
+        navItems={navItems}
+        variant={isDesignerWorkspace ? "workspace" : "default"}
+        tone={isWelcome ? "overview" : "default"}
+      >
+        {isPrinting ? (
+          <div className="space-y-3">
+            <LtfPrintingTabs />
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </AppShell>
+    </DashboardShellContext.Provider>
+  );
+}
+
+export function LtfAdminLayout({ title = "", subtitle, children, persistent = false }: LtfAdminLayoutProps) {
+  const shell = useContext(DashboardShellContext);
+  if (persistent || !shell) {
+    return (
+      <LtfAdminShell title={title} subtitle={subtitle}>
+        {children}
+      </LtfAdminShell>
+    );
+  }
+  return (
+    <DashboardHeaderSync title={title} subtitle={subtitle}>
       {children}
-    </AppShell>
+    </DashboardHeaderSync>
   );
 }

@@ -16,9 +16,11 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { FloatingNotice, FormPanel } from "@/components/ui/list-page-chrome";
-import { Modal } from "@/components/ui/modal";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
   MemberTransfer,
@@ -42,7 +44,7 @@ const CARD_SELECTED = "border-primary";
 const CARD_IDLE = "border-border hover:border-primary/50";
 
 function displayMemberName(member: { first_name: string; last_name: string }) {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatFullName(member);
 }
 
 function relativePoint(box: DOMRect, container: HTMLElement, x: number, y: number): Point {
@@ -390,7 +392,7 @@ export default function ClubTransfersPage() {
 
   return (
     <ClubAdminLayout title={t("transfersTitle")} subtitle={t("transfersSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {clubsLoading || isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
         ) : !selectedClub ? (
@@ -631,7 +633,7 @@ export default function ClubTransfersPage() {
               </div>
 
               {selectedTransfer ? (
-                <div className="mt-6 space-y-4 rounded-[var(--radius-card)] border border-border p-4">
+                <div className="mt-6 space-y-3 rounded-[var(--radius-card)] border border-border p-4">
                   <div>
                     <p className="font-medium text-foreground">
                       {displayMemberName(selectedTransfer.member)}
@@ -672,14 +674,14 @@ export default function ClubTransfersPage() {
                           onChange={(event) => setMessageBody(event.target.value)}
                           placeholder={t("transferMessagePlaceholder")}
                         />
-                        <Button type="button" variant="outline" onClick={() => void sendMessage()} disabled={isSaving}>
+                        <Button type="button" variant="outline" write onClick={() => void sendMessage()} disabled={isSaving}>
                           {t("transferSendMessage")}
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {selectedTransfer.to_club.id === selectedClubId ? (
                           <>
-                            <Button type="button" onClick={() => void runDecision("accept")} disabled={isSaving}>
+                            <Button type="button" write onClick={() => void runDecision("accept")} disabled={isSaving}>
                               {t("transferAcceptAction")}
                             </Button>
                             <Button
@@ -696,6 +698,7 @@ export default function ClubTransfersPage() {
                           <Button
                             type="button"
                             variant="outline"
+                            write
                             onClick={() => void runDecision("cancel")}
                             disabled={isSaving}
                           >
@@ -725,7 +728,8 @@ export default function ClubTransfersPage() {
         {errorMessage || successMessage}
       </FloatingNotice>
 
-      <Modal
+      <SidePanel
+        open={Boolean(pendingClub)}
         title={t("transferFeeTitle")}
         description={
           pendingMember && pendingClub
@@ -735,36 +739,13 @@ export default function ClubTransfersPage() {
               })
             : undefined
         }
-        isOpen={Boolean(pendingClub)}
+        closeLabel={common("modalClose")}
         onClose={() => {
           setPendingClub(null);
           setPendingMember(null);
         }}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("transferFeeAmountLabel")}</label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={feeValue}
-              onChange={(event) => setFeeValue(event.target.value)}
-            />
-            <p className="text-xs text-muted">{t("transferFeeHint")}</p>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("transferNoteLabel")}</label>
-            <Input
-              value={noteValue}
-              onChange={(event) => setNoteValue(event.target.value)}
-              placeholder={t("transferNotePlaceholder")}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void submitTransfer()} disabled={isSaving}>
-              {t("transferSendRequest")}
-            </Button>
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -775,9 +756,36 @@ export default function ClubTransfersPage() {
             >
               {t("transferModalCancel")}
             </Button>
+            <Button type="button" onClick={() => void submitTransfer()} disabled={isSaving}>
+              {t("transferSendRequest")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="transfer-fee-amount">{t("transferFeeAmountLabel")}</Label>
+            <Input
+              id="transfer-fee-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={feeValue}
+              onChange={(event) => setFeeValue(event.target.value)}
+            />
+            <p className="text-xs text-muted">{t("transferFeeHint")}</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="transfer-note">{t("transferNoteLabel")}</Label>
+            <Input
+              id="transfer-note"
+              value={noteValue}
+              onChange={(event) => setNoteValue(event.target.value)}
+              placeholder={t("transferNotePlaceholder")}
+            />
           </div>
         </div>
-      </Modal>
+      </SidePanel>
     </ClubAdminLayout>
   );
 }

@@ -1,0 +1,13 @@
+Moien {{ name }},
+
+Mir hunn eng Ufro kritt fir Äert LTF Dojang Hub Passwuert zréckzesetzen.
+
+Benotzernumm: {{ username }}
+Clubs: {{ clubs }}
+
+Wielt en neit Passwuert:
+{{ url }}
+
+Wann Dir dat net ugefrot hutt, kënnt Dir dës E-Mail ignoréieren.
+
+LTF Dojang Hub

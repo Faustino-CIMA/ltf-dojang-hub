@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const supportedLocales = new Set(["en", "lb"]);
+const supportedLocales = new Set(["en", "fr", "de", "lb"]);
 
 export default async function CheckoutCancelRedirect() {
   const cookieStore = await cookies();

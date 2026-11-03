@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ doc_lang|default:'en' }}">
   <head>
     <meta charset="utf-8" />
     <meta name="description" content="LTF Dojang Hub invoice" />
@@ -92,29 +92,29 @@
     <div class="header">
       <div class="brand">LTF Dojang Hub</div>
       <div>
-        <div><strong>Invoice:</strong> {{ invoice.invoice_number }}</div>
-        <div><strong>Status:</strong> {{ invoice.status|title }}</div>
-        <div><strong>Issued:</strong> {{ invoice.issued_at|date:"Y-m-d" }}</div>
+        <div><strong>{{ labels.invoice }}:</strong> {{ invoice.invoice_number }}</div>
+        <div><strong>{{ labels.status }}:</strong> {{ invoice.status|title }}</div>
+        <div><strong>{{ labels.issued }}:</strong> {{ invoice.issued_at|date:"Y-m-d" }}</div>
         {% if invoice.paid_at %}
-        <div><strong>Paid:</strong> {{ invoice.paid_at|date:"Y-m-d" }}</div>
+        <div><strong>{{ labels.paid }}:</strong> {{ invoice.paid_at|date:"Y-m-d" }}</div>
         {% endif %}
       </div>
     </div>
 
     <div class="grid">
       <div class="box">
-        <div class="section-title">Club</div>
+        <div class="section-title">{{ labels.club }}</div>
         <div>{{ club.name }}</div>
         {% if club.address %}<div>{{ club.address }}</div>{% endif %}
         {% if club.city %}<div>{{ club.city }}</div>{% endif %}
       </div>
       <div class="box">
-        <div class="section-title">Bill to</div>
+        <div class="section-title">{{ labels.bill_to }}</div>
         {% if bill_to %}
         <div>{{ bill_to.name }}</div>
         {% for line in bill_to.address_lines %}<div>{{ line }}</div>{% endfor %}
         {% if bill_to.email %}<div>{{ bill_to.email }}</div>{% endif %}
-        {% if delivery_label %}<div>Delivery: {{ delivery_label }}</div>{% endif %}
+        {% if delivery_label %}<div>{{ labels.delivery }}: {{ delivery_label }}</div>{% endif %}
         {% elif member %}
         <div>{{ member.first_name }} {{ member.last_name }}</div>
         {% if member.email %}<div>{{ member.email }}</div>{% endif %}
@@ -123,20 +123,20 @@
         {% endif %}
       </div>
       <div class="box">
-        <div class="section-title">Order</div>
+        <div class="section-title">{{ labels.order }}</div>
         <div>{{ order.order_number }}</div>
-        <div>Status: {{ order.status|title }}</div>
-        <div>Currency: {{ order.currency }}</div>
+        <div>{{ labels.status }}: {{ order.status|title }}</div>
+        <div>{{ labels.currency }}: {{ order.currency }}</div>
       </div>
     </div>
 
     <table>
       <thead>
         <tr>
-          <th>Item</th>
-          <th>Qty</th>
-          <th>Unit price</th>
-          <th>Total</th>
+          <th>{{ labels.item }}</th>
+          <th>{{ labels.qty }}</th>
+          <th>{{ labels.unit_price }}</th>
+          <th>{{ labels.total }}</th>
         </tr>
       </thead>
       <tbody>
@@ -153,32 +153,36 @@
 
     <div class="totals">
       <div class="totals-row">
-        <span>Subtotal</span>
+        <span>{{ labels.subtotal }}</span>
         <span>{{ invoice.subtotal }}</span>
       </div>
       <div class="totals-row">
-        <span>Tax</span>
+        <span>{{ labels.tax }}</span>
         <span>{{ invoice.tax_total }}</span>
       </div>
       <div class="totals-row total">
-        <span>Total</span>
+        <span>{{ labels.total }}</span>
         <span>{{ invoice.total }}</span>
       </div>
       {% if credited_total and credited_total > 0 %}
       <div class="totals-row">
-        <span>Credits</span>
+        <span>{{ labels.credits }}</span>
         <span>- {{ credited_total }}</span>
       </div>
       <div class="totals-row total">
-        <span>Amount due</span>
+        <span>{{ labels.amount_due }}</span>
         <span>{{ outstanding }}</span>
       </div>
       {% endif %}
+      <div class="totals-row total">
+        <span>{{ settlement_label }}</span>
+        <span>{{ settlement_amount }}</span>
+      </div>
     </div>
 
     <div class="qr-section">
       <div class="qr-card">
-        <div class="section-title">Payconiq</div>
+        <div class="section-title">{{ labels.payconiq }}</div>
         {% if payconiq_qr %}
         <img
           alt="Payconiq QR"
@@ -186,13 +190,13 @@
           height="180"
           src="data:image/png;base64,{{ payconiq_qr }}"
         />
-        <div>Scan to pay (Payconiq)</div>
+        <div>{{ labels.scan_payconiq }}</div>
         {% else %}
-        <div>Payconiq QR not available</div>
+        <div>{{ labels.payconiq_missing }}</div>
         {% endif %}
       </div>
       <div class="qr-card">
-        <div class="section-title">SEPA</div>
+        <div class="section-title">{{ labels.sepa }}</div>
         {% if sepa_qr %}
         <img
           alt="SEPA QR"
@@ -200,9 +204,9 @@
           height="180"
           src="data:image/png;base64,{{ sepa_qr }}"
         />
-        <div>Scan to pay (SEPA transfer)</div>
+        <div>{{ labels.scan_sepa }}</div>
         {% else %}
-        <div>SEPA QR not available</div>
+        <div>{{ labels.sepa_missing }}</div>
         {% endif %}
       </div>
     </div>

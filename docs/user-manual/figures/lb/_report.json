@@ -40,8 +40,7 @@
  "members-actions": {
   "found": [
    1,
-   2,
-   3
+   2
   ],
   "problems": []
  },
@@ -86,7 +85,9 @@
   "problems": []
  },
  "member-new": {
-  "found": [],
+  "found": [
+   1
+  ],
   "problems": []
  },
  "import": {
@@ -114,7 +115,10 @@
   "problems": []
  },
  "transfer-request": {
-  "found": [],
+  "found": [
+   1,
+   2
+  ],
   "problems": []
  },
  "transfers-in": {
@@ -141,8 +145,7 @@
    3,
    4,
    5,
-   6,
-   7
+   6
   ],
   "problems": []
  },
@@ -151,7 +154,9 @@
   "problems": []
  },
  "record-payment": {
-  "found": [],
+  "found": [
+   1
+  ],
   "problems": []
  },
  "reports": {
@@ -350,6 +355,62 @@
  },
  "privacy": {
   "found": [],
+  "problems": []
+ },
+ "account-setup": {
+  "found": [],
+  "problems": []
+ },
+ "setup": {
+  "found": [],
+  "problems": []
+ },
+ "teams": {
+  "found": [],
+  "problems": []
+ },
+ "team-roster": {
+  "found": [],
+  "problems": []
+ },
+ "team-weigh-in": {
+  "found": [
+   1,
+   2
+  ],
+  "problems": []
+ },
+ "height-weight": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "equipment": {
+  "found": [
+   1,
+   2
+  ],
+  "problems": []
+ },
+ "national-team": {
+  "found": [],
+  "problems": []
+ },
+ "parked-members": {
+  "found": [],
+  "problems": []
+ },
+ "checkout-return": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "pay-now": {
+  "found": [
+   1
+  ],
   "problems": []
  }
 }

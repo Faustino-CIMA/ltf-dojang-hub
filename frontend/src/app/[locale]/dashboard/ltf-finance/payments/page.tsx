@@ -15,18 +15,19 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageNotice,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { Payment, getFinancePaymentsPage } from "@/lib/ltf-finance-api";
@@ -45,7 +46,6 @@ export default function LtfFinancePaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter>("all");
   const [totalPaymentCount, setTotalPaymentCount] = useState(0);
@@ -61,6 +61,9 @@ export default function LtfFinancePaymentsPage() {
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
   const { selectedClubId } = useClubSelection();
+  const [currentPage, setCurrentPage] = useListPage(
+    [selectedClubId ?? "", searchQuery, pageSize, statusFilter, failedPaymentIssue ? "issue" : ""].join("|"),
+  );
 
   const loadPayments = useCallback(
     async (options?: { silent?: boolean; includeStatic?: boolean }) => {
@@ -81,16 +84,18 @@ export default function LtfFinancePaymentsPage() {
           q: searchQuery || undefined,
           clubId: selectedClubId ?? undefined,
         };
-        const paymentsPromise = getFinancePaymentsPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: searchQuery || undefined,
-            status: failedPaymentIssue ? undefined : statusFilter === "all" ? undefined : statusFilter,
-            clubId: selectedClubId ?? undefined,
-            issue: failedPaymentIssue ? "failed_or_cancelled_30d" : undefined,
-          },
-          { signal: controller.signal }
+        const paymentsPromise = readListPage(pageSize, currentPage, (page, size) =>
+          getFinancePaymentsPage(
+            {
+              page,
+              pageSize: size,
+              q: searchQuery || undefined,
+              status: failedPaymentIssue ? undefined : statusFilter === "all" ? undefined : statusFilter,
+              clubId: selectedClubId ?? undefined,
+              issue: failedPaymentIssue ? "failed_or_cancelled_30d" : undefined,
+            },
+            { signal: controller.signal },
+          ),
         );
         if (includeStatic) {
           const [
@@ -159,10 +164,6 @@ export default function LtfFinancePaymentsPage() {
   }, [loadPayments]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedClubId, searchQuery, pageSize, statusFilter, failedPaymentIssue]);
-
-  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
     }, 250);
@@ -196,14 +197,14 @@ export default function LtfFinancePaymentsPage() {
     };
   }, [loadPayments]);
 
-  const resolvedPageSize = resolveListPageSize(pageSize, totalPaymentCount);
+  const resolvedPageSize = displayPageSize(pageSize, totalPaymentCount);
   const totalPages = Math.max(1, Math.ceil(totalPaymentCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const getPaymentStatusMeta = useCallback(
     (status: string) => {
@@ -302,7 +303,7 @@ export default function LtfFinancePaymentsPage() {
         <PageNotice tone="info">{t("failedOrCancelledPaymentsFilterMessage")}</PageNotice>
       ) : null}
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListToolbarPanel
           search={
             <Input
@@ -322,8 +323,18 @@ export default function LtfFinancePaymentsPage() {
             />
           }
           filters={
+            <FinanceListFilters
+              statusActive={failedPaymentIssue || statusFilter !== "all"}
+              onResetStatus={() => {
+                setStatusFilter("all");
+                if (failedPaymentIssue) {
+                  router.replace(`/${locale}/dashboard/ltf-finance/payments`);
+                }
+              }}
+              status={
             <FilterPills
               ariaLabel={t("paymentsStatusFilterAriaLabel")}
+              layout="wrap"
               value={statusFilter}
               onChange={setStatusFilter}
               options={[
@@ -345,6 +356,8 @@ export default function LtfFinancePaymentsPage() {
                   count: paymentFacetCounts.cancelled,
                 },
               ]}
+            />
+              }
             />
           }
         />

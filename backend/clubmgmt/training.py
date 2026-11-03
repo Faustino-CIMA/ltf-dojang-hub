@@ -56,6 +56,8 @@ def generate_sessions(series: TrainingSeries) -> int:
                     "audience": series.audience,
                     "start_time": series.start_time,
                     "end_time": series.end_time,
+                    "place": series.place,
+                    "venue_id": series.venue_id,
                 },
             )
             if was_created:
@@ -349,7 +351,15 @@ def member_training_hours(member: Member, *, since: date | None = None) -> dict:
     }
 
 
+def remember_series_place_for_venue(sender, instance, **kwargs) -> None:
+    """Keep the stored place text aligned with a linked venue, including after it is removed."""
+    name = str(instance.name or "").strip()[:120]
+    TrainingSeries.objects.filter(venue_id=instance.pk).exclude(place=name).update(place=name)
+    TrainingSession.objects.filter(venue_id=instance.pk).exclude(place=name).update(place=name)
+
+
 def serialize_series(series: TrainingSeries) -> dict:
+    venue = series.venue if series.venue_id else None
     return {
         "id": series.id,
         "name": series.name,
@@ -363,6 +373,8 @@ def serialize_series(series: TrainingSeries) -> dict:
         "skip_school_holidays": series.skip_school_holidays,
         "counts_for_under_16": series.counts_for_under_16,
         "place": series.place,
+        "venue_id": series.venue_id,
+        "venue_name": venue.name if venue else "",
         "active": series.active,
         "coach_ids": list(series.coaches.values_list("id", flat=True)),
         "coach_names": [
@@ -373,6 +385,7 @@ def serialize_series(series: TrainingSeries) -> dict:
 
 
 def serialize_session(session: TrainingSession) -> dict:
+    venue = session.venue if session.venue_id else None
     return {
         "id": session.id,
         "series_id": session.series_id,
@@ -383,6 +396,9 @@ def serialize_session(session: TrainingSession) -> dict:
         "end_time": session.end_time.strftime("%H:%M"),
         "status": session.status,
         "hours": f"{session_hours(session):.2f}",
+        "place": session.place,
+        "venue_id": session.venue_id,
+        "venue_name": venue.name if venue else "",
         "coach_ids": list(session.coaches.values_list("id", flat=True)),
         "coach_names": [
             f"{coach.first_name} {coach.last_name}".strip() or coach.username for coach in session.coaches.all()
@@ -444,6 +460,7 @@ def holiday_payload(year: int) -> dict:
 def sessions_between(club, start: date, end: date):
     return (
         TrainingSession.objects.filter(club=club, held_on__gte=start, held_on__lte=end)
+        .select_related("venue")
         .prefetch_related(Prefetch("coaches"), Prefetch("attendances"))
         .order_by("held_on", "start_time")
     )

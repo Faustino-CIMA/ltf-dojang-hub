@@ -53,7 +53,7 @@ export default function MemberProfilePhotoPage() {
 
   return (
     <MemberLayout title={t("photoModalTitle")} subtitle={t("photoModalDescription")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {isLoading ? (
@@ -62,6 +62,7 @@ export default function MemberProfilePhotoPage() {
           <EmptyState title={t("emptyTitle")} description={t("emptySubtitle")} />
         ) : (
           <ProfilePhotoManager
+            cameraFacing="user"
             imageUrl={member.profile_picture_url}
             thumbnailUrl={member.profile_picture_thumbnail_url}
             labels={{
@@ -81,6 +82,7 @@ export default function MemberProfilePhotoPage() {
               cameraUnavailable: t("photoCameraUnavailable"),
               cameraPermissionDenied: t("photoCameraPermissionDenied"),
               cameraStartError: t("photoCameraStartError"),
+              cameraSwitchButton: t("photoCameraSwitch"),
               zoomLabel: t("photoZoomLabel"),
               backgroundColorLabel: t("photoBackgroundColorLabel"),
               removeBackgroundButton: t("photoRemoveBackgroundButton"),

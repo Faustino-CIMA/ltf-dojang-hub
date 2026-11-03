@@ -32,7 +32,7 @@ The previous editions (four 35-page PDFs, 7 screenshots and 4 ReportLab scripts,
 ## What this edition does
 - **Organised by role and task:**
   - coaches (only what works today; the role is still being built)
-  - club admins (members & licences, money, training & promotion, shop, calendar, club profile)
+  - club admins (members & licenses, money, training & promotion, shop, calendar, club profile)
   - LTF Admin
   - LTF Finance
   - Ops

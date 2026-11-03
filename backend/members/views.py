@@ -2,7 +2,8 @@ import mimetypes
 from pathlib import Path
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db import transaction
+from django.db.models import Count, Exists, F, Min, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
 from rest_framework import permissions, status, viewsets
@@ -12,8 +13,15 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.ordering import apply_list_ordering
 from config.pagination import OptionalPaginationListMixin
-from .models import GradePromotionHistory, Member, MemberTransfer
+from clubmgmt.models import CommitteeMandate
+from clubmgmt.serializers import CommitteeTermHistorySerializer
+
+from clubmgmt.body_measurements import annotate_latest_measurements, measurement_club_ids
+from clubmgmt.teams import ClubTeamMembership
+
+from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer
 from .serializers import (
     GradePromotionCreateSerializer,
     GradePromotionHistorySerializer,
@@ -24,6 +32,18 @@ from .serializers import (
     MemberSerializer,
 )
 from accounts.permissions import IsLtfAdmin
+from clubs.models import Club
+
+from .ltf_staff import (
+    LtfStaffError,
+    canonical_staff_function,
+    current_staff_q,
+    create_staff_member,
+    delete_staff,
+    issue_staff_license,
+    revoke_staff_license,
+    update_staff_member,
+)
 from .services import (
     add_grade_promotion,
     clear_member_profile_picture,
@@ -39,7 +59,7 @@ from licenses.card_rendering import (
     resolve_printable_license,
     resolve_published_standard_card_version,
 )
-from licenses.models import License, LicenseHistoryEvent
+from licenses.models import License, LicenseHistoryEvent, LicenseType
 
 
 def _apply_member_issue_filter(queryset, issue):
@@ -61,12 +81,32 @@ def _apply_member_issue_filter(queryset, issue):
     return queryset
 
 
+def _finance_only_view(user) -> bool:
+    """Finance sees payment history. The LTF Admin desk still sees the full record."""
+    from accounts.desks import current_desk
+
+    desk = current_desk()
+    if desk == "ltf_admin":
+        return False
+    if desk == "ltf_finance":
+        return True
+    return getattr(user, "role", None) == "ltf_finance"
+
+
 class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     serializer_class = MemberSerializer
     permission_classes = [permissions.IsAuthenticated]
     _COACH_ALLOWED_UPDATE_FIELDS = {"belt_rank"}
+    _STAFF_ACTIONS = {
+        "create_ltf_staff",
+        "ltf_staff",
+        "issue_ltf_staff_license",
+        "revoke_ltf_staff_license",
+    }
 
     def get_permissions(self):
+        if self.action in self._STAFF_ACTIONS:
+            return [IsLtfAdmin()]
         user = self.request.user
         if self.action in ["create", "destroy"]:
             if user and user.is_authenticated and user.role in [
@@ -87,22 +127,56 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return Member.objects.none()
 
-        if user.role in ["ltf_admin", "ltf_finance"]:
+        from accounts.desks import holds_desk
+
+        if holds_desk(user, "ltf_admin") or holds_desk(user, "ltf_finance"):
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
-            ).filter(
-                is_active=True
             )
-        elif user.role in ["club_admin", "coach"]:
+        elif user.role == "club_admin":
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
             ).filter(
                 club__admins=user
             )
+        elif user.role == "coach":
+            queryset = Member.objects.select_related(
+                "club", "user", "photo_consent_attested_by"
+            ).filter(
+                Q(club__admins=user) | Q(club__trainers=user)
+            ).distinct()
         else:
             queryset = Member.objects.select_related(
                 "club", "user", "photo_consent_attested_by"
             ).filter(user=user)
+
+        roster = (self.request.query_params.get("roster") or "").strip()
+        if roster == "club":
+            queryset = queryset.filter(club__isnull=False)
+        elif roster == "staff":
+            queryset = queryset.filter(
+                Exists(
+                    LtfStaffFunction.objects.filter(member_id=OuterRef("pk")).filter(
+                        current_staff_q()
+                    )
+                )
+            )
+
+        staff_function = canonical_staff_function(
+            (self.request.query_params.get("staff_function") or "").strip()
+        )
+        if staff_function:
+            if staff_function not in LtfStaffFunction.Function.values:
+                queryset = queryset.none()
+            else:
+                queryset = queryset.filter(
+                    Exists(
+                        LtfStaffFunction.objects.filter(
+                            member_id=OuterRef("pk"),
+                            function=staff_function,
+                        ).filter(current_staff_q())
+                    )
+                )
 
         club_id = self.request.query_params.get("club_id")
         if club_id:
@@ -129,6 +203,10 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(is_active=True)
         elif is_active_param in {"0", "false", "no"}:
             queryset = queryset.filter(is_active=False)
+        elif user.role in ["ltf_admin", "ltf_finance"]:
+            # The list defaults to active members. An explicit inactive
+            # filter must still be able to see the other rows.
+            queryset = queryset.filter(is_active=True)
 
         search_value = self.request.query_params.get("q", "").strip()
         if search_value:
@@ -152,7 +230,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 filter=Q(transfers__status=MemberTransfer.Status.COMPLETED),
             )
         )
-        return queryset.prefetch_related(
+        queryset = queryset.prefetch_related(
             Prefetch(
                 "licenses",
                 queryset=License.objects.filter(
@@ -161,8 +239,113 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 .select_related("license_type")
                 .order_by("-year", "id"),
                 to_attr="current_licenses_prefetched",
+            ),
+            Prefetch(
+                "ltf_staff_functions",
+                queryset=LtfStaffFunction.objects.filter(current_staff_q()).order_by(
+                    "-started_on", "-id"
+                ),
+                to_attr="current_ltf_staff_rows",
+            ),
+        )
+        from .user_accounts import ACCOUNT_STATES, annotate_account_state
+
+        queryset = annotate_account_state(queryset)
+        if self.action == "list":
+            account = (self.request.query_params.get("account") or "").strip()
+            if account in ACCOUNT_STATES:
+                queryset = queryset.filter(account_state=account)
+        ordering = self.request.query_params.get("ordering") if self.action == "list" else None
+        allowed = {
+            "name": ("last_name", "first_name", "id"),
+            "club": ("club__name", "last_name", "first_name", "id"),
+            "ltf_licenseid": ("ltf_licenseid", "last_name", "first_name", "id"),
+            "belt_rank": ("belt_rank", "last_name", "first_name", "id"),
+            "is_active": ("is_active", "last_name", "first_name", "id"),
+            "sex": ("sex", "last_name", "first_name", "id"),
+            "date_of_birth": ("date_of_birth", "last_name", "first_name", "id"),
+            "email": ("email", "last_name", "first_name", "id"),
+            "account": ("account_state", "last_name", "first_name", "id"),
+        }
+        visible_clubs = measurement_club_ids(user)
+        if visible_clubs:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "team_memberships",
+                    queryset=ClubTeamMembership.objects.filter(team__club_id__in=visible_clubs)
+                    .select_related("team")
+                    .order_by("team__name", "team_id"),
+                    to_attr="club_team_rows",
+                )
             )
-        ).order_by("last_name", "first_name", "id")
+        if self.action == "list" and visible_clubs:
+            raw_teams = (self.request.query_params.get("teams") or "").strip()
+            if raw_teams == "none":
+                club_param = (self.request.query_params.get("club_id") or "").strip()
+                apply_none = True
+                if club_param:
+                    try:
+                        apply_none = int(club_param) in visible_clubs
+                    except ValueError:
+                        apply_none = False
+                if apply_none:
+                    on_current_team = ClubTeamMembership.objects.filter(
+                        member_id=OuterRef("pk"),
+                        team__club_id=OuterRef("club_id"),
+                        team__club_id__in=visible_clubs,
+                        team__archived_at__isnull=True,
+                    )
+                    queryset = queryset.filter(~Exists(on_current_team))
+            elif raw_teams:
+                team_ids = []
+                for value in raw_teams.split(","):
+                    try:
+                        team_ids.append(int(value))
+                    except ValueError:
+                        continue
+                if team_ids:
+                    queryset = queryset.filter(
+                        team_memberships__team_id__in=team_ids,
+                        team_memberships__team__club_id__in=visible_clubs,
+                    ).distinct()
+                else:
+                    queryset = queryset.none()
+            queryset = annotate_latest_measurements(queryset, visible_clubs)
+            raw_ordering = (ordering or "").strip()
+            descending = raw_ordering.startswith("-")
+            sort_key = raw_ordering[1:] if descending else raw_ordering
+            measurement_fields = {"latest_weight": "latest_weight_kg", "latest_height": "latest_height_cm"}
+            if sort_key in measurement_fields or sort_key == "teams":
+                if sort_key == "teams":
+                    queryset = queryset.annotate(
+                        team_sort=Min(
+                            "team_memberships__team__name",
+                            filter=Q(team_memberships__team__club_id__in=visible_clubs),
+                        )
+                    )
+                    field = F("team_sort")
+                else:
+                    field = F(measurement_fields[sort_key])
+                directed = field.desc(nulls_last=True) if descending else field.asc(nulls_last=True)
+                from accounts.desks import scope_to_active_club
+
+                return scope_to_active_club(self.request, queryset, "club_id").order_by(
+                    directed, "last_name", "first_name", "id"
+                )
+        from accounts.desks import scope_to_active_club
+
+        return apply_list_ordering(
+            scope_to_active_club(self.request, queryset, "club_id"),
+            ordering,
+            allowed=allowed,
+            default=("last_name", "first_name", "id"),
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = getattr(self.request, "user", None)
+        context["measurement_club_ids"] = measurement_club_ids(user)
+        return context
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -197,6 +380,117 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         if not self._coach_update_allowed(request):
             return self._coach_update_forbidden_response()
         return super().partial_update(request, *args, **kwargs)
+
+    def _staff_response(self, error: LtfStaffError):
+        return Response({"detail": error.detail}, status=error.status_code)
+
+    def _staff_payload(self, data) -> dict:
+        payload = {
+            "member_id": data.get("member_id"),
+            "first_name": data.get("first_name"),
+            "last_name": data.get("last_name"),
+            "email": data.get("email"),
+            "sex": data.get("sex"),
+            "date_of_birth": data.get("date_of_birth"),
+            "function": data.get("function"),
+            "started_on": data.get("started_on"),
+            "ended_on": data.get("ended_on"),
+            "user_id": data.get("user_id"),
+            "username": data.get("username"),
+            "create_login_role": data.get("create_login_role"),
+            "license_year": data.get("license_year"),
+        }
+        if "club" in data:
+            raw_club = data.get("club")
+            if raw_club in (None, "", "null"):
+                payload["club"] = None
+            else:
+                club = Club.objects.filter(id=raw_club).first()
+                if club is None:
+                    raise LtfStaffError("club_not_found")
+                payload["club"] = club
+        if data.get("license_type"):
+            license_type = LicenseType.objects.filter(id=data.get("license_type")).first()
+            if license_type is None:
+                raise LtfStaffError("license_type_not_found")
+            payload["license_type"] = license_type
+        sex = payload.get("sex")
+        if sex not in (None, "", Member.Sex.MALE, Member.Sex.FEMALE):
+            raise LtfStaffError("invalid_sex")
+        return payload
+
+    def _serialize_member(self, member: Member):
+        member = self.get_queryset().filter(pk=member.pk).first() or member
+        return MemberSerializer(member, context=self.get_serializer_context()).data
+
+    @action(detail=False, methods=["post"], url_path="ltf-staff")
+    def create_ltf_staff(self, request):
+        try:
+            payload = self._staff_payload(request.data)
+            with transaction.atomic():
+                member, _meta = create_staff_member(
+                    payload,
+                    actor=request.user,
+                    locale=request.data.get("locale"),
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response(self._serialize_member(member), status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch", "delete"], url_path="ltf-staff")
+    def ltf_staff(self, request, pk=None):
+        member = self.get_object()
+        try:
+            if request.method == "DELETE":
+                with transaction.atomic():
+                    result = delete_staff(member)
+                return Response(result)
+            payload = self._staff_payload(request.data)
+            with transaction.atomic():
+                member = update_staff_member(
+                    member,
+                    payload,
+                    actor=request.user,
+                    locale=request.data.get("locale"),
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response(self._serialize_member(member))
+
+    @action(detail=True, methods=["post"], url_path="ltf-staff-license")
+    def issue_ltf_staff_license(self, request, pk=None):
+        member = self.get_object()
+        try:
+            license_type = LicenseType.objects.filter(id=request.data.get("license_type")).first()
+            if license_type is None:
+                raise LtfStaffError("license_type_not_found")
+            with transaction.atomic():
+                license_record = issue_staff_license(
+                    member,
+                    license_type=license_type,
+                    year=request.data.get("year") or request.data.get("license_year"),
+                    actor=request.user,
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response(
+            {"id": license_record.id, "year": license_record.year, "status": license_record.status},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="revoke-ltf-staff-license")
+    def revoke_ltf_staff_license(self, request, pk=None):
+        member = self.get_object()
+        try:
+            with transaction.atomic():
+                license_record = revoke_staff_license(
+                    member,
+                    actor=request.user,
+                    reason=str(request.data.get("reason") or ""),
+                )
+        except LtfStaffError as error:
+            return self._staff_response(error)
+        return Response({"id": license_record.id, "status": license_record.status})
 
     def _is_grade_manager(self, user) -> bool:
         return user and user.is_authenticated and user.role in [
@@ -274,14 +568,14 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             .filter(member=member)
             .order_by("-event_at", "-id")
         )
-        if request.user.role == "ltf_finance":
+        if _finance_only_view(request.user):
             queryset = queryset.filter(Q(order__isnull=False) | Q(payment__isnull=False))
         serializer = LicenseHistoryEventSerializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="grade-history")
     def grade_history(self, request, *args, **kwargs):
-        if request.user.role == "ltf_finance":
+        if _finance_only_view(request.user):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         member = self.get_object()
         queryset = (
@@ -317,11 +611,12 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             .filter(member=member)
             .order_by("-event_at", "-id")
         )
-        if request.user.role == "ltf_finance":
+        if _finance_only_view(request.user):
             license_queryset = license_queryset.filter(
                 Q(order__isnull=False) | Q(payment__isnull=False)
             )
             grade_payload = []
+            committee_payload = []
         else:
             grade_queryset = (
                 GradePromotionHistory.objects.select_related("club", "examiner_user")
@@ -329,6 +624,12 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 .order_by("-promotion_date", "-created_at")
             )
             grade_payload = GradePromotionHistorySerializer(grade_queryset, many=True).data
+            term_queryset = (
+                CommitteeMandate.objects.select_related("committee", "committee__club")
+                .filter(member=member)
+                .order_by("-started_on", "-id")
+            )
+            committee_payload = CommitteeTermHistorySerializer(term_queryset, many=True).data
 
         return Response(
             {
@@ -337,6 +638,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                     license_queryset, many=True
                 ).data,
                 "grade_history": grade_payload,
+                "committee_history": committee_payload,
             }
         )
 

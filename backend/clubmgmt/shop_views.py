@@ -46,7 +46,9 @@ class ShopItemViewSet(viewsets.ModelViewSet):
         search = (self.request.query_params.get("q") or "").strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(sku__icontains=search) | Q(description__icontains=search))
-        return qs.order_by("name", "id")
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id").order_by("name", "id")
 
     def perform_create(self, serializer):
         club_id = _require_club(self.request)
@@ -166,7 +168,9 @@ class ShopSaleViewSet(viewsets.ModelViewSet):
         status_param = self.request.query_params.get("status")
         if status_param:
             qs = qs.filter(status=status_param)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def create(self, request, *args, **kwargs):
         club_id = _require_club(request)
@@ -208,7 +212,9 @@ class ShopSnapshotViewSet(viewsets.ModelViewSet):
         club_id = _club_id(self.request)
         if club_id:
             qs = qs.filter(club_id=club_id)
-        return qs
+        from accounts.desks import scope_to_active_club
+
+        return scope_to_active_club(self.request, qs, "club_id")
 
     def create(self, request, *args, **kwargs):
         club_id = _require_club(request)

@@ -1,15 +1,26 @@
 import re
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from rest_framework import serializers
+
+from django.utils.translation import gettext_lazy as _
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from .languages import normalize_club_language
-from .models import BrandingAsset, Club, FederationProfile, normalize_club_website
+from .models import (
+    BrandingAsset,
+    Club,
+    FederationProfile,
+    TrainingVenue,
+    RCS_NUMBER_RE,
+    normalize_club_website,
+    normalize_rcs_number,
+)
 
 
 class ClubSerializer(serializers.ModelSerializer):
     website = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    is_home = serializers.SerializerMethodField()
 
     class Meta:
         model = Club
@@ -27,14 +38,36 @@ class ClubSerializer(serializers.ModelSerializer):
             "email",
             "website",
             "is_active",
+            "federation",
+            "rcs_number",
+            "external_ref",
             "communication_language",
             "max_admins",
             "created_by",
             "admins",
+            "is_home",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["bank_name", "created_by", "created_at", "updated_at"]
+        read_only_fields = ["bank_name", "created_by", "is_home", "created_at", "updated_at"]
+
+    def get_is_home(self, obj):
+        return self._home_club_id() == obj.id
+
+    def _home_club_id(self):
+        if getattr(self, "_home_club_resolved", False):
+            return getattr(self, "_cached_home_club_id", None)
+        self._home_club_resolved = True
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        home_id = None
+        if user is not None and getattr(user, "is_authenticated", False):
+            try:
+                home_id = user.member_profile.club_id
+            except ObjectDoesNotExist:
+                home_id = None
+        self._cached_home_club_id = home_id
+        return home_id
 
     def validate_postal_code(self, value):
         return str(value or "").strip()
@@ -56,6 +89,30 @@ class ClubSerializer(serializers.ModelSerializer):
 
     def validate_communication_language(self, value):
         return normalize_club_language(value)
+
+    def validate_rcs_number(self, value):
+        normalized = normalize_rcs_number(value)
+        if not normalized:
+            return ""
+        if not RCS_NUMBER_RE.fullmatch(normalized):
+            raise serializers.ValidationError(
+                _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")
+            )
+        clash = Club.objects.filter(rcs_number=normalized)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists() or FederationProfile.objects.filter(rcs_number=normalized).exists():
+            raise serializers.ValidationError(_("This RCS number is already used by another club."))
+        return normalized
+
+    def validate_external_ref(self, value):
+        return str(value or "").strip()
+
+    def validate_federation(self, value):
+        normalized = str(value or "").strip().upper()
+        if normalized not in {Club.Federation.WT, Club.Federation.ITF}:
+            raise serializers.ValidationError(_("Choose WT or ITF."))
+        return normalized
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -106,6 +163,7 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             "address_line2",
             "postal_code",
             "locality",
+            "rcs_number",
             "iban",
             "bank_name",
             "rewrite_lux_prefix_on_member_import",
@@ -126,6 +184,18 @@ class FederationProfileSerializer(serializers.ModelSerializer):
 
     def validate_postal_code(self, value):
         return str(value or "").strip()
+
+    def validate_rcs_number(self, value):
+        normalized = normalize_rcs_number(value)
+        if not normalized:
+            return ""
+        if not RCS_NUMBER_RE.fullmatch(normalized):
+            raise serializers.ValidationError(
+                _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")
+            )
+        if Club.objects.filter(rcs_number=normalized).exists():
+            raise serializers.ValidationError(_("This RCS number is already used by another club."))
+        return normalized
 
     def validate_iban(self, value):
         normalized = normalize_iban(value)
@@ -184,17 +254,18 @@ class BrandingAssetSerializer(serializers.ModelSerializer):
             return 0
 
     def get_content_url(self, obj: BrandingAsset) -> str | None:
-        request = self.context.get("request")
+        # Root-relative on purpose. build_absolute_uri follows the socket the
+        # proxy opened, so live responses become http:// or an internal host.
+        # The browser then cannot load the preview. The client resolves this
+        # path against the public API origin.
         if obj.scope_type == BrandingAsset.ScopeType.CLUB and obj.club_id:
-            path = f"/api/clubs/{obj.club_id}/logos/{obj.id}/content/"
-        elif (
+            return f"/api/clubs/{obj.club_id}/logos/{obj.id}/content/"
+        if (
             obj.scope_type == BrandingAsset.ScopeType.FEDERATION
             and obj.federation_profile_id
         ):
-            path = f"/api/federation-profile/logos/{obj.id}/content/"
-        else:
-            return None
-        return request.build_absolute_uri(path) if request else path
+            return f"/api/federation-profile/logos/{obj.id}/content/"
+        return None
 
 
 class BrandingAssetCreateSerializer(serializers.Serializer):
@@ -215,3 +286,50 @@ class BrandingAssetUpdateSerializer(serializers.Serializer):
     )
     label = serializers.CharField(max_length=120, required=False, allow_blank=True)
     is_selected = serializers.BooleanField(required=False)
+
+
+class TrainingVenueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainingVenue
+        fields = [
+            "id",
+            "club",
+            "name",
+            "street",
+            "house_number",
+            "line2",
+            "postal_code",
+            "locality",
+            "country",
+            "notes",
+            "is_active",
+            "sort_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["club", "created_at", "updated_at"]
+
+    def validate_name(self, value):
+        name = str(value or "").strip()
+        if not name:
+            raise serializers.ValidationError(_("Enter a name for this training venue."))
+        return name
+
+    def validate_postal_code(self, value):
+        return str(value or "").strip()
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        country = str(
+            attrs.get("country", getattr(self.instance, "country", "Luxembourg")) or "Luxembourg"
+        ).strip()
+        attrs["country"] = country
+        postal_code = str(
+            attrs.get("postal_code", getattr(self.instance, "postal_code", "")) or ""
+        ).strip()
+        if country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}:
+            if postal_code and not re.fullmatch(r"\d{4}", postal_code):
+                raise serializers.ValidationError(
+                    {"postal_code": _("Postal code must be 4 digits for Luxembourg.")}
+                )
+        return attrs

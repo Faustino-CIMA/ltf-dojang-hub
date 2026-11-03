@@ -1,5 +1,6 @@
 import { getToken } from "./auth";
 import { API_URL, apiRequest } from "./api";
+import type { CommitteeTerm } from "./club-admin-api";
 import type { LicenseRoleValue } from "./license-roles";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
 
@@ -23,6 +24,9 @@ export type Club = {
   email: string;
   website: string;
   is_active: boolean;
+  federation: "WT" | "ITF";
+  rcs_number: string;
+  external_ref: string;
   communication_language: string;
   max_admins: number;
   created_by: number;
@@ -31,10 +35,25 @@ export type Club = {
   updated_at: string;
 };
 
+export type LtfStaffFunctionName = "secretary" | "coach" | "medic" | "media" | "other" | "photographer";
+
+export type LtfStaffRecord = {
+  id: number;
+  function: LtfStaffFunctionName;
+  started_on: string | null;
+  ended_on: string | null;
+};
+
+export type LinkedLtfUser = {
+  id: number;
+  username: string;
+  role: string;
+};
+
 export type Member = {
   id: number;
   user: number | null;
-  club: number;
+  club: number | null;
   first_name: string;
   last_name: string;
   sex: "M" | "F";
@@ -51,11 +70,15 @@ export type Member = {
   photo_consent_attested_at?: string | null;
   photo_consent_attested_by?: number | null;
   is_active: boolean;
+  account_state?: "none" | "pending" | "active" | "disabled";
   created_at: string;
   updated_at: string;
   current_licenses?: CurrentLicense[];
   completed_transfer_count?: number;
   is_club_tourist?: boolean;
+  is_ltf_staff?: boolean;
+  ltf_staff?: LtfStaffRecord | null;
+  linked_user?: LinkedLtfUser | null;
 };
 
 export type CurrentLicense = {
@@ -90,7 +113,7 @@ const MAX_PROFILE_PHOTO_REQUEST_BYTES = 8 * 1024 * 1024;
 export type License = {
   id: number;
   member: number;
-  club: number;
+  club: number | null;
   license_type: number;
   year: number;
   start_date: string;
@@ -105,7 +128,7 @@ export type LicenseHistoryEvent = {
   id: number;
   member: number;
   license: number;
-  club: number;
+  club: number | null;
   order: number | null;
   payment: number | null;
   actor: number | null;
@@ -147,6 +170,7 @@ export type MemberHistoryResponse = {
   member_id: number;
   license_history: LicenseHistoryEvent[];
   grade_history: GradeHistoryEntry[];
+  committee_history?: CommitteeTerm[];
 };
 
 export type ClubInput = {
@@ -161,7 +185,28 @@ export type ClubInput = {
   email?: string;
   website?: string;
   is_active?: boolean;
+  federation?: "WT" | "ITF";
+  rcs_number?: string;
+  external_ref?: string;
   communication_language?: string;
+};
+
+export type LtfStaffInput = {
+  member_id?: number;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  sex?: "M" | "F";
+  date_of_birth?: string | null;
+  club?: number | null;
+  function: LtfStaffFunctionName;
+  started_on?: string | null;
+  ended_on?: string | null;
+  username?: string;
+  create_login_role?: "ltf_admin" | "ltf_finance" | "";
+  license_type?: number | null;
+  license_year?: number | null;
+  locale?: string;
 };
 
 export type MemberInput = {
@@ -187,6 +232,7 @@ export type FederationProfile = {
   address_line2: string;
   postal_code: string;
   locality: string;
+  rcs_number: string;
   iban: string;
   bank_name: string;
   rewrite_lux_prefix_on_member_import: boolean;
@@ -279,6 +325,7 @@ export type LtfAdminOverviewResponse = {
   cards: {
     total_clubs: number;
     active_members: number;
+    ltf_staff: number;
     active_licenses: number;
     pending_licenses: number;
     expired_licenses: number;
@@ -286,6 +333,11 @@ export type LtfAdminOverviewResponse = {
     expiring_in_30_days: number;
     active_members_without_valid_license: number;
   };
+  next_expiring?: {
+    end_date: string;
+    last_name: string;
+    first_name: string;
+  } | null;
   action_queue: Array<{
     key:
       | "clubs_without_admin"
@@ -460,7 +512,7 @@ export type AssignmentMember = {
   first_name: string;
   last_name: string;
   email: string;
-  club_id: number;
+  club_id: number | null;
   club_name: string;
   has_valid_license: boolean;
   user_id: number | null;
@@ -485,6 +537,11 @@ export type AssignmentAdmin = {
   home_club_id: number | null;
   home_club_name: string;
   clubs: AssignmentAdminClub[];
+  password_set?: boolean;
+  link_status?: string;
+  link_sent_at?: string | null;
+  link_expires_at?: string | null;
+  access_kind?: "setup" | "reset";
 };
 
 export type ClubAdminAssignmentBoard = {
@@ -573,6 +630,7 @@ export function setClubMaxAdmins(clubId: number, maxAdmins: number) {
 }
 
 export type MemberIssueFilter = "no_valid_license" | "missing_ltf_licenseid";
+export type MemberRoster = "all" | "club" | "staff";
 
 type MemberListQueryParams = {
   q?: string;
@@ -580,6 +638,10 @@ type MemberListQueryParams = {
   isActive?: boolean;
   ids?: number[];
   issue?: MemberIssueFilter;
+  roster?: MemberRoster;
+  staffFunction?: string;
+  ordering?: string;
+  account?: "none" | "pending" | "active" | "disabled";
 };
 
 type MemberPageParams = MemberListQueryParams & {
@@ -603,6 +665,18 @@ function buildMemberListQuery(params?: MemberListQueryParams) {
   }
   if (params?.issue) {
     search.set("issue", params.issue);
+  }
+  if (params?.roster && params.roster !== "all") {
+    search.set("roster", params.roster);
+  }
+  if (params?.staffFunction) {
+    search.set("staff_function", params.staffFunction);
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
+  }
+  if (params?.account) {
+    search.set("account", params.account);
   }
   return search;
 }
@@ -659,6 +733,43 @@ export function updateMember(id: number, input: MemberInput) {
 export function deleteMember(id: number) {
   return apiRequest<void>(`/api/members/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export function createLtfStaff(input: LtfStaffInput) {
+  return apiRequest<Member>("/api/members/ltf-staff/", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateLtfStaff(id: number, input: LtfStaffInput) {
+  return apiRequest<Member>(`/api/members/${id}/ltf-staff/`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteLtfStaff(id: number) {
+  return apiRequest<{ deleted_member: boolean }>(`/api/members/${id}/ltf-staff/`, {
+    method: "DELETE",
+  });
+}
+
+export function issueLtfStaffLicense(id: number, licenseType: number, year: number) {
+  return apiRequest<{ id: number; year: number; status: string }>(
+    `/api/members/${id}/ltf-staff-license/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ license_type: licenseType, year }),
+    }
+  );
+}
+
+export function revokeLtfStaffLicense(id: number) {
+  return apiRequest<{ id: number; status: string }>(`/api/members/${id}/revoke-ltf-staff-license/`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 
@@ -766,6 +877,7 @@ type LicenseListQueryParams = {
   memberIds?: number[];
   ids?: number[];
   clubId?: number;
+  ordering?: string;
 };
 
 type LicensePageParams = LicenseListQueryParams & {
@@ -795,6 +907,9 @@ function buildLicenseListQuery(params?: LicenseListQueryParams) {
   }
   if (typeof params?.clubId === "number") {
     search.set("club_id", String(params.clubId));
+  }
+  if (params?.ordering) {
+    search.set("ordering", params.ordering);
   }
   return search;
 }
@@ -884,5 +999,60 @@ export function updateLicense(id: number, input: LicenseInput) {
 export function deleteLicense(id: number) {
   return apiRequest<void>(`/api/licenses/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export type ModulePurchaseRow = {
+  id: number;
+  club: number;
+  club_name: string;
+  description: string;
+  module_ids: string[];
+  status: string;
+  ends_at: string | null;
+  automation_hold: string;
+  switched_off: boolean;
+  renewal_choice: string;
+  source: string;
+};
+
+export type ModulePurchaseOverrideRow = {
+  id: number;
+  purchase: number;
+  purchase_name: string;
+  actor_name: string;
+  action: string;
+  previous_ends_at: string | null;
+  new_ends_at: string | null;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  reason: string;
+  created_at: string;
+};
+
+export type ModuleOverrideAction =
+  | "switch_on"
+  | "switch_off"
+  | "set_end"
+  | "keep_open"
+  | "waive"
+  | "cancel"
+  | "clear_hold";
+
+export function getModulePurchases(clubId: number) {
+  return apiRequest<ModulePurchaseRow[]>(`/api/module-purchases/?club=${clubId}`);
+}
+
+export function getModulePurchaseOverrides(clubId: number) {
+  return apiRequest<ModulePurchaseOverrideRow[]>(`/api/module-purchase-overrides/?club=${clubId}`);
+}
+
+export function overrideModulePurchase(
+  id: number,
+  input: { action: ModuleOverrideAction; ends_at?: string; reason?: string },
+) {
+  return apiRequest<ModulePurchaseOverrideRow>(`/api/module-purchases/${id}/override/`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }

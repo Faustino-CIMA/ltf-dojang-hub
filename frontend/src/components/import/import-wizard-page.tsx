@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { ImportSuccessConfetti } from "@/components/import/import-success-confetti";
+import { ImportStatusBadge, WizardStepPills } from "@/components/import/wizard-chrome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -11,13 +13,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { Modal } from "@/components/ui/modal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PopoverSelect } from "@/components/ui/popover-select";
 import {
   ConfirmResponse,
   ImportRow,
@@ -28,10 +24,30 @@ import {
   previewImport,
 } from "@/lib/import-api";
 import {
+  dateValuesFromTable,
+  detectDateFormat,
+  IMPORT_DATE_FORMATS,
+  parseCsv,
+  isImportDateFormat,
+  type DateFormatDetection,
+  type ImportDateFormat,
+} from "@/lib/import-date-format";
+import {
   applySuggestedMapping,
   detectMembershipEndDateHeader,
+  omitGeneratedMemberIdFields,
   unusedSourceHeaders,
 } from "@/lib/import-mapping";
+import { importIssueMessage } from "@/lib/import-issue";
+import { importResultTone, type ImportResultTone } from "@/lib/import-result";
+import { showImportWizardPrevious } from "@/lib/import-wizard-nav";
+import {
+  DEFAULT_MEMBER_UPDATE_MODE,
+  defaultMemberRowAction,
+  isMemberUpdateMode,
+  memberPreviewOutcome,
+  type MemberUpdateMode,
+} from "@/lib/import-update";
 import {
   LICENSE_ROLE_VALUES,
   type LicenseRoleValue,
@@ -41,9 +57,8 @@ import {
 
 type ImportType = "clubs" | "members";
 type WizardStep = "source" | "mapping" | "preview" | "confirm" | "result";
-type RowAction = "create" | "skip";
-type PreviewFilter = "all" | "ready" | "duplicate" | "invalid" | "skipped";
-type DateFormat = "YYYY-MM-DD" | "DD/MM/YYYY" | "DD-MM-YYYY" | "DD.MM.YYYY";
+type RowAction = "create" | "update" | "skip" | "park";
+type PreviewFilter = "all" | "ready" | "duplicate" | "invalid" | "skipped" | "create" | "update" | "parked";
 
 // Role override for a single row
 type RowRoleOverride = {
@@ -71,7 +86,7 @@ function buildConfirmRowOverrides(
 
   for (const row of rows) {
     const action = rowActions[row.row_index] ?? "create";
-    if (action !== "create") {
+    if (action === "skip") {
       continue;
     }
 
@@ -90,7 +105,11 @@ function buildConfirmRowOverrides(
       primary_license_role: sanitizeRoleForOverride(primaryRaw),
       secondary_license_role: sanitizeRoleForOverride(secondaryRaw),
     };
-    if (statusOverrides && Object.prototype.hasOwnProperty.call(statusOverrides, row.row_index)) {
+    if (
+      action === "create" &&
+      statusOverrides &&
+      Object.prototype.hasOwnProperty.call(statusOverrides, row.row_index)
+    ) {
       payload.is_active = statusOverrides[row.row_index];
     }
     result.push(payload);
@@ -100,7 +119,7 @@ function buildConfirmRowOverrides(
 }
 
 // Display status includes "review" for role-related issues
-type RowDisplayStatus = "ready" | "duplicate" | "invalid" | "skipped" | "review";
+type RowDisplayStatus = "ready" | "duplicate" | "invalid" | "skipped" | "review" | "create" | "update" | "parked";
 
 type FieldOption = {
   key: string;
@@ -122,6 +141,8 @@ type ImportWizardPageProps = {
   fieldsByType: Record<ImportType, FieldOption[]>;
   backHrefByType: Record<ImportType, string>;
   successHrefByType: Record<ImportType, string>;
+  /** Club admins must not park rows they cannot see afterwards. */
+  allowPark?: boolean;
 };
 
 type SummaryCounts = {
@@ -130,16 +151,16 @@ type SummaryCounts = {
   duplicate: number;
   invalid: number;
   skipped: number;
+  create: number;
+  update: number;
+  parked: number;
 };
 
-const DATE_FORMAT_OPTIONS: DateFormat[] = [
-  "YYYY-MM-DD",
-  "DD/MM/YYYY",
-  "DD-MM-YYYY",
-  "DD.MM.YYYY",
-];
-
-
+const EMPTY_DATE_DETECTION: DateFormatDetection = {
+  status: "empty",
+  format: null,
+  candidates: [],
+};
 
 function membershipEndYearFromRow(row: ImportRow): number | null {
   const raw = row.data.membership_end_year;
@@ -150,6 +171,7 @@ function membershipEndYearFromRow(row: ImportRow): number | null {
   return Number.isInteger(year) ? year : null;
 }
 
+// Keep in step with default_membership_year_policy in backend/imports/views.py.
 function defaultMembershipYearPolicy(year: number | null, currentYear: number): MembershipYearPolicy {
   if (year == null) {
     return "skip";
@@ -166,15 +188,18 @@ function applyMembershipYearPolicies(options: {
   const actions: Record<number, RowAction> = {};
   const statusOverrides: Record<number, boolean> = {};
   for (const row of options.rows) {
+    const matchedAction = defaultMemberRowAction(row);
     if (!options.enabled) {
-      actions[row.row_index] = "create";
+      actions[row.row_index] = matchedAction;
       continue;
     }
     const year = membershipEndYearFromRow(row);
     const policy =
       year == null ? options.unknownPolicy : options.yearPolicies[year] ?? options.unknownPolicy;
-    if (policy === "skip") {
+    if (policy === "skip" || matchedAction === "skip") {
       actions[row.row_index] = "skip";
+    } else if (matchedAction === "update") {
+      actions[row.row_index] = "update";
     } else {
       actions[row.row_index] = "create";
       statusOverrides[row.row_index] = policy === "active";
@@ -231,9 +256,9 @@ const SECONDARY_MISSING_VALUES = new Set([
   "n/a",
 ]);
 
-function isEmptyRoleValue(value: string | null | undefined): boolean {
-  if (value === null || value === undefined) {
-    return true;
+function isEmptyRoleValue(value: string | number | boolean | null | undefined): boolean {
+  if (value === null || value === undefined || typeof value === "boolean" || typeof value === "number") {
+    return value == null;
   }
   const trimmed = String(value).trim().toLowerCase();
   return SECONDARY_MISSING_VALUES.has(trimmed);
@@ -443,8 +468,12 @@ function hasRealErrors(row: ImportRow, isMembersImport: boolean): boolean {
 function getRowDisplayStatus(
   row: ImportRow,
   action: RowAction,
-  isMembersImport: boolean
+  isMembersImport: boolean,
+  canPark: boolean = isMembersImport
 ): RowDisplayStatus {
+  if (canPark && action === "park" && row.parkable) {
+    return "parked";
+  }
   if (action === "skip") {
     return "skipped";
   }
@@ -469,6 +498,17 @@ function getRowDisplayStatus(
   if (hasRealErrors(row, isMembersImport)) {
     return "invalid";
   }
+  if (isMembersImport) {
+    const previewAction = action === "update" ? action : "create";
+    const outcome = memberPreviewOutcome({ ...row, errors: [] }, previewAction);
+    if (outcome === "update") {
+      return "update";
+    }
+    if (outcome === "skip") {
+      return "skipped";
+    }
+    return "create";
+  }
   if (row.duplicate) {
     return "duplicate";
   }
@@ -476,16 +516,20 @@ function getRowDisplayStatus(
 }
 
 // Map display status to filter category for counts/buttons
-function getFilterCategory(status: RowDisplayStatus): PreviewFilter {
+function getFilterCategory(status: RowDisplayStatus): Exclude<PreviewFilter, "all"> {
   // Review rows are counted as invalid for filter buttons
   if (status === "review") return "invalid";
+  if (status === "create") return "create";
+  if (status === "update") return "update";
+  if (status === "parked") return "parked";
   return status;
 }
 
 function buildSummary(
   rows: ImportRow[],
   actions: Record<number, RowAction>,
-  isMembersImport: boolean
+  isMembersImport: boolean,
+  canPark: boolean = isMembersImport
 ): SummaryCounts {
   const summary: SummaryCounts = {
     total: rows.length,
@@ -493,10 +537,13 @@ function buildSummary(
     duplicate: 0,
     invalid: 0,
     skipped: 0,
+    create: 0,
+    update: 0,
+    parked: 0,
   };
   for (const row of rows) {
     const action = actions[row.row_index] ?? "create";
-    const status = getRowDisplayStatus(row, action, isMembersImport);
+    const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
     const filterCategory = getFilterCategory(status);
     summary[filterCategory] += 1;
   }
@@ -512,6 +559,7 @@ export function ImportWizardPage({
   fieldsByType,
   backHrefByType,
   successHrefByType,
+  allowPark = true,
 }: ImportWizardPageProps) {
   const t = useTranslations("Import");
   const common = useTranslations("Common");
@@ -537,7 +585,9 @@ export function ImportWizardPage({
   const [selectedClubId, setSelectedClubId] = useState<number | null>(
     fixedClubId ?? (clubOptions[0]?.id ?? null)
   );
-  const [dateFormat, setDateFormat] = useState<DateFormat>("YYYY-MM-DD");
+  const [dateFormat, setDateFormat] = useState<ImportDateFormat | "">("");
+  const [dateDetection, setDateDetection] = useState<DateFormatDetection>(EMPTY_DATE_DETECTION);
+  const [importOutcome, setImportOutcome] = useState<ImportResultTone | null>(null);
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("all");
   const [isPreviewDirty, setIsPreviewDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -553,11 +603,13 @@ export function ImportWizardPage({
     useState<MembershipYearPolicy>("skip");
   const [membershipEndDateHeader, setMembershipEndDateHeader] = useState<string | null>(null);
   const [statusOverrides, setStatusOverrides] = useState<Record<number, boolean>>({});
+  const [memberUpdateMode, setMemberUpdateMode] = useState<MemberUpdateMode>(DEFAULT_MEMBER_UPDATE_MODE);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canSwitchType = allowedTypes.length > 1;
   const isMembersImport = importType === "members";
-  const currentFields = fieldsByType[importType];
+  const canPark = isMembersImport && allowPark;
+  const currentFields = omitGeneratedMemberIdFields(fieldsByType[importType] ?? []);
   const requiredFields = useMemo(
     () => currentFields.filter((field) => field.required),
     [currentFields]
@@ -678,8 +730,8 @@ export function ImportWizardPage({
   }, [previewRows, roleOverrides, isMembersImport]);
 
   const summary = useMemo(
-    () => buildSummary(effectivePreviewRows, actions, isMembersImport),
-    [actions, effectivePreviewRows, isMembersImport]
+    () => buildSummary(effectivePreviewRows, actions, isMembersImport, canPark),
+    [actions, canPark, effectivePreviewRows, isMembersImport]
   );
 
   const filteredPreviewRows = useMemo(() => {
@@ -688,11 +740,11 @@ export function ImportWizardPage({
     }
     return effectivePreviewRows.filter((row) => {
       const action = actions[row.row_index] ?? "create";
-      const status = getRowDisplayStatus(row, action, isMembersImport);
+      const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
       const filterCategory = getFilterCategory(status);
       return filterCategory === previewFilter;
     });
-  }, [actions, previewFilter, effectivePreviewRows, isMembersImport]);
+  }, [actions, canPark, previewFilter, effectivePreviewRows, isMembersImport]);
 
   useEffect(() => {
     if (fixedClubId && fixedClubId !== selectedClubId) {
@@ -705,28 +757,6 @@ export function ImportWizardPage({
       setSelectedClubId(clubOptions[0].id);
     }
   }, [clubOptions, fixedClubId, selectedClubId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isMembersImport) {
-      return;
-    }
-    const savedDateFormat = window.sessionStorage.getItem("import_members_date_format");
-    if (
-      savedDateFormat === "YYYY-MM-DD" ||
-      savedDateFormat === "DD/MM/YYYY" ||
-      savedDateFormat === "DD-MM-YYYY" ||
-      savedDateFormat === "DD.MM.YYYY"
-    ) {
-      setDateFormat(savedDateFormat);
-    }
-  }, [isMembersImport]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isMembersImport) {
-      return;
-    }
-    window.sessionStorage.setItem("import_members_date_format", dateFormat);
-  }, [dateFormat, isMembersImport]);
 
   const resetFlow = () => {
     setStep("source");
@@ -747,6 +777,9 @@ export function ImportWizardPage({
     setHasPreviewRun(false);
     setErrorMessage(null);
     setResult(null);
+    setImportOutcome(null);
+    setDateFormat("");
+    setDateDetection(EMPTY_DATE_DETECTION);
     setRewritePolicy(null);
     setIsLoading(false);
   };
@@ -771,6 +804,9 @@ export function ImportWizardPage({
     setHasPreviewRun(false);
     setErrorMessage(null);
     setResult(null);
+    setImportOutcome(null);
+    setDateFormat("");
+    setDateDetection(EMPTY_DATE_DETECTION);
     setRewritePolicy(null);
     if (fixedClubId) {
       setSelectedClubId(fixedClubId);
@@ -786,6 +822,7 @@ export function ImportWizardPage({
     setPreviewRows([]);
     setActions({});
     setResult(null);
+    setImportOutcome(null);
   };
 
   const handleTypeChange = (value: string) => {
@@ -808,19 +845,35 @@ export function ImportWizardPage({
   };
 
   const handleDateFormatChange = (value: string) => {
-    if (
-      value !== "YYYY-MM-DD" &&
-      value !== "DD/MM/YYYY" &&
-      value !== "DD-MM-YYYY" &&
-      value !== "DD.MM.YYYY"
-    ) {
+    if (!isImportDateFormat(value)) {
       return;
     }
     setDateFormat(value);
     invalidatePreview();
-    if (step !== "source") {
+    if (step === "preview" || step === "confirm" || step === "result") {
       setStep("source");
     }
+  };
+
+  const applyDetectedDateFormat = (nextHeaders: string[], fileText: string) => {
+    if (!isMembersImport) {
+      setDateDetection(EMPTY_DATE_DETECTION);
+      return;
+    }
+    const table = parseCsv(fileText);
+    const detection = detectDateFormat(
+      dateValuesFromTable(nextHeaders.length > 0 ? nextHeaders : (table[0] ?? []), table.slice(1))
+    );
+    setDateDetection(detection);
+    if (detection.status === "detected" && detection.format) {
+      setDateFormat(detection.format);
+      return;
+    }
+    if (detection.status === "ambiguous") {
+      setDateFormat("");
+      return;
+    }
+    setDateFormat("YYYY-MM-DD");
   };
 
   const handleFileChange = async (nextFile: File | null) => {
@@ -832,6 +885,9 @@ export function ImportWizardPage({
       setPreviewRows([]);
       setActions({});
       setResult(null);
+      setImportOutcome(null);
+      setDateFormat("");
+      setDateDetection(EMPTY_DATE_DETECTION);
       setMembershipEndDateHeader(null);
       setHasPreviewRun(false);
       setIsPreviewDirty(false);
@@ -846,16 +902,23 @@ export function ImportWizardPage({
     setIsLoading(true);
     setFile(nextFile);
     setResult(null);
+    setImportOutcome(null);
     setStep("source");
     try {
-      const preview = await previewImport(
-        importType,
-        nextFile,
-        undefined,
-        selectedClubId ?? undefined,
-        isMembersImport ? dateFormat : undefined
-      );
-      setHeaders(preview.headers ?? []);
+      const [preview, fileText] = await Promise.all([
+        previewImport(
+          importType,
+          nextFile,
+          undefined,
+          selectedClubId ?? undefined,
+          isMembersImport ? dateFormat || undefined : undefined,
+          isMembersImport ? memberUpdateMode : undefined
+        ),
+        nextFile.text(),
+      ]);
+      const nextHeaders = preview.headers ?? [];
+      applyDetectedDateFormat(nextHeaders, fileText);
+      setHeaders(nextHeaders);
       setSampleRows(preview.sample_rows ?? []);
       setRewritePolicy(isMembersImport ? preview.ltf_license_prefix_rewrite ?? null : null);
       setMembershipEndDateHeader(
@@ -865,7 +928,7 @@ export function ImportWizardPage({
           : null
       );
       setMapping(
-        applySuggestedMapping(currentFields, preview.headers ?? [], preview.suggested_mapping)
+        applySuggestedMapping(currentFields, nextHeaders, preview.suggested_mapping)
       );
       setPreviewRows([]);
       setActions({});
@@ -927,7 +990,8 @@ export function ImportWizardPage({
         file,
         mapping,
         selectedClubId ?? undefined,
-        isMembersImport ? dateFormat : undefined
+        isMembersImport ? dateFormat : undefined,
+        isMembersImport ? memberUpdateMode : undefined
       );
       const rows = preview.rows ?? [];
       const helperHeader =
@@ -1014,23 +1078,39 @@ export function ImportWizardPage({
         selectedClubId ?? undefined,
         isMembersImport ? dateFormat : undefined,
         rowOverrides,
-        membershipYearPoliciesPayload
+        membershipYearPoliciesPayload,
+        isMembersImport ? memberUpdateMode : undefined
       );
       setResult(importResult);
+      setImportOutcome(importResultTone(importResult));
       setRewritePolicy(isMembersImport ? importResult.ltf_license_prefix_rewrite ?? rewritePolicy : null);
       setStep("result");
     } catch (error) {
+      setResult(null);
+      setImportOutcome("error");
       setErrorMessage(error instanceof Error ? error.message : t("importFailed"));
+      setStep("result");
     } finally {
       setIsLoading(false);
     }
   };
 
   const setRowAction = (rowIndex: number, value: string) => {
-    if (value !== "create" && value !== "skip") {
+    if (value !== "create" && value !== "update" && value !== "skip" && value !== "park") {
       return;
     }
     setActions((previous) => ({ ...previous, [rowIndex]: value }));
+  };
+
+  const handleUpdateModeChange = (value: string) => {
+    if (!isMemberUpdateMode(value) || value === memberUpdateMode) {
+      return;
+    }
+    setMemberUpdateMode(value);
+    invalidatePreview();
+    if (step === "preview" || step === "confirm" || step === "result") {
+      setStep("mapping");
+    }
   };
 
   // Apply a confirmed role override (called after user confirms the modal)
@@ -1053,10 +1133,26 @@ export function ImportWizardPage({
       const next = { ...previous };
       for (const row of effectivePreviewRows) {
         const action = next[row.row_index] ?? "create";
-        const status = getRowDisplayStatus(row, action, isMembersImport);
+        const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
         // Skip rows that are invalid (including review status mapped to invalid)
         if (status === "invalid" || status === "review") {
           next[row.row_index] = "skip";
+        }
+      }
+      return next;
+    });
+  };
+
+  const runParkAllUnresolved = () => {
+    setActions((previous) => {
+      const next = { ...previous };
+      if (!canPark) return next;
+      for (const row of effectivePreviewRows) {
+        if (!row.parkable) continue;
+        const action = next[row.row_index] ?? "create";
+        const status = getRowDisplayStatus(row, action, true, true);
+        if (status === "invalid" || status === "review") {
+          next[row.row_index] = "park";
         }
       }
       return next;
@@ -1068,8 +1164,8 @@ export function ImportWizardPage({
       const next = { ...previous };
       for (const row of effectivePreviewRows) {
         const currentAction = next[row.row_index] ?? "create";
-        const status = getRowDisplayStatus(row, currentAction, isMembersImport);
-        if (status === "ready") {
+        const status = getRowDisplayStatus(row, currentAction, isMembersImport, canPark);
+        if (status === "ready" || status === "create") {
           next[row.row_index] = "create";
         }
       }
@@ -1104,13 +1200,99 @@ export function ImportWizardPage({
     confirm: t("confirmStepTitle"),
     result: t("resultStepTitle"),
   };
-  const currentStepIndex = stepOrder.indexOf(step);
+  const resultTone: ImportResultTone | null =
+    step === "result" ? (importOutcome ?? importResultTone(result)) : null;
+  const dateFormatLabel = (format: string) => (format === "EXCEL" ? t("dateFormatExcel") : format);
+  const activeDateFormatLabel = dateFormat ? dateFormatLabel(dateFormat) : "-";
+  const createdCount = result?.created ?? 0;
+  const updatedCount = result?.updated ?? 0;
+  const skippedCount = result?.skipped ?? 0;
+  const dateFormatOptions = IMPORT_DATE_FORMATS.map((option) => ({
+    value: option,
+    label: dateFormatLabel(option),
+  }));
+  const membershipYearOptions = [
+    { value: "skip", label: t("membershipYearSkip") },
+    { value: "active", label: t("membershipYearImportActive") },
+    { value: "inactive", label: t("membershipYearImportInactive") },
+  ];
+  const licenseRoleOptions = [
+    { value: "__none__", label: clubT("roleNoneOption") },
+    ...LICENSE_ROLE_VALUES.map((role) => ({
+      value: role,
+      label: clubT(licenseRoleMessageKey(role)),
+    })),
+  ];
+  const changedFieldLabel = (field: string) => {
+    const labels: Record<string, string> = {
+      first_name: t("firstNameLabel"),
+      last_name: t("lastNameLabel"),
+      date_of_birth: t("dobLabel"),
+      belt_rank: t("beltRankLabel"),
+      email: t("emailLabel"),
+      wt_licenseid: t("wtLicenseLabel"),
+      ltf_licenseid: t("ltfLicenseLabel"),
+      sex: t("sexLabel"),
+      is_active: t("isActiveLabel"),
+      primary_license_role: t("primaryLicenseRoleLabel"),
+      secondary_license_role: t("secondaryLicenseRoleLabel"),
+    };
+    return labels[field] ?? field;
+  };
+  const updateModeControl = isMembersImport ? (
+    <div className="space-y-2" data-update-mode={memberUpdateMode}>
+      <label className="text-sm font-medium text-foreground">{t("updateModeLabel")}</label>
+      <PopoverSelect
+        value={memberUpdateMode}
+        onValueChange={handleUpdateModeChange}
+        ariaLabel={t("updateModeLabel")}
+        options={[
+          { value: "create_only", label: t("updateModeCreateOnly") },
+          { value: "create_and_update", label: t("updateModeCreateAndUpdate") },
+        ]}
+        className="w-80"
+      />
+      <p className="text-sm text-muted">{t("updateModeHint")}</p>
+    </div>
+  ) : null;
+  const dateFormatControl =
+    isMembersImport && file && headers.length > 0 ? (
+      <div className="space-y-2" data-date-format-status={dateDetection.status}>
+        <label className="text-sm font-medium text-foreground">{t("dateFormatLabel")}</label>
+        {dateDetection.status === "detected" && dateDetection.format ? (
+          <p className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-info">
+            {t("dateFormatDetected", { format: dateFormatLabel(dateDetection.format) })}
+          </p>
+        ) : null}
+        {dateDetection.status === "ambiguous" ? (
+          <p className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-warning">
+            {t("dateFormatAmbiguous")}
+          </p>
+        ) : null}
+        {dateDetection.status === "empty" ? (
+          <p className="text-sm text-muted">
+            {t("dateFormatNone", { format: dateFormatLabel(dateFormat || "YYYY-MM-DD") })}
+          </p>
+        ) : null}
+        <PopoverSelect
+          value={dateFormat}
+          onValueChange={handleDateFormatChange}
+          ariaLabel={t("dateFormatLabel")}
+          placeholder={t("dateFormatPlaceholder")}
+          options={dateFormatOptions}
+          className="w-64"
+        />
+        {dateDetection.status === "detected" ? (
+          <p className="text-sm text-muted">{t("dateFormatOverrideHint")}</p>
+        ) : null}
+      </div>
+    ) : null;
 
   const canContinueFromSource =
     Boolean(file) &&
     headers.length > 0 &&
     !isLoading &&
-    (!isMembersImport || Boolean(selectedClubId));
+    (!isMembersImport || (Boolean(selectedClubId) && Boolean(dateFormat)));
   const canRunPreview =
     Boolean(file) &&
     mappingComplete &&
@@ -1165,7 +1347,7 @@ export function ImportWizardPage({
     resetFlow();
   };
 
-  const showBackButton = step !== "source";
+  const showBackButton = showImportWizardPrevious(step);
   const showListButton = step === "source" || step === "result";
   const summaryPreviewState: "idle" | "ready" | "stale" | "current" = !file
     ? "idle"
@@ -1202,37 +1384,19 @@ export function ImportWizardPage({
     ) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          {stepOrder.map((stepItem, index) => {
-            const isCurrent = stepItem === step;
-            const isDone = index < currentStepIndex;
-            return (
-              <span
-                key={stepItem}
-                className={`inline-flex items-center gap-2 rounded-[var(--radius-form)] border px-3 py-1 text-xs font-medium ${
-                  isCurrent
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : isDone
-                    ? "badge-success"
-                    : "border-border bg-secondary text-muted"
-                }`}
-              >
-                <span>{index + 1}</span>
-                <span>{stepTitles[stepItem]}</span>
-              </span>
-            );
-          })}
-        </div>
-      </section>
+      <WizardStepPills
+        steps={stepOrder.map((stepItem) => ({ id: stepItem, label: stepTitles[stepItem] }))}
+        currentId={step}
+        resultTone={resultTone}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="rounded-[var(--radius-card)] bg-card p-6 shadow-sm">
+        <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           {step === "source" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("sourceStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("sourceStepSubtitle")}</p>
@@ -1243,64 +1407,49 @@ export function ImportWizardPage({
               {canSwitchType ? (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t("importTypeLabel")}</label>
-                  <Select value={importType} onValueChange={handleTypeChange}>
-                    <SelectTrigger className="w-64">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allowedTypes.includes("clubs") ? (
-                        <SelectItem value="clubs">{t("importClubs")}</SelectItem>
-                      ) : null}
-                      {allowedTypes.includes("members") ? (
-                        <SelectItem value="members">{t("importMembers")}</SelectItem>
-                      ) : null}
-                    </SelectContent>
-                  </Select>
+                  <PopoverSelect
+                    value={importType}
+                    onValueChange={handleTypeChange}
+                    ariaLabel={t("importTypeLabel")}
+                    className="w-64"
+                    options={[
+                      ...(allowedTypes.includes("clubs")
+                        ? [{ value: "clubs", label: t("importClubs") }]
+                        : []),
+                      ...(allowedTypes.includes("members")
+                        ? [{ value: "members", label: t("importMembers") }]
+                        : []),
+                    ]}
+                  />
                 </div>
               ) : null}
 
               {isMembersImport ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">{t("clubLabel")}</label>
                     {allowClubSelection && !fixedClubId ? (
-                      <Select
+                      <PopoverSelect
                         value={selectedClubId ? String(selectedClubId) : ""}
                         onValueChange={handleClubChange}
-                      >
-                        <SelectTrigger className="w-80">
-                          <SelectValue placeholder={t("selectClubPlaceholder")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clubOptions.map((club) => (
-                            <SelectItem key={club.id} value={String(club.id)}>
-                              {club.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        ariaLabel={t("clubLabel")}
+                        placeholder={t("selectClubPlaceholder")}
+                        searchable
+                        searchPlaceholder={t("searchOptions")}
+                        emptyMessage={t("noMatches")}
+                        className="w-80"
+                        options={clubOptions.map((club) => ({
+                          value: String(club.id),
+                          label: club.name,
+                        }))}
+                      />
                     ) : (
                       <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
                         {selectedClubName ?? "-"}
                       </div>
                     )}
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">{t("dateFormatLabel")}</label>
-                    <Select value={dateFormat} onValueChange={handleDateFormatChange}>
-                      <SelectTrigger className="w-64">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DATE_FORMAT_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {updateModeControl}
                 </div>
               ) : null}
 
@@ -1375,17 +1524,20 @@ export function ImportWizardPage({
                   </div>
                 </div>
               ) : null}
+
+              {dateFormatControl}
             </div>
           ) : null}
 
           {step === "mapping" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("mappingStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("mappingStepSubtitle")}</p>
               </div>
               {prefixNotice}
               {membershipHelperNotice}
+              {dateFormatControl}
 
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={headers.length === 0}>
@@ -1419,22 +1571,23 @@ export function ImportWizardPage({
                         <td className="px-3 py-2">{field.label}</td>
                         <td className="px-3 py-2">{field.required ? t("requiredBadge") : "-"}</td>
                         <td className="px-3 py-2">
-                          <Select
+                          <PopoverSelect
                             value={mapping[field.key] ?? "__none__"}
                             onValueChange={(value) => setFieldMapping(field.key, value)}
-                          >
-                            <SelectTrigger className="w-72">
-                              <SelectValue placeholder={t("selectColumnPlaceholder")} />
-                            </SelectTrigger>
-                            <SelectContent position="popper">
-                              <SelectItem value="__none__">{t("notMappedOption")}</SelectItem>
-                              {mappingSourceHeaders.map((header, headerIndex) => (
-                                <SelectItem key={`${headerIndex}-${header}`} value={header}>
-                                  {header}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            ariaLabel={`${t("sourceColumnLabel")}: ${field.label}`}
+                            placeholder={t("selectColumnPlaceholder")}
+                            searchable
+                            searchPlaceholder={t("searchColumns")}
+                            emptyMessage={t("noMatches")}
+                            className="w-72"
+                            options={[
+                              { value: "__none__", label: t("notMappedOption") },
+                              ...mappingSourceHeaders.map((header) => ({
+                                value: header,
+                                label: header,
+                              })),
+                            ]}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -1458,17 +1611,41 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "preview" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("previewStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("previewStepSubtitle")}</p>
               </div>
               {prefixNotice}
               {membershipHelperNotice}
+              {updateModeControl}
+
+              {isMembersImport ? (
+                <div className="grid gap-3 md:grid-cols-3" data-preview-totals>
+                  <div
+                    className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-success"
+                    data-preview-count="create"
+                  >
+                    <span className="font-medium">{t("resultCreated")}:</span> {summary.create}
+                  </div>
+                  <div
+                    className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground"
+                    data-preview-count="update"
+                  >
+                    <span className="font-medium">{t("resultUpdated")}:</span> {summary.update}
+                  </div>
+                  <div
+                    className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground"
+                    data-preview-count="skip"
+                  >
+                    <span className="font-medium">{t("resultSkipped")}:</span> {summary.skipped}
+                  </div>
+                </div>
+              ) : null}
 
               {showMembershipYearPanel ? (
                 <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-secondary/40 p-4">
-                  <label className="flex items-start gap-3 text-sm text-foreground">
+                  <label className="flex items-start gap-2 text-sm text-foreground">
                     <Checkbox
                       checked={membershipYearRulesEnabled}
                       onCheckedChange={(checked) => {
@@ -1504,7 +1681,7 @@ export function ImportWizardPage({
                               <td className="px-3 py-2 font-medium">{year}</td>
                               <td className="px-3 py-2">{count}</td>
                               <td className="px-3 py-2">
-                                <Select
+                                <PopoverSelect
                                   value={membershipYearPolicies[year] ?? "skip"}
                                   onValueChange={(value) => {
                                     const policy = value as MembershipYearPolicy;
@@ -1519,20 +1696,10 @@ export function ImportWizardPage({
                                       membershipUnknownPolicy
                                     );
                                   }}
-                                >
-                                  <SelectTrigger className="w-64">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="skip">{t("membershipYearSkip")}</SelectItem>
-                                    <SelectItem value="active">
-                                      {t("membershipYearImportActive")}
-                                    </SelectItem>
-                                    <SelectItem value="inactive">
-                                      {t("membershipYearImportInactive")}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  ariaLabel={`${t("membershipYearActionColumn")} ${year}`}
+                                  className="w-64"
+                                  options={membershipYearOptions}
+                                />
                               </td>
                             </tr>
                           ))}
@@ -1543,27 +1710,17 @@ export function ImportWizardPage({
                               </td>
                               <td className="px-3 py-2">{membershipYearSummary.unknown}</td>
                               <td className="px-3 py-2">
-                                <Select
+                                <PopoverSelect
                                   value={membershipUnknownPolicy}
                                   onValueChange={(value) => {
                                     const policy = value as MembershipYearPolicy;
                                     setMembershipUnknownPolicy(policy);
                                     applyYearPolicyState(true, membershipYearPolicies, policy);
                                   }}
-                                >
-                                  <SelectTrigger className="w-64">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="skip">{t("membershipYearSkip")}</SelectItem>
-                                    <SelectItem value="active">
-                                      {t("membershipYearImportActive")}
-                                    </SelectItem>
-                                    <SelectItem value="inactive">
-                                      {t("membershipYearImportInactive")}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  ariaLabel={t("membershipYearUnknown")}
+                                  className="w-64"
+                                  options={membershipYearOptions}
+                                />
                               </td>
                             </tr>
                           ) : null}
@@ -1582,13 +1739,24 @@ export function ImportWizardPage({
 
               <div className="flex flex-wrap gap-2">
                 {(
-                  [
-                    { id: "all", label: t("filterAll"), count: summary.total },
-                    { id: "ready", label: t("statusReady"), count: summary.ready },
-                    { id: "duplicate", label: t("statusDuplicate"), count: summary.duplicate },
-                    { id: "invalid", label: t("statusInvalid"), count: summary.invalid },
-                    { id: "skipped", label: t("statusSkipped"), count: summary.skipped },
-                  ] as const
+                  isMembersImport
+                    ? [
+                        { id: "all" as const, label: t("filterAll"), count: summary.total },
+                        { id: "create" as const, label: t("statusCreate"), count: summary.create },
+                        { id: "update" as const, label: t("statusUpdate"), count: summary.update },
+                        { id: "skipped" as const, label: t("statusSkipped"), count: summary.skipped },
+                        { id: "invalid" as const, label: t("statusInvalid"), count: summary.invalid },
+                        ...(canPark
+                          ? [{ id: "parked" as const, label: t("statusParked"), count: summary.parked }]
+                          : []),
+                      ]
+                    : [
+                        { id: "all" as const, label: t("filterAll"), count: summary.total },
+                        { id: "ready" as const, label: t("statusReady"), count: summary.ready },
+                        { id: "duplicate" as const, label: t("statusDuplicate"), count: summary.duplicate },
+                        { id: "invalid" as const, label: t("statusInvalid"), count: summary.invalid },
+                        { id: "skipped" as const, label: t("statusSkipped"), count: summary.skipped },
+                      ]
                 ).map((filterItem) => {
                   const active = previewFilter === filterItem.id;
                   return (
@@ -1609,6 +1777,11 @@ export function ImportWizardPage({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {canPark ? (
+                  <Button variant="outline" size="sm" onClick={runParkAllUnresolved}>
+                    {t("parkAllUnresolved")}
+                  </Button>
+                ) : null}
                 <Button variant="outline" size="sm" onClick={runBulkSkipInvalid}>
                   {t("skipInvalidRowsButton")}
                 </Button>
@@ -1631,7 +1804,7 @@ export function ImportWizardPage({
                   <tbody>
                     {filteredPreviewRows.map((row) => {
                       const action = actions[row.row_index] ?? "create";
-                      const status = getRowDisplayStatus(row, action, isMembersImport);
+                      const status = getRowDisplayStatus(row, action, isMembersImport, canPark);
                       const isReview = status === "review";
                       const override = roleOverrides[row.row_index];
 
@@ -1679,32 +1852,43 @@ export function ImportWizardPage({
                       );
 
                       return (
-                        <tr key={row.row_index} className="border-t border-border text-foreground">
+                        <tr
+                          key={row.row_index}
+                          className="border-t border-border text-foreground"
+                          data-preview-outcome={status}
+                        >
                           <td className="px-2 py-2">{row.row_index}</td>
                           <td className="px-2 py-2">
-                            <span
-                              className={`inline-flex rounded-[var(--radius-form)] border px-2 py-0.5 text-xs font-medium ${
-                                status === "ready"
-                                  ? "badge-success"
-                                  : status === "duplicate"
-                                  ? "badge-warning"
+                            <ImportStatusBadge
+                              tone={
+                                status === "ready" || status === "create"
+                                  ? "success"
+                                  : status === "update"
+                                  ? "info"
+                                  : status === "parked" || status === "duplicate" || status === "review"
+                                  ? "warning"
                                   : status === "invalid"
-                                  ? "badge-danger"
+                                  ? "danger"
+                                  : "neutral"
+                              }
+                              label={
+                                status === "ready"
+                                  ? t("statusReady")
+                                  : status === "create"
+                                  ? t("statusCreate")
+                                  : status === "update"
+                                  ? t("statusUpdate")
+                                  : status === "duplicate"
+                                  ? t("statusDuplicate")
+                                  : status === "invalid"
+                                  ? t("statusInvalid")
                                   : status === "review"
-                                  ? "badge-warning"
-                                  : "border-border bg-secondary text-foreground"
-                              }`}
-                            >
-                              {status === "ready"
-                                ? t("statusReady")
-                                : status === "duplicate"
-                                ? t("statusDuplicate")
-                                : status === "invalid"
-                                ? t("statusInvalid")
-                                : status === "review"
-                                ? t("statusReview")
-                                : t("statusSkipped")}
-                            </span>
+                                  ? t("statusReview")
+                                  : status === "parked"
+                                  ? t("statusParked")
+                                  : t("statusSkipped")
+                              }
+                            />
                           </td>
                           <td className="px-2 py-2 text-xs">
                             {Object.entries(row.data)
@@ -1716,10 +1900,20 @@ export function ImportWizardPage({
                               )
                               .map(([key, value]) => `${key}: ${value}`)
                               .join(", ")}
+                            {status === "update" && (row.changed_fields?.length ?? 0) > 0 ? (
+                              <p className="mt-1 text-muted">
+                                {t("changedFieldsLabel")}:{" "}
+                                {row.changed_fields?.map((field) => changedFieldLabel(field)).join(", ")}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-2 py-2 text-xs text-destructive">
-                            {row.errors.join(", ")}
-                            {row.duplicate ? ` ${t("duplicateHint")}` : ""}
+                            {(row.issues?.length ?? 0) > 0
+                              ? row.issues?.map((issue) => (
+                                  <p key={`${issue.code}-${issue.value || ""}-${issue.id || ""}`}>{importIssueMessage(t, issue)}</p>
+                                ))
+                              : row.errors.join(", ")}
+                            {!isMembersImport && row.duplicate ? ` ${t("duplicateHint")}` : ""}
                             {hasSameRoles && (
                               <span>
                                 {row.errors.length > 0 || row.duplicate ? " — " : ""}
@@ -1739,7 +1933,7 @@ export function ImportWizardPage({
                                       <label className="block text-xs text-muted">
                                         {t("primaryLicenseRoleLabel")}:
                                       </label>
-                                      <Select
+                                      <PopoverSelect
                                         value={primaryValue}
                                         onValueChange={(value) => {
                                           const name =
@@ -1759,25 +1953,19 @@ export function ImportWizardPage({
                                             roleLabel: rLabel,
                                           });
                                         }}
-                                      >
-                                        <SelectTrigger className="h-8 w-full rounded-[var(--radius-form)] text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="__none__">{clubT("roleNoneOption")}</SelectItem>
-                                          {LICENSE_ROLE_VALUES.map((role) => (
-                                            <SelectItem key={role} value={role}>
-                                              {clubT(licenseRoleMessageKey(role))}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                        ariaLabel={t("primaryLicenseRoleLabel")}
+                                        searchable
+                                        searchPlaceholder={t("searchOptions")}
+                                        emptyMessage={t("noMatches")}
+                                        className="w-full"
+                                        options={licenseRoleOptions}
+                                      />
                                     </div>
                                     <div className="space-y-1">
                                       <label className="block text-xs text-muted">
                                         {t("secondaryLicenseRoleLabel")}:
                                       </label>
-                                      <Select
+                                      <PopoverSelect
                                         value={secondaryValue}
                                         onValueChange={(value) => {
                                           const name =
@@ -1797,22 +1985,20 @@ export function ImportWizardPage({
                                             roleLabel: rLabel,
                                           });
                                         }}
+                                        ariaLabel={t("secondaryLicenseRoleLabel")}
                                         disabled={!primarySelected}
-                                      >
-                                        <SelectTrigger
-                                          className={`h-8 w-full rounded-[var(--radius-form)] text-xs ${!primarySelected ? "opacity-50" : ""}`}
-                                        >
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="__none__">{clubT("roleNoneOption")}</SelectItem>
-                                          {secondaryOptions.map((role) => (
-                                            <SelectItem key={role} value={role}>
-                                              {clubT(licenseRoleMessageKey(role))}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                        searchable
+                                        searchPlaceholder={t("searchOptions")}
+                                        emptyMessage={t("noMatches")}
+                                        className="w-full"
+                                        options={[
+                                          { value: "__none__", label: clubT("roleNoneOption") },
+                                          ...secondaryOptions.map((role) => ({
+                                            value: role,
+                                            label: clubT(licenseRoleMessageKey(role)),
+                                          })),
+                                        ]}
+                                      />
                                     </div>
                                     {hasSameRoles ? (
                                       <p className="text-xs font-medium text-destructive">
@@ -1822,21 +2008,40 @@ export function ImportWizardPage({
                                   </div>
                                 </div>
                               ) : null}
-                              <Select
-                                value={hasSameRoles ? "skip" : action}
+                              <PopoverSelect
+                                value={
+                                  hasSameRoles
+                                    ? "skip"
+                                    : action === "park" && canPark
+                                    ? "park"
+                                    : row.disposition === "update"
+                                    ? action === "skip"
+                                      ? "skip"
+                                      : "update"
+                                    : action === "update"
+                                    ? "create"
+                                    : action
+                                }
                                 onValueChange={(value) => {
                                   if (!hasSameRoles) setRowAction(row.row_index, value);
                                 }}
                                 disabled={hasSameRoles}
-                              >
-                                <SelectTrigger className={`w-full ${hasSameRoles ? "opacity-50" : ""}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="create">{t("createAction")}</SelectItem>
-                                  <SelectItem value="skip">{t("skipAction")}</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                ariaLabel={`${t("actionLabel")} ${row.row_index}`}
+                                className="w-full"
+                                options={
+                                  isMembersImport && row.disposition === "update"
+                                    ? [
+                                        { value: "update", label: t("updateAction") },
+                                        ...(canPark && row.parkable ? [{ value: "park", label: t("parkAction") }] : []),
+                                        { value: "skip", label: t("skipAction") },
+                                      ]
+                                    : [
+                                        { value: "create", label: t("createAction") },
+                                        ...(canPark && row.parkable ? [{ value: "park", label: t("parkAction") }] : []),
+                                        { value: "skip", label: t("skipAction") },
+                                      ]
+                                }
+                              />
                             </div>
                           </td>
                         </tr>
@@ -1882,7 +2087,7 @@ export function ImportWizardPage({
           )}
 
           {step === "confirm" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("confirmStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("confirmStepSubtitle")}</p>
@@ -1892,18 +2097,37 @@ export function ImportWizardPage({
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-                  <p>
-                    <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
-                  </p>
+                  {isMembersImport ? (
+                    <>
+                      <p>
+                        <span className="font-medium">{t("resultCreated")}:</span> {summary.create}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("resultUpdated")}:</span> {summary.update}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("resultSkipped")}:</span> {summary.skipped}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                      </p>
+                      <p>
+                        <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
                   <p>
@@ -1917,7 +2141,7 @@ export function ImportWizardPage({
                         {selectedClubName ?? "-"}
                       </p>
                       <p>
-                        <span className="font-medium">{t("dateFormatLabel")}:</span> {dateFormat}
+                        <span className="font-medium">{t("dateFormatLabel")}:</span> {activeDateFormatLabel}
                       </p>
                     </>
                   ) : null}
@@ -1931,7 +2155,8 @@ export function ImportWizardPage({
           ) : null}
 
           {step === "result" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
+              <ImportSuccessConfetti active={resultTone === "success"} />
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{t("resultStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("resultStepSubtitle")}</p>
@@ -1939,14 +2164,57 @@ export function ImportWizardPage({
               {prefixNotice}
               {membershipHelperNotice}
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <p
+                className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${
+                  resultTone === "success"
+                    ? "banner-success"
+                    : resultTone === "warning"
+                    ? "banner-warning"
+                    : "banner-danger"
+                }`}
+                data-import-outcome={resultTone ?? "error"}
+              >
+                {resultTone === "success"
+                  ? t("importSuccessMessage", {
+                      created: createdCount,
+                      updated: updatedCount,
+                      skipped: skippedCount,
+                    })
+                  : resultTone === "warning"
+                  ? t("importWarningMessage", {
+                      created: createdCount,
+                      updated: updatedCount,
+                      skipped: skippedCount,
+                    })
+                  : t("importErrorMessage", {
+                      created: createdCount,
+                      updated: updatedCount,
+                      skipped: skippedCount,
+                    })}
+              </p>
+
+              {canPark && (result?.parked ?? 0) > 0 ? (
+                <p className="banner-warning rounded-[var(--radius-form)] border px-3 py-2 text-sm">
+                  <span className="font-medium">{t("statusParked")}:</span> {result?.parked}
+                </p>
+              ) : null}
+              <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-success">
-                  <span className="font-medium">{t("resultCreated")}:</span> {result?.created ?? 0}
+                  <span className="font-medium">{t("resultCreated")}:</span> {createdCount}
                 </div>
                 <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
-                  <span className="font-medium">{t("resultSkipped")}:</span> {result?.skipped ?? 0}
+                  <span className="font-medium">{t("resultUpdated")}:</span> {updatedCount}
                 </div>
-                <div className="rounded-[var(--radius-form)] border px-3 py-2 text-sm banner-danger">
+                <div className="rounded-[var(--radius-form)] border border-border bg-secondary px-3 py-2 text-sm text-foreground">
+                  <span className="font-medium">{t("resultSkipped")}:</span> {skippedCount}
+                </div>
+                <div
+                  className={`rounded-[var(--radius-form)] border px-3 py-2 text-sm ${
+                    (result?.errors.length ?? 0) > 0
+                      ? "banner-danger"
+                      : "border-border bg-secondary text-foreground"
+                  }`}
+                >
                   <span className="font-medium">{t("resultErrors")}:</span> {result?.errors.length ?? 0}
                 </div>
               </div>
@@ -1975,7 +2243,7 @@ export function ImportWizardPage({
           ) : null}
         </section>
 
-        <aside className="rounded-[var(--radius-card)] bg-card p-5 shadow-sm">
+        <aside className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
           <h3 className="text-sm font-semibold text-foreground">{t("summaryTitle")}</h3>
           <div className="mt-3 space-y-2 text-sm text-foreground">
             <p>
@@ -1988,25 +2256,44 @@ export function ImportWizardPage({
                   <span className="font-medium">{t("clubLabel")}:</span> {selectedClubName ?? "-"}
                 </p>
                 <p>
-                  <span className="font-medium">{t("dateFormatLabel")}:</span> {dateFormat}
+                  <span className="font-medium">{t("dateFormatLabel")}:</span> {activeDateFormatLabel}
                 </p>
               </>
             ) : null}
             <p>
               <span className="font-medium">{t("totalRowsLabel")}:</span> {summary.total}
             </p>
-            <p>
-              <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
-            </p>
-            <p>
-              <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
-            </p>
-            <p>
-              <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
-            </p>
-            <p>
-              <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
-            </p>
+            {isMembersImport ? (
+              <>
+                <p>
+                  <span className="font-medium">{t("resultCreated")}:</span> {summary.create}
+                </p>
+                <p>
+                  <span className="font-medium">{t("resultUpdated")}:</span> {summary.update}
+                </p>
+                <p>
+                  <span className="font-medium">{t("resultSkipped")}:</span> {summary.skipped}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  <span className="font-medium">{t("statusReady")}:</span> {summary.ready}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusDuplicate")}:</span> {summary.duplicate}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusInvalid")}:</span> {summary.invalid}
+                </p>
+                <p>
+                  <span className="font-medium">{t("statusSkipped")}:</span> {summary.skipped}
+                </p>
+              </>
+            )}
           </div>
           <p
             className={`mt-4 rounded-[var(--radius-form)] border px-3 py-2 text-xs ${
@@ -2030,13 +2317,13 @@ export function ImportWizardPage({
         </aside>
       </div>
 
-      <section className="rounded-[var(--radius-card)] bg-card p-4 shadow-sm">
+      <section className="rounded-[var(--radius-card)] bg-card p-4 border border-border" data-wizard-nav>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             {showListButton ? (
               <Button variant="outline" asChild>
                 <Link href={step === "result" ? successHrefByType[importType] : backHrefByType[importType]}>
-                  {step === "result" ? t("backToList") : t("cancelAndBack")}
+                  {step === "result" ? t("backToMembers") : t("cancelAndBack")}
                 </Link>
               </Button>
             ) : null}
@@ -2046,7 +2333,12 @@ export function ImportWizardPage({
               </Button>
             ) : null}
           </div>
-          <Button variant="primary" onClick={handlePrimaryAction} disabled={primaryDisabled}>
+          <Button
+            variant="primary"
+            onClick={handlePrimaryAction}
+            disabled={primaryDisabled}
+            data-import-another={step === "result" ? "true" : undefined}
+          >
             {isLoading ? t("loadingAction") : primaryLabel}
           </Button>
         </div>

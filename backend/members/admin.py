@@ -12,13 +12,17 @@ class MemberAdmin(admin.ModelAdmin):
         "primary_license_role",
         "secondary_license_role",
         "is_active",
+        "import_status",
         "club",
         "has_profile_picture",
         "photo_consent_attested_at",
     )
-    list_filter = ("sex", "primary_license_role", "secondary_license_role", "is_active", "club")
-    search_fields = ("first_name", "last_name")
+    list_filter = ("sex", "primary_license_role", "secondary_license_role", "is_active", "import_status", "club")
+    search_fields = ("first_name", "last_name", "wt_licenseid", "ltf_licenseid")
     readonly_fields = ("photo_consent_attested_at", "photo_consent_attested_by")
+
+    def get_queryset(self, request):
+        return Member.all_objects.all()
 
     @admin.display(boolean=True, description="Photo")
     def has_profile_picture(self, obj: Member) -> bool:

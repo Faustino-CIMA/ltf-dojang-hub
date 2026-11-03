@@ -12,6 +12,11 @@ from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
 from .languages import DEFAULT_CLUB_LANGUAGE, normalize_club_language
 
 _WEBSITE_VALIDATOR = URLValidator(schemes=["http", "https"])
+RCS_NUMBER_RE = re.compile(r"^[A-Z]\d{1,6}$")
+
+
+def normalize_rcs_number(value: str) -> str:
+    return re.sub(r"\s+", "", str(value or "")).upper()
 
 
 def normalize_club_website(value: str) -> str:
@@ -22,6 +27,17 @@ def normalize_club_website(value: str) -> str:
         text = f"https://{text}"
     _WEBSITE_VALIDATOR(text)
     return text
+
+def _rcs_number_taken(normalized: str, *, club_id=None, ignore_federation: bool = False) -> bool:
+    clubs = Club.objects.filter(rcs_number=normalized)
+    if club_id:
+        clubs = clubs.exclude(pk=club_id)
+    if clubs.exists():
+        return True
+    if ignore_federation:
+        return False
+    return FederationProfile.objects.filter(rcs_number=normalized).exists()
+
 
 def _validate_luxembourg_postal_code(postal_code: str) -> None:
     normalized_postal_code = str(postal_code or "").strip()
@@ -44,6 +60,24 @@ class Club(models.Model):
     email = models.EmailField(blank=True)
     website = models.URLField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
+    is_demo = models.BooleanField(
+        default=False,
+        help_text="Marks a fictional club created for the separate demo app.",
+    )
+
+    class Federation(models.TextChoices):
+        WT = "WT", "WT"
+        ITF = "ITF", "ITF"
+
+    federation = models.CharField(
+        max_length=3,
+        choices=Federation.choices,
+        default=Federation.WT,
+    )
+    rcs_number = models.CharField(max_length=20, blank=True)
+    external_ref = models.CharField(max_length=255, blank=True, db_index=True)
+    egear_daedo = models.BooleanField(default=True)
+    egear_kpnp = models.BooleanField(default=True)
     communication_language = models.CharField(max_length=10, default=DEFAULT_CLUB_LANGUAGE)
     max_admins = models.PositiveIntegerField(default=10)
     created_by = models.ForeignKey(
@@ -64,8 +98,25 @@ class Club(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rcs_number"],
+                condition=~models.Q(rcs_number=""),
+                name="unique_club_rcs_number_when_set",
+            ),
+        ]
+
     def clean(self):
         _validate_luxembourg_postal_code(self.postal_code)
+        self.rcs_number = normalize_rcs_number(self.rcs_number)
+        if self.rcs_number and not RCS_NUMBER_RE.fullmatch(self.rcs_number):
+            raise ValidationError(
+                {"rcs_number": _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")}
+            )
+        if self.rcs_number and _rcs_number_taken(self.rcs_number, club_id=self.pk):
+            raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
+        self.external_ref = str(self.external_ref or "").strip()
         normalized_iban = normalize_iban(self.iban)
         if normalized_iban and not is_valid_iban(normalized_iban):
             raise ValidationError({"iban": _("Enter a valid IBAN.")})
@@ -76,6 +127,10 @@ class Club(models.Model):
             self.website = normalize_club_website(self.website)
         except ValidationError as exc:
             raise ValidationError({"website": exc.messages}) from exc
+
+    def save(self, *args, **kwargs):
+        self.communication_language = normalize_club_language(self.communication_language)
+        super().save(*args, **kwargs)
 
     @property
     def formatted_address(self) -> str:
@@ -105,12 +160,46 @@ class Club(models.Model):
         return self.name
 
 
+class TrainingVenue(models.Model):
+    """A place where a club trains. The head office stays on Club."""
+
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="training_venues")
+    name = models.CharField(max_length=255)
+    street = models.CharField(max_length=255, blank=True)
+    house_number = models.CharField(max_length=20, blank=True)
+    line2 = models.CharField(max_length=255, blank=True)
+    postal_code = models.CharField(max_length=10, blank=True)
+    locality = models.CharField(max_length=255, blank=True)
+    country = models.CharField(max_length=64, default="Luxembourg")
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name", "id"]
+
+    def clean(self):
+        country = str(self.country or "").strip() or "Luxembourg"
+        self.country = country
+        if country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}:
+            _validate_luxembourg_postal_code(self.postal_code)
+        self.name = str(self.name or "").strip()
+        if not self.name:
+            raise ValidationError({"name": _("Enter a name for this training venue.")})
+
+    def __str__(self):
+        return self.name
+
+
 class FederationProfile(models.Model):
     name = models.CharField(max_length=255, default="Luxembourg Taekwondo Federation")
     address_line1 = models.CharField(max_length=255, blank=True)
     address_line2 = models.CharField(max_length=255, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
+    rcs_number = models.CharField(max_length=20, blank=True)
     iban = models.CharField(max_length=34, blank=True)
     bank_name = models.CharField(max_length=255, blank=True)
     rewrite_lux_prefix_on_member_import = models.BooleanField(default=False)
@@ -127,6 +216,13 @@ class FederationProfile(models.Model):
 
     def clean(self):
         _validate_luxembourg_postal_code(self.postal_code)
+        self.rcs_number = normalize_rcs_number(self.rcs_number)
+        if self.rcs_number and not RCS_NUMBER_RE.fullmatch(self.rcs_number):
+            raise ValidationError(
+                {"rcs_number": _("Enter an RCS number like B123456 (one letter, then up to 6 digits).")}
+            )
+        if self.rcs_number and _rcs_number_taken(self.rcs_number, ignore_federation=True):
+            raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
         normalized_iban = normalize_iban(self.iban)
         if normalized_iban and not is_valid_iban(normalized_iban):
             raise ValidationError({"iban": _("Enter a valid IBAN.")})

@@ -27,7 +27,10 @@ export default function OpsJobsPage() {
   }, [t]);
 
   useEffect(() => {
-    void load();
+    const run = () => {
+      void load();
+    };
+    run();
   }, [load]);
 
   const retry = async (id: number) => {
@@ -82,7 +85,7 @@ export default function OpsJobsPage() {
         {"error" in celery ? <p className="mt-2 text-sm text-muted">{String(celery.error)}</p> : null}
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("stuckPrintJobs")}</h2>
         <div className="mt-3">
           {stuck.length === 0 ? (
@@ -109,7 +112,7 @@ export default function OpsJobsPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("failedPrintJobs")}</h2>
         <div className="mt-3">
           {failed.length === 0 ? (
@@ -136,7 +139,7 @@ export default function OpsJobsPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section>
         <h2 className="text-lg font-semibold text-foreground">{t("billingSchedules")}</h2>
         <div className="mt-3">
           <EntityTable

@@ -12,34 +12,31 @@ import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Trash2 } from "lucide-react";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { Modal } from "@/components/ui/modal";
+import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PopoverSelect } from "@/components/ui/popover-select";
+import { SidePanel } from "@/components/ui/side-panel";
 import {
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
   SelectionMeta,
-  resolveListPageSize,
   ActionNotices
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useClubSelection } from "@/components/club-selection-provider";
 import {
   Club,
@@ -47,13 +44,21 @@ import {
   LicenseType,
   Member,
   createLicense,
+  deleteLicense,
   getClubs,
   getLicenseTypes,
+  getLicensesList,
   getLicensesPage,
   getMembersList,
   updateLicense,
 } from "@/lib/ltf-admin-api";
+import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatLicenseExpiry, licenseExpiryClass, licenseExpiryHint } from "@/lib/license-expiry";
+import { displayClubName } from "@/lib/club-label";
+import { formatFullName } from "@/lib/person-name";
+import { toOrderingParam, type TableSort } from "@/lib/table-sort";
+import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 
 const licenseSchema = z.object({
   club: z.string().min(1, "Club is required"),
@@ -82,14 +87,18 @@ export default function LtfAdminLicensesPage() {
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<License | null>(null);
+  const [batchLicenses, setBatchLicenses] = useState<License[]>([]);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [licenseStatusFilter, setLicenseStatusFilter] = useState<LicenseStatusFilter>("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableSort, setTableSort] = useState<TableSort | null>(null);
+  const ordering = toOrderingParam(tableSort);
   const [licenseFacetCounts, setLicenseFacetCounts] = useState({
     all: 0,
     active: 0,
@@ -100,11 +109,11 @@ export default function LtfAdminLicensesPage() {
   const rowSelectModifierRef = useRef({ shiftKey: false });
   const { selectedClubId: headerClubId } = useClubSelection();
 
-  const licensesListPageSize = useMemo(
-    () => resolveListPageSize(pageSize, totalCount),
-    [pageSize, totalCount]
-  );
+  const licensesListPageSize = displayPageSize(pageSize, totalCount);
   const statusFilterParam = licenseStatusFilter === "all" ? undefined : licenseStatusFilter;
+  const [currentPage, setCurrentPage] = useListPage(
+    [headerClubId ?? "", searchQuery, pageSize, statusFilterParam ?? "", tableSort?.key ?? "", tableSort?.direction ?? ""].join("|"),
+  );
 
   const {
     handleSubmit,
@@ -140,13 +149,16 @@ export default function LtfAdminLicensesPage() {
         expiredCountRes,
       ] = await Promise.all([
         getClubs(),
-        getLicensesPage({
-          page: currentPage,
-          pageSize: licensesListPageSize,
-          q,
-          clubId,
-          status: statusFilterParam,
-        }),
+        readListPage(pageSize, currentPage, (page, size) =>
+          getLicensesPage({
+            page,
+            pageSize: size,
+            q,
+            clubId,
+            status: statusFilterParam,
+            ordering,
+          }),
+        ),
         getLicenseTypes(),
         getLicensesPage({ page: 1, pageSize: 1, q, clubId }),
         getLicensesPage({ page: 1, pageSize: 1, q, clubId, status: "active" }),
@@ -183,15 +195,11 @@ export default function LtfAdminLicensesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, headerClubId, licensesListPageSize, searchQuery, setValue, statusFilterParam, watch]);
+  }, [currentPage, headerClubId, ordering, pageSize, searchQuery, setValue, statusFilterParam, watch]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [headerClubId, searchQuery, pageSize, statusFilterParam]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -238,15 +246,11 @@ export default function LtfAdminLicensesPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / licensesListPageSize));
 
   const allFilteredIds = useMemo(() => licenses.map((license) => license.id), [licenses]);
-  const allSelected =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedIds.includes(id));
+  const headerCheck = visibleHeaderCheck(selectedIds, allFilteredIds);
+  const otherPageCount = offPageSelectedCount(selectedIds, allFilteredIds);
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(allFilteredIds);
-    }
+    setSelectedIds((current) => togglePageSelection(current, allFilteredIds));
     lastSelectedLicenseIdRef.current = null;
   };
 
@@ -342,18 +346,108 @@ export default function LtfAdminLicensesPage() {
     });
   };
 
-  const handleDelete = (license: License) => {
-    router.push(`/${locale}/dashboard/ltf/licenses/${license.id}/delete`);
-  };
-
-  const openBatchDeletePage = () => {
-    if (selectedIds.length === 0) {
+  const rememberMembers = async (memberIds: number[]) => {
+    const missing = memberIds.filter((id) => !memberById.has(id));
+    if (missing.length === 0) {
       return;
     }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(BATCH_DELETE_STORAGE_KEY, JSON.stringify(selectedIds));
+    const extra = await getMembersList({ ids: missing });
+    setMembers((current) => {
+      const seen = new Set(current.map((member) => member.id));
+      return [...current, ...extra.filter((member) => !seen.has(member.id))];
+    });
+  };
+
+  const openLicenseDelete = async (licenseOrId: License | number) => {
+    const license =
+      typeof licenseOrId === "number"
+        ? licenses.find((item) => item.id === licenseOrId) ??
+          (await getLicensesList({ ids: [licenseOrId] }))[0]
+        : licenseOrId;
+    if (!license) {
+      return;
     }
-    router.push(`/${locale}/dashboard/ltf/licenses/batch-delete`);
+    await rememberMembers([license.member]);
+    setPendingDelete(license);
+  };
+
+  const openBatchDelete = async (ids: number[]) => {
+    if (ids.length === 0) {
+      return;
+    }
+    const rows = await getLicensesList({ ids });
+    await rememberMembers(rows.map((license) => license.member));
+    setBatchLicenses(rows);
+    setBatchDeleteOpen(true);
+  };
+
+  useConsumeSearchParam("delete", (value) => {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) {
+      void openLicenseDelete(id);
+    }
+  });
+  useConsumeSearchParam("batchDelete", () => {
+    let ids = selectedIds;
+    if (typeof window !== "undefined") {
+      try {
+        const rawValue = window.sessionStorage.getItem(BATCH_DELETE_STORAGE_KEY);
+        const parsed = rawValue ? JSON.parse(rawValue) : [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          ids = parsed.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0);
+          setSelectedIds(ids);
+        }
+      } catch {
+        ids = selectedIds;
+      }
+      window.sessionStorage.removeItem(BATCH_DELETE_STORAGE_KEY);
+    }
+    void openBatchDelete(ids);
+  });
+
+  const licenseImpactLine = (license: License) => {
+    const member = memberById.get(license.member);
+    const memberLabel = member ? formatFullName(member) : t("unknownMember");
+    const clubLabel = displayClubName(license.club, license.club ? clubById.get(license.club)?.name : "", {
+      noClub: t("noClub"),
+      unknownClub: t("unknownClub"),
+    });
+    const typeLabel = licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType");
+    return `${memberLabel} · ${clubLabel} · ${typeLabel} · ${license.year} · ${getStatusLabel(license.status)} · ${formatIssuedAt(license.issued_at)}`;
+  };
+
+  const confirmLicenseDelete = async () => {
+    if (!pendingDelete) {
+      return;
+    }
+    try {
+      await deleteLicense(pendingDelete.id);
+      setSelectedIds((current) => current.filter((id) => id !== pendingDelete.id));
+      setPendingDelete(null);
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("singleDeleteLicenseDeleteError"));
+    }
+  };
+
+  const confirmBatchLicenseDelete = async () => {
+    let deleted = 0;
+    let failed = 0;
+    for (const license of batchLicenses) {
+      try {
+        await deleteLicense(license.id);
+        deleted += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setBatchDeleteOpen(false);
+    setBatchLicenses([]);
+    setSelectedIds([]);
+    if (failed > 0) {
+      setErrorMessage(t("batchDeleteLicensesResultLabel", { deleted, failed }));
+    }
+    await loadData();
   };
 
   const getStatusLabel = (status: License["status"]) => {
@@ -393,17 +487,15 @@ export default function LtfAdminLicensesPage() {
     {
       key: "select",
       header: (
-        <span className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center">
-          <Checkbox
-            aria-label={common("selectAllLabel")}
-            checked={allSelected}
-            onCheckedChange={() => toggleSelectAll()}
-          />
-        </span>
+        <Checkbox
+          aria-label={common("selectAllLabel")}
+          checked={headerCheck}
+          onCheckedChange={() => toggleSelectAll()}
+        />
       ),
       render: (license: License) => (
         <span
-          className="inline-flex min-h-[var(--control-height)] min-w-[var(--control-height)] items-center justify-center"
+          className="inline-flex"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
@@ -426,27 +518,35 @@ export default function LtfAdminLicensesPage() {
     },
     {
       key: "member",
-      header: t("memberLabel"),
+      header: common("fullNameLabel"),
+      sortable: true,
       render: (license: License) => {
         const member = memberById.get(license.member);
-        return member ? `${member.first_name} ${member.last_name}` : t("unknownMember");
+        return member ? formatFullName(member) : t("unknownMember");
       },
     },
     {
       key: "club",
       header: t("clubLabel"),
-      render: (license: License) => clubById.get(license.club)?.name ?? t("unknownClub"),
+      sortable: true,
+      render: (license: License) =>
+        displayClubName(license.club, license.club ? clubById.get(license.club)?.name : "", {
+          noClub: t("noClub"),
+          unknownClub: t("unknownClub"),
+        }),
     },
     {
       key: "license_type",
       header: t("licenseTypeLabel"),
+      sortable: true,
       render: (license: License) =>
         licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType"),
     },
-    { key: "year", header: t("yearLabel") },
+    { key: "year", header: t("yearLabel"), sortable: true },
     {
       key: "status",
       header: t("statusLabel"),
+      sortable: true,
       render: (license: License) => (
         <StatusBadge label={getStatusLabel(license.status)} tone={getStatusTone(license.status)} />
       ),
@@ -454,31 +554,29 @@ export default function LtfAdminLicensesPage() {
     {
       key: "issued_at",
       header: t("issuedAtLabel"),
+      sortable: true,
       render: (license: License) => formatIssuedAt(license.issued_at),
+    },
+    {
+      key: "end_date",
+      header: t("expiresLabel"),
+      sortable: true,
+      render: (license: License) => {
+        const hint = licenseExpiryHint(license.end_date);
+        return <span className={licenseExpiryClass(hint)}>{formatLicenseExpiry(license.end_date)}</span>;
+      },
     },
     {
       key: "actions",
       header: t("actionsLabel"),
       render: (license: License) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0 p-0"
-            aria-label={t("editAction")}
-            onClick={() => startEdit(license)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={t("deleteAction")}
-            onClick={() => handleDelete(license)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        <RowActionMenu
+          label={common("rowActionsLabel")}
+          actions={[
+            { key: "edit", label: t("editAction"), onSelect: () => startEdit(license) },
+            { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => void openLicenseDelete(license) },
+          ]}
+        />
       ),
     },
   ];
@@ -487,8 +585,8 @@ export default function LtfAdminLicensesPage() {
     <LtfAdminLayout title={t("licensesTitle")} subtitle={t("licensesSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
               <Input
@@ -535,12 +633,14 @@ export default function LtfAdminLicensesPage() {
                   label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
                   actions={[
-                    { key: "delete", label: common("batchDeleteLabel"), onSelect: openBatchDeletePage },
+                    { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete(selectedIds) },
                   ]}
                 />
                 <SelectionMeta
                   count={selectedIds.length}
                   countLabel={t("selectedCountLabel", { count: selectedIds.length })}
+                  offPageCount={otherPageCount}
+                  offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                   clearLabel={t("clearSelection")}
                   onClear={() => {
                     setSelectedIds([]);
@@ -568,110 +668,23 @@ export default function LtfAdminLicensesPage() {
         ) : licenses.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noLicensesResultsSubtitle")} />
         ) : (
-          <EntityTable columns={columns} rows={licenses} />
+          <EntityTable
+            columns={columns}
+            rows={licenses}
+            sort={tableSort}
+            onSortChange={setTableSort}
+          />
         )}
       </div>
 
-      <Modal
+      <SidePanel
+        open={isFormOpen}
         title={editingLicense ? t("updateLicense") : t("createLicense")}
         description={t("licenseFormSubtitle")}
-        isOpen={isFormOpen}
+        closeLabel={common("modalClose")}
         onClose={() => setIsFormOpen(false)}
-      >
-        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-foreground">{t("clubLabel")}</label>
-            <Select
-              value={watch("club")}
-              onValueChange={(value) => setValue("club", value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectClubPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {clubs.map((club) => (
-                  <SelectItem key={club.id} value={String(club.id)}>
-                    {club.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.club ? <p className="text-sm text-destructive">{errors.club.message}</p> : null}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("memberLabel")}</label>
-            <Select
-              value={watch("member")}
-              onValueChange={(value) => setValue("member", value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectMemberPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {clubMembers.map((member) => (
-                  <SelectItem key={member.id} value={String(member.id)}>
-                    {member.first_name} {member.last_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.member ? <p className="text-sm text-destructive">{errors.member.message}</p> : null}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("licenseTypeLabel")}</label>
-            <Select
-              value={watch("license_type")}
-              onValueChange={(value) => setValue("license_type", value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectLicenseTypePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {licenseTypes.map((licenseType) => (
-                  <SelectItem key={licenseType.id} value={String(licenseType.id)}>
-                    {licenseType.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.license_type ? (
-              <p className="text-sm text-destructive">{errors.license_type.message}</p>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("yearLabel")}</label>
-            <Input type="number" min="2000" {...register("year")} />
-            {errors.year ? <p className="text-sm text-destructive">{errors.year.message}</p> : null}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t("statusLabel")}</label>
-            <Select
-              value={watch("status")}
-              onValueChange={(value) =>
-                setValue("status", value as "pending" | "active" | "expired", {
-                  shouldValidate: true,
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectStatusPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">{t("statusPending")}</SelectItem>
-                <SelectItem value="active">{t("statusActive")}</SelectItem>
-                <SelectItem value="expired">{t("statusExpired")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={isSubmitting}>
-              {editingLicense ? t("updateLicense") : t("createLicense")}
-            </Button>
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -689,9 +702,102 @@ export default function LtfAdminLicensesPage() {
             >
               {t("cancelEdit")}
             </Button>
+            <Button type="submit" form="ltf-license-form" disabled={isSubmitting}>
+              {editingLicense ? t("updateLicense") : t("createLicense")}
+            </Button>
+          </>
+        }
+      >
+        <form id="ltf-license-form" className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-2">
+            <Label required>{t("clubLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("clubLabel")}
+              className="w-full"
+              value={watch("club")}
+              onValueChange={(value) => setValue("club", value, { shouldValidate: true })}
+              placeholder={t("selectClubPlaceholder")}
+              searchable
+              searchPlaceholder={t("selectClubPlaceholder")}
+              options={clubs.map((club) => ({ value: String(club.id), label: club.name }))}
+            />
+            {errors.club ? <p className="text-sm text-destructive">{errors.club.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label required>{t("memberLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("memberLabel")}
+              className="w-full"
+              value={watch("member")}
+              onValueChange={(value) => setValue("member", value, { shouldValidate: true })}
+              placeholder={t("selectMemberPlaceholder")}
+              searchable
+              searchPlaceholder={t("selectMemberPlaceholder")}
+              options={clubMembers.map((member) => ({ value: String(member.id), label: formatFullName(member) }))}
+            />
+            {errors.member ? <p className="text-sm text-destructive">{errors.member.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label required>{t("licenseTypeLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("licenseTypeLabel")}
+              className="w-full"
+              value={watch("license_type")}
+              onValueChange={(value) => setValue("license_type", value, { shouldValidate: true })}
+              placeholder={t("selectLicenseTypePlaceholder")}
+              options={licenseTypes.map((licenseType) => ({ value: String(licenseType.id), label: licenseType.name }))}
+            />
+            {errors.license_type ? <p className="text-sm text-destructive">{errors.license_type.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ltf-license-year" required>{t("yearLabel")}</Label>
+            <Input id="ltf-license-year" type="number" min="2000" {...register("year")} />
+            {errors.year ? <p className="text-sm text-destructive">{errors.year.message}</p> : null}
+          </div>
+          <div className="space-y-2">
+            <Label required>{t("statusLabel")}</Label>
+            <PopoverSelect
+              ariaLabel={t("statusLabel")}
+              className="w-full"
+              value={watch("status")}
+              onValueChange={(value) =>
+                setValue("status", value as "pending" | "active" | "expired", { shouldValidate: true })
+              }
+              placeholder={t("selectStatusPlaceholder")}
+              options={[
+                { value: "pending", label: t("statusPending") },
+                { value: "active", label: t("statusActive") },
+                { value: "expired", label: t("statusExpired") },
+              ]}
+            />
           </div>
         </form>
-      </Modal>
+      </SidePanel>
+      <DeleteConfirmModal
+        isOpen={pendingDelete !== null}
+        title={t("singleDeleteLicenseTitle")}
+        description={t("singleDeleteLicenseWarning")}
+        confirmLabel={t("deleteAction")}
+        cancelLabel={common("deleteCancelButton")}
+        listTitle={t("singleDeleteLicensePreviewTitle")}
+        listItems={pendingDelete ? [licenseImpactLine(pendingDelete)] : []}
+        onConfirm={() => void confirmLicenseDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <DeleteConfirmModal
+        isOpen={batchDeleteOpen}
+        title={t("batchDeleteLicensesTitle")}
+        description={t("batchDeleteLicensesWarning")}
+        confirmLabel={common("batchDeleteLabel")}
+        cancelLabel={common("deleteCancelButton")}
+        listTitle={t("singleDeleteLicensePreviewTitle")}
+        listItems={batchLicenses.map((license) => licenseImpactLine(license))}
+        onConfirm={() => void confirmBatchLicenseDelete()}
+        onCancel={() => {
+          setBatchDeleteOpen(false);
+          setBatchLicenses([]);
+        }}
+      />
     </LtfAdminLayout>
   );
 }

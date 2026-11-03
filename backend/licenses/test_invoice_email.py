@@ -1,0 +1,155 @@
+from decimal import Decimal
+from unittest.mock import patch
+
+from django.template.loader import render_to_string
+from django.test import TestCase
+
+from accounts.models import User
+from clubs.models import Club
+from members.models import Member
+
+from .models import CreditNote, Invoice, Order, Payment
+from .pdf_utils import build_invoice_context
+from .tasks import send_invoice_email, send_invoice_reminder_email
+
+
+class InvoiceEmailAmountTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="invoice-mail-admin",
+            password="pass12345",
+            role=User.Roles.LTF_ADMIN,
+        )
+        self.club = Club.objects.create(
+            name="North Crane Club",
+            created_by=self.admin,
+            email="office@northcrane.example",
+        )
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Nora",
+            last_name="Keller",
+            email="nora@example.com",
+        )
+
+    def _invoice(self, *, total, ledger=Order.Ledger.FEDERATION, status=Invoice.Status.ISSUED, **extra):
+        order = Order.objects.create(
+            club=self.club,
+            member=self.member,
+            ledger=ledger,
+            status=Order.Status.PENDING,
+            subtotal=total,
+            tax_total=Decimal("0.00"),
+            total=total,
+        )
+        return Invoice.objects.create(
+            order=order,
+            club=self.club,
+            member=self.member,
+            status=status,
+            subtotal=total,
+            tax_total=Decimal("0.00"),
+            total=total,
+            **extra,
+        )
+
+    def _sent_text(self, send):
+        self.assertTrue(send.called)
+        return send.call_args.args[3]
+
+    @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
+    @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
+    def test_paid_license_invoice_email_matches_the_pdf_total(self, send, _pdf):
+        invoice = self._invoice(total=Decimal("80.00"), status=Invoice.Status.PAID)
+        Payment.objects.create(
+            invoice=invoice,
+            order=invoice.order,
+            amount=Decimal("80.00"),
+            status=Payment.Status.PAID,
+        )
+        self.assertEqual(invoice.outstanding(), Decimal("0.00"))
+        context = build_invoice_context(invoice)
+        printed = context["total_amount"]
+        self.assertEqual(context["settlement_label"], "Amount paid")
+        self.assertEqual(context["settlement_amount"], printed)
+
+        send_invoice_email(invoice.id)
+
+        text = self._sent_text(send)
+        self.assertIn(f"Amount paid: {printed}", text)
+        self.assertIn("80,00 €", text)
+        self.assertNotIn("Amount due:", text)
+        self.assertNotIn("Total due: 0,00 €", text)
+        self.assertNotIn("0.00", text)
+
+    @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
+    @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
+    def test_club_invoice_email_matches_the_pdf_total(self, send, _pdf):
+        invoice = self._invoice(
+            total=Decimal("45.50"),
+            ledger=Order.Ledger.CLUB,
+            delivery_method=Invoice.DeliveryMethod.EMAIL,
+            bill_to_email="payer@example.com",
+        )
+        context = build_invoice_context(invoice)
+        printed = context["total_amount"]
+        self.assertEqual(context["settlement_label"], "Amount due")
+
+        send_invoice_email(invoice.id, ["payer@example.com"])
+
+        text = self._sent_text(send)
+        self.assertIn(f"Amount due: {printed}", text)
+        self.assertIn("45,50 €", text)
+        self.assertNotIn("Amount paid:", text)
+        self.assertEqual(send.call_args.args[0], "payer@example.com")
+        for language, pdf_label in (("fr", "Montant dû"), ("de", "Fälliger Betrag"), ("lb", "Ze bezuelen")):
+            Club.objects.filter(pk=self.club.pk).update(communication_language=language)
+            invoice.club.refresh_from_db()
+            self.assertEqual(build_invoice_context(invoice)["settlement_label"], pdf_label)
+
+    @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
+    @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
+    def test_reminder_uses_the_balance_after_payments_and_credits(self, send, _pdf):
+        invoice = self._invoice(total=Decimal("100.00"))
+        Payment.objects.create(
+            invoice=invoice,
+            order=invoice.order,
+            amount=Decimal("40.00"),
+            status=Payment.Status.PAID,
+        )
+        CreditNote.objects.create(invoice=invoice, amount=Decimal("10.00"), reason="Goodwill")
+
+        send_invoice_reminder_email(invoice.id)
+
+        text = self._sent_text(send)
+        self.assertIn("Amount still due: 50,00 €", text)
+        self.assertNotIn("100,00 €", text)
+        self.assertNotIn("Amount still due: 0,00 €", text)
+
+    @patch("licenses.tasks.render_invoice_pdf", return_value=b"%PDF-test")
+    @patch("licenses.tasks.send_resend_email", return_value=(True, ""))
+    def test_amount_is_translated_and_keeps_the_pdf_format(self, send, _pdf):
+        invoice = self._invoice(total=Decimal("80.00"), status=Invoice.Status.PAID)
+        Payment.objects.create(
+            invoice=invoice,
+            order=invoice.order,
+            amount=Decimal("80.00"),
+            status=Payment.Status.PAID,
+        )
+        expected = (
+            ("lb", "Bezuelt: 80,00 €", "Bezuelt", "Lizenz-ID"),
+            ("fr", "Montant payé : 80,00 €", "Montant payé", "N° de licence"),
+            ("de", "Bezahlter Betrag: 80,00 €", "Bezahlter Betrag", "Lizenz-ID"),
+        )
+        for language, email_line, pdf_label, column in expected:
+            Club.objects.filter(pk=self.club.pk).update(communication_language=language)
+            invoice.club.refresh_from_db()
+            send.reset_mock()
+            send_invoice_email(invoice.id)
+            self.assertIn(email_line, self._sent_text(send))
+            context = build_invoice_context(invoice)
+            self.assertEqual(context["settlement_label"], pdf_label)
+            html = render_to_string("finance/ltf_license_invoice_pdf.html", context)
+            self.assertIn(pdf_label, html)
+            self.assertIn(column, html)
+            self.assertIn(context["labels"]["total"], html)

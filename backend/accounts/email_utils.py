@@ -1,11 +1,12 @@
 import base64
 import logging
+import re
 from email.utils import parseaddr
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.mail import EmailMultiAlternatives
+from django.db.models import F
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -83,7 +84,13 @@ def _send_via_django(to_email, subject, html, text, attachments=None):
 
 
 def build_password_reset_url(user, locale: str) -> str:
-    token = PasswordResetTokenGenerator().make_token(user)
+    """Issue one reset link and invalidate every older reset link for this person."""
+    from accounts.models import User
+    from accounts.password_reset import ResetTokenGenerator
+
+    User.objects.filter(pk=user.pk).update(password_reset_generation=F("password_reset_generation") + 1)
+    user.refresh_from_db(fields=["password_reset_generation"])
+    token = ResetTokenGenerator().make_token(user)
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     query = urlencode(
         {
@@ -95,13 +102,26 @@ def build_password_reset_url(user, locale: str) -> str:
     return f"{settings.FRONTEND_BASE_URL}/{locale}/reset-password?{query}"
 
 
+def _email_context(template: str, language: str, context: dict, **values) -> tuple[dict, str]:
+    from clubs.document_copy import email_copy
+
+    copy = email_copy(template, language, **values)
+    return {**context, "copy": copy}, copy["subject"]
+
+
 def send_club_admin_welcome_email(user, club, reset_url):
-    subject = f"You are a Club Admin for {club.name}"
-    context = {
-        "user": user,
-        "club": club,
-        "reset_url": reset_url,
-    }
+    from clubs.document_copy import resolve_document_language
+
+    name = f"{user.first_name} {user.last_name}".strip() or user.username or ""
+    language = resolve_document_language(club=club)
+    context, subject = _email_context(
+        "welcome",
+        language,
+        {"user": user, "club": club, "reset_url": reset_url},
+        name=name,
+        club=club.name,
+        username=user.username or "",
+    )
     html = render_to_string("account/email/club_admin_welcome.html", context)
     text = render_to_string("account/email/club_admin_welcome.txt", context)
     return send_resend_email(user.email, subject, html, text)
@@ -148,18 +168,30 @@ def _transfer_ltf_url(locale: str) -> str:
 
 
 def send_member_transfer_request_email(transfer, locale: str | None = None):
-    locale_code = locale or settings.FRONTEND_DEFAULT_LOCALE
-    context = {
-        "member_name": _member_display_name(transfer.member),
-        "from_club": transfer.from_club.name,
-        "to_club": transfer.to_club.name,
-        "fee_amount": transfer.fee_amount,
-        "fee_currency": transfer.fee_currency,
-        "has_fee": transfer.fee_amount > 0,
-        "note": transfer.note or "",
-        "action_url": _transfer_club_url(locale_code),
-    }
-    subject = f"Member transfer request: {_member_display_name(transfer.member)}"
+    from clubs.document_copy import resolve_document_language
+
+    locale_code = resolve_document_language(explicit=locale, club=transfer.to_club, prefer_club=True)
+    member_name = _member_display_name(transfer.member)
+    context, subject = _email_context(
+        "transfer_request",
+        locale_code,
+        {
+            "member_name": member_name,
+            "from_club": transfer.from_club.name,
+            "to_club": transfer.to_club.name,
+            "fee_amount": transfer.fee_amount,
+            "fee_currency": transfer.fee_currency,
+            "has_fee": transfer.fee_amount > 0,
+            "note": transfer.note or "",
+            "action_url": _transfer_club_url(locale_code),
+        },
+        member=member_name,
+        from_club=transfer.from_club.name,
+        to_club=transfer.to_club.name,
+        fee_amount=transfer.fee_amount,
+        fee_currency=transfer.fee_currency,
+        note=transfer.note or "",
+    )
     html = render_to_string("account/email/member_transfer_request.html", context)
     text = render_to_string("account/email/member_transfer_request.txt", context)
     sent_any = False
@@ -173,18 +205,26 @@ def send_member_transfer_request_email(transfer, locale: str | None = None):
 
 
 def send_member_transfer_fee_notice(transfer, locale: str | None = None):
-    locale_code = locale or settings.FRONTEND_DEFAULT_LOCALE
-    context = {
-        "member_name": _member_display_name(transfer.member),
-        "from_club": transfer.from_club.name,
-        "to_club": transfer.to_club.name,
-        "fee_amount": transfer.fee_amount,
-        "fee_currency": transfer.fee_currency,
-        "action_url": _transfer_ltf_url(locale_code),
-    }
-    subject = (
-        f"Transfer fee notice: {_member_display_name(transfer.member)} "
-        f"({transfer.fee_amount} {transfer.fee_currency})"
+    from clubs.document_copy import resolve_document_language
+
+    locale_code = resolve_document_language(explicit=locale, club=transfer.to_club, prefer_club=True)
+    member_name = _member_display_name(transfer.member)
+    context, subject = _email_context(
+        "transfer_fee",
+        locale_code,
+        {
+            "member_name": member_name,
+            "from_club": transfer.from_club.name,
+            "to_club": transfer.to_club.name,
+            "fee_amount": transfer.fee_amount,
+            "fee_currency": transfer.fee_currency,
+            "action_url": _transfer_ltf_url(locale_code),
+        },
+        member=member_name,
+        from_club=transfer.from_club.name,
+        to_club=transfer.to_club.name,
+        fee_amount=transfer.fee_amount,
+        fee_currency=transfer.fee_currency,
     )
     html = render_to_string("account/email/member_transfer_fee_notice.html", context)
     text = render_to_string("account/email/member_transfer_fee_notice.txt", context)
@@ -199,15 +239,25 @@ def send_member_transfer_fee_notice(transfer, locale: str | None = None):
 
 
 def send_member_transfer_status_email(transfer, *, kind: str, locale: str | None = None):
-    locale_code = locale or settings.FRONTEND_DEFAULT_LOCALE
-    context = {
-        "member_name": _member_display_name(transfer.member),
-        "from_club": transfer.from_club.name,
-        "to_club": transfer.to_club.name,
-        "kind": kind,
-        "action_url": _transfer_club_url(locale_code),
-    }
-    subject = f"Member transfer {kind}: {_member_display_name(transfer.member)}"
+    from clubs.document_copy import resolve_document_language
+
+    locale_code = resolve_document_language(explicit=locale, club=transfer.to_club, prefer_club=True)
+    member_name = _member_display_name(transfer.member)
+    context, subject = _email_context(
+        "transfer_status",
+        locale_code,
+        {
+            "member_name": member_name,
+            "from_club": transfer.from_club.name,
+            "to_club": transfer.to_club.name,
+            "kind": kind,
+            "action_url": _transfer_club_url(locale_code),
+        },
+        member=member_name,
+        from_club=transfer.from_club.name,
+        to_club=transfer.to_club.name,
+        kind=kind,
+    )
     html = render_to_string("account/email/member_transfer_status.html", context)
     text = render_to_string("account/email/member_transfer_status.txt", context)
     recipients = _club_admin_emails(transfer.from_club)
@@ -226,8 +276,18 @@ def send_member_transfer_status_email(transfer, *, kind: str, locale: str | None
 
 
 def send_password_reset_email(user, reset_url):
-    subject = "Reset your LTF Dojang Hub password"
-    context = {"user": user, "reset_url": reset_url}
+    from clubs.document_copy import resolve_document_language
+
+    match = re.search(r"/([a-z]{2})/reset-password", str(reset_url or ""))
+    language = resolve_document_language(explicit=match.group(1) if match else None)
+    name = f"{user.first_name} {user.last_name}".strip() or user.username or ""
+    context, subject = _email_context(
+        "reset",
+        language,
+        {"user": user, "reset_url": reset_url},
+        name=name,
+        username=user.username or "",
+    )
     html = render_to_string("account/email/password_reset.html", context)
     text = render_to_string("account/email/password_reset.txt", context)
     return send_resend_email(user.email, subject, html, text)

@@ -1,0 +1,13 @@
+Guten Tag {{ name }},
+
+Wir haben eine Anfrage erhalten, Ihr LTF-Dojang-Hub-Passwort zurückzusetzen.
+
+Benutzername: {{ username }}
+Clubs: {{ clubs }}
+
+Wählen Sie ein neues Passwort:
+{{ url }}
+
+Wenn Sie das nicht angefordert haben, können Sie diese E-Mail ignorieren.
+
+LTF Dojang Hub

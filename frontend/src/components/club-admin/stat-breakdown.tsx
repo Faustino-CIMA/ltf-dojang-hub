@@ -20,7 +20,7 @@ const barTone: Record<NonNullable<StatBreakdownItem["tone"]>, string> = {
 export function StatBreakdown({ title, items }: StatBreakdownProps) {
   const max = Math.max(1, ...items.map((item) => item.value));
   return (
-    <section className="app-panel p-5">
+    <section className="app-panel p-3">
       <h2 className="text-section text-foreground">{title}</h2>
       <div className="mt-4 space-y-3">
         {items.map((item) => (

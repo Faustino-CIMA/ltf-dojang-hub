@@ -13,6 +13,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatFullName } from "@/lib/person-name";
 import {
   getMemberTransfers,
   getTransferMovements,
@@ -56,16 +57,16 @@ export default function LtfMemberTransfersPage() {
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubTouristMonitorTitle")}</h2>
             <p className="mt-1 text-sm text-muted">
               {t("clubTouristMonitorHint", { count: monitor?.threshold ?? 3 })}
             </p>
             {(monitor?.flagged_members.length ?? 0) === 0 ? (
-              <p className="mt-4 text-sm text-muted">{t("clubTouristNone")}</p>
+              <p className="mt-3 text-sm text-muted">{t("clubTouristNone")}</p>
             ) : (
-              <div className="mt-4">
+              <div className="mt-3">
                 <EntityTable
                   columns={[
                     {
@@ -74,13 +75,17 @@ export default function LtfMemberTransfersPage() {
                       render: (row) => (
                         <span className="inline-flex flex-wrap items-center gap-2">
                           <span>
-                            {row.first_name} {row.last_name}
+                            {formatFullName(row)}
                           </span>
                           <StatusBadge label={t("clubTouristBadge")} tone="warning" />
                         </span>
                       ),
                     },
-                    { key: "club_name", header: t("clubLabel") },
+                    {
+                      key: "club_name",
+                      header: t("clubLabel"),
+                      render: (row) => (row.club_id ? row.club_name : t("noClub")),
+                    },
                     { key: "ltf_licenseid", header: t("ltfLicenseLabel") },
                     { key: "completed_transfer_count", header: t("clubMovementCountLabel") },
                   ]}
@@ -97,9 +102,9 @@ export default function LtfMemberTransfersPage() {
             <h2 className="text-section text-foreground">{t("clubMovementClubsTitle")}</h2>
             <p className="mt-1 text-sm text-muted">{t("clubMovementClubsSubtitle")}</p>
             {(monitor?.clubs.length ?? 0) === 0 ? (
-              <p className="mt-4 text-sm text-muted">{t("clubMovementClubsEmpty")}</p>
+              <p className="mt-3 text-sm text-muted">{t("clubMovementClubsEmpty")}</p>
             ) : (
-              <div className="mt-4">
+              <div className="mt-3">
                 <EntityTable
                   columns={[
                     { key: "name", header: t("clubLabel") },
@@ -116,9 +121,9 @@ export default function LtfMemberTransfersPage() {
           <FormPanel>
             <h2 className="text-section text-foreground">{t("clubMovementRecentTitle")}</h2>
             {(monitor?.recent_completed.length ?? 0) === 0 ? (
-              <p className="mt-4 text-sm text-muted">{t("clubMovementHistoryEmpty")}</p>
+              <p className="mt-3 text-sm text-muted">{t("clubMovementHistoryEmpty")}</p>
             ) : (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b border-border text-xs uppercase tracking-wide text-muted">
                     <tr>
@@ -136,7 +141,7 @@ export default function LtfMemberTransfersPage() {
                             className="font-medium text-foreground underline-offset-2 hover:underline"
                             href={`/${locale}/dashboard/ltf/members/${row.member?.id}`}
                           >
-                            {row.member?.first_name} {row.member?.last_name}
+                            {formatFullName(row.member)}
                           </Link>
                         </td>
                         <td className="px-2 py-2">{row.from_club.name}</td>
@@ -164,7 +169,7 @@ export default function LtfMemberTransfersPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-foreground">
-                          {item.member.first_name} {item.member.last_name}
+                          {formatFullName(item.member)}
                         </p>
                         <p className="mt-1 text-sm text-muted">
                           {item.from_club.name} → {item.to_club.name}

@@ -3,6 +3,13 @@ export type ImportMappingField = {
   label: string;
 };
 
+/** Primary key assigned when a member is saved. Never a column target on a form. */
+export const GENERATED_MEMBER_ID_FIELD_KEYS = new Set(["id", "member_id"]);
+
+export function omitGeneratedMemberIdFields<T extends { key: string }>(fields: T[]): T[] {
+  return fields.filter((field) => !GENERATED_MEMBER_ID_FIELD_KEYS.has(field.key));
+}
+
 export const FIELD_HEADER_ALIASES: Record<string, string[]> = {
   first_name: [
     "first name",
@@ -24,7 +31,15 @@ export const FIELD_HEADER_ALIASES: Record<string, string[]> = {
   email: ["e-mail", "email address", "e mail"],
   date_of_birth: ["date of birth", "dob", "birth date", "birthday", "birthdate"],
   belt_rank: ["belt rank", "belt", "grade", "rank"],
-  wt_licenseid: ["wt license id", "wt license", "wt id", "world taekwondo id"],
+  wt_licenseid: [
+    "wt license id",
+    "wt license",
+    "wt id",
+    "world taekwondo id",
+    "wt lizenz id",
+    "wt lizenz",
+    "wt-lizenz-id",
+  ],
   ltf_licenseid: [
     "ltf license id",
     "ltf license",
@@ -40,6 +55,7 @@ export const FIELD_HEADER_ALIASES: Record<string, string[]> = {
   ],
   secondary_license_role: ["secondary license role", "secondary role"],
   is_active: ["is active", "active"],
+  club_name: ["club name", "club", "organization name", "organisation name"],
   membership_end_date: [
     "membership end date",
     "membershipenddate",

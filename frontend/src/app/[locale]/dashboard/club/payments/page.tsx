@@ -11,23 +11,24 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
-import { ClubFinanceTabs, ClubLedgerFilter, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
+import { ClubFinanceTabs, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { useClubFinanceAccess } from "@/components/club-admin/use-club-finance-access";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { FinanceListFilters } from "@/components/finance/finance-list-filters";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { Input } from "@/components/ui/input";
 import {
-  LIST_PAGE_SIZE_CAP,
   ListActionsRow,
   ListPagination,
   ListToolbarPanel,
   PageSizeSelect,
-  resolveListPageSize,
   ActionNotices,
 } from "@/components/ui/list-page-chrome";
+import { useListPage } from "@/components/ui/use-list-page";
+import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getClubPaymentsPage } from "@/lib/club-finance-api";
 import { formatDisplayDateTime } from "@/lib/date-display";
@@ -48,10 +49,12 @@ export default function ClubPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState("50");
   const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter>("all");
   const [ledgerFilter, setLedgerFilter] = useState<ClubLedgerFilterValue>("all");
+  const [currentPage, setCurrentPage] = useListPage(
+    [selectedClubId ?? "", searchQuery, pageSize, statusFilter, ledgerFilter].join("|"),
+  );
   const [totalPaymentCount, setTotalPaymentCount] = useState(0);
   const [paymentFacetCounts, setPaymentFacetCounts] = useState({
     all: 0,
@@ -87,16 +90,18 @@ export default function ClubPaymentsPage() {
           clubId: selectedClubId ?? undefined,
           ledger: ledgerFilter === "all" ? undefined : ledgerFilter,
         };
-        const paymentsPromise = getClubPaymentsPage(
-          {
-            page: currentPage,
-            pageSize: resolveListPageSize(pageSize, LIST_PAGE_SIZE_CAP),
-            q: searchQuery || undefined,
-            status: statusFilter === "all" ? undefined : statusFilter,
-            clubId: selectedClubId ?? undefined,
-            ledger: ledgerFilter === "all" ? undefined : ledgerFilter,
-          },
-          { signal: controller.signal }
+        const paymentsPromise = readListPage(pageSize, currentPage, (page, size) =>
+          getClubPaymentsPage(
+            {
+              page,
+              pageSize: size,
+              q: searchQuery || undefined,
+              status: statusFilter === "all" ? undefined : statusFilter,
+              clubId: selectedClubId ?? undefined,
+              ledger: ledgerFilter === "all" ? undefined : ledgerFilter,
+            },
+            { signal: controller.signal },
+          ),
         );
         if (includeStatic) {
           const [
@@ -166,10 +171,6 @@ export default function ClubPaymentsPage() {
   }, [loadPayments]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedClubId, searchQuery, pageSize, statusFilter, ledgerFilter]);
-
-  useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
     }, 250);
@@ -203,14 +204,14 @@ export default function ClubPaymentsPage() {
     };
   }, [loadPayments]);
 
-  const resolvedPageSize = resolveListPageSize(pageSize, totalPaymentCount);
+  const resolvedPageSize = displayPageSize(pageSize, totalPaymentCount);
   const totalPages = Math.max(1, Math.ceil(totalPaymentCount / resolvedPageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
   const getPaymentStatusMeta = useCallback(
     (status: string) => {
@@ -299,11 +300,11 @@ export default function ClubPaymentsPage() {
 
   return (
     <ClubAdminLayout title={t("paymentsTitle")} subtitle={t("paymentsSubtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <ListToolbarPanel
             search={
               <Input
@@ -322,11 +323,17 @@ export default function ClubPaymentsPage() {
                 allLabel={common("rowsPerPageAll")}
               />
             }
-            trailing={<ClubLedgerFilter value={ledgerFilter} onChange={setLedgerFilter} />}
             filtersPlacement="below"
             filters={
+              <FinanceListFilters
+                statusActive={statusFilter !== "all"}
+                onResetStatus={() => setStatusFilter("all")}
+                ledger={ledgerFilter}
+                onLedgerChange={setLedgerFilter}
+                status={
               <FilterPills
                 ariaLabel={t("paymentsStatusFilterAriaLabel")}
+                layout="wrap"
                 value={statusFilter}
                 onChange={setStatusFilter}
                 options={[
@@ -348,6 +355,8 @@ export default function ClubPaymentsPage() {
                     count: paymentFacetCounts.cancelled,
                   },
                 ]}
+              />
+                }
               />
             }
           />

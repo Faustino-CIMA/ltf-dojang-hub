@@ -5,7 +5,8 @@ from typing import Any, Mapping
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from .history import create_license_history_event, log_license_status_change
+from .history import create_license_history_event, expire_outdated_licenses, log_license_status_change
+from .validity import placeholder_activation_block
 from .models import FinanceAuditLog, Invoice, License, LicenseHistoryEvent, Order, Payment
 
 
@@ -96,6 +97,10 @@ def apply_payment_and_activate(
         if "items" not in prefetched_cache:
             order_items_queryset = order_items_queryset.select_related("license")
         order_items = list(order_items_queryset)
+        expire_outdated_licenses(
+            actor=actor,
+            member_ids=[item.license.member_id for item in order_items if item.license_id and item.license],
+        )
         candidate_licenses = [
             item.license
             for item in order_items
@@ -122,10 +127,11 @@ def apply_payment_and_activate(
                 continue
             license_status_before[license_record.id] = license_record.status
             if license_record.status != License.Status.ACTIVE:
-                if license_record.start_date > today:
+                blocked = placeholder_activation_block(license_record, today)
+                if blocked == "deferred":
                     deferred_license_ids.append(license_record.id)
                     continue
-                if license_record.end_date < today:
+                if blocked == "outside":
                     outside_validity_license_ids.append(license_record.id)
                     continue
                 if license_record.member_id in member_ids_with_other_active_license:
@@ -280,6 +286,11 @@ def apply_payment_and_activate(
                     payment=created_payment,
                     metadata={"source": "apply_payment_and_activate"},
                 )
+
+        if invoice and invoice.status == Invoice.Status.PAID:
+            from .module_orders import activate_module_purchases
+
+            activate_module_purchases(order, actor=actor)
 
         if updated_order or updated_invoice or activated_any:
             has_license_items = any(item.license_id for item in order_items)

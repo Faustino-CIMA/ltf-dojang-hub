@@ -9,7 +9,7 @@ One source tree builds four print-ready PDFs:
 | Français | `LTF-Dojang-Hub-Manuel-utilisateur-FR.pdf` | English UI (the app has no French UI) | `figures/en/` |
 | Lëtzebuergesch | `LTF-Dojang-Hub-Benotzerhandbuch-LB.pdf` | Luxembourgish UI | `figures/lb/` |
 
-The manual describes app version **0.12.0** (repo commit `e6c68c8`). All people, clubs and numbers in the
+The manual describes app version **0.13.0** (develop commit `0a2093e`). Figures that show the sidebar version, and the print-job lists, were recaptured for this edition in the light theme. Where another screen differs from the text, the screen is right. All people, clubs and numbers in the
 screenshots come from an invented demo data set. There is no real personal data.
 
 ## Layout
@@ -87,13 +87,13 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
 
    | # | Script | Kind | Creates |
    |---|---|---|---|
-   | 1 | `seed_1_base_orm.py` | ORM | federation profile, demo clubs, members, demo logins, licence types/prices, licences, grade history |
-   | 2 | `seed_2_training_api.py` | API | training series, membership and licence fees, calendar events |
+   | 1 | `seed_1_base_orm.py` | ORM | federation profile, demo clubs, members, demo logins, license types/prices, licenses, grade history |
+   | 2 | `seed_2_training_api.py` | API | training series, membership and license fees, calendar events |
    | 3 | `seed_3_committee_shop_orm.py` | ORM | committee mandates, shop items/variants and opening stock |
    | 4 | `seed_4_activity_api.py` | API | families, held training sessions, promotion rules and belt tests |
-   | 5 | `seed_5_billing_api.py` | API | yearly club billing, licence orders and LTF invoices |
-   | 6 | `seed_6_club3_history_orm.py` | ORM | second club admin (`paul.musel`), licence history |
-   | 7 | `seed_7_cardtemplate_api.py` | API | licence-card template version, set as default |
+   | 5 | `seed_5_billing_api.py` | API | yearly club billing, license orders and LTF invoices |
+   | 6 | `seed_6_club3_history_orm.py` | ORM | second club admin (`paul.musel`), license history |
+   | 7 | `seed_7_cardtemplate_api.py` | API | license-card template version, set as default |
 | 8 | `seed_8_contacts_orm.py` | ORM | contact data for Tom SCHMIT's club record, grade history for Sandra WEIS |
 | 9 | `seed_9_figure_fill_api.py` | API | today's club event, a demo bank statement, a credit note on LTF invoice 14, completed transfers (Felix THILL, who ends back in his own club) |
 
@@ -135,9 +135,14 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
   - `keys.py`: lists the EN | LB strings used by a frontend source file. Useful for checking wording.
 
 ## Quality checks done for this edition
-- All 50 figures were checked by eye in both sets (EN and LB). None shows an error, a loading state, an empty list where content is expected, the wrong role or the wrong language.
-- `python build.py --check`: all languages in sync (72 headings, 50 figures, same UI-key sequence), and no unknown UI keys.
-- Every page of all four PDFs was rendered to PNG (`pdftoppm`) and checked by eye: cover, TOC page numbers, figures and legends, call-outs, glossary, index (no duplicate page numbers) and cross-reference page numbers.
+
+Screenshots were recaptured from this branch in the light theme, with the fictional demo seed only. English and Luxembourgish each have their own set. German and French keep using the English set. The public sign-in page stays black and red; that is the brand, including when the rest of the app is light.
+
+- `python build.py --check`: all languages in sync (78 headings, 66 figures, same UI-key sequence), and no unknown UI keys.
+- The four PDFs rebuild without errors.
+- Every `#anchor` used in a cross-reference exists in all four sources.
+
+New figures: `account-setup`, `setup`, `members-menu`, `teams`, `team-roster`, `team-weigh-in`, `height-weight`, `equipment`, `national-team`, `parked-members`, `pay-now`, `checkout-return`, `transfer-request`, `ltf-clubs`, `ltf-club-admins`, `ltf-print-jobs`. The previously unembedded shots are now in the text. `checkout-return` is the in-app cancel page with **Back to club dashboard**. The card provider's own page is described in "Paying the LTF" in all four languages: the invoice line, the card fields, paying, and the way back. `pay-now` is the row menu on an LTF invoice. The billing figure does not number a blocked household: this demo list has none, and the steps under the figure still explain that state. `print-jobs`, `print-history` and `ltf-print-jobs` show fictional jobs (the app has one print-job list, so the first two figures are that list). Sidebar figures that include the version read 0.13.0.
 
 ## Open questions
 
@@ -148,11 +153,11 @@ Status after Faustino's answers (6 October 2026):
 | 1 | Coach member list is empty (coaches only see members of clubs they administer) | **Resolved.** Coach features are not finished. The manual describes only what works (training week, roll, calendar) and says more is planned. The empty list is not documented as a feature. |
 | 2 | Do members and parents get a login? | **Resolved.** No. The app is a staff tool for clubs and the federation. Stated in Getting started, Roles and the FAQ; the member chapter was removed. One line says member access may come later. |
 | 3 | Expense form wording "federation accounts" | **Resolved.** Club expense pages use `LtfFinance.clubExpensesSubtitle` / `clubExpenseFormSubtitle` ("this club's accounts"); LTF Finance keeps the federation wording. Shipped with this docs commit. The manual quotes the new subtitles in "Other income and expenses". |
-| 4 | Licence fee: "first bill" vs. "billing chosen for that year" | **Resolved.** The season runs September to September. New section "When the licence fee is charged", with an example and a note that reconciles the two wordings. |
+| 4 | License fee: "first bill" vs. "billing chosen for that year" | **Resolved.** The season runs September to September. New section "When the license fee is charged", with an example and a note that reconciles the two wordings. |
 | 5 | Privacy page `/settings/privacy` | **Resolved.** Own section in Getting started, checked against the code. The page is reached by URL only, its text is English only, and it is marked as being reviewed. |
 | 6 | Subsidies hint says "Trainers" while the tab is "Coaches" | Open |
 | 7 | Inconsistent LB UI strings | Open |
-| 8 | Pay now | **Resolved.** Test payments only, and the provider is not decided. The manual says so and names no provider. |
+| 8 | Pay now | **Resolved.** Live card checkout (Stripe) on an LTF invoice the club still has to pay, when the server is configured. The manual names the return buttons (`Checkout.returnClub` and the other desks) and does not name hosts, keys or return addresses. If the card page does not open, the invoice is unchanged and the club pays by transfer. |
 | 9 | Date inputs follow the browser locale | For information; covered in the FAQ |
 | 10 | Printer profiles can only be edited by LTF Admin | Open |
 | 11 | Federation inventory and tournaments are not shipped | Open (not documented) |

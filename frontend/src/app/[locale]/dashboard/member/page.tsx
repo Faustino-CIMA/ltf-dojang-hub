@@ -8,6 +8,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberLayout } from "@/components/member/member-layout";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
+import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { apiRequest } from "@/lib/api";
 import {
@@ -84,7 +85,7 @@ export default function MemberDashboardPage() {
 
   return (
     <MemberLayout title={t("title")} subtitle={t("subtitle")}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
         {isLoading ? (
@@ -92,8 +93,9 @@ export default function MemberDashboardPage() {
         ) : !member ? (
           <EmptyState title={t("emptyTitle")} description={t("emptySubtitle")} />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <ProfilePhotoManager
+              cameraFacing="user"
               imageUrl={member.profile_picture_url}
               thumbnailUrl={member.profile_picture_thumbnail_url}
               labels={{
@@ -113,6 +115,7 @@ export default function MemberDashboardPage() {
                 cameraUnavailable: t("photoCameraUnavailable"),
                 cameraPermissionDenied: t("photoCameraPermissionDenied"),
                 cameraStartError: t("photoCameraStartError"),
+                cameraSwitchButton: t("photoCameraSwitch"),
                 zoomLabel: t("photoZoomLabel"),
                 backgroundColorLabel: t("photoBackgroundColorLabel"),
                 removeBackgroundButton: t("photoRemoveBackgroundButton"),
@@ -147,10 +150,12 @@ export default function MemberDashboardPage() {
               gradeIssuedByLabel={t("historyGradeIssuedByColumn")}
               previousPageLabel={commonT("paginationPrevious")}
               nextPageLabel={commonT("paginationNext")}
-              pageLabel={commonT("paginationPage")}
+              pageLabel={(current, total) => commonT("paginationPage", { current, total })}
               licenseHistory={history?.license_history ?? []}
               gradeHistory={history?.grade_history ?? []}
             />
+
+            <MemberCommitteePanel terms={history?.committee_history ?? []} />
           </div>
         )}
       </div>
