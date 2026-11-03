@@ -67,7 +67,12 @@ def locate(page, cat, spec):
         elif kind == "tc":
             loc = page.get_by_text(text)
         elif kind == "aria":
-            loc = page.locator(f'[aria-label="{text}"]')
+            raw = msg(cat, spec[-1])
+            if "{" in raw:
+                prefix = raw.split("{")[0].strip()
+                loc = page.locator(f'[aria-label^="{prefix}"]')
+            else:
+                loc = page.locator(f'[aria-label="{raw}"]')
         elif kind == "ph":
             loc = page.get_by_placeholder(text)
         elif kind == "role":

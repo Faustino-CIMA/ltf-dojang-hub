@@ -15,7 +15,8 @@
    3,
    4,
    5,
-   6
+   6,
+   7
   ],
   "problems": []
  },
@@ -150,7 +151,10 @@
   "problems": []
  },
  "invoices": {
-  "found": [],
+  "found": [
+   1,
+   2
+  ],
   "problems": []
  },
  "record-payment": {
@@ -408,6 +412,32 @@
   "problems": []
  },
  "pay-now": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "subsidies-officials": {
+  "found": [
+   1,
+   2
+  ],
+  "problems": []
+ },
+ "module-order": {
+  "found": [
+   1,
+   2
+  ],
+  "problems": []
+ },
+ "committee-edit": {
+  "found": [
+   1
+  ],
+  "problems": []
+ },
+ "ops-desks": {
   "found": [
    1
   ],

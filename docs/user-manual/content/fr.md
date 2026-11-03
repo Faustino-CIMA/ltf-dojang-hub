@@ -17,7 +17,7 @@ labels:
   warning: Attention
   note: Bon à savoir
   glossary: Glossaire
-  glossary_intro: "Les termes de ce manuel, avec l'intitulé affiché à l'écran en anglais et en luxembourgeois. L'application elle-même existe dans ces deux langues."
+  glossary_intro: "Les termes de ce manuel, avec l'intitulé anglais et luxembourgeois des captures. L'application peut aussi être réglée en français ou en allemand. Ce manuel montre les captures anglaises et cite donc les intitulés anglais."
   term: Terme
   en_screen: À l'écran (anglais)
   lb_screen: À l'écran (luxembourgeois)
@@ -98,7 +98,7 @@ imprint: |
 
 # Bienvenue {#welcome}
 
-LTF Dojang Hub est le bureau en ligne commun de la Fédération luxembourgeoise de taekwondo et de ses clubs. Les clubs y tiennent leur liste de membres, commandent les licences, font l'appel aux entraînements, facturent les cotisations et gèrent leur boutique. La fédération contrôle les licences, imprime les cartes de licence et tient ses comptes. Tout le monde partage un même calendrier. C'est un outil de gestion pour les équipes des clubs et de la fédération ; les membres et les parents ne s'y connectent pas.
+LTF Dojang Hub est le bureau en ligne commun de la Fédération luxembourgeoise de taekwondo et de ses clubs. Les clubs y tiennent leur liste de membres, commandent les licences, font l'appel aux entraînements, facturent les cotisations et gèrent leur boutique. La fédération contrôle les licences, imprime les cartes de licence et tient ses comptes. Tout le monde partage un même calendrier. C'est un outil de gestion pour les équipes des clubs et de la fédération. Un administrateur de club peut créer un identifiant pour un membre à partir de 16 ans. Les parents ne se connectent pas.
 
 La page publique est noire et rouge. Elle affiche [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] ouvre la connexion. Quelqu'un déjà connecté voit [[Home.openDashboard]] à cet endroit. Dans l'application, [[Home.welcomeLead]] suit le thème clair ou sombre.
 
@@ -113,7 +113,7 @@ Le manuel est organisé selon **ce que vous faites**, pas selon les écrans. Lis
 | au secrétariat de la LTF | [LTF Admin](#ltf-admin) ou [LTF Finance](#ltf-finance) |
 | administrateur technique | [Modules (administrateur technique)](#ops) |
 
-Les membres et les parents n'ont pas besoin de ce manuel : ils n'ont pas d'identifiant, et leur club gère leurs données.
+Les parents n'ont pas besoin de ce manuel : ils n'ont pas d'identifiant. Un membre à partir de 16 ans peut recevoir un identifiant du club, et le club continue de gérer les données.
 
 ## Comment lire ce manuel {#conventions}
 
@@ -142,7 +142,7 @@ Ouvrez l'adresse que la LTF vous a communiquée. La page de connexion s'affiche.
 ![La page de connexion](fig:signin)
 
 <div class="legend" markdown="1">
-1. Choix de la langue – anglais ou luxembourgeois, avant de vous connecter.
+1. [[Common.languageLabel]] – English, Français, Deutsch ou Lëtzebuergesch. Le bouton montre la langue actuelle jusqu'à ce que vous l'ouvriez.
 2. [[Auth.username]] (nom d'utilisateur)
 3. [[Auth.password]] (mot de passe)
 4. [[Auth.submit]] – vous connecte.
@@ -163,7 +163,7 @@ La page de connexion reprend le noir et le rouge de la page publique. [[Auth.for
 > [!NOTE]
 > Il n'existe pas d'inscription publique. Les identifiants sont créés quand une personne devient administrateur de club ou entraîneur (voir [Administrateurs de club](#club-admins) et [Onglet Entraîneurs](#coaches-tab)), ou par la LTF.
 >
-> Les membres et les parents ne reçoivent pas d'identifiant.
+> Les parents ne reçoivent pas d'identifiant. Un administrateur de club ou la LTF peut en créer un pour un membre à partir de 16 ans.
 
 ## Votre premier mot de passe {#first-password}
 
@@ -205,7 +205,7 @@ L'application a une page où vous gérez vous-même votre consentement et vos dr
 {: .lead}
 
 1. Connectez-vous.
-2. Dans la barre d'adresse du navigateur, remplacez tout ce qui suit l'adresse de l'application par `/en/settings/privacy` (ou `/lb/settings/privacy`) et appuyez sur Entrée. Exemple : `https://<adresse de l'application>/en/settings/privacy`.
+2. Dans la barre d'adresse du navigateur, remplacez tout ce qui suit l'adresse de l'application par `/en/settings/privacy`, `/fr/settings/privacy`, `/de/settings/privacy` ou `/lb/settings/privacy`, puis appuyez sur Entrée.
 
 ![La page de confidentialité {small}](fig:privacy)
 
@@ -216,10 +216,10 @@ La page <span class="ui">Privacy &amp; GDPR</span> propose trois commandes :
 - <span class="ui">Delete my data</span> – supprime votre identifiant.
 
 > [!WARNING]
-> <span class="ui">Delete my data</span> ne demande aucune confirmation. Votre identifiant est supprimé immédiatement et vous êtes déconnecté. S'il est lié à une fiche de membre, la photo de profil est retirée, les notes de l'historique des grades sont effacées, et les adresses privées de cette fiche sont retirées. Les adresses qui appartiennent à quelqu'un d'autre, par exemple un parent enregistré comme contact, restent. Les factures déjà émises conservent l'adresse qui y était imprimée. La fiche de membre et ses licences restent au club.
+> <span class="ui">Delete my data</span> ne demande aucune confirmation. Votre identifiant est supprimé immédiatement et vous êtes déconnecté. S'il est lié à une fiche de membre, la photo de profil est retirée, les notes de l'historique des grades sont effacées, et les adresses privées de cette fiche sont retirées. Les mêmes adresses privées sont retirées quand un administrateur supprime cet identifiant. Les adresses qui appartiennent à quelqu'un d'autre, par exemple un parent enregistré comme contact, restent. Les factures déjà émises conservent l'adresse qui y était imprimée. La fiche de membre et ses licences restent au club.
 
 > [!NOTE]
-> Cette page est en cours de révision. Pour l'instant, son texte n'existe qu'en anglais, même si vous utilisez l'application en luxembourgeois.
+> Cette page est en cours de révision. Pour l'instant, son texte n'existe qu'en anglais, même si vous utilisez l'application en français, en allemand ou en luxembourgeois.
 
 ## L'écran en un coup d'œil {#screen}
 
@@ -231,9 +231,10 @@ Chaque page a le même cadre : le menu à gauche, une barre en haut et la zone d
 1. **Menu**. Il reste en place pendant que vous changez de page. Les groupes comprennent [[Common.navGroupClub]], [[Common.navGroupClubManagement]], [[Common.navGroupCompetition]] et [[Common.navGroupCalendar]]. Les pages de la fédération utilisent [[Common.navGroupLtfManagement]]. Vous ne voyez que ce que votre rôle et les modules de votre club permettent.
 2. **Commande de club** – ouvre un petit panneau, [[Common.selectedClubLabel]]. Si la liste est longue, saisissez dans [[Common.clubSearchPlaceholder]]. Toutes les pages affichent alors le club choisi.
 3. Votre nom, votre nom d'utilisateur et votre **badge de rôle**, par exemple [[Common.roleClubAdmin]].
-4. **Langue** – passez à tout moment de [[Common.languageEnglish]] à [[Common.languageLux]].
-5. [[Common.signOut]] (se déconnecter)
-6. [[Common.sidebarCollapse]] – rétrécit le menu pour laisser plus de place aux tableaux. La version de l'application est affichée à côté.
+4. **Langue** – [[Common.languageLabel]]. English, Français, Deutsch ou Lëtzebuergesch, à tout moment.
+5. [[Auth.mfaSecurity]] – application d'authentification, codes de secours, clés d'accès, mot de passe et codes par e-mail.
+6. [[Common.signOut]] (se déconnecter)
+7. [[Common.sidebarCollapse]] – rétrécit le menu pour laisser plus de place aux tableaux. La version de l'application est affichée à côté.
 </div>
 
 Modifier une fiche ouvre un panneau sur le côté. La liste reste derrière. Dans une liste, les actions de ligne sont dans [[Common.rowActionsLabel]]. Cliquez sur un en-tête de colonne pour trier.
@@ -245,7 +246,15 @@ L'en-tête propose aussi [[Common.themeLabel]] : [[Common.themeLight]], [[Common
 
 ## Les rôles : qui peut faire quoi ? {#roles}
 
-Votre rôle détermine le menu que vous voyez. Un même identifiant peut ouvrir plusieurs bureaux, par exemple admin de club de votre club et admin LTF. L'en-tête montre le bureau en cours. Ouvrez la liste des bureaux et choisissez-en un autre. Un bureau en lecture seule peut lire les listes et ne peut pas enregistrer, supprimer ni importer. Un superutilisateur ouvre [[Common.openOpsConsole]] depuis l'en-tête et revient par la même liste.
+Votre rôle détermine le menu que vous voyez. Un même identifiant peut ouvrir plusieurs bureaux, par exemple admin de club de votre club et admin LTF. Quand il y en a plus d'un, l'en-tête montre [[Common.deskSwitcherLabel]]. Ouvrez la liste et choisissez-en un autre. Un bureau en lecture seule est marqué [[Common.deskViewOnly]]. Il peut ouvrir ses listes. Enregistrer, supprimer et importer restent fermés, et la commande dit [[Common.deskViewOnlyAction]]. Avec un seul bureau, l'en-tête reste une simple étiquette de rôle.
+
+Un superutilisateur ouvre [[Common.openOpsConsole]] depuis l'en-tête. Ce bouton sélectionne le bureau Ops. [[Common.deskSwitcherLabel]] présente ce bureau comme [[Common.roleSuperuser]], avec les autres bureaux. Choisir un bureau de club, LTF ou finances ouvre ce bureau. [[Common.openFederationDashboard]] ne reste que lorsque cette liste ne peut pas déjà ouvrir le tableau de bord de la fédération.
+
+![La liste des bureaux, ouverte sur la console Ops](fig:ops-desks)
+
+<div class="legend" markdown="1">
+1. [[Common.deskSwitcherLabel]] – Ops est la ligne [[Common.roleSuperuser]]. Les autres lignes sont les autres bureaux.
+</div>
 
 Les bureaux du personnel (admin LTF, finances LTF, admin de club et ops) demandent une application d'authentification. Pendant les 14 premiers jours, un avis demande de la mettre en place. Ensuite le bureau reste fermé tant que ce n'est pas fait.
 
@@ -260,7 +269,7 @@ Le menu de langue propose English, Français, Deutsch et Lëtzebuergesch. L'angl
 | [[Common.roleSuperuser]] | administrateur technique | modules, utilisateurs, état du système |
 
 > [!NOTE]
-> **Les membres et les parents n'ont pas d'identifiant.** LTF Dojang Hub est actuellement un outil de gestion pour les équipes des clubs et de la fédération. Le club gère les données de ses membres et de leurs parents et répond à leurs questions. Un accès pour les membres pourrait venir plus tard.
+> **Les parents n'ont pas d'identifiant.** Un membre à partir de 16 ans peut se connecter après qu'un administrateur de club ou la LTF a créé un identifiant. Aucun e-mail n'est envoyé tant que vous n'envoyez pas vous-même un lien. Le club garde les données et répond aux questions.
 
 Ce que chaque rôle voit dans le menu du club :
 
@@ -291,7 +300,14 @@ Même sans module, vous disposez des pages [[Common.navGroupClub]] : membres, li
 
 La LTF fixe un prix annuel pour la gestion du club et le calendrier. Une facture impayée ne désactive pas un module. Les administrateurs de club peuvent lire l'estimation sur le profil du club. Voir [Frais des clubs](#club-fees) et [Profil](#profile-tab).
 
-Un lot réunit au moins deux de ces modules à un prix forfaitaire. Sous Déjà actif, un lot n'apparaît que s'il a été acheté comme lot. Un lot qui contient seulement un module déjà actif reste dans la liste à commander, et il indique que ce module est déjà actif. Il ne peut pas être commandé à nouveau.
+Un lot réunit au moins deux de ces modules à un prix forfaitaire. Sous [[moduleOrderOnTitle]], un lot n'apparaît que lorsque ce lot lui-même a été acheté. Un lot qui ne contient qu'un module que vous avez déjà reste dans la liste sous [[moduleOrderChoose]], et il dit [[moduleOrderModuleOn|name=Competition]]. Il ne montre pas la date de fin de ce module, et il ne peut pas être commandé à nouveau.
+
+![Déjà actif, et un lot qui ne peut pas être commandé à nouveau](fig:module-order)
+
+<div class="legend" markdown="1">
+1. [[moduleOrderOnTitle]] – les modules déjà activés, et un lot seulement après l'achat de ce lot.
+2. [[moduleOrderChoose]] – un lot qui recouvre un module déjà actif reste ici, et il ne peut pas être coché.
+</div>
 
 # Entraîneurs {#coaches}
 
@@ -363,10 +379,10 @@ Les entraîneurs voient les événements publics du club et aussi les événemen
 
 <div class="legend" markdown="1">
 1. Recherche par nom.
-2. Filtre [[filterAllTitle]] / [[filterActiveTitle]] / [[filterInactiveTitle]] (tous, actifs, inactifs).
-3. Le menu [[membersMenuLabel]] : créer ou importer des membres.
-4. [[Common.batchActionsLabel]] pour les membres cochés.
-5. Case pour sélectionner un membre.
+2. [[Common.filterGroupStatus]] – [[filterActiveTitle]], [[filterInactiveTitle]] ou [[filterAllTitle]]. Le nombre indique combien de filtres de ce groupe sont actifs.
+3. [[Common.filterGroupUser]]
+4. [[Common.filterGroupPerson]] – le filtre d'équipe quand la compétition est activée.
+5. Le menu [[membersMenuLabel]] : créer ou importer des membres.
 6. [[Common.rowActionsLabel]] – [[editAction]] ou [[deleteAction]] pour cette ligne. [[editAction]] ouvre un panneau latéral.
 </div>
 
@@ -374,9 +390,7 @@ Les entraîneurs voient les événements publics du club et aussi les événemen
 
 La colonne [[sexLabel]] est un petit ♂ ou ♀, pas un grand badge. Cliquez sur un en-tête de colonne pour trier. [[membersMenuLabel]] et le menu de ligne s'ouvrent en petits panneaux.
 
-La recherche reste sur la page. Les autres filtres s'ouvrent depuis Statut, Utilisateur et Personne. Statut est actif, inactif ou tous. Utilisateur est sans compte, en attente, actif ou désactivé. Sur la liste LTF, Personne est tout le monde, les membres de club ou le personnel LTF. Sur la liste du club, Personne est le filtre d'équipe quand la compétition est activée. Réinitialiser les filtres les ramène au départ habituel. Une coche reste quand vous cherchez, filtrez ou changez de page, jusqu'à ce que vous l'enleviez ou terminiez l'action. Le compte inclut les personnes qui ne sont pas sur cette page. Le nombre de lignes peut être 50, 150, 300 ou toutes. Les tableaux de licences ont une colonne Expire. Une date dans les 30 jours est un avertissement. Une date déjà passée est atténuée.
-
-Quand le module compétition est activé, les filtres comprennent [[teamsFilterNone]].
+La recherche reste sur la page. Les autres filtres s'ouvrent depuis [[Common.filterGroupStatus]], [[Common.filterGroupUser]] et [[Common.filterGroupPerson]]. [[Common.filterGroupUser]] est [[accountFilterNone]], [[accountFilterPending]], [[accountFilterActive]] ou [[accountFilterDisabled]]. Sur la liste LTF, [[Common.filterGroupPerson]] est [[LtfAdmin.staffFilterAll]], [[LtfAdmin.staffFilterClub]] ou [[LtfAdmin.staffFilterStaff]]. Sur la liste du club, [[Common.filterGroupPerson]] est le filtre d'équipe quand la compétition est activée, y compris [[teamsFilterNone]]. [[Common.resetFilters]] les ramène au départ habituel. Une coche reste quand vous cherchez, filtrez ou changez de page, jusqu'à [[clearSelection]] ou la fin de l'action. [[selectedMembersCountLabel|count=2]] compte aussi les lignes qui ne sont pas sur cette page. Les mêmes coches restent sur les listes de membres du club et de la LTF, les listes de licences du club et de la LTF, la liste des clubs LTF, les utilisateurs ops, les personnes mises de côté et la facturation du club. Le nombre de lignes peut être 50, 150, 300 ou toutes. Les tableaux de licences ont une colonne [[expiresLabel]]. Une date dans les 30 jours est un avertissement. Une date déjà passée est atténuée.
 
 Cliquez sur un nom pour ouvrir le membre. Le menu [[Common.batchActionsLabel]] agit sur tous les membres cochés à la fois :
 
@@ -499,11 +513,20 @@ La page affiche [[orderLicenseSuccessTitle]]. Les licences restent [[statusPendi
 > [!NOTE]
 > Un type de licence non disponible indique pourquoi, par exemple [[orderLicenseUnavailableReasonWindow]] ou [[orderLicenseUnavailableReasonNoPrice]]. Les fenêtres de commande et les prix sont fixés par la LTF.
 
-La commande et sa facture apparaissent dans [[navFinance]] › [[navOrders]] et [[navInvoices]]. Réglez la facture fédérale comme expliqué dans [Payer la LTF](#pay-ltf).
+La commande et sa facture apparaissent dans [[navFinance]] › [[navOrders]] et [[navInvoices]]. Sur ces listes, et sur [[navPayments]], la recherche reste sur la page. [[Common.filterGroupStatus]] s'ouvre en petit panneau. Sur les listes du club, [[financeLedgerLabel]] s'ouvre de la même façon. [[Common.resetFilters]] les ramène à tous. Ces listes ne cochent pas de lignes. Réglez la facture fédérale comme expliqué dans [Payer la LTF](#pay-ltf).
+
+![Factures : Statut et Comptabilité s'ouvrent en panneaux](fig:invoices)
+
+<div class="legend" markdown="1">
+1. [[Common.filterGroupStatus]]
+2. [[financeLedgerLabel]]
+</div>
 
 ## La liste des licences {#licences}
 
-[[navLicenses]] affiche toutes les licences du club avec leur statut : [[filterActiveTitle]], [[filterPendingTitle]] ou [[filterExpiredTitle]] (active, en attente, expirée). Recherchez par membre, année ou statut. Cliquez sur un en-tête de colonne pour trier. La colonne Expire utilise les mêmes dates que le reste de l'application. Une date dans les 30 jours est un avertissement. Une date déjà passée est atténuée. Un admin de club peut créer un identifiant pour les membres de son club. Aucun e-mail n'est envoyé. Il n'y a pas d'identifiant avant 16 ans. La liste montre un badge Compte : aucun, en attente, actif ou désactivé. Dans la liste des licences de la fédération, modifier et supprimer sont dans le menu de ligne, et le formulaire s'ouvre dans un panneau latéral. Voir [Membres, licences et transferts](#ltf-licences).
+[[navLicenses]] affiche toutes les licences du club avec leur statut : [[filterActiveTitle]], [[filterPendingTitle]] ou [[filterExpiredTitle]] (active, en attente, expirée). Recherchez par membre, année ou statut. Cliquez sur un en-tête de colonne pour trier. La colonne [[expiresLabel]] utilise les mêmes dates que le reste de l'application. Une date dans les 30 jours est un avertissement. Une date déjà passée est atténuée. Les coches de cette liste restent quand vous cherchez, filtrez ou changez de page. Dans la liste des licences de la fédération, modifier et supprimer sont dans le menu de ligne, et le formulaire s'ouvre dans un panneau latéral. Voir [Membres, licences et transferts](#ltf-licences).
+
+Un admin de club crée un identifiant pour les membres de son club avec [[createUserAccounts]]. Un admin LTF peut le faire pour chaque membre, y compris sans club. [[accountConfirm]] dit ce qui sera créé et qui est laissé de côté. [[accountNoEmailSent]] Il n'y a pas d'identifiant avant 16 ans. Une date de naissance manquante doit d'abord être enregistrée. Les membres inactifs sont laissés de côté. Quand les comptes existent, un fichier de liens de première connexion se télécharge. [[accountFileWarning]] Lier un identifiant ne crée pas ce fichier. La liste des membres et la fiche du membre montrent [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]] ou [[accountBadgeDisabled]].
 
 ![La liste des licences](fig:licences)
 
@@ -617,7 +640,7 @@ Une fois les cotisations et les familles prêtes, facturer tout le club ne prend
 2. Repérez les foyers marqués [[billingBlocked]]. La raison est indiquée dans la ligne, le plus souvent [[chooseBillRecipient]] (pour un enfant) ou une cotisation manquante. Corrigez-les dans [[navFamilies]] ou [[navMembershipFees]].
 3. Cliquez sur [[selectReady]].
 4. Cliquez sur [[reviewIssueAction]], vérifiez les totaux dans la confirmation et cliquez sur [[issueInvoicesAction]].
-5. Les factures par e-mail partent immédiatement. Pour les autres, cliquez sur [[printPackAction]] et imprimez le PDF. Le total de l'e-mail est le même total que sur le PDF. Cela vaut aussi pour une facture de licence marquée payée dans la même étape que l'envoi. Un rappel indique le montant encore dû.
+5. Les factures par e-mail partent immédiatement. Pour les autres, cliquez sur [[printPackAction]] et imprimez le PDF. Le total de l'e-mail est le même total que sur le PDF. Une facture payée indique le montant payé. Une facture qui n'est pas payée indique le montant dû. Un rappel indique le montant encore dû.
 
 Les foyers affichent maintenant [[billingInvoiced]]. Ils passent à [[billingPaid]] quand vous enregistrez le paiement.
 {: .result}
@@ -672,7 +695,7 @@ Ou payez par carte. Sur une facture LTF émise qui a encore un montant ouvert, o
 
 ![Payer maintenant, dans le menu de ligne d'une facture LTF](fig:pay-now)
 
-Si vous utilisez le lien retour du prestataire sans payer, vous revenez ici et la page affiche [[Checkout.cancelTitle]]. Rien n'est débité et les licences restent comme elles étaient. Les membres et les parents ne voient jamais cette page de carte : ils n'ont pas d'identifiant, et une facture du club qui leur est envoyée ne se paie pas ici.
+Si vous utilisez le lien retour du prestataire sans payer, vous revenez ici et la page affiche [[Checkout.cancelTitle]]. Rien n'est débité et les licences restent comme elles étaient. Une facture de club envoyée à un membre ne se paie pas sur cette page. Les parents n'ont pas d'identifiant. Un identifiant de membre n'ouvre pas ce paiement par carte.
 
 ![Paiement annulé, avec le retour vers le club](fig:checkout-return)
 
@@ -737,6 +760,15 @@ Les points sont calculés ainsi :
 | [[subsidiesQualite]] | 150 € par sportif licencié de moins de 16 ans |
 
 Pour un déplacement à un championnat ou une coupe internationale, utilisez [[subsidiesExtraordinary]] : choisissez le [[subsidiesKind]], ajoutez les sportifs et les officiels, saisissez les frais de voyage, de séjour et d'inscription, cliquez sur [[subsidiesCreateCase]] puis sur [[subsidiesDownloadForm]].
+
+Un officiel doit être un adulte avec une licence pour cette année. [[subsidiesOfficialsAdults]] La liste propose les membres qui ont une licence pour l'année, et seuls les adultes parmi eux peuvent être officiels. Enregistrer une personne sans licence pour l'année est refusé.
+
+![Officiels d'une subvention extraordinaire : adultes licenciés seulement](fig:subsidies-officials)
+
+<div class="legend" markdown="1">
+1. [[subsidiesOfficials]]
+2. [[subsidiesOfficialsAdults]]
+</div>
 
 # Administrateur de club : entraînements et promotion {#club-training}
 
@@ -941,7 +973,7 @@ Le calendrier est partagé par la LTF et tous les clubs. Chaque événement déc
 | [[Events.calendarVisibility_presidents]] | – | LTF Admins et le président en exercice de chaque club coché sous [[Events.calendarAudienceClubs]] |
 
 > [!NOTE]
-> Les descriptions à l'écran mentionnent aussi les membres. Aujourd'hui, les membres n'ont pas d'identifiant (voir [Rôles](#roles)) : en pratique, un événement est vu par les équipes indiquées.
+> Les descriptions à l'écran mentionnent aussi les membres. Un membre voit un événement seulement avec un identifiant, et seulement si la visibilité inclut les membres. Voir [Rôles](#roles). Les parents ne se connectent pas.
 
 > [!TIP]
 > Vous organisez un tournoi de club ? Choisissez [[Events.calendarVisibility_shared]] : les autres clubs verront la date tôt et éviteront les doublons.
@@ -967,13 +999,13 @@ Ouvrez un événement, choisissez une date dans [[Events.calendarReminderOn]] et
 
 ## Profil {#profile-tab}
 
-Tenez à jour [[clubEmailLabel]], [[clubWebsiteLabel]], [[ibanLabel]] et [[clubLanguageLabel]] : ils figurent sur les factures envoyées à vos membres, et la LTF vous écrit dans cette langue.
+Tenez à jour [[clubEmailLabel]], [[clubWebsiteLabel]], [[ibanLabel]] et [[clubLanguageLabel]] : ils figurent sur les factures envoyées à vos membres, et la LTF vous écrit dans cette langue. [[clubLanguageLabel]] peut être English, Français, Deutsch ou Lëtzebuergesch. [[clubLanguageHint]] Les e-mails et les PDF utilisent la langue choisie pour cette personne, sinon cette langue, sinon l'anglais. Le français dit licence. L'allemand dit Lizenz. En allemand, le compte de résultat est Gewinn- und Verlustrechnung. Les listes officielles de subvention restent en français.
 
 Réglez [[federationLabel]] sur [[federationWt]] ou [[federationItf]]. Saisissez le [[rcsNumberLabel]] quand le club en a un, par exemple B123456. [[headOfficeLabel]] est le siège social, pas une salle d'entraînement. L'adresse utilise la même recherche luxembourgeoise qu'une adresse de membre : rue, numéro, code postal et localité restent séparés. Voir [Le dossier du club](#club-record).
 
 [[TrainingVenues.title]] liste les salles où le club s'entraîne. Cliquez sur [[TrainingVenues.addVenue]], saisissez un nom et une adresse, puis enregistrez. Une salle n'est pas le siège.
 
-[[modulePricesTitle]] montre ce que la fédération facture à ce club pour chaque module. Le montant est une estimation. Vous pouvez le lire même quand un module est désactivé. Vous ne pouvez pas changer le prix ici.
+[[modulePricesTitle]] montre ce que la fédération facture à ce club pour chaque module. Le montant est une estimation. Vous pouvez le lire même quand un module est désactivé. Vous ne pouvez pas changer le prix ici. Un minimum qui n'est pas plus haut qu'un prix forfaitaire n'est pas affiché. Le prix que vous payez est le même.
 
 Sous [[Common.logoSectionTitle]], téléversez les logos utilisés sur les factures, les cartes et les écrans. Après le choix d'un fichier, la page affiche un aperçu. Pendant le chargement, elle indique [[Common.logoPreviewLoading]].
 
@@ -1001,11 +1033,21 @@ Le comité détermine qui peut enregistrer des paiements, et son président reç
 
 ![Le comité du club](fig:committee)
 
+Pour corriger une fonction qui a déjà un titulaire, ouvrez le menu de la ligne et cliquez sur [[committeeEditTerm]]. Le panneau s'intitule [[committeeEditTitle]]. Le champ personne montre déjà le titulaire actuel, nom de famille puis prénom, même quand cette personne n'est pas sur la première page des membres. Enregistrer sans changement garde cette personne. Une nouvelle fonction commence vide, sur [[committeeNeedMember]].
+
+![Modifier la fonction, le titulaire actuel est déjà rempli](fig:committee-edit)
+
+<div class="legend" markdown="1">
+1. [[committeeColumnPerson]] – nom de famille, puis prénom. Le titulaire actuel est déjà rempli.
+</div>
+
 Pour transmettre une fonction à la personne suivante, ouvrez [[committeeHistoryTitle]]. Dans le menu de la ligne, cliquez sur [[committeeReplaceTerm]]. Le panneau s'intitule [[committeeReplaceTitle]]. Choisissez la nouvelle personne et la date de l'élection. [[committeeReplaceHint]] Cliquez sur [[committeeSaveTerm]].
 
 Pour clôturer une fonction sans nommer de successeur, utilisez [[committeeEndTerm]]. [[committeeEndHint]]
 
-La page du comité de la fédération fonctionne de la même façon. LTF Admin l'ouvre depuis [[LtfAdmin.navCommittee]].
+La page du comité de la fédération fonctionne de la même façon. LTF Admin l'ouvre depuis [[LtfAdmin.navCommittee]]. Transmettre une fonction fédérale peut chercher chaque adulte, y compris sans club. Les personnes de moins de 18 ans et les membres inactifs sont laissés de côté.
+
+Lier un identifiant à un membre qui tient déjà une fonction fédérale ouvre les bureaux associés à cette fonction. Dans la correspondance habituelle, le président ouvre LTF Admin en entier et LTF Finance en lecture seule, et le trésorier l'inverse. Changer ou retirer cet identifiant déplace ou ferme ces bureaux. Un import mis de côté ne reçoit pas de bureau. Un membre inactif reçoit quand même les bureaux que la correspondance permet. Un contact a besoin d'un identifiant avant qu'un bureau soit lié. Les fonctions du club n'ouvrent pas de bureau fédéral.
 
 > [!WARNING]
 > Quand le trésorier change, mettez le comité à jour **avant** la prochaine série de paiements. Sans mandat actuel, personne au club ne peut enregistrer de paiement.
@@ -1134,7 +1176,7 @@ Dans [[LtfFinance.navLicenseSettings]], l'onglet [[settingsTabLicenseTypes]] dé
 
 [[settingsTabClubFees]] liste ce que la LTF facture aux clubs (affiliation, assurance…) : [[clubFeeCadenceAnnual]], [[clubFeeCadencePerMember]], [[clubFeeCadencePerEvent]] ou [[clubFeeCadenceOneOff]]. Dans l'onglet [[settingsTabBilling]], choisissez l'[[clubFeeBillingYearLabel]], les frais et les clubs, puis cliquez sur [[clubFeeBillingSubmitYear|year=2026]]. Un club déjà facturé pour cette année est ignoré : vous pouvez relancer l'opération sans risque. [[clubFeeBillingRecurringLabel]] répète la facturation chaque mois ou chaque année.
 
-[[settingsTabModuleFees]] est le prix annuel de [[moduleClubManagement]] et du calendrier des événements. [[moduleFeesTitle]] Cliquez sur [[moduleFeeAdd]], choisissez le module, puis [[moduleFeePricingFlat]] ou [[moduleFeePricingPerMember]], et un montant. [[moduleFeeMinimumLabel]] est facultatif : le club paie au moins ce montant quand le prix calculé est plus bas. Un nouveau prix commence à la date que vous choisissez. Les factures déjà envoyées restent telles quelles. [[moduleFeeBillingHint]] Les administrateurs de club peuvent lire l'estimation sur leur profil. Ils ne peuvent pas la modifier, et une facture impayée ne désactive pas le module.
+[[settingsTabModuleFees]] est le prix annuel de [[moduleClubManagement]] et du calendrier des événements. [[moduleFeesTitle]] Cliquez sur [[moduleFeeAdd]], choisissez le module, puis [[moduleFeePricingFlat]] ou [[moduleFeePricingPerMember]], et un montant. [[moduleFeeMinimumLabel]] est facultatif : le club paie au moins ce montant quand le prix calculé est plus bas. Quand ce minimum n'est pas plus haut qu'un prix forfaitaire, [[modulePricesTitle]] sur le profil du club ne l'affiche pas. Le montant facturé est le même, et cet éditeur montre toujours le champ. Un nouveau prix commence à la date que vous choisissez. Les factures déjà envoyées restent telles quelles. [[moduleFeeBillingHint]] Les administrateurs de club peuvent lire l'estimation sur leur profil. Ils ne peuvent pas la modifier, et une facture impayée ne désactive pas le module.
 
 ![Facturer les frais des clubs](fig:fin-billing)
 
@@ -1145,7 +1187,9 @@ Dans [[LtfFinance.navLicenseSettings]], l'onglet [[settingsTabLicenseTypes]] dé
 3. Pour réduire ce qu'un club doit, saisissez un [[creditNoteAmountLabel]] et un [[creditNoteReasonLabel]], puis cliquez sur [[addCreditNoteAction]].
 4. Pour relancer une facture impayée, cliquez sur [[sendReminderAction]]. [[lastRemindedAtLabel]] indique la date de votre dernière relance.
 
-Le total dans l'e-mail de facture correspond au total du PDF. Cela vaut aussi pour une facture de licence marquée payée dans la même étape que l'envoi. Une relance indique le montant encore dû, pas le total d'origine.
+Le total dans l'e-mail de facture correspond au total du PDF. Une facture payée indique le montant payé. Une facture qui n'est pas payée indique le montant dû. Cela vaut aussi pour une facture de licence marquée payée dans la même étape que l'envoi. Une relance indique le montant encore dû, pas le total d'origine. Les mots suivent la langue du club, ou la langue choisie pour cette personne, sinon l'anglais.
+
+Sur [[LtfFinance.navOrders]], [[LtfFinance.navInvoices]] et [[LtfFinance.navPayments]], la recherche reste sur la page et [[Common.filterGroupStatus]] s'ouvre en petit panneau. [[Common.resetFilters]] le ramène à tous. Ces listes ne cochent pas de lignes. Voir [Commander des licences](#order-licences).
 
 ![Détail d'une facture avec notes de crédit](fig:fin-invoice)
 
@@ -1193,7 +1237,7 @@ Les personnes mises de côté sont revues plus tard sous [[LtfAdmin.navParkedMem
 Vérifiez le nom d'utilisateur (ce n'est pas toujours votre adresse e-mail) et le mot de passe. Si la page indique que votre e-mail n'est pas confirmé, voir [Confirmer votre adresse e-mail](#verify-email). Mot de passe oublié ? Voir [Mot de passe oublié](#forgotten-password).
 
 ### Les membres ou les parents peuvent-ils se connecter ?
-Non. L'application est actuellement un outil de gestion réservé aux équipes des clubs et de la fédération. Les membres et les parents n'ont pas d'identifiant ; leur club tient leurs données à jour. Un accès pour les membres pourrait venir plus tard.
+Les parents non. Un membre à partir de 16 ans peut se connecter après qu'un administrateur de club ou la LTF a créé un identifiant. Aucun e-mail n'est envoyé. Les membres plus jeunes n'ont pas d'identifiant. Le club tient les données à jour.
 
 ### Un menu décrit ici est absent.
 Votre rôle ou les modules de votre club ne le comprennent pas. Voir [Rôles](#roles) et [Modules](#modules).
@@ -1226,4 +1270,4 @@ C'est le nombre d'événements à venir que vous pouvez voir. Le mot [[Events.ca
 Si vous avez un identifiant, utilisez la page décrite dans [Confidentialité et vos données](#privacy). Les membres et les parents s'adressent à leur club ou à la LTF, qui peuvent exporter ou corriger leurs données.
 
 ### Peut-on payer en ligne ?
-Oui. Sur une facture LTF que le club doit encore payer, [[Common.payNow]] ouvre la page du prestataire de carte. Elle montre le numéro de facture et le montant encore ouvert. Vous saisissez la carte et confirmez, puis l'application indique que le paiement a réussi et que les licences sont activées. Si vous revenez sans payer, rien n'est débité. Ensuite, le bouton nomme le bureau que vous avez quitté, par exemple [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] ou [[Checkout.returnOps]]. Les membres et les parents ne voient pas cette page. Vous pouvez toujours payer par virement. Voir [Payer la LTF](#pay-ltf).
+Oui. Sur une facture LTF que le club doit encore payer, [[Common.payNow]] ouvre la page du prestataire de carte. Elle montre le numéro de facture et le montant encore ouvert. Vous saisissez la carte et confirmez, puis l'application indique que le paiement a réussi et que les licences sont activées. Si vous revenez sans payer, rien n'est débité. Ensuite, le bouton nomme le bureau que vous avez quitté, par exemple [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] ou [[Checkout.returnOps]]. Une facture de club envoyée à un membre ne se paie pas ici. Vous pouvez toujours payer par virement. Voir [Payer la LTF](#pay-ltf).
