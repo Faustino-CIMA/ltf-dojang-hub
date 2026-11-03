@@ -1,6 +1,9 @@
 from datetime import timedelta
 
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
 from django.test import RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -212,3 +215,236 @@ class OfficeDeskTests(TestCase):
         self.assertEqual(refuse_own_invoice_payment(request, order), "own_invoice_payment")
         request.user = self.admin
         self.assertIsNone(refuse_own_invoice_payment(request, order))
+
+
+class MemberOfficeGrantTests(TestCase):
+    """A federation term can exist before the member's login. Linking the login opens the mapped desks."""
+
+    def setUp(self):
+        self.today = timezone.localdate()
+        self.club = Club.objects.create(
+            name="Grant Club",
+            created_by=User.objects.create_user(
+                username="grant-admin",
+                email="grant-admin@example.com",
+                password="pass12345",
+                role=User.Roles.LTF_ADMIN,
+            ),
+        )
+        self.committee = Committee.objects.create(scope=Committee.Scope.FEDERATION, name="LTF Committee")
+        OfficeDeskMap.objects.create(office="committee_member", desk="ltf_admin", level="full")
+        OfficeDeskMap.objects.create(office="committee_member", desk="ltf_finance", level="read_only")
+        self.member = Member.objects.create(
+            club=self.club,
+            first_name="Dora",
+            last_name="Beispiel",
+            date_of_birth=self.today.replace(year=self.today.year - 30),
+        )
+        self.mandate = CommitteeMandate.objects.create(
+            committee=self.committee,
+            role=CommitteeMandate.Role.COMMITTEE_MEMBER,
+            member=self.member,
+            started_on=self.today - timedelta(days=30),
+        )
+        self.login = User.objects.create_user(
+            username="dora-login",
+            email="dora-login@example.com",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+
+    def _office_grants(self):
+        return DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=self.mandate)
+
+    def test_linking_a_login_opens_the_mapped_desks(self):
+        self.assertFalse(self._office_grants().exists())
+        self.member.user = self.login
+        self.member.save(update_fields=["user", "updated_at"])
+        grants = {grant.desk: grant for grant in self._office_grants()}
+        self.assertEqual(set(grants), {DeskGrant.Desk.LTF_ADMIN, DeskGrant.Desk.LTF_FINANCE})
+        self.assertEqual(grants[DeskGrant.Desk.LTF_ADMIN].level, DeskGrant.Level.FULL)
+        self.assertEqual(grants[DeskGrant.Desk.LTF_FINANCE].level, DeskGrant.Level.READ_ONLY)
+        self.assertIsNone(grants[DeskGrant.Desk.LTF_ADMIN].valid_until)
+        self.assertEqual(self.login.role, User.Roles.MEMBER)
+        self.assertEqual(set(self._office_grants().values_list("user_id", flat=True)), {self.login.id})
+
+    def test_clearing_the_login_ends_the_desks(self):
+        self.member.user = self.login
+        self.member.save(update_fields=["user", "updated_at"])
+        self.member.user = None
+        self.member.save(update_fields=["user", "updated_at"])
+        grants = list(self._office_grants())
+        self.assertEqual(len(grants), 2)
+        self.assertTrue(all(grant.valid_until == self.today for grant in grants))
+
+    def test_an_ended_row_is_reused_for_the_next_login(self):
+        self.member.user = self.login
+        self.member.save(update_fields=["user", "updated_at"])
+        original_ids = set(self._office_grants().values_list("id", flat=True))
+        self.member.user = None
+        self.member.save(update_fields=["user", "updated_at"])
+        other = User.objects.create_user(
+            username="dora-next",
+            email="dora-next@example.com",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        self.member.user = other
+        self.member.save(update_fields=["user", "updated_at"])
+        grants = list(self._office_grants())
+        self.assertEqual({grant.id for grant in grants}, original_ids)
+        self.assertTrue(all(grant.user_id == other.id and grant.valid_until is None for grant in grants))
+
+    def test_a_parked_import_gets_no_desk_and_an_inactive_member_keeps_theirs(self):
+        parked = Member(
+            club=self.club,
+            first_name="Park",
+            last_name="Import",
+            sex=Member.Sex.FEMALE,
+            import_status=Member.ImportStatus.PARKED,
+            is_active=False,
+        )
+        parked.save()
+        parked_login = User.objects.create_user(
+            username="park-login",
+            email="park-login@example.com",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        parked_term = CommitteeMandate.objects.create(
+            committee=self.committee,
+            role=CommitteeMandate.Role.COMMITTEE_MEMBER,
+            member=parked,
+            started_on=self.today - timedelta(days=5),
+        )
+        parked.user = parked_login
+        parked.save(update_fields=["user", "updated_at"])
+        self.assertFalse(DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=parked_term).exists())
+
+        self.member.is_active = False
+        self.member.user = self.login
+        self.member.save(update_fields=["is_active", "user", "updated_at"])
+        self.assertEqual(self._office_grants().count(), 2)
+
+    def test_saving_without_a_login_change_does_not_touch_office_tables(self):
+        self.member.user = self.login
+        self.member.save(update_fields=["user", "updated_at"])
+        loaded = Member.objects.get(pk=self.member.pk)
+        loaded.belt_rank = "1st Kup"
+        with CaptureQueriesContext(connection) as narrowed:
+            loaded.save(update_fields=["belt_rank", "updated_at"])
+        loaded.last_name = "Beispielin"
+        with CaptureQueriesContext(connection) as full:
+            loaded.save()
+        for captured in (narrowed, full):
+            sql = " ".join(query["sql"].lower() for query in captured.captured_queries)
+            self.assertNotIn("deskgrant", sql)
+            self.assertNotIn("officedeskmap", sql)
+            self.assertNotIn("committeemandate", sql)
+
+    def test_a_club_office_and_an_unlinked_contact_stay_closed(self):
+        club_committee = Committee.objects.create(scope=Committee.Scope.CLUB, club=self.club, name="Club Board")
+        club_term = CommitteeMandate.objects.create(
+            committee=club_committee,
+            role=CommitteeMandate.Role.COMMITTEE_MEMBER,
+            member=self.member,
+            started_on=self.today - timedelta(days=2),
+        )
+        person = Person.objects.create(first_name="Contact", last_name="Only", converted_member=self.member)
+        person_term = CommitteeMandate.objects.create(
+            committee=self.committee,
+            role=CommitteeMandate.Role.TREASURER,
+            person=person,
+            started_on=self.today - timedelta(days=2),
+        )
+        self.member.user = self.login
+        self.member.save(update_fields=["user", "updated_at"])
+        self.assertFalse(DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=club_term).exists())
+        self.assertFalse(DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=person_term).exists())
+        person.user = self.login
+        person.save(update_fields=["user"])
+        self.assertTrue(
+            DeskGrant.objects.filter(
+                source=DeskGrant.Source.OFFICE,
+                mandate=person_term,
+                user=self.login,
+                desk=DeskGrant.Desk.LTF_FINANCE,
+            ).exists()
+        )
+
+
+class OfficeGrantRepairTests(TestCase):
+    def test_the_repair_grants_only_the_map_and_can_run_twice(self):
+        today = timezone.localdate()
+        club = Club.objects.create(
+            name="Repair Club",
+            created_by=User.objects.create_user(
+                username="repair-admin",
+                email="repair-admin@example.com",
+                password="pass12345",
+            ),
+        )
+        login = User.objects.create_user(
+            username="repair-login",
+            email="repair-login@example.com",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        member = Member.objects.create(
+            club=club,
+            first_name="Repair",
+            last_name="Holder",
+            date_of_birth=today.replace(year=today.year - 40),
+            user=login,
+        )
+        committee = Committee.objects.create(scope=Committee.Scope.FEDERATION, name="Repair Board")
+        OfficeDeskMap.objects.get_or_create(office="committee_member", desk="ltf_admin", defaults={"level": "full"})
+        OfficeDeskMap.objects.get_or_create(
+            office="committee_member", desk="ltf_finance", defaults={"level": "read_only"}
+        )
+        open_term = CommitteeMandate.objects.create(
+            committee=committee,
+            role=CommitteeMandate.Role.COMMITTEE_MEMBER,
+            member=member,
+            started_on=today - timedelta(days=10),
+        )
+        closed = CommitteeMandate.objects.create(
+            committee=committee,
+            role=CommitteeMandate.Role.COMMITTEE_MEMBER,
+            member=member,
+            started_on=today - timedelta(days=40),
+            ended_on=today - timedelta(days=1),
+        )
+        DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate__in=[open_term, closed]).delete()
+        ended = DeskGrant.objects.create(
+            user=login,
+            desk=DeskGrant.Desk.LTF_ADMIN,
+            level=DeskGrant.Level.FULL,
+            source=DeskGrant.Source.OFFICE,
+            valid_from=open_term.started_on,
+            valid_until=today,
+            mandate=open_term,
+            reason="Office",
+        )
+
+        executor = MigrationExecutor(connection)
+        state = executor.loader.project_state([("accounts", "0013_resync_office_grants")]).apps
+        repair = executor.loader.get_migration("accounts", "0013_resync_office_grants").operations[0].code
+
+        repair(state, None)
+        grants = DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=open_term)
+        self.assertEqual(grants.count(), 2)
+        ended.refresh_from_db()
+        self.assertEqual(ended.user_id, login.id)
+        self.assertIsNone(ended.valid_until)
+        self.assertFalse(DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=closed).exists())
+        self.assertFalse(
+            DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=open_term, desk=DeskGrant.Desk.COACH).exists()
+        )
+        created = OpsAuditLog.objects.filter(action="desk.grant_created").count()
+        updated = OpsAuditLog.objects.filter(action="desk.grant_updated").count()
+
+        repair(state, None)
+        self.assertEqual(DeskGrant.objects.filter(source=DeskGrant.Source.OFFICE, mandate=open_term).count(), 2)
+        self.assertEqual(OpsAuditLog.objects.filter(action="desk.grant_created").count(), created)
+        self.assertEqual(OpsAuditLog.objects.filter(action="desk.grant_updated").count(), updated)

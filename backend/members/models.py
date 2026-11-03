@@ -128,6 +128,14 @@ class Member(models.Model):
     objects = ActiveMemberManager()
     all_objects = models.Manager.from_queryset(MemberQuerySet)()
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        from accounts.offices import remember_loaded_user
+
+        remember_loaded_user(instance, field_names)
+        return instance
+
     class Meta:
         # The filtered manager is the default, so lists and counts skip parked
         # people. The base manager stays unfiltered: Django uses it to update
