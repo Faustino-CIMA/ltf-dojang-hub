@@ -4599,6 +4599,8 @@
     "cancelAction": "Retour au tableau de bord"
   },
   "About": {
+    "release0131Title": "Manuel d'utilisation",
+    "release0131Manual": "Le manuel de la version 0.13.0 est mis à jour en anglais, français, allemand et luxembourgeois. Les captures ont été refaites, le menu des langues est décrit, et les PDF ont été reconstruits. L'application elle-même ne change pas.",
     "release0130Title": "Mise en place, équipes et adresses",
     "release0130Setup": "La première mise en place importe les clubs, les membres et les admins de club. Les lignes sans club peuvent être mises de côté. Les admins invités choisissent leur e-mail et leur mot de passe.",
     "release0130Addresses": "Les adresses luxembourgeoises utilisent le registre officiel des rues. Un club peut enregistrer sa fédération, son numéro RCS et ses salles. Une adresse peut être marquée pour les factures.",

@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-03
+
+### Changed
+- **User manual:** The 0.13.0 manual is updated in English, French, German, and Luxembourgish. Screenshots were recaptured, the language menu is described, and the PDFs were rebuilt. There is no other change in how the app works, and there is no database migration. The manuals and PDFs do not need a deploy.
+- **Displayed version:** The version in the sidebar, on About, and in the backend default is 0.13.1. That is the same kind of version bump used for 0.13.0. A deploy is what makes the new number appear.
+
+### Documentation
+- Public notes for this version, ready to paste into a GitHub release: `docs/releases/v0.13.1.md`.
+
 ## [0.13.0] - 2026-11-02
 
 ### Added

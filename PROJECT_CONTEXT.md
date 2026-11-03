@@ -1,9 +1,9 @@
 **LTF Dojang Hub — Master Summary (November 2026)**
-Last updated: 2026-11-02
+Last updated: 2026-11-03
 
 Current state:
-- Displayed version: **0.13.0**, recorded on `develop` on 2026-11-02. Day-to-day work happens on `develop`. `main` receives a release when that release is merged there. The live app deploys `develop`. Merging 0.13.0 to `main` and creating the git tag are separate from the release notes.
-- The last published GitHub release tag is **v0.11.0** (2026-09-27). Version 0.12.0 was recorded in the app and in CHANGELOG on 2026-10-02 and was not tagged.
+- Displayed version: **0.13.1**, recorded on `develop` on 2026-11-03. Day-to-day work happens on `develop`. `main` receives a release when that release is merged there. The live app deploys `develop`. Merging 0.13.1 to `main` and creating the git tag are separate from the release notes. 0.13.1 updates the user manual only. The version string in the app is the only application change.
+- The last published GitHub release tag is **v0.13.0** (2026-11-03). Version 0.12.0 was recorded in the app and in CHANGELOG on 2026-10-02 and was not tagged.
 - 0.13.0 adds first-run setup and account setup, club federation / RCS / venues, Luxembourg addresses from the official register, one invoice address, the national team desk, LTF staff licenses, club teams, height and weight, equipment sizes, module fees, committee handover, the black-and-red theme and its light counterpart, side panels, list menus, the header club switcher, and logo preview. Invoice emails show the same total as the PDF. After card checkout the button returns to the desk the user left. The same version also includes training venues on the timetable, license validity, module bundles and renewals, more than one desk with a second factor for staff, the license Expires column, member logins with an Account badge, ops downloads of first-login and reset links, the rear camera for member photos, and French and German in the language menu. Emails and PDFs stay in English and Luxembourgish. Pull requests #64 through #98 are in `CHANGELOG.md` **0.13.0** and `docs/releases/v0.13.0.md`. The manuals in `docs/user-manual/` are the October 2026 edition and do not describe pull requests #64 through #98.
 
 Earlier versions:
@@ -30,7 +30,7 @@ Earlier versions:
 - Club Members page fully cleaned up (RadioGroup filters with total counts, improved Members/Actions Selects, row status confirmation modals, pagination 50/150/300/All)
 
 Working branch: `develop`. The live app deploys `develop`.
-Status: 0.13.0 is recorded on `develop` (2026-11-02) and is not yet tagged. The last published GitHub release tag remains v0.11.0.
+Status: 0.13.1 is recorded on `develop` (2026-11-03). The last published GitHub release tag is v0.13.0.
 Status: `feature/module-club-management` merged into main on 2026-10-01. That branch tip stayed `6cdeb13` and does not contain `fdb286e` or 0.12.0.
 Status: All visual, navigation and Club Members page improvements merged and verified locally
 Status: Member Import Step 3 UX improvement merged on improvements-clean (v0.3.9)
@@ -119,8 +119,8 @@ Rules we follow:
 - Moved from a fixed 40px button/control rule to a responsive token-based sizing system (40px desktop / 44px touch) driven by `pointer: coarse`
 
 ## Current Open / Next Priorities (update after every milestone)
-- 0.13.0 is recorded on `develop` (2026-11-02). Merging that release to `main` and creating the tag are separate from the release notes. The last published GitHub release tag is still v0.11.0.
-- The manuals in `docs/user-manual/` are the October 2026 edition for 0.13.0. They do not describe pull requests #64 through #98.
+- 0.13.1 is recorded on `develop` (2026-11-03). Merging that release to `main` and creating the tag are separate from the release notes. The last published GitHub release tag is v0.13.0.
+- The manuals in `docs/user-manual/` are the 0.13.0 edition, updated on 2026-11-03 with recaptured screenshots and the language menu. The PDFs were rebuilt in four languages.
 - Post-rollout observation on production/Dokploy (print queue, printer-profile offset correctness)
 - Gather real Payconiq sandbox credentials and run first live sandbox verification
 - Any remaining Dokploy stability tweaks

@@ -8,12 +8,12 @@ Day-to-day work happens on `develop`. `main` receives a release when that releas
 
 ## Release Notes
 
-The displayed version is **0.13.0** (2026-11-02): first-run setup, Luxembourg addresses, club teams and the national team desk, more than one desk with a second factor for staff, module bundles, member logins, and French and German in the app, in emails, and on PDFs. Notes for a GitHub release are in `docs/releases/v0.13.0.md`.
+The displayed version is **0.13.1** (2026-11-03): the user manual for 0.13.0, with recaptured screenshots, the language menu, and rebuilt PDFs in four languages. Notes for a GitHub release are in `docs/releases/v0.13.1.md`.
 
-- See `CHANGELOG.md` **0.13.0** for this version, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
-- The last published GitHub release tag is `v0.11.0` (2026-09-27). Version 0.12.0 was recorded on 2026-10-02 and was not tagged. Version 0.13.0 is recorded on `develop` (2026-11-02). Merging it to `main` and creating the tag are separate steps.
+- See `CHANGELOG.md` **0.13.1** for this version, **0.13.0** for setup, teams, desks, and languages, **0.12.0** for membership billing, **0.11.0** for club management, **0.10.0** for the event calendar, and **0.4.0** for the UI refresh and license-card designer.
+- The last published GitHub release tag is `v0.13.0` (2026-11-03). Version 0.13.1 is recorded on `develop`. Merging it to `main` and creating the tag are separate steps.
 - Architecture note: `docs/LTF-License-Manager-Modular-Extension.docx`.
-- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`. Those manuals describe the 0.12.0 edition and are updated separately.
+- User manuals (EN, DE, FR, LB): `docs/user-manual/` (PDFs plus rebuild sources). See `docs/user-manual/README.md`. Those manuals describe 0.13.0, with the 0.13.1 screenshot and language-menu pass.
 - Demo environment (a second app, fictional data only): `docs/demo-environment.md`. Never seed the live server.
 
 ## CI (GitHub Actions)

@@ -4599,6 +4599,8 @@
     "cancelAction": "Zurück zum Dashboard"
   },
   "About": {
+    "release0131Title": "Benutzerhandbuch",
+    "release0131Manual": "Das Handbuch für 0.13.0 ist auf Englisch, Französisch, Deutsch und Luxemburgisch aktualisiert. Die Bilder wurden neu aufgenommen, das Sprachmenü ist beschrieben, und die PDFs wurden neu erstellt. Die Anwendung selbst ändert sich nicht.",
     "release0130Title": "Einrichtung, Teams und Adressen",
     "release0130Setup": "Die Ersteinrichtung importiert Vereine, Mitglieder und Vereinsadmins. Zeilen ohne Verein können zurückgestellt werden. Eingeladene Admins setzen ihre eigene E-Mail und ihr Passwort.",
     "release0130Addresses": "Luxemburgische Adressen nutzen das amtliche Straßenregister. Ein Verein kann seinen Verband, die RCS-Nummer und die Hallen speichern. Eine Adresse kann für Rechnungen markiert werden.",
