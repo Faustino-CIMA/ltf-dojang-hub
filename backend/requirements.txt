@@ -11,7 +11,9 @@ psycopg[binary]>=3.1
 redis>=5.0
 whitenoise>=6.7
 resend
-celery>=5.3
+# The Redis extra pulls kombu[redis], which imports packaging.
+# Without it, queueing a webhook or a print job raises ModuleNotFoundError.
+celery[redis]>=5.3,<6
 stripe>=14.3.0
 cryptography>=42.0
 weasyprint>=62.3
