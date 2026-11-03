@@ -7,7 +7,7 @@ import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { CommitteeHistoryTable, CommitteeOfficeMenu, type CommitteeMandateRow } from "@/components/clubmgmt/committee-history-table";
-import { CommitteeTermPanel, type CommitteePanelState } from "@/components/clubmgmt/committee-term-panel";
+import { CommitteeTermPanel, type CommitteePanelState, type TermFormValues } from "@/components/clubmgmt/committee-term-panel";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -382,7 +382,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
 
   const closePanel = () => setPanel(null);
 
-  const saveEdit = async (mandate: CommitteeMandateRow, values: { role: string; title: string; member: number | null; started_on: string; ended_on: string | null; notes: string }) => {
+  const saveEdit = async (mandate: CommitteeMandateRow, values: TermFormValues) => {
     setIsSaving(true);
     setErrorMessage(null);
     try {
@@ -390,7 +390,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
         role: values.role,
         title: values.title,
         member: values.member,
-        person: null,
+        person: values.person,
         started_on: values.started_on,
         ended_on: values.ended_on,
         notes: values.notes,
@@ -443,7 +443,7 @@ export function CommitteePage({ variant, embed = false }: Props) {
     }
   };
 
-  const savePast = async (values: { role: string; title: string; member: number | null; started_on: string; ended_on: string | null; notes: string }) => {
+  const savePast = async (values: TermFormValues) => {
     if (!panel || panel.mode !== "past" || values.member == null || !values.ended_on) {
       return;
     }

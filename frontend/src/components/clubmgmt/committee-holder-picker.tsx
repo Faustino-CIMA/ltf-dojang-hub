@@ -31,6 +31,7 @@ export function CommitteeHolderPicker({
   const [rows, setRows] = useState<CommitteeHolderChoice[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [picked, setPicked] = useState<{ value: string; label: string } | null>(null);
   const noClubLabel = t("committeeHolderLtf");
 
   useEffect(() => {
@@ -75,11 +76,12 @@ export function CommitteeHolderPicker({
         label: committeeHolderLabel(row, noClubLabel),
       };
     });
-    if (value && fallbackLabel && !seen.has(value)) {
-      next.unshift({ value, label: fallbackLabel });
+    const held = picked?.value === value ? picked.label : fallbackLabel;
+    if (value && held && !seen.has(value)) {
+      next.unshift({ value, label: held });
     }
     return next;
-  }, [fallbackLabel, noClubLabel, rows, value]);
+  }, [fallbackLabel, noClubLabel, picked, rows, value]);
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -101,7 +103,13 @@ export function CommitteeHolderPicker({
     <PopoverSelect
       ariaLabel={t("committeeColumnPerson")}
       value={value}
-      onValueChange={onValueChange}
+      onValueChange={(next) => {
+        const chosen = options.find((option) => option.value === next);
+        if (chosen && typeof chosen.label === "string") {
+          setPicked({ value: next, label: chosen.label });
+        }
+        onValueChange(next);
+      }}
       options={options}
       searchable
       remoteSearch

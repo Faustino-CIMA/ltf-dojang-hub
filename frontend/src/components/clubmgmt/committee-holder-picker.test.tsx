@@ -115,3 +115,117 @@ describe("federation replace picker", () => {
     );
   });
 });
+
+describe("editing an office", () => {
+  const panelProps = {
+    members: [{ id: 99, name: "LOCAL Only" }],
+    roles: [{ value: "president", label: "President" }],
+    busy: false,
+    onClose: () => undefined,
+    onReplace: () => undefined,
+    onEnd: () => undefined,
+    onCreatePast: () => undefined,
+    onDelete: () => undefined,
+  };
+
+  it("shows the current holder when that person is not on the first page", async () => {
+    const load = jest.fn(async (query: string) => {
+      if (query.trim()) {
+        return { results: [], hasMore: false };
+      }
+      return { results: [kraus], hasMore: true };
+    });
+    const onEdit = jest.fn();
+    render(
+      <CommitteeTermPanel
+        panel={{ mode: "edit", mandate: president }}
+        {...panelProps}
+        onEdit={onEdit}
+        loadHolders={load}
+      />,
+    );
+
+    const person = screen.getByRole("button", { name: "committeeColumnPerson" });
+    expect(person).toHaveTextContent("REDING Anne");
+    expect(person).not.toHaveTextContent("committeeNeedMember");
+
+    fireEvent.click(person);
+    fireEvent.change(screen.getByRole("searchbox", { name: "committeeSearchMembers" }), {
+      target: { value: "nobody" },
+    });
+    await waitFor(() => expect(load).toHaveBeenCalledWith("nobody", 1, expect.any(AbortSignal)));
+    expect(screen.getByRole("button", { name: "committeeColumnPerson" })).toHaveTextContent("REDING Anne");
+
+    fireEvent.click(screen.getByRole("button", { name: "committeeSaveTerm" }));
+    expect(onEdit).toHaveBeenCalledWith(
+      president,
+      expect.objectContaining({ member: 10, person: null }),
+    );
+  });
+
+  it("keeps a contact holder and still accepts another person", async () => {
+    const contact = {
+      ...president,
+      member: null,
+      member_name: "",
+      member_first_name: "",
+      member_last_name: "",
+      person: 7,
+      person_name: "WEBER Lia",
+      person_first_name: "Lia",
+      person_last_name: "Weber",
+    };
+    const load = jest.fn(async () => ({ results: [kraus], hasMore: false }));
+    const onEdit = jest.fn();
+    render(
+      <CommitteeTermPanel
+        panel={{ mode: "edit", mandate: contact }}
+        {...panelProps}
+        onEdit={onEdit}
+        loadHolders={load}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "committeeColumnPerson" })).toHaveTextContent("WEBER Lia");
+    fireEvent.click(screen.getByRole("button", { name: "committeeSaveTerm" }));
+    expect(onEdit).toHaveBeenCalledWith(
+      contact,
+      expect.objectContaining({ member: null, person: 7 }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "committeeColumnPerson" }));
+    fireEvent.click(await screen.findByRole("option", { name: "KRAUS Lio · History Club" }));
+    fireEvent.click(screen.getByRole("button", { name: "committeeSaveTerm" }));
+    expect(onEdit).toHaveBeenLastCalledWith(
+      contact,
+      expect.objectContaining({ member: 4, person: null }),
+    );
+  });
+
+  it("shows the holder on the club list and leaves a new office empty", () => {
+    const onEdit = jest.fn();
+    const { rerender } = render(
+      <CommitteeTermPanel
+        panel={{ mode: "edit", mandate: president }}
+        {...panelProps}
+        onEdit={onEdit}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "committeeColumnPerson" })).toHaveTextContent("REDING Anne");
+    fireEvent.click(screen.getByRole("button", { name: "committeeSaveTerm" }));
+    expect(onEdit).toHaveBeenCalledWith(
+      president,
+      expect.objectContaining({ member: 10, person: null }),
+    );
+
+    rerender(
+      <CommitteeTermPanel
+        panel={{ mode: "past", committeeId: 3 }}
+        {...panelProps}
+        onEdit={onEdit}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "committeeColumnPerson" })).toHaveTextContent("committeeNeedMember");
+  });
+});
