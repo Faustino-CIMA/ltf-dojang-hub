@@ -5,11 +5,11 @@ One source tree builds four print-ready PDFs:
 | Language | PDF | UI labels quoted | Screenshots |
 |---|---|---|---|
 | English | `LTF-Dojang-Hub-User-Manual-EN.pdf` | English UI | `figures/en/` |
-| Deutsch | `LTF-Dojang-Hub-Benutzerhandbuch-DE.pdf` | English UI (the app has no German UI) | `figures/en/` |
-| Français | `LTF-Dojang-Hub-Manuel-utilisateur-FR.pdf` | English UI (the app has no French UI) | `figures/en/` |
+| Deutsch | `LTF-Dojang-Hub-Benutzerhandbuch-DE.pdf` | English UI labels (the screenshots are the English set; the app can also be set to German) | `figures/en/` |
+| Français | `LTF-Dojang-Hub-Manuel-utilisateur-FR.pdf` | English UI labels (the screenshots are the English set; the app can also be set to French) | `figures/en/` |
 | Lëtzebuergesch | `LTF-Dojang-Hub-Benotzerhandbuch-LB.pdf` | Luxembourgish UI | `figures/lb/` |
 
-The manual describes app version **0.13.0** (develop commit `0a2093e`). Figures that show the sidebar version, and the print-job lists, were recaptured for this edition in the light theme. Where another screen differs from the text, the screen is right. All people, clubs and numbers in the
+The manual describes app version **0.13.0**. Figures whose screens changed for this edition were recaptured in the light theme, with the sidebar version reading 0.13.0. German and French keep the English figures. Where another screen differs from the text, the screen is right. All people, clubs and numbers in the
 screenshots come from an invented demo data set. There is no real personal data.
 
 ## Layout
@@ -136,13 +136,13 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
 
 ## Quality checks done for this edition
 
-Screenshots were recaptured from this branch in the light theme, with the fictional demo seed only. English and Luxembourgish each have their own set. German and French keep using the English set. The public sign-in page stays black and red; that is the brand, including when the rest of the app is light.
+Screenshots were recaptured from this branch in the light theme, with the fictional demo seed only. English and Luxembourgish each have their own set. German and French keep using the English set. The public sign-in page stays black and red; that is the brand, including when the rest of the app is light. Signed-in figures include the Security button in the header, and the sign-in figure shows the language menu open.
 
-- `python build.py --check`: all languages in sync (78 headings, 66 figures, same UI-key sequence), and no unknown UI keys.
+- `python build.py --check`: all languages in sync (78 headings, 71 figures, same UI-key sequence), and no unknown UI keys.
 - The four PDFs rebuild without errors.
 - Every `#anchor` used in a cross-reference exists in all four sources.
 
-New figures: `account-setup`, `setup`, `members-menu`, `teams`, `team-roster`, `team-weigh-in`, `height-weight`, `equipment`, `national-team`, `parked-members`, `pay-now`, `checkout-return`, `transfer-request`, `ltf-clubs`, `ltf-club-admins`, `ltf-print-jobs`. The previously unembedded shots are now in the text. `checkout-return` is the in-app cancel page with **Back to club dashboard**. The card provider's own page is described in "Paying the LTF" in all four languages: the invoice line, the card fields, paying, and the way back. `pay-now` is the row menu on an LTF invoice. The billing figure does not number a blocked household: this demo list has none, and the steps under the figure still explain that state. `print-jobs`, `print-history` and `ltf-print-jobs` show fictional jobs (the app has one print-job list, so the first two figures are that list). Sidebar figures that include the version read 0.13.0.
+New figures for this pass: `module-order`, `ops-desks`, `subsidies-officials`, `committee-edit`, and the invoices list. Earlier figures still in the book include `account-setup`, `setup`, `members-menu`, `teams`, `team-roster`, `team-weigh-in`, `height-weight`, `equipment`, `national-team`, `parked-members`, `pay-now`, `checkout-return`, `transfer-request`, `ltf-clubs`, `ltf-club-admins`, `ltf-print-jobs`. The previously unembedded shots are now in the text. `checkout-return` is the in-app cancel page with **Back to club dashboard**. The card provider's own page is described in "Paying the LTF" in all four languages: the invoice line, the card fields, paying, and the way back. `pay-now` is the row menu on an LTF invoice. The billing figure does not number a blocked household: this demo list has none, and the steps under the figure still explain that state. `print-jobs`, `print-history` and `ltf-print-jobs` show fictional jobs (the app has one print-job list, so the first two figures are that list). Sidebar figures that include the version read 0.13.0.
 
 ## Open questions
 

@@ -10,10 +10,10 @@
   fr: {term: Entraîneur, text: "Membre adulte qui enseigne. Voit la semaine d'entraînement et fait l'appel ; d'autres fonctions pour les entraîneurs sont prévues."}
   lb: {term: Trainer, text: "Erwuessene Member, deen trainéiert. Gesäit d'Trainingswoch an hëlt d'Präsenz; weider Funktioune fir Trainer si geplangt."}
 - key: Common.roleMember
-  en: {term: Member, text: "Athlete of a club. Members and parents have no login; the club keeps their data."}
-  de: {term: Mitglied, text: "Sportler eines Vereins. Mitglieder und Eltern haben keinen Login; der Verein pflegt ihre Daten."}
-  fr: {term: Membre, text: "Sportif d'un club. Les membres et les parents n'ont pas d'identifiant ; le club gère leurs données."}
-  lb: {term: Member, text: "Sportler vun engem Veräin. Memberen an Elteren hu kee Login; de Veräin këmmert sech ëm hir Donnéeën."}
+  en: {term: Member, text: "Athlete of a club. A club admin can create a login from age 16. Parents have no login. The club keeps the data."}
+  de: {term: Mitglied, text: "Sportler eines Vereins. Ein Club-Admin kann ab 16 einen Login anlegen. Eltern haben keinen Login. Der Verein pflegt die Daten."}
+  fr: {term: Membre, text: "Sportif d'un club. Un administrateur peut créer un identifiant à partir de 16 ans. Les parents n'en ont pas. Le club garde les données."}
+  lb: {term: Member, text: "Sportler vun engem Veräin. E Club-Admin kann ab 16 e Login uleeën. Elteren hu kee Login. De Veräin hält d'Donnéeën."}
 - key: Common.roleLtfAdmin
   en: {term: LTF Admin, text: "Federation office. Manages clubs, licences, cards, the national team and the federation calendar."}
   de: {term: LTF-Admin, text: "Verbandsbüro. Verwaltet Vereine, Lizenzen, Karten, die Nationalmannschaft und den Verbandskalender."}
@@ -174,3 +174,13 @@
   de: {term: Ersteinrichtung, text: "Import von Vereinen, Mitgliedern und Club-Admins durch den Superuser, vor dem Alltag. Es wird nichts per E-Mail verschickt. Nicht der Importassistent des Vereins."}
   fr: {term: Première installation, text: "Import des clubs, des membres et des administrateurs par le superutilisateur, avant l'usage courant. Aucun e-mail n'est envoyé. Ce n'est pas l'assistant d'import du club."}
   lb: {term: Éischt Ariichtung, text: "Import vu Veräiner, Memberen a Club-Admins duerch de Superuser, virum Alldag. Et gëtt näischt per E-Mail geschéckt. Net den Import-Assistent vum Veräin."}
+- key: Common.deskSwitcherLabel
+  en: {term: Desk, text: "One login can hold more than one desk. The header list switches between them. With one desk, the header stays a plain role label. A view-only desk can read and cannot save."}
+  de: {term: Schreibtisch, text: "Ein Login kann mehr als einen Schreibtisch haben. Die Liste in der Kopfzeile wechselt zwischen ihnen. Bei einem Schreibtisch bleibt die Kopfzeile ein schlichtes Rollenabzeichen. Ein nur lesender Schreibtisch kann lesen und nicht speichern."}
+  fr: {term: Bureau, text: "Un identifiant peut avoir plus d'un bureau. La liste dans l'en-tête passe de l'un à l'autre. Avec un seul bureau, l'en-tête reste une étiquette de rôle. Un bureau en lecture seule peut lire et ne peut pas enregistrer."}
+  lb: {term: Schreifdësch, text: "Ee Login kann méi wéi ee Schreifdësch hunn. D'Lëscht an der Kappzeil wiesselt tëscht hinnen. Mat engem Schreifdësch bleift d'Kappzeil e Rollebadge. E Schreifdësch nëmme fir ze kucken kann liesen a net späicheren."}
+- key: moduleOrderOnTitle
+  en: {term: Already on, text: "Modules already switched on for the club. A bundle is listed here only when that bundle itself was bought."}
+  de: {term: Already on, text: "Module, die für den Verein schon an sind. Ein Bündel steht hier nur, wenn genau dieses Bündel gekauft wurde."}
+  fr: {term: Already on, text: "Modules déjà activés pour le club. Un lot n'apparaît ici que si ce lot lui-même a été acheté."}
+  lb: {term: Scho un, text: "Moduler, déi fir de Veräin scho un sinn. E Pak steet hei nëmmen, wann genau dee Pak kaaft gouf."}
