@@ -136,7 +136,7 @@ Screenshots are taken from a **local** copy of the app, filled with demo data. N
 
 ## Quality checks done for this edition
 
-Screenshots were recaptured from this branch in the light theme, with the fictional demo seed only. English and Luxembourgish each have their own set. German and French keep using the English set. The public sign-in page stays black and red; that is the brand, including when the rest of the app is light.
+Screenshots were recaptured from this branch in the light theme, with the fictional demo seed only. English and Luxembourgish each have their own set. German and French keep using the English set. The public sign-in page stays black and red; that is the brand, including when the rest of the app is light. Signed-in figures include the Security button in the header, and the sign-in figure shows the language menu open.
 
 - `python build.py --check`: all languages in sync (78 headings, 71 figures, same UI-key sequence), and no unknown UI keys.
 - The four PDFs rebuild without errors.

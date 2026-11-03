@@ -14,7 +14,8 @@ catalogues), by ARIA label, or by CSS selector, then numbered on the image.
 
 FIGS = [
  dict(id="signin", user="-", path="login", h=760,
-      ann=[("css", "button[aria-label]"), ("css", "#login-username"), ("css", "#login-password"), ("css", "button[type=submit]")]),
+      steps=[("click", ("aria", "Common.languageLabel")), ("wait", 400)],
+      ann=[("aria", "Common.languageLabel"), ("css", "#login-username"), ("css", "#login-password"), ("css", "button[type=submit]")]),
  dict(id="shell", user="demo_club_admin", path="dashboard/club", h=900,
       ann=[("css", "aside nav"), ("aria", "Common.selectedClubLabel"), ("css", "header .hidden.sm\\:flex"),
            ("aria", "Common.languageLabel"), ("t", "Auth.mfaSecurity"), ("t", "Common.signOut"), ("aria", "Common.sidebarCollapse")]),

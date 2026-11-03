@@ -142,7 +142,7 @@ Sie brauchen nur einen Webbrowser auf Computer, Tablet oder Smartphone. Es muss 
 ![Die Anmeldeseite](fig:signin)
 
 <div class="legend" markdown="1">
-1. [[Common.languageLabel]] – English, Français, Deutsch oder Lëtzebuergesch. Die Schaltfläche zeigt die aktuelle Sprache, bis Sie sie öffnen.
+1. [[Common.languageLabel]] – das Menü ist offen: English, Français, Deutsch und Lëtzebuergesch.
 2. [[Auth.username]] (Benutzername)
 3. [[Auth.password]] (Passwort)
 4. [[Auth.submit]] – meldet Sie an.

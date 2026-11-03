@@ -142,7 +142,7 @@ Ouvrez l'adresse que la LTF vous a communiquée. La page de connexion s'affiche.
 ![La page de connexion](fig:signin)
 
 <div class="legend" markdown="1">
-1. [[Common.languageLabel]] – English, Français, Deutsch ou Lëtzebuergesch. Le bouton montre la langue actuelle jusqu'à ce que vous l'ouvriez.
+1. [[Common.languageLabel]] – le menu est ouvert : English, Français, Deutsch et Lëtzebuergesch.
 2. [[Auth.username]] (nom d'utilisateur)
 3. [[Auth.password]] (mot de passe)
 4. [[Auth.submit]] – vous connecte.

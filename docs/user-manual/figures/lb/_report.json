@@ -69,11 +69,13 @@
  "member-record": {
   "found": [
    1,
-   2,
    3,
    4
   ],
-  "problems": []
+  "problems": [
+   "step ('scroll', ('tc', 'ClubMgmt.memberFeeLabel')): Locator.scroll_into_view_if_needed: Timeout 5000ms exceeded.",
+   "ann 2 ('tc', 'ClubMgmt.memberFeeLabel'): Locator.bounding_box: Timeout 3000ms exceeded."
+  ]
  },
  "member-licence": {
   "found": [],

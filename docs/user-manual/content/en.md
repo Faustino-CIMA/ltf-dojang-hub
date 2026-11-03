@@ -142,7 +142,7 @@ Open the address the LTF gave you. The sign-in page appears.
 ![The sign-in page](fig:signin)
 
 <div class="legend" markdown="1">
-1. [[Common.languageLabel]] – English, Français, Deutsch, or Lëtzebuergesch. The button shows the current language until you open it.
+1. [[Common.languageLabel]] – the menu is open: English, Français, Deutsch, and Lëtzebuergesch.
 2. [[Auth.username]]
 3. [[Auth.password]]
 4. [[Auth.submit]] – signs you in.

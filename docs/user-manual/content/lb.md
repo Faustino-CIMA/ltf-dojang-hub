@@ -142,7 +142,7 @@ Maacht d'Adress op, déi Dir vun der LTF kritt hutt. D'Säit fir d'Aloggen ersch
 ![D'Säit fir d'Aloggen](fig:signin)
 
 <div class="legend" markdown="1">
-1. [[Common.languageLabel]] – English, Français, Deutsch oder Lëtzebuergesch. De Knäppchen weist déi aktuell Sprooch, bis Dir en opmaacht.
+1. [[Common.languageLabel]] – de Menü ass op: English, Français, Deutsch a Lëtzebuergesch.
 2. [[Auth.username]]
 3. [[Auth.password]]
 4. [[Auth.submit]] – loggt Iech an.
