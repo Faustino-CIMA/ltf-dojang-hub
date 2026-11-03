@@ -4211,6 +4211,8 @@
     "currentBadge": "Current",
     "backToApp": "Back to the application",
     "githubReleasesLink": "GitHub releases",
+    "release0131Title": "User manual",
+    "release0131Manual": "The user manual for 0.13.0 is updated in English, French, German, and Luxembourgish. Screenshots were recaptured, the language menu is described, and the PDFs were rebuilt. The application itself does not change.",
     "release0130Title": "Setup, teams, and addresses",
     "release0130Setup": "First-run setup imports clubs, members, and club admins. Rows without a club can be parked. Invited admins set their own email and password.",
     "release0130Addresses": "Luxembourg addresses use the official street register. A club can store its federation, RCS number, and venues. One address can be marked for invoices.",
