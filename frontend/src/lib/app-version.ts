@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.13.0";
+export const APP_VERSION = "0.13.1";
 
 export const GITHUB_REPO_URL = "https://github.com/Faustino-CIMA/ltf-dojang-hub";
 export const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases`;
@@ -15,6 +15,12 @@ export type AppRelease = {
  * Dates follow CHANGELOG.md when present, otherwise the GitHub tag created_at date.
  */
 export const APP_RELEASES: AppRelease[] = [
+  {
+    version: "0.13.1",
+    date: "2026-11-03",
+    titleKey: "release0131Title",
+    itemKeys: ["release0131Manual"],
+  },
   {
     version: "0.13.0",
     date: "2026-11-02",
