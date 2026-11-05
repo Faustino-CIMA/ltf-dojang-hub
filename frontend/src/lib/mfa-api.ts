@@ -19,6 +19,9 @@ export function totpDigits(value: string) {
 }
 
 export function mfaFailureKey(message: string) {
+  if (message.includes("mfa_password_to_save")) {
+    return "mfaPasswordToSave" as const;
+  }
   if (message.includes("mfa_sign_in_again") || message.includes("mfa_not_pending")) {
     return "mfaSignInAgain" as const;
   }
@@ -39,16 +42,30 @@ export function mfaFailureKey(message: string) {
 
 export async function reauthenticate(password: string) {
   const token = getToken() ?? "";
-  const result = await apiRequest<{ meta?: { session_token?: string } }>("/_allauth/app/v1/auth/reauthenticate", {
+  const response = await fetch(`${API_URL}/_allauth/app/v1/auth/reauthenticate`, {
     method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Token ${token}`,
+      "X-Session-Token": token,
+    },
     body: JSON.stringify({ password }),
-    headers: { "X-Session-Token": token },
   });
-  const nextToken = result.meta?.session_token;
+  const payload = (await response.json().catch(() => ({}))) as {
+    meta?: { session_token?: string };
+    errors?: { code?: string }[];
+    detail?: string;
+  };
+  const nextToken = payload.meta?.session_token;
   if (nextToken && nextToken !== token) {
     setToken(nextToken);
   }
-  return result;
+  if (!response.ok) {
+    const code = payload.errors?.find((row) => row.code)?.code || payload.detail || "incorrect_password";
+    throw new AuthApiError(code, code, code === "incorrect_password" ? "danger" : "info");
+  }
+  return payload;
 }
 
 export function activateTotp(code: string) {

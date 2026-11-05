@@ -113,22 +113,43 @@ export function MfaSecurityPanel({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
+  const [stepUpKind, setStepUpKind] = useState<"visit" | "code" | "key">("visit");
   const [resumeTotp, setResumeTotp] = useState(false);
+  const [resumePasskey, setResumePasskey] = useState(false);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [pendingPasskey, setPendingPasskey] = useState<unknown>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
+  const holdForPassword = (error: unknown, kind: "visit" | "code" | "key") => {
+    const code = error instanceof AuthApiError ? error.code : "";
+    const key = error instanceof Error ? mfaFailureKey(error.message) : "";
+    const visit = code === "mfa_sign_in_again" || code === "mfa_not_pending" || key === "mfaSignInAgain";
+    const verified = code === "mfa_password_to_save" || key === "mfaPasswordToSave";
+    if (!visit && !verified) {
+      return false;
+    }
+    setNeedsReauth(true);
+    setStepUpKind(verified ? kind : "visit");
+    setErrorMessage(null);
+    return true;
+  };
+
   const explain = (error: unknown) => {
-    if (error instanceof AuthApiError && (error.code === "mfa_sign_in_again" || error.code === "mfa_not_pending")) {
-      setNeedsReauth(true);
-      return t("mfaReauthHint");
+    if (error instanceof AuthApiError && (error.code === "incorrect_password" || error.code === "enter_current_password")) {
+      return t("mfaReauthFailed");
+    }
+    if (error instanceof AuthApiError && error.code === "incorrect_code") {
+      return t("mfaFailed");
     }
     if (error instanceof AuthApiError) {
       return error.message;
     }
     const message = error instanceof Error ? error.message : "";
     const key = mfaFailureKey(message);
+    if (key === "mfaPasswordToSave") {
+      return t("mfaStepUpCode");
+    }
     if (key === "mfaSignInAgain") {
-      setNeedsReauth(true);
       return t("mfaReauthHint");
     }
     return t(key);
@@ -142,10 +163,10 @@ export function MfaSecurityPanel({
       setSecret(started.secret);
       setQr(started.qr_svg);
     } catch (error) {
-      const reauth =
-        (error instanceof AuthApiError && (error.code === "mfa_sign_in_again" || error.code === "mfa_not_pending")) ||
-        (error instanceof Error && mfaFailureKey(error.message) === "mfaSignInAgain");
-      if (reauth) setResumeTotp(true);
+      if (holdForPassword(error, "visit")) {
+        setResumeTotp(true);
+        return;
+      }
       setErrorMessage(explain(error));
     } finally {
       setBusy(false);
@@ -189,7 +210,9 @@ export function MfaSecurityPanel({
       setCodes(result.recovery_codes);
       onChanged(result.mfa);
     } catch (error) {
-      setErrorMessage(explain(error));
+      if (!holdForPassword(error, "visit")) {
+        setErrorMessage(explain(error));
+      }
     } finally {
       setBusy(false);
     }
@@ -214,7 +237,10 @@ export function MfaSecurityPanel({
       onChanged(result.mfa);
       noteEnrolment(result.recovery_codes);
     } catch (error) {
-      setErrorMessage(explain(error));
+      if (!holdForPassword(error, "code")) {
+        setPendingCode(null);
+        setErrorMessage(explain(error));
+      }
     } finally {
       setBusy(false);
     }
@@ -232,6 +258,20 @@ export function MfaSecurityPanel({
     try {
       await reauthenticate(password);
       setNeedsReauth(false);
+      if (pendingPasskey) {
+        const result = await finishPasskeyRegistration("Passkey", pendingPasskey);
+        setPendingPasskey(null);
+        setResumePasskey(false);
+        onChanged(result.mfa);
+        noteEnrolment(result.recovery_codes);
+        return;
+      }
+      if (resumePasskey) {
+        setResumePasskey(false);
+        setBusy(false);
+        await addPasskey();
+        return;
+      }
       if (pendingCode) {
         const result = await activateTotp(pendingCode);
         setSecret(null);
@@ -251,23 +291,41 @@ export function MfaSecurityPanel({
       }
       setResumeTotp(false);
     } catch (error) {
-      setErrorMessage(explain(error));
+      const passwordRefused =
+        error instanceof AuthApiError &&
+        (error.code === "incorrect_password" || error.code === "enter_current_password");
+      if (passwordRefused) {
+        setNeedsReauth(true);
+      }
+      if (!holdForPassword(error, stepUpKind)) {
+        setErrorMessage(explain(error));
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const addPasskey = async () => {
+  async function addPasskey() {
     setBusy(true);
     setErrorMessage(null);
+    let credential: unknown = null;
     try {
       const options = await beginPasskeyRegistration();
       const creation = (options as { publicKey?: PublicKeyCredentialCreationOptionsJSON }).publicKey ?? options;
-      const credential = await createPasskey(creation);
+      credential = await createPasskey(creation);
       const result = await finishPasskeyRegistration("Passkey", credential);
+      setPendingPasskey(null);
       onChanged(result.mfa);
       noteEnrolment(result.recovery_codes);
     } catch (error) {
+      if (credential && holdForPassword(error, "key")) {
+        setPendingPasskey(credential);
+        return;
+      }
+      if (holdForPassword(error, "visit")) {
+        setResumePasskey(true);
+        return;
+      }
       setErrorMessage(explain(error));
     } finally {
       setBusy(false);
@@ -348,7 +406,9 @@ export function MfaSecurityPanel({
         ) : null}
         {needsReauth ? (
           <form className="app-panel space-y-2 p-3" onSubmit={(event) => void confirmPassword(event)}>
-            <p className="text-muted">{t("mfaReauthHint")}</p>
+            <PageNotice tone="info">
+              {stepUpKind === "key" ? t("mfaStepUpKey") : stepUpKind === "code" ? t("mfaStepUpCode") : t("mfaReauthHint")}
+            </PageNotice>
             <Label htmlFor="mfa-reauth-password" required>
               {t("password")}
             </Label>
