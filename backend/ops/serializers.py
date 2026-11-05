@@ -6,6 +6,8 @@ from .models import AuthEvent, OpsAuditLog, SecurityAlert
 
 
 class OpsUserSerializer(serializers.ModelSerializer):
+    linked_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -21,8 +23,21 @@ class OpsUserSerializer(serializers.ModelSerializer):
             "is_email_verified",
             "last_login",
             "date_joined",
+            "linked_name",
         ]
         read_only_fields = fields
+
+    def get_linked_name(self, obj) -> str:
+        from clubmgmt.models import Person
+        from members.models import Member
+
+        member = Member.all_objects.filter(user_id=obj.pk).only("first_name", "last_name").first()
+        if member is not None:
+            return " ".join(part for part in (member.last_name, member.first_name) if part).strip()
+        person = Person.objects.filter(user_id=obj.pk).only("first_name", "last_name").first()
+        if person is None:
+            return ""
+        return " ".join(part for part in (person.last_name, person.first_name) if part).strip()
 
 
 class AuthEventSerializer(serializers.ModelSerializer):

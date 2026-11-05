@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Member page:** The club member page no longer shows a pencil beside the three-dots menu. Edit stays in that menu, and every item has an icon and a label. The LTF member page uses the same icon and label on each menu item.
+- **Ops user delete:** Deleting a user on Ops users removes the login only. The member or contact record stays, and office desks end the same way as unlinking that login. Every open session for that login stops at once. A leftover sign-in is sent to the sign-in page with a short note. You cannot delete your own login. The row actions sit in a three-dots menu, with Delete last.
 
 ## [0.13.1] - 2026-11-03
 
