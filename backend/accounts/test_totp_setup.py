@@ -220,6 +220,21 @@ class TotpSetupTests(TestCase):
         self.assertEqual(refused.status_code, 400, refused.data)
         self.assertEqual(refused.data["detail"], "incorrect_code")
 
+    def test_fresh_sign_in_can_start_a_passkey(self):
+        started = self.client.get("/api/auth/mfa/webauthn/")
+        self.assertEqual(started.status_code, 200, getattr(started, "data", started.content))
+        self.assertIn("challenge", str(started.data))
+        self.assertNotIn(b"<html", started.content)
+        store = import_module(settings.SESSION_ENGINE).SessionStore(session_key=self.token)
+        methods = list(store.get("account_authentication_methods") or [])
+        self.assertTrue(any(row.get("reauthenticated") for row in methods))
+
+    def test_old_sign_in_does_not_start_a_passkey(self):
+        self._age_sign_in(account_settings.REAUTHENTICATION_TIMEOUT + 5)
+        started = self.client.get("/api/auth/mfa/webauthn/")
+        self.assertEqual(started.status_code, 409, getattr(started, "data", started.content))
+        self.assertEqual(started.data["detail"], "mfa_sign_in_again")
+
     def test_past_the_timeout_a_bad_security_key_is_still_refused(self):
         self._age_sign_in(account_settings.REAUTHENTICATION_TIMEOUT + 5)
         refused = self.client.post(

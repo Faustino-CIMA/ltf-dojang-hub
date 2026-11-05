@@ -64,6 +64,27 @@ function prepareRequest(options: PublicKeyCredentialRequestOptionsJSON): Credent
   return { publicKey };
 }
 
+export type PasskeyCeremonyOutcome = "cancelled" | "unsupported" | "failed";
+
+/** A browser prompt that never became a passkey. Not a stale visit. */
+export function passkeyCeremonyOutcome(error: unknown): PasskeyCeremonyOutcome | null {
+  if (!(error instanceof Error) || error.name === "AuthApiError") {
+    return null;
+  }
+  const name = error.name;
+  const message = error.message;
+  if (message === "cancelled" || name === "NotAllowedError" || name === "AbortError") {
+    return "cancelled";
+  }
+  if (message === "unsupported" || name === "NotSupportedError") {
+    return "unsupported";
+  }
+  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+    return "failed";
+  }
+  return null;
+}
+
 export async function createPasskey(options: PublicKeyCredentialCreationOptionsJSON) {
   if (!window.PublicKeyCredential) {
     throw new Error("unsupported");

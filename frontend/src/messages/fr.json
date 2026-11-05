@@ -90,6 +90,8 @@
     "mfaUnexpected": "Cette étape n'a pas abouti. Reconnectez-vous si cette visite n'est plus récente.",
     "mfaPasskey": "Utiliser une clé d'accès",
     "mfaPasskeyFailed": "La clé d'accès n'a pas été acceptée.",
+    "mfaPasskeyNotCreated": "La clé d'accès n'a pas été créée.",
+    "mfaPasskeyUnsupported": "Ce navigateur ne peut pas créer de clé d'accès.",
     "mfaSecurity": "Sécurité",
     "mfaGraceBanner": "Installez une application d'authentification avant le {date}. Ensuite, ce bureau reste fermé tant que ce n'est pas fait.",
     "mfaEnrolGrace": "Votre bureau a besoin d'une connexion en deux étapes. Configurez-la maintenant — il vous reste {days} jours.",

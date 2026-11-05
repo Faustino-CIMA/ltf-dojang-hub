@@ -242,6 +242,8 @@
     "mfaUnexpected": "Dëse Schrëtt ass net fäerdeg. Loggt Iech nach eng Kéier an, wann dës Visite net méi frësch ass.",
     "mfaPasskey": "E Passkey benotzen",
     "mfaPasskeyFailed": "De Passkey gouf net ugeholl.",
+    "mfaPasskeyNotCreated": "De Passkey gouf net erstallt.",
+    "mfaPasskeyUnsupported": "Dëse Browser kann kee Passkey erstellen.",
     "mfaSecurity": "Sécherheet",
     "mfaGraceBanner": "Riicht eng Authenticator-App virum {date} an. Duerno bleift dëse Bureau zou, bis Dir dat gemaach hutt.",
     "mfaEnrolGrace": "Äre Schreifdësch brauch eng Umeldung an zwee Schrëtt. Riicht se elo an — Dir hutt nach {days} Deeg.",

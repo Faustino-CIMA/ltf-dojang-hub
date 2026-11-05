@@ -29,7 +29,7 @@ import {
   sendEmailMfaCode,
   totpDigits,
 } from "@/lib/mfa-api";
-import { createPasskey } from "@/lib/webauthn";
+import { createPasskey, passkeyCeremonyOutcome } from "@/lib/webauthn";
 
 function daysUntil(until: string): number {
   const end = new Date(`${until.slice(0, 10)}T00:00:00`);
@@ -119,6 +119,7 @@ export function MfaSecurityPanel({
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [pendingPasskey, setPendingPasskey] = useState<unknown>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passkeyNote, setPasskeyNote] = useState<string | null>(null);
   const passwordFieldRef = useRef<HTMLInputElement>(null);
   const passwordSectionRef = useRef<HTMLFormElement>(null);
 
@@ -324,6 +325,7 @@ export function MfaSecurityPanel({
   async function addPasskey() {
     setBusy(true);
     setErrorMessage(null);
+    setPasskeyNote(null);
     let credential: unknown = null;
     try {
       const options = await beginPasskeyRegistration();
@@ -340,6 +342,19 @@ export function MfaSecurityPanel({
       }
       if (holdForPassword(error, "visit")) {
         setResumePasskey(true);
+        return;
+      }
+      const ceremony = passkeyCeremonyOutcome(error);
+      if (ceremony === "cancelled") {
+        setPasskeyNote(t("mfaPasskeyNotCreated"));
+        return;
+      }
+      if (ceremony === "unsupported") {
+        setPasskeyNote(t("mfaPasskeyUnsupported"));
+        return;
+      }
+      if (ceremony === "failed") {
+        setErrorMessage(t("mfaPasskeyFailed"));
         return;
       }
       setErrorMessage(explain(error));
@@ -599,6 +614,7 @@ export function MfaSecurityPanel({
               ))}
             </ul>
           ) : null}
+          {passkeyNote ? <PageNotice tone="info">{passkeyNote}</PageNotice> : null}
           <Button type="button" variant="primary" disabled={busy} onClick={() => void addPasskey()}>
             <Fingerprint aria-hidden />
             {t("mfaPasskeyAdd")}
