@@ -208,3 +208,16 @@ export function defaultDesk(
   const pool = sameRole.length > 0 ? sameRole : desks;
   return pool.find((desk) => desk.club_id != null && desk.club_id === homeClubId) ?? pool[0] ?? null;
 }
+
+/** A desk that is open right now. A superuser keeps Ops. */
+export function fallbackOpenDesk(input: {
+  isSuperuser: boolean;
+  desks: DeskChoice[];
+  role: string;
+  homeClubId: number | null;
+}): DeskChoice | null {
+  if (input.isSuperuser) {
+    return input.desks.find((desk) => desk.desk === "ops") ?? { desk: "ops", level: "full", club_id: null };
+  }
+  return defaultDesk(input.desks, null, input.role, input.homeClubId);
+}

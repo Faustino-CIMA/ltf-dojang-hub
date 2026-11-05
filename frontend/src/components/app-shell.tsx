@@ -30,7 +30,7 @@ import {
 import { logout, selectDesk } from "@/lib/auth-api";
 import { clearToken, getToken, type MfaStatus } from "@/lib/auth";
 import { MfaSecurityPanel } from "@/components/mfa-security-panel";
-import { presentAuthError } from "@/lib/auth-errors";
+import { AuthApiError, presentAuthError } from "@/lib/auth-errors";
 import { getDashboardRouteForRole, routeForDesk, showFederationDashboardLink } from "@/lib/dashboard-routing";
 import { showLegacyClubPicker, switchNeedsConfirm } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
@@ -358,9 +358,20 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
     clearOpsServerSync();
     void selectDesk(plan.sync).catch((error) => {
       markOpsServerSyncPending();
-      if (!deskChosenHere.current) {
-        setSwitchNotice(error instanceof Error ? error.message : "");
+      if (deskChosenHere.current) {
+        return;
       }
+      if (error instanceof AuthApiError && error.code === "desk_not_granted") {
+        rememberActiveDesk(null);
+        window.location.reload();
+        return;
+      }
+      const message = error instanceof Error ? error.message : "";
+      const presented = presentAuthError(message);
+      if (presented.code === "account_unavailable" || presented.code === "token_sunset") {
+        return;
+      }
+      setSwitchNotice(presented.text);
     });
   }, [pathname, me, activeHeader]);
 
