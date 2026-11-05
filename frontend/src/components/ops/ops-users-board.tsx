@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { Fingerprint, KeyRound, Mail, Shield, ShieldOff, Smartphone, TimerReset, Trash2, UserCheck, UserX } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -9,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ActionNotices, ListToolbarPanel, SelectionMeta } from "@/components/ui/list-page-chrome";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
+import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
@@ -45,12 +47,14 @@ export function OpsUsersBoard({
   query,
   onQueryChange,
   onChanged,
+  currentUserId,
 }: {
   users: OpsUser[];
   isLoading: boolean;
   query: string;
   onQueryChange: (value: string) => void;
   onChanged: () => Promise<void> | void;
+  currentUserId?: number | null;
 }) {
   const t = useTranslations("Ops");
   const common = useTranslations("Common");
@@ -62,6 +66,7 @@ export function OpsUsersBoard({
   const [pendingIds, setPendingIds] = useState<number[]>([]);
   const [file, setFile] = useState<BulkLoginLinkFile | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<OpsUser | null>(null);
 
   const visibleIds = useMemo(() => users.map((user) => user.id), [users]);
   const knownUsers = useRef(new Map<number, OpsUser>());
@@ -104,6 +109,24 @@ export function OpsUsersBoard({
     setLinkType(null);
     setPendingIds([]);
     setFile(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) {
+      return;
+    }
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      await runOpsUserAction(pendingDelete.id, "delete");
+      setSuccessMessage(t("userDeleted"));
+      setPendingDelete(null);
+      await onChanged();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : t("saveError"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const download = async (kind: "csv" | "pdf") => {
@@ -227,29 +250,64 @@ export function OpsUsersBoard({
                 key: "actions",
                 header: t("colActions"),
                 render: (row) => (
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => act(row, row.is_active ? "disable" : "enable")}>
-                      {row.is_active ? t("disable") : t("enable")}
-                    </Button>
-                    <Button variant="outline" onClick={() => act(row, "revoke_tokens")}>
-                      {t("revokeSession")}
-                    </Button>
-                    <Button variant="outline" onClick={() => act(row, "send_password_reset")}>
-                      {t("sendReset")}
-                    </Button>
-                    <Button variant="outline" onClick={() => act(row, row.is_superuser ? "revoke_superuser" : "grant_superuser")}>
-                      {row.is_superuser ? t("revokeSuperuser") : t("grantSuperuser")}
-                    </Button>
-                    <Button variant="outline" onClick={() => act(row, "extend_mfa_grace")}>
-                      {t("extendMfaGrace")}
-                    </Button>
-                    <Button variant="outline" onClick={() => act(row, "remove_passkeys")}>
-                      {t("removePasskeys")}
-                    </Button>
-                    <Button variant="outline" onClick={() => act(row, "reset_authenticator")}>
-                      {t("resetAuthenticator")}
-                    </Button>
-                  </div>
+                  <RowActionMenu
+                    label={t("userActions", { username: row.username })}
+                    actions={[
+                      {
+                        key: "active",
+                        label: row.is_active ? t("disable") : t("enable"),
+                        icon: row.is_active ? <UserX aria-hidden /> : <UserCheck aria-hidden />,
+                        onSelect: () => void act(row, row.is_active ? "disable" : "enable"),
+                      },
+                      {
+                        key: "revoke",
+                        label: t("revokeSession"),
+                        icon: <KeyRound aria-hidden />,
+                        onSelect: () => void act(row, "revoke_tokens"),
+                      },
+                      {
+                        key: "reset",
+                        label: t("sendReset"),
+                        icon: <Mail aria-hidden />,
+                        onSelect: () => void act(row, "send_password_reset"),
+                      },
+                      {
+                        key: "superuser",
+                        label: row.is_superuser ? t("revokeSuperuser") : t("grantSuperuser"),
+                        icon: row.is_superuser ? <ShieldOff aria-hidden /> : <Shield aria-hidden />,
+                        onSelect: () => void act(row, row.is_superuser ? "revoke_superuser" : "grant_superuser"),
+                      },
+                      {
+                        key: "grace",
+                        label: t("extendMfaGrace"),
+                        icon: <TimerReset aria-hidden />,
+                        onSelect: () => void act(row, "extend_mfa_grace"),
+                      },
+                      {
+                        key: "passkeys",
+                        label: t("removePasskeys"),
+                        icon: <Fingerprint aria-hidden />,
+                        onSelect: () => void act(row, "remove_passkeys"),
+                      },
+                      {
+                        key: "authenticator",
+                        label: t("resetAuthenticator"),
+                        icon: <Smartphone aria-hidden />,
+                        onSelect: () => void act(row, "reset_authenticator"),
+                      },
+                      ...(row.id === currentUserId
+                        ? []
+                        : [
+                            {
+                              key: "delete",
+                              label: t("deleteUser"),
+                              icon: <Trash2 aria-hidden />,
+                              destructive: true,
+                              onSelect: () => setPendingDelete(row),
+                            },
+                          ]),
+                    ]}
+                  />
                 ),
               },
             ]}
@@ -257,6 +315,29 @@ export function OpsUsersBoard({
           />
         )}
       </div>
+      <SidePanel
+        open={pendingDelete !== null}
+        title={t("deleteUserTitle", { username: pendingDelete?.username ?? "" })}
+        description={t("deleteUserBody")}
+        closeLabel={common("deleteCancelButton")}
+        onClose={() => setPendingDelete(null)}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setPendingDelete(null)} disabled={busy}>
+              {common("deleteCancelButton")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void confirmDelete()} disabled={busy}>
+              {t("deleteUser")}
+            </Button>
+          </>
+        }
+      >
+        {pendingDelete?.linked_name ? (
+          <p className="text-sm text-foreground">{t("deleteUserMember", { name: pendingDelete.linked_name })}</p>
+        ) : (
+          <p className="text-sm text-muted">{t("deleteUserNoMember")}</p>
+        )}
+      </SidePanel>
       <SidePanel
         open={linkType !== null}
         title={createCount === 0 ? t("bulkNothingToCreate") : title}

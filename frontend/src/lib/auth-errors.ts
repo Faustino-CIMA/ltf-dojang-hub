@@ -12,6 +12,7 @@ const INFO_CODES = new Set([
   "mfa_not_pending",
   "email_not_accepted",
   "desk_read_only",
+  "account_unavailable",
 ]);
 
 const COPY: Record<string, Record<Locale, string>> = {
@@ -104,6 +105,12 @@ const COPY: Record<string, Record<Locale, string>> = {
     fr: "Cette connexion a expiré. Reconnectez-vous.",
     de: "Diese Anmeldung ist abgelaufen. Melden Sie sich erneut an.",
     lb: "Dës Umeldung ass ofgelaf. Loggt Iech nach eng Kéier an.",
+  },
+  account_unavailable: {
+    en: "This account is no longer available.",
+    fr: "Ce compte n'est plus disponible.",
+    de: "Dieses Konto ist nicht mehr verfügbar.",
+    lb: "Dëse Kont ass net méi disponibel.",
   },
   mfa_grace_already_extended: {
     en: "That grace was already extended once.",

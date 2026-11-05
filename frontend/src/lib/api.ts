@@ -1,6 +1,6 @@
 import { readActiveDeskHeader } from "./active-desk";
-import { AuthApiError, presentAuthError } from "./auth-errors";
-import { getToken } from "./auth";
+import { AuthApiError, presentAuthError, readUiLocale } from "./auth-errors";
+import { clearToken, getToken } from "./auth";
 
 type RequestOptions = Omit<RequestInit, "headers"> & {
   headers?: Record<string, string>;
@@ -126,6 +126,21 @@ function collectJsonMessage(value: unknown): string {
   return "";
 }
 
+const SIGNED_OUT_KEY = "ltf_signed_out_reason";
+
+function leaveDeletedLogin(code: string) {
+  clearToken();
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.setItem(SIGNED_OUT_KEY, code);
+  const locale = readUiLocale();
+  const target = `/${locale}/login`;
+  if (!window.location.pathname.startsWith(target)) {
+    window.location.assign(target);
+  }
+}
+
 async function executeApiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getToken();
   const requestUrl = `${API_URL}${path}`;
@@ -203,6 +218,14 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
       }
     }
     const presented = presentAuthError(normalizedMessage || `Request failed with ${response.status}`);
+    // Session auth is listed first, so DRF returns these sign-out codes as 403.
+    if (
+      (response.status === 401 || response.status === 403) &&
+      !isLoginPath &&
+      (presented.code === "account_unavailable" || presented.code === "token_sunset")
+    ) {
+      leaveDeletedLogin(presented.code);
+    }
     if (presented.code) {
       throw new AuthApiError(presented.code, presented.text, presented.tone);
     }

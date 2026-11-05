@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -12,7 +12,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { defaultDesk, deskHeaderValue, rememberActiveDesk } from "@/lib/active-desk";
 import { login } from "@/lib/auth-api";
 import { setToken, type AuthResponse } from "@/lib/auth";
-import { AuthApiError } from "@/lib/auth-errors";
+import { AuthApiError, presentAuthError } from "@/lib/auth-errors";
 import { confirmMfa, beginPasskeyLogin, finishPasskeyLogin, mfaFailureKey } from "@/lib/mfa-api";
 import { getPasskey } from "@/lib/webauthn";
 import { routeAfterSignIn } from "@/lib/dashboard-routing";
@@ -30,6 +30,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const prefillUsername = (searchParams.get("username") ?? "").trim();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [signedOutNote, setSignedOutNote] = useState<string | null>(null);
   const [showVerifyLink, setShowVerifyLink] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +40,14 @@ export default function LoginPage() {
   const [useRecovery, setUseRecovery] = useState(false);
   const [showLostHelp, setShowLostHelp] = useState(false);
   const year = new Date().getFullYear();
+
+  useEffect(() => {
+    if (window.sessionStorage.getItem("ltf_signed_out_reason") !== "account_unavailable") {
+      return;
+    }
+    window.sessionStorage.removeItem("ltf_signed_out_reason");
+    setSignedOutNote(presentAuthError("account_unavailable").text);
+  }, []);
 
   const finishSignIn = (response: AuthResponse) => {
     if (!response.token || !response.user) {
@@ -176,6 +185,11 @@ export default function LoginPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-text-blue)]">{t("memberArea")}</p>
                 <LanguageSwitcher compact />
               </div>
+              {signedOutNote ? (
+                <p className="mt-4 text-sm text-[var(--brand-text-blue)]" role="status">
+                  {signedOutNote}
+                </p>
+              ) : null}
               <h1 className="brand-headline mt-4 text-5xl text-[var(--brand-on-ink)]">{t("loginTitle")}</h1>
               <p className="mt-3 text-sm leading-relaxed text-[color-mix(in_oklab,var(--brand-on-ink)_72%,var(--brand-ink))]">
                 {t("loginHint")}
