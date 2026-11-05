@@ -1566,6 +1566,43 @@ class ClubFederationVenueTests(TestCase):
         names = [row["name"] for row in response.data]
         self.assertEqual(names, ["Silver Crane Academy"])
 
+    def test_ltf_desk_can_open_training_venues_without_the_admin_role(self):
+        from django.utils import timezone
+
+        from accounts.desks import bind_active_desk, reset_active_desk
+        from accounts.models import DeskGrant
+        from clubs.access import user_can_edit_club
+
+        holder = User.objects.create_user(
+            username="desk-holder",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        DeskGrant.objects.create(
+            user=holder,
+            desk=DeskGrant.Desk.LTF_ADMIN,
+            level=DeskGrant.Level.FULL,
+            source=DeskGrant.Source.MANUAL,
+            valid_from=timezone.localdate(),
+        )
+        token = bind_active_desk("ltf_admin")
+        try:
+            self.assertTrue(user_can_edit_club(holder, self.club))
+        finally:
+            reset_active_desk(token)
+        self.assertFalse(user_can_edit_club(self.member_user, self.club))
+        root = User.objects.create_superuser(
+            username="venue-root",
+            email="venue-root@example.com",
+            password="pass12345",
+        )
+        self.assertEqual(root.role, User.Roles.MEMBER)
+        self.client.force_authenticate(user=root)
+        clubs = self.client.get("/api/clubs/")
+        self.assertEqual(clubs.status_code, 200, getattr(clubs, "data", clubs.content))
+        venues = self.client.get(f"/api/clubs/{self.club.id}/training-venues/")
+        self.assertEqual(venues.status_code, 200, venues.data)
+
     def test_training_venues_crud_and_permissions(self):
         self.client.force_authenticate(user=self.member_user)
         denied = self.client.get(f"/api/clubs/{self.club.id}/training-venues/")

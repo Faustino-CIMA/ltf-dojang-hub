@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
+import { PageNotice } from "@/components/ui/list-page-chrome";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -47,6 +48,7 @@ export function TrainingVenuesSection({
   const common = useTranslations("Common");
   const [venues, setVenues] = useState<TrainingVenue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadNotice, setLoadNotice] = useState<string | null>(null);
   const [sort, setSort] = useState<TableSort | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [editing, setEditing] = useState<TrainingVenue | null>(null);
@@ -62,13 +64,14 @@ export function TrainingVenuesSection({
     setIsLoading(true);
     try {
       setVenues(await listTrainingVenues(clubId));
-      onError?.(null);
-    } catch (error) {
-      onError?.(error instanceof Error ? error.message : t("loadError"));
+      setLoadNotice(null);
+    } catch {
+      setVenues([]);
+      setLoadNotice(t("loadError"));
     } finally {
       setIsLoading(false);
     }
-  }, [clubId, onError, t]);
+  }, [clubId, t]);
 
   useEffect(() => {
     void load();
@@ -163,9 +166,10 @@ export function TrainingVenuesSection({
       </div>
 
       <div className="mt-4">
+        {loadNotice ? <PageNotice tone="info">{loadNotice}</PageNotice> : null}
         {isLoading ? (
           <EmptyState title={t("title")} description={t("subtitle")} loading />
-        ) : venues.length === 0 ? (
+        ) : loadNotice ? null : venues.length === 0 ? (
           <EmptyState title={t("emptyTitle")} description={t("emptySubtitle")} />
         ) : (
           <EntityTable

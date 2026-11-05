@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **LTF clubs:** Opening a club no longer shows “That action is not available.” A superuser or an LTF desk can read training venues. A view-only desk still cannot add one. If the venue list cannot be loaded, that note stays with the venues and is not a red page error.
 - **Member page:** The club member page no longer shows a pencil beside the three-dots menu. Edit stays in that menu, and every item has an icon and a label. The LTF member page uses the same icon and label on each menu item.
 - **Ops translations:** The translations screen lists English, French, German, and Luxembourgish. Those are the four languages the app already ships.
 - **Security setup:** When an authenticator code or a security key is correct but the visit is old, the setup is not treated as a failure. The screen says it was correct and asks for the password before saving. A wrong code or a wrong password is still shown as an error.
