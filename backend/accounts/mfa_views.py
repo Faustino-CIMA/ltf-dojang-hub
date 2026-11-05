@@ -49,6 +49,11 @@ def _digits(raw) -> str:
     return "".join(ch for ch in str(raw or "") if ch.isdigit())
 
 
+def _accept_fresh_visit(django_request, user) -> None:
+    """A sign-in inside the timeout is enough. allauth also wants its own flag."""
+    record_authentication(django_request, user, method="password", reauthenticated=True)
+
+
 def _wants_fresh_secret(request) -> bool:
     flag = str(request.query_params.get("fresh") or "").strip().lower()
     return flag in {"1", "true", "yes"}
@@ -182,7 +187,11 @@ class WebAuthnRegisterView(views.APIView):
             return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         django_request = _django(request)
         with request_context(django_request):
-            options = webauthn_flows.begin_registration(django_request, request.user, passwordless=True)
+            _accept_fresh_visit(django_request, request.user)
+            try:
+                options = webauthn_flows.begin_registration(django_request, request.user, passwordless=True)
+            except ReauthenticationRequired:
+                return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         django_request.session.save()
         return response.Response(_json_safe(options))
 
@@ -203,8 +212,11 @@ class WebAuthnRegisterView(views.APIView):
                     return response.Response({"detail": "incorrect_code"}, status=status.HTTP_400_BAD_REQUEST)
                 django_request.session.save()
                 return response.Response({"detail": "mfa_password_to_save"}, status=status.HTTP_409_CONFLICT)
+            _accept_fresh_visit(django_request, request.user)
             try:
                 _auth, recovery = webauthn_flows.add_authenticator(django_request, name=name, credential=credential)
+            except ReauthenticationRequired:
+                return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
             except Exception:
                 return response.Response({"detail": "incorrect_code"}, status=status.HTTP_400_BAD_REQUEST)
             codes = recovery.wrap().get_unused_codes() if recovery is not None else []
@@ -225,7 +237,11 @@ class WebAuthnRegisterView(views.APIView):
         )
         django_request = _django(request)
         with request_context(django_request):
-            webauthn_flows.remove_authenticators(django_request, authenticators)
+            _accept_fresh_visit(django_request, request.user)
+            try:
+                webauthn_flows.remove_authenticators(django_request, authenticators)
+            except ReauthenticationRequired:
+                return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         return response.Response(public_mfa_status(request.user, request))
 
 

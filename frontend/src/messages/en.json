@@ -242,6 +242,8 @@
     "mfaUnexpected": "That step did not finish. Sign in again if this visit is no longer fresh.",
     "mfaPasskey": "Use a passkey",
     "mfaPasskeyFailed": "The passkey was not accepted.",
+    "mfaPasskeyNotCreated": "The passkey was not created.",
+    "mfaPasskeyUnsupported": "This browser cannot create a passkey.",
     "mfaSecurity": "Security",
     "mfaGraceBanner": "Set up an authenticator app before {date}. After that, this desk stays closed until you do.",
     "mfaEnrolGrace": "Your desk needs two-step sign-in. Set it up now — you have {days} days left.",
