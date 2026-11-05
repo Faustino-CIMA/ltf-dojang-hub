@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -335,7 +336,8 @@ export default function TrainingTimetablePage() {
                             render: (row: TrainingSeries) => (
                               <RowActionMenu
                                 label={common("rowActionsLabel")}
-                                actions={[{ key: "edit", label: t("editAction"), onSelect: () => beginEditClass(row) }]}
+                                actions={[{ key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => beginEditClass(row) }]}
                               />
                             ),
                           },

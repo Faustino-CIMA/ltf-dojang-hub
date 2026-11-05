@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -207,8 +208,10 @@ export default function LtfAdminLicenseTypesPage() {
                         <RowActionMenu
                           label={common("rowActionsLabel")}
                           actions={[
-                            { key: "edit", label: t("editAction"), onSelect: () => startEdit(licenseType) },
-                            { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => handleDelete(licenseType) },
+                            { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => startEdit(licenseType) },
+                            { key: "delete",
+                        icon: <Trash2 aria-hidden />, label: t("deleteAction"), destructive: true, onSelect: () => handleDelete(licenseType) },
                           ]}
                         />
                       ),

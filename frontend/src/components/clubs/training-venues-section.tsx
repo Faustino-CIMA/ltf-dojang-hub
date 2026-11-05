@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -211,9 +212,11 @@ export function TrainingVenuesSection({
                   <RowActionMenu
                     label={common("rowActionsLabel")}
                     actions={[
-                      { key: "edit", label: t("editVenue"), onSelect: () => openEdit(venue) },
+                      { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editVenue"), onSelect: () => openEdit(venue) },
                       {
                         key: "delete",
+                        icon: <Trash2 aria-hidden />,
                         label: t("deleteVenue"),
                         destructive: true,
                         onSelect: () => setPendingDelete(venue),
