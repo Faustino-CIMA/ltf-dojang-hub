@@ -2225,7 +2225,18 @@
     "accountFileWarning": "Dëse Fichier huet d'Linke fir déi éischt Umeldung. Wien en huet, kann e Link benotzen, bis en ofleeft. Läscht de Fichier, wann s du fäerdeg bass.",
     "accountDownloadPdf": "PDF eroflueden",
     "accountCopyLink": "Link kopéieren",
-    "accountConfirm": "Confirméieren"
+    "accountConfirm": "Confirméieren",
+    "accountClubLabel": "Club",
+    "accountEmailLabel": "E-Mail",
+    "accountNoAddress": "Keng E-Mail-Adress",
+    "accountSaveCsv": "CSV späicheren",
+    "accountSendInvite": "Invitatioun schécken",
+    "accountSendUnavailable": "Keng E-Mail-Adress. Späichert amplaz de Fichier.",
+    "accountInviteSent": "Invitatioun geschéckt.",
+    "accountInviteSentMany": "Invitatioune un {sent} geschéckt. {missing} haten keng E-Mail-Adress.",
+    "accountCreatedFor": "Umeldung erstallt fir {name}.",
+    "accountCreatedCount": "{count} Umeldunge erstallt.",
+    "accountInviteReplaces": "Eng Invitatioun ersetzt de Link am gespäicherte Fichier."
   },
   "LtfFinance": {
     "navOverview": "Iwwersiicht",
@@ -4002,7 +4013,18 @@
     "accountFileWarning": "Dëse Fichier huet d'Linke fir déi éischt Umeldung. Wien en huet, kann e Link benotzen, bis en ofleeft. Läscht de Fichier, wann s du fäerdeg bass.",
     "accountDownloadPdf": "PDF eroflueden",
     "accountCopyLink": "Link kopéieren",
-    "accountConfirm": "Confirméieren"
+    "accountConfirm": "Confirméieren",
+    "accountClubLabel": "Club",
+    "accountEmailLabel": "E-Mail",
+    "accountNoAddress": "Keng E-Mail-Adress",
+    "accountSaveCsv": "CSV späicheren",
+    "accountSendInvite": "Invitatioun schécken",
+    "accountSendUnavailable": "Keng E-Mail-Adress. Späichert amplaz de Fichier.",
+    "accountInviteSent": "Invitatioun geschéckt.",
+    "accountInviteSentMany": "Invitatioune un {sent} geschéckt. {missing} haten keng E-Mail-Adress.",
+    "accountCreatedFor": "Umeldung erstallt fir {name}.",
+    "accountCreatedCount": "{count} Umeldunge erstallt.",
+    "accountInviteReplaces": "Eng Invitatioun ersetzt de Link am gespäicherte Fichier."
   },
   "Member": {
     "title": "Mäi Verlaf",

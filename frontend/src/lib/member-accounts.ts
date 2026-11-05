@@ -10,6 +10,8 @@ export type AccountMatch = {
 export type AccountPreview = {
   member_id: number;
   name: string;
+  club_name?: string;
+  email?: string;
   account_state: AccountState;
   proposed_username: string;
   reason: string;
@@ -17,6 +19,14 @@ export type AccountPreview = {
   can_create: boolean;
   can_link: boolean;
   can_copy: boolean;
+};
+
+export type CreatedAccount = {
+  member_id: number;
+  name: string;
+  username: string;
+  email: string;
+  club_name: string;
 };
 
 export type AccountActionResult = {
@@ -27,6 +37,7 @@ export type AccountActionResult = {
   csv: string;
   pdf_base64: string;
   copy_link: string;
+  created?: CreatedAccount[];
 };
 
 export function accountBadgeTone(state: AccountState): "neutral" | "info" | "warning" {
@@ -86,11 +97,11 @@ export function previewMemberAccounts(memberIds: number[]) {
 }
 
 export function postMemberAccounts(body: {
-  action: "create" | "link" | "copy_link";
+  action: "create" | "link" | "copy_link" | "send_invite";
   member_ids: number[];
   locale: string;
 }) {
-  return apiRequest<AccountActionResult>("/api/members/user-accounts/", {
+  return apiRequest<AccountActionResult & { sent?: number; missing_email?: number; failed?: number }>("/api/members/user-accounts/", {
     method: "POST",
     body: JSON.stringify(body),
   });

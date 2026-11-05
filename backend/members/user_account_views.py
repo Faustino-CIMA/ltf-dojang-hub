@@ -7,7 +7,15 @@ from rest_framework.views import APIView
 
 from ops.request_utils import write_ops_audit
 
-from .user_accounts import apply_plans, desk_label, mint_allowed, plan_members, readable_members
+from .user_accounts import (
+    apply_plans,
+    created_rows,
+    desk_label,
+    mint_allowed,
+    plan_members,
+    readable_members,
+    send_created_invites,
+)
 
 
 def _ids(raw) -> list[int]:
@@ -50,7 +58,7 @@ class MemberUserAccountsView(APIView):
         if not mint_allowed(request):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         action = str(request.data.get("action") or "").strip()
-        if action not in {"create", "link", "copy_link"}:
+        if action not in {"create", "link", "copy_link", "send_invite"}:
             return Response({"detail": "Choose an action."}, status=status.HTTP_400_BAD_REQUEST)
         member_ids = _ids(request.data.get("member_ids"))
         if not member_ids:
@@ -59,6 +67,26 @@ class MemberUserAccountsView(APIView):
         if members is None:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         locale = str(request.data.get("locale") or "en").strip()[:8]
+        if action == "send_invite":
+            with transaction.atomic():
+                summary = send_created_invites(members, actor=request.user, screen_locale=locale)
+                write_ops_audit(
+                    request,
+                    action="members.user_invite",
+                    target_type="member",
+                    message=f"Sent {summary['sent']} first-login invitations. {summary['missing_email']} had no email.",
+                    metadata={
+                        "actor_id": request.user.id,
+                        "desk": desk_label(request),
+                        "member_ids": [member.id for member in members],
+                        "sent": summary["sent"],
+                        "missing_email": summary["missing_email"],
+                        "failed": summary["failed"],
+                    },
+                )
+            payload = Response(summary)
+            payload["Cache-Control"] = "no-store"
+            return payload
         with transaction.atomic():
             plans = plan_members(members, for_copy=action == "copy_link")
             batch = apply_plans(plans, action=action, actor=request.user, locale=locale)
@@ -99,6 +127,7 @@ class MemberUserAccountsView(APIView):
                 "csv": batch.csv,
                 "pdf_base64": batch.pdf_base64,
                 "copy_link": batch.copy_link,
+                "created": created_rows(batch.created_members, batch.created_users),
             }
         )
         payload["Cache-Control"] = "no-store"

@@ -109,6 +109,20 @@ def _email_context(template: str, language: str, context: dict, **values) -> tup
     return {**context, "copy": copy}, copy["subject"]
 
 
+def send_member_invite_email(user, invite_url: str, language: str, name: str):
+    shown = name.strip() or f"{user.first_name} {user.last_name}".strip() or user.username or ""
+    context, subject = _email_context(
+        "member_invite",
+        language,
+        {"user": user, "invite_url": invite_url},
+        name=shown,
+        username=user.username or "",
+    )
+    html = render_to_string("account/email/member_invite.html", context)
+    text = render_to_string("account/email/member_invite.txt", context)
+    return send_resend_email(user.email, subject, html, text)
+
+
 def send_club_admin_welcome_email(user, club, reset_url):
     from clubs.document_copy import resolve_document_language
 
