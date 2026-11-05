@@ -26,10 +26,20 @@ export function routeForDesk(desk: string, locale: string): string | null {
 export function routeAfterSignIn(
   role: string,
   locale: string,
-  options?: { isSuperuser?: boolean; lastDesk?: RememberedDesk },
+  options?: {
+    isSuperuser?: boolean;
+    lastDesk?: RememberedDesk;
+    desks?: Array<{ desk: string; club_id?: number | null }>;
+  },
 ): string | null {
   const last = options?.lastDesk;
-  if (last?.desk) {
+  const desks = options?.desks;
+  const lastStillOpen =
+    !desks ||
+    desks.some(
+      (desk) => desk.desk === last?.desk && (desk.club_id ?? null) === (last?.club_id ?? null),
+    );
+  if (last?.desk && lastStillOpen) {
     const remembered = routeForDesk(last.desk, locale);
     if (remembered) {
       return remembered;

@@ -114,6 +114,18 @@ class DeskGrantTests(APITestCase):
         self.finance.refresh_from_db()
         self.assertEqual(self.finance.role, User.Roles.LTF_FINANCE)
 
+    def test_finishing_sign_in_ignores_a_closed_desk_header(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.post(
+            "/api/auth/mfa/confirm/",
+            {"token": "", "code": "000000"},
+            format="json",
+            HTTP_X_DESK="ltf_admin",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mfa_not_pending", str(response.data["detail"]))
+        self.assertFalse(OpsAuditLog.objects.filter(action="desk.switch_refused", actor=self.member).exists())
+
     def test_a_header_for_another_desk_is_refused(self):
         self.client.force_authenticate(user=self.finance)
         response = self.client.get("/api/auth/me/", HTTP_X_DESK="ltf_admin")
