@@ -2,6 +2,7 @@ import {
   activateOpsDesk,
   clearOpsServerSync,
   defaultDesk,
+  fallbackOpenDesk,
   deskHeaderValue,
   displayedDeskHeader,
   grantForPath,
@@ -94,6 +95,15 @@ describe("active desk", () => {
       }).sync,
     ).toBeNull();
     clearOpsServerSync();
+  });
+
+  it("opens Ops for a superuser and an open desk for everyone else", () => {
+    expect(fallbackOpenDesk({ isSuperuser: true, desks: clubs, role: "club_admin", homeClubId: 4 })?.desk).toBe("ops");
+    expect(fallbackOpenDesk({ isSuperuser: true, desks: withOps, role: "ops", homeClubId: null })?.desk).toBe("ops");
+    expect(
+      fallbackOpenDesk({ isSuperuser: false, desks: clubs, role: "club_admin", homeClubId: 9 })?.club_id,
+    ).toBe(9);
+    expect(fallbackOpenDesk({ isSuperuser: false, desks: [], role: "member", homeClubId: null })).toBeNull();
   });
 
   it("prefers the remembered desk and otherwise the home club", () => {

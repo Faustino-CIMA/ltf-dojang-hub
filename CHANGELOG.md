@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Desk recovery:** If the desk the screen is already using is refused and the sign-in is still valid, the screen opens a desk that is still open. A superuser opens Ops. If the sign-in is gone, the screen goes to sign-in with the usual note. Choosing a desk that is not open, on purpose, is still refused.
 - **Row menus:** Three-dots menus that were text only now show an icon with the label, including the LTF and club member lists.
 - **Security setup:** When an authenticator code or a security key is correct and the password is still required, a success message slides in and the cursor moves to the password field. The password section stays where it is.
 - **Sign-in:** Finishing sign-in no longer depends on a desk left in the browser. If the last desk is no longer open, sign-in opens one that is, instead of saying that desk is not open.

@@ -1,6 +1,7 @@
-import { readActiveDeskHeader } from "./active-desk";
+import { deskHeaderValue, fallbackOpenDesk, readActiveDeskHeader, rememberActiveDesk, type DeskChoice } from "./active-desk";
 import { AuthApiError, presentAuthError, readUiLocale } from "./auth-errors";
 import { clearToken, getToken } from "./auth";
+import { routeForDesk } from "./dashboard-routing";
 
 type RequestOptions = Omit<RequestInit, "headers"> & {
   headers?: Record<string, string>;
@@ -128,6 +129,8 @@ function collectJsonMessage(value: unknown): string {
 
 const SIGNED_OUT_KEY = "ltf_signed_out_reason";
 
+let recoveringDesk = false;
+
 function leaveDeletedLogin(code: string) {
   clearToken();
   if (typeof window === "undefined") {
@@ -138,6 +141,78 @@ function leaveDeletedLogin(code: string) {
   const target = `/${locale}/login`;
   if (!window.location.pathname.startsWith(target)) {
     window.location.assign(target);
+  }
+}
+
+async function recoverClosedDesk() {
+  if (recoveringDesk || typeof window === "undefined") {
+    return;
+  }
+  recoveringDesk = true;
+  const token = getToken();
+  if (!token) {
+    leaveDeletedLogin("account_unavailable");
+    return;
+  }
+  try {
+    const response = await fetch(`${API_URL}/api/auth/me/`, {
+      headers: { Authorization: `Token ${token}` },
+      credentials: "same-origin",
+    });
+    if (response.status === 401 || response.status === 403) {
+      const body = (await response.json().catch(() => ({}))) as { detail?: string };
+      const detail = String(body.detail || "");
+      leaveDeletedLogin(detail === "token_sunset" ? "token_sunset" : "account_unavailable");
+      return;
+    }
+    if (!response.ok) {
+      return;
+    }
+    const me = (await response.json()) as {
+      is_superuser?: boolean;
+      role?: string;
+      home_club_id?: number | null;
+      desks?: DeskChoice[];
+    };
+    const choice = fallbackOpenDesk({
+      isSuperuser: Boolean(me.is_superuser),
+      desks: me.desks ?? [],
+      role: me.role ?? "",
+      homeClubId: me.home_club_id ?? null,
+    });
+    if (!choice) {
+      rememberActiveDesk(null);
+      const home = `/${readUiLocale()}/dashboard`;
+      if (!window.location.pathname.startsWith(home)) {
+        window.location.assign(home);
+      }
+      return;
+    }
+    rememberActiveDesk(deskHeaderValue(choice));
+    if (choice.club_id) {
+      window.sessionStorage.setItem("selected_club_id", String(choice.club_id));
+    } else {
+      window.sessionStorage.removeItem("selected_club_id");
+    }
+    const header = deskHeaderValue(choice);
+    await fetch(`${API_URL}/api/auth/desk/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+        "X-Desk": header,
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({ desk: choice.desk, club_id: choice.club_id }),
+    }).catch(() => undefined);
+    const route = routeForDesk(choice.desk, readUiLocale()) ?? `/${readUiLocale()}/dashboard`;
+    if (window.location.pathname.startsWith(route)) {
+      window.location.reload();
+      return;
+    }
+    window.location.assign(route);
+  } catch {
+    return;
   }
 }
 
@@ -220,6 +295,16 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
       }
     }
     const presented = presentAuthError(normalizedMessage || `Request failed with ${response.status}`);
+    const sentDesk = options.headers?.["X-Desk"] ?? deskHeader;
+    if (
+      presented.code === "desk_not_granted" &&
+      sentDesk &&
+      sentDesk === readActiveDeskHeader() &&
+      !path.startsWith("/api/auth/desk/")
+    ) {
+      void recoverClosedDesk();
+      throw new AuthApiError("desk_not_granted", "", "info");
+    }
     // Session auth is listed first, so DRF returns these sign-out codes as 403.
     if (
       (response.status === 401 || response.status === 403) &&
