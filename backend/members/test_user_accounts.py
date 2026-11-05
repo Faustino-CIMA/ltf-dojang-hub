@@ -324,3 +324,31 @@ class MemberUserAccountTests(TestCase):
         self.assertEqual([row["id"] for row in filtered.data["results"]], [pending.id])
         ordered = self.client.get("/api/members/?page=1&page_size=50&ordering=account&is_active=true")
         self.assertEqual(ordered.status_code, 200)
+
+    def test_invitation_uses_the_club_language_and_replaces_the_file_link(self):
+        self.club.communication_language = "de"
+        self.club.save(update_fields=["communication_language"])
+        with_email = self._member("Ada", "Ng", email="ada.ng@example.test")
+        without = self._member("Bea", "Noemail", email="")
+        created = self._post([with_email.id, without.id], locale="fr")
+        self.assertEqual(created.status_code, 200, created.data)
+        self.assertEqual({row["name"] for row in created.data["created"]}, {"NG Ada", "NOEMAIL Bea"})
+        ada_created = next(row for row in created.data["created"] if row["email"] == "ada.ng@example.test")
+        file_rows = self._rows(created.data["csv"])
+        ada = next(row for row in file_rows if row["username"] == ada_created["username"])
+        old_token = parse_qs(urlparse(ada["link"]).query)["token"][0]
+        self.assertTrue(invite_is_open(invite_for_token(old_token)))
+        with patch("accounts.email_utils.send_resend_email", return_value=(True, "")) as send:
+            sent = self._post([with_email.id, without.id], action="send_invite", locale="fr")
+        self.assertEqual(sent.status_code, 200, sent.data)
+        self.assertEqual(sent.data["sent"], 1)
+        self.assertEqual(sent.data["missing_email"], 1)
+        self.assertEqual(sent.data["failed"], 0)
+        self.assertFalse(invite_is_open(invite_for_token(old_token)))
+        _to, subject, html, _text = send.call_args[0]
+        self.assertEqual(_to, "ada.ng@example.test")
+        self.assertIn("Anmeldung", subject)
+        self.assertIn("/de/account-setup?token=", html)
+        audit = OpsAuditLog.objects.get(action="members.user_invite")
+        self.assertNotIn("http", str(audit.metadata).lower())
+        self.assertNotIn("token", str(audit.metadata).lower())

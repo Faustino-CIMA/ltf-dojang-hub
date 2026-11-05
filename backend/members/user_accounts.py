@@ -1,4 +1,8 @@
-"""Member logins: create, link, or copy a first-login link. Nothing is emailed."""
+"""Member logins: create, link, or copy a first-login link.
+
+Creating a login does not send mail. A later invitation, from the result
+panel only, sends the first-login link with the mailer the app already uses.
+"""
 
 from __future__ import annotations
 
@@ -113,9 +117,12 @@ class AccountPlan:
         match = None
         if self.match_user is not None:
             match = {"user_id": self.match_user.id, "username": self.match_user.username}
+        club = getattr(self.member, "club", None)
         return {
             "member_id": self.member.id,
             "name": person_name(self.member.first_name, self.member.last_name),
+            "club_name": club.name if club is not None and self.member.club_id else "",
+            "email": str(self.member.email or "").strip(),
             "account_state": account_state_value(self.member),
             "proposed_username": self.username,
             "reason": self.reason,
@@ -363,6 +370,61 @@ def apply_plans(plans: list[AccountPlan], *, action: str, actor, locale: str) ->
     elif action == "copy_link" and len(batch.created_members) == 1:
         pass
     return batch
+
+
+def created_rows(members: list[Member], users: list[User]) -> list[dict]:
+    rows = []
+    for member, user in zip(members, users, strict=True):
+        club = member.club if member.club_id else None
+        rows.append(
+            {
+                "member_id": member.id,
+                "name": person_name(member.first_name, member.last_name),
+                "username": user.username,
+                "email": str(member.email or "").strip(),
+                "club_name": club.name if club is not None else "",
+            }
+        )
+    return rows
+
+
+def invite_language(member: Member, screen_locale: str) -> str:
+    from clubs.document_copy import resolve_document_language
+
+    club = member.club if member.club_id else None
+    if club is not None:
+        return resolve_document_language(club=club, prefer_club=True, explicit=screen_locale)
+    return resolve_document_language(explicit=screen_locale)
+
+
+def send_created_invites(members: list[Member], *, actor, screen_locale: str) -> dict:
+    """Email the current first-login link. A new link replaces the older one."""
+    from accounts.email_utils import send_member_invite_email
+
+    sent = 0
+    missing_email = 0
+    failed = 0
+    for member in members:
+        user = getattr(member, "user", None)
+        if user is None or is_staff_login(user):
+            continue
+        email = str(member.email or "").strip()
+        if not email:
+            missing_email += 1
+            continue
+        language = invite_language(member, screen_locale)
+        _invite, raw = issue_setup_invite(user, actor)
+        ok, _error = send_member_invite_email(
+            user,
+            setup_link(raw, language),
+            language,
+            person_name(member.first_name, member.last_name),
+        )
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+    return {"sent": sent, "missing_email": missing_email, "failed": failed}
 
 
 def readable_members(request):

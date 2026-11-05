@@ -1,0 +1,12 @@
+{{ copy.greeting }}
+
+{{ copy.body }}
+
+{{ copy.username }}
+
+{{ copy.action }}
+{{ invite_url }}
+
+{{ copy.ignore }}
+
+LTF Dojang Hub
