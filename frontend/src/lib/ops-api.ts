@@ -80,6 +80,7 @@ export type OpsUser = {
   is_email_verified: boolean;
   last_login: string | null;
   date_joined: string;
+  linked_name?: string;
 };
 
 export type OpsQuerySpec = {

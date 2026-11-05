@@ -237,6 +237,19 @@ class OpsUserListView(views.APIView):
         return paginator.get_paginated_response(OpsUserSerializer(page, many=True).data)
 
 
+def _unlink_login(user) -> None:
+    """Clear the member and contact links so office desks end before the login is removed."""
+    from clubmgmt.models import Person
+    from members.models import Member
+
+    for member in Member.all_objects.filter(user=user):
+        member.user = None
+        member.save(update_fields=["user", "updated_at"])
+    for person in Person.objects.filter(user=user):
+        person.user = None
+        person.save(update_fields=["user"])
+
+
 def models_q_username_or_email(search: str):
     from django.db.models import Q
 
@@ -287,6 +300,42 @@ class OpsUserActionView(views.APIView):
                 extend_grace(request.user, user)
             except ValidationError as exc:
                 return response.Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == "delete":
+            if user.pk == request.user.pk:
+                return response.Response(
+                    {"detail": "You cannot delete your own login."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if user.is_superuser and User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk).count() == 0:
+                return response.Response(
+                    {"detail": "Cannot delete the last superuser."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            from django.db import transaction
+            from django.db.models.deletion import ProtectedError
+
+            from accounts.sessions import end_open_sessions
+
+            username = user.username
+            user_id = user.id
+            try:
+                with transaction.atomic():
+                    _unlink_login(user)
+                    end_open_sessions(user)
+                    user.delete()
+            except ProtectedError:
+                return response.Response(
+                    {"detail": "This login is still referenced and cannot be removed."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            write_ops_audit(
+                request,
+                action="user_delete",
+                target_type="user",
+                target_id=user_id,
+                message=f"Deleted login {username}",
+            )
+            return response.Response({"deleted": True, "id": user_id})
         elif action == "revoke_superuser":
             if User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk).count() == 0:
                 return response.Response(
