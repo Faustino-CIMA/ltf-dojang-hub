@@ -21,17 +21,17 @@ class TokenAuthenticationWithMeta(TokenAuthentication):
             if not legacy_tokens_open():
                 raise AuthenticationFailed("token_sunset")
             if not token.user.is_active:
-                raise AuthenticationFailed("User inactive or deleted.")
+                raise AuthenticationFailed("account_unavailable")
             touch_token_meta(token, request)
             return (token.user, token)
         from allauth.headless.internal.sessionkit import authenticate_by_x_session_token
 
         found = authenticate_by_x_session_token(key)
         if found is None:
-            raise AuthenticationFailed("Invalid token.")
+            raise AuthenticationFailed("account_unavailable")
         user, session = found
         if not user.is_active:
-            raise AuthenticationFailed("User inactive or deleted.")
+            raise AuthenticationFailed("account_unavailable")
         django_request = getattr(request, "_request", request)
         django_request._allauth_token_session = session
         django_request.session = session
