@@ -16,11 +16,32 @@ import {
   getOpsTranslationMeta,
   getOpsTranslations,
   saveOpsTranslationBatch,
+  type TranslationLocale,
   type TranslationPageSummary,
   type TranslationRow,
 } from "@/lib/ops-api";
 
-type Drafts = Record<string, { en: string; lb: string }>;
+const TRANSLATION_LOCALES = ["en", "fr", "de", "lb"] as const satisfies readonly TranslationLocale[];
+
+const LOCALE_LABEL = {
+  en: "englishLabel",
+  fr: "frenchLabel",
+  de: "germanLabel",
+  lb: "luxembourgishLabel",
+} as const;
+
+type Drafts = Record<string, Record<TranslationLocale, string>>;
+
+function emptyDraft(row: TranslationRow): Record<TranslationLocale, string> {
+  return { en: row.en, fr: row.fr, de: row.de, lb: row.lb };
+}
+
+function isOverridden(row: TranslationRow, code: TranslationLocale) {
+  if (code === "fr") return row.fr_overridden;
+  if (code === "de") return row.de_overridden;
+  if (code === "lb") return row.lb_overridden;
+  return row.en_overridden;
+}
 
 function previewHref(path: string | null, locale: string) {
   if (!path) return null;
@@ -75,7 +96,7 @@ export default function OpsTranslationsPage() {
       if (current && meta.pages.some((page) => page.id === current)) {
         return current;
       }
-      const firstMissing = meta.pages.find((page) => page.missing_lb > 0);
+      const firstMissing = meta.pages.find((page) => page.missing_translations > 0);
       return firstMissing?.id || meta.pages[0]?.id || "";
     });
   }, []);
@@ -90,7 +111,7 @@ export default function OpsTranslationsPage() {
         setRows(response.results);
         const nextDrafts: Drafts = {};
         response.results.forEach((row) => {
-          nextDrafts[row.key] = { en: row.en, lb: row.lb };
+          nextDrafts[row.key] = emptyDraft(row);
         });
         setDrafts(nextDrafts);
       } catch (error) {
@@ -117,15 +138,15 @@ export default function OpsTranslationsPage() {
     return rows.filter((row) => {
       const draft = drafts[row.key];
       if (!draft) return false;
-      return draft.en !== row.en || draft.lb !== row.lb;
+      return TRANSLATION_LOCALES.some((code) => draft[code] !== row[code]);
     }).length;
   }, [drafts, rows]);
 
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return rows.filter((row) => {
-      const draft = drafts[row.key] ?? { en: row.en, lb: row.lb };
-      if (missingOnly && draft.lb.trim()) {
+      const draft = drafts[row.key] ?? emptyDraft(row);
+      if (missingOnly && TRANSLATION_LOCALES.every((code) => code === "en" || draft[code].trim())) {
         return false;
       }
       if (!needle) {
@@ -133,8 +154,7 @@ export default function OpsTranslationsPage() {
       }
       return (
         row.key.toLowerCase().includes(needle) ||
-        draft.en.toLowerCase().includes(needle) ||
-        draft.lb.toLowerCase().includes(needle)
+        TRANSLATION_LOCALES.some((code) => draft[code].toLowerCase().includes(needle))
       );
     });
   }, [drafts, missingOnly, query, rows]);
@@ -152,11 +172,13 @@ export default function OpsTranslationsPage() {
     setNamespace(next);
   };
 
-  const updateDraft = (key: string, localeKey: "en" | "lb", value: string) => {
+  const updateDraft = (key: string, localeKey: TranslationLocale, value: string) => {
     setDrafts((current) => ({
       ...current,
       [key]: {
         en: current[key]?.en ?? "",
+        fr: current[key]?.fr ?? "",
+        de: current[key]?.de ?? "",
         lb: current[key]?.lb ?? "",
         [localeKey]: value,
       },
@@ -164,16 +186,15 @@ export default function OpsTranslationsPage() {
   };
 
   const onSavePage = async () => {
-    const changes: Array<{ locale: "en" | "lb"; key: string; value: string }> = [];
+    const changes: Array<{ locale: TranslationLocale; key: string; value: string }> = [];
     rows.forEach((row) => {
       const draft = drafts[row.key];
       if (!draft) return;
-      if (draft.en !== row.en) {
-        changes.push({ locale: "en", key: row.key, value: draft.en });
-      }
-      if (draft.lb !== row.lb) {
-        changes.push({ locale: "lb", key: row.key, value: draft.lb });
-      }
+      TRANSLATION_LOCALES.forEach((code) => {
+        if (draft[code] !== row[code]) {
+          changes.push({ locale: code, key: row.key, value: draft[code] });
+        }
+      });
     });
     if (changes.length === 0) {
       return;
@@ -226,8 +247,8 @@ export default function OpsTranslationsPage() {
                         {t("translationsStringCount", { count: page.string_count })}
                       </span>
                     </span>
-                    {page.missing_lb > 0 ? (
-                      <StatusBadge label={String(page.missing_lb)} tone="danger" />
+                    {page.missing_translations > 0 ? (
+                      <StatusBadge label={String(page.missing_translations)} tone="warning" />
                     ) : null}
                   </button>
                 </li>
@@ -244,8 +265,8 @@ export default function OpsTranslationsPage() {
                 <p className="mt-1 max-w-3xl text-sm text-muted">{currentPage?.description}</p>
                 <p className="mt-2 text-sm text-muted">
                   {t("translationsStringCount", { count: rows.length })}
-                  {currentPage && currentPage.missing_lb > 0
-                    ? ` · ${t("translationsMissingCount", { count: currentPage.missing_lb })}`
+                  {currentPage && currentPage.missing_translations > 0
+                    ? ` · ${t("translationsMissingCount", { count: currentPage.missing_translations })}`
                     : ""}
                 </p>
               </div>
@@ -260,12 +281,11 @@ export default function OpsTranslationsPage() {
                 <Button variant="outline" onClick={() => setReadingView((value) => !value)}>
                   {readingView ? t("translationsEditView") : t("translationsReadingView")}
                 </Button>
-                <Button variant="outline" onClick={() => void downloadOpsTranslationExport("en")}>
-                  {t("exportEn")}
-                </Button>
-                <Button variant="outline" onClick={() => void downloadOpsTranslationExport("lb")}>
-                  {t("exportLb")}
-                </Button>
+                {TRANSLATION_LOCALES.map((code) => (
+                  <Button key={code} variant="outline" onClick={() => void downloadOpsTranslationExport(code)}>
+                    {t("translationsExport", { language: t(LOCALE_LABEL[code]) })}
+                  </Button>
+                ))}
                 <Button variant="primary" onClick={() => void onSavePage()} disabled={isSaving || dirtyCount === 0}>
                   {isSaving ? t("saving") : t("translationsSavePage", { count: dirtyCount })}
                 </Button>
@@ -282,7 +302,7 @@ export default function OpsTranslationsPage() {
               </div>
               <label className="flex items-center gap-2 text-sm text-muted">
                 <Checkbox checked={missingOnly} onCheckedChange={(checked) => setMissingOnly(checked === true)} />
-                {t("missingLbOnly")}
+                {t("missingTranslationOnly")}
               </label>
             </div>
           </div>
@@ -294,62 +314,50 @@ export default function OpsTranslationsPage() {
           ) : visibleRows.length === 0 ? (
             <p className="mt-4 text-sm text-muted">{t("translationsEmptyPage")}</p>
           ) : readingView ? (
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <article className="app-panel p-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t("englishLabel")}</h3>
-                {groups.map((group) => (
-                  <section key={`en-${group.id}`} className="mt-5">
-                    <h4 className="text-sm font-semibold text-foreground">{group.label}</h4>
-                    <div className="mt-2 space-y-3 text-sm leading-relaxed text-foreground">
-                      {group.rows.map((row) => (
-                        <p key={`en-copy-${row.key}`}>{drafts[row.key]?.en || "—"}</p>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </article>
-              <article className="app-panel p-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t("luxembourgishLabel")}</h3>
-                {groups.map((group) => (
-                  <section key={`lb-${group.id}`} className="mt-5">
-                    <h4 className="text-sm font-semibold text-foreground">{group.label}</h4>
-                    <div className="mt-2 space-y-3 text-sm leading-relaxed text-foreground">
-                      {group.rows.map((row) => {
-                        const value = drafts[row.key]?.lb || "";
-                        return (
-                          <p key={`lb-copy-${row.key}`} className={value.trim() ? "" : "text-[var(--danger)]"}>
-                            {value.trim() ? value : t("missingLb")}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </article>
+            <div className="mt-4 grid gap-4 xl:grid-cols-2">
+              {TRANSLATION_LOCALES.map((code) => (
+                <article key={code} className="app-panel p-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{t(LOCALE_LABEL[code])}</h3>
+                  {groups.map((group) => (
+                    <section key={`${code}-${group.id}`} className="mt-5">
+                      <h4 className="text-sm font-semibold text-foreground">{group.label}</h4>
+                      <div className="mt-2 space-y-3 text-sm leading-relaxed text-foreground">
+                        {group.rows.map((row) => {
+                          const value = drafts[row.key]?.[code] || "";
+                          return (
+                            <p key={`${code}-copy-${row.key}`} className={value.trim() ? "" : "text-muted"}>
+                              {value.trim() ? value : t("translationsMissingValue")}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </article>
+              ))}
             </div>
           ) : (
-            <div className="mt-4 overflow-hidden rounded-[var(--radius-card)] border border-border bg-[var(--surface)]">
-              <div className="sticky top-0 z-10 hidden grid-cols-[minmax(9rem,14rem)_1fr_1fr] border-b border-border bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
+            <div className="mt-4 overflow-x-auto rounded-[var(--radius-card)] border border-border bg-[var(--surface)]">
+              <div className="sticky top-0 z-10 hidden min-w-[64rem] grid-cols-[minmax(8rem,11rem)_repeat(4,minmax(10rem,1fr))] border-b border-border bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted xl:grid">
                 <span>{t("translationsOnScreen")}</span>
-                <span>{t("englishLabel")}</span>
-                <span>{t("luxembourgishLabel")}</span>
+                {TRANSLATION_LOCALES.map((code) => (
+                  <span key={code}>{t(LOCALE_LABEL[code])}</span>
+                ))}
               </div>
               {groups.map((group) => (
-                <section key={group.id} className="border-b border-border last:border-b-0">
+                <section key={group.id} className="min-w-[64rem] border-b border-border last:border-b-0">
                   <h3 className="bg-[var(--surface-secondary)] px-4 py-2 text-sm font-semibold text-foreground">
                     {group.label}
                   </h3>
                   <ul>
                     {group.rows.map((row) => {
-                      const draft = drafts[row.key] ?? { en: row.en, lb: row.lb };
-                      const dirty = draft.en !== row.en || draft.lb !== row.lb;
+                      const draft = drafts[row.key] ?? emptyDraft(row);
+                      const dirty = TRANSLATION_LOCALES.some((code) => draft[code] !== row[code]);
+                      const overridden = TRANSLATION_LOCALES.some((code) => isOverridden(row, code));
                       return (
                         <li
                           key={row.key}
-                          className={cn(
-                            "grid gap-3 border-t border-border/70 px-3 py-2 md:grid-cols-[minmax(9rem,14rem)_1fr_1fr]",
-                            row.missing_lb && !draft.lb.trim() ? "bg-[var(--badge-danger-bg)]" : "",
-                          )}
+                          className="grid gap-3 border-t border-border/70 px-3 py-2 xl:grid-cols-[minmax(8rem,11rem)_repeat(4,minmax(10rem,1fr))]"
                         >
                           <div className="min-w-0">
                             <p className="break-all text-sm font-medium text-foreground">{row.local_key}</p>
@@ -361,32 +369,24 @@ export default function OpsTranslationsPage() {
                                 {t("translationsKeepPlaceholder")} {row.placeholders.join(" ")}
                               </p>
                             ) : null}
-                            {row.en_overridden || row.lb_overridden ? (
+                            {overridden ? (
                               <p className="mt-1 text-xs text-link">{t("overridden")}</p>
                             ) : null}
                           </div>
-                          <label className="block min-w-0 text-sm md:text-inherit">
-                            <span className="mb-1 block text-xs font-medium text-muted md:hidden">
-                              {t("englishLabel")}
-                            </span>
-                            <textarea
-                              className="w-full resize-y rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm leading-relaxed text-[var(--field-foreground)]"
-                              rows={fieldRows(draft.en)}
-                              value={draft.en}
-                              onChange={(event) => updateDraft(row.key, "en", event.target.value)}
-                            />
-                          </label>
-                          <label className="block min-w-0 text-sm md:text-inherit">
-                            <span className="mb-1 block text-xs font-medium text-muted md:hidden">
-                              {t("luxembourgishLabel")}
-                            </span>
-                            <textarea
-                              className="w-full resize-y rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm leading-relaxed text-[var(--field-foreground)]"
-                              rows={fieldRows(draft.lb || draft.en)}
-                              value={draft.lb}
-                              onChange={(event) => updateDraft(row.key, "lb", event.target.value)}
-                            />
-                          </label>
+                          {TRANSLATION_LOCALES.map((code) => (
+                            <label key={code} className="block min-w-0 text-sm md:text-inherit">
+                              <span className="mb-1 block text-xs font-medium text-muted xl:hidden">
+                                {t(LOCALE_LABEL[code])}
+                              </span>
+                              <textarea
+                                className="w-full resize-y rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm leading-relaxed text-[var(--field-foreground)]"
+                                rows={fieldRows(draft[code] || draft.en)}
+                                value={draft[code]}
+                                aria-label={`${row.local_key} ${t(LOCALE_LABEL[code])}`}
+                                onChange={(event) => updateDraft(row.key, code, event.target.value)}
+                              />
+                            </label>
+                          ))}
                         </li>
                       );
                     })}

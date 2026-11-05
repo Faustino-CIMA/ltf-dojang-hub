@@ -153,6 +153,27 @@ class OpsAuthTests(TestCase):
         self.assertTrue(all(row["namespace"] == "Auth" for row in response.data["results"]))
         self.assertGreaterEqual(response.data["count"], 10)
 
+    def test_translation_meta_lists_the_shipped_languages(self):
+        token = Token.objects.create(user=self.superuser)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        response = self.client.get("/api/ops/translations/meta/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["locales"], ["en", "fr", "de", "lb"])
+        auth = self.client.get("/api/ops/translations/?namespace=Auth")
+        self.assertEqual(auth.status_code, 200)
+        row = next(item for item in auth.data["results"] if item["key"] == "Auth.loginTitle")
+        self.assertEqual(row["fr"], "Connexion")
+        self.assertEqual(row["de"], "Anmelden")
+        self.assertTrue(row["lb"])
+
+    def test_public_french_catalog_is_french(self):
+        from django.core.cache import cache
+
+        cache.delete("ops:i18n:fr")
+        response = self.client.get("/api/i18n/fr/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get("Auth", {}).get("loginTitle"), "Connexion")
+
     def test_translation_meta_lists_pages(self):
         token = Token.objects.create(user=self.superuser)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
