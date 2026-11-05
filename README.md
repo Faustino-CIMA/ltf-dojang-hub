@@ -1,6 +1,6 @@
 # LTF Dojang Hub
 
-The Luxembourg Taekwondo Federation desk for clubs: members, licenses, training, billing, the shop, and a shared calendar.
+The Luxembourg Taekwondo Federation desk for clubs: members, licenses, billing, and more.
 
 ## Branches
 
