@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
@@ -152,8 +153,10 @@ export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (te
         <RowActionMenu
           label={t("teamGroupsActions")}
           actions={[
-            { key: "edit", label: t("teamsEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
-            { key: "delete", label: t("teamsDeleteAction"), destructive: true, onSelect: () => { setEditing(row); setPanel("delete"); } },
+            { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("teamsEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
+            { key: "delete",
+                        icon: <Trash2 aria-hidden />, label: t("teamsDeleteAction"), destructive: true, onSelect: () => { setEditing(row); setPanel("delete"); } },
           ]}
         />
       ),

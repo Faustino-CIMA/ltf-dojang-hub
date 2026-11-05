@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2, ExternalLink, User } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
@@ -991,9 +992,11 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
                 <RowActionMenu
                   label={common("rowActionsLabel")}
                   actions={[
-                    { key: "edit", label: t("editItem"), onSelect: () => startEditEmail(index) },
+                    { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editItem"), onSelect: () => startEditEmail(index) },
                     {
                       key: "delete",
+                        icon: <Trash2 aria-hidden />,
                       label: t("removeItem"),
                       destructive: true,
                       onSelect: () => {
@@ -1036,9 +1039,11 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
                 <RowActionMenu
                   label={common("rowActionsLabel")}
                   actions={[
-                    { key: "edit", label: t("editItem"), onSelect: () => startEditPhone(index) },
+                    { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editItem"), onSelect: () => startEditPhone(index) },
                     {
                       key: "delete",
+                        icon: <Trash2 aria-hidden />,
                       label: t("removeItem"),
                       destructive: true,
                       onSelect: () => {
@@ -1084,9 +1089,11 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
                 <RowActionMenu
                   label={common("rowActionsLabel")}
                   actions={[
-                    { key: "edit", label: t("editItem"), onSelect: () => startEditAddress(index) },
+                    { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editItem"), onSelect: () => startEditAddress(index) },
                     {
                       key: "delete",
+                        icon: <Trash2 aria-hidden />,
                       label: t("removeItem"),
                       destructive: true,
                       onSelect: () => {
@@ -1238,15 +1245,18 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
                 <RowActionMenu
                   label={common("rowActionsLabel")}
                   actions={[
-                    { key: "edit", label: t("editItem"), onSelect: () => startEditContact(index) },
+                    { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editItem"), onSelect: () => startEditContact(index) },
                     row.person_detail.converted_member
                       ? {
                           key: "open",
+                        icon: <ExternalLink aria-hidden />,
                           label: t("openMember"),
                           onSelect: () => router.push(`/${locale}/dashboard/club/members/${row.person_detail.converted_member}`),
                         }
                       : {
                           key: "member",
+                        icon: <User aria-hidden />,
                           label: t("makeMember"),
                           disabled: convertingPersonId === row.person,
                           onSelect: () => {

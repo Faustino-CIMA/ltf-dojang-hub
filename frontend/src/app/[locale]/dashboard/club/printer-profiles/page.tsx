@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -273,8 +274,10 @@ export default function ClubAdminPrinterProfilesPage() {
                   <RowActionMenu
                     label={common("rowActionsLabel")}
                     actions={[
-                      { key: "edit", label: t("editAction"), onSelect: () => startEdit(profile) },
-                      { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => startDelete(profile) },
+                      { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => startEdit(profile) },
+                      { key: "delete",
+                        icon: <Trash2 aria-hidden />, label: t("deleteAction"), destructive: true, onSelect: () => startDelete(profile) },
                     ]}
                   />
                 ),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Pencil, Trash2, CalendarX2, Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -333,10 +334,14 @@ export function NationalTeamDesk({
                 <RowActionMenu
                   label={t("nationalTeamRowActions")}
                   actions={[
-                    { key: "edit", label: t("nationalTeamEdit"), onSelect: () => { setSelected(row); setPanel("edit-selection"); } },
-                    { key: "end", label: t("nationalTeamEnd"), onSelect: () => { setSelected(row); setPanel("end-selection"); } },
-                    { key: "status", label: t("nationalTeamStatus"), onSelect: () => { setSelected(row); setStatuses(preview?.statuses?.filter((item) => item.member === row.member) ?? []); setPanel("status"); if (!preview) void getAthleteStatuses(row.member).then(setStatuses).catch(() => setStatuses([])); } },
-                    { key: "delete", label: t("nationalTeamDelete"), destructive: true, onSelect: () => { setSelected(row); setPanel("delete-selection"); } },
+                    { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("nationalTeamEdit"), onSelect: () => { setSelected(row); setPanel("edit-selection"); } },
+                    { key: "end",
+                        icon: <CalendarX2 aria-hidden />, label: t("nationalTeamEnd"), onSelect: () => { setSelected(row); setPanel("end-selection"); } },
+                    { key: "status",
+                        icon: <Activity aria-hidden />, label: t("nationalTeamStatus"), onSelect: () => { setSelected(row); setStatuses(preview?.statuses?.filter((item) => item.member === row.member) ?? []); setPanel("status"); if (!preview) void getAthleteStatuses(row.member).then(setStatuses).catch(() => setStatuses([])); } },
+                    { key: "delete",
+                        icon: <Trash2 aria-hidden />, label: t("nationalTeamDelete"), destructive: true, onSelect: () => { setSelected(row); setPanel("delete-selection"); } },
                   ]}
                 />
               ),
@@ -544,8 +549,10 @@ function StaffSection({
                       <RowActionMenu
                         label={t("nationalTeamRowActions")}
                         actions={[
-                          { key: "end", label: t("nationalTeamEnd"), onSelect: () => onEnd(row) },
-                          { key: "delete", label: t("nationalTeamDelete"), destructive: true, onSelect: () => onDelete(row) },
+                          { key: "end",
+                        icon: <CalendarX2 aria-hidden />, label: t("nationalTeamEnd"), onSelect: () => onEnd(row) },
+                          { key: "delete",
+                        icon: <Trash2 aria-hidden />, label: t("nationalTeamDelete"), destructive: true, onSelect: () => onDelete(row) },
                         ]}
                       />
                     ),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2, UserPlus, Copy, IdCard, Ban } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -402,6 +403,7 @@ export default function LtfAdminMembersPage() {
                     actions={[
                       {
                         key: "edit",
+                        icon: <Pencil aria-hidden />,
                         label: t("staffEditAction"),
                         onSelect: () => void openPanel(row.is_ltf_staff ? "edit" : "create", row),
                       },
@@ -409,6 +411,7 @@ export default function LtfAdminMembersPage() {
                         ? [
                             {
                               key: "create",
+                        icon: <UserPlus aria-hidden />,
                               label: t("createUserAccount"),
                               onSelect: () => setAccountPanel({ intent: "create", ids: [row.id] }),
                             },
@@ -418,6 +421,7 @@ export default function LtfAdminMembersPage() {
                         ? [
                             {
                               key: "copy",
+                        icon: <Copy aria-hidden />,
                               label: t("copyFirstLoginLink"),
                               onSelect: () => setAccountPanel({ intent: "copy", ids: [row.id] }),
                             },
@@ -427,6 +431,7 @@ export default function LtfAdminMembersPage() {
                         ? [
                             {
                               key: "issue",
+                        icon: <IdCard aria-hidden />,
                               label: t("staffIssueAction"),
                               onSelect: () => void openPanel("issue", row),
                             },
@@ -436,6 +441,7 @@ export default function LtfAdminMembersPage() {
                         ? [
                             {
                               key: "revoke",
+                        icon: <Ban aria-hidden />,
                               label: t("staffRevokeAction"),
                               onSelect: () => void openPanel("revoke", row),
                             },
@@ -443,6 +449,7 @@ export default function LtfAdminMembersPage() {
                         : []),
                       {
                         key: "delete",
+                        icon: <Trash2 aria-hidden />,
                         label: t("staffDeleteAction"),
                         destructive: true,
                         disabled: !row.is_ltf_staff,

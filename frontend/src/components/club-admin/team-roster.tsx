@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { UserCog, Scale, ExternalLink, UserMinus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { DuplicateTeamPanel, TeamForm, disciplineLabel } from "@/components/club-admin/club-teams-desk";
@@ -301,6 +302,7 @@ export function TeamRoster({
                 : [
                     {
                       key: "role",
+                        icon: <UserCog aria-hidden />,
                       label: coach ? t("teamMakeAthlete") : t("teamMakeCoach"),
                       onSelect: () => {
                         void updateTeamMemberRole(teamId, row.id, coach ? "athlete" : "coach").then((next) =>
@@ -310,12 +312,14 @@ export function TeamRoster({
                     },
                     {
                       key: "weight",
+                        icon: <Scale aria-hidden />,
                       label: t("teamAddWeight"),
                       onSelect: () => setWeightMember(row),
                     },
                   ]),
               {
                 key: "open",
+                        icon: <ExternalLink aria-hidden />,
                 label: t("teamOpenMember"),
                 href: `/${locale}/dashboard/club/members/${row.id}`,
                 onSelect: () => undefined,
@@ -325,6 +329,7 @@ export function TeamRoster({
                 : [
                     {
                       key: "remove",
+                        icon: <UserMinus aria-hidden />,
                       label: t("teamRemoveFromTeam"),
                       confirmLabel: t("teamRemovePrompt", { name: formatFullName(row) }),
                       destructive: true,
@@ -532,6 +537,7 @@ export function TeamRoster({
                   actions={[
                     {
                       key: "remove",
+                        icon: <UserMinus aria-hidden />,
                       label: t("teamCompetitionRemove"),
                       confirmLabel: t("teamCompetitionRemovePrompt"),
                       destructive: true,

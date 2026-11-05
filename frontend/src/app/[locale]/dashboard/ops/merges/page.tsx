@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { UserCheck, UserX } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -177,8 +178,10 @@ export default function OpsMergesPage() {
               <RowActionMenu
                 label={t("deskRowActions")}
                 actions={[
-                  { key: "keep", label: t("mergeKeep"), onSelect: () => setKept(row) },
-                  { key: "fold", label: t("mergeFold"), onSelect: () => setFolded((current) => [...current, row]) },
+                  { key: "keep",
+                        icon: <UserCheck aria-hidden />, label: t("mergeKeep"), onSelect: () => setKept(row) },
+                  { key: "fold",
+                        icon: <UserX aria-hidden />, label: t("mergeFold"), onSelect: () => setFolded((current) => [...current, row]) },
                 ]}
               />
             ),

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -150,6 +151,7 @@ export default function TrainingHolidaysPage() {
                                   actions={[
                                     {
                                       key: "delete",
+                        icon: <Trash2 aria-hidden />,
                                       label: t("trainingRemove"),
                                       destructive: true,
                                       onSelect: () => setPendingDelete(row),
