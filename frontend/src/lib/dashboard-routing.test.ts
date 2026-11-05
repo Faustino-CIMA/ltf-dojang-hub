@@ -18,6 +18,20 @@ describe("dashboard routing", () => {
       routeAfterSignIn("club_admin", "en", { lastDesk: { desk: "ltf_finance", club_id: null } }),
     ).toBe("/en/dashboard/ltf-finance");
     expect(routeAfterSignIn("member", "en", { isSuperuser: true })).toBe("/en/dashboard/ops");
+    expect(
+      routeAfterSignIn("member", "en", {
+        isSuperuser: true,
+        lastDesk: { desk: "ltf_admin", club_id: null },
+        desks: [{ desk: "ops", club_id: null }],
+      }),
+    ).toBe("/en/dashboard/ops");
+    expect(
+      routeAfterSignIn("member", "en", {
+        isSuperuser: true,
+        lastDesk: { desk: "ops", club_id: null },
+        desks: [{ desk: "ops", club_id: null }, { desk: "ltf_admin", club_id: null }],
+      }),
+    ).toBe("/en/dashboard/ops");
   });
 
   it("sends superusers to the ops console", () => {

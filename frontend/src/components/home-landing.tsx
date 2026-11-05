@@ -19,6 +19,7 @@ type MeResponse = {
   first_name: string;
   role: string;
   is_superuser?: boolean;
+  desks?: Array<{ desk: string; club_id: number | null }>;
   last_desk?: { desk: string; club_id: number | null } | null;
 };
 
@@ -52,6 +53,7 @@ export function HomeLanding() {
           routeAfterSignIn(me.role, locale, {
             isSuperuser: Boolean(me.is_superuser),
             lastDesk: me.last_desk ?? null,
+            desks: me.desks ?? [],
           }) ?? `/${locale}/dashboard`,
         );
       } catch {

@@ -69,10 +69,12 @@ export default function LoginPage() {
     } else {
       persistSelectedClubId(null);
     }
+    const desks = response.desks ?? [];
     router.push(
       routeAfterSignIn(response.user.role, locale, {
         isSuperuser: Boolean(response.user.is_superuser),
-        lastDesk: response.last_desk ?? null,
+        lastDesk: chosen ?? response.last_desk ?? null,
+        desks,
       }) ?? `/${locale}/dashboard`,
     );
   };

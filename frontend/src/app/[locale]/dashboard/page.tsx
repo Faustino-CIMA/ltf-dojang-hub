@@ -50,7 +50,8 @@ export default function DashboardPage() {
         }
         const targetRoute = routeAfterSignIn(response.role, locale, {
           isSuperuser: Boolean(response.is_superuser),
-          lastDesk: response.last_desk ?? null,
+          lastDesk: chosen ?? response.last_desk ?? null,
+          desks: response.desks ?? [],
         });
         if (targetRoute) {
           router.push(targetRoute);

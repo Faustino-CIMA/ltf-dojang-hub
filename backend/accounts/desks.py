@@ -129,6 +129,19 @@ def _audit(action: str, user, message: str, metadata: dict, target_id: str = "")
     )
 
 
+def _sign_in_without_a_desk(request) -> bool:
+    """Finishing sign-in must not depend on a desk left in the browser."""
+    path = getattr(request, "path", "") or ""
+    return any(
+        path.startswith(prefix)
+        for prefix in (
+            "/api/auth/login/",
+            "/api/auth/mfa/confirm/",
+            "/api/auth/mfa/webauthn/login/",
+        )
+    )
+
+
 def _account_security_write(request) -> bool:
     """Signing in, choosing a desk, and setting up a second factor are not edits of that desk."""
     path = getattr(request, "path", "") or ""
@@ -160,6 +173,9 @@ def bind_request_desk(request, user) -> None:
         return
     request._desk_bound = True
     _django_request(request)._desk_bound = True
+    if _sign_in_without_a_desk(request):
+        _active_desk.set(None)
+        return
     raw = str(request.META.get(HEADER) or "").strip()
     if not raw:
         read_only = _implicit_read_only(user, load_grants(request, user))
