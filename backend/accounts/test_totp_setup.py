@@ -2,6 +2,7 @@ import time
 from datetime import timedelta
 from importlib import import_module
 from io import StringIO
+from unittest.mock import patch
 
 from allauth.account import app_settings as account_settings
 from allauth.account.models import EmailAddress
@@ -189,7 +190,12 @@ class TotpSetupTests(TestCase):
         self._age_sign_in(account_settings.REAUTHENTICATION_TIMEOUT + 5)
         blocked = self.client.post("/api/auth/mfa/totp/", {"code": _code(secret)}, format="json")
         self.assertEqual(blocked.status_code, 409, getattr(blocked, "data", blocked.content))
-        self.assertEqual(blocked.data["detail"], "mfa_sign_in_again")
+        self.assertEqual(blocked.data["detail"], "mfa_password_to_save")
+        from allauth.mfa.models import Authenticator
+
+        self.assertFalse(
+            Authenticator.objects.filter(user=self.user, type=Authenticator.Type.TOTP).exists()
+        )
         reauth = self.client.post(
             "/_allauth/app/v1/auth/reauthenticate",
             {"password": "pass12345"},
@@ -200,8 +206,29 @@ class TotpSetupTests(TestCase):
         resumed = self.client.get("/api/auth/mfa/totp/")
         self.assertEqual(resumed.status_code, 200, resumed.data)
         self.assertEqual(resumed.data["secret"], secret)
-        activated = self.client.post("/api/auth/mfa/totp/", {"code": _code(secret)}, format="json")
+        with patch("allauth.mfa.totp.internal.auth.validate_totp_code", return_value=False):
+            activated = self.client.post("/api/auth/mfa/totp/", {"code": _code(secret)}, format="json")
         self.assertEqual(activated.status_code, 200, activated.data)
+
+    def test_past_the_timeout_a_wrong_code_is_still_refused(self):
+        started = self.client.get("/api/auth/mfa/totp/")
+        self.assertEqual(started.status_code, 200, started.data)
+        self._age_sign_in(account_settings.REAUTHENTICATION_TIMEOUT + 5)
+        current = _code(started.data["secret"])
+        wrong = "111111" if current != "111111" else "000000"
+        refused = self.client.post("/api/auth/mfa/totp/", {"code": wrong}, format="json")
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertEqual(refused.data["detail"], "incorrect_code")
+
+    def test_past_the_timeout_a_bad_security_key_is_still_refused(self):
+        self._age_sign_in(account_settings.REAUTHENTICATION_TIMEOUT + 5)
+        refused = self.client.post(
+            "/api/auth/mfa/webauthn/",
+            {"name": "Desk key", "credential": {"id": "not-a-key"}},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, getattr(refused, "data", refused.content))
+        self.assertEqual(refused.data["detail"], "incorrect_code")
 
     def test_one_step_of_clock_drift_is_accepted(self):
         self.assertEqual(mfa_settings.TOTP_TOLERANCE, 1)

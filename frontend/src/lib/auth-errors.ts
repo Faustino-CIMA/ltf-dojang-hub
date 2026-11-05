@@ -9,6 +9,7 @@ const INFO_CODES = new Set([
   "mfa_required",
   "mfa_recovery_required",
   "mfa_sign_in_again",
+  "mfa_password_to_save",
   "mfa_not_pending",
   "email_not_accepted",
   "desk_read_only",
@@ -38,6 +39,12 @@ const COPY: Record<string, Record<Locale, string>> = {
     fr: "Reconnectez-vous, puis faites cette étape pendant que la visite est encore récente.",
     de: "Melden Sie sich erneut an und richten Sie das ein, solange dieser Besuch noch frisch ist.",
     lb: "Loggt Iech nach eng Kéier an, an da riicht dat an, solang dës Visite frësch ass.",
+  },
+  mfa_password_to_save: {
+    en: "That was correct. Enter your password to save this setup.",
+    fr: "C'est correct. Saisissez votre mot de passe pour enregistrer cette configuration.",
+    de: "Das ist richtig. Geben Sie Ihr Passwort ein, um diese Einrichtung zu speichern.",
+    lb: "Dat ass richteg. Gitt Äert Passwuert an, fir dës Ariichtung ze späicheren.",
   },
   mfa_not_pending: {
     en: "Sign in again, then enter the code.",
