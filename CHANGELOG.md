@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Member page:** The club member page no longer shows a pencil beside the three-dots menu. Edit stays in that menu, and every item has an icon and a label. The LTF member page uses the same icon and label on each menu item.
 
 ## [0.13.1] - 2026-11-03
 

@@ -7,10 +7,13 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeftRight,
   Award,
+  Copy,
   History,
   IdCard,
   Landmark,
+  Pencil,
   User,
+  UserPlus,
 } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -348,15 +351,16 @@ export default function LtfMemberDetailPage() {
                           {
                             key: "edit",
                             label: t("staffEditAction"),
+                            icon: <Pencil aria-hidden />,
                             onSelect: () => setPanelMode(member.is_ltf_staff ? "edit" : "create"),
                           },
                           ...(accountRowAction(member.account_state, member.user != null && member.user === currentUserId) ===
                           "create"
-                            ? [{ key: "create", label: t("createUserAccount"), onSelect: () => setAccountPanel("create") }]
+                            ? [{ key: "create", label: t("createUserAccount"), icon: <UserPlus aria-hidden />, onSelect: () => setAccountPanel("create") }]
                             : []),
                           ...(accountRowAction(member.account_state, member.user != null && member.user === currentUserId) ===
                           "copy"
-                            ? [{ key: "copy", label: t("copyFirstLoginLink"), onSelect: () => setAccountPanel("copy") }]
+                            ? [{ key: "copy", label: t("copyFirstLoginLink"), icon: <Copy aria-hidden />, onSelect: () => setAccountPanel("copy") }]
                             : []),
                         ]}
                       />
