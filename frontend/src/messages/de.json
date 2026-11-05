@@ -131,6 +131,8 @@
     "mfaSecretHint": "Geben Sie diesen Schlüssel ein, wenn Sie den Code nicht scannen können. Die Leerzeichen dienen nur dem Lesen. Wenn ein frischer Code abgelehnt wird, fordern Sie einen neuen Schlüssel an und scannen Sie ihn.",
     "mfaRetry": "Neuen Einrichtungsschlüssel anzeigen",
     "mfaReauthHint": "Dieser Besuch ist nicht mehr frisch genug, um die Einrichtung abzuschliessen. Geben Sie Ihr Passwort ein, um mit demselben Schlüssel weiterzumachen.",
+    "mfaStepUpCode": "Dieser Code ist richtig. Geben Sie Ihr Passwort ein, um diese Einrichtung zu speichern.",
+    "mfaStepUpKey": "Dieser Schlüssel ist richtig. Geben Sie Ihr Passwort ein, um diese Einrichtung zu speichern.",
     "mfaReauthSubmit": "Passwort bestätigen",
     "mfaReauthFailed": "Dieses Passwort wurde nicht akzeptiert.",
     "mfaRecoveryTitle": "Wiederherstellungscodes",
