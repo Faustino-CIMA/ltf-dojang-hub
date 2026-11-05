@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Ops translations:** The translations screen lists English, French, German, and Luxembourgish. Those are the four languages the app already ships.
+- **Security setup:** When an authenticator code or a security key is correct but the visit is old, the setup is not treated as a failure. The screen says it was correct and asks for the password before saving. A wrong code or a wrong password is still shown as an error.
 - **Ops user delete:** Deleting a user on Ops users removes the login only. The member or contact record stays, and office desks end the same way as unlinking that login. Every open session for that login stops at once. A leftover sign-in is sent to the sign-in page with a short note. You cannot delete your own login. The row actions sit in a three-dots menu, with Delete last.
 
 ## [0.13.1] - 2026-11-03

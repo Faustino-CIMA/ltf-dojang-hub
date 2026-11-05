@@ -131,6 +131,8 @@
     "mfaSecretHint": "Saisissez cette clé si vous ne pouvez pas scanner le code. Les espaces servent seulement à la lecture. Si un code frais est refusé, demandez une nouvelle clé et scannez-la.",
     "mfaRetry": "Afficher une nouvelle clé",
     "mfaReauthHint": "Cette visite n'est plus assez récente pour terminer la configuration. Saisissez votre mot de passe pour continuer avec la même clé.",
+    "mfaStepUpCode": "Ce code est correct. Saisissez votre mot de passe pour enregistrer cette configuration.",
+    "mfaStepUpKey": "Cette clé est correcte. Saisissez votre mot de passe pour enregistrer cette configuration.",
     "mfaReauthSubmit": "Confirmer le mot de passe",
     "mfaReauthFailed": "Ce mot de passe n'a pas été accepté.",
     "mfaRecoveryTitle": "Codes de secours",

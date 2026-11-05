@@ -283,6 +283,8 @@
     "mfaSecretHint": "Type this key if you cannot scan the code. The spaces are only to make it readable. If a fresh code is refused, ask for a new key and scan that one.",
     "mfaRetry": "Show a new setup key",
     "mfaReauthHint": "This visit is no longer fresh enough to finish setup. Enter your password to continue with the same setup key.",
+    "mfaStepUpCode": "That code was correct. Enter your password to save this setup.",
+    "mfaStepUpKey": "That key was correct. Enter your password to save this setup.",
     "mfaReauthSubmit": "Confirm password",
     "mfaReauthFailed": "That password was not accepted.",
     "mfaRecoveryTitle": "Recovery codes",

@@ -93,22 +93,37 @@ class TotpEnrolView(views.APIView):
         return response.Response({"secret": secret, "otpauth_url": url, "qr_svg": svg})
 
     def post(self, request):
-        if not recently_authenticated(request):
-            return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         django_request = _django(request)
         code = _digits(request.data.get("code"))
+        fresh = recently_authenticated(request)
         with request_context(django_request):
-            form = ActivateTOTPForm(data={"code": code}, user=request.user)
-            if not form.is_valid():
-                if form_failure_detail(form) == "incorrect_code":
-                    log_totp_refusal(
-                        secret=totp_auth.get_totp_secret(regenerate=False),
-                        code=code,
-                        user_id=request.user.id,
-                    )
-                return _form_error(form)
-            if not recently_authenticated(request):
-                return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
+            pending = django_request.session.get("ltf_totp_accepted") or {}
+            secret_now = totp_auth.get_totp_secret(regenerate=False)
+            reused = (
+                fresh
+                and pending.get("code") == code
+                and pending.get("secret")
+                and pending.get("secret") == secret_now
+            )
+            if reused:
+                form = ActivateTOTPForm(data={"code": code}, user=request.user)
+                form.secret = pending["secret"]
+            else:
+                form = ActivateTOTPForm(data={"code": code}, user=request.user)
+                if not form.is_valid():
+                    if form_failure_detail(form) == "incorrect_code":
+                        log_totp_refusal(
+                            secret=totp_auth.get_totp_secret(regenerate=False),
+                            code=code,
+                            user_id=request.user.id,
+                        )
+                    return _form_error(form)
+                if not fresh:
+                    # The code matched. Keep it so a slow password entry can still save this key.
+                    django_request.session["ltf_totp_accepted"] = {"code": code, "secret": form.secret}
+                    django_request.session.save()
+                    return response.Response({"detail": "mfa_password_to_save"}, status=status.HTTP_409_CONFLICT)
+            django_request.session.pop("ltf_totp_accepted", None)
             # Login stores a password timestamp without allauth's reauthenticated flag.
             # activate_totp then raises, and the account middleware turns that into an HTML
             # redirect the screen reports as a rejected code. Inside the timeout, the sign-in is enough.
@@ -172,12 +187,22 @@ class WebAuthnRegisterView(views.APIView):
         return response.Response(_json_safe(options))
 
     def post(self, request):
-        if not recently_authenticated(request):
-            return response.Response({"detail": "mfa_sign_in_again"}, status=status.HTTP_409_CONFLICT)
         django_request = _django(request)
         credential = request.data.get("credential") or request.data
         name = str(request.data.get("name") or "Passkey")
         with request_context(django_request):
+            if not recently_authenticated(request):
+                try:
+                    from allauth.mfa.webauthn.internal import auth as webauthn_auth
+
+                    webauthn_auth.parse_registration_response(credential)
+                    binding = webauthn_auth.complete_registration(credential)
+                    if not binding.is_user_verified():
+                        return response.Response({"detail": "incorrect_code"}, status=status.HTTP_400_BAD_REQUEST)
+                except Exception:
+                    return response.Response({"detail": "incorrect_code"}, status=status.HTTP_400_BAD_REQUEST)
+                django_request.session.save()
+                return response.Response({"detail": "mfa_password_to_save"}, status=status.HTTP_409_CONFLICT)
             try:
                 _auth, recovery = webauthn_flows.add_authenticator(django_request, name=name, credential=credential)
             except Exception:

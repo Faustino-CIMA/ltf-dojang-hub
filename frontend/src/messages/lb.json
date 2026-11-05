@@ -283,6 +283,8 @@
     "mfaSecretHint": "Tippt dëse Schlëssel an, wann Dir de Code net scanne kënnt. D'Espacen sinn nëmme fir ze liesen. Wann e frësche Code refuséiert gëtt, frot e neie Schlëssel a scannt deen.",
     "mfaRetry": "Neien Ariichtungsschlëssel weisen",
     "mfaReauthHint": "Dës Visite ass net méi frësch genuch fir d'Ariichtung fäerdeg ze maachen. Gitt Äert Passwuert an, fir mam selwechte Schlëssel weiderzemaachen.",
+    "mfaStepUpCode": "Dëse Code ass richteg. Gitt Äert Passwuert an, fir dës Ariichtung ze späicheren.",
+    "mfaStepUpKey": "Dëse Schlëssel ass richteg. Gitt Äert Passwuert an, fir dës Ariichtung ze späicheren.",
     "mfaReauthSubmit": "Passwuert confirméieren",
     "mfaReauthFailed": "Dëst Passwuert gouf net ugeholl.",
     "mfaRecoveryTitle": "Recovery-Coden",
