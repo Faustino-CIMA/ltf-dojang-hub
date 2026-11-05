@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CircleOff, Download, Fingerprint, KeyRound, LockKeyhole, Mail, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 
@@ -119,6 +119,8 @@ export function MfaSecurityPanel({
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [pendingPasskey, setPendingPasskey] = useState<unknown>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const passwordFieldRef = useRef<HTMLInputElement>(null);
+  const passwordSectionRef = useRef<HTMLFormElement>(null);
 
   const holdForPassword = (error: unknown, kind: "visit" | "code" | "key") => {
     const code = error instanceof AuthApiError ? error.code : "";
@@ -131,8 +133,22 @@ export function MfaSecurityPanel({
     setNeedsReauth(true);
     setStepUpKind(verified ? kind : "visit");
     setErrorMessage(null);
+    if (verified) {
+      setSuccessMessage(kind === "key" ? t("mfaStepUpKey") : t("mfaStepUpCode"));
+    }
     return true;
   };
+
+  useEffect(() => {
+    if (!needsReauth) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      passwordSectionRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      passwordFieldRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [needsReauth, stepUpKind]);
 
   const explain = (error: unknown) => {
     if (error instanceof AuthApiError && (error.code === "incorrect_password" || error.code === "enter_current_password")) {
@@ -405,14 +421,26 @@ export function MfaSecurityPanel({
           <PageNotice tone="info">{status.desk_block === "mfa_required" ? t("mfaSessionNotice") : t("mfaEnrolClosed")}</PageNotice>
         ) : null}
         {needsReauth ? (
-          <form className="app-panel space-y-2 p-3" onSubmit={(event) => void confirmPassword(event)}>
+          <form
+            ref={passwordSectionRef}
+            className="app-panel space-y-2 p-3"
+            onSubmit={(event) => void confirmPassword(event)}
+          >
             <PageNotice tone="info">
               {stepUpKind === "key" ? t("mfaStepUpKey") : stepUpKind === "code" ? t("mfaStepUpCode") : t("mfaReauthHint")}
             </PageNotice>
             <Label htmlFor="mfa-reauth-password" required>
               {t("password")}
             </Label>
-            <Input id="mfa-reauth-password" name="password" type="password" autoComplete="current-password" required />
+            <Input
+              ref={passwordFieldRef}
+              id="mfa-reauth-password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              required
+            />
             <Button type="submit" variant="primary" disabled={busy}>
               <LockKeyhole aria-hidden />
               {t("mfaReauthSubmit")}
