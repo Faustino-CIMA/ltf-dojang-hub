@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -192,11 +191,9 @@ export default function PromotionPage() {
                           <RowActionMenu
                             label={common("rowActionsLabel")}
                             actions={[
-                              { key: "edit",
-                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => beginEdit(row) },
+                              { key: "edit", label: t("editAction"), onSelect: () => beginEdit(row) },
                               {
                                 key: "delete",
-                        icon: <Trash2 aria-hidden />,
                                 label: t("deleteAction"),
                                 destructive: true,
                                 onSelect: () => setPendingRule(row),

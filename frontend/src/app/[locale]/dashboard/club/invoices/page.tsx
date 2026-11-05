@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { X, Banknote, Wallet, FileText } from "lucide-react";
+import { X } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { ClubFinanceTabs, type ClubLedgerFilterValue } from "@/components/club-admin/club-finance-tabs";
@@ -314,7 +314,6 @@ export default function ClubAdminInvoicesPage() {
                 ? [
                     {
                       key: "pay",
-                        icon: <Banknote aria-hidden />,
                       label: paying ? common("paymentProcessing") : common("payNow"),
                       disabled: paying,
                       onSelect: () => void handlePayNow(row),
@@ -325,7 +324,6 @@ export default function ClubAdminInvoicesPage() {
                 ? [
                     {
                       key: "record",
-                        icon: <Wallet aria-hidden />,
                       label: t("recordPaymentButton"),
                       onSelect: () => router.push(`/${locale}/dashboard/club/payments/${row.id}/record`),
                     },
@@ -333,7 +331,6 @@ export default function ClubAdminInvoicesPage() {
                 : []),
               {
                 key: "pdf",
-                        icon: <FileText aria-hidden />,
                 label: common("invoicePdfLabel"),
                 onSelect: () => void handleInvoicePdf(row.id),
               },

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { CircleOff, Download, Fingerprint, KeyRound, LockKeyhole, Mail, RefreshCw, ShieldCheck, Smartphone, UserMinus } from "lucide-react";
+import { CircleOff, Download, Fingerprint, KeyRound, LockKeyhole, Mail, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 
 import { SidePanel } from "@/components/ui/side-panel";
 import { Input } from "@/components/ui/input";
@@ -580,7 +580,6 @@ export function MfaSecurityPanel({
                     actions={[
                       {
                         key: "remove",
-                        icon: <UserMinus aria-hidden />,
                         label: t("mfaPasskeyRemove"),
                         destructive: true,
                         confirmLabel: t("mfaPasskeyRemoveConfirm"),

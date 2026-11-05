@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown, Pencil, Trash2, Copy, Users } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
@@ -700,14 +700,10 @@ export function ClubTeamsDesk({ clubId, onOpenTeam }: { clubId: number; onOpenTe
           <RowActionMenu
             label={t("teamsActions")}
             actions={[
-              { key: "edit",
-                        icon: <Pencil aria-hidden />, label: t("teamsEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
-              { key: "members",
-                        icon: <Users aria-hidden />, label: t("teamsManageAction"), onSelect: () => { setEditing(row); setPanel("members"); } },
-              { key: "duplicate",
-                        icon: <Copy aria-hidden />, label: t("teamDuplicateAction"), onSelect: () => { setEditing(row); setPanel("duplicate"); } },
-              { key: "delete",
-                        icon: <Trash2 aria-hidden />, label: t("teamsDeleteAction"), destructive: true, onSelect: () => { setEditing(row); setPanel("delete"); } },
+              { key: "edit", label: t("teamsEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
+              { key: "members", label: t("teamsManageAction"), onSelect: () => { setEditing(row); setPanel("members"); } },
+              { key: "duplicate", label: t("teamDuplicateAction"), onSelect: () => { setEditing(row); setPanel("duplicate"); } },
+              { key: "delete", label: t("teamsDeleteAction"), destructive: true, onSelect: () => { setEditing(row); setPanel("delete"); } },
             ]}
           />
         ),

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { X, Trash2 } from "lucide-react";
+import { X } from "lucide-react";
 
 import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -361,7 +361,6 @@ export default function LtfAdminClubsPage() {
                       actions={[
                         {
                           key: "delete",
-                        icon: <Trash2 aria-hidden />,
                           label: t("deleteAction"),
                           destructive: true,
                           onSelect: () => handleDelete(club),

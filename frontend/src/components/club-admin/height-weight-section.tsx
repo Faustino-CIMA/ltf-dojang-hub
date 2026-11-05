@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
@@ -385,11 +384,9 @@ export function HeightWeightSection({
                 <RowActionMenu
                   label={t("heightWeightActions")}
                   actions={[
-                    { key: "edit",
-                        icon: <Pencil aria-hidden />, label: t("heightWeightEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
+                    { key: "edit", label: t("heightWeightEditAction"), onSelect: () => { setEditing(row); setPanel("edit"); } },
                     {
                       key: "delete",
-                        icon: <Trash2 aria-hidden />,
                       label: t("heightWeightDeleteAction"),
                       destructive: true,
                       onSelect: () => {

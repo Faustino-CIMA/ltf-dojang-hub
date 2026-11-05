@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Pencil, Trash2, UserPlus, Copy } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 
 import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
@@ -1150,7 +1150,6 @@ export default function ClubAdminMembersPage() {
                             actions={[
                               {
                                 key: "edit",
-                        icon: <Pencil aria-hidden />,
                                 label: t("editAction"),
                                 onSelect: () => router.push(`/${locale}/dashboard/club/members/${member.id}?edit=1`),
                               },
@@ -1161,7 +1160,6 @@ export default function ClubAdminMembersPage() {
                                 ? [
                                     {
                                       key: "create",
-                        icon: <UserPlus aria-hidden />,
                                       label: t("createUserAccount"),
                                       onSelect: () => openAccount(member, "create"),
                                     },
@@ -1174,7 +1172,6 @@ export default function ClubAdminMembersPage() {
                                 ? [
                                     {
                                       key: "copy",
-                        icon: <Copy aria-hidden />,
                                       label: t("copyFirstLoginLink"),
                                       onSelect: () => openAccount(member, "copy"),
                                     },
@@ -1182,7 +1179,6 @@ export default function ClubAdminMembersPage() {
                                 : []),
                               {
                                 key: "delete",
-                        icon: <Trash2 aria-hidden />,
                                 label: t("deleteAction"),
                                 destructive: true,
                                 onSelect: () => void openMemberDelete(member),

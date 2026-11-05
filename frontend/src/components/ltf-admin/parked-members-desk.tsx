@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Trash2, CircleCheck } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
@@ -270,8 +270,7 @@ export function ParkedMembersDesk() {
                 <RowActionMenu
                   label={t("parkedRowActions", { name: formatFullName(row) })}
                   actions={[
-                    { key: "resolve",
-                        icon: <CircleCheck aria-hidden />, label: t("parkedResolve"), onSelect: () => openRow(row) },
+                    { key: "resolve", label: t("parkedResolve"), onSelect: () => openRow(row) },
                     {
                       key: "delete",
                       label: t("parkedDelete"),

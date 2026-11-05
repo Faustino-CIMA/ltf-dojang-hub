@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
@@ -434,7 +433,6 @@ export default function TrainingHoursPage() {
                                       actions={[
                                         {
                                           key: "edit",
-                        icon: <Pencil aria-hidden />,
                                           label: t("editAction"),
                                           onSelect: () => openRate(row),
                                         },
@@ -442,7 +440,6 @@ export default function TrainingHoursPage() {
                                           ? [
                                               {
                                                 key: "delete",
-                        icon: <Trash2 aria-hidden />,
                                                 label: t("trainingRemove"),
                                                 destructive: true,
                                                 disabled: savingRateId === row.user_id,
@@ -504,11 +501,9 @@ export default function TrainingHoursPage() {
                                     <RowActionMenu
                                       label={common("rowActionsLabel")}
                                       actions={[
-                                        { key: "edit",
-                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => beginOutingEdit(row) },
+                                        { key: "edit", label: t("editAction"), onSelect: () => beginOutingEdit(row) },
                                         {
                                           key: "delete",
-                        icon: <Trash2 aria-hidden />,
                                           label: t("trainingRemove"),
                                           destructive: true,
                                           onSelect: () => setPendingOuting(row),

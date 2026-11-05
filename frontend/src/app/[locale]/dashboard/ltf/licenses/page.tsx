@@ -1,6 +1,5 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -574,10 +573,8 @@ export default function LtfAdminLicensesPage() {
         <RowActionMenu
           label={common("rowActionsLabel")}
           actions={[
-            { key: "edit",
-                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => startEdit(license) },
-            { key: "delete",
-                        icon: <Trash2 aria-hidden />, label: t("deleteAction"), destructive: true, onSelect: () => void openLicenseDelete(license) },
+            { key: "edit", label: t("editAction"), onSelect: () => startEdit(license) },
+            { key: "delete", label: t("deleteAction"), destructive: true, onSelect: () => void openLicenseDelete(license) },
           ]}
         />
       ),
