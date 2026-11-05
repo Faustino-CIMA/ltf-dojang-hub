@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Security setup:** When an authenticator code or a security key is correct and the password is still required, a success message slides in and the cursor moves to the password field. The password section stays where it is.
 - **Sign-in:** Finishing sign-in no longer depends on a desk left in the browser. If the last desk is no longer open, sign-in opens one that is, instead of saying that desk is not open.
 - **LTF clubs:** Opening a club no longer shows “That action is not available.” A superuser or an LTF desk can read training venues. A view-only desk still cannot add one. If the venue list cannot be loaded, that note stays with the venues and is not a red page error.
 - **Member page:** The club member page no longer shows a pencil beside the three-dots menu. Edit stays in that menu, and every item has an icon and a label. The LTF member page uses the same icon and label on each menu item.
