@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { OpsUsersBoard } from "@/components/ops/ops-users-board";
 import { OpsLayout } from "@/components/ops/ops-layout";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { apiRequest } from "@/lib/api";
 import { getOpsUsers, type OpsUser } from "@/lib/ops-api";
 
 export default function OpsUsersPage() {
@@ -14,6 +15,7 @@ export default function OpsUsersPage() {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setErrorMessage(null);
@@ -33,6 +35,12 @@ export default function OpsUsersPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    void apiRequest<{ id: number }>("/api/auth/me/")
+      .then((me) => setCurrentUserId(me.id))
+      .catch(() => setCurrentUserId(null));
+  }, []);
+
   return (
     <OpsLayout title={t("usersTitle")} subtitle={t("usersSubtitle")}>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
@@ -42,6 +50,7 @@ export default function OpsUsersPage() {
         query={query}
         onQueryChange={setQuery}
         onChanged={load}
+        currentUserId={currentUserId}
       />
     </OpsLayout>
   );

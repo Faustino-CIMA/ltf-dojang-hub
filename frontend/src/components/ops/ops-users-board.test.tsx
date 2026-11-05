@@ -101,4 +101,39 @@ describe("ops login link selection", () => {
     expect(screen.queryByRole("button", { name: "bulkDownloadCsv" })).not.toBeInTheDocument();
     expect(createBulkLoginLinks).not.toHaveBeenCalled();
   });
+
+  it("keeps the row actions in order and does not offer delete on your own login", () => {
+    const ada = user({ id: 1, username: "ada", linked_name: "NG Ada" });
+    const self = user({ id: 9, username: "me" });
+    render(
+      <OpsUsersBoard
+        users={[ada, self]}
+        isLoading={false}
+        query=""
+        onQueryChange={() => undefined}
+        onChanged={() => undefined}
+        currentUserId={9}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "userActions:ada" }));
+    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(items).toEqual([
+      "disable",
+      "revokeSession",
+      "sendReset",
+      "grantSuperuser",
+      "extendMfaGrace",
+      "removePasskeys",
+      "resetAuthenticator",
+      "deleteUser",
+    ]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "deleteUser" }));
+    expect(screen.getByRole("dialog", { name: "deleteUserTitle:ada" })).toBeInTheDocument();
+    expect(screen.getByText("deleteUserBody")).toBeInTheDocument();
+    expect(screen.getByText("deleteUserMember:NG Ada")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "userActions:me" }));
+    expect(screen.queryByRole("menuitem", { name: "deleteUser" })).not.toBeInTheDocument();
+  });
 });
