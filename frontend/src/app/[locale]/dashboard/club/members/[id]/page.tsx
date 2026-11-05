@@ -7,11 +7,13 @@ import {
   ArrowLeftRight,
   Award,
   ClipboardList,
+  Copy,
   History,
   IdCard,
   Landmark,
   Pencil,
   User,
+  UserPlus,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -440,35 +442,24 @@ export default function ClubMemberDetailPage() {
                   <MemberNationalTeamBadge memberId={member.id} />
                 </div>
                 {canManageMemberFull ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <RowActionMenu
-                      label={commonT("rowActionsLabel")}
-                      actions={[
-                        { key: "edit", label: t("editAction"), onSelect: onEdit },
-                        ...(accountRowAction(
-                          member.account_state,
-                          member.user != null && member.user === currentUserId,
-                        ) === "create"
-                          ? [{ key: "create", label: t("createUserAccount"), onSelect: () => setAccountPanel("create") }]
-                          : []),
-                        ...(accountRowAction(
-                          member.account_state,
-                          member.user != null && member.user === currentUserId,
-                        ) === "copy"
-                          ? [{ key: "copy", label: t("copyFirstLoginLink"), onSelect: () => setAccountPanel("copy") }]
-                          : []),
-                      ]}
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon-lg"
-                      className="h-[var(--control-height)] min-h-[var(--control-height)] w-[var(--control-height)] shrink-0"
-                      aria-label={t("editAction")}
-                      onClick={onEdit}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <RowActionMenu
+                    label={commonT("rowActionsLabel")}
+                    actions={[
+                      { key: "edit", label: t("editAction"), icon: <Pencil aria-hidden />, onSelect: onEdit },
+                      ...(accountRowAction(
+                        member.account_state,
+                        member.user != null && member.user === currentUserId,
+                      ) === "create"
+                        ? [{ key: "create", label: t("createUserAccount"), icon: <UserPlus aria-hidden />, onSelect: () => setAccountPanel("create") }]
+                        : []),
+                      ...(accountRowAction(
+                        member.account_state,
+                        member.user != null && member.user === currentUserId,
+                      ) === "copy"
+                        ? [{ key: "copy", label: t("copyFirstLoginLink"), icon: <Copy aria-hidden />, onSelect: () => setAccountPanel("copy") }]
+                        : []),
+                    ]}
+                  />
                 ) : null}
               </div>
               <div className="mt-4">
