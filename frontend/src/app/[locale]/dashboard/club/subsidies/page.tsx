@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Check, Circle, Download, Upload } from "lucide-react";
+import { Check, Circle, Download, Upload, Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -843,7 +843,8 @@ export default function ClubSubsidiesPage() {
                               <RowActionMenu
                                 label={common("rowActionsLabel")}
                                 actions={[
-                                  { key: "edit", label: t("subsidiesEditCase"), onSelect: () => onEditCase(row) },
+                                  { key: "edit",
+                        icon: <Pencil aria-hidden />, label: t("subsidiesEditCase"), onSelect: () => onEditCase(row) },
                                   {
                                     key: "download",
                                     label: t("subsidiesDownloadForm"),
@@ -855,6 +856,7 @@ export default function ClubSubsidiesPage() {
                                   },
                                   {
                                     key: "delete",
+                        icon: <Trash2 aria-hidden />,
                                     label: t("subsidiesDeleteCase"),
                                     destructive: true,
                                     onSelect: () => setPendingCase(row),

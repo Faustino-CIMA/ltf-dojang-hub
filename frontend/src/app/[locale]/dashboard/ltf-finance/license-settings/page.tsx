@@ -726,11 +726,13 @@ export default function LtfFinanceLicenseSettingsPage() {
                       actions={[
                         {
                           key: "edit",
+                        icon: <Pencil aria-hidden />,
                           label: t("editAction"),
                           onSelect: () => setTypePanel({ mode: "edit", id: licenseType.id }),
                         },
                         {
                           key: "delete",
+                        icon: <Trash2 aria-hidden />,
                           label: t("deleteAction"),
                           destructive: true,
                           onSelect: () => openDeleteTypeModal(licenseType),

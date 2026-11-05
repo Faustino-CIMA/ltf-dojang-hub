@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { X, Wallet, FileText } from "lucide-react";
 
 import { useClubSelection } from "@/components/club-selection-provider";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -311,6 +311,7 @@ export default function LtfFinanceInvoicesPage() {
               actions={[
                 {
                   key: "pdf",
+                        icon: <FileText aria-hidden />,
                   label: common("invoicePdfLabel"),
                   onSelect: () => handleInvoicePdf(row.id),
                 },
@@ -318,6 +319,7 @@ export default function LtfFinanceInvoicesPage() {
                   ? [
                       {
                         key: "record",
+                        icon: <Wallet aria-hidden />,
                         label: t("recordPaymentButton"),
                         onSelect: () =>
                           router.push(`/${locale}/dashboard/ltf-finance/payments/${row.id}/record`),

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -365,6 +365,7 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
                         actions={[
                           {
                             key: "delete",
+                        icon: <Trash2 aria-hidden />,
                             label: t("calendarDelete"),
                             destructive: true,
                             onSelect: () => setPendingDelete({ id: event.id, title: event.title }),
