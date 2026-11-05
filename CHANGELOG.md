@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Ops translations:** The translations screen lists English, French, German, and Luxembourgish. Those are the four languages the app already ships.
 
 ## [0.13.1] - 2026-11-03
 

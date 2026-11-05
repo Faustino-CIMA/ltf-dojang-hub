@@ -10,7 +10,7 @@ from django.core.cache import cache
 
 from .models import TranslationOverride
 
-SUPPORTED_LOCALES = ("en", "lb")
+SUPPORTED_LOCALES = ("en", "fr", "de", "lb")
 I18N_CACHE_TTL = 15
 PLACEHOLDER_RE = re.compile(r"\{[a-zA-Z0-9_]+\}")
 SECTION_RE = re.compile(r"^([a-z]+)")
@@ -250,51 +250,51 @@ def section_for(local_key: str) -> tuple[str, str]:
 
 
 def translation_rows(*, query: str = "", namespace: str = "", missing_only: bool = False) -> list[dict]:
-    en = flatten_messages(load_bundled("en"))
-    lb = flatten_messages(load_bundled("lb"))
-    en_over = override_map("en")
-    lb_over = override_map("lb")
-    keys = list(en.keys())
-    extras = [
-        key
-        for key in list(lb.keys()) + list(en_over.keys()) + list(lb_over.keys())
-        if key not in en
-    ]
+    bundled = {locale: flatten_messages(load_bundled(locale)) for locale in SUPPORTED_LOCALES}
+    overrides = {locale: override_map(locale) for locale in SUPPORTED_LOCALES}
+    keys = list(bundled["en"].keys())
     seen = set(keys)
-    for key in extras:
-        if key not in seen:
-            keys.append(key)
-            seen.add(key)
+    for locale in SUPPORTED_LOCALES:
+        for key in list(bundled[locale].keys()) + list(overrides[locale].keys()):
+            if key not in seen:
+                keys.append(key)
+                seen.add(key)
     q = query.strip().lower()
     rows = []
     for key in keys:
         ns = key.split(".", 1)[0] if "." in key else key
         if namespace and ns != namespace:
             continue
-        en_value = en_over.get(key, en.get(key, ""))
-        lb_value = lb_over.get(key, lb.get(key, ""))
-        missing = not str(lb_value).strip()
-        if missing_only and not missing:
+        values = {
+            locale: overrides[locale].get(key, bundled[locale].get(key, ""))
+            for locale in SUPPORTED_LOCALES
+        }
+        missing = {
+            locale: not str(values[locale]).strip()
+            for locale in SUPPORTED_LOCALES
+            if locale != "en"
+        }
+        if missing_only and not any(missing.values()):
             continue
-        if q and q not in key.lower() and q not in en_value.lower() and q not in lb_value.lower():
+        if q and q not in key.lower() and not any(q in str(values[locale]).lower() for locale in SUPPORTED_LOCALES):
             continue
         local = local_key_for(key, ns)
         section_id, section_label = section_for(local)
-        rows.append(
-            {
-                "key": key,
-                "local_key": local,
-                "namespace": ns,
-                "section": section_id,
-                "section_label": section_label,
-                "en": en_value,
-                "lb": lb_value,
-                "en_overridden": key in en_over,
-                "lb_overridden": key in lb_over,
-                "missing_lb": missing,
-                "placeholders": PLACEHOLDER_RE.findall(en_value),
-            }
-        )
+        row = {
+            "key": key,
+            "local_key": local,
+            "namespace": ns,
+            "section": section_id,
+            "section_label": section_label,
+            "placeholders": PLACEHOLDER_RE.findall(values["en"]),
+            "missing_any": any(missing.values()),
+        }
+        for locale in SUPPORTED_LOCALES:
+            row[locale] = values[locale]
+            row[f"{locale}_overridden"] = key in overrides[locale]
+        for locale, is_missing in missing.items():
+            row[f"missing_{locale}"] = is_missing
+        rows.append(row)
     return rows
 
 
@@ -312,6 +312,7 @@ def namespace_summaries() -> list[dict]:
                 **item,
                 "string_count": len(ns_rows),
                 "missing_lb": sum(1 for row in ns_rows if row["missing_lb"]),
+                "missing_translations": sum(1 for row in ns_rows if row["missing_any"]),
             }
         )
     for ns, ns_rows in by_ns.items():
@@ -325,6 +326,7 @@ def namespace_summaries() -> list[dict]:
                 "preview_path": None,
                 "string_count": len(ns_rows),
                 "missing_lb": sum(1 for row in ns_rows if row["missing_lb"]),
+                "missing_translations": sum(1 for row in ns_rows if row["missing_any"]),
             }
         )
     return summaries

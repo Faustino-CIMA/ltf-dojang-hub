@@ -96,6 +96,8 @@ export type OpsQueryResult = {
   row_count: number;
 };
 
+export type TranslationLocale = "en" | "fr" | "de" | "lb";
+
 export type TranslationRow = {
   key: string;
   local_key: string;
@@ -103,10 +105,17 @@ export type TranslationRow = {
   section: string;
   section_label: string;
   en: string;
+  fr: string;
+  de: string;
   lb: string;
   en_overridden: boolean;
+  fr_overridden: boolean;
+  de_overridden: boolean;
   lb_overridden: boolean;
+  missing_fr: boolean;
+  missing_de: boolean;
   missing_lb: boolean;
+  missing_any: boolean;
   placeholders: string[];
 };
 
@@ -117,6 +126,7 @@ export type TranslationPageSummary = {
   preview_path: string | null;
   string_count: number;
   missing_lb: number;
+  missing_translations: number;
 };
 
 export type OpsAuditEntry = {
@@ -259,7 +269,7 @@ export function getOpsTranslationMeta() {
   return apiRequest<{ locales: string[]; pages: TranslationPageSummary[] }>("/api/ops/translations/meta/");
 }
 
-export function saveOpsTranslation(locale: "en" | "lb", key: string, value: string) {
+export function saveOpsTranslation(locale: TranslationLocale, key: string, value: string) {
   return apiRequest("/api/ops/translations/", {
     method: "POST",
     body: JSON.stringify({ locale, key, value }),
@@ -268,7 +278,7 @@ export function saveOpsTranslation(locale: "en" | "lb", key: string, value: stri
 
 export function saveOpsTranslationBatch(
   namespace: string,
-  changes: Array<{ locale: "en" | "lb"; key: string; value: string }>,
+  changes: Array<{ locale: TranslationLocale; key: string; value: string }>,
 ) {
   return apiRequest<{ saved: number }>("/api/ops/translations/batch/", {
     method: "POST",
@@ -276,7 +286,7 @@ export function saveOpsTranslationBatch(
   });
 }
 
-export async function downloadOpsTranslationExport(locale: "en" | "lb") {
+export async function downloadOpsTranslationExport(locale: TranslationLocale) {
   const token = getToken();
   const response = await fetch(`${API_URL}/api/ops/translations/export/${locale}/`, {
     headers: token ? { Authorization: `Token ${token}` } : {},
