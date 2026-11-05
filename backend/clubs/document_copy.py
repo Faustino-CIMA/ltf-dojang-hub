@@ -461,6 +461,40 @@ _EMAILS: dict[str, dict[str, dict[str, str]]] = {
             "ignore": "Wann Dir dat net ugefrot hutt, kënnt Dir dës E-Mail ignoréieren.",
         },
     },
+    "member_invite": {
+        "en": {
+            "subject": "Your LTF Dojang Hub login",
+            "greeting": "Hello {name},",
+            "body": "A login is ready for you at LTF Dojang Hub.",
+            "username": "Your username: {username}",
+            "action": "Open this link to choose your password:",
+            "ignore": "If you did not expect this, you can ignore this email.",
+        },
+        "fr": {
+            "subject": "Votre connexion à LTF Dojang Hub",
+            "greeting": "Bonjour {name},",
+            "body": "Une connexion est prête pour vous sur LTF Dojang Hub.",
+            "username": "Votre nom d'utilisateur : {username}",
+            "action": "Ouvrez ce lien pour choisir votre mot de passe :",
+            "ignore": "Si vous n'attendiez pas ce message, vous pouvez l'ignorer.",
+        },
+        "de": {
+            "subject": "Ihre Anmeldung bei LTF Dojang Hub",
+            "greeting": "Guten Tag {name},",
+            "body": "Eine Anmeldung ist für Sie bei LTF Dojang Hub bereit.",
+            "username": "Ihr Benutzername: {username}",
+            "action": "Öffnen Sie diesen Link, um Ihr Passwort zu wählen:",
+            "ignore": "Wenn Sie diese Nachricht nicht erwartet haben, können Sie sie ignorieren.",
+        },
+        "lb": {
+            "subject": "Är Umeldung bei LTF Dojang Hub",
+            "greeting": "Moien {name},",
+            "body": "Eng Umeldung ass fir Iech um LTF Dojang Hub prett.",
+            "username": "Äre Benotzernumm: {username}",
+            "action": "Maacht dëse Link op, fir Äert Passwuert ze wielen:",
+            "ignore": "Wann Dir dës Noriicht net erwaart hutt, kënnt Dir se ignoréieren.",
+        },
+    },
     "welcome": {
         "en": {
             "subject": "You are a Club Admin for {club}",

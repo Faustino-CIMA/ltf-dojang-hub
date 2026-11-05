@@ -2224,7 +2224,18 @@
     "accountFileWarning": "This file holds the first-login links. Anyone who has it can use a link until it expires. Delete the file when you are finished.",
     "accountDownloadPdf": "Download PDF",
     "accountCopyLink": "Copy link",
-    "accountConfirm": "Confirm"
+    "accountConfirm": "Confirm",
+    "accountClubLabel": "Club",
+    "accountEmailLabel": "Email",
+    "accountNoAddress": "No email address",
+    "accountSaveCsv": "Save CSV",
+    "accountSendInvite": "Send invitation email",
+    "accountSendUnavailable": "No email address. Save the file instead.",
+    "accountInviteSent": "Invitation sent.",
+    "accountInviteSentMany": "Invitations sent to {sent}. {missing} had no email address.",
+    "accountCreatedFor": "Login created for {name}.",
+    "accountCreatedCount": "{count} logins created.",
+    "accountInviteReplaces": "Sending an invitation replaces the link in the saved file."
   },
   "LtfFinance": {
     "navOverview": "Overview",
@@ -4001,7 +4012,18 @@
     "accountFileWarning": "This file holds the first-login links. Anyone who has it can use a link until it expires. Delete the file when you are finished.",
     "accountDownloadPdf": "Download PDF",
     "accountCopyLink": "Copy link",
-    "accountConfirm": "Confirm"
+    "accountConfirm": "Confirm",
+    "accountClubLabel": "Club",
+    "accountEmailLabel": "Email",
+    "accountNoAddress": "No email address",
+    "accountSaveCsv": "Save CSV",
+    "accountSendInvite": "Send invitation email",
+    "accountSendUnavailable": "No email address. Save the file instead.",
+    "accountInviteSent": "Invitation sent.",
+    "accountInviteSentMany": "Invitations sent to {sent}. {missing} had no email address.",
+    "accountCreatedFor": "Login created for {name}.",
+    "accountCreatedCount": "{count} logins created.",
+    "accountInviteReplaces": "Sending an invitation replaces the link in the saved file."
   },
   "Member": {
     "title": "My history",

@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Create user account:** The panel names each person before you confirm. The login is still created immediately, and a success message slides in. The file is saved only when you press Save CSV. Send invitation email sends the first-login link to people who have an email address.
 - **Row menus:** Three-dots menus that were text only now show an icon with the label, including the LTF and club member lists.
 - **Security setup:** When an authenticator code or a security key is correct and the password is still required, a success message slides in and the cursor moves to the password field. The password section stays where it is.
 - **Sign-in:** Finishing sign-in no longer depends on a desk left in the browser. If the last desk is no longer open, sign-in opens one that is, instead of saying that desk is not open.

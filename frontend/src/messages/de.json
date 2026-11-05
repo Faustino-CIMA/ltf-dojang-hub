@@ -1874,7 +1874,18 @@
     "accountFileWarning": "Diese Datei enthält die Links für die erste Anmeldung. Wer sie hat, kann einen Link nutzen, bis er abläuft. Löschen Sie die Datei, wenn Sie fertig sind.",
     "accountDownloadPdf": "PDF herunterladen",
     "accountCopyLink": "Link kopieren",
-    "accountConfirm": "Bestätigen"
+    "accountConfirm": "Bestätigen",
+    "accountClubLabel": "Verein",
+    "accountEmailLabel": "E-Mail",
+    "accountNoAddress": "Keine E-Mail-Adresse",
+    "accountSaveCsv": "CSV speichern",
+    "accountSendInvite": "Einladung senden",
+    "accountSendUnavailable": "Keine E-Mail-Adresse. Speichern Sie stattdessen die Datei.",
+    "accountInviteSent": "Einladung gesendet.",
+    "accountInviteSentMany": "Einladungen an {sent} gesendet. {missing} hatten keine E-Mail-Adresse.",
+    "accountCreatedFor": "Anmeldung erstellt für {name}.",
+    "accountCreatedCount": "{count} Anmeldungen erstellt.",
+    "accountInviteReplaces": "Eine Einladung ersetzt den Link in der gespeicherten Datei."
   },
   "LtfAdmin": {
     "expiresLabel": "Läuft ab",
@@ -3024,7 +3035,18 @@
     "accountFileWarning": "Diese Datei enthält die Links für die erste Anmeldung. Wer sie hat, kann einen Link nutzen, bis er abläuft. Löschen Sie die Datei, wenn Sie fertig sind.",
     "accountDownloadPdf": "PDF herunterladen",
     "accountCopyLink": "Link kopieren",
-    "accountConfirm": "Bestätigen"
+    "accountConfirm": "Bestätigen",
+    "accountClubLabel": "Verein",
+    "accountEmailLabel": "E-Mail",
+    "accountNoAddress": "Keine E-Mail-Adresse",
+    "accountSaveCsv": "CSV speichern",
+    "accountSendInvite": "Einladung senden",
+    "accountSendUnavailable": "Keine E-Mail-Adresse. Speichern Sie stattdessen die Datei.",
+    "accountInviteSent": "Einladung gesendet.",
+    "accountInviteSentMany": "Einladungen an {sent} gesendet. {missing} hatten keine E-Mail-Adresse.",
+    "accountCreatedFor": "Anmeldung erstellt für {name}.",
+    "accountCreatedCount": "{count} Anmeldungen erstellt.",
+    "accountInviteReplaces": "Eine Einladung ersetzt den Link in der gespeicherten Datei."
   },
   "ClubMgmt": {
     "useForInvoice": "Rechnungen hierhin schicken",

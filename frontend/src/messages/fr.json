@@ -1874,7 +1874,18 @@
     "accountFileWarning": "Ce fichier contient les liens de première connexion. Quiconque l'a peut utiliser un lien jusqu'à expiration. Supprimez le fichier quand vous avez fini.",
     "accountDownloadPdf": "Télécharger le PDF",
     "accountCopyLink": "Copier le lien",
-    "accountConfirm": "Confirmer"
+    "accountConfirm": "Confirmer",
+    "accountClubLabel": "Club",
+    "accountEmailLabel": "E-mail",
+    "accountNoAddress": "Pas d'adresse e-mail",
+    "accountSaveCsv": "Enregistrer le CSV",
+    "accountSendInvite": "Envoyer l'invitation",
+    "accountSendUnavailable": "Pas d'adresse e-mail. Enregistrez le fichier à la place.",
+    "accountInviteSent": "Invitation envoyée.",
+    "accountInviteSentMany": "Invitations envoyées à {sent}. {missing} n'avaient pas d'adresse e-mail.",
+    "accountCreatedFor": "Connexion créée pour {name}.",
+    "accountCreatedCount": "{count} connexions créées.",
+    "accountInviteReplaces": "Envoyer une invitation remplace le lien du fichier enregistré."
   },
   "LtfAdmin": {
     "expiresLabel": "Expire le",
@@ -3024,7 +3035,18 @@
     "accountFileWarning": "Ce fichier contient les liens de première connexion. Quiconque l'a peut utiliser un lien jusqu'à expiration. Supprimez le fichier quand vous avez fini.",
     "accountDownloadPdf": "Télécharger le PDF",
     "accountCopyLink": "Copier le lien",
-    "accountConfirm": "Confirmer"
+    "accountConfirm": "Confirmer",
+    "accountClubLabel": "Club",
+    "accountEmailLabel": "E-mail",
+    "accountNoAddress": "Pas d'adresse e-mail",
+    "accountSaveCsv": "Enregistrer le CSV",
+    "accountSendInvite": "Envoyer l'invitation",
+    "accountSendUnavailable": "Pas d'adresse e-mail. Enregistrez le fichier à la place.",
+    "accountInviteSent": "Invitation envoyée.",
+    "accountInviteSentMany": "Invitations envoyées à {sent}. {missing} n'avaient pas d'adresse e-mail.",
+    "accountCreatedFor": "Connexion créée pour {name}.",
+    "accountCreatedCount": "{count} connexions créées.",
+    "accountInviteReplaces": "Envoyer une invitation remplace le lien du fichier enregistré."
   },
   "ClubMgmt": {
     "useForInvoice": "Envoyer les factures ici",
