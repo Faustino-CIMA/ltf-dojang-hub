@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Build:** The subsidies page no longer declares the same translation helper twice, so the production build can finish.
 - **Security:** The short description on each security card now sits on an info icon beside the card title. Password step-up, the secret, the regenerate warning, and grace stay on the card.
 - **Sections:** Fees, subsidies, the calendar introduction, teams, and committee explanations now sit on an info icon beside the title. Archived teams, the officer notice, delete confirms, and the calendar’s empty state stay on the page.
 - **List pages:** The short explanation under a list title now sits on an info icon beside the title. Billing, the bank import, transfer rules, and the query screen stay written on the page.
