@@ -71,7 +71,6 @@ function HealthCheckTitle({
         <p className="truncate text-sm font-semibold text-foreground">{label}</p>
         {t.has(helpKey) ? (
           <InfoHint
-            size="compact"
             icon={CircleHelp}
             tooltipAlign="left"
             ariaLabel={t("healthHelpAria", { name: label })}
