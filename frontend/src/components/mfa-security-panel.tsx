@@ -7,6 +7,7 @@ import { CircleOff, Download, Fingerprint, KeyRound, LockKeyhole, Mail, RefreshC
 import { SidePanel } from "@/components/ui/side-panel";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
+import { InfoHint } from "@/components/ui/info-hint";
 import { ActionNotices, PageNotice } from "@/components/ui/list-page-chrome";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -70,6 +71,7 @@ function SecurityCard({
   children?: ReactNode;
 }) {
   const titleId = useId();
+  const t = useTranslations("Auth");
   return (
     <section className="app-panel space-y-3 p-3" aria-labelledby={titleId}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -77,9 +79,9 @@ function SecurityCard({
           <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-secondary text-foreground">
             <Icon className="size-4" aria-hidden />
           </span>
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
             <h3 id={titleId} className="text-section text-foreground">{title}</h3>
-            <p className="mt-0.5 text-sm text-muted">{description}</p>
+            <InfoHint ariaLabel={t("mfaAboutCard", { title })}>{description}</InfoHint>
           </div>
         </div>
         {badge ? <div className="shrink-0">{badge}</div> : null}

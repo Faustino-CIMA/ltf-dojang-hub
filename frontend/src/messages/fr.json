@@ -104,6 +104,7 @@
     "mfaSetup": "Configurer l'authentificateur",
     "mfaChangeKey": "Changer la clé",
     "mfaCardAuthenticator": "Application d'authentification",
+    "mfaAboutCard": "À propos de {title}",
     "mfaCardAuthenticatorHint": "Codes d'une application sur votre téléphone.",
     "mfaStatusOn": "Activé",
     "mfaStatusOff": "Désactivé",

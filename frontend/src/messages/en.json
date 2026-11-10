@@ -256,6 +256,7 @@
     "mfaSetup": "Set up authenticator",
     "mfaChangeKey": "Change key",
     "mfaCardAuthenticator": "Authenticator app",
+    "mfaAboutCard": "About {title}",
     "mfaCardAuthenticatorHint": "Codes from an app on your phone.",
     "mfaStatusOn": "On",
     "mfaStatusOff": "Off",

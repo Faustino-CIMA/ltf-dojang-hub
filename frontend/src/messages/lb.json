@@ -256,6 +256,7 @@
     "mfaSetup": "Authenticator ariichten",
     "mfaChangeKey": "Schlëssel änneren",
     "mfaCardAuthenticator": "Authenticator-App",
+    "mfaAboutCard": "Iwwer {title}",
     "mfaCardAuthenticatorHint": "Coden aus enger App um Telefon.",
     "mfaStatusOn": "Un",
     "mfaStatusOff": "Aus",
