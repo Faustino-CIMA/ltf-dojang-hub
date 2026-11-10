@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Club admin from a member row:** LTF and club member lists can add a club admin from the three-dots menu, after Edit and before Delete. Someone with no login is asked to create a user account first. Someone who is already a club admin is shown as already on. A view-only desk, a coach, and anyone the server refuses do not gain the action.
 - **Navigation:** The slogan under the logo is gone. A menu name that does not fit, including a collapsed icon, shows the full name under the pointer and on keyboard focus.
 - **LTF clubs:** Each club row has Edit in the three-dots menu. It opens the same club form as the club page. A view-only desk does not show it.
 - **Passkey:** Adding a passkey just after sign-in is no longer treated as a stale visit. If the passkey prompt is cancelled or the browser cannot create one, the note says so. It does not ask you to sign in again.
