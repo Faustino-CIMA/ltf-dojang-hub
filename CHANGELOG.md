@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Club admins:** On the club desk, the admin list is only the selected club. A club admin cannot list, read, change, or revoke admins of a club they do not administer. A superuser or the LTF desk still sees every club.
 - **Build:** The subsidies page no longer declares the same translation helper twice, so the production build can finish.
 - **Security:** The short description on each security card now sits on an info icon beside the card title. Password step-up, the secret, the regenerate warning, and grace stay on the card.
 - **Sections:** Fees, subsidies, the calendar introduction, teams, and committee explanations now sit on an info icon beside the title. Archived teams, the officer notice, delete confirms, and the calendar’s empty state stay on the page.

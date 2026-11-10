@@ -26,8 +26,8 @@ from .admin_assignment import (
     AdminAssignmentError,
     actor_may_assign_club,
     assign_club_admin,
+    assignment_scope,
     build_assignment_board,
-    home_club_id,
     remove_club_admin,
     search_assignment_members,
 )
@@ -104,19 +104,8 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     def _can_manage_club(self, user, club: Club) -> bool:
         return user_can_edit_club(user, club)
 
-    def _assignment_club_ids(self, user):
-        if not user or not user.is_authenticated:
-            return False
-        from accounts.desks import holds_desk
-
-        if user.is_superuser or holds_desk(user, "ltf_admin"):
-            return None
-        if user.role == "club_admin":
-            home_id = home_club_id(user)
-            if home_id and Club.objects.filter(pk=home_id, admins=user).exists():
-                return [home_id]
-            return []
-        return False
+    def _assignment_club_ids(self, user, requested_club_id=None):
+        return assignment_scope(user, requested_club_id)
 
     def get_permissions(self):
         if self.action == "logo_content":
@@ -301,7 +290,7 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def admin_assignment(self, request):
-        scope = self._assignment_club_ids(request.user)
+        scope = self._assignment_club_ids(request.user, request.query_params.get("club_id"))
         if scope is False:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         return Response(build_assignment_board(club_ids=scope))
@@ -331,13 +320,8 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def admins(self, request, pk=None):
         club = self.get_object()
-        from accounts.desks import current_active_club, holds_desk
-
-        active = current_active_club()
-        on_this_club = holds_desk(request.user, "club_admin") and (active is None or active == club.id)
-        if not holds_desk(request.user, "ltf_admin") and not on_this_club and not (
-            request.user.role == "club_admin" and club.admins.filter(id=request.user.id).exists()
-        ):
+        scope = assignment_scope(request.user)
+        if scope is False or (scope is not None and club.id not in scope):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         admins = club.admins.all().values("id", "username", "email")
         return Response(
@@ -416,7 +400,8 @@ class ClubViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"], permission_classes=[permissions.IsAuthenticated])
     def set_max_admins(self, request, pk=None):
         club = self.get_object()
-        if request.user.role != "ltf_admin":
+        scope = assignment_scope(request.user)
+        if request.user.role != "ltf_admin" or scope is False or (scope is not None and club.id not in scope):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         try:
             max_admins = int(request.data.get("max_admins"))

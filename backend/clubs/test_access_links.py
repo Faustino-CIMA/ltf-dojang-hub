@@ -91,8 +91,12 @@ class ClubAdminAccessLinkTests(TestCase):
         self.assertFalse(self.fresh.has_usable_password())
 
         board = self.client.get("/api/clubs/admin_assignment/")
-        self.assertEqual([club["id"] for club in board.data["clubs"]], [self.home.id])
-        search = self.client.get("/api/clubs/admin_assignment_members/", {"club_id": self.other.id, "licensed_only": "false"})
+        self.assertEqual({club["id"] for club in board.data["clubs"]}, {self.home.id, self.other.id})
+        search = self.client.get(
+            "/api/clubs/admin_assignment_members/",
+            {"club_id": self.other.id, "licensed_only": "false"},
+            HTTP_X_DESK=f"club_admin:{self.home.id}",
+        )
         self.assertEqual(search.data["members"], [])
 
     def test_single_link_is_setup_or_reset_and_email_rules(self):
@@ -182,6 +186,7 @@ class ClubAdminAccessLinkTests(TestCase):
             f"/api/clubs/admins/{self.other_admin.id}/access-link/",
             {"delivery": "copy", "locale": "en"},
             format="json",
+            HTTP_X_DESK=f"club_admin:{self.home.id}",
         )
         self.assertEqual(other.status_code, 403)
 

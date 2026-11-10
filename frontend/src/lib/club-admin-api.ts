@@ -916,9 +916,14 @@ export type AddClubAdminResponse = {
   member_id: number | null;
 };
 
-export function getClubAdminAssignmentBoard() {
+export function getClubAdminAssignmentBoard(clubId?: number | null) {
+  const search = new URLSearchParams();
+  if (clubId) {
+    search.set("club_id", String(clubId));
+  }
+  const query = search.toString();
   return apiRequest<{ clubs: ClubAdminAssignmentClub[]; admins: ClubAdminAssignmentAdmin[] }>(
-    "/api/clubs/admin_assignment/",
+    query ? `/api/clubs/admin_assignment/?${query}` : "/api/clubs/admin_assignment/",
   );
 }
 
