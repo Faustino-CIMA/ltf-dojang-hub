@@ -71,6 +71,7 @@ export type Member = {
   photo_consent_attested_by?: number | null;
   is_active: boolean;
   account_state?: "none" | "pending" | "active" | "disabled";
+  is_home_club_admin?: boolean;
   created_at: string;
   updated_at: string;
   current_licenses?: CurrentLicense[];

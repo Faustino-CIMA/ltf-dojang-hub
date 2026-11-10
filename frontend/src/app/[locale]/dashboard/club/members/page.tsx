@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Pencil, Trash2, UserPlus, Copy } from "lucide-react";
+import { CircleAlert, Copy, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 
 import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageNotice } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { MemberFormPanel } from "@/components/club-admin/member-form-panel";
 import { EmptyState } from "@/components/club-admin/empty-state";
@@ -29,11 +29,13 @@ import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { apiRequest } from "@/lib/api";
+import { clubAdminGrantChoice, grantFailureKind } from "@/lib/club-admin-grant";
 import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
 import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import {
   Member,
   MemberIssueFilter,
+  addClubAdmin,
   deleteMember,
   getClubs,
   getLicensesList,
@@ -127,6 +129,9 @@ export default function ClubAdminMembersPage() {
   const [pageSizeHydrated, setPageSizeHydrated] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [grantNote, setGrantNote] = useState<string | null>(null);
+  const clubNames = useRef(new Map<number, string>());
   const [isLoading, setIsLoading] = useState(true);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
@@ -223,6 +228,11 @@ export default function ClubAdminMembersPage() {
             isActive: false,
           }),
         ]);
+      const names = new Map<number, string>();
+      for (const club of clubsResponse) {
+        names.set(club.id, club.name);
+      }
+      clubNames.current = names;
       setMembers(membersResponse.results);
       setTotalCount(membersResponse.count);
       setMemberFacetCounts({
@@ -298,6 +308,49 @@ export default function ClubAdminMembersPage() {
   };
   const openAccount = (member: Member, action: "create" | "copy") => {
     setAccountPanel({ intent: action, ids: [member.id] });
+  };
+  const grantClubAdmin = async (member: Member) => {
+    const choice = clubAdminGrantChoice({
+      canGrant: canManageMembers,
+      clubId: member.club,
+      accountState: member.account_state,
+      isHomeClubAdmin: member.is_home_club_admin,
+    });
+    if (choice === "needs-account") {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setGrantNote(t("clubAdminNeedsAccount"));
+      openAccount(member, "create");
+      return;
+    }
+    if (choice !== "grant" || member.club == null) {
+      return;
+    }
+    setGrantNote(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await addClubAdmin(member.club, member.id, undefined, locale);
+      setSuccessMessage(
+        t("clubAdminGranted", {
+          name: formatFullName(member),
+          club: clubNames.current.get(member.club) || "",
+        }),
+      );
+      await loadData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const kind = grantFailureKind(message);
+      if (kind === "already") {
+        setGrantNote(t("alreadyClubAdminAction"));
+        return;
+      }
+      if (kind === "limit") {
+        setErrorMessage(t("adminLimitReached"));
+        return;
+      }
+      setErrorMessage(kind === "home" ? t("clubAdminNotAllowed") : message || t("clubAdminNotAllowed"));
+    }
   };
   const showTeams = competitionOn && (currentRole === "club_admin" || currentRole === "coach");
 
@@ -725,7 +778,15 @@ export default function ClubAdminMembersPage() {
 
   return (
     <ClubAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")} hintSubtitle>
-      <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+      <ActionNotices
+        error={errorMessage}
+        success={successMessage}
+        onDismiss={() => {
+          setErrorMessage(null);
+          setSuccessMessage(null);
+        }}
+      />
+      {grantNote ? <PageNotice tone="info">{grantNote}</PageNotice> : null}
 
       <Modal
         isOpen={Boolean(pendingRowStatusMember)}
@@ -1180,9 +1241,39 @@ export default function ClubAdminMembersPage() {
                                     },
                                   ]
                                 : []),
+                              ...(() => {
+                                const choice = clubAdminGrantChoice({
+                                  canGrant: canManageMembers,
+                                  clubId: member.club,
+                                  accountState: member.account_state,
+                                  isHomeClubAdmin: member.is_home_club_admin,
+                                });
+                                if (choice === "hidden") {
+                                  return [];
+                                }
+                                if (choice === "already") {
+                                  return [
+                                    {
+                                      key: "club-admin",
+                                      icon: <ShieldCheck aria-hidden />,
+                                      label: t("alreadyClubAdminAction"),
+                                      disabled: true,
+                                      onSelect: () => undefined,
+                                    },
+                                  ];
+                                }
+                                return [
+                                  {
+                                    key: "club-admin",
+                                    icon: <ShieldCheck aria-hidden />,
+                                    label: t("addClubAdminAction"),
+                                    onSelect: () => void grantClubAdmin(member),
+                                  },
+                                ];
+                              })(),
                               {
                                 key: "delete",
-                        icon: <Trash2 aria-hidden />,
+                                icon: <Trash2 aria-hidden />,
                                 label: t("deleteAction"),
                                 destructive: true,
                                 onSelect: () => void openMemberDelete(member),
