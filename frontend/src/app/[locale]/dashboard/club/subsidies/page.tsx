@@ -204,7 +204,6 @@ function MemberPicker({
 export default function ClubSubsidiesPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
-  const common = useTranslations("Common");
   const { clubs, selectedClubId } = useClubSelection();
   const selectedClubName = clubs.find((club) => club.id === selectedClubId)?.name ?? "";
   const [year, setYear] = useState(String(new Date().getFullYear()));
