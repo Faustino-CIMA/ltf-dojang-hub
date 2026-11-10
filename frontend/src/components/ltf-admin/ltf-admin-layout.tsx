@@ -38,6 +38,7 @@ import {
 type LtfAdminLayoutProps = {
   title?: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   children: React.ReactNode;
   persistent?: boolean;
 };
@@ -111,8 +112,8 @@ const LTF_NAV_DEFINITIONS: LtfNavDef[] = [
   { id: "preview", href: (l) => `/${l}/dashboard/ltf/preview`, labelKey: "navPreview", matchMode: "prefix", icon: Sparkles },
 ];
 
-function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) {
-  const pageHeader = useDashboardPageHeader({ title, subtitle });
+function LtfAdminShell({ title = "", subtitle, hintSubtitle, children }: LtfAdminLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle, hintSubtitle });
   const t = useTranslations("LtfAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -189,6 +190,7 @@ function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) 
       <AppShell
         title={titleText}
         subtitle={pageHeader.subtitle}
+        hintSubtitle={pageHeader.hintSubtitle}
         navItems={navItems}
         variant={isDesignerWorkspace ? "workspace" : "default"}
         tone={isWelcome ? "overview" : "default"}
@@ -206,17 +208,17 @@ function LtfAdminShell({ title = "", subtitle, children }: LtfAdminLayoutProps) 
   );
 }
 
-export function LtfAdminLayout({ title = "", subtitle, children, persistent = false }: LtfAdminLayoutProps) {
+export function LtfAdminLayout({ title = "", subtitle, hintSubtitle, children, persistent = false }: LtfAdminLayoutProps) {
   const shell = useContext(DashboardShellContext);
   if (persistent || !shell) {
     return (
-      <LtfAdminShell title={title} subtitle={subtitle}>
+      <LtfAdminShell title={title} subtitle={subtitle} hintSubtitle={hintSubtitle}>
         {children}
       </LtfAdminShell>
     );
   }
   return (
-    <DashboardHeaderSync title={title} subtitle={subtitle}>
+    <DashboardHeaderSync title={title} subtitle={subtitle} hintSubtitle={hintSubtitle}>
       {children}
     </DashboardHeaderSync>
   );

@@ -777,7 +777,7 @@ export default function ClubAdminMembersPage() {
   };
 
   return (
-    <ClubAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")}>
+    <ClubAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

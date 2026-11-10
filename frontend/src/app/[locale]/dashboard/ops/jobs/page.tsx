@@ -60,7 +60,7 @@ export default function OpsJobsPage() {
   }));
 
   return (
-    <OpsLayout title={t("jobsTitle")} subtitle={t("jobsSubtitle")}>
+    <OpsLayout title={t("jobsTitle")} subtitle={t("jobsSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

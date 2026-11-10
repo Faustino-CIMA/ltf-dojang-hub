@@ -156,7 +156,7 @@ export default function OpsModulesPage() {
   };
 
   return (
-    <OpsLayout title={t("modulesTitle")} subtitle={t("modulesSubtitle")}>
+    <OpsLayout title={t("modulesTitle")} subtitle={t("modulesSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

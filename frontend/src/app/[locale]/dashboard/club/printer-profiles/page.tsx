@@ -193,7 +193,7 @@ export default function ClubAdminPrinterProfilesPage() {
 
   if (isRoleLoading) {
     return (
-      <ClubAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
+      <ClubAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")} hintSubtitle>
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </ClubAdminLayout>
     );
@@ -201,7 +201,7 @@ export default function ClubAdminPrinterProfilesPage() {
 
   if (!canManagePrinterProfiles) {
     return (
-      <ClubAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
+      <ClubAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")} hintSubtitle>
         <EmptyState
           title={t("printerProfilesAccessDeniedTitle")}
           description={t("printerProfilesAccessDeniedSubtitle")}
@@ -216,7 +216,7 @@ export default function ClubAdminPrinterProfilesPage() {
   }
 
   return (
-    <ClubAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
+    <ClubAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
       <div className="space-y-3">

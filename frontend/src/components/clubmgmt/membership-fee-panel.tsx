@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InfoHint } from "@/components/ui/info-hint";
 import { FormPanel } from "@/components/ui/list-page-chrome";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDisplayDate } from "@/lib/date-display";
@@ -94,6 +95,7 @@ function RebateFields({
   autoFocus?: boolean;
 }) {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
   return (
     <div className="space-y-3">
       <div className="grid gap-4 md:grid-cols-3">
@@ -137,8 +139,12 @@ function RebateFields({
           onCheckedChange={(checked) => onAppliesToLater(Boolean(checked))}
         />
         <span>
-          <span className="font-medium text-foreground">{t("rebateAppliesToLater")}</span>
-          <span className="mt-0.5 block text-muted">{t("rebateAppliesToLaterHint")}</span>
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            {t("rebateAppliesToLater")}
+            <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("rebateAppliesToLater") })}>
+              {t("rebateAppliesToLaterHint")}
+            </InfoHint>
+          </span>
         </span>
       </label>
     </div>
@@ -147,6 +153,7 @@ function RebateFields({
 
 export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
   const [fees, setFees] = useState<FeeRow[]>([]);
   const [rules, setRules] = useState<RebateRule[]>([]);
   const [feeName, setFeeName] = useState("");
@@ -213,8 +220,10 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
   return (
     <div className="space-y-3">
       <FormPanel>
-        <h2 className="text-section text-foreground">{t("membershipFee")}</h2>
-        <p className="mt-1 text-sm text-muted">{t("membershipFeeSubtitle")}</p>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-section text-foreground">{t("membershipFee")}</h2>
+          <InfoHint ariaLabel={common("aboutTitle", { title: t("membershipFee") })}>{t("membershipFeeSubtitle")}</InfoHint>
+        </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="club-membership-name">{t("feeName")}</Label>
@@ -317,7 +326,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
                   </div>
                   {feeDraft?.id === fee.id ? (
                     <div className="mt-4" data-fee-editor={fee.id}>
-                      <p className="mb-3 text-xs text-muted">{t("editFeeHint")}</p>
+                      <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("membershipFee") })}>{t("editFeeHint")}</InfoHint>
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor={`fee-name-${fee.id}`}>{t("feeName")}</Label>
@@ -392,7 +401,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
                   />
                 ) : null}
                 <div className="border-t border-border bg-secondary px-4 py-4">
-                  <p className="mb-3 text-xs text-muted">{t("newPriceHint")}</p>
+                  <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("saveNewPrice") })}>{t("newPriceHint")}</InfoHint>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label>{t("feeAmount")}</Label>
@@ -456,8 +465,10 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
       <FormPanel>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-section text-foreground">{t("licenseFeeTitle")}</h2>
-            <p className="mt-1 text-sm text-muted">{t("licenseFeeSubtitle")}</p>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-section text-foreground">{t("licenseFeeTitle")}</h2>
+              <InfoHint ariaLabel={common("aboutTitle", { title: t("licenseFeeTitle") })}>{t("licenseFeeSubtitle")}</InfoHint>
+            </div>
             {licenseFee?.id != null ? (
               <p className="mt-3 text-sm">
                 <span className="text-muted">{t("licenseFeeCurrent")}: </span>
@@ -537,7 +548,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
         ) : null}
         {licenseDraft ? (
           <div className="mt-4">
-            <p className="mb-3 text-xs text-muted">{t("editFeeHint")}</p>
+            <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("membershipFee") })}>{t("editFeeHint")}</InfoHint>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="license-fee-edit-name">{t("feeName")}</Label>
@@ -606,7 +617,7 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
           </div>
         ) : null}
         <div className="mt-4 border-t border-border pt-4">
-          <p className="mb-3 text-xs text-muted">{t("newPriceHint")}</p>
+          <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("saveNewPrice") })}>{t("newPriceHint")}</InfoHint>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="license-fee-new-amount">{t("feeAmount")}</Label>
@@ -656,8 +667,10 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
       </FormPanel>
 
       <FormPanel>
-        <h2 className="text-section text-foreground">{t("billingsTitle")}</h2>
-        <p className="mt-1 text-sm text-muted">{t("billingsSubtitle")}</p>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-section text-foreground">{t("billingsTitle")}</h2>
+          <InfoHint ariaLabel={common("aboutTitle", { title: t("billingsTitle") })}>{t("billingsSubtitle")}</InfoHint>
+        </div>
         <div className="mt-4 w-full max-w-xs space-y-2">
           <Label>{t("billingYear")}</Label>
           <Select
@@ -681,7 +694,12 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
         ) : (
           <div className="mt-4 flex flex-col gap-2">
             <div className="flex max-w-sm flex-col gap-2">
-              <Label>{t("licenseFeeBilling")}</Label>
+              <div className="flex items-center gap-1.5">
+                <Label>{t("licenseFeeBilling")}</Label>
+                <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("licenseFeeBilling") })}>
+                  {t("licenseFeeBillingHint")}
+                </InfoHint>
+              </div>
               <Select
                 value={String(billings.find((row) => row.charges_license_fee)?.id ?? billings[0].id)}
                 disabled={licenseFeeBillingSaving}
@@ -715,7 +733,6 @@ export function MembershipFeePanel({ clubId, onSuccess, onError }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <p className="max-w-3xl text-sm text-muted">{t("licenseFeeBillingHint")}</p>
           </div>
         )}
         {billings.length === 0 ? null : (

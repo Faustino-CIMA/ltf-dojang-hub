@@ -3,6 +3,9 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Security:** The short description on each security card now sits on an info icon beside the card title. Password step-up, the secret, the regenerate warning, and grace stay on the card.
+- **Sections:** Fees, subsidies, the calendar introduction, teams, and committee explanations now sit on an info icon beside the title. Archived teams, the officer notice, delete confirms, and the calendar’s empty state stay on the page.
+- **List pages:** The short explanation under a list title now sits on an info icon beside the title. Billing, the bank import, transfer rules, and the query screen stay written on the page.
 - **Info badge:** Explanatory notes can sit on a small info icon. Hover, keyboard focus, or a tap opens the note. Escape or moving away closes it. No page text has moved yet.
 - **Club admin from a member row:** LTF and club member lists can add a club admin from the three-dots menu, after Edit and before Delete. Someone with no login is asked to create a user account first. Someone who is already a club admin is shown as already on. A view-only desk, a coach, and anyone the server refuses do not gain the action.
 - **Navigation:** The slogan under the logo is gone. A menu name that does not fit, including a collapsed icon, shows the full name under the pointer and on keyboard focus.

@@ -544,7 +544,7 @@ export default function LtfAdminMembersPage() {
   );
 
   return (
-    <LtfAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")}>
+    <LtfAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

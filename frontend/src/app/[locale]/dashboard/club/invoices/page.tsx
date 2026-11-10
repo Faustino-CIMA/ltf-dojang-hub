@@ -345,7 +345,7 @@ export default function ClubAdminInvoicesPage() {
   ];
 
   return (
-    <ClubAdminLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")}>
+    <ClubAdminLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")} hintSubtitle>
       <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices

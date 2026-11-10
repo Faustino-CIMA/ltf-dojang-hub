@@ -13,7 +13,7 @@ export default function ClubTeamsPage() {
   const router = useRouter();
   const { selectedClubId } = useClubSelection();
   return (
-    <ClubAdminLayout title={t("teamsTitle")} subtitle={t("teamsSubtitle")}>
+    <ClubAdminLayout title={t("teamsTitle")} subtitle={t("teamsSubtitle")} hintSubtitle>
       {selectedClubId != null ? (
         <ClubTeamsDesk
           clubId={selectedClubId}

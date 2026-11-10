@@ -36,6 +36,7 @@ import { showLegacyClubPicker, switchNeedsConfirm } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
 import { ViewOnlyScope } from "@/components/view-only-scope";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
+import { InfoHint } from "@/components/ui/info-hint";
 import { SidebarLabelTip } from "@/components/sidebar-label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -77,6 +78,7 @@ const SIDEBAR_COLLAPSED_KEY = "ltf-sidebar-collapsed";
 type AppShellProps = {
   title: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   navItems: AppNavItem[];
   children: React.ReactNode;
   variant?: "default" | "workspace";
@@ -159,7 +161,7 @@ export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   return best?.id ?? null;
 }
 
-export function AppShell({ title, subtitle, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
+export function AppShell({ title, subtitle, hintSubtitle = false, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
   const t = useTranslations("Common");
   const authCopy = useTranslations("Auth");
   const locale = useLocale();
@@ -628,9 +630,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 {tone === "brand" || tone === "overview" ? (
                   <h1 className="sr-only">{title}</h1>
                 ) : (
-                  <h1 className="text-title truncate text-foreground">{title}</h1>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <h1 className="min-w-0 truncate text-title text-foreground">{title}</h1>
+                    {subtitle && hintSubtitle ? (
+                      <InfoHint ariaLabel={t("aboutTitle", { title })}>{subtitle}</InfoHint>
+                    ) : null}
+                  </div>
                 )}
-                {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {subtitle && !hintSubtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
                 {deskReadOnly ? (
                   <span className="mt-0.5 inline-flex" title={t("deskViewOnlyHint")}>
                     <StatusBadge label={t("deskViewOnly")} tone="info" />

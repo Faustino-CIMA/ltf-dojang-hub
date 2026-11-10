@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -119,6 +120,7 @@ function GroupForm({
 
 export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (team: ClubTeam) => void }) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const groups = team.groups ?? [];
   const [editing, setEditing] = useState<TeamGroup | null>(null);
   const [panel, setPanel] = useState<"edit" | "delete" | null>(null);
@@ -166,12 +168,14 @@ export function TeamGroups({ team, onChanged }: { team: ClubTeam; onChanged: (te
   return (
     <section className="app-panel p-3" aria-labelledby="team-groups-title">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="team-groups-title" className="text-section text-foreground">{t("teamGroupsTitle")}</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 id="team-groups-title" className="text-section text-foreground">{t("teamGroupsTitle")}</h2>
+          <InfoHint ariaLabel={common("aboutTitle", { title: t("teamGroupsTitle") })}>{t("teamGroupsHint")}</InfoHint>
+        </div>
         <Button type="button" variant="outline" onClick={() => { setEditing(null); setPanel("edit"); }}>
           {t("teamGroupsAdd")}
         </Button>
       </div>
-      <p className="mt-1 text-sm text-muted">{t("teamGroupsHint")}</p>
       <p className="mt-1 text-xs text-muted">{t("teamGroupsSource")}</p>
       {groups.length === 0 ? (
         <p className="mt-3 text-sm text-muted">{t("teamGroupsEmpty")}</p>
