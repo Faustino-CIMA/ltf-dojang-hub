@@ -13,7 +13,7 @@ export default function ClubTeamPage() {
   const params = useParams<{ id: string }>();
   const teamId = Number(params.id);
   return (
-    <ClubAdminLayout title={t("teamsTitle")} subtitle={t("teamsSubtitle")}>
+    <ClubAdminLayout title={t("teamsTitle")} subtitle={t("teamsSubtitle")} hintSubtitle>
       {Number.isFinite(teamId) ? (
         <TeamRoster
           teamId={teamId}

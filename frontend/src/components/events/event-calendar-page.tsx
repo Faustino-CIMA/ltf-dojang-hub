@@ -444,20 +444,20 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
 
   if (variant === "ltf") {
     return (
-      <LtfAdminLayout title={t("calendarTitle")} subtitle={t("calendarSubtitle")}>
+      <LtfAdminLayout title={t("calendarTitle")} subtitle={t("calendarSubtitle")} hintSubtitle>
         {content}
       </LtfAdminLayout>
     );
   }
   if (variant === "club") {
     return (
-      <ClubAdminLayout title={t("calendarTitle")} subtitle={t("calendarSubtitle")}>
+      <ClubAdminLayout title={t("calendarTitle")} subtitle={t("calendarSubtitle")} hintSubtitle>
         {content}
       </ClubAdminLayout>
     );
   }
   return (
-    <MemberLayout title={t("calendarTitle")} subtitle={t("calendarSubtitle")}>
+    <MemberLayout title={t("calendarTitle")} subtitle={t("calendarSubtitle")} hintSubtitle>
       {content}
     </MemberLayout>
   );

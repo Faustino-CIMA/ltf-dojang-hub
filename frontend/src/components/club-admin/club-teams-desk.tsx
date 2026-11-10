@@ -7,6 +7,7 @@ import { ChevronDown, Pencil, Trash2, Copy, Users } from "lucide-react";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable, type EntityTableColumn } from "@/components/club-admin/entity-table";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -121,6 +122,7 @@ export function TeamForm({
   onSaved: (team: ClubTeam) => void;
 }) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const [name, setName] = useState(team?.name ?? "");
   const [discipline, setDiscipline] = useState<TeamDiscipline>(team?.discipline ?? "kyorugi");
   const [note, setNote] = useState(team?.note ?? "");
@@ -203,7 +205,10 @@ export function TeamForm({
         </div>
         {discipline === "kyorugi" ? (
           <div className="space-y-2">
-            <Label>{t("teamPss")}</Label>
+            <div className="flex items-center gap-1.5">
+              <Label>{t("teamPss")}</Label>
+              <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("teamPss") })}>{t("teamPssHint")}</InfoHint>
+            </div>
             <PopoverSelect
               className="w-full"
               ariaLabel={t("teamPss")}
@@ -212,7 +217,6 @@ export function TeamForm({
               onValueChange={(value) => setPss(value as "" | "daedo" | "kpnp")}
               options={pssOptions}
             />
-            <p className="text-sm text-muted">{t("teamPssHint")}</p>
           </div>
         ) : null}
         <div className="space-y-2">
@@ -446,6 +450,7 @@ function RoleToggle({
 
 function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTeam; clubId: number; onClose: () => void; onChanged: () => void }) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const [detail, setDetail] = useState<ClubTeam | null>(null);
   const [roster, setRoster] = useState<Member[]>([]);
   const [query, setQuery] = useState("");
@@ -591,8 +596,10 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
           )}
         </div>
         <div>
-          <p className="text-sm font-medium text-foreground">{t("teamsClubMembers")}</p>
-          <p className="mt-1 text-sm text-muted">{t("teamRoleHint")}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-foreground">{t("teamsClubMembers")}</p>
+            <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("teamsClubMembers") })}>{t("teamRoleHint")}</InfoHint>
+          </div>
           {available.length === 0 ? <p className="mt-2 text-sm text-muted">{t("teamsNoMatches")}</p> : (
             <ul className="mt-2 space-y-2">
               {available.map((member) => (

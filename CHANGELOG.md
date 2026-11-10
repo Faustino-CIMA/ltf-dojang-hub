@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Sections:** Fees, subsidies, the calendar introduction, teams, and committee explanations now sit on an info icon beside the title. Archived teams, the officer notice, delete confirms, and the calendar’s empty state stay on the page.
 - **List pages:** The short explanation under a list title now sits on an info icon beside the title. Billing, the bank import, transfer rules, and the query screen stay written on the page.
 - **Passkey:** Adding a passkey just after sign-in is no longer treated as a stale visit. If the passkey prompt is cancelled or the browser cannot create one, the note says so. It does not ask you to sign in again.
 - **Desk recovery:** If the desk the screen is already using is refused and the sign-in is still valid, the screen opens a desk that is still open. A superuser opens Ops. If the sign-in is gone, the screen goes to sign-in with the usual note. Choosing a desk that is not open, on purpose, is still refused.
