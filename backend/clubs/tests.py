@@ -849,12 +849,13 @@ class ClubAdminManagementTests(TestCase):
         self.club.admins.add(club_admin)
         other.admins.add(club_admin)
         Member.objects.create(user=club_admin, club=self.club, first_name="Board", last_name="Admin")
+        stranger = Club.objects.create(name="Stranger Club", created_by=self.ltf_admin)
         self.client.force_authenticate(user=club_admin)
         response = self.client.get("/api/clubs/admin_assignment/")
         self.assertEqual(response.status_code, 200)
-        club_ids = [item["id"] for item in response.data["clubs"]]
-        self.assertIn(self.club.id, club_ids)
-        self.assertNotIn(other.id, club_ids)
+        club_ids = {item["id"] for item in response.data["clubs"]}
+        self.assertEqual(club_ids, {self.club.id, other.id})
+        self.assertNotIn(stranger.id, club_ids)
 
     def test_club_admin_can_add_home_club_member(self):
         club_admin = User.objects.create_user(
@@ -936,6 +937,121 @@ class ClubAdminManagementTests(TestCase):
         self.client.force_authenticate(user=coach)
         response = self.client.get("/api/clubs/admin_assignment/")
         self.assertEqual(response.status_code, 403)
+
+
+class ClubAdminDeskScopeTests(TestCase):
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from accounts.models import DeskGrant
+
+        self.client = APIClient()
+        self.ltf = User.objects.create_user(username="scope-ltf", password="pass12345", role=User.Roles.LTF_ADMIN)
+        self.superuser = User.objects.create_superuser(
+            username="scope-root",
+            email="scope-root@example.com",
+            password="pass12345",
+        )
+        self.club_a = Club.objects.create(name="Club A", created_by=self.ltf, max_admins=5)
+        self.club_b = Club.objects.create(name="Club B", created_by=self.ltf, max_admins=5)
+        self.admin_a = User.objects.create_user(username="admin-a", password="pass12345", role=User.Roles.CLUB_ADMIN)
+        self.admin_b = User.objects.create_user(username="admin-b", password="pass12345", role=User.Roles.CLUB_ADMIN)
+        Member.objects.create(user=self.admin_a, club=self.club_a, first_name="Ada", last_name="A")
+        Member.objects.create(user=self.admin_b, club=self.club_b, first_name="Bea", last_name="B")
+        self.club_a.admins.add(self.admin_a)
+        self.club_b.admins.add(self.admin_b)
+        today = timezone.localdate()
+        for user, club in (
+            (self.ltf, self.club_a),
+            (self.superuser, self.club_a),
+        ):
+            DeskGrant.objects.create(
+                user=user,
+                desk=DeskGrant.Desk.CLUB_ADMIN,
+                level=DeskGrant.Level.FULL,
+                club=club,
+                source=DeskGrant.Source.LEGACY,
+                valid_from=today - timedelta(days=1),
+                reason="scope test",
+            )
+
+    def _desk(self, club):
+        return {"HTTP_X_DESK": f"club_admin:{club.id}"}
+
+    def test_club_a_admin_cannot_list_read_change_or_revoke_club_b(self):
+        self.client.force_authenticate(user=self.admin_a)
+        board = self.client.get("/api/clubs/admin_assignment/", **self._desk(self.club_a))
+        self.assertEqual(board.status_code, 200, board.data)
+        self.assertEqual([club["id"] for club in board.data["clubs"]], [self.club_a.id])
+        self.assertNotIn(self.admin_b.id, [admin["id"] for admin in board.data["admins"]])
+
+        asked = self.client.get(
+            "/api/clubs/admin_assignment/",
+            {"club_id": self.club_b.id},
+            **self._desk(self.club_a),
+        )
+        self.assertEqual(asked.status_code, 403)
+
+        detail = self.client.get(f"/api/clubs/{self.club_b.id}/admins/", **self._desk(self.club_a))
+        self.assertIn(detail.status_code, (403, 404))
+
+        revoked = self.client.post(
+            f"/api/clubs/{self.club_b.id}/remove_admin/",
+            {"user_id": self.admin_b.id},
+            format="json",
+            **self._desk(self.club_a),
+        )
+        self.assertIn(revoked.status_code, (403, 404))
+        self.assertTrue(self.club_b.admins.filter(id=self.admin_b.id).exists())
+
+        granted = self.client.post(
+            f"/api/clubs/{self.club_b.id}/add_admin/",
+            {"member_id": Member.objects.get(user=self.admin_b).id},
+            format="json",
+            **self._desk(self.club_a),
+        )
+        self.assertIn(granted.status_code, (403, 404))
+
+        link = self.client.post(
+            f"/api/clubs/admins/{self.admin_b.id}/access-link/",
+            {"delivery": "copy", "locale": "en"},
+            format="json",
+            **self._desk(self.club_a),
+        )
+        self.assertEqual(link.status_code, 403)
+
+        exported = self.client.post(
+            "/api/clubs/admins/access-links/",
+            {"user_ids": [self.admin_b.id], "locale": "en"},
+            format="json",
+            **self._desk(self.club_a),
+        )
+        self.assertEqual(exported.status_code, 403)
+
+    def test_several_clubs_follow_the_selected_desk(self):
+        self.club_b.admins.add(self.admin_a)
+        self.client.force_authenticate(user=self.admin_a)
+        both = self.client.get("/api/clubs/admin_assignment/")
+        self.assertEqual({club["id"] for club in both.data["clubs"]}, {self.club_a.id, self.club_b.id})
+        selected = self.client.get("/api/clubs/admin_assignment/", **self._desk(self.club_b))
+        self.assertEqual(selected.status_code, 200, getattr(selected, "data", selected.content))
+        self.assertEqual([club["id"] for club in selected.data["clubs"]], [self.club_b.id])
+
+    def test_ltf_desk_and_superuser_still_see_every_club(self):
+        self.client.force_authenticate(user=self.ltf)
+        board = self.client.get("/api/clubs/admin_assignment/")
+        ids = {club["id"] for club in board.data["clubs"]}
+        self.assertIn(self.club_a.id, ids)
+        self.assertIn(self.club_b.id, ids)
+
+        self.client.force_authenticate(user=self.superuser)
+        everywhere = self.client.get("/api/clubs/admin_assignment/")
+        self.assertIn(self.club_b.id, {club["id"] for club in everywhere.data["clubs"]})
+        on_club_desk = self.client.get("/api/clubs/admin_assignment/", **self._desk(self.club_a))
+        self.assertEqual(on_club_desk.status_code, 200, getattr(on_club_desk, "data", on_club_desk.content))
+        self.assertEqual([club["id"] for club in on_club_desk.data["clubs"]], [self.club_a.id])
 
 
 class FederationProfileApiTests(TestCase):

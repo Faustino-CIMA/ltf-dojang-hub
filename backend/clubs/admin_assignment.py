@@ -139,23 +139,70 @@ def home_club_id(user) -> int | None:
     return member.club_id if member else None
 
 
+def _privileged_federation(user) -> bool:
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "role", None) == User.Roles.LTF_ADMIN)
+
+
+def managed_club_ids(user) -> list[int]:
+    """Clubs this account administers, plus a full Club Admin grant."""
+    ids = set(Club.objects.filter(admins=user).values_list("id", flat=True))
+    ids.update(_full_grant_club_ids(user))
+    return sorted(ids)
+
+
+def assignment_scope(user, requested_club_id=None):
+    """Clubs this request may list or change.
+
+    None means every club: a superuser or LTF admin who is not on the club desk.
+    A list is only those clubs. False means the request is refused.
+    On the club desk the list is the selected club, never the whole federation.
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    from accounts.desks import current_active_club, current_desk
+
+    requested = None
+    if requested_club_id not in (None, ""):
+        try:
+            requested = int(requested_club_id)
+        except (TypeError, ValueError):
+            return False
+
+    desk = current_desk()
+    if desk == "club_admin":
+        active = current_active_club()
+        allowed = set(managed_club_ids(user))
+        if _privileged_federation(user) and active:
+            allowed.add(active)
+        if requested is not None:
+            return [requested] if requested in allowed else False
+        if active is not None:
+            return [active] if active in allowed else False
+        return sorted(allowed)
+
+    if _privileged_federation(user) or desk == "ltf_admin":
+        return [requested] if requested is not None else None
+    if getattr(user, "role", None) == User.Roles.CLUB_ADMIN:
+        allowed = managed_club_ids(user)
+        if requested is not None:
+            return [requested] if requested in set(allowed) else False
+        return allowed
+    return False
+
+
 def actor_may_assign_club(user, club) -> tuple[bool, str]:
-    """LTF admins and superusers may assign any club. A club admin only his own club."""
+    """LTF desk and a superuser may assign any club. The club desk only its selected club."""
     if not user or not getattr(user, "is_authenticated", False):
         return False, "Not allowed."
-    if user.is_superuser or user.role == User.Roles.LTF_ADMIN:
-        return True, ""
-    if user.role == User.Roles.CLUB_ADMIN and club.admins.filter(id=user.id).exists():
-        if home_club_id(user) != club.id and not _grant_names_club(user, club.id):
-            return False, "actor_home_club"
-        return True, ""
-    if _grant_names_club(user, club.id):
+    scope = assignment_scope(user)
+    if scope is False:
+        return False, "Not allowed."
+    if scope is None or club.id in scope:
         return True, ""
     return False, "Not allowed."
 
 
-def _grant_names_club(user, club_id: int) -> bool:
-    """A Club Admin grant for this club lifts the home-club-only block."""
+def _open_club_admin_grants(user):
     from django.db.models import Q
     from django.utils import timezone
 
@@ -165,10 +212,13 @@ def _grant_names_club(user, club_id: int) -> bool:
     return DeskGrant.objects.filter(
         user_id=user.id,
         desk=DeskGrant.Desk.CLUB_ADMIN,
-        club_id=club_id,
         level=DeskGrant.Level.FULL,
         valid_from__lte=today,
-    ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=today)).exists()
+    ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=today))
+
+
+def _full_grant_club_ids(user) -> list[int]:
+    return list(_open_club_admin_grants(user).exclude(club_id=None).values_list("club_id", flat=True))
 
 
 def build_assignment_board(*, club_ids=None) -> dict:

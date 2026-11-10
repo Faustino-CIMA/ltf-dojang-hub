@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { useClubSelection } from "@/components/club-selection-provider";
 import {
   AccessBadges,
   ClubAdminAccessMenu,
@@ -131,12 +132,13 @@ export default function ClubAdminsPage() {
   const [accessAdmin, setAccessAdmin] = useState<ClubAdminAssignmentAdmin | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
 
+  const { selectedClubId } = useClubSelection();
   const connecting = Boolean(selectedMember);
 
   const loadBoard = useCallback(async () => {
     setErrorMessage(null);
     try {
-      const response = await getClubAdminAssignmentBoard();
+      const response = await getClubAdminAssignmentBoard(selectedClubId);
       setClubs(response.clubs);
       setAdmins(response.admins);
     } catch (error) {
@@ -144,7 +146,7 @@ export default function ClubAdminsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [selectedClubId, t]);
 
   useEffect(() => {
     void loadBoard();

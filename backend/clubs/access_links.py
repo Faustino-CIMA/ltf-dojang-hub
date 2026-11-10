@@ -22,8 +22,7 @@ from members.models import Member
 from ops.request_utils import write_ops_audit
 
 from .access_link_mail import normalize_locale, send_access_email
-from .admin_assignment import home_club_id
-from .models import Club
+from .admin_assignment import assignment_scope
 
 RATE_LIMIT = 30
 RATE_WINDOW_SECONDS = 3600
@@ -52,14 +51,13 @@ def is_link_target(user) -> bool:
 def actor_may_link(actor, target) -> bool:
     if not is_link_target(target):
         return False
-    if is_privileged(actor):
+    scope = assignment_scope(actor)
+    if scope is False:
+        return False
+    target_clubs = set(target.clubs_administered.values_list("id", flat=True))
+    if scope is None:
         return True
-    if getattr(actor, "role", None) != User.Roles.CLUB_ADMIN:
-        return False
-    home_id = home_club_id(actor)
-    if not home_id or not Club.objects.filter(pk=home_id, admins=actor).exists():
-        return False
-    return Club.objects.filter(pk=home_id, admins=target).exists()
+    return bool(target_clubs.intersection(scope))
 
 
 def never_set_password(user) -> bool:
