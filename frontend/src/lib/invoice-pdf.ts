@@ -1,3 +1,4 @@
+import { readActiveDeskHeader } from "./active-desk";
 import { API_URL } from "./api";
 import { getToken } from "./auth";
 
@@ -9,9 +10,11 @@ type ErrorPayload = {
 
 export async function openInvoicePdf(invoiceId: number) {
   const token = getToken();
+  const deskHeader = readActiveDeskHeader();
   const response = await fetch(`${API_URL}/api/invoices/${invoiceId}/pdf/`, {
     headers: {
       ...(token ? { Authorization: `Token ${token}` } : {}),
+      ...(deskHeader ? { "X-Desk": deskHeader } : {}),
     },
   });
 
