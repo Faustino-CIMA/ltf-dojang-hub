@@ -286,6 +286,16 @@ class MemberUserAccountTests(TestCase):
         self.assertNotIn("token", str(audit.metadata).lower())
         self.assertEqual(audit.metadata["actor_id"], self.club_admin.id)
 
+    def test_list_marks_a_member_who_already_administers_their_club(self):
+        admin_member = self._member("Ada", "Admin", user=self.club_admin)
+        other = self._member("Bea", "Member")
+        self.client.force_authenticate(user=self.ltf_admin)
+        response = self.client.get("/api/members/?page=1&page_size=50")
+        self.assertEqual(response.status_code, 200, response.data)
+        rows = {row["id"]: row["is_home_club_admin"] for row in response.data["results"]}
+        self.assertTrue(rows[admin_member.id])
+        self.assertFalse(rows[other.id])
+
     def test_list_account_state_query_count_stays_flat(self):
         pending_user = User.objects.create_user(username="pending-acct", password="pass12345", role=User.Roles.MEMBER)
         active_user = User.objects.create_user(username="active-acct", password="pass12345", role=User.Roles.MEMBER)
