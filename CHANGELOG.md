@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Invoices:** On the LTF Finance desk, the invoice PDF opens for any club in that list, including the overdue list. A club desk still cannot open another club's invoice.
 - **Club profile:** Club admins left the club desk menu and now sit on the Club profile, for the selected club. The old Club admins address opens that section. The LTF menu is unchanged.
 - **Club admins:** On the club desk, the admin list is only the selected club. A club admin cannot list, read, change, or revoke admins of a club they do not administer. A superuser or the LTF desk still sees every club.
 - **Build:** The subsidies page no longer declares the same translation helper twice, so the production build can finish.

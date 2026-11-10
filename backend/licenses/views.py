@@ -2574,18 +2574,23 @@ class InvoicePdfView(APIView):
         if not invoice:
             return Response({"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
         user = request.user
-        from accounts.desks import holds_desk
+        from accounts.desks import active_club_id, current_desk
 
-        if not holds_desk(user, "ltf_finance") and user.role != "club_admin":
-            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        if holds_desk(user, "ltf_finance") and invoice.order.ledger != Order.Ledger.FEDERATION:
-            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        if user.role == "club_admin" and not invoice.club.admins.filter(id=user.id).exists():
-            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        from accounts.desks import active_club_id
-
-        active = active_club_id(request)
-        if active is not None and invoice.club_id != active:
+        desk = current_desk()
+        # The open desk wins. A finance role on the club desk stays on that club,
+        # and a club admin on the finance desk can open any federation invoice.
+        on_finance = desk == "ltf_finance" or (desk is None and getattr(user, "role", None) == "ltf_finance")
+        on_club = desk == "club_admin" or (desk is None and getattr(user, "role", None) == "club_admin")
+        if on_finance:
+            if invoice.order.ledger != Order.Ledger.FEDERATION:
+                return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        elif on_club:
+            if not invoice.club.admins.filter(id=user.id).exists():
+                return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+            active = active_club_id(request)
+            if active is not None and invoice.club_id != active:
+                return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        else:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         pdf_file = render_invoice_pdf(invoice, base_url=request.build_absolute_uri("/"))
         if not pdf_file:
