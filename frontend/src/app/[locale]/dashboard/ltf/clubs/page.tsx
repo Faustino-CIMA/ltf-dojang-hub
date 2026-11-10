@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { X, Trash2 } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 
 import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -50,6 +50,7 @@ export default function LtfAdminClubsPage() {
   const [pageSize, setPageSize] = useState("50");
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingClub, setEditingClub] = useState<Club | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { selectedClubId } = useClubSelection();
@@ -187,7 +188,7 @@ export default function LtfAdminClubsPage() {
   );
 
   return (
-    <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")}>
+    <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <div className="space-y-3">
@@ -360,8 +361,14 @@ export default function LtfAdminClubsPage() {
                       label={common("rowActionsLabel")}
                       actions={[
                         {
+                          key: "edit",
+                          icon: <Pencil aria-hidden />,
+                          label: t("editAction"),
+                          onSelect: () => setEditingClub(club),
+                        },
+                        {
                           key: "delete",
-                        icon: <Trash2 aria-hidden />,
+                          icon: <Trash2 aria-hidden />,
                           label: t("deleteAction"),
                           destructive: true,
                           onSelect: () => handleDelete(club),
@@ -381,11 +388,16 @@ export default function LtfAdminClubsPage() {
       </div>
 
       <ClubFormPanel
-        open={createOpen}
-        mode="create"
-        onClose={() => setCreateOpen(false)}
+        open={createOpen || editingClub !== null}
+        mode={editingClub ? "edit" : "create"}
+        club={editingClub}
+        onClose={() => {
+          setCreateOpen(false);
+          setEditingClub(null);
+        }}
         onSaved={async () => {
           setCreateOpen(false);
+          setEditingClub(null);
           await loadClubs();
         }}
       />

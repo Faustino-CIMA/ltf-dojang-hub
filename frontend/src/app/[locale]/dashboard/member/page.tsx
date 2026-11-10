@@ -84,7 +84,7 @@ export default function MemberDashboardPage() {
   }, [loadData]);
 
   return (
-    <MemberLayout title={t("title")} subtitle={t("subtitle")}>
+    <MemberLayout title={t("title")} subtitle={t("subtitle")} hintSubtitle>
       <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 

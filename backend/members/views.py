@@ -251,6 +251,11 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         from .user_accounts import ACCOUNT_STATES, annotate_account_state
 
         queryset = annotate_account_state(queryset)
+        admin_of_home_club = Club.admins.through.objects.filter(
+            club_id=OuterRef("club_id"),
+            user_id=OuterRef("user_id"),
+        )
+        queryset = queryset.annotate(is_home_club_admin=Exists(admin_of_home_club))
         if self.action == "list":
             account = (self.request.query_params.get("account") or "").strip()
             if account in ACCOUNT_STATES:

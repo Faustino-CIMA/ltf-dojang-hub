@@ -193,7 +193,7 @@ export default function LtfAdminPrinterProfilesPage() {
 
   if (isRoleLoading) {
     return (
-      <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
+      <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")} hintSubtitle>
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfAdminLayout>
     );
@@ -201,7 +201,7 @@ export default function LtfAdminPrinterProfilesPage() {
 
   if (!canManagePrinterProfiles) {
     return (
-      <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
+      <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")} hintSubtitle>
         <EmptyState
           title={t("printerProfilesAccessDeniedTitle")}
           description={t("printerProfilesAccessDeniedSubtitle")}
@@ -216,7 +216,7 @@ export default function LtfAdminPrinterProfilesPage() {
   }
 
   return (
-    <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")}>
+    <LtfAdminLayout title={t("printerProfilesTitle")} subtitle={t("printerProfilesSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
 
       <div className="space-y-3">

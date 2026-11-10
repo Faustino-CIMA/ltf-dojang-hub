@@ -15,6 +15,7 @@ import { ltfFinanceSidebarGroup } from "@/lib/sidebar-groups";
 type LtfFinanceLayoutProps = {
   title?: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   children: React.ReactNode;
   persistent?: boolean;
 };
@@ -114,8 +115,8 @@ const LTF_FINANCE_NAV_DEFINITIONS: LtfFinanceNavDef[] = [
   },
 ];
 
-function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutProps) {
-  const pageHeader = useDashboardPageHeader({ title, subtitle });
+function LtfFinanceShell({ title = "", subtitle, hintSubtitle, children }: LtfFinanceLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle, hintSubtitle });
   const t = useTranslations("LtfFinance");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -170,24 +171,24 @@ function LtfFinanceShell({ title = "", subtitle, children }: LtfFinanceLayoutPro
 
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>
-      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} hintSubtitle={pageHeader.hintSubtitle} navItems={navItems}>
         <div className="space-y-3">{children}</div>
       </AppShell>
     </DashboardShellContext.Provider>
   );
 }
 
-export function LtfFinanceLayout({ title = "", subtitle, children, persistent = false }: LtfFinanceLayoutProps) {
+export function LtfFinanceLayout({ title = "", subtitle, hintSubtitle, children, persistent = false }: LtfFinanceLayoutProps) {
   const shell = useContext(DashboardShellContext);
   if (persistent || !shell) {
     return (
-      <LtfFinanceShell title={title} subtitle={subtitle}>
+      <LtfFinanceShell title={title} subtitle={subtitle} hintSubtitle={hintSubtitle}>
         {children}
       </LtfFinanceShell>
     );
   }
   return (
-    <DashboardHeaderSync title={title} subtitle={subtitle}>
+    <DashboardHeaderSync title={title} subtitle={subtitle} hintSubtitle={hintSubtitle}>
       {children}
     </DashboardHeaderSync>
   );

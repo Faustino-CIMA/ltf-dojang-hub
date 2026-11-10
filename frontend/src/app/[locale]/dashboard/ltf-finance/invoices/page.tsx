@@ -336,7 +336,7 @@ export default function LtfFinanceInvoicesPage() {
   );
 
   return (
-    <LtfFinanceLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")}>
+    <LtfFinanceLayout title={t("invoicesTitle")} subtitle={t("invoicesSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage || actionError}
         onDismiss={() => {

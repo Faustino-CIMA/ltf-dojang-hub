@@ -158,7 +158,7 @@ export default function LtfFinanceExpensesPage() {
   );
 
   return (
-    <LtfFinanceLayout title={t("expensesTitle")} subtitle={t("expensesSubtitle")}>
+    <LtfFinanceLayout title={t("expensesTitle")} subtitle={t("expensesSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <div className="flex flex-col gap-3">

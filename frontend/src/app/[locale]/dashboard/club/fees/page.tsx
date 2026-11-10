@@ -17,7 +17,7 @@ export default function ClubMembershipFeesPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   return (
-    <ClubAdminLayout title={t("feesTitle")} subtitle={t("feesSubtitle")}>
+    <ClubAdminLayout title={t("feesTitle")} subtitle={t("feesSubtitle")} hintSubtitle>
       <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices

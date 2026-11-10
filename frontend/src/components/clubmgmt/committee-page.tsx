@@ -10,6 +10,7 @@ import { CommitteeHistoryTable, CommitteeOfficeMenu, type CommitteeMandateRow } 
 import { CommitteeTermPanel, type CommitteePanelState, type TermFormValues } from "@/components/clubmgmt/committee-term-panel";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
@@ -172,6 +173,7 @@ type Props = { variant: "club" | "ltf"; embed?: boolean };
 
 export function CommitteePage({ variant, embed = false }: Props) {
   const t = useTranslations("ClubMgmt");
+  const common = useTranslations("Common");
   const { selectedClubId } = useClubSelection();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -547,8 +549,10 @@ export function CommitteePage({ variant, embed = false }: Props) {
           <FormPanel key={committee.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-section text-foreground">{committee.name}</h2>
-                <p className="mt-1 text-sm text-muted">{t("mandateHint")}</p>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-section text-foreground">{committee.name}</h2>
+                  <InfoHint ariaLabel={common("aboutTitle", { title: committee.name })}>{t("mandateHint")}</InfoHint>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge label={t("committeeFilledCount", { count: filledCount })} tone="success" />
@@ -664,7 +668,12 @@ export function CommitteePage({ variant, embed = false }: Props) {
               </div>
               {draft.role === "other" ? (
                 <div className="space-y-2 md:col-span-4">
-                  <Label htmlFor={`mandate-title-${committee.id}`}>{t("titleOptional")}</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor={`mandate-title-${committee.id}`}>{t("titleOptional")}</Label>
+                    <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("titleOptional") })}>
+                      {t("committeeCustomTitleHint")}
+                    </InfoHint>
+                  </div>
                   <Input
                     id={`mandate-title-${committee.id}`}
                     value={draft.title}
@@ -676,7 +685,6 @@ export function CommitteePage({ variant, embed = false }: Props) {
                     }
                     placeholder={t("titleOptional")}
                   />
-                  <p className="text-xs text-muted">{t("committeeCustomTitleHint")}</p>
                 </div>
               ) : null}
             </div>
@@ -695,7 +703,9 @@ export function CommitteePage({ variant, embed = false }: Props) {
                 </Button>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted">{t("committeePickMemberHint")}</p>
+              <div className="mt-4">
+                <InfoHint ariaLabel={common("aboutTitle", { title: t("committeeMembers") })}>{t("committeePickMemberHint")}</InfoHint>
+              </div>
             )}
 
             <div ref={boardRef} className="relative mt-4 grid gap-4 lg:grid-cols-2">
@@ -786,16 +796,18 @@ export function CommitteePage({ variant, embed = false }: Props) {
               </div>
 
               <div className="flex min-w-0 flex-col rounded-[var(--radius-card)] border border-border bg-[var(--surface-secondary,var(--secondary))] p-3">
-                <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted">
-                  {t("committeeMembers")}
-                </p>
+                <div className="mb-2 flex items-center gap-1.5 px-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted">{t("committeeMembers")}</p>
+                  <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("committeeMembers") })}>
+                    {t("committeeAdultsOnly")}
+                  </InfoHint>
+                </div>
                 <Input
                   value={memberQuery}
                   onChange={(event) => setMemberQuery(event.target.value)}
                   placeholder={t("committeeSearchMembers")}
                   aria-label={t("committeeSearchMembers")}
                 />
-                <p className="mt-2 px-1 text-xs text-muted">{t("committeeAdultsOnly")}</p>
                 {adultMembers.length === 0 ? (
                   <p className="px-2 py-6 text-center text-sm text-muted">
                     {members.length === 0 ? t("committeeNoMembers") : t("committeeNoAdults")}
@@ -834,8 +846,12 @@ export function CommitteePage({ variant, embed = false }: Props) {
             <div className="mt-6 space-y-3">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h3 className="text-section text-foreground">{t("committeeHistoryTitle")}</h3>
-                  <p className="mt-1 text-sm text-muted">{t("committeeHistorySubtitle")}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-section text-foreground">{t("committeeHistoryTitle")}</h3>
+                    <InfoHint ariaLabel={common("aboutTitle", { title: t("committeeHistoryTitle") })}>
+                      {t("committeeHistorySubtitle")}
+                    </InfoHint>
+                  </div>
                 </div>
                 <Button type="button" variant="outline" onClick={() => openPanel({ mode: "past", committeeId: committee.id })}>
                   {t("committeeAddPastTerm")}
@@ -886,13 +902,13 @@ export function CommitteePage({ variant, embed = false }: Props) {
   }
   if (variant === "ltf") {
     return (
-      <LtfAdminLayout title={t("ltfCommitteeTitle")} subtitle={t("committeeSubtitle")}>
+      <LtfAdminLayout title={t("ltfCommitteeTitle")} subtitle={t("committeeSubtitle")} hintSubtitle>
         {body}
       </LtfAdminLayout>
     );
   }
   return (
-    <ClubAdminLayout title={t("clubCommitteeTitle")} subtitle={t("committeeSubtitle")}>
+    <ClubAdminLayout title={t("clubCommitteeTitle")} subtitle={t("committeeSubtitle")} hintSubtitle>
       {body}
     </ClubAdminLayout>
   );

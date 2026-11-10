@@ -9,6 +9,7 @@ import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Input } from "@/components/ui/input";
@@ -203,6 +204,7 @@ function MemberPicker({
 export default function ClubSubsidiesPage() {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
+  const common = useTranslations("Common");
   const { clubs, selectedClubId } = useClubSelection();
   const selectedClubName = clubs.find((club) => club.id === selectedClubId)?.name ?? "";
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -356,7 +358,7 @@ export default function ClubSubsidiesPage() {
   };
 
   return (
-    <ClubAdminLayout title={t("subsidiesTitle")} subtitle={t("subsidiesSubtitle")}>
+    <ClubAdminLayout title={t("subsidiesTitle")} subtitle={t("subsidiesSubtitle")} hintSubtitle>
       <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices
@@ -523,7 +525,10 @@ export default function ClubSubsidiesPage() {
               ) : null}
             </FormPanel>
             <FormPanel>
-              <h2 className="text-section text-foreground">{t("subsidiesScores")}</h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-section text-foreground">{t("subsidiesScores")}</h2>
+                <InfoHint ariaLabel={common("aboutTitle", { title: t("subsidiesScores") })}>{t("subsidiesQualiteHint")}</InfoHint>
+              </div>
               <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {[
                   [t("subsidiesLicensed"), String(dossier.effectifs.licensed_total)],
@@ -537,13 +542,16 @@ export default function ClubSubsidiesPage() {
                   </div>
                 ))}
               </dl>
-              <p className="mt-2 text-xs text-muted">{t("subsidiesQualiteHint")}</p>
             </FormPanel>
             <FormPanel>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-section text-foreground">{t("subsidiesTrainingListTitle")}</h2>
-                  <p className="mt-1 text-xs text-muted">{t("subsidiesTrainingListHint")}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-section text-foreground">{t("subsidiesTrainingListTitle")}</h2>
+                    <InfoHint ariaLabel={common("aboutTitle", { title: t("subsidiesTrainingListTitle") })}>
+                      {t("subsidiesTrainingListHint")}
+                    </InfoHint>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -574,8 +582,10 @@ export default function ClubSubsidiesPage() {
             <FormPanel>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="max-w-3xl">
-                  <h2 className="text-section text-foreground">{t("subsidiesCoaches")}</h2>
-                  <p className="mt-1 text-xs text-muted">{t("subsidiesCoachesHint")}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-section text-foreground">{t("subsidiesCoaches")}</h2>
+                    <InfoHint ariaLabel={common("aboutTitle", { title: t("subsidiesCoaches") })}>{t("subsidiesCoachesHint")}</InfoHint>
+                  </div>
                 </div>
                 <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
                   <Button
@@ -707,8 +717,10 @@ export default function ClubSubsidiesPage() {
             <FormPanel>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-section text-foreground">{t("subsidiesYouth")}</h2>
-                  <p className="mt-1 text-xs text-muted">{t("subsidiesYouthHint")}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-section text-foreground">{t("subsidiesYouth")}</h2>
+                    <InfoHint ariaLabel={common("aboutTitle", { title: t("subsidiesYouth") })}>{t("subsidiesYouthHint")}</InfoHint>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -731,8 +743,12 @@ export default function ClubSubsidiesPage() {
                   </Button>
                 </div>
               </div>
-              <h3 className="mt-4 text-sm font-medium text-foreground">{t("subsidiesEffectifs")}</h3>
-              <p className="mt-1 text-xs text-muted">{t("subsidiesEffectifsHint")}</p>
+              <div className="mt-4 flex items-center gap-1.5">
+                <h3 className="text-sm font-medium text-foreground">{t("subsidiesEffectifs")}</h3>
+                <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("subsidiesEffectifs") })}>
+                  {t("subsidiesEffectifsHint")}
+                </InfoHint>
+              </div>
               <NestedTable className="mt-3">
                 <table className={dataTableClass}>
                   <thead className={dataTheadClass}>
@@ -951,8 +967,12 @@ export default function ClubSubsidiesPage() {
                   </div>
                 </section>
                 <section>
-                  <h3 className="text-sm font-medium text-foreground">{t("subsidiesCostsGroup")}</h3>
-                  <p className="mt-1 text-xs text-muted">{t("subsidiesExtraordinaryHint")}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-medium text-foreground">{t("subsidiesCostsGroup")}</h3>
+                    <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("subsidiesCostsGroup") })}>
+                      {t("subsidiesExtraordinaryHint")}
+                    </InfoHint>
+                  </div>
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <div>
                       <Label>{t("subsidiesTravelMode")}</Label>

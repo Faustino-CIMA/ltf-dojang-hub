@@ -42,7 +42,7 @@ export default function OpsUsersPage() {
   }, []);
 
   return (
-    <OpsLayout title={t("usersTitle")} subtitle={t("usersSubtitle")}>
+    <OpsLayout title={t("usersTitle")} subtitle={t("usersSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <OpsUsersBoard
         users={users}

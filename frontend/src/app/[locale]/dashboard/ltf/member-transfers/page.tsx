@@ -52,7 +52,7 @@ export default function LtfMemberTransfersPage() {
   }, [load]);
 
   return (
-    <LtfAdminLayout title={t("memberTransfersTitle")} subtitle={t("memberMovementSubtitle")}>
+    <LtfAdminLayout title={t("memberTransfersTitle")} subtitle={t("memberMovementSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       {isLoading ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />

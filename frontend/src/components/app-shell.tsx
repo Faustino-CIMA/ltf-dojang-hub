@@ -36,6 +36,8 @@ import { showLegacyClubPicker, switchNeedsConfirm } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
 import { ViewOnlyScope } from "@/components/view-only-scope";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
+import { InfoHint } from "@/components/ui/info-hint";
+import { SidebarLabelTip } from "@/components/sidebar-label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   ALL_CLUBS_SELECT_VALUE,
@@ -76,6 +78,7 @@ const SIDEBAR_COLLAPSED_KEY = "ltf-sidebar-collapsed";
 type AppShellProps = {
   title: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   navItems: AppNavItem[];
   children: React.ReactNode;
   variant?: "default" | "workspace";
@@ -158,7 +161,7 @@ export function resolveActiveId(pathname: string | null, items: AppNavItem[]) {
   return best?.id ?? null;
 }
 
-export function AppShell({ title, subtitle, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
+export function AppShell({ title, subtitle, hintSubtitle = false, navItems, children, variant = "default", tone = "default" }: AppShellProps) {
   const t = useTranslations("Common");
   const authCopy = useTranslations("Auth");
   const locale = useLocale();
@@ -467,7 +470,6 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
           {iconOnly ? null : (
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold leading-tight text-foreground">{t("appTitle")}</p>
-              <p className="text-meta leading-tight">{t("appTagline")}</p>
             </div>
           )}
         </div>
@@ -478,9 +480,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 <div className={cn("mx-2 border-t border-border", iconOnly ? "my-1" : "mt-3")} role="presentation" />
               ) : null}
               {block.group && !iconOnly ? (
-                <p className={cn("sidebar-group-label px-3 pb-1 text-center text-sm italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}>
-                  {block.group.label}
-                </p>
+                <SidebarLabelTip text={block.group.label}>
+                  <p
+                    data-nav-label
+                    className={cn("sidebar-group-label px-3 pb-1 text-center text-sm italic uppercase tracking-wide text-muted", index === 0 ? "pt-1" : "pt-3")}
+                  >
+                    {block.group.label}
+                  </p>
+                </SidebarLabelTip>
               ) : null}
               {block.group && iconOnly ? <p className="sr-only">{block.group.label}</p> : null}
               {block.items.map((item) => {
@@ -490,10 +497,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 const attentionLabel = [item.badgeNew, countLabel].filter(Boolean).join(" ");
                 const accessibleName = attentionLabel ? `${item.label}, ${attentionLabel}` : undefined;
                 return (
-                  <Link
+                  <SidebarLabelTip
                     key={item.id}
+                    text={accessibleName ?? item.label}
+                    force={iconOnly}
+                    side={iconOnly ? "right" : "bottom"}
+                  >
+                  <Link
                     href={item.href}
-                    title={iconOnly ? accessibleName ?? item.label : undefined}
                     aria-label={accessibleName}
                     aria-current={isActive ? "page" : undefined}
                     data-has-badge={item.badgeCount || item.badgeNew ? "true" : undefined}
@@ -527,8 +538,9 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                       </span>
                     ) : null}
                     <Icon className="sidebar-nav-icon size-4 shrink-0" aria-hidden />
-                    <span className={cn("truncate", iconOnly && "sr-only")}>{item.label}</span>
+                    <span data-nav-label className={cn("min-w-0 truncate", iconOnly && "sr-only")}>{item.label}</span>
                   </Link>
+                  </SidebarLabelTip>
                 );
               })}
             </div>
@@ -618,9 +630,14 @@ export function AppShell({ title, subtitle, navItems, children, variant = "defau
                 {tone === "brand" || tone === "overview" ? (
                   <h1 className="sr-only">{title}</h1>
                 ) : (
-                  <h1 className="text-title truncate text-foreground">{title}</h1>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <h1 className="min-w-0 truncate text-title text-foreground">{title}</h1>
+                    {subtitle && hintSubtitle ? (
+                      <InfoHint ariaLabel={t("aboutTitle", { title })}>{subtitle}</InfoHint>
+                    ) : null}
+                  </div>
                 )}
-                {subtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
+                {subtitle && !hintSubtitle && !isWorkspace && tone !== "brand" && tone !== "overview" ? <p className="mt-0.5 truncate text-meta">{subtitle}</p> : null}
                 {deskReadOnly ? (
                   <span className="mt-0.5 inline-flex" title={t("deskViewOnlyHint")}>
                     <StatusBadge label={t("deskViewOnly")} tone="info" />

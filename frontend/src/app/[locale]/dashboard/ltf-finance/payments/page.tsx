@@ -297,7 +297,7 @@ export default function LtfFinancePaymentsPage() {
   );
 
   return (
-    <LtfFinanceLayout title={t("paymentsTitle")} subtitle={t("paymentsSubtitle")}>
+    <LtfFinanceLayout title={t("paymentsTitle")} subtitle={t("paymentsSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       {failedPaymentIssue ? (
         <PageNotice tone="info">{t("failedOrCancelledPaymentsFilterMessage")}</PageNotice>

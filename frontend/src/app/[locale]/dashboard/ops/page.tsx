@@ -71,7 +71,6 @@ function HealthCheckTitle({
         <p className="truncate text-sm font-semibold text-foreground">{label}</p>
         {t.has(helpKey) ? (
           <InfoHint
-            size="compact"
             icon={CircleHelp}
             tooltipAlign="left"
             ariaLabel={t("healthHelpAria", { name: label })}
@@ -116,7 +115,7 @@ export default function OpsOverviewPage() {
   ).filter((row) => row.key !== "docker");
 
   return (
-    <OpsLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")}>
+    <OpsLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard

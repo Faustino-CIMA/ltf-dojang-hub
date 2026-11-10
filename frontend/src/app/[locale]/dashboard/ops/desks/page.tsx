@@ -142,7 +142,7 @@ export default function OpsDesksPage() {
   };
 
   return (
-    <OpsLayout title={t("desksTitle")} subtitle={t("desksSubtitle")}>
+    <OpsLayout title={t("desksTitle")} subtitle={t("desksSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

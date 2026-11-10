@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2, UserPlus, Copy, IdCard, Ban } from "lucide-react";
+import { Ban, Copy, IdCard, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -24,6 +24,7 @@ import {
   ListToolbarPanel,
   PageSizeSelect,
   ActionNotices,
+  PageNotice,
   SelectionMeta,
 } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
@@ -39,6 +40,7 @@ import {
   Member,
   MemberIssueFilter,
   MemberRoster,
+  addClubAdmin,
   createLtfStaff,
   deleteLtfStaff,
   getClubs,
@@ -50,6 +52,7 @@ import {
 } from "@/lib/ltf-admin-api";
 import { displayClubName } from "@/lib/club-label";
 import { staffActionErrorMessage } from "@/lib/staff-action-error";
+import { clubAdminGrantChoice, grantFailureKind } from "@/lib/club-admin-grant";
 import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
 import { formatFullName } from "@/lib/person-name";
 import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
@@ -94,6 +97,7 @@ export default function LtfAdminMembersPage() {
   const [panelMember, setPanelMember] = useState<Member | null>(null);
   const [panelBusy, setPanelBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [grantNote, setGrantNote] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState("50");
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -213,6 +217,49 @@ export default function LtfAdminMembersPage() {
 
   const clubById = useMemo(() => new Map(clubs.map((club) => [club.id, club])), [clubs]);
   const canManageStaff = role === "ltf_admin";
+  const grantClubAdmin = useCallback(async (member: Member) => {
+    const choice = clubAdminGrantChoice({
+      canGrant: canManageStaff,
+      clubId: member.club,
+      accountState: member.account_state,
+      isHomeClubAdmin: member.is_home_club_admin,
+    });
+    if (choice === "needs-account") {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setGrantNote(t("clubAdminNeedsAccount"));
+      setAccountPanel({ intent: "create", ids: [member.id] });
+      return;
+    }
+    if (choice !== "grant" || member.club == null) {
+      return;
+    }
+    setGrantNote(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await addClubAdmin(member.club, member.id, undefined, locale);
+      setSuccessMessage(
+        t("clubAdminGranted", {
+          name: formatFullName(member),
+          club: clubById.get(member.club)?.name || "",
+        }),
+      );
+      await loadData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const kind = grantFailureKind(message);
+      if (kind === "already") {
+        setGrantNote(t("alreadyClubAdminAction"));
+        return;
+      }
+      if (kind === "limit") {
+        setErrorMessage(t("adminLimitReached"));
+        return;
+      }
+      setErrorMessage(kind === "home" ? t("clubAdminNotAllowed") : message || t("clubAdminNotAllowed"));
+    }
+  }, [canManageStaff, clubById, loadData, locale, t]);
   const visibleIds = useMemo(() => members.map((member) => member.id), [members]);
   const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
   const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
@@ -447,6 +494,36 @@ export default function LtfAdminMembersPage() {
                             },
                           ]
                         : []),
+                      ...(() => {
+                        const choice = clubAdminGrantChoice({
+                          canGrant: canManageStaff,
+                          clubId: row.club,
+                          accountState: row.account_state,
+                          isHomeClubAdmin: row.is_home_club_admin,
+                        });
+                        if (choice === "hidden") {
+                          return [];
+                        }
+                        if (choice === "already") {
+                          return [
+                            {
+                              key: "club-admin",
+                              icon: <ShieldCheck aria-hidden />,
+                              label: t("alreadyClubAdminAction"),
+                              disabled: true,
+                              onSelect: () => undefined,
+                            },
+                          ];
+                        }
+                        return [
+                          {
+                            key: "club-admin",
+                            icon: <ShieldCheck aria-hidden />,
+                            label: t("addClubAdminAction"),
+                            onSelect: () => void grantClubAdmin(row),
+                          },
+                        ];
+                      })(),
                       {
                         key: "delete",
                         icon: <Trash2 aria-hidden />,
@@ -463,11 +540,11 @@ export default function LtfAdminMembersPage() {
           ]
         : []),
     ],
-    [accountLabel, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, headerCheck, openPanel, selectedIds, t, visibleIds]
+    [accountLabel, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, selectedIds, t, visibleIds]
   );
 
   return (
-    <LtfAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")}>
+    <LtfAdminLayout title={t("membersTitle")} subtitle={t("membersSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}
@@ -476,6 +553,7 @@ export default function LtfAdminMembersPage() {
           setSuccessMessage(null);
         }}
       />
+      {grantNote ? <PageNotice tone="info">{grantNote}</PageNotice> : null}
 
       <div className="space-y-3">
         <div className="flex flex-col gap-3">
