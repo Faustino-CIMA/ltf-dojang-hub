@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Navigation:** The slogan under the logo is gone. A menu name that does not fit, including a collapsed icon, shows the full name under the pointer and on keyboard focus.
 - **LTF clubs:** Each club row has Edit in the three-dots menu. It opens the same club form as the club page. A view-only desk does not show it.
 - **Passkey:** Adding a passkey just after sign-in is no longer treated as a stale visit. If the passkey prompt is cancelled or the browser cannot create one, the note says so. It does not ask you to sign in again.
 - **Desk recovery:** If the desk the screen is already using is refused and the sign-in is still valid, the screen opens a desk that is still open. A superuser opens Ops. If the sign-in is gone, the screen goes to sign-in with the usual note. Choosing a desk that is not open, on purpose, is still refused.
