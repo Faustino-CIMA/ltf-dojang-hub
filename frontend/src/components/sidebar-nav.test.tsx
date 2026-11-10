@@ -130,6 +130,7 @@ describe("sidebar navigation", () => {
     expect(screen.getByText("navGroupClubManagement")).toBeInTheDocument();
     expect(screen.getByText("navGroupCalendar")).toBeInTheDocument();
     expect(screen.queryByText("navOrders")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "navAdmins" })).not.toBeInTheDocument();
   });
 
   it("gives active, idle, and badge links the same box classes", async () => {
@@ -198,6 +199,7 @@ describe("sidebar navigation", () => {
     expect(screen.getByRole("navigation")).toBe(nav);
     expect(nav.scrollTop).toBe(36);
     expect(screen.getByRole("heading", { name: "Clubs" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "navClubAdmins" })).toBeInTheDocument();
     expect(screen.getByText("navGroupLtfManagement")).toBeInTheDocument();
     expect(screen.getByText("navCommittee")).toBeInTheDocument();
     expect(screen.getByText("navGroupCalendar")).toBeInTheDocument();

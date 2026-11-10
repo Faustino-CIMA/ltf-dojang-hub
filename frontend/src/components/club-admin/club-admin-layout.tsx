@@ -20,7 +20,6 @@ import {
   Package,
   ShoppingCart,
   Sparkles,
-  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -67,7 +66,6 @@ type ClubNavDef = Readonly<{
     | "navInvoices"
     | "navFinance"
     | "navTransfers"
-    | "navAdmins"
     | "navPrinterProfiles"
     | "navSettings"
     | "navPreview"
@@ -188,13 +186,6 @@ const CLUB_NAV_DEFINITIONS: readonly ClubNavDef[] = Object.freeze([
     icon: Sparkles,
   } satisfies ClubNavDef),
   Object.freeze({
-    id: "admins",
-    routePath: "dashboard/club/admins",
-    labelKey: "navAdmins",
-    matchMode: "prefix",
-    icon: UserCog,
-  } satisfies ClubNavDef),
-  Object.freeze({
     id: "settings",
     routePath: "dashboard/club/settings",
     labelKey: "navSettings",
@@ -255,7 +246,6 @@ function ClubAdminShell({ title = "", subtitle, hintSubtitle, children }: ClubAd
   const navItems = useMemo<AppNavItem[]>(
     () =>
       CLUB_NAV_DEFINITIONS.filter((def) => {
-        if (def.id === "admins") return role === "club_admin";
         if (def.id === "preview") return role === "club_admin" && previewAssigned;
         if (def.id === "calendar") return calendarAssigned;
         if (def.id === "families" || def.id === "shop") return role === "club_admin" && clubMgmtAssigned;
