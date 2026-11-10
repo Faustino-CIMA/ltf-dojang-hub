@@ -26,6 +26,7 @@ import { LoadingCardGrid } from "@/components/ui/loading-card";
 type OpsLayoutProps = {
   title: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   children: React.ReactNode;
 };
 
@@ -63,7 +64,7 @@ const OPS_NAV: Array<{
   { id: "audit", href: (l) => `/${l}/dashboard/ops/audit`, labelKey: "navAudit", matchMode: "prefix", icon: ScrollText },
 ];
 
-export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
+export function OpsLayout({ title, subtitle, hintSubtitle, children }: OpsLayoutProps) {
   const t = useTranslations("Ops");
   const common = useTranslations("Common");
   const locale = useLocale();
@@ -142,7 +143,7 @@ export function OpsLayout({ title, subtitle, children }: OpsLayoutProps) {
   }
 
   return (
-    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
+    <AppShell title={title} subtitle={subtitle} hintSubtitle={hintSubtitle} navItems={navItems}>
       <div className="space-y-3">
         {setupOpen ? (
           <Link

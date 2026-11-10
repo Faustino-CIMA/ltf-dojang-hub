@@ -80,7 +80,7 @@ export default function OpsSecurityPage() {
   };
 
   return (
-    <OpsLayout title={t("securityTitle")} subtitle={t("securitySubtitle")}>
+    <OpsLayout title={t("securityTitle")} subtitle={t("securitySubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

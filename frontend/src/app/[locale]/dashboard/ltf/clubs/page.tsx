@@ -187,7 +187,7 @@ export default function LtfAdminClubsPage() {
   );
 
   return (
-    <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")}>
+    <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <div className="space-y-3">

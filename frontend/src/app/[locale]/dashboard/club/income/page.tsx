@@ -110,7 +110,7 @@ export default function ClubIncomePage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / displayPageSize(pageSize, totalCount)));
 
   return (
-    <ClubAdminLayout title={t("incomeTitle")} subtitle={t("incomeSubtitle")}>
+    <ClubAdminLayout title={t("incomeTitle")} subtitle={t("incomeSubtitle")} hintSubtitle>
       <div className="space-y-3">
         <ClubFinanceTabs />
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />

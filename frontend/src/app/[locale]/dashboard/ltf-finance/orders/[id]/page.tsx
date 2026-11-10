@@ -146,7 +146,7 @@ export default function LtfFinanceOrderDetailPage() {
 
   if (isLoading) {
     return (
-      <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
+      <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")} hintSubtitle>
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
       </LtfFinanceLayout>
     );
@@ -154,7 +154,7 @@ export default function LtfFinanceOrderDetailPage() {
 
   if (!hasValidOrderId || errorMessage || !order) {
     return (
-      <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
+      <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")} hintSubtitle>
         <EmptyState
           title={t("ordersLoadError")}
           description={!hasValidOrderId ? t("ordersLoadError") : errorMessage ?? ""}
@@ -164,7 +164,7 @@ export default function LtfFinanceOrderDetailPage() {
   }
 
   return (
-    <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
+    <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")} hintSubtitle>
       <Button asChild variant="outline" className="w-fit">
         <Link href={`/${locale}/dashboard/ltf-finance/orders`}>{t("backToOrders")}</Link>
       </Button>

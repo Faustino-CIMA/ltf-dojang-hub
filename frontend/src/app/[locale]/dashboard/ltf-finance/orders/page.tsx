@@ -264,7 +264,7 @@ export default function LtfFinanceOrdersPage() {
   );
 
   return (
-    <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")}>
+    <LtfFinanceLayout title={t("ordersTitle")} subtitle={t("ordersSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       {pendingLicenseIssue ? (
         <PageNotice tone="info">{t("paidOrdersPendingLicensesFilterMessage")}</PageNotice>

@@ -129,6 +129,7 @@
     "paginationPage": "Säit {current} vun {total}",
     "navigationLabel": "Haaptnavigatioun",
     "navOpen": "Navigatioun opmaachen",
+    "aboutTitle": "Iwwer {title}",
     "navClose": "Navigatioun zoumaachen",
     "sidebarCollapse": "Säiteleescht akklappen",
     "sidebarExpand": "Säiteleescht opmaachen",

@@ -188,7 +188,7 @@ export default function LtfFinanceDashboardPage() {
   };
 
   return (
-    <LtfFinanceLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")}>
+    <LtfFinanceLayout title={t("overviewTitle")} subtitle={t("overviewSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       {isLoading ? (

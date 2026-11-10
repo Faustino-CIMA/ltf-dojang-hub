@@ -47,6 +47,7 @@ import {
 type ClubAdminLayoutProps = {
   title?: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   children: React.ReactNode;
   persistent?: boolean;
 };
@@ -210,8 +211,8 @@ const CLUB_GROUP_RANK: Record<string, number> = {
   preview: 4,
 };
 
-function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps) {
-  const pageHeader = useDashboardPageHeader({ title, subtitle });
+function ClubAdminShell({ title = "", subtitle, hintSubtitle, children }: ClubAdminLayoutProps) {
+  const pageHeader = useDashboardPageHeader({ title, subtitle, hintSubtitle });
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -309,7 +310,7 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
 
   return (
     <DashboardShellContext.Provider value={pageHeader.shell}>
-      <AppShell title={titleText} subtitle={pageHeader.subtitle} navItems={navItems} tone={isWelcome ? "overview" : "default"}>
+      <AppShell title={titleText} subtitle={pageHeader.subtitle} hintSubtitle={pageHeader.hintSubtitle} navItems={navItems} tone={isWelcome ? "overview" : "default"}>
         <IncomingTransferNotice />
         {role === "club_admin" && calendarAssigned ? <EventReminderToasts /> : null}
         {isPrinting || isTraining ? (
@@ -326,17 +327,17 @@ function ClubAdminShell({ title = "", subtitle, children }: ClubAdminLayoutProps
   );
 }
 
-export function ClubAdminLayout({ title = "", subtitle, children, persistent = false }: ClubAdminLayoutProps) {
+export function ClubAdminLayout({ title = "", subtitle, hintSubtitle, children, persistent = false }: ClubAdminLayoutProps) {
   const shell = useDashboardShellContext();
   if (persistent || !shell) {
     return (
-      <ClubAdminShell title={title} subtitle={subtitle}>
+      <ClubAdminShell title={title} subtitle={subtitle} hintSubtitle={hintSubtitle}>
         {children}
       </ClubAdminShell>
     );
   }
   return (
-    <DashboardHeaderSync title={title} subtitle={subtitle}>
+    <DashboardHeaderSync title={title} subtitle={subtitle} hintSubtitle={hintSubtitle}>
       {children}
     </DashboardHeaderSync>
   );

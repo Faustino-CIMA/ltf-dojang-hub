@@ -265,6 +265,7 @@
     "paginationPage": "Page {current} sur {total}",
     "navigationLabel": "Navigation principale",
     "navOpen": "Ouvrir la navigation",
+    "aboutTitle": "À propos de {title}",
     "navClose": "Fermer la navigation",
     "sidebarCollapse": "Réduire le menu",
     "sidebarExpand": "Développer le menu",

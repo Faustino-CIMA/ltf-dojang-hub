@@ -12,10 +12,11 @@ import { EVENT_CALENDAR_MODULE_ID, getModuleStatus, isInstallEntitled } from "@/
 type MemberLayoutProps = {
   title: string;
   subtitle?: string;
+  hintSubtitle?: boolean;
   children: React.ReactNode;
 };
 
-export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
+export function MemberLayout({ title, subtitle, hintSubtitle, children }: MemberLayoutProps) {
   const t = useTranslations("Member");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -73,7 +74,7 @@ export function MemberLayout({ title, subtitle, children }: MemberLayoutProps) {
   );
 
   return (
-    <AppShell title={title} subtitle={subtitle} navItems={navItems}>
+    <AppShell title={title} subtitle={subtitle} hintSubtitle={hintSubtitle} navItems={navItems}>
       {children}
     </AppShell>
   );

@@ -213,7 +213,7 @@ export default function OpsTranslationsPage() {
   };
 
   return (
-    <OpsLayout title={t("translationsTitle")} subtitle={t("translationsSubtitle")}>
+    <OpsLayout title={t("translationsTitle")} subtitle={t("translationsSubtitle")} hintSubtitle>
       <ActionNotices
         error={errorMessage}
         success={successMessage}

@@ -163,7 +163,7 @@ export default function LtfAdminLicenseTypesPage() {
   };
 
   return (
-    <LtfAdminLayout title={t("licenseTypesTitle")} subtitle={t("licenseTypesSubtitle")}>
+    <LtfAdminLayout title={t("licenseTypesTitle")} subtitle={t("licenseTypesSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
 
       <div className="space-y-3">

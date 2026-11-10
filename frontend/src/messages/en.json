@@ -129,6 +129,7 @@
     "paginationPage": "Page {current} of {total}",
     "navigationLabel": "Main navigation",
     "navOpen": "Open navigation",
+    "aboutTitle": "About {title}",
     "navClose": "Close navigation",
     "sidebarCollapse": "Collapse sidebar",
     "sidebarExpand": "Expand sidebar",

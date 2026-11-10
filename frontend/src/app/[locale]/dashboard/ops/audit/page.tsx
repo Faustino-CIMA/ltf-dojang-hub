@@ -37,7 +37,7 @@ export default function OpsAuditPage() {
   }, [load]);
 
   return (
-    <OpsLayout title={t("auditTitle")} subtitle={t("auditSubtitle")}>
+    <OpsLayout title={t("auditTitle")} subtitle={t("auditSubtitle")} hintSubtitle>
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       {isLoading ? (
         <LoadingCardGrid title={t("auditTitle")} description={t("auditSubtitle")} />

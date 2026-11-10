@@ -8,7 +8,7 @@ import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 export default function ParkedMembersPage() {
   const t = useTranslations("LtfAdmin");
   return (
-    <LtfAdminLayout title={t("parkedTitle")} subtitle={t("parkedSubtitle")}>
+    <LtfAdminLayout title={t("parkedTitle")} subtitle={t("parkedSubtitle")} hintSubtitle>
       <ParkedMembersDesk />
     </LtfAdminLayout>
   );

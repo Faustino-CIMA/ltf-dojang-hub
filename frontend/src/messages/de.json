@@ -265,6 +265,7 @@
     "paginationPage": "Seite {current} von {total}",
     "navigationLabel": "Hauptnavigation",
     "navOpen": "Navigation öffnen",
+    "aboutTitle": "Über {title}",
     "navClose": "Navigation schließen",
     "sidebarCollapse": "Seitenleiste einklappen",
     "sidebarExpand": "Seitenleiste ausklappen",
