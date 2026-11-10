@@ -34,6 +34,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { ClothingSizesDesk } from "@/components/club-admin/clothing-sizes-desk";
 import { EgearBrandsDesk } from "@/components/club-admin/egear-brands-desk";
+import { ClubAdminsSection } from "@/components/club-admin/club-admins-section";
 import { ClubTrainersPanel } from "@/components/club-admin/club-trainers-panel";
 import { CommitteePage } from "@/components/clubmgmt/committee-page";
 import { ClubModuleOrder } from "@/components/club-admin/club-module-order";
@@ -552,6 +553,8 @@ export default function ClubAdminSettingsPage() {
               </RequiredForm>
             </form>
           </section>
+
+          <ClubAdminsSection clubId={selectedClubId} locale={locale} />
 
           <div id="training-venues">
             <TrainingVenuesSection

@@ -97,14 +97,6 @@ const CLUB_NAV: RoleNavDef[] = [
     matchMode: "prefix",
   },
   {
-    id: "admins",
-    href: (locale) => `/${locale}/dashboard/club/admins`,
-    labelKey: "navAdmins",
-    namespace: "ClubAdmin",
-    icon: UserCog,
-    matchMode: "prefix",
-  },
-  {
     id: "settings",
     href: (locale) => `/${locale}/dashboard/club/settings`,
     labelKey: "navSettings",
@@ -368,11 +360,8 @@ export function getRoleNavDefs(role: string, options?: { isSuperuser?: boolean }
   if (role === "ltf_finance") {
     return LTF_FINANCE_NAV;
   }
-  if (role === "club_admin") {
+  if (role === "club_admin" || role === "coach") {
     return CLUB_NAV;
-  }
-  if (role === "coach") {
-    return CLUB_NAV.filter((item) => item.id !== "admins");
   }
   if (role === "member") {
     return MEMBER_NAV;
