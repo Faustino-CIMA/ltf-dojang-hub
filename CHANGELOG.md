@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Club admin from a member row:** LTF and club member lists can add a club admin from the three-dots menu, after Edit and before Delete. Someone with no login is asked to create a user account first. Someone who is already a club admin is shown as already on. A view-only desk, a coach, and anyone the server refuses do not gain the action.
 - **Passkey:** Adding a passkey just after sign-in is no longer treated as a stale visit. If the passkey prompt is cancelled or the browser cannot create one, the note says so. It does not ask you to sign in again.
 - **Desk recovery:** If the desk the screen is already using is refused and the sign-in is still valid, the screen opens a desk that is still open. A superuser opens Ops. If the sign-in is gone, the screen goes to sign-in with the usual note. Choosing a desk that is not open, on purpose, is still refused.
 - **Create user account:** The panel names each person before you confirm. The login is still created immediately, and a success message slides in. The file is saved only when you press Save CSV. Send invitation email sends the first-login link to people who have an email address.

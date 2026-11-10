@@ -52,6 +52,7 @@ class MemberSerializer(serializers.ModelSerializer):
     ltf_staff = serializers.SerializerMethodField()
     linked_user = serializers.SerializerMethodField()
     account_state = serializers.SerializerMethodField()
+    is_home_club_admin = serializers.SerializerMethodField()
     latest_weight_kg = serializers.SerializerMethodField()
     latest_weight_on = serializers.SerializerMethodField()
     latest_height_cm = serializers.SerializerMethodField()
@@ -90,6 +91,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "ltf_staff",
             "linked_user",
             "account_state",
+            "is_home_club_admin",
             "latest_weight_kg",
             "latest_weight_on",
             "latest_height_cm",
@@ -114,6 +116,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "ltf_staff",
             "linked_user",
             "account_state",
+            "is_home_club_admin",
             "latest_weight_kg",
             "latest_weight_on",
             "latest_height_cm",
@@ -284,6 +287,14 @@ class MemberSerializer(serializers.ModelSerializer):
         from .user_accounts import account_state_value
 
         return account_state_value(obj)
+
+    def get_is_home_club_admin(self, obj: Member):
+        annotated = getattr(obj, "is_home_club_admin", None)
+        if annotated is not None:
+            return bool(annotated)
+        if not obj.user_id or not obj.club_id:
+            return False
+        return obj.club.admins.filter(pk=obj.user_id).exists()
 
     def _measurements_visible(self, obj: Member) -> bool:
         clubs = self.context.get("measurement_club_ids") or set()
