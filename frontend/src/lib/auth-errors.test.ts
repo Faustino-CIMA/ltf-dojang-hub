@@ -19,6 +19,16 @@ describe("auth error copy", () => {
     expect(presentAuthError("desk_read_only", "en").tone).toBe("info");
   });
 
+  it("explains a license that stays because of an order without treating it as a failure", () => {
+    const shown = presentAuthError("license_in_use", "en");
+    expect(shown.tone).toBe("info");
+    expect(shown.text).toContain("Revoked");
+    expect(shown.text).not.toContain("license_in_use");
+    expect(presentAuthError("license_in_use", "fr").text).toContain("Révoquée");
+    expect(presentAuthError("license_in_use", "de").text).toContain("Widerrufen");
+    expect(presentAuthError("license_in_use", "lb").text).toContain("Réckgezunn");
+  });
+
   it("does not show the raw not-allowed sentence", () => {
     expect(presentAuthError("Not allowed.", "fr").text).toBe("Cette action n'est pas disponible.");
     window.sessionStorage.setItem("ltf_active_desk_level", "read_only");

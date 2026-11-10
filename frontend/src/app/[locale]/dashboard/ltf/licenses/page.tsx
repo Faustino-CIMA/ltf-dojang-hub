@@ -39,6 +39,7 @@ import { useListPage } from "@/components/ui/use-list-page";
 import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { AuthApiError } from "@/lib/auth-errors";
 import {
   Club,
   License,
@@ -434,18 +435,27 @@ export default function LtfAdminLicensesPage() {
   const confirmBatchLicenseDelete = async () => {
     let deleted = 0;
     let failed = 0;
+    let keptOnly = true;
+    let keptNotice: string | null = null;
     for (const license of batchLicenses) {
       try {
         await deleteLicense(license.id);
         deleted += 1;
-      } catch {
+      } catch (error) {
         failed += 1;
+        if (error instanceof AuthApiError && error.code === "license_in_use") {
+          keptNotice = error.message;
+        } else {
+          keptOnly = false;
+        }
       }
     }
     setBatchDeleteOpen(false);
     setBatchLicenses([]);
     setSelectedIds([]);
-    if (failed > 0) {
+    if (failed > 0 && deleted === 0 && keptOnly && keptNotice) {
+      setErrorMessage(keptNotice);
+    } else if (failed > 0) {
       setErrorMessage(t("batchDeleteLicensesResultLabel", { deleted, failed }));
     }
     await loadData();
