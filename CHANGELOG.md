@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Module fees:** A price charged per active member says so, with the year, on the billing cards and wherever that price is shown to LTF Finance or a club. A minimum that changes the bill is shown with it.
+- **Side panels:** Each edit and create panel has one Close button. Escape and the dimmed background still close it.
 - **Club desk:** A view-only club desk can read the admin list for the open club again. Appointing or removing an admin is still refused.
 - **License types:** A license type that is already used can be removed from new choices. Existing licenses, invoices, payments, and prices keep it and still show its name. A type that nothing uses is deleted as before.
 - **Licenses:** Deleting a license that is on an order or a print job no longer ends in a server error. The license, invoice, and payment stay, and the screen explains that Revoked is the status to use. A license with no such link can still be deleted.

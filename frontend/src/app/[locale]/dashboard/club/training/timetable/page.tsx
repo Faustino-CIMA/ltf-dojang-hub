@@ -356,9 +356,6 @@ export default function TrainingTimetablePage() {
             onClose={() => setClassOpen(false)}
             footer={
               <>
-                <Button type="button" variant="outline" onClick={() => setClassOpen(false)} disabled={isSaving}>
-                  {t("cancelEdit")}
-                </Button>
                 <Button type="submit" form={FORM_ID} variant="primary" disabled={isSaving}>
                   {isSaving ? t("saving") : editingClassId ? t("trainingUpdateRule") : t("trainingAddClass")}
                 </Button>

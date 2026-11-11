@@ -294,9 +294,6 @@ export function ModulePurchaseOverrides({
         onClose={() => setEditing(null)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setEditing(null)} disabled={busy}>
-              {t("modulePurchaseClose")}
-            </Button>
             <Button type="button" onClick={() => void saveEdit()} disabled={busy}>
               {busy ? t("modulePurchaseSaving") : t("modulePurchaseSave")}
             </Button>
@@ -345,9 +342,6 @@ export function ModulePurchaseOverrides({
         onClose={() => setConfirming(null)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setConfirming(null)} disabled={busy}>
-              {t("modulePurchaseClose")}
-            </Button>
             <Button
               type="button"
               variant={confirming?.action === "cancel" ? "destructive" : "primary"}

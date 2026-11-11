@@ -394,9 +394,6 @@ export function LedgerEntryPanel({
               {isIncome ? t("voidIncomeAction") : t("voidExpenseAction")}
             </Button>
           ) : null}
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            {common("deleteCancelButton")}
-          </Button>
           <Button type="submit" form={FORM_ID} disabled={isSaving || locked}>
             {isSaving ? t("savingAction") : mode === "edit" ? t("saveChanges") : title}
           </Button>

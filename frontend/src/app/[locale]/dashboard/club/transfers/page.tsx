@@ -746,16 +746,6 @@ export default function ClubTransfersPage() {
         }}
         footer={
           <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setPendingClub(null);
-                setPendingMember(null);
-              }}
-            >
-              {t("transferModalCancel")}
-            </Button>
             <Button type="button" onClick={() => void submitTransfer()} disabled={isSaving}>
               {t("transferSendRequest")}
             </Button>

@@ -229,24 +229,15 @@ export default function LtfAdminLicenseTypesPage() {
         title={editingType ? t("updateLicenseType") : t("createLicenseType")}
         description={t("licenseTypeFormSubtitle")}
         closeLabel={common("modalClose")}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setEditingType(null);
+          setIsFormOpen(false);
+          reset({ name: "" });
+        }}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditingType(null);
-                setIsFormOpen(false);
-                reset({ name: "" });
-              }}
-            >
-              {t("cancelEdit")}
-            </Button>
-            <Button type="submit" form="license-type-form" disabled={isSubmitting}>
-              {editingType ? t("updateLicenseType") : t("createLicenseType")}
-            </Button>
-          </>
+          <Button type="submit" form="license-type-form" disabled={isSubmitting}>
+            {editingType ? t("updateLicenseType") : t("createLicenseType")}
+          </Button>
         }
       >
         <form id="license-type-form" className="space-y-3" onSubmit={handleSubmit(onSubmit)}>

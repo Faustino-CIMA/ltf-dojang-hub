@@ -187,9 +187,6 @@ export function CommitteeTermPanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
-            {t("cancel")}
-          </Button>
           <Button
             type="button"
             variant={panel.mode === "delete" ? "destructive" : "primary"}

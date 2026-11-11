@@ -47,6 +47,7 @@ describe("Module fees panel", () => {
     renderPanel([]);
     fireEvent.click(screen.getByRole("button", { name: "moduleFeeAdd" }));
     expect(screen.getByRole("dialog", { name: "moduleFeeAddTitle" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "moduleFeeClose" })).toHaveLength(1);
     expect(screen.getByRole("button", { name: "moduleFeeModuleLabel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "moduleFeePricingLabel" })).toBeInTheDocument();
     expect(screen.getByLabelText("moduleFeeAmountLabel")).toBeInTheDocument();

@@ -339,9 +339,6 @@ export function ClubModuleOrderPanel({
         onClose={() => setReviewOpen(false)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setReviewOpen(false)} disabled={busy}>
-              {t("moduleOrderClose")}
-            </Button>
             <Button type="button" onClick={() => void confirm()} disabled={busy || charge.length === 0 || shared}>
               {busy ? t("moduleOrderSaving") : t("moduleOrderConfirm")}
             </Button>

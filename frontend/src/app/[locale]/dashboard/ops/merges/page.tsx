@@ -43,6 +43,7 @@ function personName(user: OpsUser) {
 
 export default function OpsMergesPage() {
   const t = useTranslations("Ops");
+  const common = useTranslations("Common");
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<OpsUser[]>([]);
   const [kept, setKept] = useState<OpsUser | null>(null);
@@ -192,7 +193,7 @@ export default function OpsMergesPage() {
       <SidePanel
         open={open}
         title={t("mergePreview")}
-        closeLabel={t("deskSave")}
+        closeLabel={common("modalClose")}
         onClose={() => setOpen(false)}
         footer={
           <Button type="button" disabled={busy} onClick={() => void confirm()}>

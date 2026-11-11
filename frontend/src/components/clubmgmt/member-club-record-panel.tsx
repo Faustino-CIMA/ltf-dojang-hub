@@ -1289,9 +1289,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         onClose={closeDraft}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
-              {t("cancel")}
-            </Button>
             <Button type="button" variant="primary" onClick={() => void saveEmailDraft()} disabled={savingDraft}>
               {savingDraft ? t("saving") : t("saveItem")}
             </Button>
@@ -1307,9 +1304,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         onClose={closeDraft}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
-              {t("cancel")}
-            </Button>
             <Button type="button" variant="primary" onClick={() => void savePhoneDraft()} disabled={savingDraft}>
               {savingDraft ? t("saving") : t("saveItem")}
             </Button>
@@ -1326,9 +1320,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         onClose={closeDraft}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
-              {t("cancel")}
-            </Button>
             <Button type="button" variant="primary" onClick={() => void saveAddressDraft()} disabled={savingDraft}>
               {savingDraft ? t("saving") : t("saveItem")}
             </Button>
@@ -1345,9 +1336,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         onClose={closeDraft}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={closeDraft} disabled={savingDraft}>
-              {t("cancel")}
-            </Button>
             <Button type="button" variant="primary" onClick={() => void saveContactDraft()} disabled={savingDraft}>
               {savingDraft ? t("saving") : t("saveItem")}
             </Button>

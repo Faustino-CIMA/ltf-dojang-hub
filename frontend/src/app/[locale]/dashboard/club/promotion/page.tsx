@@ -260,9 +260,6 @@ export default function PromotionPage() {
           onClose={() => setRuleOpen(false)}
           footer={
             <>
-              <Button type="button" variant="outline" onClick={() => setRuleOpen(false)}>
-                {t("cancelEdit")}
-              </Button>
               <Button type="submit" form={RULE_FORM_ID} variant="primary">
                 {editingRuleId ? t("trainingUpdateRule") : t("trainingSaveRule")}
               </Button>

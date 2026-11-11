@@ -44,6 +44,7 @@ const OFFICE_KEYS = {
 
 export default function OpsDesksPage() {
   const t = useTranslations("Ops");
+  const common = useTranslations("Common");
   const [offices, setOffices] = useState<OfficeRow[]>([]);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
@@ -233,7 +234,7 @@ export default function OpsDesksPage() {
         </div>
       )}
 
-      <SidePanel open={Boolean(editing)} title={editing ? officeLabel(editing.office) : ""} closeLabel={t("deskSave")} onClose={() => setEditing(null)}
+      <SidePanel open={Boolean(editing)} title={editing ? officeLabel(editing.office) : ""} closeLabel={common("modalClose")} onClose={() => setEditing(null)}
         footer={<Button type="button" onClick={() => void saveMap()}>{t("deskSave")}</Button>}
       >
         <div className="space-y-3">
@@ -257,7 +258,7 @@ export default function OpsDesksPage() {
         </div>
       </SidePanel>
 
-      <SidePanel open={grantOpen} title={t("deskAdd")} closeLabel={t("deskSave")} onClose={() => setGrantOpen(false)}
+      <SidePanel open={grantOpen} title={t("deskAdd")} closeLabel={common("modalClose")} onClose={() => setGrantOpen(false)}
         footer={<Button type="submit" form="desk-grant-form">{t("deskSave")}</Button>}
       >
         <form id="desk-grant-form" onSubmit={(event) => { event.preventDefault(); void saveGrant(); }}>
@@ -282,7 +283,7 @@ export default function OpsDesksPage() {
         </form>
       </SidePanel>
 
-      <SidePanel open={linkOpen} title={t("deskLinkTitle")} closeLabel={t("deskSave")} onClose={() => setLinkOpen(false)}
+      <SidePanel open={linkOpen} title={t("deskLinkTitle")} closeLabel={common("modalClose")} onClose={() => setLinkOpen(false)}
         footer={<Button type="submit" form="desk-link-form">{t("deskSave")}</Button>}
       >
         <form id="desk-link-form" onSubmit={(event) => { event.preventDefault(); void linkContact(); }}>

@@ -342,14 +342,9 @@ export function ModuleBundlesPanel({
         closeLabel={t("moduleFeeClose")}
         onClose={() => setEditor(null)}
         footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setEditor(null)} disabled={busy}>
-              {t("moduleFeeClose")}
-            </Button>
-            <Button type="button" onClick={() => void save()} disabled={busy}>
-              {busy ? t("moduleBundleSaving") : t("moduleBundleSave")}
-            </Button>
-          </>
+          <Button type="button" onClick={() => void save()} disabled={busy}>
+            {busy ? t("moduleBundleSaving") : t("moduleBundleSave")}
+          </Button>
         }
       >
         <div className="space-y-3">
@@ -526,14 +521,9 @@ export function ModuleBundlesPanel({
         closeLabel={t("moduleFeeClose")}
         onClose={() => setConfirmBundle(null)}
         footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setConfirmBundle(null)}>
-              {t("moduleFeeClose")}
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void confirmRemove()} disabled={busy}>
-              {confirmBundle?.has_invoices ? t("moduleBundleConfirmSwitchOff") : t("moduleBundleConfirmDelete")}
-            </Button>
-          </>
+          <Button type="button" variant="destructive" onClick={() => void confirmRemove()} disabled={busy}>
+            {confirmBundle?.has_invoices ? t("moduleBundleConfirmSwitchOff") : t("moduleBundleConfirmDelete")}
+          </Button>
         }
       >
         <p className="text-sm text-foreground">{confirmBundle?.name}</p>
@@ -549,22 +539,9 @@ export function ModuleBundlesPanel({
           setSettingsOpen(false);
         }}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setSettingsForm(null);
-                setSettingsOpen(false);
-              }}
-              disabled={busy}
-            >
-              {t("moduleFeeClose")}
-            </Button>
-            <Button type="button" onClick={() => void saveSettings()} disabled={busy || !displayedSettings}>
-              {busy ? t("moduleBundleSaving") : t("moduleBundleSave")}
-            </Button>
-          </>
+          <Button type="button" onClick={() => void saveSettings()} disabled={busy || !displayedSettings}>
+            {busy ? t("moduleBundleSaving") : t("moduleBundleSave")}
+          </Button>
         }
       >
         {displayedSettings ? (
