@@ -379,6 +379,16 @@ def _is_module_purchase_invoice(invoice: Invoice) -> bool:
     )
 
 
+def _is_federation_fee_invoice(invoice: Invoice) -> bool:
+    """Federation invoice from fee billing: a module fee or another club fee, with no license lines."""
+    order = invoice.order
+    if order.ledger != Order.Ledger.FEDERATION:
+        return False
+    if order.items.filter(license__isnull=False).exists():
+        return False
+    return order.items.filter(fee_type__isnull=False).exists()
+
+
 def _module_rows(items) -> list[dict]:
     """One row per order line. A bundle stays one line."""
     rows = []
@@ -476,7 +486,10 @@ def build_invoice_context(invoice: Invoice) -> dict:
             }
         delivery_label = delivery_word(doc_language, invoice.delivery_method)
     license_invoice = _is_ltf_license_invoice(invoice)
-    module_invoice = not license_invoice and _is_module_purchase_invoice(invoice)
+    # Fee billing uses the same letterhead and item table as a module purchase.
+    module_invoice = not license_invoice and (
+        _is_module_purchase_invoice(invoice) or _is_federation_fee_invoice(invoice)
+    )
     club_invoice = order.ledger == Order.Ledger.CLUB and not license_invoice and not module_invoice
     license_rows = _license_rows(items, license_fallback=license_word(doc_language)) if license_invoice else []
     module_rows = _module_rows(items) if module_invoice else []
