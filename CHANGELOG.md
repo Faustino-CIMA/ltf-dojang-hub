@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Module fees:** A module price can have an optional maximum, in euros. Empty means no cap. The cap applies to the line after the minimum. A per-member cap limits the line total. Bundles stay a flat price. Invoices already sent stay as they are. The next renewal uses the current cap.
+- **Fee invoices:** Invoices from LTF Finance fee billing use the same letterhead as the other federation invoices. Amounts, tax, invoice numbers, and payment stay as they are.
 - **Side panels:** Each edit and create panel has one Close button. Escape and the dimmed background still close it.
 - **Club desk:** A view-only club desk can read the admin list for the open club again. Appointing or removing an admin is still refused.
 - **License types:** A license type that is already used can be removed from new choices. Existing licenses, invoices, payments, and prices keep it and still show its name. A type that nothing uses is deleted as before.

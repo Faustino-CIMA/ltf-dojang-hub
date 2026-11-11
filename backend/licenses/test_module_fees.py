@@ -239,6 +239,108 @@ class ModuleFeeBillingTests(APITestCase):
         self.assertEqual(again.data["skipped"][0]["reason"], "already_billed")
         self.assertEqual(Invoice.objects.filter(club=self.club).count(), 1)
 
+    def test_fee_billing_invoice_uses_the_federation_letterhead(self):
+        import base64
+        from io import BytesIO
+
+        from django.template.loader import render_to_string
+        from pypdf import PdfReader
+
+        from licenses.pdf_utils import render_invoice_pdf
+        from licenses.tasks import send_invoice_email
+
+        self.club.email = "office@billed.example"
+        self.club.save(update_fields=["email"])
+        created = self._create_fee(initial_amount="100.00", initial_pricing_type="flat", initial_minimum_amount=None)
+        response = self._bill(created["id"])
+        self.assertEqual(response.data["invoice_count"], 1)
+        invoice = Invoice.objects.get(club=self.club)
+        self.assertEqual(invoice.tax_total, Decimal("0.00"))
+        self.assertEqual(invoice.total, Decimal("100.00"))
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["module_invoice"])
+        self.assertFalse(context["license_invoice"])
+        self.assertFalse(context["club_invoice"])
+        self.assertEqual(context["total_amount"], "100,00 €")
+        self.assertEqual(len(context["module_rows"]), 1)
+        self.assertEqual(context["module_rows"][0]["quantity"], 1)
+        self.assertEqual(context["module_rows"][0]["unit_price"], "100,00 €")
+        self.assertEqual(context["module_rows"][0]["line_total"], "100,00 €")
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("Luxembourg Taekwondo Federation", text)
+        self.assertIn("Subject:", text)
+        self.assertIn(invoice.invoice_number, text)
+        self.assertIn(f"Club management {self.year}", text)
+        self.assertIn("100,00 €", text)
+        self.assertNotIn("LTF Dojang Hub", text)
+        self.assertNotIn("License ID", text)
+        html = render_to_string(
+            "finance/invoice_email.html",
+            {
+                **context,
+                "copy": {
+                    "hello": "Hello",
+                    "ready": f"Invoice {invoice.invoice_number} is ready.",
+                    "total": f"Amount due: {context['total_amount']}",
+                    "pdf": "The PDF is attached.",
+                    "note": "",
+                    "thanks": "Thank you",
+                },
+            },
+        )
+        self.assertIn(invoice.invoice_number, html)
+        self.assertIn("100,00 €", html)
+        with patch("licenses.tasks.send_resend_email", return_value=(True, "")) as send:
+            send_invoice_email(invoice.id)
+        attachment = send.call_args.kwargs["attachments"][0]
+        mailed = "\n".join(
+            (page.extract_text() or "")
+            for page in PdfReader(BytesIO(base64.b64decode(attachment["content"]))).pages
+        )
+        self.assertIn("Luxembourg Taekwondo Federation", mailed)
+        self.assertIn(invoice.invoice_number, mailed)
+        self.assertIn("100,00 €", mailed)
+        self.assertNotIn("LTF Dojang Hub", mailed)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.total, Decimal("100.00"))
+        self.assertEqual(invoice.tax_total, Decimal("0.00"))
+        self.assertEqual(invoice.invoice_number, context["invoice"].invoice_number)
+
+    def test_catalog_club_fee_invoice_uses_the_same_letterhead(self):
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        from licenses.pdf_utils import render_invoice_pdf
+
+        created = self.client.post(
+            "/api/club-fee-types/",
+            {
+                "name": "Affiliation",
+                "cadence": "annual",
+                "initial_amount": "25.00",
+                "initial_effective_from": f"{self.year}-01-01",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        billed = self._bill(created.data["id"])
+        self.assertGreaterEqual(billed.data["invoice_count"], 1)
+        invoice = Invoice.objects.get(club=self.club, order__items__fee_type_id=created.data["id"])
+        self.assertEqual(invoice.total, Decimal("25.00"))
+        self.assertEqual(invoice.tax_total, Decimal("0.00"))
+        context = build_invoice_context(invoice)
+        self.assertTrue(context["module_invoice"])
+        self.assertEqual(context["module_rows"][0]["line_total"], "25,00 €")
+        pdf = render_invoice_pdf(invoice, base_url="http://localhost")
+        text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn("Luxembourg Taekwondo Federation", text)
+        self.assertIn("Affiliation", text)
+        self.assertIn(invoice.invoice_number, text)
+        self.assertIn("25,00 €", text)
+        self.assertNotIn("LTF Dojang Hub", text)
+
     def test_per_member_line_snapshots_the_count(self):
         self._licence("Anne", "Reding")
         self._licence("Jeff", "Lorang", status=License.Status.PENDING)
