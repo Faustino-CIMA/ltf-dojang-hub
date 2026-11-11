@@ -31,7 +31,7 @@ import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { apiRequest } from "@/lib/api";
 import { clubAdminGrantChoice, grantFailureKind } from "@/lib/club-admin-grant";
 import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
-import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
+import { applyRowRangeSelection, offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import {
   Member,
   MemberIssueFilter,
@@ -527,38 +527,15 @@ export default function ClubAdminMembersPage() {
       return;
     }
     const hasRangeModifier = Boolean(modifierState?.shiftKey);
-    setSelectedIds((prev) => {
-      const isSelected = prev.includes(id);
-      const next = new Set(prev);
-      const nextCheckedState = !isSelected;
-      let appliedRangeSelection = false;
-
-      if (hasRangeModifier && lastSelectedMemberIdRef.current !== null) {
-        const orderedIds = members.map((member) => member.id);
-        const anchorIndex = orderedIds.indexOf(lastSelectedMemberIdRef.current);
-        const targetIndex = orderedIds.indexOf(id);
-        if (anchorIndex !== -1 && targetIndex !== -1) {
-          const [from, to] =
-            anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
-          const rangeIds = orderedIds.slice(from, to + 1);
-          if (nextCheckedState) {
-            rangeIds.forEach((rowId) => next.add(rowId));
-          } else {
-            rangeIds.forEach((rowId) => next.delete(rowId));
-          }
-          appliedRangeSelection = true;
-        }
-      }
-
-      if (!appliedRangeSelection) {
-        if (isSelected) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-      }
-      return Array.from(next);
-    });
+    setSelectedIds((prev) =>
+      applyRowRangeSelection(
+        prev,
+        members.map((member) => member.id),
+        id,
+        lastSelectedMemberIdRef.current,
+        hasRangeModifier,
+      ),
+    );
     lastSelectedMemberIdRef.current = id;
   };
 

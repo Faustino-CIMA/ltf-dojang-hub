@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ban, Copy, IdCard, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -55,7 +55,7 @@ import { staffActionErrorMessage } from "@/lib/staff-action-error";
 import { clubAdminGrantChoice, grantFailureKind } from "@/lib/club-admin-grant";
 import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
 import { formatFullName } from "@/lib/person-name";
-import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
+import { applyRowRangeSelection, offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 
 function parseMemberIssue(value: string | null): MemberIssueFilter | null {
@@ -88,6 +88,8 @@ export default function LtfAdminMembersPage() {
   const [memberStatusFilter, setMemberStatusFilter] = useState<MemberStatusFilter>("all");
   const [accountFilter, setAccountFilter] = useState<"all" | AccountState>("all");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const lastSelectedMemberIdRef = useRef<number | null>(null);
+  const rowSelectModifierRef = useRef({ shiftKey: false });
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [accountPanel, setAccountPanel] = useState<{ intent: "create" | "copy" | "link"; ids: number[] } | null>(null);
   const [roster, setRoster] = useState<MemberRoster>("all");
@@ -261,6 +263,12 @@ export default function LtfAdminMembersPage() {
     }
   }, [canManageStaff, clubById, loadData, locale, t]);
   const visibleIds = useMemo(() => members.map((member) => member.id), [members]);
+  const toggleSelectRow = useCallback((id: number, shiftKey: boolean) => {
+    setSelectedIds((current) =>
+      applyRowRangeSelection(current, visibleIds, id, lastSelectedMemberIdRef.current, shiftKey),
+    );
+    lastSelectedMemberIdRef.current = id;
+  }, [visibleIds]);
   const headerCheck = visibleHeaderCheck(selectedIds, visibleIds);
   const otherPageCount = offPageSelectedCount(selectedIds, visibleIds);
   const accountLabel = (state: AccountState | undefined) => {
@@ -352,11 +360,10 @@ export default function LtfAdminMembersPage() {
                   <Checkbox
                     aria-label={common("selectRowLabel")}
                     checked={selectedIds.includes(row.id)}
-                    onCheckedChange={() =>
-                      setSelectedIds((current) =>
-                        current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id],
-                      )
-                    }
+                    onPointerDown={(event) => {
+                      rowSelectModifierRef.current = { shiftKey: event.shiftKey };
+                    }}
+                    onCheckedChange={() => toggleSelectRow(row.id, rowSelectModifierRef.current.shiftKey)}
                   />
                 </span>
               ),
@@ -540,7 +547,7 @@ export default function LtfAdminMembersPage() {
           ]
         : []),
     ],
-    [accountLabel, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, selectedIds, t, visibleIds]
+    [accountLabel, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, selectedIds, t, toggleSelectRow, visibleIds]
   );
 
   return (
@@ -704,7 +711,10 @@ export default function LtfAdminMembersPage() {
                     offPageCount={otherPageCount}
                     offPageLabel={t("selectedOnOtherPagesLabel", { count: otherPageCount })}
                     clearLabel={t("clearSelection")}
-                    onClear={() => setSelectedIds([])}
+                    onClear={() => {
+                      setSelectedIds([]);
+                      lastSelectedMemberIdRef.current = null;
+                    }}
                   />
                 ) : null}
                 <ActionMenu
@@ -756,6 +766,7 @@ export default function LtfAdminMembersPage() {
         onClose={() => setAccountPanel(null)}
         onDone={() => {
           setSelectedIds([]);
+          lastSelectedMemberIdRef.current = null;
           void loadData();
         }}
       />

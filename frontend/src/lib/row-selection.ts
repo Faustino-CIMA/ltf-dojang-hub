@@ -39,3 +39,42 @@ export function pruneSelection(selected: readonly number[], allowedIds: readonly
   const allowed = new Set(allowedIds);
   return selected.filter((id) => allowed.has(id));
 }
+
+/**
+ * Toggle one row, or the inclusive range from the last clicked row to this one.
+ * `orderedIds` is the current page in the order the table shows it.
+ * A shift-click that turns the current row on selects the range. One that turns it off clears the range.
+ * Rows outside this page stay as they are.
+ */
+export function applyRowRangeSelection(
+  selected: readonly number[],
+  orderedIds: readonly number[],
+  id: number,
+  anchorId: number | null,
+  shiftKey: boolean,
+): number[] {
+  const isSelected = selected.includes(id);
+  const turnOn = !isSelected;
+  if (shiftKey && anchorId !== null) {
+    const anchorIndex = orderedIds.indexOf(anchorId);
+    const targetIndex = orderedIds.indexOf(id);
+    if (anchorIndex !== -1 && targetIndex !== -1) {
+      const [from, to] = anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+      const rangeIds = orderedIds.slice(from, to + 1);
+      const next = new Set(selected);
+      if (turnOn) {
+        rangeIds.forEach((rowId) => next.add(rowId));
+      } else {
+        rangeIds.forEach((rowId) => next.delete(rowId));
+      }
+      return Array.from(next);
+    }
+  }
+  const next = new Set(selected);
+  if (isSelected) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  return Array.from(next);
+}
