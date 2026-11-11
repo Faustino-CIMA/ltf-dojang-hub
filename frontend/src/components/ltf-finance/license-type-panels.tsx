@@ -286,14 +286,9 @@ export function LicenseTypeFormPanel({
       closeLabel={common("modalClose")}
       onClose={onClose}
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            {common("deleteCancelButton")}
-          </Button>
-          <Button type="submit" form={TYPE_FORM_ID} disabled={isSaving}>
-            {isSaving ? t("savingAction") : mode === "edit" ? t("saveChanges") : t("createLicenseType")}
-          </Button>
-        </>
+        <Button type="submit" form={TYPE_FORM_ID} disabled={isSaving}>
+          {isSaving ? t("savingAction") : mode === "edit" ? t("saveChanges") : t("createLicenseType")}
+        </Button>
       }
     >
       <form id={TYPE_FORM_ID} className="space-y-3" onSubmit={handleSubmit}>

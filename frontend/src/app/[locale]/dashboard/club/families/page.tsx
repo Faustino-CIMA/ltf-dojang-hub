@@ -210,9 +210,6 @@ export default function ClubFamiliesPage() {
         onClose={() => setCreateOpen(false)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={isSaving}>
-              {t("cancel")}
-            </Button>
             <Button type="submit" form="family-create-form" variant="primary" disabled={isSaving}>
               {t("createFamily")}
             </Button>

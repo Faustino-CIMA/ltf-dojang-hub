@@ -323,14 +323,9 @@ function GradeInlineForm({
       closeLabel={cancelLabel ?? "Close"}
       onClose={onCancel}
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            {cancelLabel}
-          </Button>
-          <Button type="button" disabled={isSubmitting} onClick={onSubmit}>
-            {promoteSubmitLabel}
-          </Button>
-        </>
+        <Button type="button" disabled={isSubmitting} onClick={onSubmit}>
+          {promoteSubmitLabel}
+        </Button>
       }
     >
       <div className="grid gap-4 md:grid-cols-2">

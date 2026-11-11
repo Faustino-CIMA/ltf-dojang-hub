@@ -88,6 +88,7 @@ export function TeamCompetitionPanel({
   onSaved: (team: ClubTeam) => void;
 }) {
   const t = useTranslations("ClubAdmin");
+  const common = useTranslations("Common");
   const kyorugi = team.discipline === "kyorugi";
   const [competitionOn, setCompetitionOn] = useState(team.competition_on ?? "");
   const [competitionName, setCompetitionName] = useState(team.competition_name ?? "");
@@ -261,7 +262,7 @@ export function TeamCompetitionPanel({
                   {t("teamCompetitionRemove")}
                 </Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmRemove(false)}>
-                  {t("teamsClose")}
+                  {common("deleteCancelButton")}
                 </Button>
               </div>
             </div>

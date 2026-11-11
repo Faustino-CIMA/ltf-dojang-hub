@@ -153,9 +153,6 @@ export function PaymentRecordPanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            {common("deleteCancelButton")}
-          </Button>
           <Button type="submit" form={FORM_ID} disabled={isSaving}>
             {isSaving ? t("savingAction") : t("recordPaymentButton")}
           </Button>

@@ -238,9 +238,6 @@ export function TrainingVenuesSection({
         onClose={() => setPanelOpen(false)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setPanelOpen(false)} disabled={isSaving}>
-              {t("cancel")}
-            </Button>
             <Button type="submit" form="training-venue-form" disabled={isSaving}>
               {isSaving ? t("saving") : t("save")}
             </Button>

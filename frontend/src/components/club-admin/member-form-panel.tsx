@@ -282,9 +282,6 @@ export function MemberFormPanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-            {t("cancelEdit")}
-          </Button>
           <Button type="submit" form={formId} disabled={isSubmitting}>
             {editing ? t("updateMember") : t("createMember")}
           </Button>

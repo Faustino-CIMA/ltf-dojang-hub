@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { RequiredForm } from "@/components/ui/label";
@@ -26,12 +26,27 @@ export function SidePanel({
   /** Two-column forms. The default panel stays max-w-md. */
   wide?: boolean;
 }) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) {
     return null;
   }
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <button type="button" className="absolute inset-0 bg-foreground/40" aria-label={closeLabel} onClick={onClose} />
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} />
       <aside
         role="dialog"
         aria-modal="true"

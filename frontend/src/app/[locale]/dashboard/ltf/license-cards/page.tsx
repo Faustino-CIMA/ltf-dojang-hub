@@ -525,17 +525,6 @@ export default function LtfAdminLicenseCardsPage() {
           <>
             <Button
               type="button"
-              variant="outline"
-              disabled={isCreatingTemplate || isCloningTemplate}
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                setCloneSourceTemplate(null);
-              }}
-            >
-              {t("cancelEdit")}
-            </Button>
-            <Button
-              type="button"
               disabled={isCreatingTemplate || isCloningTemplate}
               onClick={() => void (cloneSourceTemplate ? submitCloneTemplate() : submitCreateTemplate())}
             >
@@ -610,13 +599,6 @@ export default function LtfAdminLicenseCardsPage() {
               {isDeletingTemplate
                 ? t("licenseCardsDeletingTemplateAction")
                 : t("licenseCardsDeleteTemplateAction")}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={isDeletingTemplate}
-              onClick={closeDeleteTemplateModal}
-            >
-              {t("cancelEdit")}
             </Button>
           </div>
         </div>

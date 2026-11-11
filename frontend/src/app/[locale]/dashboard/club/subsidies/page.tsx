@@ -896,9 +896,6 @@ export default function ClubSubsidiesPage() {
               onClose={resetCaseForm}
               footer={
                 <>
-                  <Button type="button" variant="outline" onClick={resetCaseForm}>
-                    {t("subsidiesCancelEdit")}
-                  </Button>
                   <Button type="submit" form={CASE_FORM_ID} variant="primary">
                     {editingId ? t("subsidiesSaveCase") : t("subsidiesCreateCase")}
                   </Button>

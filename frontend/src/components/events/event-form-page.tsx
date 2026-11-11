@@ -223,9 +223,6 @@ export function EventFormPanel({
       footer={
         readOnly ? null : (
           <>
-            <Button type="button" variant="outline" onClick={onClose} disabled={form.formState.isSubmitting}>
-              {t("calendarBack")}
-            </Button>
             {eventId && onRequestDelete ? (
               <Button
                 type="button"

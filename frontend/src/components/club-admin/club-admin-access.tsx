@@ -295,9 +295,6 @@ export function ClubAdminAccessPanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose}>
-            {closeLabel}
-          </Button>
           <Button type="button" variant="outline" disabled={!canCopy} onClick={() => submit("copy")}>
             {confirmChange === "copy" ? copy.changeConfirmCopy : copyLabel}
           </Button>
