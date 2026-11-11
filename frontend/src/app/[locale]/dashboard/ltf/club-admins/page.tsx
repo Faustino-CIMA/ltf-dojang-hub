@@ -1154,9 +1154,6 @@ export default function ClubAdminsBoardPage() {
         onClose={resetConnect}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={resetConnect}>
-              {t("emailCancelAction")}
-            </Button>
             <Button type="button" onClick={confirmEmailAssign} disabled={isSaving}>
               {t("emailConfirmAction")}
             </Button>
@@ -1199,9 +1196,6 @@ export default function ClubAdminsBoardPage() {
           <Button type="button" onClick={confirmCrossClub} disabled={isSaving}>
             {t("crossClubConfirmAction")}
           </Button>
-          <Button type="button" variant="outline" onClick={resetConnect}>
-            {t("emailCancelAction")}
-          </Button>
         </div>
       </Modal>
 
@@ -1227,9 +1221,6 @@ export default function ClubAdminsBoardPage() {
       <Modal isOpen={downloadOpen} onClose={() => setDownloadOpen(false)} title={access.downloadTitle}>
         <p className="text-sm text-foreground">{access.downloadWarning}</p>
         <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => setDownloadOpen(false)}>
-            {t("emailCancelAction")}
-          </Button>
           <Button type="button" onClick={() => void downloadLinks()} disabled={isSaving}>
             {access.downloadAction}
           </Button>

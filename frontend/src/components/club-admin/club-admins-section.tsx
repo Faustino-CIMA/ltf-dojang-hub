@@ -364,11 +364,6 @@ export function ClubAdminsSection({ clubId, locale }: { clubId: number; locale: 
         title={t("adminsBoardTitle")}
         closeLabel={common("modalClose")}
         onClose={closeAdd}
-        footer={
-          <Button type="button" variant="outline" onClick={closeAdd}>
-            {common("modalClose")}
-          </Button>
-        }
       >
         <div className="space-y-4">
           <div className="flex items-center gap-1.5">
@@ -439,21 +434,9 @@ export function ClubAdminsSection({ clubId, locale }: { clubId: number; locale: 
           setPendingMember(null);
         }}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowEmailModal(false);
-                setPendingMember(null);
-              }}
-            >
-              {common("deleteCancelButton")}
-            </Button>
-            <Button type="button" variant="primary" onClick={confirmEmail} disabled={isSaving}>
-              {t("adminsAssignAction")}
-            </Button>
-          </>
+          <Button type="button" variant="primary" onClick={confirmEmail} disabled={isSaving}>
+            {t("adminsAssignAction")}
+          </Button>
         }
       >
         <div className="space-y-2">

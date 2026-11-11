@@ -76,14 +76,9 @@ function ClubFeeFormBody({
       closeLabel={common("modalClose")}
       onClose={onClose}
       footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            {common("deleteCancelButton")}
-          </Button>
-          <Button type="button" onClick={() => void save()} disabled={saving}>
-            {saving ? t("savingAction") : fee ? t("clubFeeSaveAction") : t("clubFeeCreateAction")}
-          </Button>
-        </>
+        <Button type="button" onClick={() => void save()} disabled={saving}>
+          {saving ? t("savingAction") : fee ? t("clubFeeSaveAction") : t("clubFeeCreateAction")}
+        </Button>
       }
     >
       <div className="space-y-3">

@@ -271,14 +271,9 @@ export function ModuleFeesPanel({
         closeLabel={t("moduleFeeClose")}
         onClose={() => setEditor(null)}
         footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setEditor(null)}>
-              {t("moduleFeeClose")}
-            </Button>
-            <Button type="button" onClick={() => void save()} disabled={busy}>
-              {busy ? t("moduleFeeSaving") : t("moduleFeeSave")}
-            </Button>
-          </>
+          <Button type="button" onClick={() => void save()} disabled={busy}>
+            {busy ? t("moduleFeeSaving") : t("moduleFeeSave")}
+          </Button>
         }
       >
         <div className="space-y-3">
@@ -407,14 +402,9 @@ export function ModuleFeesPanel({
         closeLabel={t("moduleFeeClose")}
         onClose={() => setConfirmFee(null)}
         footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setConfirmFee(null)}>
-              {t("moduleFeeClose")}
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void confirmRemove()} disabled={busy}>
-              {confirmFee?.has_invoices ? t("moduleFeeConfirmSwitchOff") : t("moduleFeeConfirmDelete")}
-            </Button>
-          </>
+          <Button type="button" variant="destructive" onClick={() => void confirmRemove()} disabled={busy}>
+            {confirmFee?.has_invoices ? t("moduleFeeConfirmSwitchOff") : t("moduleFeeConfirmDelete")}
+          </Button>
         }
       >
         <p className="text-sm text-foreground">

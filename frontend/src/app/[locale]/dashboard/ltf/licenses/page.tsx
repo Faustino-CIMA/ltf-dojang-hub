@@ -695,30 +695,21 @@ export default function LtfAdminLicensesPage() {
         title={editingLicense ? t("updateLicense") : t("createLicense")}
         description={t("licenseFormSubtitle")}
         closeLabel={common("modalClose")}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setEditingLicense(null);
+          setIsFormOpen(false);
+          reset({
+            club: watch("club"),
+            member: "",
+            license_type: watch("license_type"),
+            year: new Date().getFullYear().toString(),
+            status: "pending",
+          });
+        }}
         footer={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditingLicense(null);
-                setIsFormOpen(false);
-                reset({
-                  club: watch("club"),
-                  member: "",
-                  license_type: watch("license_type"),
-                  year: new Date().getFullYear().toString(),
-                  status: "pending",
-                });
-              }}
-            >
-              {t("cancelEdit")}
-            </Button>
-            <Button type="submit" form="ltf-license-form" disabled={isSubmitting}>
-              {editingLicense ? t("updateLicense") : t("createLicense")}
-            </Button>
-          </>
+          <Button type="submit" form="ltf-license-form" disabled={isSubmitting}>
+            {editingLicense ? t("updateLicense") : t("createLicense")}
+          </Button>
         }
       >
         <form id="ltf-license-form" className="space-y-3" onSubmit={handleSubmit(onSubmit)}>

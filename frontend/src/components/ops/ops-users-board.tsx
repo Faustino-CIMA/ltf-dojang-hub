@@ -323,9 +323,6 @@ export function OpsUsersBoard({
         onClose={() => setPendingDelete(null)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setPendingDelete(null)} disabled={busy}>
-              {common("deleteCancelButton")}
-            </Button>
             <Button type="button" variant="destructive" onClick={() => void confirmDelete()} disabled={busy}>
               {t("deleteUser")}
             </Button>
@@ -346,9 +343,6 @@ export function OpsUsersBoard({
         onClose={closeLinks}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={closeLinks} disabled={busy}>
-              {common("deleteCancelButton")}
-            </Button>
             {createCount > 0 ? (
               <>
                 <Button type="button" variant="outline" onClick={() => void download("pdf")} disabled={busy}>
