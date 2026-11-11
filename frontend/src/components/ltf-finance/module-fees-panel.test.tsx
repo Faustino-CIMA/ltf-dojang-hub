@@ -115,6 +115,18 @@ describe("Module fees panel", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it("says a per-member price is per active member for the year", () => {
+    renderPanel([
+      fee({
+        current_amount: "2.00",
+        current_pricing_type: "per_active_member",
+        current_minimum_amount: "20.00",
+      }),
+    ]);
+    expect(screen.getByText("moduleFeePricePerMemberYear")).toBeInTheDocument();
+    expect(screen.getByText("20.00")).toBeInTheDocument();
+  });
+
   it("hints when a flat minimum can never apply and hides it in the table", () => {
     renderPanel([
       fee({

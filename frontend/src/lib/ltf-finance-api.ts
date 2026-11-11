@@ -969,6 +969,7 @@ export type ModuleOrderComparisonLine = {
   name: string;
   kind: "flat" | "per_member" | "missing";
   amount: string | null;
+  unit_amount?: string | null;
   minimum_amount?: string | null;
   maximum_amount?: string | null;
 };

@@ -77,6 +77,7 @@ describe("Club profile module prices", () => {
       screen.getByText("modulePricesCalculation:48|€2.00|€96.00 modulePricesMinimumLine:€150.00|€150.00")
     ).toBeInTheDocument();
     expect(screen.getByText("modulePricesFlat:€40.00")).toBeInTheDocument();
+    expect(screen.getByText("moduleFeePricePerMemberYear:2.00|EUR")).toBeInTheDocument();
     expect(screen.getByText("150.00")).toBeInTheDocument();
     expect(screen.getByText("moduleFeeMaximumShown:300.00|EUR")).toBeInTheDocument();
     expect(screen.queryByText("5.00")).not.toBeInTheDocument();

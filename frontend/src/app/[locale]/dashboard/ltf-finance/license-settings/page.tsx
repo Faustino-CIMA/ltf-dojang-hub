@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import type { TableSort } from "@/lib/table-sort";
 import { ModulePriceBounds } from "@/components/finance/module-price-bounds";
+import { ModulePriceText } from "@/components/finance/module-price-text";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1257,7 +1258,14 @@ export default function LtfFinanceLicenseSettingsPage() {
             </div>
 
             <div className="mt-6">
-              <p className="text-sm font-medium text-foreground">{t("clubFeeBillingFeesLabel")}</p>
+              <p className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
+                {t("clubFeeBillingFeesLabel")}
+                {activeFees.some((fee) => fee.current_pricing_type === "per_active_member") ? (
+                  <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("moduleFeePricingPerMember") })}>
+                    {t("moduleFeePerMemberHint")}
+                  </InfoHint>
+                ) : null}
+              </p>
               {activeFees.length === 0 ? (
                 <p className="mt-3 text-sm text-muted">{t("clubFeeEmptySubtitle")}</p>
               ) : (
@@ -1287,16 +1295,32 @@ export default function LtfFinanceLicenseSettingsPage() {
                           ) : null}
                         </div>
                         <p className="mt-2 text-lg font-semibold text-foreground">
-                          {hasAmount
-                            ? `${fee.current_amount} ${fee.current_currency ?? "EUR"}`
-                            : t("clubFeeNoAmountLabel")}
+                          {hasAmount ? (
+                            fee.current_pricing_type === "per_active_member" ? (
+                              <ModulePriceText
+                                amount={fee.current_amount ?? ""}
+                                currency={fee.current_currency}
+                                pricingType={fee.current_pricing_type}
+                                minimumAmount={fee.current_minimum_amount}
+                                showMinimum
+                              />
+                            ) : (
+                              `${fee.current_amount} ${fee.current_currency ?? "EUR"}`
+                            )
+                          ) : (
+                            t("clubFeeNoAmountLabel")
+                          )}
                         </p>
-                        <p className="mt-1 text-xs text-muted">{cadenceLabel(fee.cadence)}</p>
+                        {fee.current_pricing_type === "per_active_member" ? null : (
+                          <p className="mt-1 text-xs text-muted">{cadenceLabel(fee.cadence)}</p>
+                        )}
                         <ModulePriceBounds
                           pricingType={fee.current_pricing_type}
                           amount={fee.current_amount}
                           currency={fee.current_currency}
-                          minimumAmount={fee.current_minimum_amount}
+                          minimumAmount={
+                            fee.current_pricing_type === "per_active_member" ? null : fee.current_minimum_amount
+                          }
                           maximumAmount={fee.current_maximum_amount}
                         />
                       </button>

@@ -180,6 +180,7 @@ def _comparison(module_ids: list[str], fees: dict, count: int, bundle_amount: De
                 "name": module_label(module_id),
                 "kind": "per_member" if per_member else "flat",
                 "amount": _money(quoted["charged_amount"]),
+                "unit_amount": _money(price.amount),
                 "minimum_amount": (
                     f"{_money(price.minimum_amount)}" if price.minimum_amount is not None else None
                 ),
