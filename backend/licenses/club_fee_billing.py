@@ -123,6 +123,7 @@ class PlannedLine:
     charged_amount: Decimal
     active_member_count: int | None = None
     minimum_applied: bool = False
+    maximum_applied: bool = False
 
 
 def _plan_module_line(fee_type: ClubFeeType, club: Club, price: ClubFeePrice, period_year: int):
@@ -136,6 +137,7 @@ def _plan_module_line(fee_type: ClubFeeType, club: Club, price: ClubFeePrice, pe
         pricing_type=price.pricing_type,
         minimum_amount=price.minimum_amount,
         active_members=count,
+        maximum_amount=price.maximum_amount,
     )
     if quoted["charged_amount"] <= 0:
         return None
@@ -154,11 +156,13 @@ def _plan_module_line(fee_type: ClubFeeType, club: Club, price: ClubFeePrice, pe
             amount=price.amount,
             active_members=count if per_member else None,
             minimum_applied=quoted["minimum_applied"],
+            maximum_applied=quoted["maximum_applied"],
         ),
         price_snapshot=price.amount,
         charged_amount=quoted["charged_amount"],
         active_member_count=quoted["active_member_count"],
         minimum_applied=quoted["minimum_applied"],
+        maximum_applied=quoted["maximum_applied"],
     )
 
 
@@ -340,6 +344,7 @@ def bill_club_fees(
                                 quantity=line.quantity,
                                 active_member_count=line.active_member_count,
                                 minimum_applied=line.minimum_applied,
+                                maximum_applied=line.maximum_applied,
                                 charged_amount=line.charged_amount,
                             )
                             for line in items

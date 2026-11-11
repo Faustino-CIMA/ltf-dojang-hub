@@ -21,6 +21,7 @@ import {
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import type { TableSort } from "@/lib/table-sort";
+import { ModulePriceBounds } from "@/components/finance/module-price-bounds";
 import { ModulePriceText } from "@/components/finance/module-price-text";
 import { LtfFinanceLayout } from "@/components/ltf-finance/ltf-finance-layout";
 import { Button } from "@/components/ui/button";
@@ -1067,6 +1068,7 @@ export default function LtfFinanceLicenseSettingsPage() {
               initial_effective_from: draft.effectiveFrom || undefined,
               initial_pricing_type: draft.pricingType,
               initial_minimum_amount: draft.minimum.trim() ? draft.minimum.trim() : null,
+              initial_maximum_amount: draft.maximum.trim() ? draft.maximum.trim() : null,
             });
             await loadData();
           }}
@@ -1081,6 +1083,7 @@ export default function LtfFinanceLicenseSettingsPage() {
               effective_from: draft.effectiveFrom || undefined,
               pricing_type: draft.pricingType,
               minimum_amount: draft.minimum.trim() ? draft.minimum.trim() : null,
+              maximum_amount: draft.maximum.trim() ? draft.maximum.trim() : null,
             });
             await loadData();
           }}
@@ -1311,6 +1314,15 @@ export default function LtfFinanceLicenseSettingsPage() {
                         {fee.current_pricing_type === "per_active_member" ? null : (
                           <p className="mt-1 text-xs text-muted">{cadenceLabel(fee.cadence)}</p>
                         )}
+                        <ModulePriceBounds
+                          pricingType={fee.current_pricing_type}
+                          amount={fee.current_amount}
+                          currency={fee.current_currency}
+                          minimumAmount={
+                            fee.current_pricing_type === "per_active_member" ? null : fee.current_minimum_amount
+                          }
+                          maximumAmount={fee.current_maximum_amount}
+                        />
                       </button>
                     );
                   })}

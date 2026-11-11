@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { ModuleFeesPanel } from "@/components/ltf-finance/module-fees-panel";
 import type { ClubFeeType } from "@/lib/ltf-finance-api";
@@ -63,6 +63,56 @@ describe("Module fees panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "moduleFeeRowActions" }));
     const items = screen.getAllByRole("menuitem");
     expect(items.map((item) => item.textContent)).toEqual(["moduleFeeEdit", "moduleFeeDelete"]);
+  });
+
+  it("keeps the maximum optional and refuses one below the minimum", () => {
+    const onSave = jest.fn();
+    render(
+      <ModuleFeesPanel
+        fees={[
+          fee({
+            current_amount: "10.00",
+            current_pricing_type: "per_active_member",
+            current_minimum_amount: "100.00",
+            current_maximum_amount: "300.00",
+          }),
+        ]}
+        prices={[
+          {
+            id: 1,
+            fee_type: 7,
+            amount: "10.00",
+            pricing_type: "per_active_member",
+            minimum_amount: "100.00",
+            maximum_amount: "300.00",
+            currency: "EUR",
+            effective_from: "2026-01-01",
+            created_by: null,
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        ]}
+        onCreate={jest.fn()}
+        onSave={onSave}
+        onRemove={jest.fn()}
+        onNotice={jest.fn()}
+      />,
+    );
+    expect(screen.getAllByText("moduleFeeMaximumShown").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "moduleFeeRowActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "moduleFeeEdit" }));
+    const panel = screen.getByRole("dialog", { name: "moduleFeeEditTitle" });
+    const visibleClose = within(panel)
+      .getAllByRole("button", { name: "moduleFeeClose" })
+      .filter((button) => button.textContent === "moduleFeeClose");
+    expect(visibleClose).toHaveLength(1);
+    expect(screen.getByLabelText("moduleFeeMaximumLabel")).not.toBeRequired();
+    expect(screen.getByRole("button", { name: "aboutTitle" })).toBeInTheDocument();
+    expect(panel).toHaveTextContent("moduleFeeMaximumShown");
+    fireEvent.change(screen.getByLabelText("moduleFeeAmountLabel"), { target: { value: "10.00" } });
+    fireEvent.change(screen.getByLabelText("moduleFeeMaximumLabel"), { target: { value: "40" } });
+    fireEvent.click(screen.getByRole("button", { name: "moduleFeeSave" }));
+    expect(screen.getByText("moduleFeeMaximumBelowMinimum")).toHaveClass("text-destructive");
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("says a per-member price is per active member for the year", () => {

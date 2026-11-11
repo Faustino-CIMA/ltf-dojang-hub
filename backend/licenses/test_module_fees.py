@@ -128,6 +128,30 @@ class ActiveMemberCountTests(APITestCase):
         )
         self.assertEqual(above_minimum["charged_amount"], Decimal("96.00"))
         self.assertFalse(above_minimum["minimum_applied"])
+        self.assertFalse(above_minimum["maximum_applied"])
+
+        capped = quote_price(
+            amount=Decimal("10.00"),
+            pricing_type=ClubFeePrice.PricingType.PER_ACTIVE_MEMBER,
+            minimum_amount=Decimal("50.00"),
+            maximum_amount=Decimal("300.00"),
+            active_members=40,
+        )
+        self.assertEqual(capped["calculated_amount"], Decimal("400.00"))
+        self.assertEqual(capped["charged_amount"], Decimal("300.00"))
+        self.assertFalse(capped["minimum_applied"])
+        self.assertTrue(capped["maximum_applied"])
+
+        floor_then_open_cap = quote_price(
+            amount=Decimal("2.00"),
+            pricing_type=ClubFeePrice.PricingType.PER_ACTIVE_MEMBER,
+            minimum_amount=Decimal("50.00"),
+            maximum_amount=Decimal("300.00"),
+            active_members=1,
+        )
+        self.assertEqual(floor_then_open_cap["charged_amount"], Decimal("50.00"))
+        self.assertTrue(floor_then_open_cap["minimum_applied"])
+        self.assertFalse(floor_then_open_cap["maximum_applied"])
 
 
 class ModuleFeeBillingTests(APITestCase):
@@ -503,3 +527,117 @@ class ModuleFeeBillingTests(APITestCase):
 
         direct = module_fee_quote(self.club, as_of=date(self.year, 6, 1), year=self.year)
         self.assertEqual(direct["modules"][0]["module_id"], CLUB_MANAGEMENT_MODULE_ID)
+
+    def test_billing_caps_the_line_total_after_the_minimum(self):
+        self._licence("Anne", "Reding")
+        self._licence("Jeff", "Lorang", status=License.Status.PENDING)
+        created = self._create_fee(initial_amount="10.00", initial_maximum_amount="12.00")
+        response = self._bill(created["id"])
+        self.assertEqual(response.data["invoice_count"], 1)
+        item = Invoice.objects.get(club=self.club).order.items.get()
+        self.assertEqual(item.price_snapshot, Decimal("10.00"))
+        self.assertEqual(item.charged_amount, Decimal("12.00"))
+        self.assertTrue(item.maximum_applied)
+        self.assertFalse(item.minimum_applied)
+        self.assertIn("Maximum fee applied", item.description)
+
+    def test_maximum_below_the_minimum_is_refused(self):
+        created = self.client.post(
+            "/api/club-fee-types/",
+            {
+                "module_id": CLUB_MANAGEMENT_MODULE_ID,
+                "initial_amount": "10.00",
+                "initial_pricing_type": "per_active_member",
+                "initial_minimum_amount": "100.00",
+                "initial_maximum_amount": "40.00",
+                "initial_effective_from": f"{self.year}-01-01",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_400_BAD_REQUEST, created.data)
+        self.assertIn("initial_maximum_amount", created.data)
+        saved = self._create_fee(initial_amount="10.00", initial_minimum_amount="20.00")
+        price = self.client.post(
+            "/api/club-fee-prices/",
+            {
+                "fee_type": saved["id"],
+                "amount": "10.00",
+                "pricing_type": "per_active_member",
+                "minimum_amount": "20.00",
+                "maximum_amount": "5.00",
+                "effective_from": f"{self.year}-06-01",
+            },
+            format="json",
+        )
+        self.assertEqual(price.status_code, status.HTTP_400_BAD_REQUEST, price.data)
+        self.assertIn("maximum_amount", price.data)
+        plain = self.client.post(
+            "/api/club-fee-types/",
+            {
+                "name": "Affiliation",
+                "cadence": "annual",
+                "initial_amount": "25.00",
+                "initial_maximum_amount": "10.00",
+                "initial_effective_from": f"{self.year}-01-01",
+            },
+            format="json",
+        )
+        self.assertEqual(plain.status_code, status.HTTP_400_BAD_REQUEST, plain.data)
+
+    def test_an_issued_invoice_stays_and_a_renewal_uses_the_new_maximum(self):
+        from .models import ModuleBundle, ModuleBundlePrice, ModulePurchase
+        from .module_orders import build_renewal_line
+
+        created = self._create_fee(initial_amount="100.00", initial_pricing_type="flat", initial_minimum_amount=None)
+        billed = self._bill(created["id"])
+        self.assertEqual(billed.data["invoice_count"], 1)
+        invoice = Invoice.objects.get(club=self.club)
+        item = invoice.order.items.get()
+        self.assertEqual(invoice.total, Decimal("100.00"))
+        later = self.client.post(
+            "/api/club-fee-prices/",
+            {
+                "fee_type": created["id"],
+                "amount": "100.00",
+                "pricing_type": "flat",
+                "maximum_amount": "40.00",
+                "effective_from": str(timezone.localdate()),
+            },
+            format="json",
+        )
+        self.assertEqual(later.status_code, status.HTTP_201_CREATED, later.data)
+        invoice.refresh_from_db()
+        item.refresh_from_db()
+        self.assertEqual(invoice.total, Decimal("100.00"))
+        self.assertEqual(item.charged_amount, Decimal("100.00"))
+        self.assertFalse(item.maximum_applied)
+        quoted = module_fee_quote(self.club)
+        row = next(module for module in quoted["modules"] if module["module_id"] == CLUB_MANAGEMENT_MODULE_ID)
+        self.assertEqual(row["maximum_amount"], "40.00")
+        self.assertEqual(row["estimated_amount"], "40.00")
+        self.assertTrue(row["maximum_applied"])
+        purchase = ModulePurchase.objects.create(
+            club=self.club,
+            fee_type_id=created["id"],
+            module_ids=[CLUB_MANAGEMENT_MODULE_ID],
+            description="Club management",
+            price_snapshot=Decimal("100.00"),
+            status=ModulePurchase.Status.ACTIVE,
+        )
+        renewal = build_renewal_line(purchase, timezone.localdate())
+        self.assertEqual(renewal["charged_amount"], Decimal("40.00"))
+        self.assertTrue(renewal["maximum_applied"])
+        bundle = ModuleBundle.objects.create(name="Cap pack", code="cap-pack")
+        ModuleBundlePrice.objects.create(
+            bundle=bundle,
+            amount=Decimal("90.00"),
+            currency="EUR",
+            effective_from=timezone.localdate(),
+        )
+        purchase.bundle = bundle
+        purchase.fee_type = None
+        purchase.module_ids = [CLUB_MANAGEMENT_MODULE_ID, EVENT_CALENDAR_MODULE_ID]
+        purchase.save(update_fields=["bundle", "fee_type", "module_ids"])
+        bundle_line = build_renewal_line(purchase, timezone.localdate())
+        self.assertEqual(bundle_line["charged_amount"], Decimal("90.00"))
+        self.assertFalse(bundle_line["maximum_applied"])

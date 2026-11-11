@@ -188,6 +188,7 @@ class ClubFeePrice(models.Model):
         default=PricingType.FLAT,
     )
     minimum_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    maximum_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, default="EUR")
     effective_from = models.DateField(default=timezone.localdate)
     created_by = models.ForeignKey(
@@ -728,6 +729,7 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)  # type: ignore[arg-type]
     active_member_count = models.PositiveIntegerField(null=True, blank=True)
     minimum_applied = models.BooleanField(default=False)
+    maximum_applied = models.BooleanField(default=False)
     charged_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:

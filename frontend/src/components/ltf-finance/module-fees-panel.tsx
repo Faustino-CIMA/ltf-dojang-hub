@@ -8,6 +8,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { ModulePriceText } from "@/components/finance/module-price-text";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormPanel } from "@/components/ui/list-page-chrome";
@@ -17,7 +18,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDate } from "@/lib/date-display";
 import type { ClubFeePrice, ClubFeeType, ModuleFeePricingType } from "@/lib/ltf-finance-api";
-import { flatMinimumCanApply, visibleMinimumAmount } from "@/lib/module-fee-display";
+import { flatMaximumCanApply, flatMinimumCanApply, maximumIsBelowMinimum, visibleMaximumAmount, visibleMinimumAmount } from "@/lib/module-fee-display";
 import type { TableSort } from "@/lib/table-sort";
 
 export const BILLABLE_MODULE_IDS = ["club_management", "competition", "event_calendar"] as const;
@@ -27,6 +28,7 @@ type ModuleFeeDraft = {
   pricingType: ModuleFeePricingType;
   amount: string;
   minimum: string;
+  maximum: string;
   effectiveFrom: string;
   isActive: boolean;
 };
@@ -36,6 +38,7 @@ const emptyDraft = (): ModuleFeeDraft => ({
   pricingType: "flat",
   amount: "",
   minimum: "",
+  maximum: "",
   effectiveFrom: "",
   isActive: true,
 });
@@ -65,7 +68,9 @@ export function ModuleFeesPanel({
   onNotice: (kind: "error" | "success", message: string) => void;
 }) {
   const t = useTranslations("LtfFinance");
+  const common = useTranslations("Common");
   const [sort, setSort] = useState<TableSort | null>({ key: "module", direction: "asc" });
+  const [boundsError, setBoundsError] = useState<string | null>(null);
   const [editor, setEditor] = useState<ClubFeeType | "new" | null>(null);
   const [confirmFee, setConfirmFee] = useState<ClubFeeType | null>(null);
   const [draft, setDraft] = useState<ModuleFeeDraft>(emptyDraft());
@@ -91,17 +96,20 @@ export function ModuleFeesPanel({
   const takenModules = useMemo(() => new Set(fees.map((fee) => fee.module_id).filter(Boolean)), [fees]);
 
   const openCreate = () => {
+    setBoundsError(null);
     setDraft(emptyDraft());
     setEditor("new");
   };
 
   const openEdit = (fee: ClubFeeType) => {
+    setBoundsError(null);
     const current = pricesFor(fee.id)[0];
     setDraft({
       moduleId: fee.module_id ?? "",
       pricingType: current?.pricing_type ?? fee.current_pricing_type ?? "flat",
       amount: "",
       minimum: current?.minimum_amount ?? fee.current_minimum_amount ?? "",
+      maximum: current?.maximum_amount ?? fee.current_maximum_amount ?? "",
       effectiveFrom: "",
       isActive: fee.is_active,
     });
@@ -117,6 +125,11 @@ export function ModuleFeesPanel({
       onNotice("error", t("moduleFeeNeedModule"));
       return;
     }
+    if (maximumIsBelowMinimum(draft.minimum, draft.maximum)) {
+      setBoundsError(t("moduleFeeMaximumBelowMinimum"));
+      return;
+    }
+    setBoundsError(null);
     setBusy(true);
     try {
       if (editor === "new") {
@@ -215,6 +228,25 @@ export function ModuleFeesPanel({
               render: (fee) =>
                 visibleMinimumAmount(fee.current_pricing_type, fee.current_amount, fee.current_minimum_amount) ??
                 t("moduleFeeNoMinimum"),
+            },
+            {
+              key: "maximum",
+              header: t("moduleFeeMaximumLabel"),
+              sortable: true,
+              sortValue: (fee) => Number(fee.current_maximum_amount ?? 0),
+              render: (fee) => {
+                const maximum = visibleMaximumAmount(
+                  fee.current_pricing_type,
+                  fee.current_amount,
+                  fee.current_maximum_amount,
+                );
+                return maximum
+                  ? t("moduleFeeMaximumShown", {
+                      amount: maximum,
+                      currency: fee.current_currency ?? "EUR",
+                    })
+                  : t("moduleFeeNoMaximum");
+              },
             },
             {
               key: "from",
@@ -348,6 +380,35 @@ export function ModuleFeesPanel({
             ) : null}
           </div>
           <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="module-fee-maximum">{t("moduleFeeMaximumLabel")}</Label>
+              <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("moduleFeeMaximumLabel") })}>
+                {t("moduleFeeMaximumHint")}
+              </InfoHint>
+            </div>
+            <Input
+              id="module-fee-maximum"
+              value={draft.maximum}
+              inputMode="decimal"
+              placeholder={t("moduleFeeNoMaximum")}
+              aria-invalid={boundsError ? true : undefined}
+              onChange={(event) => {
+                setBoundsError(null);
+                setDraft((current) => ({ ...current, maximum: event.target.value }));
+              }}
+            />
+            {boundsError ? <p className="text-sm text-destructive">{boundsError}</p> : null}
+            {draft.pricingType === "flat" &&
+            draft.maximum.trim() &&
+            !flatMaximumCanApply(
+              "flat",
+              draft.amount.trim() || editing?.current_amount || "",
+              draft.maximum,
+            ) ? (
+              <p className="text-xs text-muted">{t("moduleFeeMaximumNeverApplies")}</p>
+            ) : null}
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="module-fee-from">{t("moduleFeeValidFromLabel")}</Label>
             <Input
               id="module-fee-from"
@@ -396,6 +457,16 @@ export function ModuleFeesPanel({
                       render: (row: ClubFeePrice) =>
                         visibleMinimumAmount(row.pricing_type, row.amount, row.minimum_amount) ??
                         t("moduleFeeNoMinimum"),
+                    },
+                    {
+                      key: "maximum",
+                      header: t("moduleFeeMaximumLabel"),
+                      render: (row: ClubFeePrice) => {
+                        const maximum = visibleMaximumAmount(row.pricing_type, row.amount, row.maximum_amount);
+                        return maximum
+                          ? t("moduleFeeMaximumShown", { amount: maximum, currency: row.currency })
+                          : t("moduleFeeNoMaximum");
+                      },
                     },
                     {
                       key: "from",

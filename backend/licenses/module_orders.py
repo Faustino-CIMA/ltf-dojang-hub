@@ -170,6 +170,7 @@ def _comparison(module_ids: list[str], fees: dict, count: int, bundle_amount: De
             pricing_type=price.pricing_type,
             minimum_amount=price.minimum_amount,
             active_members=count,
+            maximum_amount=price.maximum_amount,
         )
         per_member = price.pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER
         total += quoted["charged_amount"]
@@ -182,6 +183,9 @@ def _comparison(module_ids: list[str], fees: dict, count: int, bundle_amount: De
                 "unit_amount": _money(price.amount),
                 "minimum_amount": (
                     f"{_money(price.minimum_amount)}" if price.minimum_amount is not None else None
+                ),
+                "maximum_amount": (
+                    f"{_money(price.maximum_amount)}" if price.maximum_amount is not None else None
                 ),
             }
         )
@@ -229,12 +233,16 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 pricing_type=price.pricing_type,
                 minimum_amount=price.minimum_amount,
                 active_members=count,
+                maximum_amount=price.maximum_amount,
             )
             estimated = _money(quoted["charged_amount"])
             pricing_type = price.pricing_type
             amount = _money(price.amount)
             minimum_amount = (
                 f"{_money(price.minimum_amount)}" if price.minimum_amount is not None else None
+            )
+            maximum_amount = (
+                f"{_money(price.maximum_amount)}" if price.maximum_amount is not None else None
             )
         offers.append(
             {
@@ -250,6 +258,7 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 "currency": "EUR",
                 "pricing_type": pricing_type,
                 "minimum_amount": minimum_amount if price is not None else None,
+                "maximum_amount": maximum_amount if price is not None else None,
                 "active_member_count": count if pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER else None,
                 "state": state,
                 "ends_at": ends_at.isoformat() if ends_at else None,
@@ -302,6 +311,7 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 "currency": price.currency if price else "EUR",
                 "pricing_type": "flat",
                 "minimum_amount": None,
+                "maximum_amount": None,
                 "active_member_count": None,
                 "state": state,
                 "ends_at": ends_at.isoformat() if ends_at else None,
@@ -423,6 +433,7 @@ def create_module_order(club, *, module_ids: list[str], bundle_ids: list[int], a
                 pricing_type=price.pricing_type,
                 minimum_amount=price.minimum_amount,
                 active_members=count,
+                maximum_amount=price.maximum_amount,
             )
             if quoted["charged_amount"] <= 0:
                 raise ModuleOrderError(f"{offer['name']} has no price yet.")
@@ -435,6 +446,7 @@ def create_module_order(club, *, module_ids: list[str], bundle_ids: list[int], a
                     amount=price.amount,
                     active_members=count,
                     minimum_applied=quoted["minimum_applied"],
+                    maximum_applied=quoted["maximum_applied"],
                 )
                 quantity = count if count > 0 else 1
             else:
@@ -451,6 +463,7 @@ def create_module_order(club, *, module_ids: list[str], bundle_ids: list[int], a
                     "charged_amount": quoted["charged_amount"],
                     "active_member_count": quoted["active_member_count"],
                     "minimum_applied": quoted["minimum_applied"],
+                    "maximum_applied": quoted["maximum_applied"],
                 }
             )
         for bundle in bundles:
@@ -478,6 +491,7 @@ def create_module_order(club, *, module_ids: list[str], bundle_ids: list[int], a
                     "charged_amount": price.amount,
                     "active_member_count": None,
                     "minimum_applied": False,
+                    "maximum_applied": False,
                 }
             )
         if not lines:
@@ -508,6 +522,7 @@ def create_module_order(club, *, module_ids: list[str], bundle_ids: list[int], a
                 quantity=line["quantity"],
                 active_member_count=line["active_member_count"],
                 minimum_applied=line["minimum_applied"],
+                maximum_applied=line["maximum_applied"],
                 charged_amount=line["charged_amount"],
             )
             purchase = ModulePurchase.objects.create(
@@ -581,6 +596,7 @@ def build_renewal_line(purchase, as_of: date) -> dict | None:
             "charged_amount": price.amount,
             "active_member_count": None,
             "minimum_applied": False,
+            "maximum_applied": False,
         }
     module_id = module_ids[0] if module_ids else None
     fee = purchase.fee_type
@@ -594,6 +610,7 @@ def build_renewal_line(purchase, as_of: date) -> dict | None:
         pricing_type=price.pricing_type,
         minimum_amount=price.minimum_amount,
         active_members=count,
+        maximum_amount=price.maximum_amount,
     )
     if quoted["charged_amount"] <= 0:
         return None
@@ -606,6 +623,7 @@ def build_renewal_line(purchase, as_of: date) -> dict | None:
             amount=price.amount,
             active_members=count,
             minimum_applied=quoted["minimum_applied"],
+            maximum_applied=quoted["maximum_applied"],
         )
         quantity = count if count > 0 else 1
     else:
@@ -621,6 +639,7 @@ def build_renewal_line(purchase, as_of: date) -> dict | None:
         "charged_amount": quoted["charged_amount"],
         "active_member_count": quoted["active_member_count"],
         "minimum_applied": quoted["minimum_applied"],
+        "maximum_applied": quoted["maximum_applied"],
     }
 
 

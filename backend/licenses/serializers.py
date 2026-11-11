@@ -85,6 +85,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "quantity",
             "active_member_count",
             "minimum_applied",
+            "maximum_applied",
             "charged_amount",
             "member_id",
             "member_first_name",
@@ -822,6 +823,7 @@ class ClubFeePriceSerializer(serializers.ModelSerializer):
             "amount",
             "pricing_type",
             "minimum_amount",
+            "maximum_amount",
             "currency",
             "effective_from",
             "created_by",
@@ -839,6 +841,11 @@ class ClubFeePriceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Minimum fee cannot be negative.")
         return value
 
+    def validate_maximum_amount(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Maximum fee cannot be negative.")
+        return value
+
     def validate(self, attrs):
         fee_type = attrs.get("fee_type") or getattr(self.instance, "fee_type", None)
         pricing_type = attrs.get(
@@ -849,6 +856,10 @@ class ClubFeePriceSerializer(serializers.ModelSerializer):
             minimum_amount = attrs.get("minimum_amount")
         else:
             minimum_amount = getattr(self.instance, "minimum_amount", None)
+        if "maximum_amount" in attrs:
+            maximum_amount = attrs.get("maximum_amount")
+        else:
+            maximum_amount = getattr(self.instance, "maximum_amount", None)
         if fee_type is not None and not fee_type.module_id:
             if pricing_type != ClubFeePrice.PricingType.FLAT:
                 raise serializers.ValidationError(
@@ -858,6 +869,18 @@ class ClubFeePriceSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"minimum_amount": "Only a module fee can have a minimum."}
                 )
+            if maximum_amount is not None:
+                raise serializers.ValidationError(
+                    {"maximum_amount": "Only a module fee can have a maximum."}
+                )
+        if (
+            minimum_amount is not None
+            and maximum_amount is not None
+            and maximum_amount < minimum_amount
+        ):
+            raise serializers.ValidationError(
+                {"maximum_amount": "Maximum must be at least the minimum."}
+            )
         return attrs
 
 
@@ -866,6 +889,7 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
     current_currency = serializers.SerializerMethodField()
     current_pricing_type = serializers.SerializerMethodField()
     current_minimum_amount = serializers.SerializerMethodField()
+    current_maximum_amount = serializers.SerializerMethodField()
     current_effective_from = serializers.SerializerMethodField()
     has_invoices = serializers.SerializerMethodField()
     initial_amount = serializers.DecimalField(
@@ -882,6 +906,13 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
         default=ClubFeePrice.PricingType.FLAT,
     )
     initial_minimum_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    initial_maximum_amount = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
         required=False,
@@ -905,12 +936,14 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             "current_currency",
             "current_pricing_type",
             "current_minimum_amount",
+            "current_maximum_amount",
             "current_effective_from",
             "initial_amount",
             "initial_currency",
             "initial_effective_from",
             "initial_pricing_type",
             "initial_minimum_amount",
+            "initial_maximum_amount",
             "created_at",
             "updated_at",
         ]
@@ -942,6 +975,12 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             return None
         return str(price.minimum_amount)
 
+    def get_current_maximum_amount(self, obj: ClubFeeType):
+        price = self._current_price(obj)
+        if price is None or price.maximum_amount is None:
+            return None
+        return str(price.maximum_amount)
+
     def get_current_effective_from(self, obj: ClubFeeType):
         price = self._current_price(obj)
         return price.effective_from.isoformat() if price else None
@@ -966,6 +1005,11 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Minimum fee cannot be negative.")
         return value
 
+    def validate_initial_maximum_amount(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Maximum fee cannot be negative.")
+        return value
+
     def validate(self, attrs):
         from modules.registry import get_spec
 
@@ -987,6 +1031,7 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             attrs["cadence"] = ClubFeeType.Cadence.ANNUAL
         pricing_type = attrs.get("initial_pricing_type", ClubFeePrice.PricingType.FLAT)
         minimum_amount = attrs.get("initial_minimum_amount")
+        maximum_amount = attrs.get("initial_maximum_amount")
         if not module_id:
             if pricing_type != ClubFeePrice.PricingType.FLAT:
                 raise serializers.ValidationError(
@@ -996,6 +1041,18 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"initial_minimum_amount": "Only a module fee can have a minimum."}
                 )
+            if maximum_amount is not None:
+                raise serializers.ValidationError(
+                    {"initial_maximum_amount": "Only a module fee can have a maximum."}
+                )
+        if (
+            minimum_amount is not None
+            and maximum_amount is not None
+            and maximum_amount < minimum_amount
+        ):
+            raise serializers.ValidationError(
+                {"initial_maximum_amount": "Maximum must be at least the minimum."}
+            )
         return attrs
 
     def _take_initial_price(self, validated_data):
@@ -1005,6 +1062,7 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             "effective_from": validated_data.pop("initial_effective_from", None),
             "pricing_type": validated_data.pop("initial_pricing_type", ClubFeePrice.PricingType.FLAT),
             "minimum_amount": validated_data.pop("initial_minimum_amount", None),
+            "maximum_amount": validated_data.pop("initial_maximum_amount", None),
         }
 
     def _store_initial_price(self, fee_type, price):
@@ -1019,6 +1077,7 @@ class ClubFeeTypeSerializer(serializers.ModelSerializer):
             amount=price["amount"],
             pricing_type=price["pricing_type"],
             minimum_amount=price["minimum_amount"],
+            maximum_amount=price["maximum_amount"],
             currency=price["currency"] or "EUR",
             effective_from=price["effective_from"] or timezone.localdate(),
             created_by=created_by,
