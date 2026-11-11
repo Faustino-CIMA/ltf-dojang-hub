@@ -306,7 +306,7 @@ export default function ClubAdminLicensesPage() {
       header: t("licenseTypeLabel"),
       sortable: true,
       render: (license: License) =>
-        licenseTypeNameById.get(license.license_type) ?? t("unknownLicenseType"),
+        license.license_type_name || licenseTypeNameById.get(license.license_type) || t("unknownLicenseType"),
     },
     {
       key: "status",

@@ -20,11 +20,22 @@ from clubs.models import Club
 from members.models import Member
 
 
+class LicenseTypeQuerySet(models.QuerySet):
+    def available(self):
+        """Types that can still be chosen for a new license, order, or price."""
+        return self.filter(archived_at__isnull=True)
+
+
 class LicenseType(models.Model):
+    objects = LicenseTypeQuerySet.as_manager()
     name = models.CharField(max_length=100, unique=True)
     code = models.SlugField(max_length=50, unique=True)
+    archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def is_in_use(self) -> bool:
+        return self.licenses.exists() or self.prices.exists()
 
     def save(self, *args, **kwargs):
         if not self.code:

@@ -37,6 +37,8 @@ from .policy import get_or_create_license_type_policy, validate_member_license_o
 
 
 class LicenseSerializer(serializers.ModelSerializer):
+    license_type_name = serializers.CharField(source="license_type.name", read_only=True)
+
     class Meta:
         model = License
         fields = [
@@ -44,6 +46,7 @@ class LicenseSerializer(serializers.ModelSerializer):
             "member",
             "club",
             "license_type",
+            "license_type_name",
             "year",
             "start_date",
             "end_date",
@@ -53,6 +56,13 @@ class LicenseSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["start_date", "end_date", "created_at", "updated_at"]
+
+    def validate_license_type(self, value):
+        if value.archived_at and (
+            self.instance is None or self.instance.license_type_id != value.id
+        ):
+            raise serializers.ValidationError("This license type is no longer offered.")
+        return value
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -295,7 +305,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderItemCreateSerializer(serializers.Serializer):
-    license_type = serializers.PrimaryKeyRelatedField(queryset=LicenseType.objects.all())
+    license_type = serializers.PrimaryKeyRelatedField(queryset=LicenseType.objects.available())
     year = serializers.IntegerField(min_value=2000, max_value=2100)
     price_snapshot = serializers.DecimalField(max_digits=10, decimal_places=2)
     quantity = serializers.IntegerField(min_value=1, default=1)
@@ -455,7 +465,7 @@ class OrderCreateSerializer(serializers.Serializer):
 
 class ClubOrderBatchSerializer(serializers.Serializer):
     club = serializers.PrimaryKeyRelatedField(queryset=Club.objects.all())
-    license_type = serializers.PrimaryKeyRelatedField(queryset=LicenseType.objects.all())
+    license_type = serializers.PrimaryKeyRelatedField(queryset=LicenseType.objects.available())
     member_ids = serializers.ListField(
         child=serializers.IntegerField(), min_length=1, allow_empty=False
     )
@@ -776,11 +786,14 @@ AUDIT_METADATA_LABELS = {
 
 
 class LicensePriceSerializer(serializers.ModelSerializer):
+    license_type_name = serializers.CharField(source="license_type.name", read_only=True)
+
     class Meta:
         model = LicensePrice
         fields = [
             "id",
             "license_type",
+            "license_type_name",
             "amount",
             "currency",
             "effective_from",
@@ -792,6 +805,11 @@ class LicensePriceSerializer(serializers.ModelSerializer):
     def validate_amount(self, value):
         if value < 0:
             raise serializers.ValidationError("Amount cannot be negative.")
+        return value
+
+    def validate_license_type(self, value):
+        if value.archived_at:
+            raise serializers.ValidationError("This license type is no longer offered.")
         return value
 
 
@@ -1054,6 +1072,7 @@ class ClubFeeBillingRequestSerializer(serializers.Serializer):
 
 
 class LicenseTypeSerializer(serializers.ModelSerializer):
+    in_use = serializers.SerializerMethodField()
     initial_price_amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, write_only=True
     )
@@ -1070,6 +1089,7 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "code",
+            "in_use",
             "created_at",
             "updated_at",
             "policy",
@@ -1084,6 +1104,13 @@ class LicenseTypeSerializer(serializers.ModelSerializer):
         if not normalized:
             raise serializers.ValidationError("Name is required.")
         return normalized
+
+    def get_in_use(self, instance):
+        licenses = getattr(instance, "license_count", None)
+        prices = getattr(instance, "price_count", None)
+        if licenses is None or prices is None:
+            return instance.is_in_use()
+        return licenses > 0 or prices > 0
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

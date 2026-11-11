@@ -259,6 +259,7 @@ export type Payment = {
 export type LicensePrice = {
   id: number;
   license_type: number;
+  license_type_name?: string;
   amount: string;
   currency: string;
   effective_from: string;
@@ -368,6 +369,7 @@ export type FinanceLicenseType = {
   id: number;
   name: string;
   code: string;
+  in_use?: boolean;
   created_at: string;
   updated_at: string;
   policy?: LicenseTypePolicy;
@@ -824,7 +826,7 @@ export function updateFinanceLicenseType(
 }
 
 export function deleteFinanceLicenseType(id: number) {
-  return apiRequest<void>(`/api/license-types/${id}/`, {
+  return apiRequest<{ id: number; archived: boolean } | null>(`/api/license-types/${id}/`, {
     method: "DELETE",
   });
 }

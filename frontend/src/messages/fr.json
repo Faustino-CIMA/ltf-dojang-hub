@@ -220,6 +220,8 @@
     "itemLicense": "licence",
     "deleteTitle": "Supprimer {item}",
     "deleteDescriptionWithName": "Vous allez supprimer {name}. Cette action est irréversible.",
+    "licenseTypeArchiveConfirm": "Retirer {name} des nouvelles licences et des prix ? Les licences et factures existantes conservent ce type, et il ne sera plus proposé.",
+    "licenseTypeArchiveHint": "Retirer un type déjà utilisé le conserve sur les licences et factures existantes. Il n'est plus proposé pour les nouvelles licences ni les prix.",
     "deleteDescriptionGeneric": "Vous allez supprimer ce {item}. Cette action est irréversible.",
     "deleteMemberDescription": "Vous allez supprimer {name}. Les licences suivantes seront aussi supprimées.",
     "deleteCascadeTitle": "Licences qui seront supprimées",
@@ -4200,6 +4202,8 @@
     "licenseTypeSavedMessage": "Type de licence enregistré.",
     "licenseTypeSaveError": "Impossible d'enregistrer le type de licence.",
     "licenseTypeDeletedMessage": "Type de licence supprimé.",
+    "licenseTypeArchivedMessage": "{name} n'est plus proposé pour les nouvelles licences. Les licences et factures existantes le conservent.",
+    "licenseTypeRetiredLabel": "N'est plus proposé",
     "licenseTypeDeleteError": "Impossible de supprimer le type de licence.",
     "noLicenseTypesTitle": "Aucun type de licence",
     "noLicenseTypesSubtitle": "Créez votre premier type de licence pour configurer les règles de commande."

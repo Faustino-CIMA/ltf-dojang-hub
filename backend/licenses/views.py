@@ -444,6 +444,19 @@ class LicenseTypeViewSet(viewsets.ModelViewSet):
     serializer_class = LicenseTypeSerializer
     queryset = LicenseType.objects.select_related("policy").all().order_by("name")
 
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return LicenseType.objects.none()
+        return (
+            LicenseType.objects.available()
+            .select_related("policy")
+            .annotate(
+                license_count=Count("licenses", distinct=True),
+                price_count=Count("prices", distinct=True),
+            )
+            .order_by("name")
+        )
+
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
             return [permissions.IsAuthenticated()]
@@ -451,13 +464,23 @@ class LicenseTypeViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        in_use = (getattr(instance, "license_count", 0) or 0) > 0 or (
+            getattr(instance, "price_count", 0) or 0
+        ) > 0
+        if not in_use:
+            in_use = instance.is_in_use()
+        if in_use:
+            if instance.archived_at is None:
+                instance.archived_at = timezone.now()
+                instance.save(update_fields=["archived_at", "updated_at"])
+            return Response({"id": instance.id, "archived": True})
         try:
             self.perform_destroy(instance)
-        except ProtectedError:
-            return Response(
-                {"detail": "This license type is in use and cannot be deleted."},
-                status=HTTP_400_BAD_REQUEST,
-            )
+        except (ProtectedError, IntegrityError):
+            if instance.archived_at is None:
+                instance.archived_at = timezone.now()
+                instance.save(update_fields=["archived_at", "updated_at"])
+            return Response({"id": instance.id, "archived": True})
         return Response(status=204)
 
     @action(detail=True, methods=["get", "patch"], url_path="policy")
@@ -1317,12 +1340,16 @@ class LtfFinanceOverviewView(APIView):
             created_at__gte=thirty_days_ago,
         ).count()
 
+        available_type_ids = set(LicenseType.objects.available().values_list("id", flat=True))
         active_priced_type_ids = set(
-            LicensePrice.objects.filter(effective_from__lte=today)
+            LicensePrice.objects.filter(
+                license_type_id__in=available_type_ids,
+                effective_from__lte=today,
+            )
             .values_list("license_type_id", flat=True)
             .distinct()
         )
-        total_license_types = LicenseType.objects.count()
+        total_license_types = len(available_type_ids)
         with_active_price = len(active_priced_type_ids)
         missing_active_price = max(total_license_types - with_active_price, 0)
 
@@ -1738,7 +1765,9 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
         today = timezone.localdate()
         member_ids_set = {member.id for member in members}
 
-        license_types = list(LicenseType.objects.select_related("policy").all().order_by("name"))
+        license_types = list(
+            LicenseType.objects.available().select_related("policy").order_by("name")
+        )
         license_type_ids = [license_type.id for license_type in license_types]
         active_prices_qs = LicensePrice.objects.filter(
             license_type_id__in=license_type_ids, effective_from__lte=today
