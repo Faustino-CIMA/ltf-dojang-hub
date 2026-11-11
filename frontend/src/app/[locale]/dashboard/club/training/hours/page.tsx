@@ -581,9 +581,6 @@ export default function TrainingHoursPage() {
                 onClose={() => setRateOpen(false)}
                 footer={
                   <>
-                    <Button type="button" variant="outline" onClick={() => setRateOpen(false)}>
-                      {t("cancelEdit")}
-                    </Button>
                     <Button type="submit" form={RATE_FORM_ID} variant="primary" disabled={savingRateId !== null}>
                       {savingRateId !== null ? t("saving") : t("trainingSaveRate")}
                     </Button>
@@ -632,9 +629,6 @@ export default function TrainingHoursPage() {
                 onClose={() => setOutingOpen(false)}
                 footer={
                   <>
-                    <Button type="button" variant="outline" onClick={() => setOutingOpen(false)}>
-                      {t("cancelEdit")}
-                    </Button>
                     <Button
                       type="submit"
                       form={OUTING_FORM_ID}

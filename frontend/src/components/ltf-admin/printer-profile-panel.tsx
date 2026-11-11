@@ -87,9 +87,6 @@ export function PrinterProfilePanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-            {t("cancelEdit")}
-          </Button>
           <Button type="submit" form={FORM_ID} disabled={isSubmitting}>
             {isSubmitting
               ? t("printerProfilesSavingAction")

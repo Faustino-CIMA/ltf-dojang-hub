@@ -148,23 +148,14 @@ export function PrintLicenceCardsPanel({
       closeLabel={common("modalClose")}
       onClose={onClose}
       footer={
-        job ? (
-          <Button type="button" variant="outline" onClick={onClose}>
-            {common("modalClose")}
+        job ? null : (
+          <Button
+            type="button"
+            onClick={() => void submit()}
+            disabled={isSubmitting || isLoading || !templateVersionId || !clubId || selectedCount === 0}
+          >
+            {isSubmitting ? t("printLicenceCardsWorking") : t("printLicenceCardsSubmit")}
           </Button>
-        ) : (
-          <>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              {common("deleteCancelButton")}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void submit()}
-              disabled={isSubmitting || isLoading || !templateVersionId || !clubId || selectedCount === 0}
-            >
-              {isSubmitting ? t("printLicenceCardsWorking") : t("printLicenceCardsSubmit")}
-            </Button>
-          </>
         )
       }
     >

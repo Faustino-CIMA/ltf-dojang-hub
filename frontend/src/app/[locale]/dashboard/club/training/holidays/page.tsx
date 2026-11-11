@@ -175,9 +175,6 @@ export default function TrainingHolidaysPage() {
             onClose={closeAdd}
             footer={
               <>
-                <Button type="button" variant="outline" onClick={closeAdd}>
-                  {t("cancelEdit")}
-                </Button>
                 <Button type="submit" form={FORM_ID} variant="primary">
                   {t("trainingAddHoliday")}
                 </Button>
