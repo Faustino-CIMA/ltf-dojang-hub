@@ -14,6 +14,7 @@ const INFO_CODES = new Set([
   "email_not_accepted",
   "desk_read_only",
   "account_unavailable",
+  "license_in_use",
 ]);
 
 const COPY: Record<string, Record<Locale, string>> = {
@@ -64,6 +65,12 @@ const COPY: Record<string, Record<Locale, string>> = {
     fr: "Ce bureau est en lecture seule.",
     de: "Dieser Schreibtisch ist nur zum Ansehen.",
     lb: "Dëse Schreifdësch ass nëmme fir ze kucken.",
+  },
+  license_in_use: {
+    en: "This license is on an order or a print job, so it stays. The invoice and any payment stay as they are. Use Edit and set the status to Revoked when it should no longer be valid.",
+    fr: "Cette licence est sur une commande ou un travail d'impression, elle reste donc en place. La facture et le paiement restent tels quels. Utilisez Modifier et passez le statut à Révoquée si elle ne doit plus être valable.",
+    de: "Diese Lizenz steht auf einer Bestellung oder einem Druckauftrag und bleibt daher bestehen. Rechnung und Zahlung bleiben unverändert. Setzen Sie den Status über Bearbeiten auf Widerrufen, wenn sie nicht mehr gelten soll.",
+    lb: "Dës Lizenz steet op enger Bestellung oder engem Drockauftrag a bleift dofir stoen. D'Facture an d'Bezuelung bleiwen esou wéi se sinn. Setzt de Status iwwer Änneren op Réckgezunn, wann se net méi gëlle soll.",
   },
   not_allowed: {
     en: "That action is not available.",

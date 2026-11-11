@@ -397,6 +397,17 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             default=("-year", "-created_at", "-id"),
         )
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # An order line or a print job keeps the license. Invoices and payments stay.
+        if instance.order_items.exists() or instance.print_job_items.exists():
+            return Response({"detail": "license_in_use"}, status=status.HTTP_409_CONFLICT)
+        try:
+            self.perform_destroy(instance)
+        except (ProtectedError, IntegrityError):
+            return Response({"detail": "license_in_use"}, status=status.HTTP_409_CONFLICT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_create(self, serializer):
         member = serializer.validated_data.get("member")
         club = serializer.validated_data.get("club")

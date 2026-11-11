@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Licenses:** Deleting a license that is on an order or a print job no longer ends in a server error. The license, invoice, and payment stay, and the screen explains that Revoked is the status to use. A license with no such link can still be deleted.
 - **Invoices:** On the LTF Finance desk, the invoice PDF opens for any club in that list, including the overdue list. A club desk still cannot open another club's invoice.
 - **Club profile:** Club admins left the club desk menu and now sit on the Club profile, for the selected club. The old Club admins address opens that section. The LTF menu is unchanged.
 - **Club admins:** On the club desk, the admin list is only the selected club. A club admin cannot list, read, change, or revoke admins of a club they do not administer. A superuser or the LTF desk still sees every club.
