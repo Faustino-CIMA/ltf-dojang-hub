@@ -172,7 +172,8 @@ def assignment_scope(user, requested_club_id=None):
     if desk == "club_admin":
         active = current_active_club()
         allowed = set(managed_club_ids(user))
-        if _privileged_federation(user) and active:
+        # Opening this desk already required a grant, including a view-only one.
+        if active:
             allowed.add(active)
         if requested is not None:
             return [requested] if requested in allowed else False
@@ -194,6 +195,12 @@ def actor_may_assign_club(user, club) -> tuple[bool, str]:
     """LTF desk and a superuser may assign any club. The club desk only its selected club."""
     if not user or not getattr(user, "is_authenticated", False):
         return False, "Not allowed."
+    from accounts.desks import current_desk
+
+    # A view-only club desk may read the list. It may not appoint or remove admins.
+    if current_desk() == "club_admin" and not _privileged_federation(user):
+        if club.id not in set(managed_club_ids(user)):
+            return False, "Not allowed."
     scope = assignment_scope(user)
     if scope is False:
         return False, "Not allowed."

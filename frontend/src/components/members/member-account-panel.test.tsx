@@ -72,7 +72,7 @@ describe("member account confirm", () => {
     HTMLAnchorElement.prototype.click = jest.fn();
   });
 
-  it("shows the count, and the file warning only after the links file exists", async () => {
+  it("names who will get an account, and shows the file warning only after confirm", async () => {
     previewMemberAccounts.mockResolvedValue({
       results: [
         {
@@ -118,7 +118,7 @@ describe("member account confirm", () => {
         onDone={() => undefined}
       />,
     );
-    expect(await screen.findByText("accountWillCreate:1")).toBeInTheDocument();
+    expect(await screen.findByText("NG Ada")).toBeInTheDocument();
     expect(screen.getByText("accountUnder16Skip:1")).toBeInTheDocument();
     expect(screen.queryByText("accountFileWarning")).not.toBeInTheDocument();
     expect(screen.queryByText("accountSensitiveWarning")).not.toBeInTheDocument();
@@ -127,7 +127,7 @@ describe("member account confirm", () => {
     expect(screen.getByText("accountFileWarning")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "accountDownloadPdf" }));
     expect(postMemberAccounts).toHaveBeenCalledTimes(1);
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 
   it("links an email match in one confirm and shows that login", async () => {
