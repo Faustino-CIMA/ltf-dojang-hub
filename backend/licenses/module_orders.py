@@ -179,6 +179,10 @@ def _comparison(module_ids: list[str], fees: dict, count: int, bundle_amount: De
                 "name": module_label(module_id),
                 "kind": "per_member" if per_member else "flat",
                 "amount": _money(quoted["charged_amount"]),
+                "unit_amount": _money(price.amount),
+                "minimum_amount": (
+                    f"{_money(price.minimum_amount)}" if price.minimum_amount is not None else None
+                ),
             }
         )
     difference = None
@@ -229,6 +233,9 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
             estimated = _money(quoted["charged_amount"])
             pricing_type = price.pricing_type
             amount = _money(price.amount)
+            minimum_amount = (
+                f"{_money(price.minimum_amount)}" if price.minimum_amount is not None else None
+            )
         offers.append(
             {
                 "kind": "module",
@@ -242,6 +249,7 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 "estimated_amount": estimated,
                 "currency": "EUR",
                 "pricing_type": pricing_type,
+                "minimum_amount": minimum_amount if price is not None else None,
                 "active_member_count": count if pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER else None,
                 "state": state,
                 "ends_at": ends_at.isoformat() if ends_at else None,
@@ -293,6 +301,7 @@ def module_order_catalog(club, *, include_unentitled: bool = False, as_of: date 
                 "estimated_amount": amount,
                 "currency": price.currency if price else "EUR",
                 "pricing_type": "flat",
+                "minimum_amount": None,
                 "active_member_count": None,
                 "state": state,
                 "ends_at": ends_at.isoformat() if ends_at else None,

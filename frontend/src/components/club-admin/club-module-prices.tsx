@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { ModulePriceText } from "@/components/finance/module-price-text";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
 import { visibleMinimumAmount } from "@/lib/module-fee-display";
@@ -74,7 +75,12 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
               header: t("modulePricesColumnPrice"),
               sortable: true,
               sortValue: (row) => Number(row.amount ?? 0),
-              render: (row) => (row.amount ? `${row.amount} ${row.currency}` : t("modulePricesNoPrice")),
+              render: (row) =>
+                row.amount ? (
+                  <ModulePriceText amount={row.amount} currency={row.currency} pricingType={row.pricing_type} />
+                ) : (
+                  t("modulePricesNoPrice")
+                ),
             },
             {
               key: "minimum",

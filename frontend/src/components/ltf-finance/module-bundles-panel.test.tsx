@@ -99,7 +99,7 @@ describe("Module bundles panel", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "moduleClubManagement" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "moduleCompetition" }));
     fireEvent.change(screen.getByLabelText(/moduleBundleAmountLabel/), { target: { value: "100.00" } });
-    expect(screen.getByText(/moduleBundlePerMember/)).toBeInTheDocument();
+    expect(screen.getByText("moduleFeePricePerMemberYear 2.00")).toBeInTheDocument();
     expect(screen.getByText(/80\.00 EUR/)).toBeInTheDocument();
     expect(screen.queryByText(/moduleBundleComparisonHigher/)).not.toBeInTheDocument();
   });

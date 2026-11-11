@@ -37,6 +37,32 @@ function catalog(offers: ModuleOrderOffer[]): ModuleOrderCatalog {
 }
 
 describe("Club module order", () => {
+  it("shows a per-member price with its minimum", () => {
+    render(
+      <ClubModuleOrderPanel
+        catalog={catalog([
+          offer({
+            key: "club_management",
+            module_id: "club_management",
+            name: "Club management",
+            module_ids: ["club_management"],
+            module_names: ["Club management"],
+            amount: "2.00",
+            estimated_amount: "96.00",
+            pricing_type: "per_active_member",
+            minimum_amount: "20.00",
+            active_member_count: 48,
+          }),
+        ])}
+        invoicePath={(id) => `/en/dashboard/club/invoices/${id}`}
+        onOrder={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "moduleOrderChoose" }));
+    expect(screen.getByText("moduleFeePricePerMemberYear 2.00 EUR")).toBeInTheDocument();
+    expect(screen.getByText("moduleFeeMinimumShown 20.00 EUR")).toBeInTheDocument();
+  });
+
   it("shows a grandfathered module as on with no end date and keeps it out of the picker", () => {
     render(
       <ClubModuleOrderPanel
