@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { ModulePriceText } from "@/components/finance/module-price-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -279,6 +280,16 @@ export function ClubModuleOrderPanel({
                             ? overlapNote(offer)
                             : offer.state === "not_entitled"
                               ? t("moduleOrderNotEntitled")
+                            : offer.pricing_type === "per_active_member" && offer.amount
+                              ? (
+                                <ModulePriceText
+                                  amount={offer.amount}
+                                  currency={offer.currency}
+                                  pricingType={offer.pricing_type}
+                                  minimumAmount={offer.minimum_amount}
+                                  showMinimum
+                                />
+                              )
                               : offer.estimated_amount
                                 ? `${offer.estimated_amount} ${offer.currency}`
                                 : t("moduleOrderNoPrice")}
@@ -350,11 +361,21 @@ export function ClubModuleOrderPanel({
                     <p key={line.module_id}>
                       {line.name}
                       {": "}
-                      {line.kind === "missing"
-                        ? t("moduleOrderNoPrice")
-                        : line.kind === "per_member"
-                          ? `${line.amount} EUR · ${t("moduleOrderPerMember", { count: String(catalog.active_member_count) })}`
-                          : `${line.amount} EUR`}
+                      {line.kind === "missing" ? (
+                        t("moduleOrderNoPrice")
+                      ) : line.kind === "per_member" && line.unit_amount ? (
+                        <ModulePriceText
+                          amount={line.unit_amount}
+                          currency="EUR"
+                          pricingType="per_active_member"
+                          minimumAmount={line.minimum_amount}
+                          showMinimum
+                        />
+                      ) : line.kind === "per_member" ? (
+                        `${line.amount} EUR · ${t("moduleOrderPerMember", { count: String(catalog.active_member_count) })}`
+                      ) : (
+                        `${line.amount} EUR`
+                      )}
                     </p>
                   ))}
                   {offer.comparison.difference !== null ? (
@@ -370,10 +391,20 @@ export function ClubModuleOrderPanel({
                   ) : null}
                 </div>
               ) : null}
-              {offer.pricing_type === "per_active_member" ? (
-                <p className="text-xs text-muted">
-                  {t("moduleOrderPerMember", { count: String(offer.active_member_count ?? catalog.active_member_count) })}
-                </p>
+              {offer.pricing_type === "per_active_member" && offer.amount ? (
+                <div className="text-xs text-muted">
+                  <ModulePriceText
+                    amount={offer.amount}
+                    currency={offer.currency}
+                    pricingType={offer.pricing_type}
+                    minimumAmount={offer.minimum_amount}
+                    showMinimum
+                    hint
+                  />
+                  <p className="mt-1">
+                    {t("moduleOrderPerMember", { count: String(offer.active_member_count ?? catalog.active_member_count) })}
+                  </p>
+                </div>
               ) : null}
             </div>
           ))}

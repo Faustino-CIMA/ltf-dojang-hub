@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Pencil, Power, Trash2 } from "lucide-react";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { ModulePriceText } from "@/components/finance/module-price-text";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -196,7 +197,15 @@ export function ModuleFeesPanel({
               sortable: true,
               sortValue: (fee) => Number(fee.current_amount ?? 0),
               render: (fee) =>
-                fee.current_amount ? `${fee.current_amount} ${fee.current_currency ?? "EUR"}` : t("moduleFeeNoAmount"),
+                fee.current_amount ? (
+                  <ModulePriceText
+                    amount={fee.current_amount}
+                    currency={fee.current_currency}
+                    pricingType={fee.current_pricing_type}
+                  />
+                ) : (
+                  t("moduleFeeNoAmount")
+                ),
             },
             {
               key: "minimum",
@@ -368,7 +377,13 @@ export function ModuleFeesPanel({
                     {
                       key: "amount",
                       header: t("moduleFeeAmountLabel"),
-                      render: (row: ClubFeePrice) => `${row.amount} ${row.currency}`,
+                      render: (row: ClubFeePrice) => (
+                        <ModulePriceText
+                          amount={row.amount}
+                          currency={row.currency}
+                          pricingType={row.pricing_type}
+                        />
+                      ),
                     },
                     {
                       key: "pricing",

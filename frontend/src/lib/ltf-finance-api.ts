@@ -964,6 +964,8 @@ export type ModuleOrderComparisonLine = {
   name: string;
   kind: "flat" | "per_member" | "missing";
   amount: string | null;
+  unit_amount?: string | null;
+  minimum_amount?: string | null;
 };
 
 export type ModuleOrderOffer = {
@@ -978,6 +980,7 @@ export type ModuleOrderOffer = {
   estimated_amount: string | null;
   currency: string;
   pricing_type: "flat" | "per_active_member" | null;
+  minimum_amount?: string | null;
   active_member_count: number | null;
   state: "available" | "on" | "open_invoice" | "not_entitled" | "no_price" | "blocked";
   ends_at: string | null;

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Pencil, Power, Trash2 } from "lucide-react";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { ModulePriceText } from "@/components/finance/module-price-text";
 import { BILLABLE_MODULE_IDS, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,6 +71,8 @@ type ComparisonLine = {
   flatAmount: number | null;
   perMember: boolean;
   missing: boolean;
+  displayAmount: string | null;
+  minimumAmount: string | null;
 };
 
 export function ModuleBundlesPanel({
@@ -125,6 +128,8 @@ export function ModuleBundlesPanel({
       flatAmount: !perMember && priced ? amount : null,
       perMember,
       missing: !fee || !priced,
+      displayAmount: priced ? (fee?.current_amount ?? null) : null,
+      minimumAmount: fee?.current_minimum_amount ?? null,
     };
   });
   const comparisonComparable = comparisonLines.length > 0 && comparisonLines.every((line) => line.flatAmount !== null);
@@ -472,11 +477,19 @@ export function ModuleBundlesPanel({
                   <li key={line.moduleId}>
                     {line.name}
                     {": "}
-                    {line.missing
-                      ? t("moduleBundleNoPrice")
-                      : line.perMember
-                        ? t("moduleBundlePerMember")
-                        : `${line.flatAmount?.toFixed(2)} EUR`}
+                    {line.missing ? (
+                      t("moduleBundleNoPrice")
+                    ) : line.perMember && line.displayAmount ? (
+                      <ModulePriceText
+                        amount={line.displayAmount}
+                        currency="EUR"
+                        pricingType="per_active_member"
+                        minimumAmount={line.minimumAmount}
+                        showMinimum
+                      />
+                    ) : (
+                      `${line.flatAmount?.toFixed(2)} EUR`
+                    )}
                   </li>
                 ))}
               </ul>
