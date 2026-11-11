@@ -181,9 +181,6 @@ export function ClubFormPanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            {t("cancelEdit")}
-          </Button>
           <Button type="submit" form={FORM_ID} disabled={isSaving}>
             {isSaving ? t("savingAction") : mode === "edit" ? t("saveChanges") : t("createClub")}
           </Button>

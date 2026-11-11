@@ -161,9 +161,6 @@ function StaffPanelForm({
       onClose={onClose}
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t("staffClose")}
-          </Button>
           <Button type="button" variant={mode === "delete" || mode === "revoke" ? "destructive" : "default"} onClick={submit} disabled={busy}>
             {busy
               ? t("staffSaving")

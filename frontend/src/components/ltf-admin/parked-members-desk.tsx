@@ -295,9 +295,6 @@ export function ParkedMembersDesk() {
         onClose={() => setOpen(null)}
         footer={
           <>
-            <Button type="button" variant="outline" onClick={() => setOpen(null)}>
-              {common("deleteCancelButton")}
-            </Button>
             <Button type="button" variant="primary" disabled={busy || !sex || !place || !active} onClick={() => void save()}>
               {t("parkedSave")}
             </Button>
@@ -351,9 +348,6 @@ export function ParkedMembersDesk() {
       </SidePanel>
       <Modal title={t("parkedBulkDelete")} description={t("parkedBulkDeleteConfirm", { count: selected.length })} isOpen={confirmDelete} onClose={() => setConfirmDelete(false)}>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => setConfirmDelete(false)}>
-            {common("deleteCancelButton")}
-          </Button>
           <Button type="button" variant="destructive" disabled={busy} onClick={() => void deleteMany()}>
             {t("parkedDelete")}
           </Button>
