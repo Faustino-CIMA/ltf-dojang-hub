@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Pencil, Power, Trash2 } from "lucide-react";
 
 import { EntityTable } from "@/components/club-admin/entity-table";
+import { ModulePriceBounds } from "@/components/finance/module-price-bounds";
 import { BILLABLE_MODULE_IDS, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -477,11 +478,22 @@ export function ModuleBundlesPanel({
                   <li key={line.moduleId}>
                     {line.name}
                     {": "}
-                    {line.missing
-                      ? t("moduleBundleNoPrice")
-                      : line.perMember
-                        ? t("moduleBundlePerMember")
-                        : `${line.flatAmount?.toFixed(2)} EUR`}
+                    {line.missing ? (
+                      t("moduleBundleNoPrice")
+                    ) : line.perMember ? (
+                      <>
+                        {t("moduleBundlePerMember")}
+                        <ModulePriceBounds
+                          pricingType="per_active_member"
+                          amount={feeFor(line.moduleId)?.current_amount}
+                          currency={feeFor(line.moduleId)?.current_currency}
+                          minimumAmount={feeFor(line.moduleId)?.current_minimum_amount}
+                          maximumAmount={feeFor(line.moduleId)?.current_maximum_amount}
+                        />
+                      </>
+                    ) : (
+                      `${line.flatAmount?.toFixed(2)} EUR`
+                    )}
                   </li>
                 ))}
               </ul>

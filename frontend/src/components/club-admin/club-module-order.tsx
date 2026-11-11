@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { ModulePriceBounds } from "@/components/finance/module-price-bounds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -280,7 +281,18 @@ export function ClubModuleOrderPanel({
                             : offer.state === "not_entitled"
                               ? t("moduleOrderNotEntitled")
                               : offer.estimated_amount
-                                ? `${offer.estimated_amount} ${offer.currency}`
+                                ? (
+                                  <>
+                                    {`${offer.estimated_amount} ${offer.currency}`}
+                                    <ModulePriceBounds
+                                      pricingType={offer.pricing_type}
+                                      amount={offer.amount}
+                                      currency={offer.currency}
+                                      minimumAmount={offer.minimum_amount}
+                                      maximumAmount={offer.maximum_amount}
+                                    />
+                                  </>
+                                )
                                 : t("moduleOrderNoPrice")}
                         </span>
                       </span>
@@ -353,11 +365,21 @@ export function ClubModuleOrderPanel({
                     <p key={line.module_id}>
                       {line.name}
                       {": "}
-                      {line.kind === "missing"
-                        ? t("moduleOrderNoPrice")
-                        : line.kind === "per_member"
-                          ? `${line.amount} EUR · ${t("moduleOrderPerMember", { count: String(catalog.active_member_count) })}`
-                          : `${line.amount} EUR`}
+                      {line.kind === "missing" ? (
+                        t("moduleOrderNoPrice")
+                      ) : (
+                        <>
+                          {line.kind === "per_member"
+                            ? `${line.amount} EUR · ${t("moduleOrderPerMember", { count: String(catalog.active_member_count) })}`
+                            : `${line.amount} EUR`}
+                          <ModulePriceBounds
+                            pricingType={line.kind === "per_member" ? "per_active_member" : "flat"}
+                            amount={line.amount}
+                            minimumAmount={line.minimum_amount}
+                            maximumAmount={line.maximum_amount}
+                          />
+                        </>
+                      )}
                     </p>
                   ))}
                   {offer.comparison.difference !== null ? (

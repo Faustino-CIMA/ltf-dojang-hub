@@ -25,6 +25,7 @@ const quote: ClubModuleFeeQuote = {
       amount: "2.00",
       currency: "EUR",
       minimum_amount: "150.00",
+      maximum_amount: "300.00",
       effective_from: "2026-01-01",
       active_member_count: 48,
       calculated_amount: "96.00",
@@ -77,6 +78,7 @@ describe("Club profile module prices", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("modulePricesFlat:€40.00")).toBeInTheDocument();
     expect(screen.getByText("150.00")).toBeInTheDocument();
+    expect(screen.getByText("moduleFeeMaximumShown:300.00|EUR")).toBeInTheDocument();
     expect(screen.queryByText("5.00")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /edit|delete|save|add/i })).not.toBeInTheDocument();
   });

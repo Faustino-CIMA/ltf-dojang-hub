@@ -324,6 +324,7 @@ export type ClubFeeType = {
   current_currency: string | null;
   current_pricing_type?: ModuleFeePricingType | null;
   current_minimum_amount?: string | null;
+  current_maximum_amount?: string | null;
   current_effective_from?: string | null;
   created_at: string;
   updated_at: string;
@@ -335,6 +336,7 @@ export type ClubFeePrice = {
   amount: string;
   pricing_type?: ModuleFeePricingType;
   minimum_amount?: string | null;
+  maximum_amount?: string | null;
   currency: string;
   effective_from: string;
   created_by: number | null;
@@ -350,11 +352,13 @@ export type ClubModuleFeeRow = {
   amount: string | null;
   currency: string;
   minimum_amount: string | null;
+  maximum_amount?: string | null;
   effective_from: string | null;
   active_member_count: number;
   calculated_amount: string | null;
   estimated_amount: string | null;
   minimum_applied: boolean;
+  maximum_applied?: boolean;
 };
 
 export type ClubModuleFeeQuote = {
@@ -849,6 +853,7 @@ export function createClubFeeType(input: {
   initial_effective_from?: string;
   initial_pricing_type?: ModuleFeePricingType;
   initial_minimum_amount?: string | null;
+  initial_maximum_amount?: string | null;
 }) {
   return apiRequest<ClubFeeType>("/api/club-fee-types/", {
     method: "POST",
@@ -964,6 +969,8 @@ export type ModuleOrderComparisonLine = {
   name: string;
   kind: "flat" | "per_member" | "missing";
   amount: string | null;
+  minimum_amount?: string | null;
+  maximum_amount?: string | null;
 };
 
 export type ModuleOrderOffer = {
@@ -978,6 +985,8 @@ export type ModuleOrderOffer = {
   estimated_amount: string | null;
   currency: string;
   pricing_type: "flat" | "per_active_member" | null;
+  minimum_amount?: string | null;
+  maximum_amount?: string | null;
   active_member_count: number | null;
   state: "available" | "on" | "open_invoice" | "not_entitled" | "no_price" | "blocked";
   ends_at: string | null;
@@ -1080,6 +1089,7 @@ export function createClubFeePrice(input: {
   effective_from?: string;
   pricing_type?: ModuleFeePricingType;
   minimum_amount?: string | null;
+  maximum_amount?: string | null;
 }) {
   return apiRequest<ClubFeePrice>("/api/club-fee-prices/", {
     method: "POST",

@@ -57,6 +57,7 @@ def quote_price(
     pricing_type: str,
     minimum_amount: Decimal | None,
     active_members: int,
+    maximum_amount: Decimal | None = None,
 ) -> dict:
     unit = _money(amount)
     per_member = pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER
@@ -64,10 +65,15 @@ def quote_price(
     minimum = None if minimum_amount is None else _money(minimum_amount)
     minimum_applied = minimum is not None and minimum > calculated
     charged = minimum if minimum_applied else calculated
+    maximum = None if maximum_amount is None else _money(maximum_amount)
+    maximum_applied = maximum is not None and maximum < charged
+    if maximum_applied:
+        charged = maximum
     return {
         "calculated_amount": calculated,
         "charged_amount": charged,
         "minimum_applied": minimum_applied,
+        "maximum_applied": maximum_applied,
         "active_member_count": active_members if per_member else None,
     }
 
@@ -80,6 +86,7 @@ def module_fee_line_description(
     amount: Decimal,
     active_members: int | None,
     minimum_applied: bool,
+    maximum_applied: bool = False,
 ) -> str:
     if pricing_type == ClubFeePrice.PricingType.PER_ACTIVE_MEMBER:
         count = 0 if active_members is None else active_members
@@ -88,6 +95,8 @@ def module_fee_line_description(
         text = f"{name} {year}"
     if minimum_applied:
         text = f"{text}. Minimum fee applied"
+    if maximum_applied:
+        text = f"{text}. Maximum fee applied"
     return text[:255]
 
 
@@ -120,11 +129,15 @@ def module_fee_quote(club, *, as_of=None, year: int | None = None) -> dict:
             "minimum_amount": (
                 f"{_money(price.minimum_amount)}" if price and price.minimum_amount is not None else None
             ),
+            "maximum_amount": (
+                f"{_money(price.maximum_amount)}" if price and price.maximum_amount is not None else None
+            ),
             "effective_from": price.effective_from.isoformat() if price else None,
             "active_member_count": count,
             "calculated_amount": None,
             "estimated_amount": None,
             "minimum_applied": False,
+            "maximum_applied": False,
         }
         if price is not None:
             quoted = quote_price(
@@ -132,10 +145,12 @@ def module_fee_quote(club, *, as_of=None, year: int | None = None) -> dict:
                 pricing_type=price.pricing_type,
                 minimum_amount=price.minimum_amount,
                 active_members=count,
+                maximum_amount=price.maximum_amount,
             )
             row["calculated_amount"] = f"{quoted['calculated_amount']}"
             row["estimated_amount"] = f"{quoted['charged_amount']}"
             row["minimum_applied"] = quoted["minimum_applied"]
+            row["maximum_applied"] = quoted["maximum_applied"]
         modules.append(row)
     return {
         "club_id": club.id,

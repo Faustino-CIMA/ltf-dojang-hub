@@ -437,6 +437,7 @@ def _create_renewal_invoices(purchases: list[ModulePurchase], today) -> None:
                         quantity=line["quantity"],
                         active_member_count=line["active_member_count"],
                         minimum_applied=line["minimum_applied"],
+                        maximum_applied=line["maximum_applied"],
                         charged_amount=line["charged_amount"],
                     )
                     purchase.renewal_order_item = item

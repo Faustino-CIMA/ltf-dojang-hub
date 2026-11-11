@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { ClubModuleFeeQuote } from "@/lib/ltf-finance-api";
-import { visibleMinimumAmount } from "@/lib/module-fee-display";
+import { visibleMaximumAmount, visibleMinimumAmount } from "@/lib/module-fee-display";
 import type { TableSort } from "@/lib/table-sort";
 
 function euro(amount: string | null | undefined): string {
@@ -16,6 +16,7 @@ function euro(amount: string | null | undefined): string {
 
 export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
   const t = useTranslations("ClubAdmin");
+  const finance = useTranslations("LtfFinance");
   const [sort, setSort] = useState<TableSort | null>({ key: "module", direction: "asc" });
 
   const moduleName = (moduleId: string) => {
@@ -85,6 +86,18 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
                 visibleMinimumAmount(row.pricing_type, row.amount, row.minimum_amount) ?? "—",
             },
             {
+              key: "maximum",
+              header: finance("moduleFeeMaximumLabel"),
+              sortable: true,
+              sortValue: (row) => Number(row.maximum_amount ?? 0),
+              render: (row) => {
+                const maximum = visibleMaximumAmount(row.pricing_type, row.amount, row.maximum_amount);
+                return maximum
+                  ? finance("moduleFeeMaximumShown", { amount: maximum, currency: row.currency })
+                  : "—";
+              },
+            },
+            {
               key: "estimate",
               header: t("modulePricesColumnEstimate"),
               sortable: true,
@@ -99,13 +112,20 @@ export function ClubModulePrices({ quote }: { quote: ClubModuleFeeQuote }) {
                     price: euro(row.amount),
                     calculated: euro(row.calculated_amount),
                   });
+                  const parts = [calculation];
                   if (row.minimum_applied) {
-                    return `${calculation} ${t("modulePricesMinimumLine", {
+                    parts.push(t("modulePricesMinimumLine", {
                       minimum: euro(row.minimum_amount),
                       estimate: euro(row.estimated_amount),
-                    })}`;
+                    }));
                   }
-                  return calculation;
+                  if (row.maximum_applied && row.maximum_amount) {
+                    parts.push(finance("moduleFeeMaximumShown", {
+                      amount: row.maximum_amount,
+                      currency: row.currency,
+                    }));
+                  }
+                  return parts.join(" ");
                 }
                 return t("modulePricesFlat", { amount: euro(row.estimated_amount) });
               },

@@ -42,7 +42,15 @@ class ClubFeeTypeAdmin(admin.ModelAdmin):
 
 @admin.register(ClubFeePrice)
 class ClubFeePriceAdmin(admin.ModelAdmin):
-    list_display = ("fee_type", "amount", "pricing_type", "minimum_amount", "currency", "effective_from")
+    list_display = (
+        "fee_type",
+        "amount",
+        "pricing_type",
+        "minimum_amount",
+        "maximum_amount",
+        "currency",
+        "effective_from",
+    )
     list_filter = ("currency",)
     search_fields = ("fee_type__name", "fee_type__code")
 
