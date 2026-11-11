@@ -133,6 +133,7 @@ export type License = {
   member: number;
   club: number;
   license_type: number;
+  license_type_name?: string;
   year: number;
   start_date: string;
   end_date: string;

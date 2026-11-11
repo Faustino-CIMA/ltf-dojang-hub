@@ -45,6 +45,7 @@ import {
   PageNotice,
 } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { InfoHint } from "@/components/ui/info-hint";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -307,6 +308,24 @@ export default function LtfFinanceLicenseSettingsPage() {
     return grouped;
   }, [licenseTypes, prices]);
 
+  const retiredPriceGroups = useMemo(() => {
+    const offered = new Set(licenseTypes.map((licenseType) => licenseType.id));
+    const groups = new Map<number, { id: number; name: string; rows: LicensePrice[] }>();
+    prices.forEach((price) => {
+      if (offered.has(price.license_type)) {
+        return;
+      }
+      const current = groups.get(price.license_type) ?? {
+        id: price.license_type,
+        name: price.license_type_name || String(price.license_type),
+        rows: [],
+      };
+      current.rows.push(price);
+      groups.set(price.license_type, current);
+    });
+    return [...groups.values()];
+  }, [licenseTypes, prices]);
+
   const openDeleteTypeModal = (licenseType: FinanceLicenseType) => {
     setFeeTypeToDelete(null);
     setLicenseTypeToDelete(licenseType);
@@ -320,10 +339,15 @@ export default function LtfFinanceLicenseSettingsPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      await deleteFinanceLicenseType(licenseTypeToDelete.id);
+      const removed = await deleteFinanceLicenseType(licenseTypeToDelete.id);
+      const removedName = licenseTypeToDelete.name;
       setIsDeleteOpen(false);
       setLicenseTypeToDelete(null);
-      setSuccessMessage(t("licenseTypeDeletedMessage"));
+      setSuccessMessage(
+        removed?.archived
+          ? t("licenseTypeArchivedMessage", { name: removedName })
+          : t("licenseTypeDeletedMessage"),
+      );
       await loadData();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("licenseTypeDeleteError"));
@@ -641,12 +665,17 @@ export default function LtfFinanceLicenseSettingsPage() {
         />
         <ListActionsRow
           actions={
-            <Button
-              variant="primary"
-              onClick={() => setTypePanel({ mode: "create" })}
-            >
-              {t("createLicenseType")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <InfoHint ariaLabel={common("aboutTitle", { title: t("settingsTabLicenseTypes") })}>
+                {common("licenseTypeArchiveHint")}
+              </InfoHint>
+              <Button
+                variant="primary"
+                onClick={() => setTypePanel({ mode: "create" })}
+              >
+                {t("createLicenseType")}
+              </Button>
+            </div>
           }
         />
       </div>
@@ -760,7 +789,7 @@ export default function LtfFinanceLicenseSettingsPage() {
           </div>
         </div>
 
-        {licenseTypes.length === 0 ? (
+        {licenseTypes.length === 0 && retiredPriceGroups.length === 0 ? (
           <EmptyState title={t("priceHistoryEmptyTitle")} description={t("priceHistoryEmptySubtitle")} />
         ) : (
           <div className="space-y-3">
@@ -839,6 +868,34 @@ export default function LtfFinanceLicenseSettingsPage() {
                 </article>
               );
             })}
+            {retiredPriceGroups.map((group) => (
+              <article key={group.id} className="overflow-hidden rounded-[var(--radius-card)] border border-border">
+                <div className="space-y-1 border-b border-border bg-secondary px-3 py-2">
+                  <h3 className="text-sm font-semibold text-foreground">{group.name}</h3>
+                  <p className="text-xs text-muted">{t("licenseTypeRetiredLabel")}</p>
+                </div>
+                <EntityTable
+                  columns={[
+                    {
+                      key: "amount",
+                      header: t("priceAmountLabel"),
+                      render: (row: LicensePrice) => `${row.amount} ${row.currency}`,
+                    },
+                    {
+                      key: "effective_from",
+                      header: t("priceEffectiveFromLabel"),
+                      render: (row: LicensePrice) => formatDisplayDate(row.effective_from),
+                    },
+                    {
+                      key: "created_at",
+                      header: t("createdAtLabel"),
+                      render: (row: LicensePrice) => formatDisplayDateTime(row.created_at),
+                    },
+                  ]}
+                  rows={group.rows}
+                />
+              </article>
+            ))}
           </div>
         )}
       </FormPanel>
@@ -1441,9 +1498,13 @@ export default function LtfFinanceLicenseSettingsPage() {
         title={common("deleteTitle", {
           item: feeTypeToDelete ? t("clubFeesTitle") : t("licenseTypeLabel"),
         })}
-        description={common("deleteDescriptionWithName", {
-          name: feeTypeToDelete?.name ?? licenseTypeToDelete?.name ?? "",
-        })}
+        description={
+          licenseTypeToDelete?.in_use
+            ? common("licenseTypeArchiveConfirm", { name: licenseTypeToDelete.name })
+            : common("deleteDescriptionWithName", {
+                name: feeTypeToDelete?.name ?? licenseTypeToDelete?.name ?? "",
+              })
+        }
         confirmLabel={common("deleteConfirmButton")}
         cancelLabel={common("deleteCancelButton")}
         onConfirm={() => {

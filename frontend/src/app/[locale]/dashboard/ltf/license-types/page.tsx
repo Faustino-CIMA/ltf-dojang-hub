@@ -261,9 +261,13 @@ export default function LtfAdminLicenseTypesPage() {
       <DeleteConfirmModal
         isOpen={isDeleteOpen && canManageLicenseTypes}
         title={common("deleteTitle", { item: t("licenseTypeLabel") })}
-        description={common("deleteDescriptionWithName", {
-          name: licenseTypeToDelete?.name ?? "",
-        })}
+        description={
+          licenseTypeToDelete?.in_use
+            ? common("licenseTypeArchiveConfirm", { name: licenseTypeToDelete.name })
+            : common("deleteDescriptionWithName", {
+                name: licenseTypeToDelete?.name ?? "",
+              })
+        }
         confirmLabel={common("deleteConfirmButton")}
         cancelLabel={common("deleteCancelButton")}
         onConfirm={confirmDelete}

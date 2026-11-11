@@ -274,6 +274,8 @@ def delete_staff(member: Member) -> dict:
 
 
 def issue_staff_license(member: Member, *, license_type: LicenseType, year, actor) -> License:
+    if license_type.archived_at:
+        raise LtfStaffError("license_type_archived")
     if member.club_id is not None:
         raise LtfStaffError("club_member_uses_club_licence")
     if current_staff_function(member) is None:

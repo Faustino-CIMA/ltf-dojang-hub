@@ -279,7 +279,7 @@ class LicenseTypeApiTests(TestCase):
         names = {item["name"] for item in response.data}
         self.assertIn("Standard", names)
 
-    def test_delete_blocked_when_in_use(self):
+    def test_delete_in_use_archives_the_type(self):
         self.client.force_authenticate(user=self.ltf_finance)
         license_type = LicenseType.objects.create(name="In Use", code="in-use")
         club = Club.objects.create(name="Locked Club", created_by=self.ltf_admin)
@@ -287,7 +287,10 @@ class LicenseTypeApiTests(TestCase):
         License.objects.create(member=member, club=club, year=2026, license_type=license_type)
 
         response = self.client.delete(f"/api/license-types/{license_type.id}/")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["archived"])
+        license_type.refresh_from_db()
+        self.assertIsNotNone(license_type.archived_at)
 
     def test_ltf_finance_can_update_policy(self):
         license_type = LicenseType.objects.create(name="Windowed", code="windowed")

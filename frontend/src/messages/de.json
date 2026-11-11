@@ -220,6 +220,8 @@
     "itemLicense": "Lizenz",
     "deleteTitle": "{item} löschen",
     "deleteDescriptionWithName": "Sie löschen {name}. Das kann nicht rückgängig gemacht werden.",
+    "licenseTypeArchiveConfirm": "{name} aus neuen Lizenzen und Preisen nehmen? Bestehende Lizenzen und Rechnungen behalten diese Art, und sie wird nicht mehr angeboten.",
+    "licenseTypeArchiveHint": "Eine bereits verwendete Lizenzart bleibt auf bestehenden Lizenzen und Rechnungen. Sie wird für neue Lizenzen und Preise nicht mehr angeboten.",
     "deleteDescriptionGeneric": "Sie löschen dieses Element ({item}). Das kann nicht rückgängig gemacht werden.",
     "deleteMemberDescription": "Sie löschen {name}. Die folgenden Lizenzen werden ebenfalls gelöscht.",
     "deleteCascadeTitle": "Lizenzen, die gelöscht werden",
@@ -4200,6 +4202,8 @@
     "licenseTypeSavedMessage": "Lizenzart gespeichert.",
     "licenseTypeSaveError": "Die Lizenzart konnte nicht gespeichert werden.",
     "licenseTypeDeletedMessage": "Lizenzart gelöscht.",
+    "licenseTypeArchivedMessage": "{name} wird für neue Lizenzen nicht mehr angeboten. Bestehende Lizenzen und Rechnungen behalten sie.",
+    "licenseTypeRetiredLabel": "Wird nicht mehr angeboten",
     "licenseTypeDeleteError": "Die Lizenzart konnte nicht gelöscht werden.",
     "noLicenseTypesTitle": "Keine Lizenzart gefunden",
     "noLicenseTypesSubtitle": "Legen Sie Ihre erste Lizenzart an, um die Bestellregeln einzurichten."

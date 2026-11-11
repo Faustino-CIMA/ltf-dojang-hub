@@ -414,7 +414,7 @@ export default function LtfAdminLicensesPage() {
       noClub: t("noClub"),
       unknownClub: t("unknownClub"),
     });
-    const typeLabel = licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType");
+    const typeLabel = license.license_type_name || licenseTypeById.get(license.license_type)?.name || t("unknownLicenseType");
     return `${memberLabel} · ${clubLabel} · ${typeLabel} · ${license.year} · ${getStatusLabel(license.status)} · ${formatIssuedAt(license.issued_at)}`;
   };
 
@@ -551,7 +551,7 @@ export default function LtfAdminLicensesPage() {
       header: t("licenseTypeLabel"),
       sortable: true,
       render: (license: License) =>
-        licenseTypeById.get(license.license_type)?.name ?? t("unknownLicenseType"),
+        license.license_type_name || licenseTypeById.get(license.license_type)?.name || t("unknownLicenseType"),
     },
     { key: "year", header: t("yearLabel"), sortable: true },
     {
