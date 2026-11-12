@@ -975,11 +975,13 @@ export function printFederationLicenseCards(input: {
   license_ids: number[];
   template_version?: number;
   printer_profile?: number | null;
+  selected_slots?: number[];
 }) {
   const payload: {
     license_ids: number[];
     template_version?: number;
     printer_profile?: number;
+    selected_slots?: number[];
   } = { license_ids: input.license_ids };
   if (input.template_version) {
     payload.template_version = input.template_version;
@@ -987,17 +989,41 @@ export function printFederationLicenseCards(input: {
   if (input.printer_profile) {
     payload.printer_profile = input.printer_profile;
   }
+  if (input.selected_slots && input.selected_slots.length > 0) {
+    payload.selected_slots = input.selected_slots;
+  }
   return apiRequest<FederationCardPrintResult>("/api/licenses/card-print/", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function downloadLicenseCardPdf(licenseId: number): Promise<PrintJobPdfFile> {
-  const response = await fetch(`${API_URL}/api/licenses/${licenseId}/card-pdf/`, {
-    method: "GET",
-    headers: pdfAuthHeaders(),
-  });
+export async function downloadLicenseCardPdf(
+  licenseId: number,
+  options?: {
+    template_version?: number;
+    printer_profile?: number | null;
+    selected_slots?: number[];
+  },
+): Promise<PrintJobPdfFile> {
+  const params = new URLSearchParams();
+  if (options?.template_version) {
+    params.set("template_version", String(options.template_version));
+  }
+  if (options?.printer_profile) {
+    params.set("printer_profile", String(options.printer_profile));
+  }
+  for (const slot of options?.selected_slots ?? []) {
+    params.append("selected_slots", String(slot));
+  }
+  const query = params.toString();
+  const response = await fetch(
+    `${API_URL}/api/licenses/${licenseId}/card-pdf/${query ? `?${query}` : ""}`,
+    {
+      method: "GET",
+      headers: pdfAuthHeaders(),
+    },
+  );
   if (!response.ok) {
     const contentType = response.headers.get("content-type");
     const message = await response.text();
