@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.conf import settings
-import stripe
 
 from accounts.models import User
 from .models import Invoice, Order
 from .services import apply_payment_and_activate
+from . import stripe_adapter
 from .stripe_ids import stripe_session_lookup
 
 
@@ -129,9 +129,7 @@ def _metadata_order_id(metadata: Any) -> int | None:
 def _retrieve_checkout_session(session_id: str):
     if not settings.STRIPE_SECRET_KEY:
         raise RuntimeError("Stripe is not configured.")
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    stripe.api_version = settings.STRIPE_API_VERSION
-    return stripe.checkout.Session.retrieve(session_id)
+    return stripe_adapter.retrieve_checkout_session(session_id)
 
 
 def fulfill_checkout_session(session_id: str, *, actor: User) -> CheckoutFulfillment:
@@ -180,7 +178,7 @@ def fulfill_checkout_session(session_id: str, *, actor: User) -> CheckoutFulfill
     }
     if isinstance(payment_intent_id, str) and payment_intent_id:
         try:
-            payment_intent = stripe.PaymentIntent.retrieve(
+            payment_intent = stripe_adapter.retrieve_payment_intent(
                 payment_intent_id,
                 expand=["charges.data.payment_method_details"],
             )

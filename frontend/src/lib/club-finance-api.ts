@@ -1,5 +1,6 @@
 import { API_URL, apiRequest } from "./api";
 import { getToken } from "./auth";
+export type { FinanceInvoice, FinanceOrder } from "./ltf-finance-api";
 import type {
   BankMatchCandidate,
   BankStatement,

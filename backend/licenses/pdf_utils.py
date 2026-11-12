@@ -25,10 +25,7 @@ _LTF_LETTERHEAD = {
     "website": "https://www.luxembourgtaekwondo.lu",
 }
 
-try:
-    from weasyprint import HTML
-except Exception:  # pragma: no cover - handled at runtime
-    HTML = None
+from .weasyprint_adapter import load_html, write_pdf
 
 try:
     import qrcode
@@ -586,7 +583,7 @@ def build_invoice_context(invoice: Invoice) -> dict:
 
 
 def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     from pypdf import PdfWriter
 
@@ -604,7 +601,10 @@ def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -
         },
     )
     writer = PdfWriter()
-    writer.append(BytesIO(HTML(string=cover_html, base_url=base_url).write_pdf()))
+    cover_pdf = write_pdf(cover_html, base_url=base_url)
+    if cover_pdf is None:
+        return None
+    writer.append(BytesIO(cover_pdf))
     for invoice in invoices:
         pdf = render_invoice_pdf(invoice, base_url=base_url)
         if pdf:
@@ -615,18 +615,18 @@ def render_billing_print_pack_pdf(invoices: list, *, year: int, base_url: str) -
 
 
 def render_statement_pdf(context: dict, *, base_url: str) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     from clubs.document_copy import statement_labels
 
     payload = dict(context)
     payload.setdefault("labels", statement_labels("en"))
     html = render_to_string("finance/statement_pdf.html", payload)
-    return HTML(string=html, base_url=base_url).write_pdf()
+    return write_pdf(html, base_url=base_url)
 
 
 def render_invoice_pdf(invoice: Invoice, *, base_url: str) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     context = build_invoice_context(invoice)
     if context["license_invoice"] or context["module_invoice"]:
@@ -636,7 +636,7 @@ def render_invoice_pdf(invoice: Invoice, *, base_url: str) -> bytes | None:
     else:
         template = "finance/invoice_pdf.html"
     html = render_to_string(template, context)
-    return HTML(string=html, base_url=base_url).write_pdf()
+    return write_pdf(html, base_url=base_url)
 
 
 def build_qr_base64(payload: str, fill_color: str = "black", border: int = 2, box_size: int = 4) -> str:

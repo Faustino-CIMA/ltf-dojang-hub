@@ -70,7 +70,7 @@ export default function ClubInvoiceDetailPage() {
   const [invoiceNumberCopied, setInvoiceNumberCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const copyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyResetTimeoutRef = useRef<number | null>(null);
   const { canRecordPayments } = useClubFinanceAccess(invoice?.club ?? null);
 
   const invoiceId = useMemo(() => {

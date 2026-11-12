@@ -407,6 +407,7 @@
     "printLicenceCardsTitle": "Imprimer les cartes de licence",
     "printLicenceCardsDescription": "Créer un travail d'impression pour {count} enregistrements sélectionnés.",
     "printLicenceCardsTemplateLabel": "Modèle de carte",
+    "printLicenceCardsTemplateOption": "{name} · v{version}",
     "printLicenceCardsTemplatePlaceholder": "Choisir un modèle publié",
     "printLicenceCardsNoTemplate": "Aucun modèle de carte de licence publié n'est disponible.",
     "printLicenceCardsPrinterLabel": "Profil d'imprimante",

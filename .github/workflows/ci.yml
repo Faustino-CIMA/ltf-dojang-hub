@@ -119,5 +119,11 @@ jobs:
       - name: Run frontend lint
         run: npm run lint
 
+      - name: Run frontend tests
+        run: npm test -- --watchAll=false
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
       - name: Build frontend
         run: npm run build

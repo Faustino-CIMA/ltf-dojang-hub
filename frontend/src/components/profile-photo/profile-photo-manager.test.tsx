@@ -202,7 +202,6 @@ describe("ProfilePhotoManager", () => {
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledTimes(1);
     });
-    const payload = onSave.mock.calls[0][0] as { photoConsentConfirmed: boolean };
-    expect(payload.photoConsentConfirmed).toBe(true);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ photoConsentConfirmed: true }));
   });
 });

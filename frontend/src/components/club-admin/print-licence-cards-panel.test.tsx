@@ -6,8 +6,12 @@ import { printFederationLicenseCards } from "@/lib/license-card-api";
 import { downloadPdfFile, openPdfPreview } from "@/lib/print-job-pdf";
 
 jest.mock("next-intl", () => {
-  const translate = (key: string, values?: { count?: number }) =>
-    values && typeof values.count === "number" ? `${key}:${values.count}` : key;
+  const translate = (key: string, values?: { count?: number; name?: string; version?: number }) => {
+    if (values && typeof values.name === "string" && values.version != null) {
+      return `${values.name} · v${values.version}`;
+    }
+    return values && typeof values.count === "number" ? `${key}:${values.count}` : key;
+  };
   return { useTranslations: () => translate };
 });
 
@@ -42,6 +46,96 @@ describe("PrintLicenceCardsPanel", () => {
     downloadPrintJobPdf.mockReset();
     (openPdfPreview as jest.Mock).mockReset();
     (downloadPdfFile as jest.Mock).mockReset();
+  });
+
+  it("lists and preselects the published default, not a draft from v2", async () => {
+    getCardTemplates.mockResolvedValue([
+      {
+        id: 8,
+        name: "Standard 3C Card - Draft from v2",
+        is_active: true,
+        is_default: false,
+        latest_published_version: null,
+      },
+      {
+        id: 3,
+        name: "Standard 3C Card V3",
+        is_active: true,
+        is_default: true,
+        latest_published_version: {
+          id: 30,
+          version_number: 3,
+          label: "Draft from v2",
+          status: "published",
+        },
+      },
+    ]);
+    render(
+      <PrintLicenceCardsPanel
+        open
+        onClose={jest.fn()}
+        locale="en"
+        clubId={null}
+        source="licenses"
+        scope="federation"
+        licenseIds={[4]}
+      />
+    );
+    expect(await screen.findByText("Standard 3C Card V3 · v3")).toBeInTheDocument();
+    expect(screen.queryByText("Standard 3C Card - Draft from v2")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Draft from v2/)).not.toBeInTheDocument();
+    (printFederationLicenseCards as jest.Mock).mockResolvedValue({
+      jobs: [{ id: 1, job_number: "PJ-1" }],
+      skipped_license_ids: [],
+    });
+    downloadPrintJobPdf.mockResolvedValue({
+      blob: new Blob(["%PDF"], { type: "application/pdf" }),
+      filename: "card.pdf",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "printLicenceCardsSubmit" }));
+    await waitFor(() => {
+      expect(printFederationLicenseCards).toHaveBeenCalledWith({
+        license_ids: [4],
+        template_version: 30,
+      });
+    });
+  });
+
+  it("keeps the club list on the published template name", async () => {
+    getCardTemplates.mockResolvedValue([
+      {
+        id: 3,
+        name: "Standard 3C Card V3",
+        is_active: true,
+        is_default: true,
+        latest_published_version: {
+          id: 30,
+          version_number: 3,
+          label: "Club label",
+          status: "published",
+        },
+      },
+      {
+        id: 8,
+        name: "Draft only",
+        is_active: true,
+        is_default: false,
+        latest_published_version: null,
+      },
+    ]);
+    render(
+      <PrintLicenceCardsPanel
+        open
+        onClose={jest.fn()}
+        locale="en"
+        clubId={4}
+        source="licenses"
+        scope="club"
+        licenseIds={[4]}
+      />
+    );
+    expect(await screen.findByText("Standard 3C Card V3 · Club label")).toBeInTheDocument();
+    expect(screen.queryByText("Draft only")).not.toBeInTheDocument();
   });
 
   it("shows a non-red note when no published template exists", async () => {

@@ -25,10 +25,7 @@ from licenses.models import Income, IncomeCategory, Order
 
 from .models import ShopItem, ShopMovement, ShopSale, ShopSaleLine, ShopSnapshot, ShopSnapshotLine, ShopVariant
 
-try:
-    from weasyprint import HTML
-except Exception:  # pragma: no cover
-    HTML = None
+from licenses.weasyprint_adapter import load_html, write_pdf
 
 try:
     import qrcode
@@ -528,7 +525,7 @@ def render_stickers_pdf(
     y_offset_mm: str | Decimal = "0.00",
     base_url: str,
 ) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     copies = max(1, min(int(copies or 1), 400))
     start = max(1, min(int(start_slot or 1), L7121_SLOT_COUNT))
@@ -586,11 +583,11 @@ def render_stickers_pdf(
     from licenses.card_rendering import _apply_printer_offset_to_pdf
 
     html = _apply_printer_offset_to_pdf(html, x_offset_mm=x_offset_mm, y_offset_mm=y_offset_mm)
-    return HTML(string=html, base_url=base_url).write_pdf()
+    return write_pdf(html, base_url=base_url)
 
 
 def render_catalogue_pdf(club, *, base_url: str) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     items = (
         ShopItem.objects.filter(club=club, is_active=True)
@@ -632,11 +629,11 @@ def render_catalogue_pdf(club, *, base_url: str) -> bytes | None:
             "labels": shop_labels(resolve_document_language(club=club)),
         },
     )
-    return HTML(string=html, base_url=base_url).write_pdf()
+    return write_pdf(html, base_url=base_url)
 
 
 def render_snapshot_pdf(snapshot: ShopSnapshot, *, base_url: str) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     lines = list(snapshot.lines.all())
     units = sum(row.quantity for row in lines)
@@ -655,4 +652,4 @@ def render_snapshot_pdf(snapshot: ShopSnapshot, *, base_url: str) -> bytes | Non
             "low": [row for row in lines if row.quantity <= row.reorder_level],
         },
     )
-    return HTML(string=html, base_url=base_url).write_pdf()
+    return write_pdf(html, base_url=base_url)

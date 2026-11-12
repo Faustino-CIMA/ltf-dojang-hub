@@ -482,7 +482,7 @@ function ManageMembersPanel({ team, clubId, onClose, onChanged }: { team: ClubTe
     return personAgeClass(person, year);
   }
 
-  function matches(person: { first_name: string; last_name: string; sex?: string; belt_rank?: string; age_class?: string; birth_year?: number | null; date_of_birth?: string | null }) {
+  function matches(person: TeamMember | Member) {
     if (needle && !formatFullName(person).toLowerCase().includes(needle)) return false;
     if (sexFilter && person.sex !== sexFilter) return false;
     if (ageFilter && ageOf(person) !== ageFilter) return false;

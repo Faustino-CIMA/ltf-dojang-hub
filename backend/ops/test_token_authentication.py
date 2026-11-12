@@ -7,17 +7,18 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from accounts.allauth_session import user_and_session
 from accounts.models import User
-from ops.authentication import _user_and_session
 
 
 class SessionTokenShapeTests(TestCase):
     def test_accepts_a_tuple_and_a_result_object(self):
         user = object()
         session = object()
-        self.assertEqual(_user_and_session((user, session)), (user, session))
-        self.assertEqual(_user_and_session(SimpleNamespace(user=user, session=session)), (user, session))
-        self.assertEqual(_user_and_session(None), (None, None))
+        self.assertEqual(user_and_session((user, session)), (user, session))
+        self.assertEqual(user_and_session(SimpleNamespace(user=user, session=session)), (user, session))
+        self.assertEqual(user_and_session(None), (None, None))
+        self.assertEqual(user_and_session(("only-one",)), (None, None))
 
 
 class SessionTokenHeaderTests(TestCase):

@@ -53,7 +53,8 @@ const federationSchema = z.object({
   club_tourist_transfer_threshold: z.coerce.number().int().min(1).max(99),
 });
 
-type FederationFormValues = z.infer<typeof federationSchema>;
+type FederationFormInput = z.input<typeof federationSchema>;
+type FederationFormValues = z.output<typeof federationSchema>;
 
 export default function LtfAdminSettingsPage() {
   const t = useTranslations("LtfAdmin");
@@ -80,7 +81,7 @@ export default function LtfAdminSettingsPage() {
     setValue,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<FederationFormValues>({
+  } = useForm<FederationFormInput, unknown, FederationFormValues>({
     resolver: zodResolver(federationSchema),
     defaultValues: {
       name: "",
