@@ -338,6 +338,9 @@ def process_member_profile_picture(
                     "updated_at",
                 ]
             )
+        from .notices import open_picture_notice
+
+        open_picture_notice(member)
         return member
 
     with transaction.atomic():

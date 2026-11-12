@@ -814,34 +814,40 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             return Response(payload, status=status.HTTP_202_ACCEPTED)
         return Response(payload, status=status.HTTP_201_CREATED)
 
-    def _can_review_pictures(self, user) -> bool:
-        return bool(user and user.is_authenticated and user.role in {"club_admin", "ltf_admin"})
+    def _review_or_refuse(self, request, member):
+        from .notices import can_decide
 
-    @action(detail=False, methods=["get"], url_path="picture-reviews")
-    def picture_reviews(self, request):
-        if not self._can_review_pictures(request.user):
+        if not can_decide(request, member):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        waiting = self.get_queryset().exclude(profile_picture_pending_processed="").exclude(
-            profile_picture_pending_processed__isnull=True
-        )
-        return Response(
-            [
+        return None
+
+    @action(detail=True, methods=["get", "post"], url_path="picture-review")
+    def picture_review(self, request, *args, **kwargs):
+        member = self.get_object()
+        refused = self._review_or_refuse(request, member)
+        if refused is not None:
+            return refused
+        if request.method == "GET":
+            current = ""
+            if member.profile_picture_processed or member.profile_picture_original:
+                current = request.build_absolute_uri(f"/api/members/{member.id}/profile-picture/processed/")
+            pending = ""
+            if member.profile_picture_pending_processed:
+                pending = request.build_absolute_uri(f"/api/members/{member.id}/picture-review/pending/")
+            return Response(
                 {
                     "id": member.id,
                     "first_name": member.first_name,
                     "last_name": member.last_name,
+                    "current_url": current,
+                    "pending_url": pending,
                 }
-                for member in waiting.order_by("last_name", "first_name", "id")
-            ]
-        )
-
-    @action(detail=True, methods=["post"], url_path="picture-review")
-    def picture_review(self, request, *args, **kwargs):
-        if not self._can_review_pictures(request.user):
-            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
-        member = self.get_object()
+            )
         decision = str(request.data.get("decision") or "").strip()
+        reason = str(request.data.get("reason") or "").strip()[:500]
+        from .notices import resolve_picture_notice
         from .services import approve_pending_profile_picture, clear_pending_profile_picture
+        from ops.request_utils import write_ops_audit
 
         try:
             if decision == "approve":
@@ -852,7 +858,31 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 return Response({"detail": "Choose approve or reject."}, status=status.HTTP_400_BAD_REQUEST)
         except DjangoValidationError as exc:
             raise DRFValidationError(getattr(exc, "messages", None) or str(exc)) from exc
-        return Response({"id": member.id, "decision": decision})
+        notice = resolve_picture_notice(member, request.user, decision, reason)
+        write_ops_audit(
+            request,
+            action="members.picture_review",
+            target_type="member",
+            target_id=member.id,
+            message="Approved a profile picture." if decision == "approve" else "Rejected a profile picture.",
+            metadata={"member_id": member.id, "club_id": member.club_id, "decision": decision},
+        )
+        return Response({"id": member.id, "decision": decision, "notice_id": notice.id})
+
+    @action(detail=True, methods=["get"], url_path="picture-review/pending")
+    def picture_review_pending(self, request, *args, **kwargs):
+        member = self.get_object()
+        refused = self._review_or_refuse(request, member)
+        if refused is not None:
+            return refused
+        return self._stream_member_image_file(
+            member=member,
+            image_field=member.profile_picture_pending_processed,
+            not_found_detail="No picture is waiting.",
+            missing_detail="The waiting picture file is missing.",
+            fallback_name=f"member-{member.id}-pending.jpg",
+            as_attachment=False,
+        )
 
     @action(detail=True, methods=["get"], url_path="profile-picture/download")
     def download_profile_picture(self, request, *args, **kwargs):
@@ -920,6 +950,33 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             filename=response_name,
             content_type=content_type,
         )
+
+
+class AdminNoticeListView(APIView):
+    """Open admin notices. Photo review is the first kind. Others can be added later."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .notices import open_notices_for
+
+        rows = []
+        for notice in open_notices_for(request).order_by("-opened_at", "-id"):
+            member = notice.member
+            name = ""
+            if member is not None:
+                name = f"{member.last_name} {member.first_name}".strip()
+            rows.append(
+                {
+                    "id": notice.id,
+                    "kind": notice.kind,
+                    "member_id": notice.member_id,
+                    "name": name,
+                    "club_id": notice.club_id,
+                    "opened_at": notice.opened_at,
+                }
+            )
+        return Response(rows)
 
 
 class RewriteLtfLicensePrefixView(APIView):

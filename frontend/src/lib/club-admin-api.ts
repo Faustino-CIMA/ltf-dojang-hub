@@ -86,6 +86,9 @@ export type Member = {
   is_active: boolean;
   account_state?: "none" | "pending" | "active" | "disabled";
   minor_account?: boolean;
+  picture_review?: "" | "pending";
+  review_state?: "" | "none" | "pending" | "rejected";
+  rejection_reason?: string;
   is_home_club_admin?: boolean;
   linked_user?: { id: number; username: string; role: string } | null;
   created_at: string;
