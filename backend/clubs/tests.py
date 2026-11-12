@@ -1190,6 +1190,62 @@ class FederationProfileApiTests(TestCase):
         self.assertEqual(profile.iban, "LU280019400644750000")
         self.assertEqual(profile.bank_name, "Spuerkeess (BCEE)")
 
+    def test_ltf_admin_can_save_optional_contact_fields(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        saved = self.client.patch(
+            "/api/federation-profile/",
+            {
+                "email": " desk@example.org ",
+                "website": "example.org",
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, getattr(saved, "data", None))
+        self.assertEqual(saved.data["email"], "desk@example.org")
+        self.assertEqual(saved.data["website"], "https://example.org")
+        profile = FederationProfile.objects.get(pk=1)
+        self.assertEqual(profile.email, "desk@example.org")
+        self.assertEqual(profile.website, "https://example.org")
+
+        cleared = self.client.patch(
+            "/api/federation-profile/",
+            {"email": "  ", "website": ""},
+            format="json",
+        )
+        self.assertEqual(cleared.status_code, status.HTTP_200_OK)
+        self.assertEqual(cleared.data["email"], "")
+        self.assertEqual(cleared.data["website"], "")
+
+    def test_federation_contact_fields_reject_invalid_values(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        bad_email = self.client.patch(
+            "/api/federation-profile/",
+            {"email": "not-an-email"},
+            format="json",
+        )
+        self.assertEqual(bad_email.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", bad_email.data)
+
+        bad_site = self.client.patch(
+            "/api/federation-profile/",
+            {"website": "not a website"},
+            format="json",
+        )
+        self.assertEqual(bad_site.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("website", bad_site.data)
+        self.assertEqual(FederationProfile.objects.get(pk=1).email, "")
+        self.assertEqual(FederationProfile.objects.get(pk=1).website, "")
+
+    def test_ltf_finance_cannot_change_federation_contact_fields(self):
+        self.client.force_authenticate(user=self.ltf_finance)
+        response = self.client.patch(
+            "/api/federation-profile/",
+            {"email": "desk@example.org", "website": "https://example.org"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(FederationProfile.objects.filter(email="desk@example.org").exists())
+
     def test_ltf_admin_patch_rejects_invalid_iban(self):
         self.client.force_authenticate(user=self.ltf_admin)
         response = self.client.patch(

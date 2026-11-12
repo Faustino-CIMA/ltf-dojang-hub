@@ -1,6 +1,7 @@
 import re
 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.validators import EmailValidator
 from rest_framework import serializers
 
 from django.utils.translation import gettext_lazy as _
@@ -154,6 +155,9 @@ class ClubSerializer(serializers.ModelSerializer):
 
 
 class FederationProfileSerializer(serializers.ModelSerializer):
+    website = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    email = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = FederationProfile
         fields = [
@@ -164,6 +168,8 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             "postal_code",
             "locality",
             "rcs_number",
+            "email",
+            "website",
             "iban",
             "bank_name",
             "rewrite_lux_prefix_on_member_import",
@@ -202,6 +208,22 @@ class FederationProfileSerializer(serializers.ModelSerializer):
         if normalized and not is_valid_iban(normalized):
             raise serializers.ValidationError("Enter a valid IBAN.")
         return normalized
+
+    def validate_email(self, value):
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        try:
+            EmailValidator()(text)
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
+        return text
+
+    def validate_website(self, value):
+        try:
+            return normalize_club_website(value)
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

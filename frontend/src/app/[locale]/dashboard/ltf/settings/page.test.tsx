@@ -52,6 +52,8 @@ const baseProfile = {
   postal_code: "1234",
   locality: "Musterstadt",
   rcs_number: "B123456",
+  email: "desk@example.org",
+  website: "https://example.org",
   iban: "",
   bank_name: "",
   rewrite_lux_prefix_on_member_import: false,
@@ -162,5 +164,24 @@ describe("LTF federation settings", () => {
     );
     expect(screen.getByLabelText("street")).toHaveValue("Boulevard Royal");
     expect(String(screen.getByLabelText("street").getAttribute("value"))).not.toMatch(/L-2449|,/);
+  });
+
+  it("shows the stored email and website beside the office address", async () => {
+    render(<Page />);
+    expect(await screen.findByLabelText("federationEmailLabel")).toHaveValue("desk@example.org");
+    expect(screen.getByLabelText("federationWebsiteLabel")).toHaveValue("https://example.org");
+    expect(screen.getAllByRole("button", { name: "aboutTitle" })).toHaveLength(2);
+  });
+
+  it("does not save an invalid email address", async () => {
+    update.mockClear();
+    update.mockImplementation(async (payload) => ({ ...baseProfile, ...payload }));
+    render(<Page />);
+    fireEvent.change(await screen.findByLabelText("federationEmailLabel"), {
+      target: { value: "not-an-email" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "saveFederationSettings" }));
+    expect(await screen.findByText("federationEmailInvalid")).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
   });
 });
