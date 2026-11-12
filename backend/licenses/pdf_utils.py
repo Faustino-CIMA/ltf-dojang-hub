@@ -228,33 +228,52 @@ def _federation_logo_uri() -> str:
         return ""
 
 
+def _shown_line(value) -> str:
+    text = str(value if value is not None else "").strip()
+    if not text or text.casefold() == "none":
+        return ""
+    return text
+
+
 def _issuer() -> dict:
+    """Federation letterhead from the profile on LTF settings.
+
+    Address lines, email, and website are included only when filled.
+    A blank office keeps the previous address block so existing invoices
+    do not lose it. Email and website stay off the page until they are saved.
+    """
     from clubs.models import FederationProfile
 
     profile = FederationProfile.objects.order_by("id").first()
-    lines = []
+    lines: list[str] = []
+    email = ""
+    website = ""
     if profile is not None:
         lines = [
             line
-            for line in (profile.address_line1, profile.address_line2)
-            if str(line or "").strip()
+            for line in (_shown_line(profile.address_line1), _shown_line(profile.address_line2))
+            if line
         ]
         postal = _postal_locality(profile.postal_code, profile.locality)
         if postal:
             lines.append(postal)
         if lines and not any("luxembourg" in line.casefold() for line in lines):
             lines.append("LUXEMBOURG")
+        email = _shown_line(getattr(profile, "email", ""))
+        website = _shown_line(getattr(profile, "website", ""))
     iban = ""
-    if profile is not None and str(profile.iban or "").strip():
-        compact = re.sub(r"\s+", "", profile.iban)
-        iban = " ".join(compact[index : index + 4] for index in range(0, len(compact), 4))
+    if profile is not None and _shown_line(profile.iban):
+        iban = _grouped_iban(profile.iban)
+    if profile is None:
+        email = _LTF_LETTERHEAD["email"]
+        website = _LTF_LETTERHEAD["website"]
     return {
-        "name": (profile.name if profile is not None and profile.name else _LTF_LETTERHEAD["name"]),
+        "name": (profile.name if profile is not None and _shown_line(profile.name) else _LTF_LETTERHEAD["name"]),
         "lines": lines or list(_LTF_LETTERHEAD["lines"]),
         "iban": iban or _LTF_LETTERHEAD["iban"],
         "bic": _LTF_LETTERHEAD["bic"],
-        "email": _LTF_LETTERHEAD["email"],
-        "website": _LTF_LETTERHEAD["website"],
+        "email": email,
+        "website": website,
         "logo_uri": _federation_logo_uri(),
     }
 
