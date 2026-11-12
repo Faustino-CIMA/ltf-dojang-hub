@@ -59,8 +59,6 @@ import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatLicenseExpiry, licenseExpiryClass, licenseExpiryHint } from "@/lib/license-expiry";
 import { displayClubName } from "@/lib/club-label";
-import { downloadLicenseCardPdf } from "@/lib/license-card-api";
-import { downloadPdfFile } from "@/lib/print-job-pdf";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
@@ -96,6 +94,7 @@ export default function LtfAdminLicensesPage() {
   const [batchLicenses, setBatchLicenses] = useState<License[]>([]);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
+  const [printIntent, setPrintIntent] = useState<"print" | "download">("print");
   const [printLicenseIds, setPrintLicenseIds] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -341,20 +340,12 @@ export default function LtfAdminLicensesPage() {
     });
   };
 
-  const downloadLicenseCard = async (licenseId: number) => {
-    try {
-      const file = await downloadLicenseCardPdf(licenseId);
-      downloadPdfFile(file.blob, file.filename || "license-card.pdf");
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "no_published_card_template");
-    }
-  };
-
-  const openPrint = (ids: number[]) => {
+  const openPrint = (ids: number[], intent: "print" | "download" = "print") => {
     if (ids.length === 0) {
       return;
     }
     setPrintLicenseIds(ids);
+    setPrintIntent(intent);
     setPrintOpen(true);
   };
 
@@ -611,7 +602,7 @@ export default function LtfAdminLicensesPage() {
           deleteLabel={t("deleteAction")}
           onEdit={() => startEdit(license)}
           onPrint={() => openPrint([license.id])}
-          onDownload={() => void downloadLicenseCard(license.id)}
+          onDownload={() => openPrint([license.id], "download")}
           onDelete={() => void openLicenseDelete(license)}
         />
       ),
@@ -839,6 +830,9 @@ export default function LtfAdminLicensesPage() {
         clubId={null}
         source="licenses"
         scope="federation"
+        intent={printIntent}
+        title={printIntent === "download" ? t("downloadLicenseCardAction") : undefined}
+        submitLabel={printIntent === "download" ? t("downloadLicenseCardAction") : undefined}
         licenseIds={printLicenseIds}
       />
     </LtfAdminLayout>

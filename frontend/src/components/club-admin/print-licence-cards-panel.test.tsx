@@ -2,13 +2,16 @@ import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { PrintLicenceCardsPanel } from "@/components/club-admin/print-licence-cards-panel";
-import { printFederationLicenseCards } from "@/lib/license-card-api";
+import { downloadLicenseCardPdf, printFederationLicenseCards } from "@/lib/license-card-api";
 import { downloadPdfFile, openPdfPreview } from "@/lib/print-job-pdf";
 
 jest.mock("next-intl", () => {
-  const translate = (key: string, values?: { count?: number; name?: string; version?: number }) => {
+  const translate = (key: string, values?: { count?: number; name?: string; version?: number; index?: number }) => {
     if (values && typeof values.name === "string" && values.version != null) {
       return `${values.name} · v${values.version}`;
+    }
+    if (values && typeof values.index === "number") {
+      return `${key}:${values.index}`;
     }
     return values && typeof values.count === "number" ? `${key}:${values.count}` : key;
   };
@@ -23,7 +26,9 @@ jest.mock("next/link", () => ({
 jest.mock("@/lib/license-card-api", () => ({
   getCardTemplates: jest.fn(),
   getPrinterProfiles: jest.fn().mockResolvedValue([]),
+  getPaperProfiles: jest.fn().mockResolvedValue([]),
   printFederationLicenseCards: jest.fn(),
+  downloadLicenseCardPdf: jest.fn(),
   createPrintJob: jest.fn(),
   executePrintJob: jest.fn(),
   downloadPrintJobPdf: jest.fn(),
@@ -34,15 +39,21 @@ jest.mock("@/lib/print-job-pdf", () => ({
   downloadPdfFile: jest.fn(),
 }));
 
-const { getCardTemplates, downloadPrintJobPdf } = jest.requireMock("@/lib/license-card-api") as {
+const { getCardTemplates, getPaperProfiles, downloadPrintJobPdf } = jest.requireMock(
+  "@/lib/license-card-api",
+) as {
   getCardTemplates: jest.Mock;
+  getPaperProfiles: jest.Mock;
   downloadPrintJobPdf: jest.Mock;
 };
 
 describe("PrintLicenceCardsPanel", () => {
   beforeEach(() => {
     getCardTemplates.mockReset();
+    getPaperProfiles.mockReset();
+    getPaperProfiles.mockResolvedValue([]);
     (printFederationLicenseCards as jest.Mock).mockReset();
+    (downloadLicenseCardPdf as jest.Mock).mockReset();
     downloadPrintJobPdf.mockReset();
     (openPdfPreview as jest.Mock).mockReset();
     (downloadPdfFile as jest.Mock).mockReset();
@@ -203,5 +214,48 @@ describe("PrintLicenceCardsPanel", () => {
       expect(downloadPdfFile).toHaveBeenCalledTimes(2);
     });
     expect(openPdfPreview).not.toHaveBeenCalled();
+  });
+
+  it("sends the designer's partial slot choice and downloads one card into those slots", async () => {
+    getCardTemplates.mockResolvedValue([
+      {
+        id: 3,
+        name: "Standard 3C",
+        is_active: true,
+        is_default: true,
+        latest_published_version: { id: 30, version_number: 3, label: "v3", status: "published", card_format: 1, paper_profile: 5 },
+      },
+    ]);
+    getPaperProfiles.mockResolvedValue([
+      { id: 5, code: "sigel-lp798", is_active: true, card_format: 1, slot_count: 4, columns: 2, rows: 2 },
+    ]);
+    (downloadLicenseCardPdf as jest.Mock).mockResolvedValue({
+      blob: new Blob(["%PDF"], { type: "application/pdf" }),
+      filename: "LTF-1_Holder_Sample.pdf",
+    });
+    render(
+      <PrintLicenceCardsPanel
+        open
+        onClose={jest.fn()}
+        locale="en"
+        clubId={null}
+        source="licenses"
+        scope="federation"
+        intent="download"
+        submitLabel="Download PDF"
+        licenseIds={[15]}
+      />
+    );
+    const slotZero = await screen.findByRole("button", { name: "licenseCardPreviewSlotLabel:0" });
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(4);
+    fireEvent.click(slotZero);
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() => {
+      expect(downloadLicenseCardPdf).toHaveBeenCalledWith(15, {
+        template_version: 30,
+        selected_slots: [1, 2, 3],
+      });
+    });
+    expect(downloadPdfFile).toHaveBeenCalled();
   });
 });

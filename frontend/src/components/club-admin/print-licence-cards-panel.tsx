@@ -15,18 +15,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AuthApiError } from "@/lib/auth-errors";
+import { SlotSelector, printJobSelectedSlots, normalizeSlotSelection, allSlotSelection } from "@/components/license-cards/slot-selector";
 import {
   createPrintJob,
+  downloadLicenseCardPdf,
   downloadPrintJobPdf,
   executePrintJob,
   getCardTemplates,
+  getPaperProfiles,
   getPrinterProfiles,
   printFederationLicenseCards,
   type CardTemplate,
+  type PaperProfile,
   type PrinterProfile,
   type PrintJob,
 } from "@/lib/license-card-api";
 import { downloadPdfFile, openPdfPreview } from "@/lib/print-job-pdf";
+
+const SIGEL_PAPER_CODE = "sigel-lp798";
+
+/** The sheet the print will use. Federation prefers Sigel LP798, matching the print command. */
+export function paperProfileForCardPrint(
+  scope: "club" | "federation",
+  template: CardTemplate | undefined,
+  paperProfiles: PaperProfile[],
+): PaperProfile | null {
+  const version = template?.latest_published_version;
+  if (!version) {
+    return null;
+  }
+  const templatePaper = version.paper_profile
+    ? paperProfiles.find((profile) => profile.id === version.paper_profile) ?? null
+    : null;
+  if (scope === "federation") {
+    const sigel = paperProfiles.find((profile) => profile.code === SIGEL_PAPER_CODE && profile.is_active);
+    if (sigel && sigel.card_format === version.card_format) {
+      return sigel;
+    }
+  }
+  return templatePaper;
+}
 
 const NO_PRINTER = "__no_printer__";
 
@@ -54,6 +82,10 @@ type PrintLicenceCardsPanelProps = {
   licenseIds?: number[];
   /** LTF licenses list. One sheet per club, including ids from other pages. */
   scope?: "club" | "federation";
+  /** Row download uses the same slot selector, then saves the one-card PDF. */
+  intent?: "print" | "download";
+  title?: string;
+  submitLabel?: string;
 };
 
 export function PrintLicenceCardsPanel({
@@ -65,12 +97,17 @@ export function PrintLicenceCardsPanel({
   memberIds = [],
   licenseIds = [],
   scope = "club",
+  intent = "print",
+  title,
+  submitLabel,
 }: PrintLicenceCardsPanelProps) {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
   const [templates, setTemplates] = useState<CardTemplate[]>([]);
+  const [paperProfiles, setPaperProfiles] = useState<PaperProfile[]>([]);
   const [printers, setPrinters] = useState<PrinterProfile[]>([]);
   const [templateVersionId, setTemplateVersionId] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState<number[]>([]);
   const [printerValue, setPrinterValue] = useState(NO_PRINTER);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,6 +119,12 @@ export function PrintLicenceCardsPanel({
   const selectedCount = source === "licenses" ? licenseIds.length : memberIds.length;
 
   const printable = useMemo(() => publishedCardTemplates(templates), [templates]);
+  const selectedTemplate = printable.find(
+    (template) => String(template.latest_published_version?.id) === templateVersionId,
+  );
+  const paperProfile = paperProfileForCardPrint(scope, selectedTemplate, paperProfiles);
+  const slotCount = paperProfile?.slot_count ?? 0;
+  const slotColumns = paperProfile?.columns ?? 1;
 
   useEffect(() => {
     if (!open) {
@@ -95,13 +138,16 @@ export function PrintLicenceCardsPanel({
     setJob(null);
     setTemplateVersionId("");
     setPrinterValue(NO_PRINTER);
-    Promise.all([getCardTemplates(), getPrinterProfiles()])
-      .then(([templateRows, printerRows]) => {
+    setSelectedSlots([]);
+    setPaperProfiles([]);
+    Promise.all([getCardTemplates(), getPrinterProfiles(), getPaperProfiles()])
+      .then(([templateRows, printerRows, paperRows]) => {
         if (cancelled) {
           return;
         }
         setTemplates(templateRows);
         setPrinters(printerRows);
+        setPaperProfiles(paperRows);
         const preferred =
           scope === "federation"
             ? preferredPublishedTemplate(templateRows)
@@ -127,6 +173,20 @@ export function PrintLicenceCardsPanel({
     };
   }, [open, scope, t]);
 
+  useEffect(() => {
+    if (slotCount <= 0) {
+      setSelectedSlots([]);
+      return;
+    }
+    setSelectedSlots((previous) => {
+      const normalized = normalizeSlotSelection(previous, slotCount);
+      if (normalized.length > 0) {
+        return normalized;
+      }
+      return allSlotSelection(slotCount);
+    });
+  }, [slotCount]);
+
   const noteError = (error: unknown) => {
     setErrorTone(error instanceof AuthApiError ? error.tone : "danger");
     setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"));
@@ -151,15 +211,27 @@ export function PrintLicenceCardsPanel({
       return;
     }
     const printerId = printerValue === NO_PRINTER ? null : Number(printerValue);
+    const slots = printJobSelectedSlots(selectedSlots, slotCount);
     setIsSubmitting(true);
     setErrorMessage(null);
     setInfoMessage(null);
     try {
+      if (intent === "download" && licenseIds.length === 1) {
+        const file = await downloadLicenseCardPdf(licenseIds[0], {
+          template_version: Number(templateVersionId),
+          ...(printerId ? { printer_profile: printerId } : {}),
+          ...(slots ? { selected_slots: slots } : {}),
+        });
+        downloadPdfFile(file.blob, file.filename || "license-card.pdf");
+        onClose();
+        return;
+      }
       if (scope === "federation") {
         const result = await printFederationLicenseCards({
           license_ids: licenseIds,
           template_version: Number(templateVersionId),
           ...(printerId ? { printer_profile: printerId } : {}),
+          ...(slots ? { selected_slots: slots } : {}),
         });
         const created = result.jobs[0] ?? null;
         setJob(created);
@@ -179,6 +251,7 @@ export function PrintLicenceCardsPanel({
           template_version: Number(templateVersionId),
           ...(source === "licenses" ? { license_ids: licenseIds } : { member_ids: memberIds }),
           ...(printerId ? { printer_profile_id: printerId } : {}),
+          ...(slots ? { selected_slots: slots } : {}),
           metadata: {
             quick_print: true,
             source,
@@ -204,7 +277,7 @@ export function PrintLicenceCardsPanel({
   return (
     <SidePanel
       open={open}
-      title={t("printLicenceCardsTitle")}
+      title={title || t("printLicenceCardsTitle")}
       description={t("printLicenceCardsDescription", { count: selectedCount })}
       closeLabel={common("modalClose")}
       onClose={onClose}
@@ -221,7 +294,7 @@ export function PrintLicenceCardsPanel({
               (scope !== "federation" && !clubId)
             }
           >
-            {isSubmitting ? t("printLicenceCardsWorking") : t("printLicenceCardsSubmit")}
+            {isSubmitting ? t("printLicenceCardsWorking") : submitLabel || t("printLicenceCardsSubmit")}
           </Button>
         )
       }
@@ -310,6 +383,12 @@ export function PrintLicenceCardsPanel({
               </SelectContent>
             </Select>
           </div>
+          <SlotSelector
+            slotCount={slotCount}
+            columns={slotColumns}
+            selectedSlots={selectedSlots}
+            onChange={setSelectedSlots}
+          />
         </div>
       )}
     </SidePanel>

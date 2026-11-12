@@ -374,3 +374,47 @@ class LtfLicenseCardPrintTests(APITestCase):
         for job in PrintJob.objects.select_related("paper_profile"):
             self.assertEqual(job.paper_profile.code, "sigel-lp798")
             self.assertEqual(job.status, PrintJob.Status.SUCCEEDED)
+
+    def test_download_places_one_card_in_the_chosen_slot(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            f"/api/licenses/{self.license.id}/card-pdf/",
+            {"selected_slots": [7]},
+            HTTP_X_DESK="ltf_admin",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, getattr(response, "data", None))
+        job = PrintJob.objects.get()
+        self.assertEqual(job.selected_slots, [7])
+        self.assertEqual(list(job.items.values_list("slot_index", flat=True)), [7])
+
+    def test_print_uses_the_same_slots_on_each_club_sheet(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/licenses/card-print/",
+            {
+                "license_ids": [self.license.id, self.far_license.id],
+                "selected_slots": [2, 9],
+            },
+            format="json",
+            HTTP_X_DESK="ltf_admin",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, getattr(response, "data", None))
+        self.assertEqual(PrintJob.objects.count(), 2)
+        for job in PrintJob.objects.prefetch_related("items"):
+            self.assertEqual(job.selected_slots, [2, 9])
+            self.assertEqual(list(job.items.values_list("slot_index", flat=True)), [2])
+
+    def test_fewer_slots_than_cards_is_refused_before_a_job_is_saved(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/licenses/card-print/",
+            {
+                "license_ids": [self.license.id, self.other_license.id],
+                "selected_slots": [4],
+            },
+            format="json",
+            HTTP_X_DESK="ltf_admin",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("selected_slots", response.data)
+        self.assertFalse(PrintJob.objects.exists())
