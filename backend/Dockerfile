@@ -30,8 +30,8 @@ RUN apt-get update \
 
 # Build context is the repository root (see docker-compose.yml) so message
 # catalogs can be copied in without a host bind mount.
-COPY backend/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY backend/requirements.lock /app/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock
 
 COPY --chown=app:app backend/ /app
 COPY --chown=app:app frontend/src/messages /app/i18n_frontend
