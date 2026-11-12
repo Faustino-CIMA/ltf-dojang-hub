@@ -240,7 +240,9 @@ def _issuer() -> dict:
 
     Address lines, email, and website are included only when filled.
     A blank office keeps the previous address block so existing invoices
-    do not lose it. Email and website stay off the page until they are saved.
+    do not lose it. A saved country is the last address line. The contact
+    email from settings is printed when it is filled; otherwise the
+    letterhead email is used. A blank website stays off the page.
     """
     from clubs.models import FederationProfile
 
@@ -257,9 +259,12 @@ def _issuer() -> dict:
         postal = _postal_locality(profile.postal_code, profile.locality)
         if postal:
             lines.append(postal)
-        if lines and not any("luxembourg" in line.casefold() for line in lines):
+        country = _shown_line(getattr(profile, "country", ""))
+        if country:
+            lines.append(country)
+        elif lines and not any("luxembourg" in line.casefold() for line in lines):
             lines.append("LUXEMBOURG")
-        email = _shown_line(getattr(profile, "email", ""))
+        email = _shown_line(getattr(profile, "email", "")) or _shown_line(_LTF_LETTERHEAD["email"])
         website = _shown_line(getattr(profile, "website", ""))
     iban = ""
     if profile is not None and _shown_line(profile.iban):

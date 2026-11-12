@@ -234,6 +234,7 @@ export type FederationProfile = {
   address_line2: string;
   postal_code: string;
   locality: string;
+  country: string;
   rcs_number: string;
   email: string;
   website: string;

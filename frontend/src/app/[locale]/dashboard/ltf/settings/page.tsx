@@ -69,6 +69,7 @@ const federationSchema = z.object({
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
   locality: z.string().optional(),
+  country: z.string().optional(),
   email: z.string().optional().refine(optionalEmail, "email"),
   website: z.string().optional().refine(optionalWebsite, "website"),
   iban: z
@@ -116,6 +117,7 @@ export default function LtfAdminSettingsPage() {
       address_line2: "",
       postal_code: "",
       locality: "",
+      country: "",
       email: "",
       website: "",
       iban: "",
@@ -127,6 +129,7 @@ export default function LtfAdminSettingsPage() {
   const addressLine2 = useWatch({ control, name: "address_line2", defaultValue: "" }) ?? "";
   const postalCode = useWatch({ control, name: "postal_code", defaultValue: "" }) ?? "";
   const localityValue = useWatch({ control, name: "locality", defaultValue: "" }) ?? "";
+  const countryValue = useWatch({ control, name: "country", defaultValue: "" }) ?? "";
   const derivedBankName = deriveBankNameFromIban(watchedIban);
 
   const loadProfile = useCallback(async () => {
@@ -141,6 +144,7 @@ export default function LtfAdminSettingsPage() {
         address_line2: profile.address_line2 ?? "",
         postal_code: profile.postal_code ?? "",
         locality: profile.locality ?? "",
+        country: profile.country ?? "",
         email: profile.email ?? "",
         website: profile.website ?? "",
         iban: profile.iban ?? "",
@@ -254,6 +258,7 @@ export default function LtfAdminSettingsPage() {
         address_line2: saved.address_line2 ?? "",
         postal_code: saved.postal_code ?? "",
         locality: saved.locality ?? "",
+        country: saved.country ?? "",
         email: saved.email ?? "",
         website: saved.website ?? "",
         iban: saved.iban ?? "",
@@ -336,13 +341,13 @@ export default function LtfAdminSettingsPage() {
               <p className="text-xs text-muted">{t("federationOfficeHint")}</p>
               <LuAddressFields
                 idPrefix="federation"
-                showCountry={false}
+                allowBlankCountry
                 value={{
                   ...splitStreetLine(addressLine1, { postal_code: postalCode, locality: localityValue }),
                   line2: addressLine2,
                   postal_code: postalCode,
                   locality: localityValue,
-                  country: "Luxembourg",
+                  country: countryValue,
                   use_for_invoice: false,
                 }}
                 onChange={(next) => {
@@ -350,6 +355,7 @@ export default function LtfAdminSettingsPage() {
                   setValue("address_line2", next.line2, { shouldDirty: true });
                   setValue("postal_code", next.postal_code, { shouldDirty: true });
                   setValue("locality", next.locality, { shouldDirty: true });
+                  setValue("country", next.country, { shouldDirty: true });
                 }}
               />
             </div>
