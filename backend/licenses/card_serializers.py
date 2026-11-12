@@ -214,10 +214,16 @@ class CardTemplateSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_by", "updated_by", "created_at", "updated_at"]
 
     def get_latest_published_version(self, obj: CardTemplate):
+        # Query the version table directly. A prefetched versions cache is ordered
+        # newest-first and includes drafts, and a filter on that cache must not
+        # be able to surface a draft as the printable version.
         latest_version = (
-            obj.versions.filter(status=CardTemplateVersion.Status.PUBLISHED)
+            CardTemplateVersion.objects.filter(
+                template_id=obj.pk,
+                status=CardTemplateVersion.Status.PUBLISHED,
+            )
             .select_related("card_format", "paper_profile")
-            .order_by("-version_number")
+            .order_by("-version_number", "-published_at", "-id")
             .first()
         )
         if latest_version is None:

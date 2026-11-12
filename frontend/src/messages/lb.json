@@ -1328,6 +1328,7 @@
     "printLicenceCardsTitle": "Lizenzkaarten drécken",
     "printLicenceCardsDescription": "En Drockauftrag fir {count} ausgewielt Einträg erstellen.",
     "printLicenceCardsTemplateLabel": "Kaartevirlag",
+    "printLicenceCardsTemplateOption": "{name} · v{version}",
     "printLicenceCardsTemplatePlaceholder": "Eng verëffentlecht Virlag wielen",
     "printLicenceCardsNoTemplate": "Et gëtt keng verëffentlecht Lizenzkaarte-Virlag.",
     "printLicenceCardsPrinterLabel": "Dréckerprofil",

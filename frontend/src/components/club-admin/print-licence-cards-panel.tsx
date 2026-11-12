@@ -30,6 +30,20 @@ import { downloadPdfFile, openPdfPreview } from "@/lib/print-job-pdf";
 
 const NO_PRINTER = "__no_printer__";
 
+export function publishedCardTemplates(templates: CardTemplate[]): CardTemplate[] {
+  return templates.filter((template) => template.is_active && template.latest_published_version);
+}
+
+/** Default template, then a Standard/3C name, then the first published row. */
+export function preferredPublishedTemplate(templates: CardTemplate[]): CardTemplate | undefined {
+  const published = publishedCardTemplates(templates);
+  return (
+    published.find((template) => template.is_default) ??
+    published.find((template) => /3c/i.test(template.name) || /standard/i.test(template.name)) ??
+    published[0]
+  );
+}
+
 type PrintLicenceCardsPanelProps = {
   open: boolean;
   onClose: () => void;
@@ -67,11 +81,7 @@ export function PrintLicenceCardsPanel({
 
   const selectedCount = source === "licenses" ? licenseIds.length : memberIds.length;
 
-  const printable = useMemo(
-    () =>
-      templates.filter((template) => template.is_active && template.latest_published_version),
-    [templates]
-  );
+  const printable = useMemo(() => publishedCardTemplates(templates), [templates]);
 
   useEffect(() => {
     if (!open) {
@@ -92,10 +102,11 @@ export function PrintLicenceCardsPanel({
         }
         setTemplates(templateRows);
         setPrinters(printerRows);
-        const published = templateRows.filter(
-          (template) => template.is_active && template.latest_published_version
-        );
-        const preferred = published.find((template) => template.is_default) ?? published[0];
+        const preferred =
+          scope === "federation"
+            ? preferredPublishedTemplate(templateRows)
+            : publishedCardTemplates(templateRows).find((template) => template.is_default) ??
+              publishedCardTemplates(templateRows)[0];
         setTemplateVersionId(
           preferred?.latest_published_version ? String(preferred.latest_published_version.id) : ""
         );
@@ -114,7 +125,7 @@ export function PrintLicenceCardsPanel({
     return () => {
       cancelled = true;
     };
-  }, [open, t]);
+  }, [open, scope, t]);
 
   const noteError = (error: unknown) => {
     setErrorTone(error instanceof AuthApiError ? error.tone : "danger");
@@ -265,17 +276,21 @@ export function PrintLicenceCardsPanel({
                 <SelectValue placeholder={t("printLicenceCardsTemplatePlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                {printable.map((template) => (
-                  <SelectItem
-                    key={template.id}
-                    value={String(template.latest_published_version?.id)}
-                  >
-                    {template.name}
-                    {template.latest_published_version?.label
-                      ? ` · ${template.latest_published_version.label}`
-                      : ""}
-                  </SelectItem>
-                ))}
+                {printable.map((template) => {
+                  const version = template.latest_published_version;
+                  const optionLabel =
+                    scope === "federation" && version
+                      ? t("printLicenceCardsTemplateOption", {
+                          name: template.name,
+                          version: version.version_number,
+                        })
+                      : `${template.name}${version?.label ? ` · ${version.label}` : ""}`;
+                  return (
+                    <SelectItem key={template.id} value={String(version?.id)}>
+                      {optionLabel}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
