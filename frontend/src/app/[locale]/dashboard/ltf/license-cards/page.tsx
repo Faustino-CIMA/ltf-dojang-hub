@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -385,12 +386,16 @@ export default function LtfAdminLicenseCardsPage() {
           <ListActionsRow
             actions={
               <>
-                <Button variant="primary" onClick={startCreateTemplate}>{t("licenseCardsCreateAction")}</Button>
+                <Button variant="primary" onClick={startCreateTemplate}>
+                  <Plus className="size-4" aria-hidden />
+                  {t("licenseCardsCreateAction")}
+                </Button>
                 <Button
                   variant="outline"
                   disabled={isImportingTemplate}
                   onClick={() => importFileInputRef.current?.click()}
                 >
+                  <Upload className="size-4" aria-hidden />
                   {isImportingTemplate
                     ? t("licenseCardsImportingTemplateAction")
                     : t("licenseCardsImportAction")}

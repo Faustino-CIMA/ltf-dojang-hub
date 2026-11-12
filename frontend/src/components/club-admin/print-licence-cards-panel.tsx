@@ -29,6 +29,22 @@ import {
 import { downloadPdfFile, openPdfPreview } from "@/lib/print-job-pdf";
 
 const NO_PRINTER = "__no_printer__";
+const fieldClassName = "w-full min-w-0 overflow-hidden";
+
+function PrintFormSkeleton() {
+  return (
+    <div className="space-y-4" role="status" aria-busy="true" aria-live="polite">
+      <div className="space-y-2">
+        <div className="h-4 w-28 rounded bg-secondary" />
+        <div className="h-[var(--control-height)] w-full rounded-[var(--radius-form)] bg-secondary" />
+      </div>
+      <div className="space-y-2">
+        <div className="h-4 w-20 rounded bg-secondary" />
+        <div className="h-[var(--control-height)] w-full rounded-[var(--radius-form)] bg-secondary" />
+      </div>
+    </div>
+  );
+}
 
 export function publishedCardTemplates(templates: CardTemplate[]): CardTemplate[] {
   return templates.filter((template) => template.is_active && template.latest_published_version);
@@ -233,7 +249,7 @@ export function PrintLicenceCardsPanel({
         </p>
       ) : null}
       {isLoading ? (
-        <p className="text-sm text-muted">{common("loadingLabel")}</p>
+        <PrintFormSkeleton />
       ) : job ? (
         <div className="space-y-3">
           <p className="text-sm text-foreground">
@@ -266,13 +282,13 @@ export function PrintLicenceCardsPanel({
       ) : printable.length === 0 && !isLoading ? (
         <p className="text-sm text-muted">{t("printLicenceCardsNoTemplate")}</p>
       ) : (
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-2">
             <Label htmlFor="print-card-template" required>
               {t("printLicenceCardsTemplateLabel")}
             </Label>
-            <Select value={templateVersionId} onValueChange={setTemplateVersionId}>
-              <SelectTrigger id="print-card-template" className="w-full">
+            <Select modal={false} value={templateVersionId} onValueChange={setTemplateVersionId}>
+              <SelectTrigger id="print-card-template" className={fieldClassName}>
                 <SelectValue placeholder={t("printLicenceCardsTemplatePlaceholder")} />
               </SelectTrigger>
               <SelectContent>
@@ -294,10 +310,10 @@ export function PrintLicenceCardsPanel({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <Label htmlFor="print-card-printer">{t("printLicenceCardsPrinterLabel")}</Label>
-            <Select value={printerValue} onValueChange={setPrinterValue}>
-              <SelectTrigger id="print-card-printer" className="w-full">
+            <Select modal={false} value={printerValue} onValueChange={setPrinterValue}>
+              <SelectTrigger id="print-card-printer" className={fieldClassName}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

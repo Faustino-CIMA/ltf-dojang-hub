@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Copy, IdCard, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { Ban, Copy, IdCard, Pencil, Plus, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -687,6 +687,7 @@ export default function LtfAdminMembersPage() {
               <div className="flex flex-wrap items-center gap-3">
                 {canManageStaff ? (
                   <Button type="button" write onClick={() => void openPanel("create", null)}>
+                    <Plus className="size-4" aria-hidden />
                     {t("staffAddAction")}
                   </Button>
                 ) : null}
@@ -697,6 +698,7 @@ export default function LtfAdminMembersPage() {
                     actions={[
                       {
                         key: "accounts",
+                        icon: <UserPlus aria-hidden />,
                         label: t("createUserAccounts"),
                         disabled: !canBulkCreateAccounts(selectedIds, members),
                         onSelect: () => setAccountPanel({ intent: "create", ids: selectedIds }),
@@ -722,6 +724,7 @@ export default function LtfAdminMembersPage() {
                   actions={[
                     {
                       key: "import-members",
+                      icon: <Upload aria-hidden />,
                       label: importT("importMembers"),
                       onSelect: () => router.push(`/${locale}/dashboard/ltf/members/import`),
                     },
