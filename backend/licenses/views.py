@@ -455,11 +455,15 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         )
         if license_record is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        slot_query = request.query_params.getlist("selected_slots")
         try:
             jobs, _skipped = print_license_cards(
                 license_ids=[license_record.id],
                 user=request.user,
                 request=request,
+                template_version_id=request.query_params.get("template_version") or None,
+                printer_profile_id=request.query_params.get("printer_profile") or None,
+                selected_slots=slot_query or None,
             )
         except LicenseCardPrintError as exc:
             return Response({"detail": exc.code}, status=exc.status_code)
@@ -489,6 +493,7 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 license_ids=payload.get("license_ids"),
                 template_version_id=payload.get("template_version"),
                 printer_profile_id=payload.get("printer_profile"),
+                selected_slots=payload.get("selected_slots"),
                 user=request.user,
                 request=request,
             )

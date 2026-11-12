@@ -39,6 +39,24 @@ describe("license card download", () => {
     expect(file.filename).toBe("LTF-2026-00123_Holder_Sample.pdf");
   });
 
+  it("sends the chosen slots on the download URL", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => null },
+      blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+    }) as unknown as typeof fetch;
+
+    await downloadLicenseCardPdf(15, { template_version: 30, selected_slots: [2, 9] });
+    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    expect(url).toContain("/api/licenses/15/card-pdf/?");
+    expect(url).toContain("template_version=30");
+    expect(url).toContain("selected_slots=2");
+    expect(url).toContain("selected_slots=9");
+    expect((global.fetch as jest.Mock).mock.calls[0][1]).toEqual(
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
   it("sends the open desk when a print-job PDF is downloaded", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

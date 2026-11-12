@@ -61,6 +61,8 @@ def ltf_admin_print_refusal(request):
 def _optional_pk(value, field_name: str) -> int | None:
     if value in (None, ""):
         return None
+    if isinstance(value, str) and value.isdigit():
+        value = int(value)
     if isinstance(value, bool) or not isinstance(value, int):
         raise serializers.ValidationError({field_name: "Expected an id."})
     if value < 1:
@@ -87,6 +89,26 @@ def _parse_license_ids(raw) -> list[int]:
     if len(set(ids)) != len(ids):
         raise serializers.ValidationError({"license_ids": "Duplicate license ids are not allowed."})
     return ids
+
+
+def _parse_selected_slots(raw) -> list[int] | None:
+    if raw in (None, "", []):
+        return None
+    values = [raw] if isinstance(raw, (str, int)) else raw
+    if not isinstance(values, list):
+        raise serializers.ValidationError({"selected_slots": "Expected a list of slot indexes."})
+    slots: list[int] = []
+    for value in values:
+        if isinstance(value, str) and value.isdigit():
+            value = int(value)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise serializers.ValidationError({"selected_slots": "Slot indexes must be integers."})
+        slots.append(value)
+    if not slots:
+        return None
+    if len(set(slots)) != len(slots):
+        raise serializers.ValidationError({"selected_slots": "Duplicate slot indices are not allowed."})
+    return sorted(slots)
 
 
 def _resolve_template(template_version_id: int | None) -> CardTemplateVersion:
@@ -176,10 +198,12 @@ def print_license_cards(
     request,
     template_version_id=None,
     printer_profile_id=None,
+    selected_slots=None,
 ) -> tuple[list[PrintJob], list[int]]:
     ids = _parse_license_ids(license_ids)
     template_id = _optional_pk(template_version_id, "template_version")
     printer_id = _optional_pk(printer_profile_id, "printer_profile")
+    slots = _parse_selected_slots(selected_slots)
     template_version = _resolve_template(template_id)
     paper = _paper_for(template_version)
     licenses = list(
@@ -200,6 +224,23 @@ def print_license_cards(
             grouped[row.club_id].append(row)
     if not grouped:
         raise LicenseCardPrintError("license_has_no_club")
+    if slots and paper is None:
+        raise serializers.ValidationError({"selected_slots": "Selected slots require a paper profile."})
+    if slots and paper is not None:
+        invalid = [slot for slot in slots if slot >= int(paper.slot_count)]
+        if invalid:
+            raise serializers.ValidationError(
+                {
+                    "selected_slots": (
+                        "Out-of-range slot index(es): " + ", ".join(str(value) for value in invalid)
+                    )
+                }
+            )
+        for rows in grouped.values():
+            if len(slots) < len(rows):
+                raise serializers.ValidationError(
+                    {"selected_slots": "Selected slots count must be >= number of printable items."}
+                )
 
     jobs: list[PrintJob] = []
     for club_id in sorted(grouped):
@@ -214,6 +255,8 @@ def print_license_cards(
             payload["paper_profile"] = paper.id
         if printer_id is not None:
             payload["printer_profile"] = printer_id
+        if slots:
+            payload["selected_slots"] = slots
         serializer = PrintJobCreateSerializer(data=payload, context={"request": request})
         serializer.is_valid(raise_exception=True)
         job = _persist_print_job(serializer, user)

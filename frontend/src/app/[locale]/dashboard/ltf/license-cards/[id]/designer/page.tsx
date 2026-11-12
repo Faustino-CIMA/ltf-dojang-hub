@@ -37,6 +37,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { Button } from "@/components/ui/button";
+import { SlotSelector, normalizeSlotSelection } from "@/components/license-cards/slot-selector";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -303,16 +304,6 @@ function generateElementId() {
     return crypto.randomUUID();
   }
   return `element-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-}
-
-function normalizeSlotSelection(selectedSlots: number[], slotCount: number) {
-  const unique = new Set<number>();
-  for (const slot of selectedSlots) {
-    if (Number.isInteger(slot) && slot >= 0 && slot < slotCount) {
-      unique.add(slot);
-    }
-  }
-  return Array.from(unique.values()).sort((a, b) => a - b);
 }
 
 function toFiniteInteger(value: unknown, fallback: number) {
@@ -3489,21 +3480,6 @@ export default function LtfAdminLicenseCardDesignerPage() {
     selectedImageSourceMode,
   ]);
 
-  const togglePreviewSlot = (slotIndex: number) => {
-    if (effectiveSlotCount <= 0) {
-      return;
-    }
-    setPreviewSelectedSlots((previousSlots) => {
-      const selectedSet = new Set(normalizeSlotSelection(previousSlots, effectiveSlotCount));
-      if (selectedSet.has(slotIndex)) {
-        selectedSet.delete(slotIndex);
-      } else {
-        selectedSet.add(slotIndex);
-      }
-      return normalizeSlotSelection(Array.from(selectedSet.values()), effectiveSlotCount);
-    });
-  };
-
   const alignSelectedElements = useCallback(
     (mode: "left" | "center" | "right" | "top" | "middle" | "bottom") => {
       if (!isEditableDraft || selectedElements.length < 2) {
@@ -4779,60 +4755,12 @@ export default function LtfAdminLicenseCardDesignerPage() {
           </div>
         </div>
 
-        <div className="space-y-3 rounded-[var(--radius-card)] border border-border bg-secondary p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              {t("licenseCardPreviewSlotSelectorTitle")}
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={effectiveSlotCount <= 0}
-                onClick={() =>
-                  setPreviewSelectedSlots(Array.from({ length: effectiveSlotCount }, (_, i) => i))
-                }
-              >
-                {t("licenseCardPreviewSelectAllSlotsAction")}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={effectiveSlotCount <= 0}
-                onClick={() => setPreviewSelectedSlots([])}
-              >
-                {t("licenseCardPreviewClearSlotsAction")}
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-muted">{t("licenseCardPreviewSlotSelectorSubtitle")}</p>
-          {effectiveSlotCount <= 0 ? (
-            <p className="text-xs text-muted">{t("licenseCardPreviewNoSlotsAvailable")}</p>
-          ) : (
-            <div
-              className="grid gap-2"
-              style={{ gridTemplateColumns: `repeat(${Math.max(1, slotGridColumns)}, minmax(0, 1fr))` }}
-            >
-              {Array.from({ length: effectiveSlotCount }, (_, index) => {
-                const selected = previewSelectedSlots.includes(index);
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    className={`rounded-lg border px-2 py-2 text-xs transition ${
-                      selected
-                        ? "border-primary bg-[var(--accent-soft)] text-primary"
-                        : "border-border bg-surface text-foreground hover:bg-secondary"
-                    }`}
-                    onClick={() => togglePreviewSlot(index)}
-                  >
-                    {t("licenseCardPreviewSlotLabel", { index })}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <SlotSelector
+          slotCount={effectiveSlotCount}
+          columns={slotGridColumns}
+          selectedSlots={previewSelectedSlots}
+          onChange={setPreviewSelectedSlots}
+        />
       </section>
 
       <section className="mb-4 space-y-4 rounded-[var(--radius-card)] border border-border bg-surface p-4">
