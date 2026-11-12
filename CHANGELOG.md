@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **License cards:** The LTF licenses list can print the same ten-up A4 card sheet the clubs use, for one license or a selection that can span pages and clubs. The row menu can also download that one card. The card itself is in English. A view-only desk and the finance desk cannot print.
+- **Member list:** Shift-click on the LTF member list selects or clears the rows between the last tick and this one, in the order on the page. The club member list uses the same rule.
 - **Module fees:** A module price can have an optional maximum, in euros. Empty means no cap. The cap applies to the line after the minimum. A per-member cap limits the line total. Bundles stay a flat price. Invoices already sent stay as they are. The next renewal uses the current cap.
 - **Module fees:** A price charged per active member says so, with the year, on the billing cards and wherever that price is shown to LTF Finance or a club. A minimum that changes the bill is shown with it.
 - **Fee invoices:** Invoices from LTF Finance fee billing use the same letterhead as the other federation invoices. Amounts, tax, invoice numbers, and payment stay as they are.
