@@ -1,10 +1,12 @@
 Django>=6.0,<6.1
-djangorestframework>=3.15,<4.0
+djangorestframework==3.18.3
 django-decouple>=2.1
 django-cors-headers>=4.4
 django-filter>=24.2
 drf-spectacular>=0.27
-django-allauth>=65.0,<66
+# 65.22.0 is what a loose >=65.0,<66 install resolves to, and it returns an
+# object from authenticate_by_x_session_token instead of a tuple.
+django-allauth==65.22.0
 fido2>=2.0,<3
 gunicorn>=22.0
 psycopg[binary]>=3.1
