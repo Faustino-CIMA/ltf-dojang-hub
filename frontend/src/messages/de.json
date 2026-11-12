@@ -407,6 +407,7 @@
     "printLicenceCardsTitle": "Lizenzkarten drucken",
     "printLicenceCardsDescription": "Druckauftrag für {count} ausgewählte Einträge erstellen.",
     "printLicenceCardsTemplateLabel": "Kartenvorlage",
+    "printLicenceCardsTemplateOption": "{name} · v{version}",
     "printLicenceCardsTemplatePlaceholder": "Veröffentlichte Vorlage wählen",
     "printLicenceCardsNoTemplate": "Es gibt keine veröffentlichte Lizenzkartenvorlage.",
     "printLicenceCardsPrinterLabel": "Druckerprofil",

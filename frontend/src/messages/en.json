@@ -1327,6 +1327,7 @@
     "printLicenceCardsTitle": "Print license cards",
     "printLicenceCardsDescription": "Create a print job for {count} selected records.",
     "printLicenceCardsTemplateLabel": "Card template",
+    "printLicenceCardsTemplateOption": "{name} · v{version}",
     "printLicenceCardsTemplatePlaceholder": "Choose a published template",
     "printLicenceCardsNoTemplate": "No published license card template is available.",
     "printLicenceCardsPrinterLabel": "Printer profile",

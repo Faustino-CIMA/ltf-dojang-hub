@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **License cards:** The LTF print list shows the published version of each active template, and starts on the default one. A draft, including one titled “Draft from v2”, is not a choice. Club printing is unchanged.
 - **Sign-in:** Opening the app after a correct password and authenticator no longer ends in a server error. Request failures are written to the server log.
 - **License cards:** The LTF licenses list can print the same ten-up A4 card sheet the clubs use, for one license or a selection that can span pages and clubs. The row menu can also download that one card. The card itself is in English. A view-only desk and the finance desk cannot print.
 - **Member list:** Shift-click on the LTF member list selects or clears the rows between the last tick and this one, in the order on the page. The club member list uses the same rule.
