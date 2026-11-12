@@ -65,6 +65,9 @@ class AuthSmokeTests(TestCase):
         self.assertTrue(token)
         self.assertFalse(Token.objects.filter(key=token).exists())
         header = desk if club is None else f"{desk}:{club.id}"
+        # The sign-in responses may set a session cookie. The app's later calls
+        # send only the Token header, so the cookie must not authenticate these.
+        client.cookies.clear()
         client.credentials(HTTP_AUTHORIZATION=f"Token {token}", HTTP_X_DESK=header)
         me = client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200, getattr(me, "data", {}).get("detail") if isinstance(getattr(me, "data", None), dict) else me.status_code)
