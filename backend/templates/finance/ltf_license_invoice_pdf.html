@@ -180,8 +180,8 @@
           <p>BIC/SWIFT: {{ issuer.bic }}</p>
         </div>
         <div>
-          <p>{{ issuer.email }}</p>
-          <p>{{ issuer.website }}</p>
+          {% if issuer.email %}<p>{{ issuer.email }}</p>{% endif %}
+          {% if issuer.website %}<p>{{ issuer.website }}</p>{% endif %}
         </div>
       </div>
     </header>

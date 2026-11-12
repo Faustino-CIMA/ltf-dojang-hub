@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Letterhead:** Federation invoices print the office address, email, and website saved on LTF settings. A blank email or website is left off the page. A blank office keeps the previous address block.
 - **Federation profile:** The LTF settings page can store an optional email address and website. A website without http:// or https:// is saved with https://. Invoice and letterhead PDFs are unchanged.
 - **License cards:** Printing and Download PDF on the LTF licenses list use the card designer's slot selector. Leave every slot selected to fill the sheet from the first slot, including the next sheet. Turn slots off to print only in the ones that are still free. The same selector is on the club print panel. The choice is not remembered.
 - **Licenses:** The LTF and club print panel keeps its width while a template is chosen, and shows a skeleton while the list loads. Create and delete actions on the LTF lists use the same plus and delete icons as the other lists.
