@@ -48,6 +48,9 @@ def record_login_success(sender, request, user, **kwargs):
 
     _auth_event(request, AuthEvent.EventType.LOGIN_SUCCESS, user, user.username)
     run_success_detectors(request, user=user, ip=client_ip(request))
+    from .setup_invites import note_first_login
+
+    note_first_login(user)
 
 
 @receiver(password_reset)
