@@ -16,7 +16,7 @@ from .history import expire_outdated_licenses, log_license_status_change
 from .validity import placeholder_activation_block, unlocked_duration_q
 from .models import FinanceAuditLog, Invoice, License, Order, PrintJob
 from .pdf_utils import build_invoice_context, invoice_balance_due_text, render_invoice_pdf
-from .stripe_adapter import StripeError, retrieve_checkout_session, retrieve_payment_intent
+from . import stripe_adapter
 from .print_jobs import execute_print_job_now
 from .services import apply_payment_and_activate
 
@@ -203,7 +203,7 @@ def reconcile_pending_stripe_orders(limit: int | None = None) -> int:
             if checkout_session_id:
                 session = checkout_session_cache.get(checkout_session_id)
                 if session is None:
-                    session = retrieve_checkout_session(checkout_session_id)
+                    session = stripe_adapter.retrieve_checkout_session(checkout_session_id)
                     checkout_session_cache[checkout_session_id] = session
                 if _stripe_field(session, "payment_status") != "paid":
                     _set_reconcile_backoff(order.id, STRIPE_RECONCILE_BACKOFF_SECONDS)
@@ -218,7 +218,7 @@ def reconcile_pending_stripe_orders(limit: int | None = None) -> int:
             if payment_intent_id:
                 payment_intent = payment_intent_cache.get(payment_intent_id)
                 if payment_intent is None:
-                    payment_intent = retrieve_payment_intent(
+                    payment_intent = stripe_adapter.retrieve_payment_intent(
                         payment_intent_id,
                         expand=["charges.data.payment_method_details"],
                     )
@@ -245,7 +245,7 @@ def reconcile_pending_stripe_orders(limit: int | None = None) -> int:
                 # No payment intent available and no paid checkout session.
                 _set_reconcile_backoff(order.id, STRIPE_RECONCILE_BACKOFF_SECONDS)
                 continue
-        except StripeError:
+        except stripe_adapter.StripeError:
             _set_reconcile_backoff(order.id, STRIPE_RECONCILE_ERROR_BACKOFF_SECONDS)
             continue
 

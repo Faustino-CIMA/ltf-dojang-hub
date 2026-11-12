@@ -8,7 +8,7 @@ from django.conf import settings
 from accounts.models import User
 from .models import Invoice, Order
 from .services import apply_payment_and_activate
-from .stripe_adapter import retrieve_checkout_session, retrieve_payment_intent
+from . import stripe_adapter
 from .stripe_ids import stripe_session_lookup
 
 
@@ -129,7 +129,7 @@ def _metadata_order_id(metadata: Any) -> int | None:
 def _retrieve_checkout_session(session_id: str):
     if not settings.STRIPE_SECRET_KEY:
         raise RuntimeError("Stripe is not configured.")
-    return retrieve_checkout_session(session_id)
+    return stripe_adapter.retrieve_checkout_session(session_id)
 
 
 def fulfill_checkout_session(session_id: str, *, actor: User) -> CheckoutFulfillment:
@@ -178,7 +178,7 @@ def fulfill_checkout_session(session_id: str, *, actor: User) -> CheckoutFulfill
     }
     if isinstance(payment_intent_id, str) and payment_intent_id:
         try:
-            payment_intent = retrieve_payment_intent(
+            payment_intent = stripe_adapter.retrieve_payment_intent(
                 payment_intent_id,
                 expand=["charges.data.payment_method_details"],
             )
