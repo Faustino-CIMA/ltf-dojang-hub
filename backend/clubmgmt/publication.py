@@ -18,7 +18,8 @@ from rest_framework.views import APIView
 from clubs.models import Club
 from members.models import Member
 
-from licenses.pdf_utils import HTML, _bundled_logo_uri, _club_issuer, _invoice_sans_uris, _short_date
+from licenses.pdf_utils import _bundled_logo_uri, _club_issuer, _invoice_sans_uris, _short_date
+from licenses.weasyprint_adapter import write_pdf
 
 from .models import MemberRecord
 from .views import ClubMgmtPermission, _require_club
@@ -262,7 +263,10 @@ def publication_pdf(club, *, base_url: str, rows: list[dict] | None = None, scop
             "scope": scope,
         },
     )
-    return HTML(string=html, base_url=base_url).write_pdf()
+    pdf = write_pdf(html, base_url=base_url)
+    if pdf is None:
+        raise TypeError("PDF renderer is not available.")
+    return pdf
 
 
 def _club(request) -> Club:

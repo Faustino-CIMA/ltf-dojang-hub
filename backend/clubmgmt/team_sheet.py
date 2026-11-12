@@ -6,7 +6,7 @@ import csv
 from html import escape
 from io import StringIO
 
-from licenses.pdf_utils import HTML
+from licenses.weasyprint_adapter import write_pdf
 
 _LABELS = {
     "en": {
@@ -607,4 +607,7 @@ th {{ background: #f2f4f7; }}
 <h2>{escape(sheet["coach_title"])}</h2>
 {_table(sheet["coach_headers"], sheet["coaches"])}
 </body></html>"""
-    return HTML(string=html).write_pdf()
+    pdf = write_pdf(html)
+    if pdf is None:
+        raise TypeError("PDF renderer is not available.")
+    return pdf
