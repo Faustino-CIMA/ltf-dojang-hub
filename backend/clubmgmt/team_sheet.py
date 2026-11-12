@@ -6,7 +6,7 @@ import csv
 from html import escape
 from io import StringIO
 
-from licenses.pdf_utils import HTML
+from licenses.weasyprint_adapter import load_html, write_pdf
 
 _LABELS = {
     "en": {
@@ -585,7 +585,7 @@ def _table(headers: list[str], body: list[list[str]]) -> str:
 
 
 def sheet_pdf(payload: dict, lang: str) -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     sheet = sheet_rows(payload, lang)
     meta_html = "".join(f"<p><strong>{escape(label)}.</strong> {escape(value)}</p>" for label, value in sheet["meta"])
@@ -607,4 +607,4 @@ th {{ background: #f2f4f7; }}
 <h2>{escape(sheet["coach_title"])}</h2>
 {_table(sheet["coach_headers"], sheet["coaches"])}
 </body></html>"""
-    return HTML(string=html).write_pdf()
+    return write_pdf(html)

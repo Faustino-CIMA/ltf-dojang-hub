@@ -40,10 +40,7 @@ from .models import (
 )
 from .svg_sanitizer import SvgSanitizationError, sanitize_svg_bytes
 
-try:
-    from weasyprint import HTML
-except Exception:  # pragma: no cover - handled at runtime
-    HTML = None
+from .weasyprint_adapter import load_html, write_pdf
 
 try:
     import qrcode
@@ -2381,9 +2378,12 @@ def _render_pdf(
         x_offset_mm=x_offset_mm,
         y_offset_mm=y_offset_mm,
     )
-    if HTML is None:
+    if load_html() is None:
         raise CardRenderError("PDF rendering backend is unavailable.", status_code=503)
-    return HTML(string=html_with_offset, base_url=base_url).write_pdf()
+    pdf = write_pdf(html_with_offset, base_url=base_url)
+    if pdf is None:
+        raise CardRenderError("PDF rendering backend is unavailable.", status_code=503)
+    return pdf
 
 
 def build_sheet_slots(

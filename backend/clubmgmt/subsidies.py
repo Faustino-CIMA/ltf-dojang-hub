@@ -594,7 +594,7 @@ def _by_grade_desc(grade: str, name: str) -> tuple:
 def render_trainers_list_pdf(club, year: int) -> bytes:
     from django.template.loader import render_to_string
 
-    from licenses.pdf_utils import HTML
+    from licenses.weasyprint_adapter import load_html, write_pdf
 
     qualifications = {row.user_id: row for row in CoachQualification.objects.filter(club=club)}
     trainers = []
@@ -637,9 +637,12 @@ def render_trainers_list_pdf(club, year: int) -> bytes:
             "president": _officer_name(club, [CommitteeMandate.Role.PRESIDENT], formal=True),
         },
     )
-    if HTML is None:
+    if load_html() is None:
         raise RuntimeError("PDF renderer is not available.")
-    return HTML(string=html, base_url=str(Path(__file__).resolve().parents[1])).write_pdf()
+    pdf = write_pdf(html, base_url=str(Path(__file__).resolve().parents[1]))
+    if pdf is None:
+        raise RuntimeError("PDF renderer is not available.")
+    return pdf
 
 
 _WEEKDAYS_FR = ("Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche")
@@ -700,7 +703,7 @@ def training_list_grid(club, year: int) -> tuple[list[str], list[dict], int]:
 def render_training_list_pdf(club, year: int) -> bytes:
     from django.template.loader import render_to_string
 
-    from licenses.pdf_utils import HTML
+    from licenses.weasyprint_adapter import load_html, write_pdf
 
     weekdays, rows, class_count = training_list_grid(club, year)
     place = (club.locality or club.city or "").strip()
@@ -720,9 +723,12 @@ def render_training_list_pdf(club, year: int) -> bytes:
             "president": _officer_name(club, [CommitteeMandate.Role.PRESIDENT], formal=True),
         },
     )
-    if HTML is None:
+    if load_html() is None:
         raise RuntimeError("PDF renderer is not available.")
-    return HTML(string=html, base_url=str(Path(__file__).resolve().parents[1])).write_pdf()
+    pdf = write_pdf(html, base_url=str(Path(__file__).resolve().parents[1]))
+    if pdf is None:
+        raise RuntimeError("PDF renderer is not available.")
+    return pdf
 
 
 def youth_csv(club, year: int) -> str:
