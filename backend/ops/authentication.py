@@ -2,20 +2,10 @@ from rest_framework.authentication import TokenAuthentication, get_authorization
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 
+from accounts.allauth_session import authenticate_session_token
 from accounts.mfa import legacy_tokens_open
 
 from .request_utils import touch_token_meta
-
-
-def _user_and_session(found):
-    """allauth 65.22 returns an object. Earlier releases return ``(user, session)``."""
-    if found is None:
-        return None, None
-    if isinstance(found, tuple):
-        if len(found) != 2:
-            return None, None
-        return found[0], found[1]
-    return getattr(found, "user", None), getattr(found, "session", None)
 
 
 class TokenAuthenticationWithMeta(TokenAuthentication):
@@ -35,10 +25,7 @@ class TokenAuthenticationWithMeta(TokenAuthentication):
                 raise AuthenticationFailed("account_unavailable")
             touch_token_meta(token, request)
             return (token.user, token)
-        from allauth.headless.internal.sessionkit import authenticate_by_x_session_token
-
-        found = authenticate_by_x_session_token(key)
-        user, session = _user_and_session(found)
+        user, session = authenticate_session_token(key)
         if user is None or session is None:
             raise AuthenticationFailed("account_unavailable")
         if not user.is_active:
