@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Profile photos:** A new photo from someone under 18 waits for the club. Club admins and LTF admins can compare the current photo and the new one, then approve or reject it. The member list shows a badge, the row menu can open the review, and the header envelope counts what is waiting. A view-only desk sees none of this. A coach sees the badge only.
+- **Member list:** "Waiting for first login" goes away once the person has signed in, including a minor who signs in with a username. The first-login link cannot be used after that.
 - **Minor accounts:** The first-login page for someone under 18 asks for a password and shows the username. It does not ask for an email. An adult invitation still asks for an email.
 - **Minor accounts:** A login for someone under 18 sends the first-login link to a parent or guardian chosen by the club. The child signs in with a username. The account can only see their own record and send a profile picture, which the club approves before it replaces the current one.
 - **Federation profile:** The office address can include a country. It stays blank until one is chosen, and then it is the last line of the federation letterhead. The letterhead prints the contact email from settings, or the previous letterhead email when that field is blank.

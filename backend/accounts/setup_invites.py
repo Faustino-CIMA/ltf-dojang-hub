@@ -63,6 +63,17 @@ def invite_is_open(invite: AccountSetupInvite | None, now=None) -> bool:
     return invite.expires_at > now
 
 
+def note_first_login(user) -> None:
+    """A real sign-in finishes the first-login link. It cannot set a password after that."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return
+    AccountSetupInvite.objects.filter(
+        user_id=user.pk,
+        used_at__isnull=True,
+        revoked_at__isnull=True,
+    ).update(used_at=timezone.now())
+
+
 def link_status(user) -> str:
     invite = user.account_setup_invites.order_by("-created_at").first()
     if invite is None:
