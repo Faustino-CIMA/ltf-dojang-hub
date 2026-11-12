@@ -5309,6 +5309,9 @@
   "AccountSetup": {
     "title": "Kont ariichten",
     "subtitle": "Wielt d'E-Mail an d'Passwuert fir d'Umeldung.",
+    "minorSubtitle": "Wielt e Passwuert. D'Umeldung geet duerno mam Benotzernumm, deen hei steet, net mat enger E-Mail.",
+    "minorUsernameHint": "Dëst ass de Benotzernumm fir dës Umeldung.",
+    "minorSuccessBody": "Mellt Iech un mam Benotzernumm {username}.",
     "username": "Benotzernumm",
     "name": "Numm",
     "email": "E-Mail",

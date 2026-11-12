@@ -136,6 +136,15 @@ class VerifyEmailSerializer(serializers.Serializer):
     key = serializers.CharField()
 
 
+class AccountSetupSerializer(serializers.Serializer):
+    """A minor invite has no login email. Adults still send one; the view checks that."""
+
+    token = serializers.CharField()
+    email = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField()
+    password_confirm = serializers.CharField()
+
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False, allow_blank=True)
     username = serializers.CharField(required=False, allow_blank=True)

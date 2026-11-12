@@ -27,6 +27,7 @@ export default function AccountSetupPage() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
+  const [minorAccount, setMinorAccount] = useState(false);
   const [assignments, setAssignments] = useState<AccountSetupAssignment[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +47,7 @@ export default function AccountSetupPage() {
         if (result.status === "open") {
           setUsername(result.info.username);
           setName(formatFullName(result.info));
+          setMinorAccount(Boolean(result.info.minor_account));
           setAssignments(result.info.assignments ?? []);
           setPhase("form");
           return;
@@ -78,8 +80,12 @@ export default function AccountSetupPage() {
     }
     try {
       setIsSubmitting(true);
-      await completeAccountSetup({ token, email, password, password_confirm: confirmPassword });
-      rememberAccountReady({ token, username, email });
+      await completeAccountSetup(
+        minorAccount
+          ? { token, password, password_confirm: confirmPassword }
+          : { token, email, password, password_confirm: confirmPassword },
+      );
+      rememberAccountReady({ token, username, email: minorAccount ? "" : email });
       setPhase("success");
     } catch (error) {
       const closed = await loadAccountSetup(token).catch(() => null);
@@ -94,7 +100,12 @@ export default function AccountSetupPage() {
   };
 
   const loginHref = signInHref(locale, username);
-  const knownSignIn = username && email ? t("successBody", { username, email }) : t("usedBody");
+  const knownSignIn =
+    username && email
+      ? t("successBody", { username, email })
+      : username
+        ? t("minorSuccessBody", { username })
+        : t("usedBody");
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-10 sm:px-6 sm:py-12">
@@ -104,7 +115,9 @@ export default function AccountSetupPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{common("appTitle")}</p>
           <h1 className="text-3xl font-semibold text-foreground">{t("title")}</h1>
           {phase === "form" ? <AccountSetupGrant assignments={assignments} /> : null}
-          <p className="text-sm text-muted">{phase === "loading" ? t("checking") : t("subtitle")}</p>
+          <p className="text-sm text-muted">
+            {phase === "loading" ? t("checking") : minorAccount ? t("minorSubtitle") : t("subtitle")}
+          </p>
         </div>
       ) : null}
 
@@ -147,25 +160,28 @@ export default function AccountSetupPage() {
               <div className="space-y-2">
                 <Label htmlFor="account-setup-username">{t("username")}</Label>
                 <Input id="account-setup-username" name="username" value={username} readOnly autoComplete="username" />
+                {minorAccount ? <p className="text-sm text-muted">{t("minorUsernameHint")}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="account-setup-name">{t("name")}</Label>
                 <Input id="account-setup-name" value={name} readOnly />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="account-setup-email" required>
-                  {t("email")}
-                </Label>
-                <Input
-                  id="account-setup-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </div>
+              {minorAccount ? null : (
+                <div className="space-y-2">
+                  <Label htmlFor="account-setup-email" required>
+                    {t("email")}
+                  </Label>
+                  <Input
+                    id="account-setup-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="account-setup-password" required>
                   {t("password")}

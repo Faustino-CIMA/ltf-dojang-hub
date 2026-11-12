@@ -21,6 +21,7 @@ from .desks import open_desk_summary, record_desk_switch
 from .models import AccountSetupInvite, DeskGrant, User
 from .setup_invites import NEUTRAL_DETAIL, account_setup_assignments, invite_for_token, invite_is_open
 from .serializers import (
+    AccountSetupSerializer,
     ConsentSerializer,
     DataDeleteResponseSerializer,
     DataExportSerializer,
@@ -441,6 +442,8 @@ class AccountSetupView(views.APIView):
                 "first_name": member.first_name if member else user.first_name,
                 "last_name": member.last_name if member else user.last_name,
                 "assignments": account_setup_assignments(user),
+                # The invite's user decides this. The page must not send it back.
+                "minor_account": bool(user.minor_account),
             }
         )
 
@@ -448,14 +451,21 @@ class AccountSetupView(views.APIView):
         invite, user = _open_setup_invite(request.data.get("token"))
         if invite is None or user is None:
             return _closed_setup_response(request.data.get("token"))
-        email = str(request.data.get("email") or "").strip()
-        password = str(request.data.get("password") or "")
-        confirmation = str(request.data.get("password_confirm") or "")
-        if not email or "@" not in email:
+        serializer = AccountSetupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # minor_account on the user, never a field the browser can set.
+        minor = bool(user.minor_account)
+        email = "" if minor else str(serializer.validated_data.get("email") or "").strip()
+        password = str(serializer.validated_data.get("password") or "")
+        confirmation = str(serializer.validated_data.get("password_confirm") or "")
+        if not minor and (not email or "@" not in email):
             return response.Response({"email": ["Enter a valid email address."]}, status=status.HTTP_400_BAD_REQUEST)
         if password != confirmation:
             return response.Response({"password_confirm": ["Passwords do not match."]}, status=status.HTTP_400_BAD_REQUEST)
-        if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists() or EmailAddress.objects.filter(email__iexact=email).exclude(user=user).exists():
+        if not minor and (
+            User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists()
+            or EmailAddress.objects.filter(email__iexact=email).exclude(user=user).exists()
+        ):
             return response.Response({"email": ["That email is already used."]}, status=status.HTTP_400_BAD_REQUEST)
         try:
             validate_password(password, user=user)
@@ -465,24 +475,28 @@ class AccountSetupView(views.APIView):
             locked = AccountSetupInvite.objects.select_for_update().get(pk=invite.pk)
             if not invite_is_open(locked):
                 return _closed_setup_response(request.data.get("token"))
-            user.email = email
             user.is_email_verified = True
             user.set_password(password)
-            user.save(update_fields=["email", "is_email_verified", "password"])
-            address, _created = EmailAddress.objects.get_or_create(
-                user=user,
-                email=email,
-                defaults={"verified": True, "primary": True},
-            )
-            EmailAddress.objects.filter(user=user).exclude(pk=address.pk).update(primary=False)
-            if not address.verified or not address.primary:
-                address.verified = True
-                address.primary = True
-                address.save(update_fields=["verified", "primary"])
-            member = Member.all_objects.filter(user=user).first()
-            if member is not None:
-                member.email = email
-                member.save(update_fields=["email", "updated_at"])
+            update_fields = ["is_email_verified", "password"]
+            if not minor:
+                user.email = email
+                update_fields.insert(0, "email")
+            user.save(update_fields=update_fields)
+            if not minor:
+                address, _created = EmailAddress.objects.get_or_create(
+                    user=user,
+                    email=email,
+                    defaults={"verified": True, "primary": True},
+                )
+                EmailAddress.objects.filter(user=user).exclude(pk=address.pk).update(primary=False)
+                if not address.verified or not address.primary:
+                    address.verified = True
+                    address.primary = True
+                    address.save(update_fields=["verified", "primary"])
+                member = Member.all_objects.filter(user=user).first()
+                if member is not None:
+                    member.email = email
+                    member.save(update_fields=["email", "updated_at"])
             locked.used_at = timezone.now()
             locked.save(update_fields=["used_at"])
         return response.Response({"detail": "Account ready."})

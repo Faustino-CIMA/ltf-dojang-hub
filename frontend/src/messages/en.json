@@ -5308,6 +5308,9 @@
   "AccountSetup": {
     "title": "Set up your account",
     "subtitle": "Choose the email and password you will use to sign in.",
+    "minorSubtitle": "Choose a password. Sign in later with the username shown here, not with an email.",
+    "minorUsernameHint": "This is the username for this login.",
+    "minorSuccessBody": "Sign in with the username {username}.",
     "username": "Username",
     "name": "Name",
     "email": "Email",
