@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
 import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -247,11 +247,13 @@ export default function LtfAdminClubsPage() {
                   actions={[
                     {
                       key: "create",
+                      icon: <Plus aria-hidden />,
                       label: t("createClub"),
                       onSelect: () => setCreateOpen(true),
                     },
                     {
                       key: "import-clubs",
+                      icon: <Upload aria-hidden />,
                       label: importT("importClubs"),
                       onSelect: () => router.push(`/${locale}/dashboard/ltf/import?type=clubs`),
                     },
@@ -263,7 +265,9 @@ export default function LtfAdminClubsPage() {
                   actions={[
                     {
                       key: "delete",
+                      icon: <Trash2 aria-hidden />,
                       label: common("batchDeleteLabel"),
+                      destructive: true,
                       onSelect: () => setIsBatchDeleteOpen(true),
                     },
                   ]}

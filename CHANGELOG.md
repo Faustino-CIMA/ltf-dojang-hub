@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Licenses:** The LTF and club print panel keeps its width while a template is chosen, and shows a skeleton while the list loads. Create and delete actions on the LTF lists use the same plus and delete icons as the other lists.
 - **Post-deploy check:** `python manage.py post_deploy_check` calls the API with an allowed host, preferring one that starts with api. A rejected host prints `400 (host)` and nothing else.
 - **License cards:** The LTF print list shows the published version of each active template, and starts on the default one. A draft, including one titled “Draft from v2”, is not a choice. Club printing is unchanged.
 - **Sign-in:** Opening the app after a correct password and authenticator no longer ends in a server error. Request failures are written to the server log.

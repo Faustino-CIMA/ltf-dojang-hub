@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { Plus, Printer, Trash2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -663,7 +663,7 @@ export default function LtfAdminLicensesPage() {
                 <ActionMenu
                   label={t("licensesMenuLabel")}
                   actions={[
-                    { key: "create", label: t("createLicense"), onSelect: startCreate },
+                    { key: "create", icon: <Plus aria-hidden />, label: t("createLicense"), onSelect: startCreate },
                   ]}
                 />
                 <ActionMenu
@@ -676,7 +676,13 @@ export default function LtfAdminLicensesPage() {
                       label: t("printLicenseCardsAction"),
                       onSelect: () => openPrint(selectedIds),
                     },
-                    { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete(selectedIds) },
+                    {
+                      key: "delete",
+                      icon: <Trash2 aria-hidden />,
+                      label: common("batchDeleteLabel"),
+                      destructive: true,
+                      onSelect: () => void openBatchDelete(selectedIds),
+                    },
                   ]}
                 />
                 <SelectionMeta
