@@ -19,7 +19,7 @@ from clubs.models import Club
 from members.models import Member
 
 from licenses.pdf_utils import _bundled_logo_uri, _club_issuer, _invoice_sans_uris, _short_date
-from licenses.weasyprint_adapter import write_pdf
+from licenses.weasyprint_adapter import load_html, write_pdf
 
 from .models import MemberRecord
 from .views import ClubMgmtPermission, _require_club
@@ -228,7 +228,7 @@ def publication_xlsx(club) -> bytes:
 
 
 def publication_pdf(club, *, base_url: str, rows: list[dict] | None = None, scope: str = "All active members") -> bytes | None:
-    if HTML is None:
+    if load_html() is None:
         return None
     today = timezone.localdate()
     prepared = []
@@ -263,10 +263,7 @@ def publication_pdf(club, *, base_url: str, rows: list[dict] | None = None, scop
             "scope": scope,
         },
     )
-    pdf = write_pdf(html, base_url=base_url)
-    if pdf is None:
-        raise TypeError("PDF renderer is not available.")
-    return pdf
+    return write_pdf(html, base_url=base_url)
 
 
 def _club(request) -> Club:
