@@ -1236,6 +1236,29 @@ class FederationProfileApiTests(TestCase):
         self.assertEqual(FederationProfile.objects.get(pk=1).email, "")
         self.assertEqual(FederationProfile.objects.get(pk=1).website, "")
 
+    def test_federation_country_stays_blank_until_it_is_set(self):
+        self.client.force_authenticate(user=self.ltf_admin)
+        created = self.client.get("/api/federation-profile/")
+        self.assertEqual(created.status_code, status.HTTP_200_OK)
+        self.assertEqual(created.data["country"], "")
+
+        saved = self.client.patch(
+            "/api/federation-profile/",
+            {"country": " Germany ", "postal_code": "10115"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, getattr(saved, "data", None))
+        self.assertEqual(saved.data["country"], "Germany")
+        self.assertEqual(FederationProfile.objects.get(pk=1).country, "Germany")
+
+        cleared = self.client.patch(
+            "/api/federation-profile/",
+            {"country": "  ", "postal_code": "1234"},
+            format="json",
+        )
+        self.assertEqual(cleared.status_code, status.HTTP_200_OK)
+        self.assertEqual(cleared.data["country"], "")
+
     def test_ltf_finance_cannot_change_federation_contact_fields(self):
         self.client.force_authenticate(user=self.ltf_finance)
         response = self.client.patch(

@@ -3173,6 +3173,7 @@
     "street": "Straße",
     "houseNumber": "Hausnummer",
     "country": "Land",
+    "countryNotSet": "Nicht angegeben",
     "addressLine2": "Adresszusatz",
     "addressLine2Placeholder": "Wohnung, Gebäude, c/o…",
     "mediaConsent": "Veröffentlichungseinwilligung",

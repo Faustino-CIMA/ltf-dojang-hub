@@ -37,12 +37,20 @@ type Props = {
   onChange: (next: AddressValue) => void;
   idPrefix?: string;
   showCountry?: boolean;
+  /** Keep a blank country blank. Other forms still treat a blank value as Luxembourg. */
+  allowBlankCountry?: boolean;
 };
 
 type HouseSuggestion = AddressLookup["houses"][number];
 type StreetRow = { street: string; locality: string };
 
-export function LuAddressFields({ value, onChange, idPrefix = "address", showCountry = true }: Props) {
+export function LuAddressFields({
+  value,
+  onChange,
+  idPrefix = "address",
+  showCountry = true,
+  allowBlankCountry = false,
+}: Props) {
   const t = useTranslations("ClubMgmt");
   const locale = useLocale();
   const listId = useId();
@@ -58,8 +66,10 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
   const [localities, setLocalities] = useState<string[]>([]);
   const [streetFocused, setStreetFocused] = useState(false);
 
-  const country = normalizeAddressCountry(value.country);
-  const countryConfig = addressCountryConfig(country);
+  const storedCountry = value.country.trim();
+  const country =
+    allowBlankCountry && !storedCountry ? "" : normalizeAddressCountry(storedCountry);
+  const countryConfig = addressCountryConfig(country || "Luxembourg");
   const countryOptions = useMemo(() => {
     const listed: string[] = ADDRESS_COUNTRIES.map((row) => row.name);
     if (country && !listed.includes(country)) {
@@ -158,7 +168,8 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
   };
 
   const setCountry = (nextCountry: string) => {
-    const next = normalizeAddressCountry(nextCountry);
+    const next =
+      allowBlankCountry && !nextCountry.trim() ? "" : normalizeAddressCountry(nextCountry);
     const nextConfig = addressCountryConfig(next);
     setLocalities([]);
     setStreets([]);
@@ -197,10 +208,14 @@ export function LuAddressFields({ value, onChange, idPrefix = "address", showCou
             value={country}
             onValueChange={setCountry}
             ariaLabel={t("country")}
-            options={countryOptions.map((name) => {
-              const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
-              return { value: name, label: code ? nationalityLabel(code, locale) : name };
-            })}
+            placeholder={allowBlankCountry ? t("countryNotSet") : undefined}
+            options={[
+              ...(allowBlankCountry ? [{ value: "", label: t("countryNotSet") }] : []),
+              ...countryOptions.map((name) => {
+                const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
+                return { value: name, label: code ? nationalityLabel(code, locale) : name };
+              }),
+            ]}
           />
         </div>
       ) : null}
