@@ -58,7 +58,7 @@ class MemberUserAccountsView(APIView):
         if not mint_allowed(request):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         action = str(request.data.get("action") or "").strip()
-        if action not in {"create", "link", "copy_link", "send_invite"}:
+        if action not in {"create", "link", "copy_link", "send_invite", "send_reset"}:
             return Response({"detail": "Choose an action."}, status=status.HTTP_400_BAD_REQUEST)
         member_ids = _ids(request.data.get("member_ids"))
         if not member_ids:
@@ -67,6 +67,30 @@ class MemberUserAccountsView(APIView):
         if members is None:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         locale = str(request.data.get("locale") or "en").strip()[:8]
+        if action == "send_reset":
+            from .user_accounts import reset_destination
+            from accounts.email_utils import build_password_reset_url, send_password_reset_email
+
+            sent = 0
+            skipped = []
+            for member in members:
+                user = getattr(member, "user", None)
+                if user is None or not user.minor_account:
+                    skipped.append({"member_id": member.id, "reason": "not_minor"})
+                    continue
+                destination = reset_destination(user)
+                if not destination:
+                    skipped.append({"member_id": member.id, "reason": "reset_stopped"})
+                    continue
+                reset_url = build_password_reset_url(user, locale)
+                ok, _error = send_password_reset_email(user, reset_url, to_email=destination)
+                if ok:
+                    sent += 1
+                else:
+                    skipped.append({"member_id": member.id, "reason": "failed"})
+            payload = Response({"sent": sent, "skipped": skipped})
+            payload["Cache-Control"] = "no-store"
+            return payload
         if action == "send_invite":
             with transaction.atomic():
                 summary = send_created_invites(members, actor=request.user, screen_locale=locale)
@@ -89,7 +113,21 @@ class MemberUserAccountsView(APIView):
             return payload
         with transaction.atomic():
             plans = plan_members(members, for_copy=action == "copy_link")
-            batch = apply_plans(plans, action=action, actor=request.user, locale=locale)
+            raw_choices = request.data.get("guardian_emails") or {}
+            guardian_by_member = {}
+            if isinstance(raw_choices, dict):
+                for key, value in raw_choices.items():
+                    try:
+                        guardian_by_member[int(key)] = str(value or "").strip()
+                    except (TypeError, ValueError):
+                        continue
+            batch = apply_plans(
+                plans,
+                action=action,
+                actor=request.user,
+                locale=locale,
+                guardian_by_member=guardian_by_member,
+            )
             if action == "link":
                 audit_action = "members.user_linked"
                 message = f"Linked {batch.linked_count} member logins. Skipped {len(batch.skipped)}."

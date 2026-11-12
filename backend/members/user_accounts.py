@@ -34,13 +34,14 @@ STAFF_ROLES = {
 }
 SKIP_REASONS = {
     "has_account",
-    "under_16",
     "no_birth_date",
+    "no_guardian_email",
     "inactive",
     "needs_link",
     "staff_login",
     "linked_elsewhere",
 }
+PARENT_RELATIONS = ("father", "mother", "guardian")
 
 
 def annotate_account_state(queryset):
@@ -91,6 +92,64 @@ def age_years(dob, day) -> int:
     return day.year - dob.year - ((day.month, day.day) < (dob.month, dob.day))
 
 
+def is_minor_on(dob, day) -> bool:
+    """Completed years, same count as the club record's under-18 check."""
+    if dob is None:
+        return False
+    return age_years(dob, day) < 18
+
+
+def still_minor(member, day=None) -> bool:
+    day = day or timezone.localdate()
+    return is_minor_on(getattr(member, "date_of_birth", None), day)
+
+
+def guardian_choices(member: Member) -> list[dict]:
+    """Emails of father, mother, or guardian contacts. Invoice email wins for that person."""
+    from clubmgmt.models import MemberContact
+
+    contacts = (
+        MemberContact.objects.filter(member=member, relation__in=PARENT_RELATIONS)
+        .select_related("person")
+        .prefetch_related("person__emails")
+        .order_by("id")
+    )
+    rows: list[dict] = []
+    seen: set[str] = set()
+    for contact in contacts:
+        emails = list(contact.person.emails.all())
+        invoice = next((item.email for item in emails if item.use_for_invoice and str(item.email).strip()), "")
+        first = next((item.email for item in emails if str(item.email).strip()), "")
+        address = str(invoice or first or "").strip()
+        key = address.lower()
+        if not address or key in seen:
+            continue
+        seen.add(key)
+        person = contact.person
+        name = " ".join(
+            part for part in (str(person.first_name or "").strip(), str(person.last_name or "").strip()) if part
+        )
+        rows.append(
+            {
+                "email": address,
+                "name": name,
+                "relation": contact.relation,
+                "suggested": bool(contact.is_primary and invoice),
+            }
+        )
+    return rows
+
+
+def reset_destination(user) -> str:
+    """Where a password reset may be sent. A minor's mail stops at 18."""
+    if not getattr(user, "minor_account", False):
+        return str(user.email or "").strip()
+    member = getattr(user, "member_profile", None)
+    if member is None or not still_minor(member):
+        return ""
+    return str(user.guardian_notice_email or "").strip()
+
+
 def is_staff_login(user: User) -> bool:
     return bool(user.is_superuser or user.role in STAFF_ROLES)
 
@@ -112,6 +171,8 @@ class AccountPlan:
     reason: str = ""
     username: str = ""
     match_user: User | None = None
+    minor: bool = False
+    guardian_choices: list = field(default_factory=list)
 
     def preview(self) -> dict:
         match = None
@@ -130,6 +191,8 @@ class AccountPlan:
             "can_create": self.kind == "create",
             "can_link": self.kind == "link",
             "can_copy": self.kind == "copy",
+            "minor": self.minor,
+            "guardian_choices": self.guardian_choices,
         }
 
 
@@ -187,15 +250,19 @@ def plan_member(member: Member, *, today, users_by_email, linked_owner, for_copy
         return AccountPlan(member, "skip", "has_account", username=username)
     if member.date_of_birth is None:
         return AccountPlan(member, "skip", "no_birth_date")
-    if age_years(member.date_of_birth, today) < 16:
-        return AccountPlan(member, "skip", "under_16")
+    minor = is_minor_on(member.date_of_birth, today)
+    choices = guardian_choices(member) if minor else []
+    if minor and not choices:
+        return AccountPlan(member, "skip", "no_guardian_email", minor=True)
     reason, match = _match_for(member, users_by_email, linked_owner)
     if reason == "needs_link" and match is not None:
-        return AccountPlan(member, "link", "needs_link", username=match.username, match_user=match)
+        return AccountPlan(
+            member, "link", "needs_link", username=match.username, match_user=match, minor=minor, guardian_choices=choices
+        )
     if reason:
         username = match.username if match is not None else ""
-        return AccountPlan(member, "skip", reason, username=username, match_user=match)
-    return AccountPlan(member, "create")
+        return AccountPlan(member, "skip", reason, username=username, match_user=match, minor=minor, guardian_choices=choices)
+    return AccountPlan(member, "create", minor=minor, guardian_choices=choices)
 
 
 def reserve_username(first_name: str, last_name: str, reserved: set[str]) -> str:
@@ -274,8 +341,10 @@ def _skip(batch: AccountBatch, plan: AccountPlan) -> None:
         )
 
 
-def _create_login(member: Member) -> User:
-    email = str(member.email or "").strip()
+def _create_login(member: Member, *, guardian_email: str = "") -> User:
+    minor = is_minor_on(member.date_of_birth, timezone.localdate())
+    # A child's login has no email. The guardian address is only where mail is sent.
+    email = "" if minor else str(member.email or "").strip()
     user = User.objects.create_user(
         username=build_username(member.first_name, member.last_name),
         email=email,
@@ -284,6 +353,10 @@ def _create_login(member: Member) -> User:
         first_name=member.first_name,
         last_name=member.last_name,
     )
+    if minor:
+        user.minor_account = True
+        user.guardian_notice_email = guardian_email
+        user.save(update_fields=["minor_account", "guardian_notice_email", "updated_at"])
     member.user = user
     member.save(update_fields=["user", "updated_at"])
     return user
@@ -336,7 +409,14 @@ def _file_for(created_users: list[User], plans: list[AccountPlan], locale: str, 
     return render_csv(rows), base64.b64encode(pdf_bytes).decode("ascii"), copy_link
 
 
-def apply_plans(plans: list[AccountPlan], *, action: str, actor, locale: str) -> AccountBatch:
+def apply_plans(
+    plans: list[AccountPlan],
+    *,
+    action: str,
+    actor,
+    locale: str,
+    guardian_by_member: dict[int, str] | None = None,
+) -> AccountBatch:
     batch = AccountBatch()
     for plan in plans:
         if action == "copy_link":
@@ -362,7 +442,14 @@ def apply_plans(plans: list[AccountPlan], *, action: str, actor, locale: str) ->
         if plan.kind != "create":
             _skip(batch, plan)
             continue
-        user = _create_login(plan.member)
+        chosen = ""
+        if plan.minor:
+            chosen = str((guardian_by_member or {}).get(plan.member.id) or "").strip()
+            allowed = {row["email"].lower() for row in plan.guardian_choices}
+            if chosen.lower() not in allowed:
+                _skip(batch, AccountPlan(plan.member, "skip", "no_guardian_email", minor=True))
+                continue
+        user = _create_login(plan.member, guardian_email=chosen)
         batch.created_users.append(user)
         batch.created_members.append(plan.member)
     if action == "create":
@@ -382,6 +469,12 @@ def created_rows(members: list[Member], users: list[User]) -> list[dict]:
                 "name": person_name(member.first_name, member.last_name),
                 "username": user.username,
                 "email": str(member.email or "").strip(),
+                "invite_email": (
+                    str(user.guardian_notice_email or "").strip()
+                    if user.minor_account
+                    else str(member.email or "").strip()
+                ),
+                "minor_account": bool(user.minor_account),
                 "club_name": club.name if club is not None else "",
             }
         )
@@ -408,18 +501,32 @@ def send_created_invites(members: list[Member], *, actor, screen_locale: str) ->
         user = getattr(member, "user", None)
         if user is None or is_staff_login(user):
             continue
-        email = str(member.email or "").strip()
+        if user.minor_account:
+            email = reset_destination(user)
+        else:
+            email = str(member.email or "").strip()
         if not email:
             missing_email += 1
             continue
         language = invite_language(member, screen_locale)
         _invite, raw = issue_setup_invite(user, actor)
-        ok, _error = send_member_invite_email(
-            user,
-            setup_link(raw, language),
-            language,
-            person_name(member.first_name, member.last_name),
-        )
+        if user.minor_account:
+            from accounts.email_utils import send_minor_invite_email
+
+            ok, _error = send_minor_invite_email(
+                user,
+                setup_link(raw, language),
+                language,
+                person_name(member.first_name, member.last_name),
+                email,
+            )
+        else:
+            ok, _error = send_member_invite_email(
+                user,
+                setup_link(raw, language),
+                language,
+                person_name(member.first_name, member.last_name),
+            )
         if ok:
             sent += 1
         else:

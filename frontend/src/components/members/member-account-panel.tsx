@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { Download, Mail, UserRound } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
+import { InfoHint } from "@/components/ui/info-hint";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { SidePanel } from "@/components/ui/side-panel";
@@ -108,6 +109,7 @@ export function MemberAccountPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [guardianChoice, setGuardianChoice] = useState<Record<number, string>>({});
 
   const idsKey = memberIds.join(",");
   useEffect(() => {
@@ -122,6 +124,14 @@ export function MemberAccountPanel({
       .then((payload) => {
         if (!cancelled) {
           setRows(payload.results);
+          const next: Record<number, string> = {};
+          for (const row of payload.results) {
+            const suggested = row.guardian_choices?.find((choice) => choice.suggested);
+            if (suggested) {
+              next[row.member_id] = suggested.email;
+            }
+          }
+          setGuardianChoice(next);
         }
       })
       .catch((reason: unknown) => {
@@ -137,11 +147,17 @@ export function MemberAccountPanel({
   const creatable = rows.filter((row) => row.can_create).length;
   const linkRow = rows.find((row) => row.can_link) ?? null;
   const copyRow = rows.find((row) => row.can_copy) ?? null;
+  const minors = rows.filter((row) => row.minor && row.can_create);
+  const guardianReady = minors.every((row) => Boolean(guardianChoice[row.member_id]));
   const singleLink = intent !== "copy" && rows.length === 1 && linkRow !== null && creatable === 0;
   const action = intent === "copy" ? "copy_link" : singleLink || intent === "link" ? "link" : "create";
   const canConfirm =
     result === null &&
-    (action === "copy_link" ? Boolean(copyRow) : action === "link" ? Boolean(linkRow) : creatable > 0);
+    (action === "copy_link"
+      ? Boolean(copyRow)
+      : action === "link"
+        ? Boolean(linkRow)
+        : creatable > 0 && guardianReady);
   const title =
     action === "copy_link"
       ? t("copyFirstLoginLink")
@@ -152,7 +168,7 @@ export function MemberAccountPanel({
           : t("createUserAccount");
   const created = result?.created ?? [];
   const showCreateResult = action === "create" && result !== null;
-  const canEmail = created.some((row) => row.email.trim());
+  const canEmail = created.some((row) => (row.invite_email || row.email).trim());
   const labels = {
     club: t("accountClubLabel"),
     username: t("accountUsernameLabel"),
@@ -167,7 +183,12 @@ export function MemberAccountPanel({
     setBusy(true);
     setError(null);
     try {
-      const payload = await postMemberAccounts({ action, member_ids: memberIds, locale });
+      const payload = await postMemberAccounts({
+        action,
+        member_ids: memberIds,
+        locale,
+        ...(action === "create" ? { guardian_emails: guardianChoice } : {}),
+      });
       setResult(payload);
       if (action !== "create" && payload.csv) {
         downloadFile("csv", payload);
@@ -306,7 +327,34 @@ export function MemberAccountPanel({
         ) : null}
         {!showCreateResult ? (
           <>
-            {skipLine("under_16", "accountUnder16Skip")}
+            {rows.some((row) => row.minor) ? (
+              <div className="flex items-start gap-2">
+                <p className="text-sm text-muted">{t("accountMinorNote")}</p>
+                <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("createUserAccount") })}>
+                  {t("accountMinorNote")}
+                </InfoHint>
+              </div>
+            ) : null}
+            {minors.map((row) => (
+              <label key={row.member_id} className="block space-y-1">
+                <span className="text-sm text-foreground">{t("accountGuardianLabel")}</span>
+                <select
+                  className="h-[var(--control-height)] w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 text-sm"
+                  value={guardianChoice[row.member_id] ?? ""}
+                  onChange={(event) =>
+                    setGuardianChoice((current) => ({ ...current, [row.member_id]: event.target.value }))
+                  }
+                >
+                  <option value="">{t("accountGuardianLabel")}</option>
+                  {(row.guardian_choices ?? []).map((choice) => (
+                    <option key={choice.email} value={choice.email}>
+                      {choice.name ? `${choice.name} — ${choice.email}` : choice.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            {skipLine("no_guardian_email", "accountNoGuardianSkip")}
             {skipLine("inactive", "accountInactiveSkip")}
             {skipLine("no_birth_date", "accountNoBirthDateSkip")}
             {skipLine("has_account", "accountHasAccountSkip")}

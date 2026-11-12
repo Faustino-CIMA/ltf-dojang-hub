@@ -21,6 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "role",
+            "minor_account",
             "is_superuser",
             "is_email_verified",
             "consent_given",
@@ -136,8 +137,18 @@ class VerifyEmailSerializer(serializers.Serializer):
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email = serializers.EmailField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False, allow_blank=True)
     locale = serializers.CharField(required=False)
+
+    def validate(self, attrs):
+        email = str(attrs.get("email") or "").strip()
+        username = str(attrs.get("username") or "").strip()
+        if not email and not username:
+            raise serializers.ValidationError("Enter an email address or a username.")
+        attrs["email"] = email
+        attrs["username"] = username
+        return attrs
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
