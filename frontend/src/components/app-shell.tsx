@@ -34,6 +34,7 @@ import { AuthApiError, presentAuthError } from "@/lib/auth-errors";
 import { getDashboardRouteForRole, routeForDesk, showFederationDashboardLink } from "@/lib/dashboard-routing";
 import { showLegacyClubPicker, switchNeedsConfirm } from "@/lib/desk-switch";
 import { DeskAccessContext } from "@/components/desk-access";
+import { AdminNoticeBell } from "@/components/members/picture-review-panel";
 import { ViewOnlyScope } from "@/components/view-only-scope";
 import { DeskSwitchAsk, DeskSwitcher, deskLabel } from "@/components/desk-switcher";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -706,6 +707,9 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
                 <Button asChild variant="outline">
                   <Link href={federationHref}>{t("openFederationDashboard")}</Link>
                 </Button>
+              ) : null}
+              {!deskReadOnly && (activeDesk?.desk === "club_admin" || activeDesk?.desk === "ltf_admin" || (!activeDesk && (me?.role === "club_admin" || me?.role === "ltf_admin"))) ? (
+                <AdminNoticeBell namespace={activeDesk?.desk === "ltf_admin" || (!activeDesk && me?.role === "ltf_admin") ? "LtfAdmin" : "ClubAdmin"} />
               ) : null}
               <ThemeToggle />
               <LanguageSwitcher compact />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Copy, IdCard, Pencil, Plus, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-react";
+import { Ban, Copy, IdCard, ImageIcon, Pencil, Plus, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -10,6 +10,8 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { PhotoReviewMark, PictureReviewPanel } from "@/components/members/picture-review-panel";
+import { useDeskAccess } from "@/components/desk-access";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -219,6 +221,9 @@ export default function LtfAdminMembersPage() {
 
   const clubById = useMemo(() => new Map(clubs.map((club) => [club.id, club])), [clubs]);
   const canManageStaff = role === "ltf_admin";
+  const { readOnly } = useDeskAccess();
+  const [reviewMemberId, setReviewMemberId] = useState<number | null>(null);
+  const canDecidePhoto = canManageStaff && !readOnly;
   const grantClubAdmin = useCallback(async (member: Member) => {
     const choice = clubAdminGrantChoice({
       canGrant: canManageStaff,
@@ -387,7 +392,15 @@ export default function LtfAdminMembersPage() {
         header: t("accountColumn"),
         sortable: true,
         render: (row: Member) => (
-          <MemberAccountBadge state={row.account_state ?? "none"} label={accountLabel(row.account_state)} />
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <MemberAccountBadge state={row.account_state ?? "none"} label={accountLabel(row.account_state)} />
+            {row.picture_review === "pending" && !readOnly ? (
+              <PhotoReviewMark
+                label={t("pictureReviewBadge")}
+                onOpen={canDecidePhoto ? () => setReviewMemberId(row.id) : undefined}
+              />
+            ) : null}
+          </span>
         ),
       },
       {
@@ -531,6 +544,16 @@ export default function LtfAdminMembersPage() {
                           },
                         ];
                       })(),
+                      ...(row.picture_review === "pending" && canDecidePhoto
+                        ? [
+                            {
+                              key: "review-photo",
+                              icon: <ImageIcon aria-hidden />,
+                              label: t("pictureReviewAction"),
+                              onSelect: () => setReviewMemberId(row.id),
+                            },
+                          ]
+                        : []),
                       {
                         key: "delete",
                         icon: <Trash2 aria-hidden />,
@@ -547,7 +570,7 @@ export default function LtfAdminMembersPage() {
           ]
         : []),
     ],
-    [accountLabel, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, selectedIds, t, toggleSelectRow, visibleIds]
+    [accountLabel, canDecidePhoto, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, readOnly, selectedIds, t, toggleSelectRow, visibleIds]
   );
 
   return (
@@ -761,6 +784,16 @@ export default function LtfAdminMembersPage() {
           />
         )}
       </div>
+      <PictureReviewPanel
+        open={reviewMemberId != null}
+        memberId={reviewMemberId}
+        namespace="LtfAdmin"
+        onClose={() => setReviewMemberId(null)}
+        onDecided={() => {
+          setReviewMemberId(null);
+          void loadData();
+        }}
+      />
       <MemberAccountPanel
         open={accountPanel !== null}
         namespace="LtfAdmin"

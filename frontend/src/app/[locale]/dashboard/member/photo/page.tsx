@@ -29,6 +29,7 @@ export default function MemberProfilePhotoPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingNote, setPendingNote] = useState<string | null>(null);
+  const [sentNote, setSentNote] = useState<string | null>(null);
 
   const loadMember = useCallback(async () => {
     setIsLoading(true);
@@ -56,6 +57,14 @@ export default function MemberProfilePhotoPage() {
     <MemberLayout title={t("photoModalTitle")} subtitle={t("photoModalDescription")}>
       <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+        {sentNote ? <p className="text-sm text-muted">{sentNote}</p> : null}
+        {member?.review_state === "pending" ? <p className="text-sm text-muted">{t("pictureReviewPendingNote")}</p> : null}
+        {member?.review_state === "rejected" ? (
+          <div className="text-sm text-muted">
+            <p>{t("pictureReviewRejected")}</p>
+            {member.rejection_reason ? <p>{t("pictureReviewRejectedReason", { reason: member.rejection_reason })}</p> : null}
+          </div>
+        ) : null}
         {pendingNote ? <p className="text-sm text-muted">{pendingNote}</p> : null}
 
         {isLoading ? (
@@ -108,7 +117,8 @@ export default function MemberProfilePhotoPage() {
                 photoConsentConfirmed: input.photoConsentConfirmed,
               });
               if (saved.review_pending) {
-                setPendingNote(t("pictureReviewPending"));
+                setSentNote(t("pictureReviewSent"));
+                setPendingNote(null);
                 await loadMember();
                 return;
               }

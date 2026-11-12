@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Copy, KeyRound, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { CircleAlert, Copy, ImageIcon, KeyRound, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 
 import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
@@ -28,7 +28,8 @@ import { Modal } from "@/components/ui/modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
-import { PictureReviewButton } from "@/components/members/picture-review-panel";
+import { PhotoReviewMark, PictureReviewPanel } from "@/components/members/picture-review-panel";
+import { useDeskAccess } from "@/components/desk-access";
 import { apiRequest } from "@/lib/api";
 import { clubAdminGrantChoice, grantFailureKind } from "@/lib/club-admin-grant";
 import { accountRowAction, canBulkCreateAccounts, postMemberAccounts, type AccountState } from "@/lib/member-accounts";
@@ -301,6 +302,9 @@ export default function ClubAdminMembersPage() {
   }, []);
 
   const canManageMembers = currentRole === "club_admin";
+  const { readOnly } = useDeskAccess();
+  const [reviewMemberId, setReviewMemberId] = useState<number | null>(null);
+  const canDecidePhoto = canManageMembers && !readOnly;
   const accountLabel = (state: AccountState | undefined) => {
     if (state === "pending") return t("accountBadgePending");
     if (state === "active") return t("accountBadgeActive");
@@ -939,7 +943,6 @@ export default function ClubAdminMembersPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             {canManageMembers ? (
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
-                <PictureReviewButton namespace="ClubAdmin" />
                 <ActionMenu
                   label={t("membersMenuLabel")}
                   actions={[
@@ -1103,10 +1106,18 @@ export default function ClubAdminMembersPage() {
                 header: t("accountColumn"),
                 sortable: true,
                 render: (member: Member) => (
-                  <MemberAccountBadge
-                    state={member.account_state ?? "none"}
-                    label={accountLabel(member.account_state)}
-                  />
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <MemberAccountBadge
+                      state={member.account_state ?? "none"}
+                      label={accountLabel(member.account_state)}
+                    />
+                    {member.picture_review === "pending" && !readOnly ? (
+                      <PhotoReviewMark
+                        label={t("pictureReviewBadge")}
+                        onOpen={canDecidePhoto ? () => setReviewMemberId(member.id) : undefined}
+                      />
+                    ) : null}
+                  </span>
                 ),
               },
               {
@@ -1277,6 +1288,16 @@ export default function ClubAdminMembersPage() {
                                   },
                                 ];
                               })(),
+                              ...(member.picture_review === "pending" && canDecidePhoto
+                                ? [
+                                    {
+                                      key: "review-photo",
+                                      icon: <ImageIcon aria-hidden />,
+                                      label: t("pictureReviewAction"),
+                                      onSelect: () => setReviewMemberId(member.id),
+                                    },
+                                  ]
+                                : []),
                               {
                                 key: "delete",
                                 icon: <Trash2 aria-hidden />,
@@ -1299,6 +1320,16 @@ export default function ClubAdminMembersPage() {
           />
         )}
       </div>
+      <PictureReviewPanel
+        open={reviewMemberId != null}
+        memberId={reviewMemberId}
+        namespace="ClubAdmin"
+        onClose={() => setReviewMemberId(null)}
+        onDecided={() => {
+          setReviewMemberId(null);
+          void loadData();
+        }}
+      />
       <MemberAccountPanel
         open={accountPanel !== null}
         namespace="ClubAdmin"

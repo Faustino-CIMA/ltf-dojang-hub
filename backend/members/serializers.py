@@ -53,6 +53,9 @@ class MemberSerializer(serializers.ModelSerializer):
     linked_user = serializers.SerializerMethodField()
     account_state = serializers.SerializerMethodField()
     minor_account = serializers.SerializerMethodField()
+    picture_review = serializers.SerializerMethodField()
+    review_state = serializers.SerializerMethodField()
+    rejection_reason = serializers.SerializerMethodField()
     is_home_club_admin = serializers.SerializerMethodField()
     latest_weight_kg = serializers.SerializerMethodField()
     latest_weight_on = serializers.SerializerMethodField()
@@ -93,6 +96,9 @@ class MemberSerializer(serializers.ModelSerializer):
             "linked_user",
             "account_state",
             "minor_account",
+            "picture_review",
+            "review_state",
+            "rejection_reason",
             "is_home_club_admin",
             "latest_weight_kg",
             "latest_weight_on",
@@ -119,6 +125,9 @@ class MemberSerializer(serializers.ModelSerializer):
             "linked_user",
             "account_state",
             "minor_account",
+            "picture_review",
+            "review_state",
+            "rejection_reason",
             "is_home_club_admin",
             "latest_weight_kg",
             "latest_weight_on",
@@ -294,6 +303,26 @@ class MemberSerializer(serializers.ModelSerializer):
     def get_minor_account(self, obj: Member):
         user = getattr(obj, "user", None)
         return bool(getattr(user, "minor_account", False))
+
+    def _review_state(self, obj: Member):
+        cached = getattr(obj, "_review_state_cache", None)
+        if cached is None:
+            from .notices import picture_badge, review_state_for
+
+            request = self.context.get("request")
+            state, reason = review_state_for(request, obj)
+            cached = (picture_badge(request, obj), state, reason)
+            obj._review_state_cache = cached
+        return cached
+
+    def get_picture_review(self, obj: Member):
+        return self._review_state(obj)[0]
+
+    def get_review_state(self, obj: Member):
+        return self._review_state(obj)[1]
+
+    def get_rejection_reason(self, obj: Member):
+        return self._review_state(obj)[2]
 
     def get_is_home_club_admin(self, obj: Member):
         annotated = getattr(obj, "is_home_club_admin", None)

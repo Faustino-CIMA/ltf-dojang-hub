@@ -139,7 +139,7 @@ from licenses.card_views import (
 from members.transfer_views import MemberTransferViewSet
 from events.views import EventViewSet
 from members.user_account_views import MemberUserAccountsView
-from members.views import MemberViewSet, RewriteLtfLicensePrefixView
+from members.views import AdminNoticeListView, MemberViewSet, RewriteLtfLicensePrefixView
 from nationalteam.views import (
     AthleteNationalTeamBadgeView,
     AthleteNationalTeamView,
@@ -308,6 +308,7 @@ urlpatterns = [
         FederationProfileLogoContentView.as_view(),
         name="federation-profile-logo-content",
     ),
+    path("api/notices/", AdminNoticeListView.as_view(), name="admin-notices"),
     path("api/health/", health_check, name="health-check"),
     path("api/public/stats/", PublicStatsView.as_view(), name="public-stats"),
     path("api/i18n/<str:locale>/", PublicI18nView.as_view(), name="public-i18n"),

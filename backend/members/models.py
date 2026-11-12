@@ -443,3 +443,47 @@ class MemberTransferMessage(models.Model):
 
     def __str__(self):
         return f"Message on transfer {self.transfer_id}"
+
+
+class AdminNotice(models.Model):
+    """One open item for an admin. Other tasks can add a kind later."""
+
+    class Kind(models.TextChoices):
+        PICTURE_REVIEW = "picture_review", _("Picture review")
+
+    kind = models.CharField(max_length=40, choices=Kind.choices)
+    club = models.ForeignKey(
+        Club,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="admin_notices",
+    )
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="admin_notices",
+    )
+    opened_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_notices_resolved",
+    )
+    decision = models.CharField(max_length=20, blank=True)
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-opened_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member", "kind"],
+                condition=models.Q(resolved_at__isnull=True),
+                name="one_open_admin_notice_per_member_kind",
+            ),
+        ]
