@@ -1539,7 +1539,7 @@ class OrderApiTests(TestCase):
         self.assertEqual(payment.method, Payment.Method.BANK_TRANSFER)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
-    @patch("licenses.views.stripe.checkout.Session.create")
+    @patch("licenses.stripe_adapter.create_checkout_session")
     def test_checkout_allows_member_without_consent(self, session_create_mock):
         member_user = User.objects.create_user(
             username="member1",
@@ -2188,7 +2188,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(pending_license.status, License.Status.PENDING)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
-    @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
+    @patch("licenses.stripe_adapter.retrieve_payment_intent")
     def test_reconcile_pending_stripe_orders_uses_payment_intent(self, payment_intent_mock):
         today = timezone.localdate()
         license_record = License.objects.create(
@@ -2241,7 +2241,7 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(payment.method, Payment.Method.CARD)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
-    @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
+    @patch("licenses.stripe_adapter.retrieve_payment_intent")
     def test_reconcile_pending_stripe_orders_reuses_payment_intent_lookup(
         self, payment_intent_mock
     ):
@@ -2301,8 +2301,8 @@ class LicenseActivationRulesTests(TestCase):
         self.assertEqual(payment_intent_mock.call_count, 1)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_reconcile")
-    @patch("licenses.tasks.stripe.PaymentIntent.retrieve")
-    @patch("licenses.tasks.stripe.checkout.Session.retrieve")
+    @patch("licenses.stripe_adapter.retrieve_payment_intent")
+    @patch("licenses.stripe_adapter.retrieve_checkout_session")
     def test_reconcile_pending_stripe_orders_uses_checkout_session(
         self,
         session_mock,
@@ -2403,7 +2403,7 @@ class ClubOrderCheckoutTests(TestCase):
         )
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
-    @patch("licenses.views.stripe.checkout.Session.create")
+    @patch("licenses.stripe_adapter.create_checkout_session")
     def test_club_checkout_requires_consent_confirmation(self, session_create_mock):
         session_create_mock.return_value = type(
             "Session",
@@ -2429,7 +2429,7 @@ class ClubOrderCheckoutTests(TestCase):
         self.assertNotIn("stripe_payment_intent_id", row)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_checkout")
-    @patch("licenses.views.stripe.checkout.Session.create")
+    @patch("licenses.stripe_adapter.create_checkout_session")
     def test_club_checkout_success_url_includes_session_id(self, session_create_mock):
         session_create_mock.return_value = type(
             "Session",
@@ -2588,7 +2588,7 @@ class StripeConfirmCheckoutTests(TestCase):
         )
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_confirm")
-    @patch("licenses.stripe_checkout.stripe.checkout.Session.retrieve")
+    @patch("licenses.stripe_adapter.retrieve_checkout_session")
     def test_confirm_checkout_marks_paid_and_activates_license(self, retrieve_mock):
         retrieve_mock.return_value = {
             "id": "cs_confirm_123",
@@ -2615,7 +2615,7 @@ class StripeConfirmCheckoutTests(TestCase):
         self.assertEqual(self.license_record.status, License.Status.ACTIVE)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_confirm")
-    @patch("licenses.stripe_checkout.stripe.checkout.Session.retrieve")
+    @patch("licenses.stripe_adapter.retrieve_checkout_session")
     def test_confirm_checkout_pending_when_stripe_not_paid(self, retrieve_mock):
         retrieve_mock.return_value = {
             "id": "cs_confirm_123",
@@ -2643,7 +2643,7 @@ class StripeConfirmCheckoutTests(TestCase):
         self.license_record.status = License.Status.ACTIVE
         self.license_record.save(update_fields=["status", "updated_at"])
         self.client.force_authenticate(user=self.club_admin)
-        with patch("licenses.stripe_checkout.stripe.checkout.Session.retrieve") as retrieve_mock:
+        with patch("licenses.stripe_adapter.retrieve_checkout_session") as retrieve_mock:
             response = self.client.post(
                 "/api/stripe/confirm-checkout/",
                 {"session_id": "cs_confirm_123"},

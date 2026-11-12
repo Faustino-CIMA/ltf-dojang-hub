@@ -10,7 +10,6 @@ from django.db.models.functions import Coalesce
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-import stripe
 from rest_framework import permissions, serializers, status, viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -101,6 +100,7 @@ from .policy import (
     validate_member_license_order,
 )
 from .services import apply_payment_and_activate
+from . import stripe_adapter
 from .stripe_checkout import checkout_return_area, checkout_success_url, fulfill_checkout_session
 from .tasks import process_stripe_webhook_event
 from .payconiq import PayconiqServiceError, create_payment, get_status
@@ -750,9 +750,6 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        stripe.api_version = settings.STRIPE_API_VERSION
-
         invoice = getattr(order, "invoice", None) or Invoice.objects.filter(order=order).first()
         due_amount = invoice.outstanding() if invoice else order.total
         if due_amount <= 0:
@@ -794,10 +791,8 @@ class OrderViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             session_kwargs["customer_email"] = customer_email
 
         try:
-            session = stripe.checkout.Session.create(
-                **session_kwargs,
-            )
-        except stripe.error.StripeError as exc:  # type: ignore[attr-defined]
+            session = stripe_adapter.create_checkout_session(**session_kwargs)
+        except stripe_adapter.StripeError as exc:
             return Response(
                 {"detail": str(exc)},
                 status=HTTP_400_BAD_REQUEST,
@@ -2233,9 +2228,6 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        stripe.api_version = settings.STRIPE_API_VERSION
-
         invoice = getattr(order, "invoice", None) or Invoice.objects.filter(order=order).first()
         due_amount = invoice.outstanding() if invoice else order.total
         if due_amount <= 0:
@@ -2275,10 +2267,8 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
             session_kwargs["customer_email"] = customer_email
 
         try:
-            session = stripe.checkout.Session.create(
-                **session_kwargs,
-            )
-        except stripe.error.StripeError as exc:  # type: ignore[attr-defined]
+            session = stripe_adapter.create_checkout_session(**session_kwargs)
+        except stripe_adapter.StripeError as exc:
             return Response(
                 {"detail": str(exc)},
                 status=HTTP_400_BAD_REQUEST,
@@ -3013,16 +3003,13 @@ class StripeWebhookView(APIView):
         if not settings.STRIPE_WEBHOOK_SECRET:
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        stripe.api_version = settings.STRIPE_API_VERSION
-
         try:
-            event = stripe.Webhook.construct_event(
+            event = stripe_adapter.construct_webhook_event(
                 payload=payload,
                 sig_header=sig_header,
                 secret=settings.STRIPE_WEBHOOK_SECRET,
             )
-        except (ValueError, stripe.error.SignatureVerificationError):  # type: ignore[attr-defined]
+        except (ValueError, stripe_adapter.SignatureVerificationError):
             return Response(status=HTTP_400_BAD_REQUEST)
 
         # Signature verification already succeeded. stripe-python 14+ returns an
@@ -3047,7 +3034,7 @@ class StripeWebhookView(APIView):
             payment_intent_id = data_object.get("payment_intent")
             if payment_intent_id:
                 try:
-                    payment_intent = stripe.PaymentIntent.retrieve(
+                    payment_intent = stripe_adapter.retrieve_payment_intent(
                         payment_intent_id,
                         expand=["charges.data.payment_method_details"],
                     )
@@ -3067,7 +3054,7 @@ class StripeWebhookView(APIView):
                             "card_exp_month": card.get("exp_month"),
                             "card_exp_year": card.get("exp_year"),
                         }
-                except stripe.error.StripeError:  # type: ignore[attr-defined]
+                except stripe_adapter.StripeError:
                     card_details = {}
         event_payload = {
             "event_type": event_type,
@@ -3102,7 +3089,7 @@ class StripeConfirmCheckoutView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except PermissionError:
             return Response({"detail": "Checkout session not found."}, status=status.HTTP_404_NOT_FOUND)
-        except stripe.error.StripeError as exc:  # type: ignore[attr-defined]
+        except stripe_adapter.StripeError as exc:
             return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
 
         order = fulfillment.order
