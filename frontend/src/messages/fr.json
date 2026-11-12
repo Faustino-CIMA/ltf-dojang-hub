@@ -4610,6 +4610,9 @@
   "AccountSetup": {
     "title": "Configurer votre compte",
     "subtitle": "Choisissez l'e-mail et le mot de passe que vous utiliserez pour vous connecter.",
+    "minorSubtitle": "Choisissez un mot de passe. La connexion se fait ensuite avec le nom d'utilisateur affiché ici, pas avec un e-mail.",
+    "minorUsernameHint": "Voici le nom d'utilisateur de cette connexion.",
+    "minorSuccessBody": "Connectez-vous avec le nom d'utilisateur {username}.",
     "username": "Nom d'utilisateur",
     "name": "Nom",
     "email": "E-mail",

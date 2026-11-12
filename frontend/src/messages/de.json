@@ -4610,6 +4610,9 @@
   "AccountSetup": {
     "title": "Konto einrichten",
     "subtitle": "Wählen Sie die E-Mail und das Passwort für die Anmeldung.",
+    "minorSubtitle": "Wählen Sie ein Passwort. Die Anmeldung erfolgt danach mit dem hier gezeigten Benutzernamen, nicht mit einer E-Mail.",
+    "minorUsernameHint": "Dies ist der Benutzername für diese Anmeldung.",
+    "minorSuccessBody": "Melden Sie sich mit dem Benutzernamen {username} an.",
     "username": "Benutzername",
     "name": "Name",
     "email": "E-Mail",

@@ -74,6 +74,35 @@ describe("account setup outcome", () => {
     expect(screen.queryByRole("heading", { name: "title" })).not.toBeInTheDocument();
   });
 
+  it("asks a minor for a password and shows the username, not an email", async () => {
+    load.mockResolvedValue({
+      status: "open",
+      info: {
+        username: "ayoung",
+        first_name: "Ada",
+        last_name: "Young",
+        assignments: [],
+        minor_account: true,
+      },
+    });
+    complete.mockResolvedValue({ detail: "Account ready." });
+    render(<AccountSetupPage />);
+    expect(await screen.findByLabelText(/^username/)).toHaveValue("ayoung");
+    expect(screen.getByText("minorUsernameHint")).toBeInTheDocument();
+    expect(screen.getByText("minorSubtitle")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^email/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^password/), { target: { value: "A-long-password-1" } });
+    fireEvent.change(screen.getByLabelText(/^confirmPassword/), { target: { value: "A-long-password-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "submit" }));
+    expect(await screen.findByRole("heading", { name: "successTitle" })).toBeInTheDocument();
+    expect(screen.getByText("minorSuccessBody:ayoung:")).toBeInTheDocument();
+    expect(complete).toHaveBeenCalledWith({
+      token: "invite-token",
+      password: "A-long-password-1",
+      password_confirm: "A-long-password-1",
+    });
+  });
+
   it("asks for a new invitation when the link has expired", async () => {
     load.mockResolvedValue({ status: "expired" });
     render(<AccountSetupPage />);

@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Minor accounts:** The first-login page for someone under 18 asks for a password and shows the username. It does not ask for an email. An adult invitation still asks for an email.
 - **Minor accounts:** A login for someone under 18 sends the first-login link to a parent or guardian chosen by the club. The child signs in with a username. The account can only see their own record and send a profile picture, which the club approves before it replaces the current one.
 - **Federation profile:** The office address can include a country. It stays blank until one is chosen, and then it is the last line of the federation letterhead. The letterhead prints the contact email from settings, or the previous letterhead email when that field is blank.
 - **Letterhead:** Federation invoices print the office address, email, and website saved on LTF settings. A blank email or website is left off the page. A blank office keeps the previous address block.

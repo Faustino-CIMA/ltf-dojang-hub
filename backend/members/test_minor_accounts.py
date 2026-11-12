@@ -7,7 +7,10 @@ from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
+from allauth.account.models import EmailAddress
+
 from accounts.models import User
+from accounts.setup_invites import issue_setup_invite
 from clubmgmt.models import MemberContact, Person, PersonEmail
 from .models import Member
 from .test_user_accounts import MemberUserAccountTests
@@ -232,3 +235,117 @@ class MinorAccountTests(MemberUserAccountTests):
         child.refresh_from_db()
         self.assertTrue(child.profile_picture_processed)
         self.assertFalse(child.profile_picture_pending_processed)
+
+    def _open_invite(self, member):
+        _invite, raw = issue_setup_invite(member.user, self.club_admin)
+        return APIClient(), raw
+
+    def test_a_minor_finishes_setup_without_an_email_and_ignores_one_that_is_sent(self):
+        child = self._child()
+        self._guardian(child, "parent@example.test")
+        parent = User.objects.create_user(
+            username="parent-setup",
+            email="parent@example.test",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        created = self.client.post(
+            "/api/members/user-accounts/",
+            {
+                "action": "create",
+                "member_ids": [child.id],
+                "locale": "en",
+                "guardian_emails": {str(child.id): "parent@example.test"},
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 200, created.data)
+        child.refresh_from_db()
+        public, raw = self._open_invite(child)
+        opened = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(opened.status_code, 200, opened.data)
+        self.assertTrue(opened.data["minor_account"])
+        self.assertEqual(opened.data["username"], child.user.username)
+        self.assertNotIn("email", opened.data)
+        self.assertNotIn("parent@example.test", str(opened.data))
+        saved = public.post(
+            "/api/auth/account-setup/",
+            {
+                "token": raw,
+                "password": "Correct-horse-battery",
+                "password_confirm": "Correct-horse-battery",
+                "email": "parent@example.test",
+                "minor_account": False,
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        child.refresh_from_db()
+        child.user.refresh_from_db()
+        self.assertEqual(child.user.email, "")
+        self.assertEqual(child.email, "child@example.test")
+        self.assertTrue(child.user.check_password("Correct-horse-battery"))
+        self.assertTrue(child.user.is_email_verified)
+        self.assertFalse(EmailAddress.objects.filter(user=child.user).exists())
+        parent.refresh_from_db()
+        self.assertEqual(parent.email, "parent@example.test")
+        self.assertFalse(parent.check_password("Correct-horse-battery"))
+        signed_in = public.post(
+            "/api/auth/login/",
+            {"username": child.user.username, "password": "Correct-horse-battery"},
+            format="json",
+        )
+        self.assertEqual(signed_in.status_code, 200, signed_in.data)
+
+    def test_a_minor_setup_succeeds_when_the_email_field_is_left_out(self):
+        child = self._child()
+        self._guardian(child, "other-parent@example.test")
+        created = self.client.post(
+            "/api/members/user-accounts/",
+            {
+                "action": "create",
+                "member_ids": [child.id],
+                "locale": "en",
+                "guardian_emails": {str(child.id): "other-parent@example.test"},
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 200, created.data)
+        child.refresh_from_db()
+        public, raw = self._open_invite(child)
+        saved = public.post(
+            "/api/auth/account-setup/",
+            {
+                "token": raw,
+                "password": "Correct-horse-battery",
+                "password_confirm": "Correct-horse-battery",
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        child.user.refresh_from_db()
+        self.assertEqual(child.user.email, "")
+        self.assertTrue(child.user.check_password("Correct-horse-battery"))
+
+    def test_an_adult_setup_still_requires_an_email(self):
+        adult = self._member("Adult", "Person", email="adult.person@example.test")
+        created = self._post([adult.id])
+        self.assertEqual(created.status_code, 200, created.data)
+        adult.refresh_from_db()
+        public, raw = self._open_invite(adult)
+        opened = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertFalse(opened.data["minor_account"])
+        refused = public.post(
+            "/api/auth/account-setup/",
+            {
+                "token": raw,
+                "password": "Correct-horse-battery",
+                "password_confirm": "Correct-horse-battery",
+            },
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertIn("email", refused.data)
+        adult.user.refresh_from_db()
+        self.assertEqual(adult.user.email, "adult.person@example.test")
+        self.assertFalse(adult.user.check_password("Correct-horse-battery"))

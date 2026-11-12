@@ -220,6 +220,7 @@ export type AccountSetupInfo = {
   first_name: string;
   last_name: string;
   assignments: AccountSetupAssignment[];
+  minor_account?: boolean;
 };
 
 export function getAccountSetup(token: string) {
@@ -247,6 +248,11 @@ export async function loadAccountSetup(token: string): Promise<AccountSetupLoad>
   return { status: "invalid" };
 }
 
-export function completeAccountSetup(body: { token: string; email: string; password: string; password_confirm: string }) {
+export function completeAccountSetup(body: {
+  token: string;
+  email?: string;
+  password: string;
+  password_confirm: string;
+}) {
   return apiRequest<{ detail: string }>("/api/auth/account-setup/", { method: "POST", body: JSON.stringify(body) });
 }
