@@ -48,7 +48,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install backend dependencies
-        run: pip install -r requirements.txt
+        run: pip install --require-hashes -r requirements.lock
 
       - name: Ensure migration files are committed
         run: python manage.py makemigrations --check --dry-run
