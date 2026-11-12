@@ -16,7 +16,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 from rest_framework.views import APIView
 
@@ -56,7 +56,10 @@ from .models import (
     OrderItem,
     Payment,
 )
+from .card_serializers import PrintJobSerializer
 from .history import log_license_created, log_license_status_change
+from .license_card_print import LicenseCardPrintError, ltf_admin_print_refusal, print_license_cards
+from .print_filenames import content_disposition_attachment, license_card_download_filename
 from .serializers import (
     build_audit_label_maps,
     ActivateLicensesSerializer,
@@ -303,6 +306,8 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
+        if getattr(self, "action", None) in {"card_pdf", "card_print"}:
+            return [permissions.IsAuthenticated()]
         if self.request.method in SAFE_METHODS:
             return [permissions.IsAuthenticated()]
         return [IsLtfAdmin()]
@@ -437,6 +442,64 @@ class LicenseViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             actor=self.request.user if self.request.user.is_authenticated else None,
             reason="License updated manually.",
             metadata={"source": "license_viewset.update"},
+        )
+
+    @extend_schema(responses={200: bytes})
+    @action(detail=True, methods=["get"], url_path="card-pdf")
+    def card_pdf(self, request, pk=None):
+        refused = ltf_admin_print_refusal(request)
+        if refused is not None:
+            return refused
+        license_record = (
+            License.objects.select_related("member", "club").filter(pk=pk).first()
+        )
+        if license_record is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            jobs, _skipped = print_license_cards(
+                license_ids=[license_record.id],
+                user=request.user,
+                request=request,
+            )
+        except LicenseCardPrintError as exc:
+            return Response({"detail": exc.code}, status=exc.status_code)
+        job = jobs[0]
+        member = license_record.member
+        filename = license_card_download_filename(
+            license_number=member.ltf_licenseid,
+            last_name=member.last_name,
+            first_name=member.first_name,
+            year=license_record.year,
+            license_id=license_record.id,
+        )
+        artifact = job.artifact_pdf.open("rb")
+        response = FileResponse(artifact, content_type="application/pdf")
+        response["Content-Disposition"] = content_disposition_attachment(filename)
+        return response
+
+    @extend_schema(request=None, responses={201: dict})
+    @action(detail=False, methods=["post"], url_path="card-print")
+    def card_print(self, request):
+        refused = ltf_admin_print_refusal(request)
+        if refused is not None:
+            return refused
+        payload = request.data if isinstance(request.data, dict) else {}
+        try:
+            jobs, skipped = print_license_cards(
+                license_ids=payload.get("license_ids"),
+                template_version_id=payload.get("template_version"),
+                printer_profile_id=payload.get("printer_profile"),
+                user=request.user,
+                request=request,
+            )
+        except LicenseCardPrintError as exc:
+            return Response({"detail": exc.code}, status=exc.status_code)
+        return Response(
+            {
+                "jobs": PrintJobSerializer(jobs, many=True, context={"request": request}).data,
+                "skipped_license_ids": skipped,
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 

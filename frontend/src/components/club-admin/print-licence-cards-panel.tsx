@@ -14,17 +14,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AuthApiError } from "@/lib/auth-errors";
 import {
   createPrintJob,
   downloadPrintJobPdf,
   executePrintJob,
   getCardTemplates,
   getPrinterProfiles,
+  printFederationLicenseCards,
   type CardTemplate,
   type PrinterProfile,
   type PrintJob,
 } from "@/lib/license-card-api";
-import { openPdfPreview } from "@/lib/print-job-pdf";
+import { downloadPdfFile, openPdfPreview } from "@/lib/print-job-pdf";
 
 const NO_PRINTER = "__no_printer__";
 
@@ -36,6 +38,8 @@ type PrintLicenceCardsPanelProps = {
   source: "members" | "licenses";
   memberIds?: number[];
   licenseIds?: number[];
+  /** LTF licenses list. One sheet per club, including ids from other pages. */
+  scope?: "club" | "federation";
 };
 
 export function PrintLicenceCardsPanel({
@@ -46,6 +50,7 @@ export function PrintLicenceCardsPanel({
   source,
   memberIds = [],
   licenseIds = [],
+  scope = "club",
 }: PrintLicenceCardsPanelProps) {
   const t = useTranslations("ClubAdmin");
   const common = useTranslations("Common");
@@ -56,6 +61,8 @@ export function PrintLicenceCardsPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorTone, setErrorTone] = useState<"info" | "danger">("danger");
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [job, setJob] = useState<PrintJob | null>(null);
 
   const selectedCount = source === "licenses" ? licenseIds.length : memberIds.length;
@@ -73,6 +80,8 @@ export function PrintLicenceCardsPanel({
     let cancelled = false;
     setIsLoading(true);
     setErrorMessage(null);
+    setErrorTone("danger");
+    setInfoMessage(null);
     setJob(null);
     setTemplateVersionId("");
     setPrinterValue(NO_PRINTER);
@@ -93,6 +102,7 @@ export function PrintLicenceCardsPanel({
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          setErrorTone(error instanceof AuthApiError ? error.tone : "danger");
           setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"));
         }
       })
@@ -106,35 +116,75 @@ export function PrintLicenceCardsPanel({
     };
   }, [open, t]);
 
+  const noteError = (error: unknown) => {
+    setErrorTone(error instanceof AuthApiError ? error.tone : "danger");
+    setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"));
+  };
+
+  const openJobPdfs = async (jobs: PrintJob[]) => {
+    for (const [index, created] of jobs.entries()) {
+      const file = await downloadPrintJobPdf(created.id);
+      if (jobs.length === 1 && index === 0) {
+        openPdfPreview(file.blob);
+      } else {
+        downloadPdfFile(file.blob, file.filename || "license-cards.pdf");
+      }
+    }
+  };
+
   const submit = async () => {
-    if (!clubId || !templateVersionId || selectedCount === 0) {
+    if (!templateVersionId || selectedCount === 0) {
+      return;
+    }
+    if (scope !== "federation" && !clubId) {
       return;
     }
     const printerId = printerValue === NO_PRINTER ? null : Number(printerValue);
     setIsSubmitting(true);
     setErrorMessage(null);
+    setInfoMessage(null);
     try {
-      const created = await createPrintJob({
-        club: clubId,
-        template_version: Number(templateVersionId),
-        ...(source === "licenses" ? { license_ids: licenseIds } : { member_ids: memberIds }),
-        ...(printerId ? { printer_profile_id: printerId } : {}),
-        metadata: {
-          quick_print: true,
-          source,
-          selected_count: selectedCount,
-        },
-      });
-      await executePrintJob(created.id);
-      setJob(created);
-      try {
-        const file = await downloadPrintJobPdf(created.id);
-        openPdfPreview(file.blob);
-      } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"));
+      if (scope === "federation") {
+        const result = await printFederationLicenseCards({
+          license_ids: licenseIds,
+          template_version: Number(templateVersionId),
+          ...(printerId ? { printer_profile: printerId } : {}),
+        });
+        const created = result.jobs[0] ?? null;
+        setJob(created);
+        if (result.skipped_license_ids.length > 0) {
+          setInfoMessage(t("printLicenceCardsSkipped", { count: result.skipped_license_ids.length }));
+        }
+        if (result.jobs.length > 0) {
+          try {
+            await openJobPdfs(result.jobs);
+          } catch (error) {
+            noteError(error);
+          }
+        }
+      } else {
+        const created = await createPrintJob({
+          club: clubId as number,
+          template_version: Number(templateVersionId),
+          ...(source === "licenses" ? { license_ids: licenseIds } : { member_ids: memberIds }),
+          ...(printerId ? { printer_profile_id: printerId } : {}),
+          metadata: {
+            quick_print: true,
+            source,
+            selected_count: selectedCount,
+          },
+        });
+        await executePrintJob(created.id);
+        setJob(created);
+        try {
+          const file = await downloadPrintJobPdf(created.id);
+          openPdfPreview(file.blob);
+        } catch (error) {
+          noteError(error);
+        }
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"));
+      noteError(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -152,14 +202,25 @@ export function PrintLicenceCardsPanel({
           <Button
             type="button"
             onClick={() => void submit()}
-            disabled={isSubmitting || isLoading || !templateVersionId || !clubId || selectedCount === 0}
+            disabled={
+              isSubmitting ||
+              isLoading ||
+              !templateVersionId ||
+              selectedCount === 0 ||
+              (scope !== "federation" && !clubId)
+            }
           >
             {isSubmitting ? t("printLicenceCardsWorking") : t("printLicenceCardsSubmit")}
           </Button>
         )
       }
     >
-      {errorMessage ? <p className="mb-3 text-sm text-destructive">{errorMessage}</p> : null}
+      {infoMessage ? <p className="mb-3 text-sm text-muted">{infoMessage}</p> : null}
+      {errorMessage ? (
+        <p className={errorTone === "info" ? "mb-3 text-sm text-muted" : "mb-3 text-sm text-destructive"}>
+          {errorMessage}
+        </p>
+      ) : null}
       {isLoading ? (
         <p className="text-sm text-muted">{common("loadingLabel")}</p>
       ) : job ? (
@@ -174,15 +235,17 @@ export function PrintLicenceCardsPanel({
               onClick={() => {
                 void downloadPrintJobPdf(job.id)
                   .then((file) => openPdfPreview(file.blob))
-                  .catch((error: unknown) =>
-                    setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"))
-                  );
+                  .catch((error: unknown) => noteError(error));
               }}
             >
               {t("printLicenceCardsOpenPdf")}
             </Button>
             <Link
-              href={`/${locale}/dashboard/club/print-jobs`}
+              href={
+                scope === "federation"
+                  ? `/${locale}/dashboard/ltf/license-cards/print-jobs`
+                  : `/${locale}/dashboard/club/print-jobs`
+              }
               className="inline-flex h-[var(--control-height)] items-center text-sm font-medium text-link underline-offset-4 hover:underline"
             >
               {t("printLicenceCardsOpenList")}

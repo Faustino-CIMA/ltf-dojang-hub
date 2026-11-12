@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Printer } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -14,12 +14,13 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import { PrintLicenceCardsPanel } from "@/components/club-admin/print-licence-cards-panel";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
+import { LtfLicenseRowActions } from "@/components/ltf-admin/ltf-license-row-actions";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
-import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FilterPills } from "@/components/ui/filter-pills";
@@ -58,6 +59,8 @@ import { useConsumeSearchParam } from "@/lib/consume-search-param";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatLicenseExpiry, licenseExpiryClass, licenseExpiryHint } from "@/lib/license-expiry";
 import { displayClubName } from "@/lib/club-label";
+import { downloadLicenseCardPdf } from "@/lib/license-card-api";
+import { downloadPdfFile } from "@/lib/print-job-pdf";
 import { formatFullName } from "@/lib/person-name";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
 import { offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
@@ -92,6 +95,8 @@ export default function LtfAdminLicensesPage() {
   const [pendingDelete, setPendingDelete] = useState<License | null>(null);
   const [batchLicenses, setBatchLicenses] = useState<License[]>([]);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printLicenseIds, setPrintLicenseIds] = useState<number[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [licenseStatusFilter, setLicenseStatusFilter] = useState<LicenseStatusFilter>("all");
@@ -334,6 +339,23 @@ export default function LtfAdminLicensesPage() {
       year: String(license.year),
       status: editableStatus,
     });
+  };
+
+  const downloadLicenseCard = async (licenseId: number) => {
+    try {
+      const file = await downloadLicenseCardPdf(licenseId);
+      downloadPdfFile(file.blob, file.filename || "license-card.pdf");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "no_published_card_template");
+    }
+  };
+
+  const openPrint = (ids: number[]) => {
+    if (ids.length === 0) {
+      return;
+    }
+    setPrintLicenseIds(ids);
+    setPrintOpen(true);
   };
 
   const startCreate = () => {
@@ -581,14 +603,16 @@ export default function LtfAdminLicensesPage() {
       key: "actions",
       header: t("actionsLabel"),
       render: (license: License) => (
-        <RowActionMenu
-          label={common("rowActionsLabel")}
-          actions={[
-            { key: "edit",
-                        icon: <Pencil aria-hidden />, label: t("editAction"), onSelect: () => startEdit(license) },
-            { key: "delete",
-                        icon: <Trash2 aria-hidden />, label: t("deleteAction"), destructive: true, onSelect: () => void openLicenseDelete(license) },
-          ]}
+        <LtfLicenseRowActions
+          menuLabel={common("rowActionsLabel")}
+          editLabel={t("editAction")}
+          printLabel={t("printLicenseCardsAction")}
+          downloadLabel={t("downloadLicenseCardAction")}
+          deleteLabel={t("deleteAction")}
+          onEdit={() => startEdit(license)}
+          onPrint={() => openPrint([license.id])}
+          onDownload={() => void downloadLicenseCard(license.id)}
+          onDelete={() => void openLicenseDelete(license)}
         />
       ),
     },
@@ -646,6 +670,12 @@ export default function LtfAdminLicensesPage() {
                   label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
                   actions={[
+                    {
+                      key: "print",
+                      icon: <Printer aria-hidden />,
+                      label: t("printLicenseCardsAction"),
+                      onSelect: () => openPrint(selectedIds),
+                    },
                     { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete(selectedIds) },
                   ]}
                 />
@@ -801,6 +831,15 @@ export default function LtfAdminLicensesPage() {
           setBatchDeleteOpen(false);
           setBatchLicenses([]);
         }}
+      />
+      <PrintLicenceCardsPanel
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        locale={locale}
+        clubId={null}
+        source="licenses"
+        scope="federation"
+        licenseIds={printLicenseIds}
       />
     </LtfAdminLayout>
   );

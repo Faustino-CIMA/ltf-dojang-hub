@@ -15,6 +15,8 @@ const INFO_CODES = new Set([
   "desk_read_only",
   "account_unavailable",
   "license_in_use",
+  "no_published_card_template",
+  "license_has_no_club",
 ]);
 
 const COPY: Record<string, Record<Locale, string>> = {
@@ -65,6 +67,18 @@ const COPY: Record<string, Record<Locale, string>> = {
     fr: "Ce bureau est en lecture seule.",
     de: "Dieser Schreibtisch ist nur zum Ansehen.",
     lb: "Dëse Schreifdësch ass nëmme fir ze kucken.",
+  },
+  no_published_card_template: {
+    en: "No published license card template is available.",
+    fr: "Aucun modèle de carte de licence publié n'est disponible.",
+    de: "Es gibt keine veröffentlichte Lizenzkartenvorlage.",
+    lb: "Et gëtt keng verëffentlecht Lizenzkaarte-Virlag.",
+  },
+  license_has_no_club: {
+    en: "A license with no club has no sheet to print.",
+    fr: "Une licence sans club n'a pas de feuille à imprimer.",
+    de: "Eine Lizenz ohne Verein hat keinen Bogen zum Drucken.",
+    lb: "Eng Lizenz ouni Club huet kee Béi fir ze drécken.",
   },
   license_in_use: {
     en: "This license is on an order or a print job, so it stays. The invoice and any payment stay as they are. Use Edit and set the status to Revoked when it should no longer be valid.",
