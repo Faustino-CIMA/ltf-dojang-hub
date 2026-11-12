@@ -62,6 +62,7 @@ def annotate_account_state(queryset):
             When(user_id__isnull=True, then=Value("none")),
             When(user__is_active=False, then=Value("disabled")),
             When(has_used_setup_invite=True, then=Value("active")),
+            When(user__last_login__isnull=False, then=Value("active")),
             When(has_open_setup_invite=True, then=Value("pending")),
             default=Value("active"),
             output_field=CharField(),
@@ -80,7 +81,7 @@ def account_state_value(member: Member) -> str:
     if not user.is_active:
         return "disabled"
     invites = AccountSetupInvite.objects.filter(user_id=member.user_id)
-    if invites.filter(used_at__isnull=False).exists():
+    if invites.filter(used_at__isnull=False).exists() or user.last_login is not None:
         return "active"
     now = timezone.now()
     if invites.filter(used_at__isnull=True, revoked_at__isnull=True, expires_at__gt=now).exists():

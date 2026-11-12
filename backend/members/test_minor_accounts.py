@@ -1,6 +1,7 @@
 from datetime import date
 from io import BytesIO
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
@@ -349,3 +350,104 @@ class MinorAccountTests(MemberUserAccountTests):
         adult.user.refresh_from_db()
         self.assertEqual(adult.user.email, "adult.person@example.test")
         self.assertFalse(adult.user.check_password("Correct-horse-battery"))
+
+    def _account_state(self, member_id):
+        listed = self.client.get("/api/members/?page=1&page_size=50")
+        self.assertEqual(listed.status_code, 200, listed.data)
+        rows = listed.data["results"] if isinstance(listed.data, dict) else listed.data
+        return next(row["account_state"] for row in rows if row["id"] == member_id)
+
+    def _choose_password_from_the_reset_link(self, user):
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        from accounts.password_reset import ResetTokenGenerator
+
+        saved = APIClient().post(
+            "/api/auth/password-reset/confirm/",
+            {
+                "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+                "token": ResetTokenGenerator().make_token(user),
+                "password": "Correct-horse-battery",
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+
+    def _sign_in(self, user):
+        public = APIClient()
+        signed = public.post(
+            "/api/auth/login/",
+            {"username": user.username, "password": "Correct-horse-battery"},
+            format="json",
+        )
+        self.assertEqual(signed.status_code, 200, signed.data)
+        return public
+
+    def test_waiting_for_first_login_clears_after_sign_in_for_a_minor_and_an_adult(self):
+        child = self._child()
+        self._guardian(child, "parent@example.test")
+        created = self.client.post(
+            "/api/members/user-accounts/",
+            {
+                "action": "create",
+                "member_ids": [child.id],
+                "locale": "en",
+                "guardian_emails": {str(child.id): "parent@example.test"},
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 200, created.data)
+        child.refresh_from_db()
+        raw = parse_qs(urlparse(created.data["copy_link"]).query)["token"][0]
+        self.assertEqual(self._account_state(child.id), "pending")
+        self._choose_password_from_the_reset_link(child.user)
+        self.assertEqual(self._account_state(child.id), "pending")
+        public = self._sign_in(child.user)
+        self.assertEqual(self._account_state(child.id), "active")
+        closed = public.get("/api/auth/account-setup/", {"token": raw})
+        self.assertEqual(closed.status_code, 400)
+        self.assertEqual(closed.data["reason"], "used")
+
+        adult = self._member("Adult", "Ready", email="adult.ready@example.test")
+        adult_created = self._post([adult.id])
+        self.assertEqual(adult_created.status_code, 200, adult_created.data)
+        adult.refresh_from_db()
+        adult_raw = parse_qs(urlparse(adult_created.data["copy_link"]).query)["token"][0]
+        self.assertEqual(self._account_state(adult.id), "pending")
+        self._choose_password_from_the_reset_link(adult.user)
+        self.assertEqual(self._account_state(adult.id), "pending")
+        self._sign_in(adult.user)
+        self.assertEqual(self._account_state(adult.id), "active")
+        adult_closed = APIClient().get("/api/auth/account-setup/", {"token": adult_raw})
+        self.assertEqual(adult_closed.data["reason"], "used")
+
+    def test_finishing_setup_clears_waiting_before_the_first_sign_in(self):
+        child = self._child()
+        self._guardian(child, "setup-parent@example.test")
+        created = self.client.post(
+            "/api/members/user-accounts/",
+            {
+                "action": "create",
+                "member_ids": [child.id],
+                "locale": "en",
+                "guardian_emails": {str(child.id): "setup-parent@example.test"},
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 200, created.data)
+        child.refresh_from_db()
+        raw = parse_qs(urlparse(created.data["copy_link"]).query)["token"][0]
+        saved = APIClient().post(
+            "/api/auth/account-setup/",
+            {
+                "token": raw,
+                "password": "Correct-horse-battery",
+                "password_confirm": "Correct-horse-battery",
+            },
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        child.user.refresh_from_db()
+        self.assertIsNone(child.user.last_login)
+        self.assertEqual(self._account_state(child.id), "active")
