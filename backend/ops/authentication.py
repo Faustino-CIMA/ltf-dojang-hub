@@ -7,6 +7,17 @@ from accounts.mfa import legacy_tokens_open
 from .request_utils import touch_token_meta
 
 
+def _user_and_session(found):
+    """allauth 65.22 returns an object. Earlier releases return ``(user, session)``."""
+    if found is None:
+        return None, None
+    if isinstance(found, tuple):
+        if len(found) != 2:
+            return None, None
+        return found[0], found[1]
+    return getattr(found, "user", None), getattr(found, "session", None)
+
+
 class TokenAuthenticationWithMeta(TokenAuthentication):
     """Accept an allauth session token, or a DRF token until the sunset date."""
 
@@ -27,9 +38,9 @@ class TokenAuthenticationWithMeta(TokenAuthentication):
         from allauth.headless.internal.sessionkit import authenticate_by_x_session_token
 
         found = authenticate_by_x_session_token(key)
-        if found is None:
+        user, session = _user_and_session(found)
+        if user is None or session is None:
             raise AuthenticationFailed("account_unavailable")
-        user, session = found
         if not user.is_active:
             raise AuthenticationFailed("account_unavailable")
         django_request = getattr(request, "_request", request)

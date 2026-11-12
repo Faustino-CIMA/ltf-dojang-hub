@@ -617,6 +617,28 @@ INVOICE_SEPA_IBAN = config("INVOICE_SEPA_IBAN", default="")
 INVOICE_SEPA_BIC = config("INVOICE_SEPA_BIC", default="")
 INVOICE_SEPA_REMITTANCE_PREFIX = config("INVOICE_SEPA_REMITTANCE_PREFIX", default="Invoice")
 
+# Uncaught request errors must reach the container log when DEBUG is off.
+# Django's default console handler is silent in production, so Coolify only
+# saw the access line. The message is the path; the traceback is attached
+# by django.request and does not include the request body.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "request_console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["request_console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
 LTF_APP_VERSION = config("LTF_APP_VERSION", default="0.13.1")
 OPS_LOCKOUT_FAILURES = config("OPS_LOCKOUT_FAILURES", cast=int, default=10)
 OPS_LOCKOUT_WINDOW_MINUTES = config("OPS_LOCKOUT_WINDOW_MINUTES", cast=int, default=15)
