@@ -13,6 +13,7 @@ import {
 import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { InfoHint } from "@/components/ui/info-hint";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +37,28 @@ import {
   uploadFederationLogo,
 } from "@/lib/ltf-admin-api";
 
+function optionalEmail(value: string | undefined) {
+  const text = (value ?? "").trim();
+  if (!text) {
+    return true;
+  }
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
+}
+
+function optionalWebsite(value: string | undefined) {
+  const text = (value ?? "").trim();
+  if (!text) {
+    return true;
+  }
+  const withScheme = text.includes("://") ? text : `https://${text}`;
+  try {
+    const url = new URL(withScheme);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const federationSchema = z.object({
   name: z.string().min(1, "Federation name is required"),
   rcs_number: z
@@ -46,6 +69,8 @@ const federationSchema = z.object({
   address_line2: z.string().optional(),
   postal_code: z.string().optional(),
   locality: z.string().optional(),
+  email: z.string().optional().refine(optionalEmail, "email"),
+  website: z.string().optional().refine(optionalWebsite, "website"),
   iban: z
     .string()
     .optional()
@@ -58,6 +83,7 @@ type FederationFormValues = z.output<typeof federationSchema>;
 
 export default function LtfAdminSettingsPage() {
   const t = useTranslations("LtfAdmin");
+  const common = useTranslations("Common");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,6 +116,8 @@ export default function LtfAdminSettingsPage() {
       address_line2: "",
       postal_code: "",
       locality: "",
+      email: "",
+      website: "",
       iban: "",
       club_tourist_transfer_threshold: 3,
     },
@@ -113,6 +141,8 @@ export default function LtfAdminSettingsPage() {
         address_line2: profile.address_line2 ?? "",
         postal_code: profile.postal_code ?? "",
         locality: profile.locality ?? "",
+        email: profile.email ?? "",
+        website: profile.website ?? "",
         iban: profile.iban ?? "",
         club_tourist_transfer_threshold: profile.club_tourist_transfer_threshold ?? 3,
       });
@@ -224,6 +254,8 @@ export default function LtfAdminSettingsPage() {
         address_line2: saved.address_line2 ?? "",
         postal_code: saved.postal_code ?? "",
         locality: saved.locality ?? "",
+        email: saved.email ?? "",
+        website: saved.website ?? "",
         iban: saved.iban ?? "",
         club_tourist_transfer_threshold: saved.club_tourist_transfer_threshold ?? 3,
       });
@@ -277,7 +309,7 @@ export default function LtfAdminSettingsPage() {
             {t("federationSettingsFormSubtitle")}
           </p>
 
-          <form className="mt-6" onSubmit={handleSubmit(onSubmit)}>
+          <form className="mt-6" noValidate onSubmit={handleSubmit(onSubmit)}>
             <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="federation-name" required>{t("federationNameLabel")}</Label>
@@ -320,6 +352,47 @@ export default function LtfAdminSettingsPage() {
                   setValue("locality", next.locality, { shouldDirty: true });
                 }}
               />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="federation-email">{t("federationEmailLabel")}</Label>
+                <InfoHint
+                  size="compact"
+                  ariaLabel={common("aboutTitle", { title: t("federationEmailLabel") })}
+                >
+                  {t("federationEmailHint")}
+                </InfoHint>
+              </div>
+              <Input
+                id="federation-email"
+                type="email"
+                placeholder={t("federationEmailPlaceholder")}
+                aria-invalid={errors.email ? true : undefined}
+                {...register("email")}
+              />
+              {errors.email ? <p className="text-sm text-destructive">{t("federationEmailInvalid")}</p> : null}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="federation-website">{t("federationWebsiteLabel")}</Label>
+                <InfoHint
+                  size="compact"
+                  ariaLabel={common("aboutTitle", { title: t("federationWebsiteLabel") })}
+                >
+                  {t("federationWebsiteHint")}
+                </InfoHint>
+              </div>
+              <Input
+                id="federation-website"
+                type="text"
+                inputMode="url"
+                placeholder={t("federationWebsitePlaceholder")}
+                aria-invalid={errors.website ? true : undefined}
+                {...register("website")}
+              />
+              {errors.website ? <p className="text-sm text-destructive">{t("federationWebsiteInvalid")}</p> : null}
             </div>
 
             <div className="space-y-2">

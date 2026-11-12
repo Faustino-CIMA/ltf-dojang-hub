@@ -200,6 +200,8 @@ class FederationProfile(models.Model):
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
     rcs_number = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    website = models.URLField(max_length=255, blank=True)
     iban = models.CharField(max_length=34, blank=True)
     bank_name = models.CharField(max_length=255, blank=True)
     rewrite_lux_prefix_on_member_import = models.BooleanField(default=False)
@@ -223,6 +225,10 @@ class FederationProfile(models.Model):
             )
         if self.rcs_number and _rcs_number_taken(self.rcs_number, ignore_federation=True):
             raise ValidationError({"rcs_number": _("This RCS number is already used by another club.")})
+        try:
+            self.website = normalize_club_website(self.website)
+        except ValidationError as exc:
+            raise ValidationError({"website": exc.messages}) from exc
         normalized_iban = normalize_iban(self.iban)
         if normalized_iban and not is_valid_iban(normalized_iban):
             raise ValidationError({"iban": _("Enter a valid IBAN.")})

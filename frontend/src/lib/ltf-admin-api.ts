@@ -235,6 +235,8 @@ export type FederationProfile = {
   postal_code: string;
   locality: string;
   rcs_number: string;
+  email: string;
+  website: string;
   iban: string;
   bank_name: string;
   rewrite_lux_prefix_on_member_import: boolean;
