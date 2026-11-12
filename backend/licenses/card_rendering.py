@@ -17,7 +17,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpRequest
-from django.utils import timezone
+from django.utils import timezone, translation
 
 from clubs.models import BrandingAsset, Club
 from members.models import Member
@@ -697,6 +697,11 @@ def _format_license_role_label(value: Any) -> str:
     return Member.canonicalize_license_role(raw) or raw.replace("_", " ").title()
 
 
+def _card_language_is_english() -> bool:
+    language = (translation.get_language() or "").lower().replace("_", "-")
+    return language == "en" or language.startswith("en-")
+
+
 def _build_context(
     *,
     member: Member | None,
@@ -704,6 +709,16 @@ def _build_context(
     club: Club | None,
     sample_data: dict[str, Any] | None,
 ) -> dict[str, str]:
+    # Cards stay in English even when the desk UI is French, German, or Luxembourgish.
+    # Club sheets and LTF sheets share this context.
+    if not _card_language_is_english():
+        with translation.override("en"):
+            return _build_context(
+                member=member,
+                license_record=license_record,
+                club=club,
+                sample_data=sample_data,
+            )
     context: dict[str, str] = {
         "member.first_name": member.first_name if member else "",
         "member.last_name": member.last_name if member else "",
@@ -1462,6 +1477,25 @@ def build_preview_data(
     asset_base_url: str | None = None,
     design_payload_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if not _card_language_is_english():
+        with translation.override("en"):
+            return build_preview_data(
+                template_version=template_version,
+                side=side,
+                member_id=member_id,
+                license_id=license_id,
+                club_id=club_id,
+                sample_data=sample_data,
+                include_bleed_guide=include_bleed_guide,
+                include_safe_area_guide=include_safe_area_guide,
+                bleed_mm=bleed_mm,
+                safe_area_mm=safe_area_mm,
+                paper_profile_id=paper_profile_id,
+                selected_slots=selected_slots,
+                request=request,
+                asset_base_url=asset_base_url,
+                design_payload_override=design_payload_override,
+            )
     if template_version.card_format_id is None:
         raise CardRenderError("Template version must have a card format.")
 
@@ -2334,6 +2368,14 @@ def _render_pdf(
     x_offset_mm: Any = None,
     y_offset_mm: Any = None,
 ) -> bytes:
+    if not _card_language_is_english():
+        with translation.override("en"):
+            return _render_pdf(
+                html,
+                base_url=base_url,
+                x_offset_mm=x_offset_mm,
+                y_offset_mm=y_offset_mm,
+            )
     html_with_offset = _apply_printer_offset_to_pdf(
         html,
         x_offset_mm=x_offset_mm,

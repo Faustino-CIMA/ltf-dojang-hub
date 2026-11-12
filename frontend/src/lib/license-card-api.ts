@@ -1,4 +1,5 @@
 import { API_URL, apiRequest } from "./api";
+import { readActiveDeskHeader } from "./active-desk";
 import { getToken } from "./auth";
 import { PaginatedResponse, unwrapListResponse } from "./pagination";
 import { filenameFromContentDisposition } from "./print-job-pdf";
@@ -955,13 +956,64 @@ export type PrintJobPdfFile = {
   filename: string | null;
 };
 
-export async function downloadPrintJobPdf(id: number): Promise<PrintJobPdfFile> {
+function pdfAuthHeaders(): HeadersInit {
   const token = getToken();
+  const deskHeader = readActiveDeskHeader();
+  return {
+    ...(token ? { Authorization: `Token ${token}` } : {}),
+    ...(deskHeader ? { "X-Desk": deskHeader } : {}),
+  };
+}
+
+export type FederationCardPrintResult = {
+  jobs: PrintJob[];
+  skipped_license_ids: number[];
+};
+
+export function printFederationLicenseCards(input: {
+  license_ids: number[];
+  template_version?: number;
+  printer_profile?: number | null;
+}) {
+  const payload: {
+    license_ids: number[];
+    template_version?: number;
+    printer_profile?: number;
+  } = { license_ids: input.license_ids };
+  if (input.template_version) {
+    payload.template_version = input.template_version;
+  }
+  if (input.printer_profile) {
+    payload.printer_profile = input.printer_profile;
+  }
+  return apiRequest<FederationCardPrintResult>("/api/licenses/card-print/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function downloadLicenseCardPdf(licenseId: number): Promise<PrintJobPdfFile> {
+  const response = await fetch(`${API_URL}/api/licenses/${licenseId}/card-pdf/`, {
+    method: "GET",
+    headers: pdfAuthHeaders(),
+  });
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type");
+    const message = await response.text();
+    throw new Error(
+      normalizeApiErrorMessage(message, contentType) || `Request failed with ${response.status}`
+    );
+  }
+  return {
+    blob: await response.blob(),
+    filename: filenameFromContentDisposition(response.headers.get("Content-Disposition")),
+  };
+}
+
+export async function downloadPrintJobPdf(id: number): Promise<PrintJobPdfFile> {
   const response = await fetch(`${API_URL}/api/print-jobs/${id}/pdf/`, {
     method: "GET",
-    headers: {
-      ...(token ? { Authorization: `Token ${token}` } : {}),
-    },
+    headers: pdfAuthHeaders(),
   });
   if (!response.ok) {
     const contentType = response.headers.get("content-type");
