@@ -167,6 +167,7 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             "address_line2",
             "postal_code",
             "locality",
+            "country",
             "rcs_number",
             "email",
             "website",
@@ -225,6 +226,9 @@ class FederationProfileSerializer(serializers.ModelSerializer):
         except ValidationError as exc:
             raise serializers.ValidationError(exc.messages) from exc
 
+    def validate_country(self, value):
+        return str(value or "").strip()
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         postal_code = str(
@@ -234,7 +238,11 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             )
             or ""
         ).strip()
-        if postal_code and not re.fullmatch(r"\d{4}", postal_code):
+        country = str(
+            attrs.get("country", getattr(self.instance, "country", "")) or ""
+        ).strip()
+        luxembourg = country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}
+        if (not country or luxembourg) and postal_code and not re.fullmatch(r"\d{4}", postal_code):
             raise serializers.ValidationError(
                 {"postal_code": "Postal code must be 4 digits for Luxembourg."}
             )

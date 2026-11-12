@@ -51,6 +51,7 @@ const baseProfile = {
   address_line2: "Bureau 2",
   postal_code: "1234",
   locality: "Musterstadt",
+  country: "",
   rcs_number: "B123456",
   email: "desk@example.org",
   website: "https://example.org",
@@ -88,7 +89,7 @@ describe("LTF federation settings", () => {
     expect(screen.getByLabelText("houseNumber")).toHaveValue("12");
     expect(screen.getByLabelText("street")).toHaveValue("Rue de Test");
     expect(screen.getByLabelText("addressLine2")).toHaveValue("Bureau 2");
-    expect(screen.queryByLabelText("country")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "country" })).toHaveTextContent("countryNotSet");
   });
 
   it("reloads a saved whole address as street and number when postcode and locality are already stored", async () => {

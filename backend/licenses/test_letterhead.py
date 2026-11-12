@@ -111,13 +111,34 @@ class FederationLetterheadTests(TestCase):
         )
         issuer = _issuer()
         self.assertEqual(issuer["lines"], list(_LTF_LETTERHEAD["lines"]))
-        self.assertEqual(issuer["email"], "")
+        self.assertEqual(issuer["email"], _LTF_LETTERHEAD["email"])
         self.assertEqual(issuer["website"], "")
         html = _letterhead_html(issuer)
         self.assertIn("3, Route d&#x27;Arlon", html)
-        self.assertNotIn("secretariat@", html)
-        self.assertNotIn("luxembourgtaekwondo", html)
+        self.assertEqual(html.count("secretariat@"), 1)
+        self.assertNotIn("https://www.luxembourgtaekwondo.lu", html)
         self.assertNotIn(">None<", html)
+
+    def test_a_saved_country_is_the_last_line_and_the_contact_email_is_the_only_one(self):
+        FederationProfile.objects.create(
+            name="Example Federation",
+            address_line1="9 Rue Factice",
+            postal_code="1234",
+            locality="Musterstadt",
+            country="Germany",
+            email="desk@example.org",
+            website="",
+        )
+        issuer = _issuer()
+        self.assertEqual(
+            issuer["lines"],
+            ["9 Rue Factice", "L-1234 Musterstadt", "Germany"],
+        )
+        self.assertEqual(issuer["email"], "desk@example.org")
+        html = _letterhead_html(issuer)
+        self.assertEqual(html.count("desk@example.org"), 1)
+        self.assertNotIn("secretariat@", html)
+        self.assertIn("Germany", html)
 
     def test_user_text_is_escaped_in_the_letterhead(self):
         FederationProfile.objects.create(

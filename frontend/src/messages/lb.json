@@ -4549,6 +4549,7 @@
     "street": "Strooss",
     "houseNumber": "Hausnummer",
     "country": "Land",
+    "countryNotSet": "Net uginn",
     "addressLine2": "Zousätzlech Adresszeil",
     "addressLine2Placeholder": "Appartement, Gebai, c/o…",
     "mediaConsent": "Publikatiouns-Accord",

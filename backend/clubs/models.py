@@ -199,6 +199,7 @@ class FederationProfile(models.Model):
     address_line2 = models.CharField(max_length=255, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
+    country = models.CharField(max_length=64, blank=True)
     rcs_number = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     website = models.URLField(max_length=255, blank=True)
@@ -217,7 +218,14 @@ class FederationProfile(models.Model):
         verbose_name_plural = "Federation profile"
 
     def clean(self):
-        _validate_luxembourg_postal_code(self.postal_code)
+        self.country = str(self.country or "").strip()
+        if not self.country or self.country.casefold() in {
+            "luxembourg",
+            "luxemburg",
+            "letzebuerg",
+            "lëtzebuerg",
+        }:
+            _validate_luxembourg_postal_code(self.postal_code)
         self.rcs_number = normalize_rcs_number(self.rcs_number)
         if self.rcs_number and not RCS_NUMBER_RE.fullmatch(self.rcs_number):
             raise ValidationError(
