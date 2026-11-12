@@ -529,7 +529,7 @@ export function ProfilePhotoManager({
     setErrorMessage(null);
     try {
       const bgModule = await import("@imgly/background-removal-js");
-      const removedResult = await bgModule.removeBackground(workingFile);
+      const removedResult: unknown = await bgModule.removeBackground(workingFile);
       const removedBlob =
         removedResult instanceof Blob
           ? removedResult

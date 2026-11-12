@@ -551,17 +551,19 @@ export default function ClubMemberDetailPage() {
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("primaryLicenseRoleLabel")}</span>
                     <span className="font-medium">
-                      {canonicalizeLicenseRole(member.primary_license_role)
-                        ? roleLabelByValue[canonicalizeLicenseRole(member.primary_license_role)]
-                        : "-"}
+                      {(() => {
+                        const role = canonicalizeLicenseRole(member.primary_license_role);
+                        return role ? roleLabelByValue[role] : "-";
+                      })()}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("secondaryLicenseRoleLabel")}</span>
                     <span className="font-medium">
-                      {canonicalizeLicenseRole(member.secondary_license_role)
-                        ? roleLabelByValue[canonicalizeLicenseRole(member.secondary_license_role)]
-                        : "-"}
+                      {(() => {
+                        const role = canonicalizeLicenseRole(member.secondary_license_role);
+                        return role ? roleLabelByValue[role] : "-";
+                      })()}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">

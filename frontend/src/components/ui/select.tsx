@@ -10,10 +10,18 @@ import { cn } from "@/lib/utils"
 function Select({
   browsing = false,
   disabled,
+  modal,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root> & { browsing?: boolean }) {
+}: React.ComponentProps<typeof SelectPrimitive.Root> & { browsing?: boolean; modal?: boolean }) {
   const { readOnly } = useDeskAccess()
-  return <SelectPrimitive.Root data-slot="select" disabled={(readOnly && !browsing) || disabled} {...props} />
+  return (
+    <SelectPrimitive.Root
+      data-slot="select"
+      disabled={(readOnly && !browsing) || disabled}
+      {...props}
+      {...(modal === undefined ? {} : { modal })}
+    />
+  )
 }
 
 function SelectGroup({
