@@ -356,17 +356,30 @@ class PasswordResetRequestView(views.APIView):
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
+        email = serializer.validated_data.get("email") or ""
+        username = serializer.validated_data.get("username") or ""
         locale = (
             serializer.validated_data.get("locale")
             or request.query_params.get("locale")
             or settings.FRONTEND_DEFAULT_LOCALE
         )
 
-        user = User.objects.filter(email__iexact=email).first()
-        if user:
+        from members.user_accounts import reset_destination
+
+        user = None
+        destination = ""
+        if username:
+            user = User.objects.filter(username__iexact=username).first()
+            if user is not None:
+                destination = reset_destination(user)
+        elif email:
+            # Never look up a minor by the guardian address. That address is not the login.
+            user = User.objects.filter(email__iexact=email, minor_account=False).first()
+            if user is not None:
+                destination = str(user.email or "").strip()
+        if user is not None and destination:
             reset_url = build_password_reset_url(user, locale)
-            ok, _ = send_password_reset_email(user, reset_url)
+            ok, _ = send_password_reset_email(user, reset_url, to_email=destination)
 
         return response.Response(
             {"detail": "If the email exists, a reset link has been sent."}

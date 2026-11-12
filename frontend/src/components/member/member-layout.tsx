@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { CalendarDays, Camera, History } from "lucide-react";
 
 import { AppShell, type AppNavItem } from "@/components/app-shell";
+import { apiRequest } from "@/lib/api";
 import { useCalendarAttention } from "@/components/events/use-calendar-attention";
 import { EVENT_CALENDAR_MODULE_ID, getModuleStatus, isInstallEntitled } from "@/lib/modules-api";
 
@@ -22,10 +23,18 @@ export function MemberLayout({ title, subtitle, hintSubtitle, children }: Member
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] || "en";
   const [calendarEntitled, setCalendarEntitled] = useState(false);
+  const [minorAccount, setMinorAccount] = useState(false);
   const calendarAttention = useCalendarAttention({ enabled: calendarEntitled });
 
   useEffect(() => {
     let cancelled = false;
+    apiRequest<{ minor_account?: boolean }>("/api/auth/me/")
+      .then((me) => {
+        if (!cancelled) setMinorAccount(Boolean(me.minor_account));
+      })
+      .catch(() => {
+        if (!cancelled) setMinorAccount(false);
+      });
     getModuleStatus()
       .then((status) => {
         if (!cancelled) setCalendarEntitled(isInstallEntitled(status, EVENT_CALENDAR_MODULE_ID));
@@ -56,7 +65,7 @@ export function MemberLayout({ title, subtitle, hintSubtitle, children }: Member
         matchMode: "prefix" as const,
         group: { id: "member", label: common("navGroupMember") },
       },
-      ...(calendarEntitled
+      ...(calendarEntitled && !minorAccount
         ? [
             {
               id: "calendar",
@@ -70,7 +79,7 @@ export function MemberLayout({ title, subtitle, hintSubtitle, children }: Member
           ]
         : []),
     ],
-    [calendarAttention, calendarEntitled, common, locale, t]
+    [calendarAttention, calendarEntitled, common, locale, minorAccount, t]
   );
 
   return (

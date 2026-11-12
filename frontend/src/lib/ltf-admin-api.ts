@@ -71,6 +71,7 @@ export type Member = {
   photo_consent_attested_by?: number | null;
   is_active: boolean;
   account_state?: "none" | "pending" | "active" | "disabled";
+  minor_account?: boolean;
   is_home_club_admin?: boolean;
   created_at: string;
   updated_at: string;
@@ -91,6 +92,7 @@ export type CurrentLicense = {
 };
 
 export type MemberProfilePicture = {
+  review_pending?: boolean;
   id: number;
   has_profile_picture: boolean;
   profile_picture_original_url: string | null;

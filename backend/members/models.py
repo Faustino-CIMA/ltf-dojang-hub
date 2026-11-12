@@ -108,6 +108,16 @@ class Member(models.Model):
         null=True,
         blank=True,
     )
+    profile_picture_pending_processed = models.ImageField(
+        upload_to="members/profile_pictures/pending/",
+        null=True,
+        blank=True,
+    )
+    profile_picture_pending_thumbnail = models.ImageField(
+        upload_to="members/profile_pictures/pending_thumbnails/",
+        null=True,
+        blank=True,
+    )
     photo_edit_metadata = models.JSONField(default=dict, blank=True)
     photo_consent_attested_at = models.DateTimeField(null=True, blank=True)
     photo_consent_attested_by = models.ForeignKey(

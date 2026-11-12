@@ -28,6 +28,7 @@ export default function MemberProfilePhotoPage() {
   const [member, setMember] = useState<Member | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingNote, setPendingNote] = useState<string | null>(null);
 
   const loadMember = useCallback(async () => {
     setIsLoading(true);
@@ -55,6 +56,7 @@ export default function MemberProfilePhotoPage() {
     <MemberLayout title={t("photoModalTitle")} subtitle={t("photoModalDescription")}>
       <div className="space-y-3">
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+        {pendingNote ? <p className="text-sm text-muted">{pendingNote}</p> : null}
 
         {isLoading ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
@@ -99,12 +101,17 @@ export default function MemberProfilePhotoPage() {
             isPageEditor
             onCancelEditor={() => router.push(backHref)}
             onSave={async (input) => {
-              await uploadMemberProfilePicture(member.id, {
+              const saved = await uploadMemberProfilePicture(member.id, {
                 processedImage: input.processedImage,
                 originalImage: input.originalImage,
                 photoEditMetadata: input.photoEditMetadata,
                 photoConsentConfirmed: input.photoConsentConfirmed,
               });
+              if (saved.review_pending) {
+                setPendingNote(t("pictureReviewPending"));
+                await loadMember();
+                return;
+              }
               router.push(backHref);
             }}
           />

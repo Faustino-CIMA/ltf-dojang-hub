@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Copy, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { CircleAlert, Copy, KeyRound, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 
 import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
@@ -28,9 +28,10 @@ import { Modal } from "@/components/ui/modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
+import { PictureReviewButton } from "@/components/members/picture-review-panel";
 import { apiRequest } from "@/lib/api";
 import { clubAdminGrantChoice, grantFailureKind } from "@/lib/club-admin-grant";
-import { accountRowAction, canBulkCreateAccounts, type AccountState } from "@/lib/member-accounts";
+import { accountRowAction, canBulkCreateAccounts, postMemberAccounts, type AccountState } from "@/lib/member-accounts";
 import { applyRowRangeSelection, offPageSelectedCount, togglePageSelection, visibleHeaderCheck } from "@/lib/row-selection";
 import {
   Member,
@@ -938,6 +939,7 @@ export default function ClubAdminMembersPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             {canManageMembers ? (
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
+                <PictureReviewButton namespace="ClubAdmin" />
                 <ActionMenu
                   label={t("membersMenuLabel")}
                   actions={[
@@ -1215,6 +1217,33 @@ export default function ClubAdminMembersPage() {
                         icon: <Copy aria-hidden />,
                                       label: t("copyFirstLoginLink"),
                                       onSelect: () => openAccount(member, "copy"),
+                                    },
+                                  ]
+                                : []),
+                              ...(member.minor_account
+                                ? [
+                                    {
+                                      key: "reset",
+                                      icon: <KeyRound aria-hidden />,
+                                      label: t("accountSendReset"),
+                                      onSelect: () => {
+                                        void postMemberAccounts({
+                                          action: "send_reset",
+                                          member_ids: [member.id],
+                                          locale,
+                                        })
+                                          .then((result) => {
+                                            const skipped = result.skipped?.find((row) => row.member_id === member.id);
+                                            if (skipped?.reason === "reset_stopped") {
+                                              setGrantNote(t("accountResetStopped"));
+                                              return;
+                                            }
+                                            if ((result.sent ?? 0) > 0) {
+                                              setSuccessMessage(t("accountResetSent"));
+                                            }
+                                          })
+                                          .catch(() => setErrorMessage(t("accountNothingToCreate")));
+                                      },
                                     },
                                   ]
                                 : []),

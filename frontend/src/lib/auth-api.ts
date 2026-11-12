@@ -21,7 +21,8 @@ type VerifyEmailInput = {
 };
 
 type PasswordResetRequestInput = {
-  email: string;
+  email?: string;
+  username?: string;
   locale?: string;
 };
 
@@ -80,7 +81,7 @@ export function resetPasswordRequest(input: PasswordResetRequestInput) {
     `/api/auth/password-reset/?locale=${encodeURIComponent(locale)}`,
     {
       method: "POST",
-      body: JSON.stringify({ email: input.email, locale }),
+      body: JSON.stringify({ email: input.email ?? "", username: input.username ?? "", locale }),
     }
   );
 }

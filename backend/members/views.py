@@ -777,6 +777,8 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
 
         if request.method == "DELETE":
+            if getattr(request.user, "minor_account", False):
+                return Response({"detail": "minor_account_limited"}, status=status.HTTP_403_FORBIDDEN)
             clear_member_profile_picture(member, clear_consent_attestation=True)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -784,12 +786,14 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         try:
+            waiting = bool(getattr(request.user, "minor_account", False))
             updated_member = process_member_profile_picture(
                 member,
                 processed_image=serializer.validated_data["processed_image"],
                 original_image=serializer.validated_data.get("original_image"),
                 photo_edit_metadata=serializer.validated_data.get("photo_edit_metadata", {}),
                 actor=request.user if request.user.is_authenticated else None,
+                review=waiting,
             )
         except DjangoValidationError as exc:
             detail = (
@@ -804,7 +808,51 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         response_serializer = MemberProfilePictureSerializer(
             updated_member, context={"request": request}
         )
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        payload = response_serializer.data
+        if waiting:
+            payload["review_pending"] = True
+            return Response(payload, status=status.HTTP_202_ACCEPTED)
+        return Response(payload, status=status.HTTP_201_CREATED)
+
+    def _can_review_pictures(self, user) -> bool:
+        return bool(user and user.is_authenticated and user.role in {"club_admin", "ltf_admin"})
+
+    @action(detail=False, methods=["get"], url_path="picture-reviews")
+    def picture_reviews(self, request):
+        if not self._can_review_pictures(request.user):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        waiting = self.get_queryset().exclude(profile_picture_pending_processed="").exclude(
+            profile_picture_pending_processed__isnull=True
+        )
+        return Response(
+            [
+                {
+                    "id": member.id,
+                    "first_name": member.first_name,
+                    "last_name": member.last_name,
+                }
+                for member in waiting.order_by("last_name", "first_name", "id")
+            ]
+        )
+
+    @action(detail=True, methods=["post"], url_path="picture-review")
+    def picture_review(self, request, *args, **kwargs):
+        if not self._can_review_pictures(request.user):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        member = self.get_object()
+        decision = str(request.data.get("decision") or "").strip()
+        from .services import approve_pending_profile_picture, clear_pending_profile_picture
+
+        try:
+            if decision == "approve":
+                approve_pending_profile_picture(member, request.user)
+            elif decision == "reject":
+                clear_pending_profile_picture(member)
+            else:
+                return Response({"detail": "Choose approve or reject."}, status=status.HTTP_400_BAD_REQUEST)
+        except DjangoValidationError as exc:
+            raise DRFValidationError(getattr(exc, "messages", None) or str(exc)) from exc
+        return Response({"id": member.id, "decision": decision})
 
     @action(detail=True, methods=["get"], url_path="profile-picture/download")
     def download_profile_picture(self, request, *args, **kwargs):

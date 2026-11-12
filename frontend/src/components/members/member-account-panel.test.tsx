@@ -91,7 +91,7 @@ describe("member account confirm", () => {
           name: "YOUNG Kid",
           account_state: "none",
           proposed_username: "",
-          reason: "under_16",
+          reason: "no_guardian_email",
           match: null,
           can_create: false,
           can_link: false,
@@ -102,7 +102,7 @@ describe("member account confirm", () => {
     postMemberAccounts.mockResolvedValue({
       created_count: 1,
       linked_count: 0,
-      skipped: [{ member_id: 2, reason: "under_16" }],
+      skipped: [{ member_id: 2, reason: "no_guardian_email" }],
       needs_link: [],
       csv: "username,name\nang,NG Ada\n",
       pdf_base64: btoa("pdf"),
@@ -119,7 +119,7 @@ describe("member account confirm", () => {
       />,
     );
     expect(await screen.findByText("NG Ada")).toBeInTheDocument();
-    expect(screen.getByText("accountUnder16Skip:1")).toBeInTheDocument();
+    expect(screen.getByText("accountNoGuardianSkip:1")).toBeInTheDocument();
     expect(screen.queryByText("accountFileWarning")).not.toBeInTheDocument();
     expect(screen.queryByText("accountSensitiveWarning")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "accountConfirm" }));

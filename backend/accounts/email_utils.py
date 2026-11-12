@@ -109,6 +109,21 @@ def _email_context(template: str, language: str, context: dict, **values) -> tup
     return {**context, "copy": copy}, copy["subject"]
 
 
+def send_minor_invite_email(user, invite_url: str, language: str, child_name: str, to_email: str):
+    """First-login mail for a parent. The address is the destination, not the login."""
+    shown = child_name.strip() or f"{user.first_name} {user.last_name}".strip() or user.username or ""
+    context, subject = _email_context(
+        "minor_invite",
+        language,
+        {"user": user, "invite_url": invite_url},
+        name=shown,
+        username=user.username or "",
+    )
+    html = render_to_string("account/email/member_invite.html", context)
+    text = render_to_string("account/email/member_invite.txt", context)
+    return send_resend_email(to_email, subject, html, text)
+
+
 def send_member_invite_email(user, invite_url: str, language: str, name: str):
     shown = name.strip() or f"{user.first_name} {user.last_name}".strip() or user.username or ""
     context, subject = _email_context(
@@ -289,7 +304,7 @@ def send_member_transfer_status_email(transfer, *, kind: str, locale: str | None
     return sent_any, last_error
 
 
-def send_password_reset_email(user, reset_url):
+def send_password_reset_email(user, reset_url, *, to_email: str = ""):
     from clubs.document_copy import resolve_document_language
 
     match = re.search(r"/([a-z]{2})/reset-password", str(reset_url or ""))
@@ -304,4 +319,4 @@ def send_password_reset_email(user, reset_url):
     )
     html = render_to_string("account/email/password_reset.html", context)
     text = render_to_string("account/email/password_reset.txt", context)
-    return send_resend_email(user.email, subject, html, text)
+    return send_resend_email(to_email or user.email, subject, html, text)

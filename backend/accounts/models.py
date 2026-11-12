@@ -20,6 +20,10 @@ class User(AbstractUser):
         default=Roles.MEMBER,
     )
     is_email_verified = models.BooleanField(default=False)
+    # Set when the login is created for someone under 18. It is not cleared at 18.
+    minor_account = models.BooleanField(default=False)
+    # Mail destination only. Never used as the login email.
+    guardian_notice_email = models.EmailField(blank=True)
     # Mixed into the reset-token hash. Each new reset link increments it, so older links die.
     password_reset_generation = models.PositiveIntegerField(default=0)
     consent_given = models.BooleanField(default=False)

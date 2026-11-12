@@ -19,6 +19,8 @@ export type AccountPreview = {
   can_create: boolean;
   can_link: boolean;
   can_copy: boolean;
+  minor?: boolean;
+  guardian_choices?: Array<{ email: string; name: string; relation: string; suggested: boolean }>;
 };
 
 export type CreatedAccount = {
@@ -26,6 +28,8 @@ export type CreatedAccount = {
   name: string;
   username: string;
   email: string;
+  invite_email?: string;
+  minor_account?: boolean;
   club_name: string;
 };
 
@@ -97,9 +101,10 @@ export function previewMemberAccounts(memberIds: number[]) {
 }
 
 export function postMemberAccounts(body: {
-  action: "create" | "link" | "copy_link" | "send_invite";
+  action: "create" | "link" | "copy_link" | "send_invite" | "send_reset";
   member_ids: number[];
   locale: string;
+  guardian_emails?: Record<number, string>;
 }) {
   return apiRequest<AccountActionResult & { sent?: number; missing_email?: number; failed?: number }>("/api/members/user-accounts/", {
     method: "POST",

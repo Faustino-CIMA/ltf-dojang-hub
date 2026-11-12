@@ -495,6 +495,40 @@ _EMAILS: dict[str, dict[str, dict[str, str]]] = {
             "ignore": "Wann Dir dës Noriicht net erwaart hutt, kënnt Dir se ignoréieren.",
         },
     },
+    "minor_invite": {
+        "en": {
+            "subject": "A login for {name}",
+            "greeting": "Hello,",
+            "body": "A login is ready for {name}. They sign in with the username below, not with an email address.",
+            "username": "Username: {username}",
+            "action": "Open this link to choose their password:",
+            "ignore": "If you did not expect this, you can ignore this email.",
+        },
+        "fr": {
+            "subject": "Une connexion pour {name}",
+            "greeting": "Bonjour,",
+            "body": "Une connexion est prête pour {name}. La connexion se fait avec le nom d'utilisateur ci-dessous, pas avec une adresse e-mail.",
+            "username": "Nom d'utilisateur : {username}",
+            "action": "Ouvrez ce lien pour choisir le mot de passe :",
+            "ignore": "Si vous n'attendiez pas ce message, vous pouvez l'ignorer.",
+        },
+        "de": {
+            "subject": "Eine Anmeldung für {name}",
+            "greeting": "Guten Tag,",
+            "body": "Eine Anmeldung ist für {name} bereit. Die Anmeldung erfolgt mit dem Benutzernamen unten, nicht mit einer E-Mail-Adresse.",
+            "username": "Benutzername: {username}",
+            "action": "Öffnen Sie diesen Link, um das Passwort zu wählen:",
+            "ignore": "Wenn Sie diese Nachricht nicht erwartet haben, können Sie sie ignorieren.",
+        },
+        "lb": {
+            "subject": "Eng Umeldung fir {name}",
+            "greeting": "Moien,",
+            "body": "Eng Umeldung ass fir {name} prett. D'Umeldung geet mam Benotzernumm hei drënner, net mat enger E-Mail-Adress.",
+            "username": "Benotzernumm: {username}",
+            "action": "Maacht dëse Link op, fir d'Passwuert ze wielen:",
+            "ignore": "Wann Dir dës Noriicht net erwaart hutt, kënnt Dir se ignoréieren.",
+        },
+    },
     "welcome": {
         "en": {
             "subject": "You are a Club Admin for {club}",

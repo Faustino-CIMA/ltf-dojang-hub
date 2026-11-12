@@ -52,6 +52,7 @@ class MemberSerializer(serializers.ModelSerializer):
     ltf_staff = serializers.SerializerMethodField()
     linked_user = serializers.SerializerMethodField()
     account_state = serializers.SerializerMethodField()
+    minor_account = serializers.SerializerMethodField()
     is_home_club_admin = serializers.SerializerMethodField()
     latest_weight_kg = serializers.SerializerMethodField()
     latest_weight_on = serializers.SerializerMethodField()
@@ -91,6 +92,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "ltf_staff",
             "linked_user",
             "account_state",
+            "minor_account",
             "is_home_club_admin",
             "latest_weight_kg",
             "latest_weight_on",
@@ -116,6 +118,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "ltf_staff",
             "linked_user",
             "account_state",
+            "minor_account",
             "is_home_club_admin",
             "latest_weight_kg",
             "latest_weight_on",
@@ -287,6 +290,10 @@ class MemberSerializer(serializers.ModelSerializer):
         from .user_accounts import account_state_value
 
         return account_state_value(obj)
+
+    def get_minor_account(self, obj: Member):
+        user = getattr(obj, "user", None)
+        return bool(getattr(user, "minor_account", False))
 
     def get_is_home_club_admin(self, obj: Member):
         annotated = getattr(obj, "is_home_club_admin", None)

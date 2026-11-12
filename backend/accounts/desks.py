@@ -167,6 +167,16 @@ def _refuse(request, user, code: str, metadata: dict):
 
 def bind_request_desk(request, user) -> None:
     """Resolve the desk for this request. Safe to call twice."""
+    if (
+        not getattr(request, "_minor_checked", False)
+        and getattr(user, "is_authenticated", False)
+        and getattr(user, "minor_account", False)
+    ):
+        request._minor_checked = True
+        from .minor_access import minor_request_allowed
+
+        if not minor_request_allowed(getattr(request, "path", "") or "", request.method):
+            raise PermissionDenied(detail="minor_account_limited")
     if getattr(request, "_desk_bound", False):
         if getattr(request, "_desk_error", None):
             raise PermissionDenied(detail=request._desk_error)

@@ -222,14 +222,14 @@ class MemberUserAccountTests(TestCase):
     def test_under_16_missing_birth_date_and_inactive_are_skipped(self):
         today = timezone.localdate()
         child = self._member("Kid", "Young", date_of_birth=today.replace(year=today.year - 15))
-        teen = self._member("Teen", "Allowed", date_of_birth=today.replace(year=today.year - 16))
+        teen = self._member("Teen", "Allowed", date_of_birth=today.replace(year=today.year - 20))
         missing = self._member("No", "Date", date_of_birth=None)
         idle = self._member("Idle", "Member", is_active=False)
         before = User.objects.count()
         response = self._post([child.id, teen.id, missing.id, idle.id])
         self.assertEqual(response.status_code, 200, response.data)
         reasons = {row["member_id"]: row["reason"] for row in response.data["skipped"]}
-        self.assertEqual(reasons[child.id], "under_16")
+        self.assertEqual(reasons[child.id], "no_guardian_email")
         self.assertEqual(reasons[missing.id], "no_birth_date")
         self.assertEqual(reasons[idle.id], "inactive")
         self.assertNotIn(teen.id, reasons)

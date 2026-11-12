@@ -27,13 +27,14 @@ export default function ForgotPasswordPage() {
     setFormError(null);
     const data = new FormData(event.currentTarget);
     const email = String(data.get("email") ?? "").trim();
-    if (!email) {
+    const username = String(data.get("username") ?? "").trim();
+    if (!email && !username) {
       setEmailError(t("emailRequired"));
       return;
     }
     setIsSubmitting(true);
     try {
-      await resetPasswordRequest({ email, locale });
+      await resetPasswordRequest({ email, username, locale });
       setSent(true);
     } catch {
       setFormError(t("forgotError"));
@@ -101,6 +102,18 @@ export default function ForgotPasswordPage() {
                       aria-invalid={emailError ? true : undefined}
                     />
                     {emailError ? <p className="text-sm text-[var(--brand-text-red)]">{emailError}</p> : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="forgot-username">{t("forgotUsernameLabel")}</Label>
+                    <Input
+                      id="forgot-username"
+                      name="username"
+                      autoComplete="username"
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-sm text-[color-mix(in_oklab,var(--brand-on-ink)_72%,var(--brand-ink))]">
+                      {t("forgotUsernameHint")}
+                    </p>
                   </div>
                   <ActionNotices error={formError} onDismiss={() => setFormError(null)} />
                   <button

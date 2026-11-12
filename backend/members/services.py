@@ -280,6 +280,7 @@ def process_member_profile_picture(
     original_image=None,
     photo_edit_metadata: dict[str, Any] | None = None,
     actor=None,
+    review: bool = False,
 ) -> Member:
     max_size_bytes = int(getattr(settings, "FILE_UPLOAD_MAX_MEMORY_SIZE", 10 * 1024 * 1024))
     _validate_upload_basics(
@@ -311,6 +312,33 @@ def process_member_profile_picture(
         **(photo_edit_metadata or {}),
         **processed_details,
     }
+
+    if review:
+        with transaction.atomic():
+            for field_name in ("profile_picture_pending_processed", "profile_picture_pending_thumbnail"):
+                current = getattr(member, field_name)
+                if current:
+                    try:
+                        current.delete(save=False)
+                    except OSError:
+                        pass
+            member.profile_picture_pending_processed.save(
+                processed_content.name, processed_content, save=False
+            )
+            try:
+                member.profile_picture_pending_thumbnail.save(
+                    thumbnail_content.name, thumbnail_content, save=False
+                )
+            except OSError:
+                member.profile_picture_pending_thumbnail = None
+            member.save(
+                update_fields=[
+                    "profile_picture_pending_processed",
+                    "profile_picture_pending_thumbnail",
+                    "updated_at",
+                ]
+            )
+        return member
 
     with transaction.atomic():
         if member.profile_picture_original:
@@ -368,6 +396,39 @@ def process_member_profile_picture(
             ]
         )
     return member
+
+
+def clear_pending_profile_picture(member: Member) -> Member:
+    for field_name in ("profile_picture_pending_processed", "profile_picture_pending_thumbnail"):
+        current = getattr(member, field_name)
+        if current:
+            try:
+                current.delete(save=False)
+            except OSError:
+                pass
+        setattr(member, field_name, None)
+    member.save(
+        update_fields=[
+            "profile_picture_pending_processed",
+            "profile_picture_pending_thumbnail",
+            "updated_at",
+        ]
+    )
+    return member
+
+
+def approve_pending_profile_picture(member: Member, actor) -> Member:
+    pending = member.profile_picture_pending_processed
+    if not pending:
+        raise ValidationError(_("No picture is waiting."))
+    pending.open("rb")
+    approved = process_member_profile_picture(
+        member,
+        processed_image=pending,
+        actor=actor,
+        review=False,
+    )
+    return clear_pending_profile_picture(approved)
 
 
 def clear_member_profile_picture(
