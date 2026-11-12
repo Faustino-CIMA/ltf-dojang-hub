@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 
 import { useDeskAccess } from "@/components/desk-access";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export type MenuAction = {
   key: string;
@@ -52,7 +53,11 @@ export function ActionMenu({
           <button
             key={action.key}
             type="button"
-            className="flex min-h-[var(--control-height)] w-full items-center gap-2 rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0"
+            className={cn(
+              "flex min-h-[var(--control-height)] w-full items-center gap-2 rounded-[var(--radius-form)] px-3 text-left text-sm text-[var(--popover-foreground)] hover:bg-[var(--accent-soft)] hover:text-foreground disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+              action.destructive &&
+                "text-destructive hover:bg-destructive/10 hover:text-destructive",
+            )}
             disabled={action.disabled}
             onClick={() => {
               setOpen(false);

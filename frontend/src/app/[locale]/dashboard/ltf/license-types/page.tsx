@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -182,7 +182,10 @@ export default function LtfAdminLicenseTypesPage() {
           <ListActionsRow
             actions={
               canManageLicenseTypes ? (
-                <Button variant="primary" onClick={startCreate}>{t("createLicenseType")}</Button>
+                <Button variant="primary" onClick={startCreate}>
+                  <Plus className="size-4" aria-hidden />
+                  {t("createLicenseType")}
+                </Button>
               ) : (
                 <p className="text-sm text-muted">{t("licenseTypesReadOnlyHint")}</p>
               )

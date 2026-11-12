@@ -67,7 +67,7 @@ export function SidePanel({
             {closeLabel}
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-2">
+        <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]">
           <RequiredForm>{children}</RequiredForm>
         </div>
         {footer ? <div className="flex flex-wrap justify-end gap-2 border-t border-border px-3 py-2">{footer}</div> : null}

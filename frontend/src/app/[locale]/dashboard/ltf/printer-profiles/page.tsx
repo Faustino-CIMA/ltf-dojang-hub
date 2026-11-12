@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -233,7 +233,12 @@ export default function LtfAdminPrinterProfilesPage() {
             }
           />
           <ListActionsRow
-            actions={<Button variant="primary" onClick={startCreate}>{t("printerProfilesCreateAction")}</Button>}
+            actions={
+              <Button variant="primary" onClick={startCreate}>
+                <Plus className="size-4" aria-hidden />
+                {t("printerProfilesCreateAction")}
+              </Button>
+            }
           />
         </div>
 

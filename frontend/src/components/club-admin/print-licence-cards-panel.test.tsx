@@ -149,6 +149,38 @@ describe("PrintLicenceCardsPanel", () => {
     expect(screen.queryByText("Draft only")).not.toBeInTheDocument();
   });
 
+  it("keeps a skeleton in place while templates load", async () => {
+    let resolveTemplates: (rows: unknown[]) => void = () => undefined;
+    getCardTemplates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTemplates = resolve;
+      }),
+    );
+    render(
+      <PrintLicenceCardsPanel
+        open
+        onClose={jest.fn()}
+        locale="en"
+        clubId={null}
+        source="licenses"
+        scope="federation"
+        licenseIds={[4]}
+      />
+    );
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    resolveTemplates([
+      {
+        id: 3,
+        name: "Standard 3C Card V3",
+        is_active: true,
+        is_default: true,
+        latest_published_version: { id: 30, version_number: 3, label: "V3", status: "published" },
+      },
+    ]);
+    expect(await screen.findByText("Standard 3C Card V3 · v3")).toBeInTheDocument();
+    expect(document.querySelector("[aria-busy='true']")).toBeNull();
+  });
+
   it("shows a non-red note when no published template exists", async () => {
     getCardTemplates.mockResolvedValue([]);
     render(
