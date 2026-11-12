@@ -1638,12 +1638,14 @@ export default function LtfAdminLicenseCardDesignerPage() {
     const rawValue = selectedElementStyle.merge_fields;
     if (Array.isArray(rawValue)) {
       return rawValue
-        .map((value) => String(value || "").trim())
+        .map((value: unknown) => String(value || "").trim())
         .filter((value) => value.length > 0);
     }
-    if (Array.isArray(selectedElement?.merge_fields)) {
-      return selectedElement.merge_fields
-        .map((value) => String(value || "").trim())
+    const elementFields =
+      selectedElement && "merge_fields" in selectedElement ? selectedElement.merge_fields : undefined;
+    if (Array.isArray(elementFields)) {
+      return elementFields
+        .map((value: unknown) => String(value || "").trim())
         .filter((value) => value.length > 0);
     }
     return [];

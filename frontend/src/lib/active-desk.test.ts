@@ -28,7 +28,7 @@ const withOps = [
 describe("active desk", () => {
   it("names a club desk with its club id", () => {
     expect(deskHeaderValue(clubs[0])).toBe("club_admin:4");
-    expect(deskHeaderValue({ desk: "ltf_admin", level: "full", club_id: null })).toBe("ltf_admin");
+    expect(deskHeaderValue({ desk: "ltf_admin", club_id: null })).toBe("ltf_admin");
   });
 
   it("reads the desk a path needs", () => {

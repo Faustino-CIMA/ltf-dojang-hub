@@ -587,7 +587,7 @@ export default function ClubAdminMembersPage() {
         const known = members.find((member) => member.id === id);
         roster.push(known ?? (await getMember(id)));
       }
-      let licenses = [];
+      let licenses: Awaited<ReturnType<typeof getLicensesList>> = [];
       try {
         licenses = await getLicensesList({
           clubId: selectedClubId ?? undefined,

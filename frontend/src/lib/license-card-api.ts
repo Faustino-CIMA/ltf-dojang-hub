@@ -85,6 +85,7 @@ export type PaperProfile = {
   columns: number;
   rows: number;
   slot_count: number;
+  card_corner_radius_mm?: number | string | null;
   is_preset: boolean;
   is_active: boolean;
   created_by: number | null;

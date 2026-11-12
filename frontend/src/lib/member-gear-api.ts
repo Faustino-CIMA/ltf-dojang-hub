@@ -108,7 +108,13 @@ export function gearSockSortRank(
 }
 
 export function blankGear(memberId: number): MemberGear {
-  const gear = { member: memberId, updated_at: null, clothing: [], egear_daedo: true, egear_kpnp: true } as MemberGear;
+  const gear = {
+    member: memberId,
+    updated_at: null,
+    clothing: [],
+    egear_daedo: true,
+    egear_kpnp: true,
+  } as unknown as MemberGear;
   for (const key of GEAR_KEYS) gear[key] = "";
   return gear;
 }
