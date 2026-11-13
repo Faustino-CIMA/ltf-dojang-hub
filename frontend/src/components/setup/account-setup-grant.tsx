@@ -16,7 +16,7 @@ export function AccountSetupGrant({ assignments }: { assignments: AccountSetupAs
   const t = useTranslations("AccountSetup");
   if (!assignments.length) return null;
   return (
-    <div className="space-y-2 rounded-[var(--radius-card)] border border-border bg-card px-4 py-3 text-center">
+    <div className="space-y-2 rounded-[var(--radius-card)] border border-[color-mix(in_oklab,var(--brand-on-ink)_14%,transparent)] px-4 py-3 text-center">
       {assignments.map((assignment) => {
         const labelKey = ROLE_LABELS[assignment.role as keyof typeof ROLE_LABELS];
         const role = labelKey ? t(labelKey) : assignment.role;
@@ -24,7 +24,7 @@ export function AccountSetupGrant({ assignments }: { assignments: AccountSetupAs
           ? t("roleGrant", { role, organisation: assignment.organisation })
           : t("roleOnly", { role });
         return (
-          <p key={`${assignment.role}-${assignment.organisation}`} className="text-base font-semibold text-foreground">
+          <p key={`${assignment.role}-${assignment.organisation}`} className="text-base font-semibold text-[var(--brand-on-ink)]">
             {text}
           </p>
         );

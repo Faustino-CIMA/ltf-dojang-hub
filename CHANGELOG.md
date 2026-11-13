@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Sign-in:** Sign-in, forgotten password, reset password, first login, and the authenticator step share one branded card of the same width. The public site header stays off these pages. The card keeps its height when the fields change.
 - **Lists:** Going back to a list keeps the previous rows on screen until the new ones arrive. The loading skeleton shows only the first time that list is empty.
 - **Profile photos:** The review panel shows the current photo and the new photo in the same tall frame as the photo on the license card. The picture is not stretched or cropped to a wide box.
 - **Notices:** The header envelope opens on top of the page, on desktop and on a phone, in light and dark.

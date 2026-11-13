@@ -13,6 +13,8 @@ jest.mock("next-intl", () => ({
 
 jest.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams((globalThis as { __search?: string }).__search || ""),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/en/account-setup",
 }));
 
 jest.mock("@/lib/setup-api", () => ({
