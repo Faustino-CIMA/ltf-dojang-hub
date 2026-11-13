@@ -709,6 +709,9 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
                   <Link href={federationHref}>{t("openFederationDashboard")}</Link>
                 </Button>
               ) : null}
+              {activeDesk?.desk === "member" || (!activeDesk && me?.role === "member") ? (
+                <AdminNoticeBell audience="member" />
+              ) : null}
               {!deskReadOnly && (activeDesk?.desk === "club_admin" || activeDesk?.desk === "ltf_admin" || (!activeDesk && (me?.role === "club_admin" || me?.role === "ltf_admin"))) ? (
                 <AdminNoticeBell namespace={activeDesk?.desk === "ltf_admin" || (!activeDesk && me?.role === "ltf_admin") ? "LtfAdmin" : "ClubAdmin"} />
               ) : null}

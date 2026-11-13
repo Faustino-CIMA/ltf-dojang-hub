@@ -495,6 +495,32 @@ _EMAILS: dict[str, dict[str, dict[str, str]]] = {
             "ignore": "Wann Dir dës Noriicht net erwaart hutt, kënnt Dir se ignoréieren.",
         },
     },
+    "picture_rejected": {
+        "en": {
+            "subject": "Photo not approved",
+            "greeting": "Hello,",
+            "body": "{name}'s new photo was not approved. The current photo stays. They can sign in and send another one.",
+            "reason": "Reason: {reason}",
+        },
+        "fr": {
+            "subject": "Photo non acceptée",
+            "greeting": "Bonjour,",
+            "body": "La nouvelle photo de {name} n'a pas été acceptée. La photo actuelle reste. Cette personne peut se connecter et en envoyer une autre.",
+            "reason": "Motif : {reason}",
+        },
+        "de": {
+            "subject": "Foto nicht angenommen",
+            "greeting": "Guten Tag,",
+            "body": "Das neue Foto von {name} wurde nicht angenommen. Das bisherige Foto bleibt. Die Person kann sich anmelden und ein neues senden.",
+            "reason": "Grund: {reason}",
+        },
+        "lb": {
+            "subject": "Foto net ugeholl",
+            "greeting": "Moien,",
+            "body": "Dat neit Foto vun {name} gouf net ugeholl. Déi aktuell Foto bleift. D'Persoun kann sech umellen an eng nei schécken.",
+            "reason": "Grond: {reason}",
+        },
+    },
     "minor_invite": {
         "en": {
             "subject": "A login for {name}",

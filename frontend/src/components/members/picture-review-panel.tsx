@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { ImageIcon, Mail } from "lucide-react";
 
 import { InfoHint } from "@/components/ui/info-hint";
@@ -75,6 +76,7 @@ export function PictureReviewPanel({
 }) {
   const t = useTranslations(namespace);
   const common = useTranslations("Common");
+  const locale = useLocale();
   const [detail, setDetail] = useState<ReviewDetail | null>(null);
   const [currentSrc, setCurrentSrc] = useState("");
   const [pendingSrc, setPendingSrc] = useState("");
@@ -119,7 +121,11 @@ export function PictureReviewPanel({
     try {
       await apiRequest(`/api/members/${memberId}/picture-review/`, {
         method: "POST",
-        body: JSON.stringify({ decision, reason: decision === "reject" ? reason.trim() : "" }),
+        body: JSON.stringify({
+          decision,
+          reason: decision === "reject" ? reason.trim() : "",
+          locale,
+        }),
       });
       onDecided();
       onClose();
@@ -176,7 +182,12 @@ export function PictureReviewPanel({
         </figure>
       </div>
       <label className="mt-3 block space-y-1">
-        <span className="text-sm text-foreground">{t("pictureReviewReason")}</span>
+        <span className="flex items-center gap-2 text-sm text-foreground">
+          {t("pictureReviewReason")}
+          <InfoHint size="compact" ariaLabel={common("aboutTitle", { title: t("pictureReviewReason") })}>
+            {t("pictureReviewReasonHint")}
+          </InfoHint>
+        </span>
         <textarea
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -195,16 +206,25 @@ export function PictureReviewPanel({
   );
 }
 
-export function AdminNoticeBell({ namespace }: { namespace: "ClubAdmin" | "LtfAdmin" }) {
-  const t = useTranslations(namespace);
+export function AdminNoticeBell({
+  namespace = "ClubAdmin",
+  audience = "admin",
+}: {
+  namespace?: "ClubAdmin" | "LtfAdmin";
+  audience?: "admin" | "member";
+}) {
   const common = useTranslations("Common");
+  const locale = useLocale();
+  const router = useRouter();
   const [rows, setRows] = useState<AdminNotice[]>([]);
   const [listOpen, setListOpen] = useState(false);
   const [memberId, setMemberId] = useState<number | null>(null);
 
   const load = () => {
     apiRequest<AdminNotice[]>("/api/notices/")
-      .then((items) => setRows(items.filter((item) => item.kind === "picture_review")))
+      .then((items) =>
+        setRows(items.filter((item) => item.kind === (audience === "member" ? "picture_rejected" : "picture_review"))),
+      )
       .catch(() => setRows([]));
   };
 
@@ -230,25 +250,34 @@ export function AdminNoticeBell({ namespace }: { namespace: "ClubAdmin" | "LtfAd
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-[var(--radius-card)] border border-border px-3 py-2 text-left text-sm text-foreground"
-                onClick={() => setMemberId(row.member_id)}
+                onClick={() => {
+                  if (audience === "member") {
+                    setListOpen(false);
+                    router.push(`/${locale}/dashboard/member/photo`);
+                    return;
+                  }
+                  setMemberId(row.member_id);
+                }}
               >
                 <ImageIcon aria-hidden className="size-4 text-muted" />
-                {common("noticePictureReview", { name: row.name })}
+                {audience === "member" ? common("noticePictureRejected") : common("noticePictureReview", { name: row.name })}
               </button>
             </li>
           ))}
         </ul>
       </SidePanel>
-      <PictureReviewPanel
-        open={memberId != null}
-        memberId={memberId}
-        namespace={namespace}
-        onClose={() => setMemberId(null)}
-        onDecided={() => {
-          setMemberId(null);
-          load();
-        }}
-      />
+      {audience === "admin" ? (
+        <PictureReviewPanel
+          open={memberId != null}
+          memberId={memberId}
+          namespace={namespace}
+          onClose={() => setMemberId(null)}
+          onDecided={() => {
+            setMemberId(null);
+            load();
+          }}
+        />
+      ) : null}
     </>
   );
 }

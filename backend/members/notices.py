@@ -9,6 +9,7 @@ from accounts.desks import current_active_club, current_desk, holds_desk
 from .models import AdminNotice
 
 PICTURE_REVIEW = AdminNotice.Kind.PICTURE_REVIEW
+PICTURE_REJECTED = AdminNotice.Kind.PICTURE_REJECTED
 
 
 def _request_user(request):
@@ -116,6 +117,12 @@ def review_state_for(request, member) -> tuple[str, str]:
 
 def open_picture_notice(member) -> AdminNotice:
     """One open photo notice per member. A new upload clears an earlier rejection."""
+    now = timezone.now()
+    AdminNotice.objects.filter(
+        member_id=member.id,
+        kind=PICTURE_REJECTED,
+        resolved_at__isnull=True,
+    ).update(resolved_at=now, decision="replaced")
     existing = AdminNotice.objects.filter(
         member_id=member.id,
         kind=PICTURE_REVIEW,
@@ -152,6 +159,38 @@ def resolve_picture_notice(member, actor, decision: str, reason: str) -> AdminNo
     notice.resolved_by = actor if getattr(actor, "is_authenticated", False) else None
     notice.save()
     return notice
+
+
+def open_picture_rejected_notice(member, reason: str) -> AdminNotice:
+    """One open note for the member whose new photo was not approved."""
+    existing = AdminNotice.objects.filter(
+        member_id=member.id,
+        kind=PICTURE_REJECTED,
+        resolved_at__isnull=True,
+    ).first()
+    if existing is not None:
+        existing.reason = reason
+        existing.decision = "reject"
+        existing.opened_at = timezone.now()
+        existing.save(update_fields=["reason", "decision", "opened_at"])
+        return existing
+    return AdminNotice.objects.create(
+        kind=PICTURE_REJECTED,
+        club_id=member.club_id,
+        member_id=member.id,
+        decision="reject",
+        reason=reason,
+    )
+
+
+def member_rejection_notices(user):
+    if user is None or not getattr(user, "is_authenticated", False):
+        return AdminNotice.objects.none()
+    return AdminNotice.objects.filter(
+        kind=PICTURE_REJECTED,
+        resolved_at__isnull=True,
+        member__user_id=user.id,
+    ).select_related("member")
 
 
 def open_notices_for(request):
