@@ -22,8 +22,10 @@ import {
 } from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
-const OUTPUT_WIDTH = 945;
-const OUTPUT_HEIGHT = 1181;
+import { MEMBER_PHOTO_ASPECT, MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH, memberPhotoAspectRatio } from "@/lib/member-photo-frame";
+
+const OUTPUT_WIDTH = MEMBER_PHOTO_WIDTH;
+const OUTPUT_HEIGHT = MEMBER_PHOTO_HEIGHT;
 
 export type ProfilePhotoUploadPayload = {
   processedImage: File;
@@ -582,7 +584,7 @@ export function ProfilePhotoManager({
           output_height: OUTPUT_HEIGHT,
           background_color: backgroundColor,
           background_removed: backgroundRemoved,
-          aspect_ratio: "8:10",
+          aspect_ratio: memberPhotoAspectRatio,
         },
         photoConsentConfirmed: consentConfirmed,
       });
@@ -726,7 +728,7 @@ export function ProfilePhotoManager({
               image={workingImageUrl}
               crop={crop}
               zoom={zoom}
-              aspect={8 / 10}
+              aspect={MEMBER_PHOTO_ASPECT}
               cropShape="rect"
               showGrid
               onCropChange={setCrop}
@@ -818,7 +820,7 @@ export function ProfilePhotoManager({
           <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="aspect-[8/10] w-28 overflow-hidden rounded-[var(--radius-card)] border border-border bg-secondary">
+                <div className="w-28 overflow-hidden rounded-[var(--radius-card)] border border-border bg-secondary" style={{ aspectRatio: memberPhotoAspectRatio }}>
                   {storedPhotoPreviewUrl ? (
                     /* eslint-disable-next-line @next/next/no-img-element -- stored photo can be blob or API URL */
                     <img
