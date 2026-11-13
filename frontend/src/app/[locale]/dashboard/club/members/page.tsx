@@ -8,6 +8,7 @@ import { CircleAlert, Copy, ImageIcon, KeyRound, Pencil, ShieldCheck, Trash2, Us
 import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { ActionNotices, PageNotice } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { MemberFormPanel } from "@/components/club-admin/member-form-panel";
@@ -135,6 +136,7 @@ export default function ClubAdminMembersPage() {
   const [grantNote, setGrantNote] = useState<string | null>(null);
   const clubNames = useRef(new Map<number, string>());
   const [isLoading, setIsLoading] = useState(true);
+  const memberList = useStaleWhileLoading("club-members", members, isLoading);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
   const [statusFilterHydrated, setStatusFilterHydrated] = useState(false);
@@ -1052,9 +1054,9 @@ export default function ClubAdminMembersPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {memberList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : members.length === 0 ? (
+        ) : memberList.rows.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noMembersResultsSubtitle")} />
         ) : (
           <EntityTable
@@ -1313,7 +1315,7 @@ export default function ClubAdminMembersPage() {
                   ]
                 : []),
             ]}
-            rows={members}
+            rows={memberList.rows}
             sort={tableSort}
             onSortChange={setTableSort}
             onRowClick={(member) => router.push(`/${locale}/dashboard/club/members/${member.id}`)}

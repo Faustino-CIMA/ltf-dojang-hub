@@ -37,6 +37,7 @@ import {
   ActionNotices
 } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useClubSelection } from "@/components/club-selection-provider";
@@ -103,6 +104,7 @@ export default function LtfAdminLicensesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const licenseList = useStaleWhileLoading("ltf-licenses", licenses, isLoading);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
   const [licenseFacetCounts, setLicenseFacetCounts] = useState({
@@ -703,14 +705,14 @@ export default function LtfAdminLicensesPage() {
           />
         </div>
 
-        {isLoading ? (
+        {licenseList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : licenses.length === 0 ? (
+        ) : licenseList.rows.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noLicensesResultsSubtitle")} />
         ) : (
           <EntityTable
             columns={columns}
-            rows={licenses}
+            rows={licenseList.rows}
             sort={tableSort}
             onSortChange={setTableSort}
           />

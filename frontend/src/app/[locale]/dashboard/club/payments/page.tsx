@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import {
   useCallback,
   useEffect,
@@ -65,6 +66,7 @@ export default function ClubPaymentsPage() {
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("club-payments", payments, isLoading);
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
@@ -385,14 +387,14 @@ export default function ClubPaymentsPage() {
           />
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : payments.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("noPaymentsTitle")} description={t("noPaymentsSubtitle")} />
         ) : (
           <EntityTable
             columns={columns}
-            rows={payments}
+            rows={keptList.rows}
             onRowClick={(payment) =>
               router.push(`/${locale}/dashboard/club/payments/${payment.invoice}`)
             }

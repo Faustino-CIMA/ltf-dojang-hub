@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import {
@@ -118,6 +119,7 @@ export default function ClubAdminPrinterProfilesPage() {
       );
     });
   }, [printerProfiles, searchQuery]);
+  const keptList = useStaleWhileLoading("club-printer-profiles", filteredProfiles, isLoading);
 
   const closeForm = () => {
     setEditingProfile(null);
@@ -237,9 +239,9 @@ export default function ClubAdminPrinterProfilesPage() {
           />
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : filteredProfiles.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState
             title={searchQuery.trim() ? t("noResultsTitle") : t("printerProfilesEmptyTitle")}
             description={
@@ -283,7 +285,7 @@ export default function ClubAdminPrinterProfilesPage() {
                 ),
               },
             ]}
-            rows={filteredProfiles}
+            rows={keptList.rows}
           />
         )}
       </div>

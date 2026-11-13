@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -50,6 +51,7 @@ export default function ClubAdminOrdersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("club-orders", orders, isLoading);
   const [orderFacetCounts, setOrderFacetCounts] = useState({
     all: 0,
     placed: 0,
@@ -290,14 +292,14 @@ export default function ClubAdminOrdersPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : orders.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("noOrdersTitle")} description={t("noOrdersSubtitle")} />
         ) : (
           <EntityTable
             columns={columns}
-            rows={orders}
+            rows={keptList.rows}
             onRowClick={(row) => {
               router.push(`/${locale}/dashboard/club/orders/${row.id}`);
             }}

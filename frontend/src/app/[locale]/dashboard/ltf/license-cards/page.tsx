@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LicenseCardRowActions } from "@/components/ltf-admin/license-card-row-actions";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
@@ -139,6 +140,7 @@ export default function LtfAdminLicenseCardsPage() {
       );
     });
   }, [searchQuery, templates]);
+  const keptList = useStaleWhileLoading("ltf-license-cards", filteredTemplates, isLoading);
 
   const startCreateTemplate = () => {
     setErrorMessage(null);
@@ -415,9 +417,9 @@ export default function LtfAdminLicenseCardsPage() {
           />
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : filteredTemplates.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState
             title={t("licenseCardsEmptyTitle")}
             description={t("licenseCardsEmptySubtitle")}
@@ -506,7 +508,7 @@ export default function LtfAdminLicenseCardsPage() {
                 ),
               },
             ]}
-            rows={filteredTemplates}
+            rows={keptList.rows}
             onRowClick={(template) => {
               router.push(`/${locale}/dashboard/ltf/license-cards/${template.id}/designer`);
             }}
