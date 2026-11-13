@@ -2368,10 +2368,9 @@ class MemberLicenseCardPreviewApiTests(TestCase):
         self.assertEqual(response.data["template_name"], "Standard 3C Card")
         self.assertEqual(response.data["license_id"], self.active_license.id)
         self.assertEqual(response.data["active_side"], "front")
-        self.assertIn("Mia LEE", response.data["html"])
-        self.assertTrue(response.data["html"])
-        self.assertTrue(response.data["css"])
         self.assertEqual(response.data["card_format"]["code"], "3c")
+        self.assertNotIn("html", response.data)
+        self.assertNotIn("css", response.data)
 
     def test_club_admin_can_preview_own_club_member(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -2427,6 +2426,68 @@ class MemberLicenseCardPreviewApiTests(TestCase):
         refused = self.client.get(f"/api/members/{other.id}/license-card-preview/")
         self.assertEqual(refused.status_code, status.HTTP_404_NOT_FOUND)
         self.assertNotIn("html", refused.data)
+
+    def test_preview_png_is_cached_until_the_member_changes(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.force_authenticate(user=self.ltf_admin)
+        url = f"/api/members/{self.member.id}/license-card-preview/?output=png"
+        png = b"\x89PNG\r\n\x1a\nfake"
+        with (
+            patch("licenses.card_preview_image.render_card_pdf_bytes", return_value=b"%PDF-1.4") as pdf,
+            patch("licenses.card_preview_image.rasterize_pdf_page", return_value=png) as raster,
+        ):
+            first = self.client.get(url)
+            second = self.client.get(url)
+            self.assertEqual(first.status_code, status.HTTP_200_OK)
+            self.assertEqual(first["Content-Type"], "image/png")
+            self.assertEqual(first["Cache-Control"], "private, max-age=86400")
+            self.assertEqual(second.content, png)
+            self.assertEqual(pdf.call_count, 1)
+            self.assertEqual(raster.call_count, 1)
+            Member.objects.filter(pk=self.member.pk).update(updated_at=timezone.now())
+            third = self.client.get(url)
+            self.assertEqual(third.content, png)
+            self.assertEqual(raster.call_count, 2)
+
+    def test_minor_png_is_only_their_own_card(self):
+        self.client.force_authenticate(user=self._own_member_user("card-preview-minor-png", minor=True))
+        other = Member.objects.create(
+            club=self.other_club,
+            first_name="Noah",
+            last_name="Kim",
+            ltf_licenseid="LTF-CARD-004",
+        )
+        png = b"\x89PNG\r\n\x1a\nfake"
+        with patch("licenses.card_preview_image.render_cached_card_png", return_value=png):
+            own = self.client.get(f"/api/members/{self.member.id}/license-card-preview/?output=png")
+            refused = self.client.get(f"/api/members/{other.id}/license-card-preview/?output=png")
+        self.assertEqual(own.status_code, status.HTTP_200_OK)
+        self.assertTrue(own.content.startswith(b"\x89PNG"))
+        self.assertEqual(refused.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_preview_png_matches_the_print_pdf_at_three_times_screen_size(self):
+        import time
+        from io import BytesIO
+
+        from PIL import Image
+
+        from licenses.card_preview_image import PREVIEW_TARGET_WIDTH_PX
+
+        self.client.force_authenticate(user=self.ltf_admin)
+        started = time.perf_counter()
+        response = self.client.get(
+            f"/api/members/{self.member.id}/license-card-preview/?output=png&license_id={self.active_license.id}"
+        )
+        elapsed = time.perf_counter() - started
+        print(f"\nlicense card preview png render {elapsed:.3f}s")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.content.startswith(b"\x89PNG"))
+        image = Image.open(BytesIO(response.content))
+        self.assertEqual(image.size[0], PREVIEW_TARGET_WIDTH_PX)
+        self.assertAlmostEqual(image.size[0] / image.size[1], 85 / 55, delta=0.02)
+        self.assertLess(elapsed, 15)
 
     def test_returns_404_when_no_published_template(self):
         CardTemplateVersion.objects.all().delete()

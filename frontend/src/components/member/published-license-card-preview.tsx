@@ -1,17 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { LoadingCard } from "@/components/ui/loading-card";
-
 import {
-  buildCardSimulationSrcDoc,
-  calculateCardDisplayFrame,
-  calculateCardSimulationFrameLayout,
-} from "@/lib/card-simulation";
-import {
-  CardPreviewHtmlResponse,
   CardSide,
+  getMemberLicenseCardImage,
   getMemberLicenseCardPreview,
 } from "@/lib/license-card-api";
 
@@ -28,78 +22,16 @@ const MAX_DISPLAY_WIDTH_PX = 420;
 const CARD_CORNER_RADIUS_MM = 3.18;
 const CARD_WIDTH_MM = 85;
 
-function CardPreviewFrame({
-  payload,
-  title,
-}: {
-  payload: CardPreviewHtmlResponse;
-  title: string;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [displayWidth, setDisplayWidth] = useState(MAX_DISPLAY_WIDTH_PX);
-  const [pixelRatio, setPixelRatio] = useState(1);
-  const layout = useMemo(() => calculateCardSimulationFrameLayout(payload), [payload]);
-
-  useEffect(() => {
-    const readRatio = () => setPixelRatio(window.devicePixelRatio || 1);
-    readRatio();
-    window.addEventListener("resize", readRatio);
-    return () => window.removeEventListener("resize", readRatio);
-  }, []);
-
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) {
-      return;
-    }
-    const updateWidth = () => {
-      const width = node.getBoundingClientRect().width;
-      if (width > 0) {
-        setDisplayWidth(Math.min(MAX_DISPLAY_WIDTH_PX, width));
-      }
-    };
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  const frame = useMemo(
-    () => calculateCardDisplayFrame(displayWidth, pixelRatio, layout),
-    [displayWidth, layout, pixelRatio],
-  );
-  const srcDoc = useMemo(
-    () => buildCardSimulationSrcDoc(payload, { targetWidthPx: displayWidth, pixelRatio }),
-    [payload, displayWidth, pixelRatio],
-  );
-  const cornerRadiusPx = (CARD_CORNER_RADIUS_MM / CARD_WIDTH_MM) * frame.visualWidthPx;
-  const iframeScale = frame.visualWidthPx / frame.internalWidthPx;
-
+function CardPicture({ src, title }: { src: string; title: string }) {
   return (
-    <div ref={containerRef} className="w-full max-w-[420px]">
-      <div
-        className="overflow-hidden border border-border bg-surface"
-        style={{
-          width: frame.visualWidthPx,
-          height: frame.visualHeightPx,
-          borderRadius: cornerRadiusPx,
-        }}
-      >
-        <iframe
-          title={title}
-          className="pointer-events-none block origin-top-left border-0"
-          scrolling="no"
-          tabIndex={-1}
-          width={frame.internalWidthPx}
-          height={frame.internalHeightPx}
-          style={{
-            width: frame.internalWidthPx,
-            height: frame.internalHeightPx,
-            transform: `scale(${iframeScale})`,
-          }}
-          srcDoc={srcDoc}
-        />
-      </div>
+    <div
+      className="w-full overflow-hidden border border-border bg-surface"
+      style={{
+        maxWidth: MAX_DISPLAY_WIDTH_PX,
+        borderRadius: `${(CARD_CORNER_RADIUS_MM / CARD_WIDTH_MM) * 100}%`,
+      }}
+    >
+      <img src={src} alt={title} className="block h-auto w-full" />
     </div>
   );
 }
@@ -112,16 +44,20 @@ export function PublishedLicenseCardPreview({
   backLabel,
   unavailableLabel,
 }: PublishedLicenseCardPreviewProps) {
-  const [front, setFront] = useState<CardPreviewHtmlResponse | null>(null);
-  const [back, setBack] = useState<CardPreviewHtmlResponse | null>(null);
+  const [frontUrl, setFrontUrl] = useState<string | null>(null);
+  const [backUrl, setBackUrl] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
+    const urls: string[] = [];
     const load = async () => {
       setIsLoading(true);
       setErrorMessage(null);
+      setFrontUrl(null);
+      setBackUrl(null);
       try {
         const frontPayload = await getMemberLicenseCardPreview(memberId, {
           licenseId: licenseId ?? undefined,
@@ -131,27 +67,47 @@ export function PublishedLicenseCardPreview({
         if (controller.signal.aborted) {
           return;
         }
-        setFront(frontPayload);
+        setTemplateName(frontPayload.template_name || "");
+        const frontBlob = await getMemberLicenseCardImage(memberId, {
+          licenseId: licenseId ?? frontPayload.license_id ?? undefined,
+          side: "front",
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) {
+          return;
+        }
+        const frontObjectUrl = URL.createObjectURL(frontBlob);
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(frontObjectUrl);
+          return;
+        }
+        urls.push(frontObjectUrl);
+        setFrontUrl(frontObjectUrl);
         const backHasContent = Boolean(frontPayload.side_summary?.back?.has_content);
         const hasBack = frontPayload.available_sides?.includes("back" as CardSide) && backHasContent;
         if (hasBack) {
-          const backPayload = await getMemberLicenseCardPreview(memberId, {
+          const backBlob = await getMemberLicenseCardImage(memberId, {
             licenseId: licenseId ?? frontPayload.license_id ?? undefined,
             side: "back",
             signal: controller.signal,
           });
-          if (!controller.signal.aborted) {
-            setBack(backPayload);
+          if (controller.signal.aborted) {
+            return;
           }
-        } else {
-          setBack(null);
+          const backObjectUrl = URL.createObjectURL(backBlob);
+          if (controller.signal.aborted) {
+            URL.revokeObjectURL(backObjectUrl);
+            return;
+          }
+          urls.push(backObjectUrl);
+          setBackUrl(backObjectUrl);
         }
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
           return;
         }
-        setFront(null);
-        setBack(null);
+        setFrontUrl(null);
+        setBackUrl(null);
         setErrorMessage(error instanceof Error ? error.message : unavailableLabel);
       } finally {
         if (!controller.signal.aborted) {
@@ -160,7 +116,12 @@ export function PublishedLicenseCardPreview({
       }
     };
     void load();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      for (const url of urls) {
+        URL.revokeObjectURL(url);
+      }
+    };
   }, [licenseId, memberId, unavailableLabel]);
 
   if (isLoading) {
@@ -171,7 +132,7 @@ export function PublishedLicenseCardPreview({
     );
   }
 
-  if (!front) {
+  if (!frontUrl) {
     return errorMessage ? (
       <p className="mb-4 text-sm text-muted">{unavailableLabel}</p>
     ) : null;
@@ -179,17 +140,15 @@ export function PublishedLicenseCardPreview({
 
   return (
     <div className="mb-5 rounded-[var(--radius-card)] border border-border/80 bg-secondary/30 px-4 py-5">
-      <p className="mb-4 text-sm font-medium text-foreground">
-        {front.template_name || title}
-      </p>
+      <p className="mb-4 text-sm font-medium text-foreground">{templateName || title}</p>
       <div className="flex flex-wrap justify-center gap-3">
         <div className="w-[min(100%,420px)] space-y-2">
-          <CardPreviewFrame payload={front} title={frontLabel} />
-          {back ? <p className="text-center text-xs text-muted">{frontLabel}</p> : null}
+          <CardPicture src={frontUrl} title={frontLabel} />
+          {backUrl ? <p className="text-center text-xs text-muted">{frontLabel}</p> : null}
         </div>
-        {back ? (
+        {backUrl ? (
           <div className="w-[min(100%,420px)] space-y-2">
-            <CardPreviewFrame payload={back} title={backLabel} />
+            <CardPicture src={backUrl} title={backLabel} />
             <p className="text-center text-xs text-muted">{backLabel}</p>
           </div>
         ) : null}
