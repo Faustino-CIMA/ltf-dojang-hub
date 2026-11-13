@@ -2,7 +2,8 @@
 
 A minor account is created under 18. The flag stays after the 18th birthday.
 Until then, and after, the account may only read its own member home,
-read its own notices, and upload a profile picture. Every other API is refused here.
+read its own notices, upload a profile picture, and read that picture back.
+Every other API is refused here.
 """
 
 from __future__ import annotations
@@ -11,6 +12,9 @@ import re
 
 _OWN_MEMBER = re.compile(
     r"^/api/members/(?P<member_id>\d+)(?:/(?P<action>history|profile-picture))?/?$"
+)
+_OWN_PICTURE_FILE = re.compile(
+    r"^/api/members/(?P<member_id>\d+)/profile-picture/(processed|thumbnail|download)/?$"
 )
 
 
@@ -27,6 +31,8 @@ def minor_request_allowed(path: str, method: str) -> bool:
     if clean.startswith("/api/auth/account-setup/") or clean.startswith("/api/auth/password-reset/"):
         return True
     if clean.rstrip("/") == "/api/members" and method in {"GET", "HEAD"}:
+        return True
+    if _OWN_PICTURE_FILE.match(clean) and method in {"GET", "HEAD"}:
         return True
     match = _OWN_MEMBER.match(clean)
     if not match:

@@ -204,4 +204,22 @@ describe("ProfilePhotoManager", () => {
     });
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ photoConsentConfirmed: true }));
   });
+
+  it("opens the file picker when another photo is requested", () => {
+    const { container, rerender } = render(
+      <ProfilePhotoManager labels={labels} isPageEditor imageUrl={null} thumbnailUrl={null} />,
+    );
+    const input = container.querySelector("input[type='file']") as HTMLInputElement;
+    const click = jest.spyOn(input, "click").mockImplementation(() => undefined);
+    rerender(
+      <ProfilePhotoManager
+        labels={labels}
+        isPageEditor
+        imageUrl={null}
+        thumbnailUrl={null}
+        openPickerRequest={1}
+      />,
+    );
+    expect(click).toHaveBeenCalledTimes(1);
+  });
 });

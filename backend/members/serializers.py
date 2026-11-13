@@ -8,6 +8,13 @@ from .services import generate_next_ltf_license_id
 from .transfers import get_club_tourist_threshold, is_club_tourist
 
 
+def _picture_path(member: Member, endpoint: str) -> str:
+    """The picture URL changes when the member record does, so a saved photo is not a cached blank."""
+    updated = getattr(member, "updated_at", None)
+    stamp = int(updated.timestamp()) if updated is not None else 0
+    return f"/api/members/{member.id}/profile-picture/{endpoint}/?v={stamp}"
+
+
 class CanonicalLicenseRoleField(serializers.ChoiceField):
     """Accept mixed-case role input and persist the capitalized choice value."""
 
@@ -234,7 +241,7 @@ class MemberSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not (obj.profile_picture_processed or obj.profile_picture_original):
             return None
-        path = f"/api/members/{obj.id}/profile-picture/processed/"
+        path = _picture_path(obj, "processed")
         return request.build_absolute_uri(path) if request else path
 
     def get_profile_picture_thumbnail_url(self, obj: Member):
@@ -245,7 +252,7 @@ class MemberSerializer(serializers.ModelSerializer):
             or obj.profile_picture_original
         ):
             return None
-        path = f"/api/members/{obj.id}/profile-picture/thumbnail/"
+        path = _picture_path(obj, "thumbnail")
         return request.build_absolute_uri(path) if request else path
 
     def _tourist_threshold(self) -> int:
@@ -527,7 +534,7 @@ class MemberProfilePictureSerializer(serializers.ModelSerializer):
         if not has_any_photo:
             return None
         request = self.context.get("request")
-        path = f"/api/members/{obj.id}/profile-picture/{endpoint}/"
+        path = _picture_path(obj, endpoint)
         return request.build_absolute_uri(path) if request else path
 
     def get_has_profile_picture(self, obj: Member):
