@@ -21,7 +21,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const [hasToken, setHasToken] = useState(false);
   const isDashboard = pathname.includes("/dashboard");
   const isAuthPage = /\/(login|register|verify-email|reset-password)(\/|$)/.test(pathname);
-  const isBrandPage = pathname === `/${locale}` || /\/(login|forgot-password)(\/|$)/.test(pathname);
+  const isBrandPage =
+    pathname === `/${locale}` ||
+    /\/(login|forgot-password|reset-password|account-setup)(\/|$)/.test(pathname);
 
   useEffect(() => {
     return registerClientNavigation({

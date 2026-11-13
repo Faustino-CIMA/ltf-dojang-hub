@@ -240,6 +240,16 @@
   display: none;
 }
 
+/* One card for every sign-in step. The height matches first-login setup,
+   the tallest step, so swapping fields does not shrink the card. */
+.auth-card-body {
+  min-height: 46rem;
+}
+
+.auth-quiet {
+  color: color-mix(in oklab, var(--brand-on-ink) 72%, var(--brand-ink));
+}
+
 @media (min-width: 1024px) {
   .auth-split {
     grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
