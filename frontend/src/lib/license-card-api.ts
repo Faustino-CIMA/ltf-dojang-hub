@@ -1201,6 +1201,7 @@ export async function getMemberLicenseCardImage(
     {
       method: "GET",
       headers: pdfAuthHeaders(),
+      cache: "no-store",
       signal: options?.signal,
     }
   );
