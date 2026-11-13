@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Count, Exists, F, Min, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -52,9 +52,9 @@ from .services import (
     rewrite_existing_lux_ltf_license_ids,
     update_grade_promotion,
 )
+from licenses.card_preview_image import preview_cache_key, render_cached_card_png
 from licenses.card_rendering import (
     CardRenderError,
-    build_card_simulation_payload,
     build_preview_data,
     resolve_printable_license,
     resolve_published_standard_card_version,
@@ -539,22 +539,33 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                 include_safe_area_guide=False,
                 request=request,
             )
-            simulation_payload = build_card_simulation_payload(preview_payload)
         except CardRenderError as exc:
             return Response({"detail": exc.detail}, status=exc.status_code)
+        active_side = preview_payload.get("active_side", "front")
+        if str(request.query_params.get("output") or "").strip().lower() == "png":
+            png = render_cached_card_png(
+                preview_payload,
+                cache_key=preview_cache_key(
+                    member=member,
+                    license_record=license_record,
+                    template_version=version,
+                    side=active_side,
+                ),
+            )
+            response = HttpResponse(png, content_type="image/png")
+            response["Cache-Control"] = "private, max-age=86400"
+            return response
         return Response(
             {
                 "template_version_id": preview_payload["template_version_id"],
                 "template_id": preview_payload["template_id"],
                 "template_name": version.template.name,
                 "license_id": license_record.id if license_record else None,
-                "active_side": preview_payload.get("active_side", "front"),
+                "active_side": active_side,
                 "available_sides": preview_payload.get("available_sides", ["front"]),
                 "side_summary": preview_payload.get("side_summary", {}),
                 "card_format": preview_payload["card_format"],
                 "render_metadata": preview_payload.get("render_metadata", {}),
-                "html": simulation_payload["html"],
-                "css": simulation_payload["css"],
             }
         )
 

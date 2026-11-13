@@ -499,8 +499,8 @@ export type CardPreviewHtmlResponse = {
     height_mm: string;
   };
   render_metadata?: Record<string, unknown>;
-  html: string;
-  css: string;
+  html?: string;
+  css?: string;
 };
 
 export type CardDesignerLookupItem = {
@@ -1182,4 +1182,34 @@ export function getMemberLicenseCardPreview(
     `/api/members/${memberId}/license-card-preview/${suffix ? `?${suffix}` : ""}`,
     { signal: options?.signal }
   );
+}
+
+export async function getMemberLicenseCardImage(
+  memberId: number,
+  options?: { licenseId?: number; side?: CardSide; signal?: AbortSignal }
+) {
+  const search = new URLSearchParams();
+  search.set("output", "png");
+  if (options?.licenseId) {
+    search.set("license_id", String(options.licenseId));
+  }
+  if (options?.side) {
+    search.set("side", options.side);
+  }
+  const response = await fetch(
+    `${API_URL}/api/members/${memberId}/license-card-preview/?${search.toString()}`,
+    {
+      method: "GET",
+      headers: pdfAuthHeaders(),
+      signal: options?.signal,
+    }
+  );
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type");
+    const message = await response.text();
+    throw new Error(
+      normalizeApiErrorMessage(message, contentType) || `Request failed with ${response.status}`
+    );
+  }
+  return response.blob();
 }
