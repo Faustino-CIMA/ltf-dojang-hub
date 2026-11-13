@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { CircleAlert, CircleCheck } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { authPrimaryClass } from "@/components/auth/auth-frame";
 
 export function AuthResultCard({
   tone,
@@ -31,21 +31,19 @@ export function AuthResultCard({
       : "bg-[color-mix(in_oklab,var(--warning)_18%,transparent)] text-[var(--warning)]";
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-border bg-surface px-5 py-8 text-center shadow-[var(--shadow-float)]">
+    <section className="px-1 py-6 text-center">
       <p className="sr-only" role="status">
         {live}
       </p>
       <div className={`mx-auto flex size-16 items-center justify-center rounded-full ${iconClass}`}>
         <Icon className="size-9" aria-hidden="true" />
       </div>
-      <h1 className="mt-4 text-2xl font-semibold text-foreground">{title}</h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
+      <h1 className="mt-4 text-2xl font-semibold text-[var(--brand-on-ink)]">{title}</h1>
+      <p className="auth-quiet mt-2 text-sm leading-relaxed">{body}</p>
       {action ? (
-        <Button asChild variant="primary" className="mt-6 w-full">
-          <Link ref={actionRef} href={action.href}>
-            {action.label}
-          </Link>
-        </Button>
+        <Link ref={actionRef} href={action.href} className={`${authPrimaryClass} mt-6`}>
+          {action.label}
+        </Link>
       ) : null}
     </section>
   );

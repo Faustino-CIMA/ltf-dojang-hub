@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
+import { AuthFrame, authPrimaryClass } from "@/components/auth/auth-frame";
 import { AuthResultCard } from "@/components/auth/auth-result-card";
 import { Celebration } from "@/components/auth/celebration";
-import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
@@ -18,7 +17,6 @@ const DEAD_LINK = "Invalid or expired reset link.";
 
 export default function ResetPasswordPage() {
   const t = useTranslations("Reset");
-  const common = useTranslations("Common");
   const locale = useLocale();
   const params = useSearchParams();
   const uid = params.get("uid") || "";
@@ -72,13 +70,12 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-10 sm:px-6 sm:py-12">
+    <AuthFrame backHref={loginHref} backLabel={t("backToLogin")}>
       <Celebration active={phase === "success"} />
       {phase === "form" || phase === "loading" ? (
-        <div className="space-y-2 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{common("appTitle")}</p>
-          <h1 className="text-3xl font-semibold text-foreground">{t("title")}</h1>
-          <p className="text-sm text-muted">{t("subtitle")}</p>
+        <div className="mt-4 space-y-2">
+          <h1 className="text-3xl font-semibold text-[var(--brand-on-ink)]">{t("title")}</h1>
+          <p className="auth-quiet text-sm">{t("subtitle")}</p>
         </div>
       ) : null}
 
@@ -105,12 +102,12 @@ export default function ResetPasswordPage() {
         <>
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
           <RequiredForm>
-            <form className="space-y-4" onSubmit={handleSubmit} autoComplete="on">
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit} autoComplete="on">
               {username ? (
                 <div className="space-y-2">
                   <Label htmlFor="reset-username">{t("usernameLabel")}</Label>
                   <Input id="reset-username" name="username" type="text" value={username} readOnly autoComplete="username" />
-                  <p className="text-xs text-muted">{t("usernameHint")}</p>
+                  <p className="auth-quiet text-xs">{t("usernameHint")}</p>
                 </div>
               ) : null}
               <div className="space-y-2">
@@ -142,18 +139,13 @@ export default function ResetPasswordPage() {
                   required
                 />
               </div>
-              <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
+              <button type="submit" className={authPrimaryClass} disabled={isSubmitting}>
                 {isSubmitting ? t("submitting") : t("submit")}
-              </Button>
+              </button>
             </form>
           </RequiredForm>
-          <div className="text-center text-sm text-muted">
-            <Link className="text-foreground hover:underline" href={loginHref}>
-              {t("backToLogin")}
-            </Link>
-          </div>
         </>
       ) : null}
-    </div>
+    </AuthFrame>
   );
 }

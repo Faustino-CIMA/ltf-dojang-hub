@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
+import { AuthFrame, authPrimaryClass } from "@/components/auth/auth-frame";
 import { AuthResultCard } from "@/components/auth/auth-result-card";
 import { Celebration } from "@/components/auth/celebration";
 import { AccountSetupGrant } from "@/components/setup/account-setup-grant";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label, RequiredForm } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
@@ -20,7 +19,6 @@ type Phase = "loading" | "form" | "success" | "used" | "expired" | "revoked" | "
 
 export default function AccountSetupPage() {
   const t = useTranslations("AccountSetup");
-  const common = useTranslations("Common");
   const locale = useLocale();
   const params = useSearchParams();
   const token = params.get("token") || "";
@@ -108,14 +106,13 @@ export default function AccountSetupPage() {
         : t("usedBody");
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-10 sm:px-6 sm:py-12">
+    <AuthFrame backHref={loginHref} backLabel={t("backToLogin")}>
       <Celebration active={phase === "success"} />
       {phase === "form" || phase === "loading" ? (
-        <div className="space-y-2 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-link">{common("appTitle")}</p>
-          <h1 className="text-3xl font-semibold text-foreground">{t("title")}</h1>
+        <div className="mt-4 space-y-2">
+          <h1 className="text-3xl font-semibold text-[var(--brand-on-ink)]">{t("title")}</h1>
           {phase === "form" ? <AccountSetupGrant assignments={assignments} /> : null}
-          <p className="text-sm text-muted">
+          <p className="auth-quiet text-sm">
             {phase === "loading" ? t("checking") : minorAccount ? t("minorSubtitle") : t("subtitle")}
           </p>
         </div>
@@ -156,11 +153,11 @@ export default function AccountSetupPage() {
         <>
           <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
           <RequiredForm>
-            <form className="space-y-4" onSubmit={handleSubmit} autoComplete="on">
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit} autoComplete="on">
               <div className="space-y-2">
                 <Label htmlFor="account-setup-username">{t("username")}</Label>
                 <Input id="account-setup-username" name="username" value={username} readOnly autoComplete="username" />
-                {minorAccount ? <p className="text-sm text-muted">{t("minorUsernameHint")}</p> : null}
+                {minorAccount ? <p className="auth-quiet text-sm">{t("minorUsernameHint")}</p> : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="account-setup-name">{t("name")}</Label>
@@ -210,18 +207,13 @@ export default function AccountSetupPage() {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                 />
               </div>
-              <Button type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
+              <button type="submit" className={authPrimaryClass} disabled={isSubmitting}>
                 {isSubmitting ? t("submitting") : t("submit")}
-              </Button>
+              </button>
             </form>
           </RequiredForm>
-          <div className="text-center text-sm text-muted">
-            <Link className="text-foreground hover:underline" href={loginHref}>
-              {t("backToLogin")}
-            </Link>
-          </div>
         </>
       ) : null}
-    </div>
+    </AuthFrame>
   );
 }
