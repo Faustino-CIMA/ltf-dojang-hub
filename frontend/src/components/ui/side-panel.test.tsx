@@ -28,4 +28,17 @@ describe("SidePanel", () => {
     fireEvent.click(closeButtons[0]);
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("draws on the document so a clipping parent cannot cover it", () => {
+    render(
+      <div data-testid="clip" className="overflow-hidden">
+        <SidePanel open title="Notices" closeLabel="Close" onClose={() => undefined}>
+          <p>Waiting</p>
+        </SidePanel>
+      </div>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Notices" });
+    expect(screen.getByTestId("clip").contains(dialog)).toBe(false);
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+  });
 });

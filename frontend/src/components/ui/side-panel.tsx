@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { RequiredForm } from "@/components/ui/label";
@@ -41,10 +42,12 @@ export function SidePanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) {
+  if (!open || typeof document === "undefined") {
     return null;
   }
-  return (
+  // Same idea as the menu popover: draw on document.body so a header blur
+  // or overflow cannot keep the panel behind the page.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-foreground/40" onClick={onClose} />
       <aside
@@ -72,6 +75,7 @@ export function SidePanel({
         </div>
         {footer ? <div className="flex flex-wrap justify-end gap-2 border-t border-border px-3 py-2">{footer}</div> : null}
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
