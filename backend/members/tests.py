@@ -2388,6 +2388,46 @@ class MemberLicenseCardPreviewApiTests(TestCase):
         response = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def _own_member_user(self, username: str, *, minor: bool) -> User:
+        user = User.objects.create_user(
+            username=username,
+            password="pass12345",
+            role=User.Roles.MEMBER,
+            minor_account=minor,
+        )
+        self.member.user = user
+        self.member.save(update_fields=["user", "updated_at"])
+        return user
+
+    def test_member_reads_own_card_and_not_another_members(self):
+        self.client.force_authenticate(user=self._own_member_user("card-preview-member", minor=False))
+        other = Member.objects.create(
+            club=self.club,
+            first_name="Noah",
+            last_name="Kim",
+            ltf_licenseid="LTF-CARD-002",
+        )
+        own = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
+        self.assertEqual(own.status_code, status.HTTP_200_OK)
+        self.assertEqual(own.data["license_id"], self.active_license.id)
+        refused = self.client.get(f"/api/members/{other.id}/license-card-preview/")
+        self.assertEqual(refused.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_minor_reads_own_card_and_is_refused_another_members(self):
+        self.client.force_authenticate(user=self._own_member_user("card-preview-minor", minor=True))
+        other = Member.objects.create(
+            club=self.other_club,
+            first_name="Noah",
+            last_name="Kim",
+            ltf_licenseid="LTF-CARD-003",
+        )
+        own = self.client.get(f"/api/members/{self.member.id}/license-card-preview/")
+        self.assertEqual(own.status_code, status.HTTP_200_OK)
+        self.assertEqual(own.data["license_id"], self.active_license.id)
+        refused = self.client.get(f"/api/members/{other.id}/license-card-preview/")
+        self.assertEqual(refused.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertNotIn("html", refused.data)
+
     def test_returns_404_when_no_published_template(self):
         CardTemplateVersion.objects.all().delete()
         self.client.force_authenticate(user=self.ltf_admin)

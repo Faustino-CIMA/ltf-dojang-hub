@@ -1,6 +1,7 @@
 "use client";
 
 import { PublishedLicenseCardPreview } from "@/components/member/published-license-card-preview";
+import { InfoHint } from "@/components/ui/info-hint";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 export type CurrentLicense = {
@@ -29,6 +30,9 @@ type CurrentLicensesPanelProps = {
   cardPreviewFrontLabel: string;
   cardPreviewBackLabel: string;
   cardPreviewUnavailable: string;
+  photoWaitingLabel?: string;
+  photoWaitingNote?: string;
+  photoWaitingInfoLabel?: string;
 };
 
 function statusTone(status: string): "success" | "warning" | "neutral" | "danger" {
@@ -81,6 +85,9 @@ export function CurrentLicensesPanel({
   cardPreviewFrontLabel,
   cardPreviewBackLabel,
   cardPreviewUnavailable,
+  photoWaitingLabel,
+  photoWaitingNote,
+  photoWaitingInfoLabel,
 }: CurrentLicensesPanelProps) {
   const hasPending = licenses.some((license) => license.status === "pending");
   const previewLicense =
@@ -90,7 +97,18 @@ export function CurrentLicensesPanel({
       <h2 className="text-section text-foreground">{title}</h2>
       <p className="mt-1 text-sm text-muted">{subtitle}</p>
       {memberId && previewLicense ? (
-        <div className="mt-3">
+        <div className="mt-3 space-y-3">
+          {photoWaitingNote ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <StatusBadge label={photoWaitingLabel || photoWaitingNote} tone="warning" />
+                <InfoHint size="compact" ariaLabel={photoWaitingInfoLabel || photoWaitingNote}>
+                  {photoWaitingNote}
+                </InfoHint>
+              </div>
+              <p className="text-sm text-muted">{photoWaitingNote}</p>
+            </div>
+          ) : null}
           <PublishedLicenseCardPreview
             memberId={memberId}
             licenseId={previewLicense.id}

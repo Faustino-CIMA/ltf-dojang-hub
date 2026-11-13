@@ -5318,6 +5318,7 @@
     "pictureReviewPending": "La nouvelle photo attend l'accord du club. La photo actuelle reste.",
     "pictureReviewSent": "Votre photo a été envoyée à votre club pour accord.",
     "pictureReviewPendingNote": "En attente d'accord",
+    "cardPhotoWaiting": "Une nouvelle photo attend l'accord du club. Cette carte montre encore la photo actuelle.",
     "pictureReviewRejectedTitle": "Photo non acceptée",
     "pictureReviewRejected": "Le club n'a pas accepté cette photo. La photo actuelle reste. Vous pouvez en envoyer une autre.",
     "pictureReviewRejectedReason": "Motif : {reason}",

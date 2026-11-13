@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **License cards:** A member sees their license card on their own desk. While a new photo is waiting for the club, the card still shows the current photo and says so.
 - **License cards:** The card preview uses one scale for the whole card, so the header and the expiry date stay in place on a phone and on a high-density screen.
 - **Photos:** Send another photo on a rejected picture opens the file picker. After the club approves a new photo, that photo shows on the member's profile.
 - **Photos:** When a club or LTF admin does not approve a new photo, the member sees a notice in the header and on the Photo page. A parent or guardian also receives an email. The current photo stays. The member can send another photo. A short reason is optional.
