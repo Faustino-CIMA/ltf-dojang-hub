@@ -24,7 +24,7 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 
 ## 4. Safety of changes
 - Nothing that works today may break, and users must see the same behaviour unless the change is the explicit goal. Performance must not regress (watch for N+1 queries; use `select_related`/`prefetch_related`).
-- One piece of work per PR, on a fresh branch off the latest `develop`, targeting `develop`.
+- One piece of work per PR, on a fresh branch off the latest `develop`, targeting `develop`. Follow section 10 for the merge workflow.
 - Features: write a spec first, no code until the maintainer approves. Fixes and small asks go straight to a PR.
 - Never merge your own PRs. Never force-push, reset, rebase published branches, or move `develop` or `main` backwards. To resolve conflicts, merge `develop` into your branch.
 - Never change the live Coolify app or deploy. The maintainer deploys.
@@ -68,3 +68,12 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - Risks, and what you checked so nothing existing breaks.
 - Dependency changes (with versions and changelog notes), migrations, new settings or env vars.
 - Test counts (backend, Jest) and any manual check steps.
+
+## 10. PR and merge workflow
+- Keep at most one or two pull requests open at a time. Cut the next branch only after the previous pull request has merged.
+- Always branch from the latest `develop`. The pull request base is always `develop`. Never stack a pull request on another pull request.
+- Keep each pull request to one small topic.
+- Before reporting a pull request ready: merge the latest `develop` into the branch (a merge commit, not a rebase), rerun the tests, and confirm GitHub shows the pull request mergeable and clean.
+- Right before merge, check shared files against `develop`: locale JSON files (`en`, `fr`, `de`, `lb`) and migration files. If two pull requests both add migrations, the later one renumbers or regenerates its migration after the first has merged, so the numbers and dependencies do not clash. Schema and data migrations stay in separate files.
+- Never force-push. Never reset a published branch. Never move `develop` or `main` backwards.
+- Do not merge your own pull requests. The maintainer merges. CI on the pull request must be green first.
