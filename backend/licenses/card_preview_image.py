@@ -6,6 +6,9 @@ only rasters that PDF for the preview.
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from django.core.cache import cache
 
 from .card_rendering import render_card_pdf_bytes
@@ -28,22 +31,24 @@ def _stamp(value) -> str:
     return str(value)
 
 
-def preview_cache_key(*, member, license_record, template_version, side: str) -> str:
-    """Change the key when the license, the template, or the approved photo changes."""
-    photo = getattr(member, "profile_picture_processed", None)
-    photo_name = getattr(photo, "name", "") or ""
-    license_id = getattr(license_record, "id", None) or 0
+def preview_cache_key(*, preview_data: dict, template_updated_at=None) -> str:
+    """Change the key when anything the PDF prints from the render context changes.
+
+    The context is the one ``build_preview_data`` already resolved, so a new
+    grade, name, date, club, or photo URL refreshes the picture without a
+    separate field list.
+    """
+    context = preview_data.get("context") or {}
+    digest = hashlib.sha256(
+        json.dumps(context, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
     return "|".join(
         [
-            "license-card-png-v1",
-            str(member.id),
-            str(license_id),
-            str(template_version.id),
-            side or "front",
-            _stamp(getattr(member, "updated_at", None)),
-            _stamp(getattr(license_record, "updated_at", None)),
-            _stamp(getattr(template_version, "updated_at", None)),
-            photo_name,
+            "license-card-png-v2",
+            str(preview_data.get("template_version_id") or ""),
+            _stamp(template_updated_at),
+            str(preview_data.get("active_side") or "front"),
+            digest,
             str(PREVIEW_TARGET_WIDTH_PX),
         ]
     )

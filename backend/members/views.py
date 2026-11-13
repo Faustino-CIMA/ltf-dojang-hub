@@ -546,14 +546,12 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
             png = render_cached_card_png(
                 preview_payload,
                 cache_key=preview_cache_key(
-                    member=member,
-                    license_record=license_record,
-                    template_version=version,
-                    side=active_side,
+                    preview_data=preview_payload,
+                    template_updated_at=version.updated_at,
                 ),
             )
             response = HttpResponse(png, content_type="image/png")
-            response["Cache-Control"] = "private, max-age=86400"
+            response["Cache-Control"] = "private, no-store"
             return response
         return Response(
             {

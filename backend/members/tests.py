@@ -2442,14 +2442,40 @@ class MemberLicenseCardPreviewApiTests(TestCase):
             second = self.client.get(url)
             self.assertEqual(first.status_code, status.HTTP_200_OK)
             self.assertEqual(first["Content-Type"], "image/png")
-            self.assertEqual(first["Cache-Control"], "private, max-age=86400")
+            self.assertEqual(first["Cache-Control"], "private, no-store")
             self.assertEqual(second.content, png)
             self.assertEqual(pdf.call_count, 1)
             self.assertEqual(raster.call_count, 1)
+            # A timestamp bump alone does not change the printed card.
             Member.objects.filter(pk=self.member.pk).update(updated_at=timezone.now())
-            third = self.client.get(url)
-            self.assertEqual(third.content, png)
-            self.assertEqual(raster.call_count, 2)
+            self.client.get(url)
+            self.assertEqual(raster.call_count, 1)
+
+    def test_grade_change_produces_a_new_preview(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.force_authenticate(user=self.ltf_admin)
+        url = f"/api/members/{self.member.id}/license-card-preview/?output=png"
+        pngs = [b"\x89PNG\r\n\x1a\nfirst", b"\x89PNG\r\n\x1a\nsecond"]
+
+        def rasterize(*_args, **_kwargs):
+            return pngs[raster.call_count - 1]
+
+        with (
+            patch("licenses.card_preview_image.render_card_pdf_bytes", return_value=b"%PDF-1.4"),
+            patch("licenses.card_preview_image.rasterize_pdf_page", side_effect=rasterize) as raster,
+        ):
+            before = self.client.get(url)
+            # QuerySet.update leaves updated_at alone, so the old key would
+            # keep the previous picture.
+            Member.objects.filter(pk=self.member.pk).update(belt_rank="2nd Dan")
+            after = self.client.get(url)
+        self.assertEqual(before.status_code, status.HTTP_200_OK)
+        self.assertEqual(after.status_code, status.HTTP_200_OK)
+        self.assertEqual(raster.call_count, 2)
+        self.assertNotEqual(before.content, after.content)
+        self.assertIn(b"second", after.content)
 
     def test_minor_png_is_only_their_own_card(self):
         self.client.force_authenticate(user=self._own_member_user("card-preview-minor-png", minor=True))
