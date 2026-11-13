@@ -4119,6 +4119,7 @@
     "pictureReviewPending": "The new picture is waiting for the club to approve it. The current picture stays.",
     "pictureReviewSent": "Your photo was sent to your club for approval.",
     "pictureReviewPendingNote": "Pending approval",
+    "cardPhotoWaiting": "A new photo is waiting for the club. This card still shows the current photo.",
     "pictureReviewRejectedTitle": "Photo not approved",
     "pictureReviewRejected": "The club did not approve this photo. Your current photo stays. You can send another one.",
     "pictureReviewRejectedReason": "Reason: {reason}",

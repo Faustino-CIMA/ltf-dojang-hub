@@ -5318,6 +5318,7 @@
     "pictureReviewPending": "Das neue Foto wartet auf die Zustimmung des Vereins. Das aktuelle Foto bleibt.",
     "pictureReviewSent": "Ihr Foto wurde zur Zustimmung an Ihren Verein gesendet.",
     "pictureReviewPendingNote": "Wartet auf Zustimmung",
+    "cardPhotoWaiting": "Ein neues Foto wartet auf die Zustimmung des Vereins. Diese Karte zeigt noch das aktuelle Foto.",
     "pictureReviewRejectedTitle": "Foto nicht angenommen",
     "pictureReviewRejected": "Der Verein hat dieses Foto nicht angenommen. Das bisherige Foto bleibt. Sie können ein neues senden.",
     "pictureReviewRejectedReason": "Grund: {reason}",

@@ -8,6 +8,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberLayout } from "@/components/member/member-layout";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
+import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { apiRequest } from "@/lib/api";
@@ -28,6 +29,7 @@ type MeResponse = {
 
 export default function MemberDashboardPage() {
   const t = useTranslations("Member");
+  const licenseT = useTranslations("ClubAdmin");
   const commonT = useTranslations("Common");
   const router = useRouter();
   const params = useParams();
@@ -135,6 +137,33 @@ export default function MemberDashboardPage() {
               }}
               onDownload={handlePhotoDownload}
               onEdit={() => router.push(`/${locale}/dashboard/member/photo`)}
+            />
+
+            <CurrentLicensesPanel
+              memberId={member.id}
+              licenses={member.current_licenses ?? []}
+              title={licenseT("currentLicensesTitle")}
+              subtitle={licenseT("currentLicensesSubtitle")}
+              emptyLabel={licenseT("currentLicensesEmpty")}
+              pendingHint={licenseT("currentLicensesPendingHint")}
+              yearLabel={licenseT("yearLabel")}
+              typeLabel={licenseT("licenseTypeLabel")}
+              statusLabel={licenseT("statusLabel")}
+              pendingLabel={licenseT("statusPending")}
+              activeLabel={licenseT("statusActive")}
+              expiredLabel={licenseT("statusExpired")}
+              revokedLabel={licenseT("statusRevoked")}
+              cardPreviewTitle={licenseT("cardPreviewTitle")}
+              cardPreviewFrontLabel={licenseT("cardPreviewFrontLabel")}
+              cardPreviewBackLabel={licenseT("cardPreviewBackLabel")}
+              cardPreviewUnavailable={licenseT("cardPreviewUnavailable")}
+              photoWaitingLabel={member.review_state === "pending" ? t("pictureReviewPendingNote") : undefined}
+              photoWaitingNote={member.review_state === "pending" ? t("cardPhotoWaiting") : undefined}
+              photoWaitingInfoLabel={
+                member.review_state === "pending"
+                  ? commonT("aboutTitle", { title: t("pictureReviewPendingNote") })
+                  : undefined
+              }
             />
 
             <MemberHistoryTimeline

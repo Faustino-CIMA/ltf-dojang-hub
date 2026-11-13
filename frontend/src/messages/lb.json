@@ -4120,6 +4120,7 @@
     "pictureReviewPending": "Déi nei Foto waart op d'Accord vum Club. Déi aktuell Foto bleift.",
     "pictureReviewSent": "Är Foto gouf un Äre Club geschéckt fir d'Accord.",
     "pictureReviewPendingNote": "Waart op d'Accord",
+    "cardPhotoWaiting": "Eng nei Foto waart op d'Accord vum Club. Dës Kaart weist nach déi aktuell Foto.",
     "pictureReviewRejectedTitle": "Foto net ugeholl",
     "pictureReviewRejected": "De Club huet dës Foto net ugeholl. Déi aktuell Foto bleift. Dir kënnt eng nei schécken.",
     "pictureReviewRejectedReason": "Grond: {reason}",
