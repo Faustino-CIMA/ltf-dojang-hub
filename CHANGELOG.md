@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Profile photos:** The review panel shows the current photo and the new photo in the same tall frame as the photo on the license card. The picture is not stretched or cropped to a wide box.
 - **Profile photos:** A new photo from someone under 18 waits for the club. Club admins and LTF admins can compare the current photo and the new one, then approve or reject it. The member list shows a badge, the row menu can open the review, and the header envelope counts what is waiting. A view-only desk sees none of this. A coach sees the badge only.
 - **Member list:** "Waiting for first login" goes away once the person has signed in, including a minor who signs in with a username. The first-login link cannot be used after that.
 - **Minor accounts:** The first-login page for someone under 18 asks for a password and shows the username. It does not ask for an email. An adult invitation still asks for an email.

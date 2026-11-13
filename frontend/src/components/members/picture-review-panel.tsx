@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { API_URL, apiRequest } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { readActiveDeskHeader } from "@/lib/active-desk";
+import { memberPhotoAspectRatio } from "@/lib/member-photo-frame";
 
 type ReviewDetail = {
   id: number;
@@ -149,19 +150,29 @@ export function PictureReviewPanel({
       <div className="grid grid-cols-2 gap-3">
         <figure className="space-y-1">
           <figcaption className="text-sm text-muted">{t("pictureReviewCurrent")}</figcaption>
-          {currentSrc ? (
-            <img src={currentSrc} alt={t("pictureReviewCurrent")} className="h-40 w-full rounded-[var(--radius-card)] object-cover" />
-          ) : (
-            <p className="text-sm text-muted">{t("pictureReviewNoPhoto")}</p>
-          )}
+          <div
+            className="mx-auto w-full max-w-56 overflow-hidden rounded-[var(--radius-card)] border border-border bg-secondary"
+            style={{ aspectRatio: memberPhotoAspectRatio }}
+          >
+            {currentSrc ? (
+              <img src={currentSrc} alt={t("pictureReviewCurrent")} className="h-full w-full object-contain" />
+            ) : (
+              <p className="p-2 text-sm text-muted">{t("pictureReviewNoPhoto")}</p>
+            )}
+          </div>
         </figure>
         <figure className="space-y-1">
           <figcaption className="text-sm text-muted">{t("pictureReviewNew")}</figcaption>
-          {pendingSrc ? (
-            <img src={pendingSrc} alt={t("pictureReviewNew")} className="h-40 w-full rounded-[var(--radius-card)] object-cover" />
-          ) : (
-            <p className="text-sm text-muted">{t("pictureReviewNoPhoto")}</p>
-          )}
+          <div
+            className="mx-auto w-full max-w-56 overflow-hidden rounded-[var(--radius-card)] border border-border bg-secondary"
+            style={{ aspectRatio: memberPhotoAspectRatio }}
+          >
+            {pendingSrc ? (
+              <img src={pendingSrc} alt={t("pictureReviewNew")} className="h-full w-full object-contain" />
+            ) : (
+              <p className="p-2 text-sm text-muted">{t("pictureReviewNoPhoto")}</p>
+            )}
+          </div>
         </figure>
       </div>
       <label className="mt-3 block space-y-1">
