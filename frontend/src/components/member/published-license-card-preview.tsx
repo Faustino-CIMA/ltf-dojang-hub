@@ -6,6 +6,7 @@ import { LoadingCard } from "@/components/ui/loading-card";
 
 import {
   buildCardSimulationSrcDoc,
+  calculateCardDisplayFrame,
   calculateCardSimulationFrameLayout,
 } from "@/lib/card-simulation";
 import {
@@ -36,7 +37,15 @@ function CardPreviewFrame({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayWidth, setDisplayWidth] = useState(MAX_DISPLAY_WIDTH_PX);
+  const [pixelRatio, setPixelRatio] = useState(1);
   const layout = useMemo(() => calculateCardSimulationFrameLayout(payload), [payload]);
+
+  useEffect(() => {
+    const readRatio = () => setPixelRatio(window.devicePixelRatio || 1);
+    readRatio();
+    window.addEventListener("resize", readRatio);
+    return () => window.removeEventListener("resize", readRatio);
+  }, []);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -55,34 +64,39 @@ function CardPreviewFrame({
     return () => observer.disconnect();
   }, []);
 
-  const iframeWidth = Math.max(1, Math.round(displayWidth));
-  const iframeHeight = Math.max(
-    1,
-    Math.round(iframeWidth * (layout.renderedHeightPx / layout.renderedWidthPx))
+  const frame = useMemo(
+    () => calculateCardDisplayFrame(displayWidth, pixelRatio, layout),
+    [displayWidth, layout, pixelRatio],
   );
   const srcDoc = useMemo(
-    () => buildCardSimulationSrcDoc(payload, { targetWidthPx: iframeWidth }),
-    [payload, iframeWidth]
+    () => buildCardSimulationSrcDoc(payload, { targetWidthPx: displayWidth, pixelRatio }),
+    [payload, displayWidth, pixelRatio],
   );
-  const cornerRadiusPx = (CARD_CORNER_RADIUS_MM / CARD_WIDTH_MM) * iframeWidth;
+  const cornerRadiusPx = (CARD_CORNER_RADIUS_MM / CARD_WIDTH_MM) * frame.visualWidthPx;
+  const iframeScale = frame.visualWidthPx / frame.internalWidthPx;
 
   return (
     <div ref={containerRef} className="w-full max-w-[420px]">
       <div
         className="overflow-hidden border border-border bg-surface"
         style={{
-          width: iframeWidth,
-          height: iframeHeight,
+          width: frame.visualWidthPx,
+          height: frame.visualHeightPx,
           borderRadius: cornerRadiusPx,
         }}
       >
         <iframe
           title={title}
-          className="pointer-events-none block border-0"
+          className="pointer-events-none block origin-top-left border-0"
           scrolling="no"
           tabIndex={-1}
-          width={iframeWidth}
-          height={iframeHeight}
+          width={frame.internalWidthPx}
+          height={frame.internalHeightPx}
+          style={{
+            width: frame.internalWidthPx,
+            height: frame.internalHeightPx,
+            transform: `scale(${iframeScale})`,
+          }}
           srcDoc={srcDoc}
         />
       </div>

@@ -16,6 +16,15 @@ export type CardSimulationFrameLayout = {
   renderedHeightPx: number;
 };
 
+export type CardDisplayFrame = {
+  pixelRatio: number;
+  internalWidthPx: number;
+  internalHeightPx: number;
+  visualWidthPx: number;
+  visualHeightPx: number;
+  fillScale: number;
+};
+
 function toFiniteNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -51,6 +60,27 @@ export function calculateCardSimulationFrameLayout(
   };
 }
 
+/** One scale for the whole card. Text stays laid out at the print size, then the frame is scaled onto device pixels. */
+export function calculateCardDisplayFrame(
+  displayWidthPx: number,
+  pixelRatio: number,
+  layout: CardSimulationFrameLayout,
+): CardDisplayFrame {
+  const dpr = Math.max(1, toFiniteNumber(pixelRatio, 1));
+  const safeWidth = Math.max(1, toFiniteNumber(displayWidthPx, layout.renderedWidthPx));
+  const internalWidthPx = Math.max(1, Math.round(safeWidth * dpr));
+  const aspect = layout.renderedHeightPx / layout.renderedWidthPx;
+  const internalHeightPx = Math.max(1, Math.round(internalWidthPx * aspect));
+  return {
+    pixelRatio: dpr,
+    internalWidthPx,
+    internalHeightPx,
+    visualWidthPx: internalWidthPx / dpr,
+    visualHeightPx: internalHeightPx / dpr,
+    fillScale: internalWidthPx / layout.renderedWidthPx,
+  };
+}
+
 export function buildCardSimulationSrcDoc(
   payload: CardPreviewHtmlResponse | null,
   options?: { pixelRatio?: number; targetWidthPx?: number }
@@ -62,14 +92,14 @@ export function buildCardSimulationSrcDoc(
   const simulationHtml = payload.html || "";
   const simulationCss = payload.css || "";
   const targetWidthPx = options?.targetWidthPx;
-  // Display-fit path: scale the CSS-mm canvas so it fills the iframe.
-  // Do not apply the designer 72/96 PDF scale here — that leaves a 25% white
-  // letterbox around the card. Retina is left to the browser's devicePixelRatio.
+  // Display-fit path: lay the card out once at print size, then scale that
+  // whole frame onto an integer device-pixel canvas. No viewport meta, so a
+  // phone does not reflow the text, and the bottom edge is not rounded away.
   if (targetWidthPx != null) {
-    const docWidth = Math.max(1, toFiniteNumber(targetWidthPx, layout.renderedWidthPx));
-    const docHeight = docWidth * (layout.renderedHeightPx / layout.renderedWidthPx);
-    const fillScale = docWidth / layout.renderedWidthPx;
-    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${docWidth}, initial-scale=1, maximum-scale=1"><style>${simulationCss}</style><style>html,body{margin:0;padding:0;overflow:hidden;width:${docWidth}px;height:${docHeight}px;background:transparent;}html,body,*{-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-text-size-adjust:none;}#card-simulation-root{width:${layout.renderedWidthPx}px;height:${layout.renderedHeightPx}px;display:block;transform-origin:top left;transform:scale(${fillScale.toFixed(6)});}</style></head><body><div id="card-simulation-root">${simulationHtml}</div></body></html>`;
+    const frame = calculateCardDisplayFrame(targetWidthPx, options?.pixelRatio ?? 1, layout);
+    const rootWidth = layout.renderedWidthPx;
+    const rootHeight = layout.renderedHeightPx;
+    return `<!doctype html><html><head><meta charset="utf-8"><style>${simulationCss}</style><style>html,body{margin:0;padding:0;overflow:hidden;width:${frame.internalWidthPx}px;height:${frame.internalHeightPx}px;background:transparent;}html,body,*{-webkit-text-size-adjust:none !important;text-size-adjust:none !important;}#card-simulation-root{width:${rootWidth}px;height:${rootHeight}px;display:block;transform-origin:top left;transform:scale(${frame.fillScale.toFixed(6)});}</style></head><body><div id="card-simulation-root">${simulationHtml}</div></body></html>`;
   }
   const pixelRatio = Math.max(1, toFiniteNumber(options?.pixelRatio, 1));
   const docWidth = layout.renderedWidthPx * pixelRatio;
