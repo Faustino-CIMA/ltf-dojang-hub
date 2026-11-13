@@ -2,6 +2,7 @@ import type { CardPreviewHtmlResponse } from "@/lib/license-card-api";
 
 import {
   buildCardSimulationSrcDoc,
+  calculateCardDisplayFrame,
   calculateCardSimulationFrameLayout,
 } from "@/lib/card-simulation";
 
@@ -58,6 +59,31 @@ describe("card simulation utilities", () => {
     expect(srcDoc).toContain(`width:${layout.renderedWidthPx}px`);
     expect(srcDoc).toContain(`transform:scale(${expectedScale.toFixed(6)})`);
     expect(srcDoc).not.toContain("transform:scale(0.750000)");
+    expect(srcDoc).not.toContain("viewport");
+    expect(srcDoc).toContain("text-size-adjust:none");
+  });
+
+  it("keeps the print layout and scales the whole frame at DPR 1, 2 and 3", () => {
+    const payload = buildSimulationPayload();
+    const layout = calculateCardSimulationFrameLayout(payload);
+
+    for (const dpr of [1, 2, 3]) {
+      const frame = calculateCardDisplayFrame(420, dpr, layout);
+      const srcDoc = buildCardSimulationSrcDoc(payload, { targetWidthPx: 420, pixelRatio: dpr });
+
+      expect(frame.internalWidthPx).toBe(Math.round(420 * dpr));
+      expect(frame.internalHeightPx / frame.internalWidthPx).toBeCloseTo(
+        layout.renderedHeightPx / layout.renderedWidthPx,
+        2,
+      );
+      expect(frame.visualWidthPx * dpr).toBe(frame.internalWidthPx);
+      expect(frame.visualHeightPx * dpr).toBe(frame.internalHeightPx);
+      expect(srcDoc).toContain(`width:${layout.renderedWidthPx}px`);
+      expect(srcDoc).toContain(`height:${layout.renderedHeightPx}px`);
+      expect(srcDoc).toContain(`width:${frame.internalWidthPx}px`);
+      expect(srcDoc).toContain(`transform:scale(${frame.fillScale.toFixed(6)})`);
+      expect(srcDoc).not.toContain("transform:scale(0.750000)");
+    }
   });
 
   it("matches browser PDF preview point scale", () => {

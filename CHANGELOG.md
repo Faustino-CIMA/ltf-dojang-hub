@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **License cards:** The card preview uses one scale for the whole card, so the header and the expiry date stay in place on a phone and on a high-density screen.
 - **Photos:** Send another photo on a rejected picture opens the file picker. After the club approves a new photo, that photo shows on the member's profile.
 - **Photos:** When a club or LTF admin does not approve a new photo, the member sees a notice in the header and on the Photo page. A parent or guardian also receives an email. The current photo stays. The member can send another photo. A short reason is optional.
 - **Desks:** When the open desk is closed, the app moves to a desk that is still open, or back to sign-in, without reloading the whole page. The page keeps a stable scrollbar so that move does not shift the layout.
