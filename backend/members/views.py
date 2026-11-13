@@ -962,12 +962,14 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
 
         response_name = Path(str(image_field.name or "")).name or fallback_name
         content_type = mimetypes.guess_type(response_name)[0] or "application/octet-stream"
-        return FileResponse(
+        response = FileResponse(
             image_field,
             as_attachment=as_attachment,
             filename=response_name,
             content_type=content_type,
         )
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 class AdminNoticeListView(APIView):

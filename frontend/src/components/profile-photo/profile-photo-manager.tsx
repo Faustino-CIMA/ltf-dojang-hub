@@ -77,6 +77,8 @@ type ProfilePhotoManagerProps = {
   readOnly?: boolean;
   isPageEditor?: boolean;
   onCancelEditor?: () => void;
+  /** Increment to scroll the editor into view and open the file picker. */
+  openPickerRequest?: number;
   /** Rear camera when photographing someone else. Front camera for a self photo. */
   cameraFacing?: CameraFacing;
 };
@@ -170,6 +172,7 @@ export function ProfilePhotoManager({
   isPageEditor = false,
   onCancelEditor,
   cameraFacing = "environment",
+  openPickerRequest = 0,
 }: ProfilePhotoManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -211,6 +214,7 @@ export function ProfilePhotoManager({
     setCanSwitchCamera(false);
   }, []);
 
+  const rootRef = useRef<HTMLElement | null>(null);
   const sourceInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -235,6 +239,16 @@ export function ProfilePhotoManager({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!openPickerRequest) {
+      return;
+    }
+    if (typeof rootRef.current?.scrollIntoView === "function") {
+      rootRef.current.scrollIntoView({ block: "start" });
+    }
+    sourceInputRef.current?.click();
+  }, [openPickerRequest]);
 
   useEffect(() => {
     if (!isCameraOpen || !videoRef.current || !cameraStreamRef.current) {
@@ -814,7 +828,7 @@ export function ProfilePhotoManager({
   return (
     <>
       {isPageEditor ? (
-        <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">{editorContent}</section>
+        <section ref={rootRef} className="rounded-[var(--radius-card)] bg-card p-3 border border-border">{editorContent}</section>
       ) : (
         <>
           <section className="rounded-[var(--radius-card)] bg-card p-3 border border-border">

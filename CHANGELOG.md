@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** Send another photo on a rejected picture opens the file picker. After the club approves a new photo, that photo shows on the member's profile.
 - **Photos:** When a club or LTF admin does not approve a new photo, the member sees a notice in the header and on the Photo page. A parent or guardian also receives an email. The current photo stays. The member can send another photo. A short reason is optional.
 - **Desks:** When the open desk is closed, the app moves to a desk that is still open, or back to sign-in, without reloading the whole page. The page keeps a stable scrollbar so that move does not shift the layout.
 - **Sign-in:** Sign-in, forgotten password, reset password, first login, and the authenticator step share one branded card of the same width. The public site header stays off these pages. The card keeps its height when the fields change.

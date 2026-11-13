@@ -314,6 +314,22 @@ class PictureNoticeTests(TestCase):
             )
         self.assertEqual(approved.status_code, 200, approved.data)
         approve_send.assert_not_called()
+        picture = minor.get(f"/api/members/{child.id}/profile-picture/processed/")
+        self.assertEqual(picture.status_code, 200)
+        self.assertGreater(len(b"".join(picture.streaming_content)), 20)
+        self.assertEqual(picture["Cache-Control"], "no-store")
+        thumb = minor.get(f"/api/members/{child.id}/profile-picture/thumbnail/")
+        self.assertEqual(thumb.status_code, 200)
+        listed = minor.get("/api/members/")
+        rows = listed.data["results"] if isinstance(listed.data, dict) else listed.data
+        own = next(row for row in rows if row["id"] == child.id)
+        self.assertIn(f"/api/members/{child.id}/profile-picture/processed/?v=", own["profile_picture_url"])
+        stranger = APIClient()
+        stranger.force_authenticate(user=self.other_admin)
+        self.assertEqual(
+            stranger.get(f"/api/members/{child.id}/profile-picture/processed/").status_code,
+            404,
+        )
         self.assertFalse(
             AdminNotice.objects.filter(member=child, kind="picture_rejected", resolved_at__isnull=True).exists()
         )

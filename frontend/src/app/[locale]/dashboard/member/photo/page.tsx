@@ -32,6 +32,7 @@ export default function MemberProfilePhotoPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingNote, setPendingNote] = useState<string | null>(null);
   const [sentNote, setSentNote] = useState<string | null>(null);
+  const [openPickerRequest, setOpenPickerRequest] = useState(0);
 
   const loadMember = useCallback(async () => {
     setIsLoading(true);
@@ -69,7 +70,7 @@ export default function MemberProfilePhotoPage() {
             info={t("pictureReviewRejectedInfo")}
             infoLabel={common("aboutTitle", { title: t("pictureReviewRejectedTitle") })}
             actionLabel={t("pictureReviewSendAnother")}
-            onSendAnother={() => document.getElementById("member-photo-editor")?.scrollIntoView({ block: "start" })}
+            onSendAnother={() => setOpenPickerRequest((current) => current + 1)}
           />
         ) : null}
         {pendingNote ? <p className="text-sm text-muted">{pendingNote}</p> : null}
@@ -116,6 +117,7 @@ export default function MemberProfilePhotoPage() {
               removeBackgroundUnsupported: t("photoUnsupportedError"),
             }}
             isPageEditor
+            openPickerRequest={openPickerRequest}
             onCancelEditor={() => router.push(backHref)}
             onSave={async (input) => {
               const saved = await uploadMemberProfilePicture(member.id, {
