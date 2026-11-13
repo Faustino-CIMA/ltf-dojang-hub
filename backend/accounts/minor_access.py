@@ -1,8 +1,8 @@
 """One rule for what a minor account may call.
 
 A minor account is created under 18. The flag stays after the 18th birthday.
-Until then, and after, the account may only read its own member home and
-upload a profile picture. Every other API is refused here.
+Until then, and after, the account may only read its own member home,
+read its own notices, and upload a profile picture. Every other API is refused here.
 """
 
 from __future__ import annotations
@@ -22,6 +22,8 @@ def minor_request_allowed(path: str, method: str) -> bool:
         return True
     if clean.startswith("/api/auth/me"):
         return method in {"GET", "HEAD"}
+    if clean.rstrip("/") == "/api/notices" and method in {"GET", "HEAD"}:
+        return True
     if clean.startswith("/api/auth/account-setup/") or clean.startswith("/api/auth/password-reset/"):
         return True
     if clean.rstrip("/") == "/api/members" and method in {"GET", "HEAD"}:

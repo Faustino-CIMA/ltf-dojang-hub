@@ -1,0 +1,9 @@
+{{ copy.greeting }}
+
+{{ copy.body }}
+{% if copy.reason %}
+
+{{ copy.reason }}
+{% endif %}
+
+LTF Dojang Hub

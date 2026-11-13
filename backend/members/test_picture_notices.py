@@ -1,5 +1,6 @@
 import importlib
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.apps import apps
 from django.test import TestCase
@@ -233,3 +234,86 @@ class PictureNoticeTests(TestCase):
         adult.refresh_from_db()
         self.assertTrue(adult.profile_picture_processed)
         self.assertFalse(AdminNotice.objects.filter(member=adult).exists())
+
+    def test_a_rejection_tells_the_member_and_emails_only_the_guardian(self):
+        child, minor = self._queue()
+        other = User.objects.create_user(
+            username="other-child",
+            email="other-child@example.test",
+            password="pass12345",
+            role=User.Roles.MEMBER,
+        )
+        with patch("accounts.email_utils.send_resend_email", return_value=(True, "")) as send:
+            rejected = self.client.post(
+                f"/api/members/{child.id}/picture-review/",
+                {"decision": "reject", "reason": "Too dark", "locale": "en"},
+                format="json",
+            )
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+        self.assertEqual(send.call_count, 1)
+        self.assertEqual(send.call_args.args[0], "parent@example.test")
+        self.assertEqual(send.call_args.args[1], "Photo not approved")
+        self.assertIn("Too dark", send.call_args.args[3])
+        self.assertNotIn("child@example.test", send.call_args.args[0])
+        member_notices = minor.get("/api/notices/")
+        self.assertEqual(member_notices.status_code, 200, member_notices.data)
+        self.assertEqual([row["kind"] for row in member_notices.data], ["picture_rejected"])
+        self.assertEqual(self.client.get("/api/notices/").data, [])
+        stranger = APIClient()
+        stranger.force_authenticate(user=other)
+        self.assertEqual(stranger.get("/api/notices/").data, [])
+        coach_client = APIClient()
+        coach_client.force_authenticate(user=self.coach)
+        self.assertEqual(coach_client.get("/api/notices/").data, [])
+        seen = self._row(child.id, minor)
+        self.assertEqual(seen["review_state"], "rejected")
+        self.assertEqual(seen["rejection_reason"], "Too dark")
+
+    def test_a_blank_reason_still_rejects_and_a_missing_guardian_address_does_not_block_it(self):
+        child, minor = self._queue()
+        child.user.guardian_notice_email = ""
+        child.user.save(update_fields=["guardian_notice_email"])
+        with patch("accounts.email_utils.send_resend_email", return_value=(True, "")) as send:
+            rejected = self.client.post(
+                f"/api/members/{child.id}/picture-review/",
+                {"decision": "reject", "reason": "   ", "locale": "fr"},
+                format="json",
+            )
+        self.assertEqual(rejected.status_code, 200, rejected.data)
+        send.assert_not_called()
+        notice = AdminNotice.objects.get(member=child, kind="picture_rejected", resolved_at__isnull=True)
+        self.assertEqual(notice.reason, "")
+        self.assertEqual(self._row(child.id, minor)["rejection_reason"], "")
+
+    def test_a_new_photo_closes_the_member_notice_and_approval_sends_no_mail(self):
+        child, minor = self._queue()
+        with patch("accounts.email_utils.send_resend_email", return_value=(True, "")) as send:
+            self.client.post(
+                f"/api/members/{child.id}/picture-review/",
+                {"decision": "reject", "reason": "Too dark", "locale": "de"},
+                format="json",
+            )
+        self.assertEqual(send.call_count, 1)
+        again = minor.post(
+            f"/api/members/{child.id}/profile-picture/",
+            {"processed_image": _jpeg(), "photo_consent_confirmed": "true"},
+            format="multipart",
+        )
+        self.assertEqual(again.status_code, 202, getattr(again, "data", None))
+        self.assertFalse(
+            AdminNotice.objects.filter(member=child, kind="picture_rejected", resolved_at__isnull=True).exists()
+        )
+        self.assertEqual(minor.get("/api/notices/").data, [])
+        self.assertEqual(self._row(child.id, minor)["review_state"], "pending")
+        self.assertEqual(self._row(child.id, minor)["rejection_reason"], "")
+        with patch("accounts.email_utils.send_resend_email", return_value=(True, "")) as approve_send:
+            approved = self.client.post(
+                f"/api/members/{child.id}/picture-review/",
+                {"decision": "approve", "locale": "en"},
+                format="json",
+            )
+        self.assertEqual(approved.status_code, 200, approved.data)
+        approve_send.assert_not_called()
+        self.assertFalse(
+            AdminNotice.objects.filter(member=child, kind="picture_rejected", resolved_at__isnull=True).exists()
+        )

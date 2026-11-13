@@ -109,6 +109,28 @@ def _email_context(template: str, language: str, context: dict, **values) -> tup
     return {**context, "copy": copy}, copy["subject"]
 
 
+def send_picture_rejected_email(*, to_email: str, language: str, name: str, reason: str, member_id: int) -> tuple[bool, str]:
+    """Tell the guardian. Skip quietly when no address is stored. Never log the address."""
+    if not str(to_email or "").strip():
+        logger.info("picture_rejected_email_skipped_missing_address member_id=%s", member_id)
+        return False, "missing_address"
+    context, subject = _email_context(
+        "picture_rejected",
+        language,
+        {},
+        name=name or "",
+        reason=reason or "",
+    )
+    if not str(reason or "").strip():
+        context["copy"]["reason"] = ""
+    html = render_to_string("account/email/picture_rejected.html", context)
+    text = render_to_string("account/email/picture_rejected.txt", context)
+    ok, error = send_resend_email(to_email, subject, html, text)
+    if not ok:
+        logger.warning("picture_rejected_email_failed member_id=%s", member_id)
+    return ok, error
+
+
 def send_minor_invite_email(user, invite_url: str, language: str, child_name: str, to_email: str):
     """First-login mail for a parent. The address is the destination, not the login."""
     shown = child_name.strip() or f"{user.first_name} {user.last_name}".strip() or user.username or ""

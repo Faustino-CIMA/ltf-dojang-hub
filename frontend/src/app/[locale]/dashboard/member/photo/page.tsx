@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberLayout } from "@/components/member/member-layout";
+import { PhotoRejectionNote } from "@/components/profile-photo/photo-rejection-note";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { apiRequest } from "@/lib/api";
 import { Member, getMembers, uploadMemberProfilePicture } from "@/lib/ltf-admin-api";
@@ -19,6 +20,7 @@ type MeResponse = {
 
 export default function MemberProfilePhotoPage() {
   const t = useTranslations("Member");
+  const common = useTranslations("Common");
   const router = useRouter();
   const params = useParams();
   const rawLocale = params?.locale;
@@ -60,10 +62,15 @@ export default function MemberProfilePhotoPage() {
         {sentNote ? <p className="text-sm text-muted">{sentNote}</p> : null}
         {member?.review_state === "pending" ? <p className="text-sm text-muted">{t("pictureReviewPendingNote")}</p> : null}
         {member?.review_state === "rejected" ? (
-          <div className="text-sm text-muted">
-            <p>{t("pictureReviewRejected")}</p>
-            {member.rejection_reason ? <p>{t("pictureReviewRejectedReason", { reason: member.rejection_reason })}</p> : null}
-          </div>
+          <PhotoRejectionNote
+            title={t("pictureReviewRejectedTitle")}
+            body={t("pictureReviewRejected")}
+            reason={member.rejection_reason ? t("pictureReviewRejectedReason", { reason: member.rejection_reason }) : ""}
+            info={t("pictureReviewRejectedInfo")}
+            infoLabel={common("aboutTitle", { title: t("pictureReviewRejectedTitle") })}
+            actionLabel={t("pictureReviewSendAnother")}
+            onSendAnother={() => document.getElementById("member-photo-editor")?.scrollIntoView({ block: "start" })}
+          />
         ) : null}
         {pendingNote ? <p className="text-sm text-muted">{pendingNote}</p> : null}
 
@@ -72,7 +79,8 @@ export default function MemberProfilePhotoPage() {
         ) : !member ? (
           <EmptyState title={t("emptyTitle")} description={t("emptySubtitle")} />
         ) : (
-          <ProfilePhotoManager
+          <div id="member-photo-editor">
+            <ProfilePhotoManager
             cameraFacing="user"
             imageUrl={member.profile_picture_url}
             thumbnailUrl={member.profile_picture_thumbnail_url}
@@ -124,7 +132,8 @@ export default function MemberProfilePhotoPage() {
               }
               router.push(backHref);
             }}
-          />
+            />
+          </div>
         )}
       </div>
     </MemberLayout>

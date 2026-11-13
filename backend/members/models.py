@@ -450,6 +450,7 @@ class AdminNotice(models.Model):
 
     class Kind(models.TextChoices):
         PICTURE_REVIEW = "picture_review", _("Picture review")
+        PICTURE_REJECTED = "picture_rejected", _("Picture rejected")
 
     kind = models.CharField(max_length=40, choices=Kind.choices)
     club = models.ForeignKey(

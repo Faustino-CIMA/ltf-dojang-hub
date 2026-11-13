@@ -859,6 +859,24 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
         except DjangoValidationError as exc:
             raise DRFValidationError(getattr(exc, "messages", None) or str(exc)) from exc
         notice = resolve_picture_notice(member, request.user, decision, reason)
+        if decision == "reject":
+            from .notices import open_picture_rejected_notice
+            from accounts.email_utils import send_picture_rejected_email
+
+            open_picture_rejected_notice(member, notice.reason)
+            locale = str(request.data.get("locale") or "").strip().lower()
+            if locale not in {"en", "fr", "de", "lb"}:
+                locale = "en"
+            child = member.user if getattr(member, "user_id", None) else None
+            guardian = str(getattr(child, "guardian_notice_email", "") or "").strip()
+            child_name = f"{member.first_name} {member.last_name}".strip()
+            send_picture_rejected_email(
+                to_email=guardian,
+                language=locale,
+                name=child_name,
+                reason=notice.reason,
+                member_id=member.id,
+            )
         write_ops_audit(
             request,
             action="members.picture_review",
@@ -958,10 +976,14 @@ class AdminNoticeListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        from .notices import open_notices_for
+        from .notices import PICTURE_REVIEW, member_rejection_notices, open_notices_for, reviewer_mode
 
+        if reviewer_mode(request) in {"decide_all", "decide_clubs"}:
+            notices = open_notices_for(request).filter(kind=PICTURE_REVIEW)
+        else:
+            notices = member_rejection_notices(request.user)
         rows = []
-        for notice in open_notices_for(request).order_by("-opened_at", "-id"):
+        for notice in notices.order_by("-opened_at", "-id"):
             member = notice.member
             name = ""
             if member is not None:
