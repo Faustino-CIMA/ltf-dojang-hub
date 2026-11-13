@@ -9,6 +9,7 @@ import { ClubFormPanel } from "@/components/ltf-admin/club-form-panel";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -186,6 +187,7 @@ export default function LtfAdminClubsPage() {
   const selectedClubItems = selectedClubs.map((club) =>
     club.locality || club.city ? `${club.name} · ${club.locality || club.city}` : club.name
   );
+  const keptList = useStaleWhileLoading("ltf-clubs", pagedClubs, isLoading);
 
   return (
     <LtfAdminLayout title={t("clubsTitle")} subtitle={t("clubsSubtitle")} hintSubtitle>
@@ -296,9 +298,9 @@ export default function LtfAdminClubsPage() {
           />
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : searchedClubs.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noClubsResultsSubtitle")} />
         ) : (
           <EntityTable
@@ -383,7 +385,7 @@ export default function LtfAdminClubsPage() {
                 ),
               },
             ]}
-            rows={pagedClubs}
+            rows={keptList.rows}
             sort={tableSort}
             onSortChange={setTableSort}
             onRowClick={(club) => router.push(`/${locale}/dashboard/ltf/clubs/${club.id}`)}

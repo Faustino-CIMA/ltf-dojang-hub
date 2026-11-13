@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,7 @@ export default function LtfAdminLicenseTypesPage() {
       );
     });
   }, [licenseTypes, searchQuery]);
+  const keptList = useStaleWhileLoading("ltf-license-types", filteredTypes, isLoading);
 
   const onSubmit = async (values: LicenseTypeFormValues) => {
     setErrorMessage(null);
@@ -193,9 +195,9 @@ export default function LtfAdminLicenseTypesPage() {
           />
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : filteredTypes.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noLicenseTypesResultsSubtitle")} />
         ) : (
           <EntityTable
@@ -222,7 +224,7 @@ export default function LtfAdminLicenseTypesPage() {
                   ]
                 : []),
             ]}
-            rows={filteredTypes}
+            rows={keptList.rows}
           />
         )}
       </div>

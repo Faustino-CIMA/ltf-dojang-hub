@@ -30,6 +30,7 @@ import {
   SelectionMeta,
 } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { displayPageSize, readListPage } from "@/lib/list-page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
@@ -106,6 +107,7 @@ export default function LtfAdminMembersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const memberList = useStaleWhileLoading("ltf-members", members, isLoading);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
   const [memberFacetCounts, setMemberFacetCounts] = useState({
@@ -770,14 +772,14 @@ export default function LtfAdminMembersPage() {
           />
         </div>
 
-        {isLoading ? (
+        {memberList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : members.length === 0 ? (
+        ) : memberList.rows.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noMembersResultsSubtitle")} />
         ) : (
           <EntityTable
             columns={columns}
-            rows={members}
+            rows={memberList.rows}
             sort={tableSort}
             onSortChange={setTableSort}
             onRowClick={(member) => router.push(`/${locale}/dashboard/ltf/members/${member.id}`)}

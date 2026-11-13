@@ -12,6 +12,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ActionNotices, PageSizeSelect, SelectionMeta } from "@/components/ui/list-page-chrome";
 import { useListPage } from "@/components/ui/use-list-page";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { displayPageSize, readListPage } from "@/lib/list-page";
 import { resolveAssignedClubId, useClubSelection } from "@/components/club-selection-provider";
 import {
@@ -53,6 +54,7 @@ export default function ClubAdminLicensesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const licenseList = useStaleWhileLoading("club-licenses", licenses, isLoading);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [selectedLicenseIds, setSelectedLicenseIds] = useState<number[]>([]);
@@ -423,14 +425,14 @@ export default function ClubAdminLicensesPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {licenseList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : licenses.length === 0 ? (
+        ) : licenseList.rows.length === 0 ? (
           <EmptyState title={t("noResultsTitle")} description={t("noLicensesResultsSubtitle")} />
         ) : (
           <EntityTable
             columns={columns}
-            rows={licenses}
+            rows={licenseList.rows}
             sort={tableSort}
             onSortChange={setTableSort}
             onRowClick={(license) =>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { PrintJobRowActions } from "@/components/print-jobs/print-job-row-actions";
@@ -147,6 +148,7 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
       );
     });
   }, [clubNameById, jobs, searchQuery, statusFilter]);
+  const keptList = useStaleWhileLoading("ltf-print-jobs", filteredJobs, isLoading);
 
   const printJobFacetCounts = useMemo(() => {
     const counts = {
@@ -350,9 +352,9 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
           />
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : filteredJobs.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState
             title={t("licenseCardPrintJobsEmptyTitle")}
             description={t("licenseCardPrintJobsEmptySubtitle")}
@@ -362,7 +364,7 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
             clientSort
             sort={tableSort}
             onSortChange={setTableSort}
-            rows={filteredJobs}
+            rows={keptList.rows}
             columns={[
               {
                 key: "job_number",

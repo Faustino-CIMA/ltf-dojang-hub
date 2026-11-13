@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { EntityTable } from "@/components/club-admin/entity-table";
 import { PrintJobRowActions } from "@/components/print-jobs/print-job-row-actions";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,7 @@ export default function ClubPrintJobsPage() {
       );
     });
   }, [clubNameById, jobs, searchQuery, statusFilter]);
+  const keptList = useStaleWhileLoading("club-print-jobs", filteredJobs, isLoading);
 
   const getStatusMeta = (status: PrintJobStatus) => {
     switch (status) {
@@ -259,16 +261,16 @@ export default function ClubPrintJobsPage() {
           </Button>
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : filteredJobs.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("printJobsEmptyTitle")} description={t("printJobsEmptySubtitle")} />
         ) : (
           <EntityTable
             clientSort
             sort={tableSort}
             onSortChange={setTableSort}
-            rows={filteredJobs}
+            rows={keptList.rows}
             columns={[
               { key: "job_number", header: t("printJobLabel"), sortable: true, sortValue: (job) => job.job_number },
               {

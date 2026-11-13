@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import {
   useCallback,
   useEffect,
@@ -69,6 +70,7 @@ export default function LtfFinanceInvoicesPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("ltf-invoices", invoices, isLoading);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
   const isRefreshingRef = useRef(false);
@@ -431,14 +433,14 @@ export default function LtfFinanceInvoicesPage() {
         />
       </div>
 
-      {isLoading ? (
+      {keptList.showSkeleton ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-      ) : invoices.length === 0 ? (
+      ) : keptList.rows.length === 0 ? (
         <EmptyState title={t("noInvoicesTitle")} description={t("noInvoicesSubtitle")} />
       ) : (
         <EntityTable
           columns={columns}
-          rows={invoices}
+          rows={keptList.rows}
           sort={tableSort}
           onSortChange={setTableSort}
           onRowClick={(invoice) =>

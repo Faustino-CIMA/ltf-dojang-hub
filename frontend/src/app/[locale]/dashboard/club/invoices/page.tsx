@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -56,6 +57,7 @@ export default function ClubAdminInvoicesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("club-invoices", invoices, isLoading);
   const [tableSort, setTableSort] = useState<TableSort | null>(null);
   const ordering = toOrderingParam(tableSort);
   const [invoiceFacetCounts, setInvoiceFacetCounts] = useState({
@@ -441,14 +443,14 @@ export default function ClubAdminInvoicesPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : invoices.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("noInvoicesTitle")} description={t("noInvoicesSubtitle")} />
         ) : (
           <EntityTable
             columns={columns}
-            rows={invoices}
+            rows={keptList.rows}
             sort={tableSort}
             onSortChange={setTableSort}
             onRowClick={(row) => router.push(`/${locale}/dashboard/club/invoices/${row.id}`)}
