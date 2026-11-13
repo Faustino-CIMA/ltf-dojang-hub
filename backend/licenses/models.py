@@ -85,12 +85,31 @@ class LicenseTypePolicy(models.Model):
 
 
 def get_default_license_type():
-    # Kept for historical migrations that reference this callable.
-    license_type, _ = LicenseType._default_manager.get_or_create(
-        code="paid",
-        defaults={"name": "Paid"},
-    )
-    return cast(LicenseType, license_type).pk
+    """Id of the paid license type. Old migrations call this while the table is still incomplete.
+
+    The lookup stays on name and code only. A later column such as archived_at
+    must not be selected or inserted here.
+    """
+    from django.db import connection
+
+    now = timezone.now()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT id FROM licenses_licensetype WHERE code = %s ORDER BY id LIMIT 1",
+            ["paid"],
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        cursor.execute(
+            """
+            INSERT INTO licenses_licensetype (name, code, created_at, updated_at)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+            """,
+            ["Paid", "paid", now, now],
+        )
+        return cursor.fetchone()[0]
 
 
 class LicensePrice(models.Model):
