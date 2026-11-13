@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
@@ -271,7 +271,9 @@ class ModuleRenewalJobTests(APITestCase):
             currency="EUR",
             subtotal=Decimal("80.00"),
             total=Decimal("80.00"),
-            issued_at=timezone.now() - timedelta(days=31),
+            issued_at=timezone.make_aware(
+                datetime.combine(self.today - timedelta(days=31), datetime.min.time())
+            ),
         )
         from licenses.models import OrderItem
 
