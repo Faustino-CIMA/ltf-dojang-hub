@@ -367,7 +367,8 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
       }
       if (error instanceof AuthApiError && error.code === "desk_not_granted") {
         rememberActiveDesk(null);
-        window.location.reload();
+        setActiveHeader(null);
+        router.refresh();
         return;
       }
       const message = error instanceof Error ? error.message : "";
@@ -377,7 +378,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
       }
       setSwitchNotice(presented.text);
     });
-  }, [pathname, me, activeHeader]);
+  }, [pathname, me, activeHeader, router]);
 
   const applySwitch = async (desk: DeskChoice) => {
     deskChosenHere.current = true;

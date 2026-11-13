@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
+import { registerClientNavigation } from "@/lib/app-navigate";
 import { logout } from "@/lib/auth-api";
 import { clearToken, getToken } from "@/lib/auth";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -23,6 +24,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const isBrandPage =
     pathname === `/${locale}` ||
     /\/(login|forgot-password|reset-password|account-setup)(\/|$)/.test(pathname);
+
+  useEffect(() => {
+    return registerClientNavigation({
+      replace: (href) => router.replace(href),
+      refresh: () => router.refresh(),
+    });
+  }, [router]);
 
   useEffect(() => {
     const refresh = () => setHasToken(Boolean(getToken()));

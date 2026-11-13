@@ -1,4 +1,5 @@
 import { deskHeaderValue, fallbackOpenDesk, readActiveDeskHeader, rememberActiveDesk, type DeskChoice } from "./active-desk";
+import { refreshWithClientRouter, replaceWithClientRouter } from "./app-navigate";
 import { AuthApiError, presentAuthError, readUiLocale } from "./auth-errors";
 import { clearToken, getToken } from "./auth";
 import { routeForDesk } from "./dashboard-routing";
@@ -140,7 +141,7 @@ function leaveDeletedLogin(code: string) {
   const locale = readUiLocale();
   const target = `/${locale}/login`;
   if (!window.location.pathname.startsWith(target)) {
-    window.location.assign(target);
+    replaceWithClientRouter(target);
   }
 }
 
@@ -152,6 +153,7 @@ async function recoverClosedDesk() {
   const token = getToken();
   if (!token) {
     leaveDeletedLogin("account_unavailable");
+    recoveringDesk = false;
     return;
   }
   try {
@@ -184,7 +186,7 @@ async function recoverClosedDesk() {
       rememberActiveDesk(null);
       const home = `/${readUiLocale()}/dashboard`;
       if (!window.location.pathname.startsWith(home)) {
-        window.location.assign(home);
+        replaceWithClientRouter(home);
       }
       return;
     }
@@ -207,12 +209,14 @@ async function recoverClosedDesk() {
     }).catch(() => undefined);
     const route = routeForDesk(choice.desk, readUiLocale()) ?? `/${readUiLocale()}/dashboard`;
     if (window.location.pathname.startsWith(route)) {
-      window.location.reload();
+      refreshWithClientRouter();
       return;
     }
-    window.location.assign(route);
+    replaceWithClientRouter(route);
   } catch {
     return;
+  } finally {
+    recoveringDesk = false;
   }
 }
 
