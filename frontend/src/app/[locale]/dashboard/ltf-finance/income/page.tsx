@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import {
   useCallback,
   useEffect,
@@ -46,6 +47,7 @@ export default function LtfFinanceIncomePage() {
   const [facetCounts, setFacetCounts] = useState({ all: 0, received: 0, void: 0 });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("ltf-income", incomes, isLoading);
   const requestAbortRef = useRef<AbortController | null>(null);
 
   useConsumeSearchParam("create", () => setEntryPanel({ mode: "create" }));
@@ -203,9 +205,9 @@ export default function LtfFinanceIncomePage() {
         />
       </div>
 
-      {isLoading ? (
+      {keptList.showSkeleton ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-      ) : incomes.length === 0 ? (
+      ) : keptList.rows.length === 0 ? (
         <EmptyState title={t("noIncomeTitle")} description={t("noIncomeSubtitle")} />
       ) : (
         <EntityTable
@@ -237,7 +239,7 @@ export default function LtfFinanceIncomePage() {
               },
             },
           ]}
-          rows={incomes}
+          rows={keptList.rows}
           onRowClick={(row) => setEntryPanel({ mode: "edit", id: row.id })}
         />
       )}

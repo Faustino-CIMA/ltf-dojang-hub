@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import {
   useCallback,
   useEffect,
@@ -70,6 +71,7 @@ export default function LtfFinanceOrdersPage() {
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("ltf-orders", orders, isLoading);
   const isRefreshingRef = useRef(false);
   const requestAbortRef = useRef<AbortController | null>(null);
   const { selectedClubId } = useClubSelection();
@@ -354,14 +356,14 @@ export default function LtfFinanceOrdersPage() {
         />
       </div>
 
-      {isLoading ? (
+      {keptList.showSkeleton ? (
         <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-      ) : orders.length === 0 ? (
+      ) : keptList.rows.length === 0 ? (
         <EmptyState title={t("noOrdersTitle")} description={t("noOrdersSubtitle")} />
       ) : (
         <EntityTable
           columns={columns}
-          rows={orders}
+          rows={keptList.rows}
           onRowClick={(order) => router.push(`/${locale}/dashboard/ltf-finance/orders/${order.id}`)}
         />
       )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useStaleWhileLoading } from "@/components/ui/use-stale-list";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -49,6 +50,7 @@ export default function ClubExpensesPage() {
   const [facetCounts, setFacetCounts] = useState({ all: 0, recorded: 0, paid: 0, void: 0 });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const keptList = useStaleWhileLoading("club-expenses", expenses, isLoading);
 
   useConsumeSearchParam("create", () => setEntryPanel({ mode: "create" }));
   useConsumeSearchParam("edit", (value) => {
@@ -149,9 +151,9 @@ export default function ClubExpensesPage() {
             }
           />
         </div>
-        {isLoading ? (
+        {keptList.showSkeleton ? (
           <EmptyState title={t("loadingTitle")} description={t("loadingSubtitle")} loading />
-        ) : expenses.length === 0 ? (
+        ) : keptList.rows.length === 0 ? (
           <EmptyState title={t("noExpensesTitle")} description={t("noExpensesSubtitle")} />
         ) : (
           <EntityTable
@@ -173,7 +175,7 @@ export default function ClubExpensesPage() {
                 ),
               },
             ]}
-            rows={expenses}
+            rows={keptList.rows}
             onRowClick={(row) => setEntryPanel({ mode: "edit", id: row.id })}
           />
         )}
