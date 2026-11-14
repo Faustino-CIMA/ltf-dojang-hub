@@ -23,7 +23,14 @@ import {
 } from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
+import { getLicensePhotoBackgroundColor } from "@/lib/license-photo-background";
 import { MEMBER_PHOTO_ASPECT, MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH, memberPhotoAspectRatio } from "@/lib/member-photo-frame";
+import {
+  LICENSE_PHOTO_BACKGROUND_DEFAULT,
+  progressBarPercent,
+  removeProfileBackground,
+  type PhotoBackgroundProgress,
+} from "@/lib/photo-background";
 
 const OUTPUT_WIDTH = MEMBER_PHOTO_WIDTH;
 const OUTPUT_HEIGHT = MEMBER_PHOTO_HEIGHT;
@@ -58,6 +65,12 @@ type ProfilePhotoManagerLabels = {
   backgroundColorLabel: string;
   removeBackgroundButton: string;
   removeBackgroundBusy: string;
+  removeBackgroundDownload: string;
+  removeBackgroundPrepare: string;
+  removeBackgroundPerson: string;
+  removeBackgroundEdges: string;
+  removeBackgroundColour: string;
+  removeBackgroundFailed: string;
   consentLabel: string;
   saveButton: string;
   saveBusy: string;
@@ -180,6 +193,7 @@ export function ProfilePhotoManager({
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingBackground, setIsRemovingBackground] = useState(false);
+  const [removalProgress, setRemovalProgress] = useState<PhotoBackgroundProgress | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,7 +204,8 @@ export function ProfilePhotoManager({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [storedPhotoPreviewUrl, setStoredPhotoPreviewUrl] = useState<string | null>(null);
-  const [backgroundColor, setBackgroundColor] = useState("#ffffff");
+  const [backgroundColor, setBackgroundColor] = useState(LICENSE_PHOTO_BACKGROUND_DEFAULT);
+  const backgroundColorRef = useRef(LICENSE_PHOTO_BACKGROUND_DEFAULT);
   const [backgroundRemoved, setBackgroundRemoved] = useState(false);
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -241,6 +256,31 @@ export function ProfilePhotoManager({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen && !isPageEditor) {
+      return;
+    }
+    let cancelled = false;
+    getLicensePhotoBackgroundColor()
+      .then((color) => {
+        if (cancelled) {
+          return;
+        }
+        backgroundColorRef.current = color;
+        setBackgroundColor(color);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        backgroundColorRef.current = LICENSE_PHOTO_BACKGROUND_DEFAULT;
+        setBackgroundColor(LICENSE_PHOTO_BACKGROUND_DEFAULT);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isPageEditor]);
 
   useEffect(() => {
     if (!openPickerRequest) {
@@ -353,6 +393,7 @@ export function ProfilePhotoManager({
     setIsDragging(false);
     setIsSaving(false);
     setIsRemovingBackground(false);
+    setRemovalProgress(null);
     setConsentConfirmed(false);
     setErrorMessage(null);
     setOriginalFile(null);
@@ -360,7 +401,7 @@ export function ProfilePhotoManager({
     setWorkingImageUrl(null);
     setPreviewImageUrl(null);
     setPreviewFile(null);
-    setBackgroundColor("#ffffff");
+    setBackgroundColor(backgroundColorRef.current);
     setBackgroundRemoved(false);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
@@ -492,12 +533,11 @@ export function ProfilePhotoManager({
           setErrorMessage(labels.cameraStartError ?? "Unable to start the camera.");
           return;
         }
-        const file = new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" });
+        const file = new File([blob], `camera-${Date.now()}.png`, { type: "image/png" });
         hydrateFile(file);
         stopCamera();
       },
-      "image/jpeg",
-      0.92
+      "image/png"
     );
   };
 
@@ -540,34 +580,50 @@ export function ProfilePhotoManager({
     };
   }, [backgroundColor, croppedAreaPixels, labels.removeBackgroundUnsupported, workingImageUrl]);
 
+  const removalProgressLabel = (progress: PhotoBackgroundProgress): string => {
+    if (progress.phase === "download") {
+      return labels.removeBackgroundDownload.replaceAll("{percent}", String(progress.percent));
+    }
+    if (progress.phase === "prepare") {
+      return labels.removeBackgroundPrepare;
+    }
+    if (progress.phase === "person") {
+      return labels.removeBackgroundPerson;
+    }
+    if (progress.phase === "edges") {
+      return labels.removeBackgroundEdges;
+    }
+    return labels.removeBackgroundColour;
+  };
+
   const handleRemoveBackground = async () => {
-    if (!workingFile) {
+    if (!workingFile || !workingImageUrl || !croppedAreaPixels) {
       return;
     }
     setIsRemovingBackground(true);
+    setRemovalProgress({ phase: "prepare" });
     setErrorMessage(null);
     try {
-      const bgModule = await import("@imgly/background-removal-js");
-      const removedResult: unknown = await bgModule.removeBackground(workingFile);
-      const removedBlob =
-        removedResult instanceof Blob
-          ? removedResult
-          : removedResult &&
-              typeof removedResult === "object" &&
-              "blob" in removedResult &&
-              removedResult.blob instanceof Blob
-            ? removedResult.blob
-            : new Blob([removedResult as ArrayBuffer], { type: "image/png" });
+      const removedBlob = await removeProfileBackground({
+        imageUrl: workingImageUrl,
+        crop: croppedAreaPixels,
+        color: backgroundColor,
+        onProgress: setRemovalProgress,
+      });
       const removedFile = new File([removedBlob], `bg-removed-${Date.now()}.png`, {
         type: "image/png",
       });
+      setCroppedAreaPixels(null);
       setWorkingFile(removedFile);
       setWorkingPreview(removedFile);
       setBackgroundRemoved(true);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
     } catch {
-      setErrorMessage(labels.removeBackgroundUnsupported);
+      setErrorMessage(labels.removeBackgroundFailed);
     } finally {
       setIsRemovingBackground(false);
+      setRemovalProgress(null);
     }
   };
 
@@ -739,8 +795,11 @@ export function ProfilePhotoManager({
 
       {workingImageUrl ? (
         <>
-          {/* Dark canvas is intentional for image cropping contrast */}
-          <div className="relative h-72 overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
+          {/* The backdrop is the license-card paper colour, not a theme token. */}
+          <div
+            className="relative h-72 overflow-hidden rounded-[var(--radius-card)]"
+            style={{ backgroundColor }}
+          >
             <Cropper
               image={workingImageUrl}
               crop={crop}
@@ -748,6 +807,7 @@ export function ProfilePhotoManager({
               aspect={MEMBER_PHOTO_ASPECT}
               cropShape="rect"
               showGrid
+              style={{ containerStyle: { backgroundColor } }}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={handleCropComplete}
@@ -767,25 +827,42 @@ export function ProfilePhotoManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <label className="text-xs font-medium text-muted">
-              {labels.backgroundColorLabel}
-            </label>
-            <Input
-              type="color"
-              value={backgroundColor}
-              onChange={(event) => setBackgroundColor(event.target.value)}
-              className="h-[var(--control-height)] w-14 px-1"
+            <span className="text-xs font-medium text-muted">{labels.backgroundColorLabel}</span>
+            <span
+              className="inline-block h-6 w-10 rounded-[var(--radius-card)] border border-border"
+              style={{ backgroundColor }}
+              data-testid="license-photo-background"
             />
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={isRemovingBackground}
+              disabled={isRemovingBackground || !croppedAreaPixels}
               onClick={handleRemoveBackground}
             >
               {isRemovingBackground ? labels.removeBackgroundBusy : labels.removeBackgroundButton}
             </Button>
           </div>
+          {removalProgress ? (
+            <div className="space-y-1">
+              <p className="text-xs text-muted">{removalProgressLabel(removalProgress)}</p>
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-secondary"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={
+                  removalProgress.phase === "download" ? removalProgress.percent : undefined
+                }
+                aria-valuetext={removalProgressLabel(removalProgress)}
+              >
+                <div
+                  className="h-full rounded-full bg-accent"
+                  style={{ width: `${progressBarPercent(removalProgress)}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
 
           {previewImageUrl ? (
             <div className="space-y-2">

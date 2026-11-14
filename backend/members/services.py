@@ -14,6 +14,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from clubs.models import license_photo_background_rgb
+
 from .models import GradePromotionHistory, Member, MemberLicenseIdCounter
 
 MIN_PRINT_WIDTH = 945
@@ -238,7 +240,7 @@ def _render_processed_outputs(processed_image) -> tuple[ContentFile, ContentFile
         )
 
     if image.mode == "RGBA":
-        flattened = Image.new("RGB", image.size, (255, 255, 255))
+        flattened = Image.new("RGB", image.size, license_photo_background_rgb())
         flattened.paste(image, mask=image.split()[3])
         image = flattened
     elif image.mode != "RGB":

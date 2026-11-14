@@ -74,6 +74,7 @@ from clubs.views import (
     FederationProfileLogoDetailView,
     FederationProfileLogoListView,
     FederationProfileView,
+    LicensePhotoBackgroundView,
 )
 from licenses.bank_recon import (
     ClubBankStatementViewSet,
@@ -287,6 +288,11 @@ urlpatterns = [
     path("api/parked-members/<int:pk>/", ParkedMemberDeleteView.as_view(), name="parked-member-delete"),
     path("api/parked-members/<int:pk>/resolve/", ParkedMemberResolveView.as_view(), name="parked-member-resolve"),
     path("api/federation-profile/", FederationProfileView.as_view(), name="federation-profile"),
+    path(
+        "api/federation-profile/license-photo-background/",
+        LicensePhotoBackgroundView.as_view(),
+        name="license-photo-background",
+    ),
     path("api/club-fee-billings/", ClubFeeBillingView.as_view(), name="club-fee-billings"),
     path(
         "api/module-subscription-settings/",

@@ -77,6 +77,9 @@ const federationSchema = z.object({
     .optional()
     .refine((value) => !value || isValidIban(value), "Enter a valid IBAN."),
   club_tourist_transfer_threshold: z.coerce.number().int().min(1).max(99),
+  license_photo_background_color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "color"),
 });
 
 type FederationFormInput = z.input<typeof federationSchema>;
@@ -122,6 +125,7 @@ export default function LtfAdminSettingsPage() {
       website: "",
       iban: "",
       club_tourist_transfer_threshold: 3,
+      license_photo_background_color: "#d9d9d9",
     },
   });
   const watchedIban = useWatch({ control, name: "iban", defaultValue: "" });
@@ -149,6 +153,7 @@ export default function LtfAdminSettingsPage() {
         website: profile.website ?? "",
         iban: profile.iban ?? "",
         club_tourist_transfer_threshold: profile.club_tourist_transfer_threshold ?? 3,
+        license_photo_background_color: (profile.license_photo_background_color || "#D9D9D9").toLowerCase(),
       });
       const rewriteEnabled = Boolean(profile.rewrite_lux_prefix_on_member_import);
       setRewriteOnImport(rewriteEnabled);
@@ -263,6 +268,7 @@ export default function LtfAdminSettingsPage() {
         website: saved.website ?? "",
         iban: saved.iban ?? "",
         club_tourist_transfer_threshold: saved.club_tourist_transfer_threshold ?? 3,
+        license_photo_background_color: (saved.license_photo_background_color || "#D9D9D9").toLowerCase(),
       });
       setSuccessMessage(t("federationSettingsSaved"));
     } catch (error) {
@@ -410,6 +416,22 @@ export default function LtfAdminSettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="federation-bank">{t("bankNameLabel")}</Label>
               <Input id="federation-bank" value={derivedBankName || "-"} readOnly />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="federation-photo-background" required>
+                {t("licensePhotoBackgroundLabel")}
+              </Label>
+              <Input
+                id="federation-photo-background"
+                type="color"
+                aria-invalid={errors.license_photo_background_color ? true : undefined}
+                {...register("license_photo_background_color")}
+              />
+              <p className="text-xs text-muted">{t("licensePhotoBackgroundHint")}</p>
+              {errors.license_photo_background_color ? (
+                <p className="text-sm text-destructive">{t("licensePhotoBackgroundInvalid")}</p>
+              ) : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">

@@ -13,6 +13,8 @@ from .languages import DEFAULT_CLUB_LANGUAGE, normalize_club_language
 
 _WEBSITE_VALIDATOR = URLValidator(schemes=["http", "https"])
 RCS_NUMBER_RE = re.compile(r"^[A-Z]\d{1,6}$")
+LICENSE_PHOTO_BACKGROUND_DEFAULT = "#D9D9D9"
+_LICENSE_PHOTO_BACKGROUND_RE = re.compile(r"^#[0-9A-F]{6}$")
 
 
 def normalize_rcs_number(value: str) -> str:
@@ -210,6 +212,11 @@ class FederationProfile(models.Model):
         default=3,
         help_text="Members with this many or more completed club changes are flagged as potential club tourists. No restrictions are applied.",
     )
+    license_photo_background_color = models.CharField(
+        max_length=7,
+        default=LICENSE_PHOTO_BACKGROUND_DEFAULT,
+        help_text="Solid colour behind a member on the license card photo. Light neutral grey.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -218,6 +225,12 @@ class FederationProfile(models.Model):
         verbose_name_plural = "Federation profile"
 
     def clean(self):
+        try:
+            self.license_photo_background_color = normalize_license_photo_background_color(
+                self.license_photo_background_color
+            )
+        except ValidationError as exc:
+            raise ValidationError({"license_photo_background_color": exc.messages}) from exc
         self.country = str(self.country or "").strip()
         if not self.country or self.country.casefold() in {
             "luxembourg",
@@ -250,6 +263,36 @@ class FederationProfile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+def normalize_license_photo_background_color(value: object) -> str:
+    text = str(value or "").strip().upper()
+    if not _LICENSE_PHOTO_BACKGROUND_RE.fullmatch(text):
+        raise ValidationError(_("Enter a colour like #D9D9D9."))
+    return text
+
+
+def load_federation_profile() -> FederationProfile:
+    profile, _created = FederationProfile.objects.get_or_create(
+        pk=1,
+        defaults={"name": "Luxembourg Taekwondo Federation"},
+    )
+    return profile
+
+
+def license_photo_background_color() -> str:
+    profile = FederationProfile.objects.filter(pk=1).only("license_photo_background_color").first()
+    if profile is None:
+        return LICENSE_PHOTO_BACKGROUND_DEFAULT
+    text = str(profile.license_photo_background_color or "").strip().upper()
+    if _LICENSE_PHOTO_BACKGROUND_RE.fullmatch(text):
+        return text
+    return LICENSE_PHOTO_BACKGROUND_DEFAULT
+
+
+def license_photo_background_rgb() -> tuple[int, int, int]:
+    color = license_photo_background_color()
+    return (int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16))
 
 
 def branding_asset_upload_to(instance: "BrandingAsset", filename: str) -> str:

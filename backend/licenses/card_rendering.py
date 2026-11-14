@@ -19,7 +19,7 @@ from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone, translation
 
-from clubs.models import BrandingAsset, Club
+from clubs.models import BrandingAsset, Club, license_photo_background_color
 from members.models import Member
 
 from .card_registry import (
@@ -2120,10 +2120,17 @@ def _render_element_html(element: dict[str, Any]) -> str:
                     f"opacity:0.40;border-radius:{border_radius_css};display:block;{image_filter_css}\"/>"
                     "</div>"
                 )
+            slot_background = ""
+            if (
+                isinstance(source_meta, dict)
+                and str(source_meta.get("resolved_via") or "") == "member.profile_picture_processed"
+            ):
+                slot_background = f"background:{escape(license_photo_background_color())};"
             return (
                 f'<div style="{base_style}'
                 f"border:{_format_mm(border_width)}mm {border_style} {border_color};"
                 f"border-radius:{border_radius_css};"
+                f"{slot_background}"
                 '">'
                 f'<img src="{escape(source)}" alt="" '
                 f'style="width:100%;height:100%;object-fit:{object_fit};'

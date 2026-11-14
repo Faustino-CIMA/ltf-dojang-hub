@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ISNet weights, fetched when the frontend image is built.
+/public/background-removal/

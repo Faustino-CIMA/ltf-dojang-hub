@@ -15,6 +15,7 @@ from .models import (
     TrainingVenue,
     RCS_NUMBER_RE,
     normalize_club_website,
+    normalize_license_photo_background_color,
     normalize_rcs_number,
 )
 
@@ -175,10 +176,17 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             "bank_name",
             "rewrite_lux_prefix_on_member_import",
             "club_tourist_transfer_threshold",
+            "license_photo_background_color",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["bank_name", "created_at", "updated_at"]
+
+    def validate_license_photo_background_color(self, value):
+        try:
+            return normalize_license_photo_background_color(value)
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
 
     def validate_club_tourist_transfer_threshold(self, value):
         try:
