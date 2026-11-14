@@ -1,5 +1,6 @@
 import {
   applyExifOrientation,
+  cleanCutoutEdges,
   compositeOntoColor,
   decontaminateEdgeSpill,
   expandCrop,
@@ -67,6 +68,54 @@ describe("photo background maths", () => {
     expect(pixels[7]).toBe(255);
     expect(pixels[11]).toBe(255);
     expect(pixels[8]).toBe(9);
+  });
+
+  it("blends a dark shape onto the card colour without a bright halo or speckles", () => {
+    const width = 20;
+    const height = 20;
+    const hair = { r: 20, g: 16, b: 14 };
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const solid = x >= 6 && x <= 13 && y >= 6 && y <= 13;
+        const fringe = x >= 5 && x <= 14 && y >= 5 && y <= 14 && !solid;
+        data[index] = solid ? hair.r : 255;
+        data[index + 1] = solid ? hair.g : fringe ? 40 : 255;
+        data[index + 2] = solid ? hair.b : 255;
+        data[index + 3] = solid ? 255 : fringe ? 140 : x === 1 && y === 1 ? 5 : 0;
+        if (x === 1 && y === 1) {
+          data[index] = 255;
+          data[index + 1] = 0;
+          data[index + 2] = 255;
+        }
+      }
+    }
+    const raster = { width, height, data };
+    cleanCutoutEdges(raster);
+    const coverage = new Uint8Array(width * height);
+    for (let index = 0; index < coverage.length; index += 1) {
+      coverage[index] = raster.data[index * 4 + 3];
+    }
+    const card = parseLicensePhotoColor("#D9D9D9");
+    compositeOntoColor(raster.data, card);
+    const center = (10 * width + 10) * 4;
+    expect(Math.abs(raster.data[center] - hair.r)).toBeLessThanOrEqual(8);
+    expect(Math.abs(raster.data[center + 1] - hair.g)).toBeLessThanOrEqual(8);
+    expect(Math.abs(raster.data[center + 2] - hair.b)).toBeLessThanOrEqual(8);
+    const speckle = (1 * width + 1) * 4;
+    expect(Array.from(raster.data.slice(speckle, speckle + 4))).toEqual([card.r, card.g, card.b, 255]);
+    const hairChannels = [hair.r, hair.g, hair.b];
+    const cardChannels = [card.r, card.g, card.b];
+    for (let index = 0; index < coverage.length; index += 1) {
+      const weight = coverage[index] / 255;
+      for (let channel = 0; channel < 3; channel += 1) {
+        const actual = raster.data[index * 4 + channel];
+        const expected = Math.round(hairChannels[channel] * weight + cardChannels[channel] * (1 - weight));
+        expect(Math.abs(actual - expected)).toBeLessThanOrEqual(12);
+        expect(actual).toBeLessThanOrEqual(card.r + 2);
+      }
+    }
   });
 });
 

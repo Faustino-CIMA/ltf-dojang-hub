@@ -61,6 +61,25 @@ export function expandCrop(
   return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y) };
 }
 
+/** Where the print crop sits inside the image that removal returns. */
+export function printWindowAfterRemoval(
+  imageWidth: number,
+  imageHeight: number,
+  crop: PhotoCrop,
+  longSide = BACKGROUND_REMOVAL_LONG_SIDE,
+): PhotoCrop {
+  const expanded = expandCrop(crop, imageWidth, imageHeight);
+  const fitted = fitLongSide(expanded.width, expanded.height, longSide);
+  const scaleX = fitted.width / expanded.width;
+  const scaleY = fitted.height / expanded.height;
+  return {
+    x: (crop.x - expanded.x) * scaleX,
+    y: (crop.y - expanded.y) * scaleY,
+    width: crop.width * scaleX,
+    height: crop.height * scaleY,
+  };
+}
+
 export function fitLongSide(
   width: number,
   height: number,
@@ -167,6 +186,116 @@ export function decontaminateEdgeSpill(pixels: Uint8ClampedArray): void {
 function unmixChannel(channel: number, background: number, coverage: number): number {
   const foreground = (channel - (1 - coverage) * background) / coverage;
   return Math.max(0, Math.min(255, Math.round(foreground)));
+}
+
+const CUTOUT_ALPHA_FLOOR = 16;
+const CUTOUT_SOLID_ALPHA = 200;
+
+function boxBlurChannel(
+  source: Float32Array,
+  width: number,
+  height: number,
+  radius: number,
+): Float32Array {
+  const horizontal = new Float32Array(source.length);
+  const dest = new Float32Array(source.length);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      let count = 0;
+      for (let offset = -radius; offset <= radius; offset += 1) {
+        const nextX = x + offset;
+        if (nextX < 0 || nextX >= width) {
+          continue;
+        }
+        sum += source[y * width + nextX];
+        count += 1;
+      }
+      horizontal[y * width + x] = count === 0 ? 0 : sum / count;
+    }
+  }
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      let count = 0;
+      for (let offset = -radius; offset <= radius; offset += 1) {
+        const nextY = y + offset;
+        if (nextY < 0 || nextY >= height) {
+          continue;
+        }
+        sum += horizontal[nextY * width + x];
+        count += 1;
+      }
+      dest[y * width + x] = count === 0 ? 0 : sum / count;
+    }
+  }
+  return dest;
+}
+
+function erodeAlpha(alpha: Float32Array, width: number, height: number): Float32Array {
+  const dest = new Float32Array(alpha.length);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let lowest = 255;
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        const nextY = y + offsetY;
+        if (nextY < 0 || nextY >= height) {
+          continue;
+        }
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          const nextX = x + offsetX;
+          if (nextX < 0 || nextX >= width) {
+            continue;
+          }
+          lowest = Math.min(lowest, alpha[nextY * width + nextX]);
+        }
+      }
+      dest[y * width + x] = lowest;
+    }
+  }
+  return dest;
+}
+
+/**
+ * The mask leaks the old background into the fringe, and a tiny alpha turns
+ * that leak into a saturated speckle. Drop the specks, pull the mask in by
+ * one pixel, feather it, and take the fringe colour from nearby solid pixels.
+ */
+export function cleanCutoutEdges(raster: PhotoRaster): void {
+  const { width, height, data } = raster;
+  const count = width * height;
+  const alpha = new Float32Array(count);
+  const solidRed = new Float32Array(count);
+  const solidGreen = new Float32Array(count);
+  const solidBlue = new Float32Array(count);
+  const solidWeight = new Float32Array(count);
+  for (let index = 0; index < count; index += 1) {
+    const offset = index * 4;
+    const coverage = data[offset + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[offset + 3];
+    alpha[index] = coverage;
+    if (coverage >= CUTOUT_SOLID_ALPHA) {
+      solidRed[index] = data[offset];
+      solidGreen[index] = data[offset + 1];
+      solidBlue[index] = data[offset + 2];
+      solidWeight[index] = 1;
+    }
+  }
+  const feather = boxBlurChannel(erodeAlpha(alpha, width, height), width, height, 1);
+  const blurredRed = boxBlurChannel(solidRed, width, height, 2);
+  const blurredGreen = boxBlurChannel(solidGreen, width, height, 2);
+  const blurredBlue = boxBlurChannel(solidBlue, width, height, 2);
+  const blurredWeight = boxBlurChannel(solidWeight, width, height, 2);
+  for (let index = 0; index < count; index += 1) {
+    const offset = index * 4;
+    const coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
+    data[offset + 3] = coverage;
+    if (coverage === 0 || blurredWeight[index] <= 0.001) {
+      continue;
+    }
+    data[offset] = Math.max(0, Math.min(255, Math.round(blurredRed[index] / blurredWeight[index])));
+    data[offset + 1] = Math.max(0, Math.min(255, Math.round(blurredGreen[index] / blurredWeight[index])));
+    data[offset + 2] = Math.max(0, Math.min(255, Math.round(blurredBlue[index] / blurredWeight[index])));
+  }
 }
 
 export function compositeOntoColor(pixels: Uint8ClampedArray, color: Rgb): void {
@@ -618,7 +747,7 @@ export async function removeProfileBackground(options: {
   report({ phase: "edges" });
   const cutout = await rasterFromBlob(asPngBlob(removed));
   const restored = restoreRemovalFrame(input, cutout);
-  decontaminateEdgeSpill(restored.data);
+  cleanCutoutEdges(restored);
   report({ phase: "colour" });
   compositeOntoColor(restored.data, parseLicensePhotoColor(options.color));
   return canvasToBlob(paintRaster(restored), "image/png");

@@ -1,13 +1,18 @@
+import { expandCrop, fitLongSide, printWindowAfterRemoval } from "./photo-background";
+
 import {
   FACE_BLUR_MIN,
   boxBlurPlane,
   evaluateFaceCheck,
+  evaluateFacePlacement,
   evaluateLuma,
   faceBoxFromPoints,
   laplacianVariance,
   meanLuma,
+  normalizeBoxToFrame,
   poseDegreesFromMatrix,
   reviewShowsSkippedFaceCheck,
+  type FaceBox,
   type FaceObservation,
 } from "./face-check";
 
@@ -71,7 +76,7 @@ describe("face check rules", () => {
     expect(evaluateFaceCheck({ faces: [face({ rollDeg: 11 })], luma: 128, blurVariance: FACE_BLUR_MIN })).toBe("pose");
     expect(
       evaluateFaceCheck({
-        faces: [face({ box: { x: 0.2, y: 0.2, width: 0.4, height: 0.3 } })],
+        faces: [face({ box: { x: 0.3, y: 0.34, width: 0.4, height: 0.22 } })],
         luma: 128,
         blurVariance: FACE_BLUR_MIN,
       }),
@@ -123,6 +128,47 @@ describe("face check rules", () => {
     const blurredScore = laplacianVariance(blurred, 32, 32);
     expect(sharpScore).toBeGreaterThanOrEqual(FACE_BLUR_MIN);
     expect(blurredScore).toBeLessThan(FACE_BLUR_MIN);
+  });
+
+  it("accepts an identity-card framing before removal and on the print crop after it", () => {
+    const print = { x: 100, y: 50, width: 200, height: 250 };
+    const faceHeight = print.height * 0.34;
+    const faceWidth = print.width * 0.36;
+    const mesh: FaceBox = {
+      x: print.x + (print.width - faceWidth) / 2,
+      y: print.y + print.height * 0.3,
+      width: faceWidth,
+      height: faceHeight,
+    };
+    const before = normalizeBoxToFrame(mesh, print);
+    const level = { yawDeg: 0, pitchDeg: 0, rollDeg: 0 };
+    expect(before.height).toBeCloseTo(0.34, 5);
+    expect(evaluateFacePlacement([{ box: before, ...level }])).toBe("pass");
+
+    const imageWidth = 800;
+    const imageHeight = 1000;
+    const window = printWindowAfterRemoval(imageWidth, imageHeight, print, 400);
+    const expanded = expandCrop(print, imageWidth, imageHeight);
+    const fitted = fitLongSide(expanded.width, expanded.height, 400);
+    const scaleX = fitted.width / expanded.width;
+    const scaleY = fitted.height / expanded.height;
+    const meshAfter = {
+      x: (mesh.x - expanded.x) * scaleX,
+      y: (mesh.y - expanded.y) * scaleY,
+      width: mesh.width * scaleX,
+      height: mesh.height * scaleY,
+    };
+    const onPrintCrop = normalizeBoxToFrame(meshAfter, window);
+    const onWholeRemoval = normalizeBoxToFrame(meshAfter, {
+      x: 0,
+      y: 0,
+      width: fitted.width,
+      height: fitted.height,
+    });
+    expect(onPrintCrop.height).toBeCloseTo(0.34, 2);
+    expect(evaluateFacePlacement([{ box: onPrintCrop, ...level }])).toBe("pass");
+    expect(onWholeRemoval.height).toBeLessThan(0.3);
+    expect(evaluateFacePlacement([{ box: onWholeRemoval, ...level }])).toBe("size");
   });
 
   it("treats a missing face check the same as a skipped one", () => {

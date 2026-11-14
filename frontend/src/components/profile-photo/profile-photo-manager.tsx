@@ -37,6 +37,7 @@ import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
   matchCropAspect,
   normalizePhotoFile,
+  printWindowAfterRemoval,
   progressBarPercent,
   rasterForPrintFrame,
   rasterFromBlob,
@@ -284,6 +285,7 @@ export function ProfilePhotoManager({
   const [backgroundColor, setBackgroundColor] = useState(LICENSE_PHOTO_BACKGROUND_DEFAULT);
   const backgroundColorRef = useRef(LICENSE_PHOTO_BACKGROUND_DEFAULT);
   const [backgroundRemoved, setBackgroundRemoved] = useState(false);
+  const [removalPrintCrop, setRemovalPrintCrop] = useState<Area | null>(null);
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -483,6 +485,7 @@ export function ProfilePhotoManager({
     setPreviewFile(null);
     setBackgroundColor(backgroundColorRef.current);
     setBackgroundRemoved(false);
+    setRemovalPrintCrop(null);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setCroppedAreaPixels(null);
@@ -519,6 +522,7 @@ export function ProfilePhotoManager({
       setWorkingFile(working);
       setWorkingPreview(working);
       setBackgroundRemoved(false);
+      setRemovalPrintCrop(null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
     });
@@ -754,6 +758,12 @@ export function ProfilePhotoManager({
     setRemovalProgress({ phase: "prepare" });
     setErrorMessage(null);
     try {
+      const source = await loadImage(workingImageUrl);
+      const printWindow = printWindowAfterRemoval(
+        source.naturalWidth || source.width,
+        source.naturalHeight || source.height,
+        croppedAreaPixels,
+      );
       const removedBlob = await removeProfileBackground({
         imageUrl: workingImageUrl,
         crop: croppedAreaPixels,
@@ -764,6 +774,7 @@ export function ProfilePhotoManager({
         type: "image/png",
       });
       setCroppedAreaPixels(null);
+      setRemovalPrintCrop(printWindow);
       setWorkingFile(removedFile);
       setWorkingPreview(removedFile);
       setBackgroundRemoved(true);
@@ -963,6 +974,7 @@ export function ProfilePhotoManager({
               crop={crop}
               zoom={zoom}
               aspect={MEMBER_PHOTO_ASPECT}
+              initialCroppedAreaPixels={removalPrintCrop ?? undefined}
               cropShape="rect"
               showGrid
               style={{ containerStyle: { backgroundColor } }}
