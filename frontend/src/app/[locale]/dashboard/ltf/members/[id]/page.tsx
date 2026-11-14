@@ -389,6 +389,7 @@ export default function LtfMemberDetailPage() {
                         cameraPermissionDenied: t("photoCameraPermissionDenied"),
                         cameraStartError: t("photoCameraStartError"),
                         cameraSwitchButton: t("photoCameraSwitch"),
+                        cameraSwitchError: t("photoCameraSwitchFailed"),
                         zoomLabel: t("photoZoomLabel"),
                         backgroundColorLabel: t("photoBackgroundColorLabel"),
                         removeBackgroundButton: t("photoRemoveBackgroundButton"),

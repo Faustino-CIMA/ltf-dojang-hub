@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** Switch camera works on an iPhone. The app releases the current camera first, then asks for the other one. If that fails, it says so.
 - **License cards:** Changing a grade, or any other detail printed on the card, refreshes the on-screen card. The printed card was already correct.
 - **License cards:** The card on screen is a picture of the printed card, so the text and the photo match the print on a phone and on a high-density screen.
 - **License cards:** A member sees their license card on their own desk. While a new photo is waiting for the club, the card still shows the current photo and says so.

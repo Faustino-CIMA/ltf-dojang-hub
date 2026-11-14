@@ -13,6 +13,7 @@ import { API_URL } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import {
   attachCameraPreview,
+  canOfferCameraSwitch,
   isCameraDenied,
   listVideoInputs,
   openCamera,
@@ -52,6 +53,7 @@ type ProfilePhotoManagerLabels = {
   cameraPermissionDenied?: string;
   cameraStartError?: string;
   cameraSwitchButton?: string;
+  cameraSwitchError?: string;
   zoomLabel: string;
   backgroundColorLabel: string;
   removeBackgroundButton: string;
@@ -406,7 +408,7 @@ export function ProfilePhotoManager({
     stopMediaStream(cameraStreamRef.current);
     cameraStreamRef.current = stream;
     const inputs = await listVideoInputs();
-    setCanSwitchCamera(inputs.length > 1);
+    setCanSwitchCamera(canOfferCameraSwitch(inputs));
     setIsCameraOpen(true);
     setCameraGeneration((generation) => generation + 1);
   };
@@ -459,7 +461,8 @@ export function ProfilePhotoManager({
         isCameraDenied(error)
           ? (labels.cameraPermissionDenied ??
             "Camera access was blocked. Allow camera permission in the browser and try again.")
-          : (labels.cameraStartError ?? "Unable to start the camera.")
+          : (labels.cameraSwitchError ??
+            "Couldn't switch the camera. Try again, or this phone may only have one camera.")
       );
     } finally {
       setIsStartingCamera(false);
