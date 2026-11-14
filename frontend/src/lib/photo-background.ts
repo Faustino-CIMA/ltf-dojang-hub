@@ -191,6 +191,8 @@ const CUTOUT_ALPHA_FLOOR = 16;
 const CUTOUT_SOLID_ALPHA = 200;
 const CUTOUT_SUBJECT_ALPHA = 128;
 const CUTOUT_BACKGROUND_DISTANCE = 48;
+const MATTE_GUIDE_RADIUS = 4;
+const MATTE_GUIDE_EPSILON = 256;
 
 function boxBlurChannel(
   source: Float32Array,
@@ -233,26 +235,67 @@ function boxBlurChannel(
   return dest;
 }
 
-function erodeAlpha(alpha: Float32Array, width: number, height: number): Float32Array {
-  const dest = new Float32Array(alpha.length);
+function boxMean(source: Float32Array, width: number, height: number, radius: number): Float32Array {
+  const stride = width + 1;
+  const integral = new Float64Array(stride * (height + 1));
   for (let y = 0; y < height; y += 1) {
+    let row = 0;
     for (let x = 0; x < width; x += 1) {
-      let lowest = 255;
-      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
-        const nextY = y + offsetY;
-        if (nextY < 0 || nextY >= height) {
-          continue;
-        }
-        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
-          const nextX = x + offsetX;
-          if (nextX < 0 || nextX >= width) {
-            continue;
-          }
-          lowest = Math.min(lowest, alpha[nextY * width + nextX]);
-        }
-      }
-      dest[y * width + x] = lowest;
+      row += source[y * width + x];
+      integral[(y + 1) * stride + (x + 1)] = integral[y * stride + (x + 1)] + row;
     }
+  }
+  const dest = new Float32Array(source.length);
+  for (let y = 0; y < height; y += 1) {
+    const y0 = Math.max(0, y - radius);
+    const y1 = Math.min(height - 1, y + radius);
+    for (let x = 0; x < width; x += 1) {
+      const x0 = Math.max(0, x - radius);
+      const x1 = Math.min(width - 1, x + radius);
+      const sum =
+        integral[(y1 + 1) * stride + (x1 + 1)] -
+        integral[y0 * stride + (x1 + 1)] -
+        integral[(y1 + 1) * stride + x0] +
+        integral[y0 * stride + x0];
+      dest[y * width + x] = sum / ((x1 - x0 + 1) * (y1 - y0 + 1));
+    }
+  }
+  return dest;
+}
+
+/**
+ * Edge-aware smooth of a coarse mask. The photo is the guide, so a real
+ * contour keeps its slope and a flat stair-step is averaged away.
+ */
+function guideAlpha(
+  alpha: Float32Array,
+  guidance: Float32Array,
+  width: number,
+  height: number,
+): Float32Array {
+  const meanGuidance = boxMean(guidance, width, height, MATTE_GUIDE_RADIUS);
+  const meanAlpha = boxMean(alpha, width, height, MATTE_GUIDE_RADIUS);
+  const guidanceSquare = new Float32Array(alpha.length);
+  const guidanceAlpha = new Float32Array(alpha.length);
+  for (let index = 0; index < alpha.length; index += 1) {
+    guidanceSquare[index] = guidance[index] * guidance[index];
+    guidanceAlpha[index] = guidance[index] * alpha[index];
+  }
+  const meanSquare = boxMean(guidanceSquare, width, height, MATTE_GUIDE_RADIUS);
+  const meanProduct = boxMean(guidanceAlpha, width, height, MATTE_GUIDE_RADIUS);
+  const coefficient = new Float32Array(alpha.length);
+  const offset = new Float32Array(alpha.length);
+  for (let index = 0; index < alpha.length; index += 1) {
+    const variance = meanSquare[index] - meanGuidance[index] * meanGuidance[index];
+    const covariance = meanProduct[index] - meanGuidance[index] * meanAlpha[index];
+    coefficient[index] = covariance / (variance + MATTE_GUIDE_EPSILON);
+    offset[index] = meanAlpha[index] - coefficient[index] * meanGuidance[index];
+  }
+  const meanCoefficient = boxMean(coefficient, width, height, MATTE_GUIDE_RADIUS);
+  const meanOffset = boxMean(offset, width, height, MATTE_GUIDE_RADIUS);
+  const dest = new Float32Array(alpha.length);
+  for (let index = 0; index < alpha.length; index += 1) {
+    dest[index] = meanCoefficient[index] * guidance[index] + meanOffset[index];
   }
   return dest;
 }
@@ -444,7 +487,8 @@ export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRast
 /**
  * The mask leaks the old background into the fringe, and a tiny alpha turns
  * that leak into a saturated speckle. Drop specks and detached islands, then
- * feather only the edge. Solid subject pixels keep their original colour.
+ * refine the mask with the photo as a guide. Solid subject pixels keep their
+ * original colour.
  */
 export function cleanCutoutEdges(raster: PhotoRaster): void {
   const { width, height, data } = raster;
@@ -452,10 +496,13 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
   const count = width * height;
   const alpha = new Float32Array(count);
   const wasSolid = new Uint8Array(count);
+  const guidance = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
-    const coverage = data[index * 4 + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[index * 4 + 3];
+    const offset = index * 4;
+    const coverage = data[offset + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[offset + 3];
     alpha[index] = coverage;
     wasSolid[index] = coverage >= CUTOUT_SOLID_ALPHA ? 1 : 0;
+    guidance[index] = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
   }
   keepMainSubject(alpha, width, height);
   const solidRed = new Float32Array(count);
@@ -472,14 +519,17 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     solidBlue[index] = data[offset + 2];
     solidWeight[index] = 1;
   }
-  const feather = boxBlurChannel(erodeAlpha(alpha, width, height), width, height, 1);
-  const blurredRed = boxBlurChannel(solidRed, width, height, 2);
-  const blurredGreen = boxBlurChannel(solidGreen, width, height, 2);
-  const blurredBlue = boxBlurChannel(solidBlue, width, height, 2);
-  const blurredWeight = boxBlurChannel(solidWeight, width, height, 2);
+  const feather = guideAlpha(alpha, guidance, width, height);
+  const blurredRed = boxBlurChannel(solidRed, width, height, MATTE_GUIDE_RADIUS);
+  const blurredGreen = boxBlurChannel(solidGreen, width, height, MATTE_GUIDE_RADIUS);
+  const blurredBlue = boxBlurChannel(solidBlue, width, height, MATTE_GUIDE_RADIUS);
+  const blurredWeight = boxBlurChannel(solidWeight, width, height, MATTE_GUIDE_RADIUS);
   for (let index = 0; index < count; index += 1) {
     const offset = index * 4;
-    const coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
+    let coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
+    if (alpha[index] < CUTOUT_ALPHA_FLOOR && blurredWeight[index] <= 0.001) {
+      coverage = 0;
+    }
     data[offset + 3] = coverage;
     if (wasSolid[index] || coverage === 0 || blurredWeight[index] <= 0.001) {
       continue;
