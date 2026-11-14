@@ -59,6 +59,7 @@ const baseProfile = {
   bank_name: "",
   rewrite_lux_prefix_on_member_import: false,
   club_tourist_transfer_threshold: 3,
+  license_photo_background_color: "#D9D9D9",
   created_at: "",
   updated_at: "",
 };

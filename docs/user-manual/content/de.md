@@ -486,7 +486,7 @@ Das Foto wird auf die Lizenzkarte gedruckt – ein gutes Foto erspart einen Neud
 1. Öffnen Sie das Mitglied und klicken Sie auf [[photoChangeButton]].
 2. Ziehen Sie ein Bild in das Feld, klicken Sie auf [[photoSelectFileButton]] oder auf [[photoCameraButton]] und dann auf [[photoCameraCaptureButton]].
 3. Stellen Sie mit [[photoZoomLabel]] die Größe ein und verschieben Sie das Bild, bis das Gesicht den 8:10-Rahmen füllt. Der Bereich [[photoPreviewTitle]] zeigt das Ergebnis.
-4. Klicken Sie bei Bedarf auf [[photoRemoveBackgroundButton]] und wählen Sie unter [[photoBackgroundColorLabel]] eine Farbe.
+4. Klicken Sie bei Bedarf auf [[photoRemoveBackgroundButton]]. Die Farbe unter [[photoBackgroundColorLabel]] legt der Verband fest und sie wird für Sie angewendet. Ein Balken zeigt den Fortschritt. Das Foto kann auch gespeichert werden, wenn das Entfernen fehlschlägt.
 5. Setzen Sie das Häkchen bei [[photoConsentLabel]].
 6. Klicken Sie auf [[photoSaveButton]].
 

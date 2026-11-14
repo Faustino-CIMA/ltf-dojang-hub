@@ -47,6 +47,7 @@ class FederationProfileAdmin(admin.ModelAdmin):
         "iban",
         "bank_name",
         "club_tourist_transfer_threshold",
+        "license_photo_background_color",
         "updated_at",
     )
     search_fields = ("name", "rcs_number", "locality", "postal_code", "address_line1", "iban", "bank_name")

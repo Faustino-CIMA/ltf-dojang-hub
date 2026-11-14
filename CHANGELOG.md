@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** Removing a background uses the cropped portrait, shows a progress bar, and fills the federation's license-card colour (light grey unless LTF settings change it). The photo stays on the device. If removal fails, the photo is unchanged and can still be saved.
 - **Photos:** Switch camera works on an iPhone. The app releases the current camera first, then asks for the other one. If that fails, it says so.
 - **License cards:** Changing a grade, or any other detail printed on the card, refreshes the on-screen card. The printed card was already correct.
 - **License cards:** The card on screen is a picture of the printed card, so the text and the photo match the print on a phone and on a high-density screen.

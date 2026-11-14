@@ -247,6 +247,7 @@ export type FederationProfile = {
   bank_name: string;
   rewrite_lux_prefix_on_member_import: boolean;
   club_tourist_transfer_threshold: number;
+  license_photo_background_color: string;
   created_at: string;
   updated_at: string;
 };

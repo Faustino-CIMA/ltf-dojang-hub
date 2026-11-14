@@ -1,7 +1,21 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { removeProfileBackground } from "@/lib/photo-background";
 
 import { ProfilePhotoManager } from "./profile-photo-manager";
+
+jest.mock("@/lib/license-photo-background", () => ({
+  getLicensePhotoBackgroundColor: jest.fn(async () => "#112233"),
+}));
+
+jest.mock("@/lib/photo-background", () => {
+  const actual = jest.requireActual("@/lib/photo-background");
+  return {
+    ...actual,
+    removeProfileBackground: jest.fn(),
+  };
+});
 
 jest.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -11,13 +25,15 @@ jest.mock("react-easy-crop", () => {
   return {
     __esModule: true,
     default: function CropperMock({
+      image,
       onCropComplete,
     }: {
+      image?: string;
       onCropComplete: (area: unknown, pixels: unknown) => void;
     }) {
       React.useEffect(() => {
         onCropComplete(null, { x: 0, y: 0, width: 500, height: 700 });
-      }, [onCropComplete]);
+      }, [image, onCropComplete]);
       return <div data-testid="cropper">cropper</div>;
     },
   };
@@ -49,6 +65,12 @@ const labels = {
   backgroundColorLabel: "Background color",
   removeBackgroundButton: "Remove background",
   removeBackgroundBusy: "Removing background...",
+  removeBackgroundDownload: "Downloading the removal tool… {percent}%",
+  removeBackgroundPrepare: "Preparing the photo…",
+  removeBackgroundPerson: "Finding the person…",
+  removeBackgroundEdges: "Cleaning the edges…",
+  removeBackgroundColour: "Applying the background colour…",
+  removeBackgroundFailed: "Background removal failed. You can still save the photo as it is.",
   consentLabel: "Consent",
   saveButton: "Save photo",
   saveBusy: "Saving photo...",
@@ -196,6 +218,7 @@ describe("ProfilePhotoManager", () => {
     fireEvent.change(fileInputs[0], {
       target: { files: [file] },
     });
+    await screen.findByTestId("license-photo-background");
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByText("Save photo"));
 
@@ -205,10 +228,71 @@ describe("ProfilePhotoManager", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ photoConsentConfirmed: true }));
   });
 
-  it("opens the file picker when another photo is requested", () => {
+  it("shows the federation colour and download progress", async () => {
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    let release: ((blob: Blob) => void) | undefined;
+    remove.mockImplementation(async ({ onProgress }) => {
+      onProgress?.({ phase: "download", percent: 40 });
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    });
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    expect(container.querySelector("input[type='color']")).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByTestId("license-photo-background")).toHaveStyle({ backgroundColor: "#112233" });
+    });
+
+    fireEvent.click(screen.getByText("Remove background"));
+    const bar = await screen.findByRole("progressbar");
+    expect(bar).toHaveAttribute("aria-valuenow", "40");
+    expect(bar).toHaveAttribute("aria-valuetext", "Downloading the removal tool… 40%");
+    release?.(new Blob(["png"], { type: "image/png" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("cropper")).toBeInTheDocument();
+  });
+
+  it("leaves the photo in place when removal fails and still allows save", async () => {
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockRejectedValueOnce(new Error("weights missing"));
+    const onSave = jest.fn(async () => {});
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} onSave={onSave} imageUrl={null} thumbnailUrl={null} />
+    );
+
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await screen.findByTestId("license-photo-background");
+    fireEvent.click(screen.getByText("Remove background"));
+    expect(
+      await screen.findByText("Background removal failed. You can still save the photo as it is.")
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("cropper")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByText("Save photo"));
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("opens the file picker when another photo is requested", async () => {
     const { container, rerender } = render(
       <ProfilePhotoManager labels={labels} isPageEditor imageUrl={null} thumbnailUrl={null} />,
     );
+    await act(async () => {
+      await Promise.resolve();
+    });
     const input = container.querySelector("input[type='file']") as HTMLInputElement;
     const click = jest.spyOn(input, "click").mockImplementation(() => undefined);
     rerender(

@@ -486,7 +486,7 @@ D'Foto gëtt op d'Lizenzkaart gedréckt – e gutt Foto erspuert en neien Drock.
 1. Maacht de Member op a klickt op [[photoChangeButton]].
 2. Zitt e Bild an d'Feld, klickt op [[photoSelectFileButton]], oder klickt op [[photoCameraButton]] an duerno op [[photoCameraCaptureButton]].
 3. Stellt mat [[photoZoomLabel]] d'Gréisst an a verréckelt d'Bild, bis d'Gesiicht de 8:10-Rumm fëllt. D'[[photoPreviewTitle]] weist d'Resultat.
-4. Wann Dir wëllt, klickt op [[photoRemoveBackgroundButton]] a wielt eng Faarf ënner [[photoBackgroundColorLabel]].
+4. Wann Dir wëllt, klickt op [[photoRemoveBackgroundButton]]. D'Faarf ënner [[photoBackgroundColorLabel]] setzt d'Federatioun a se gëtt fir Iech applizéiert. Eng Läischt weist de Fortschrëtt. Dir kënnt d'Foto och späicheren, wann d'Ewechhuelen net geet.
 5. Kräizt [[photoConsentLabel]] un.
 6. Klickt op [[photoSaveButton]].
 

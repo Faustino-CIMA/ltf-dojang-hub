@@ -33,7 +33,7 @@ from .admin_assignment import (
 )
 
 from .languages import CLUB_COMMUNICATION_LANGUAGES
-from .models import BrandingAsset, Club, FederationProfile
+from .models import BrandingAsset, Club, FederationProfile, load_federation_profile
 from .serializers import (
     BrandingAssetCreateSerializer,
     BrandingAssetSerializer,
@@ -617,13 +617,7 @@ class FederationProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsLtfFinanceOrLtfAdmin]
 
     def _get_profile(self) -> FederationProfile:
-        profile, _ = FederationProfile.objects.get_or_create(
-            pk=1,
-            defaults={
-                "name": "Luxembourg Taekwondo Federation",
-            },
-        )
-        return profile
+        return load_federation_profile()
 
     def get(self, request):
         serializer = FederationProfileSerializer(self._get_profile())
@@ -639,16 +633,25 @@ class FederationProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class LicensePhotoBackgroundView(APIView):
+    """The card colour only. Any signed-in desk can read it. Writes stay on the profile."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = load_federation_profile()
+        return Response(
+            {"license_photo_background_color": profile.license_photo_background_color},
+            status=status.HTTP_200_OK,
+        )
+
+
 class FederationProfileLogoListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsLtfFinanceOrLtfAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
     def _get_profile(self) -> FederationProfile:
-        profile, _ = FederationProfile.objects.get_or_create(
-            pk=1,
-            defaults={"name": "Luxembourg Taekwondo Federation"},
-        )
-        return profile
+        return load_federation_profile()
 
     def get(self, request):
         profile = self._get_profile()
