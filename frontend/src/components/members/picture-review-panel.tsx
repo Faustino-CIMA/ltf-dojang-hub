@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { API_URL, apiRequest } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { readActiveDeskHeader } from "@/lib/active-desk";
+import { reviewShowsSkippedFaceCheck } from "@/lib/face-check";
 import { memberPhotoAspectRatio } from "@/lib/member-photo-frame";
 
 type ReviewDetail = {
@@ -20,6 +21,7 @@ type ReviewDetail = {
   last_name: string;
   current_url: string;
   pending_url: string;
+  face_check?: string;
 };
 
 type AdminNotice = {
@@ -152,6 +154,9 @@ export function PictureReviewPanel({
         <p className="mb-3 text-sm text-foreground">
           {detail.last_name} {detail.first_name}
         </p>
+      ) : null}
+      {detail && reviewShowsSkippedFaceCheck(detail.face_check) ? (
+        <p className="mb-3 text-sm text-muted">{t("pictureReviewFaceCheckSkipped")}</p>
       ) : null}
       <div className="grid grid-cols-2 gap-3">
         <figure className="space-y-1">

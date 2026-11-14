@@ -9,6 +9,7 @@ import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
+import { faceCheckEditorLabels } from "@/lib/face-check";
 import { Button } from "@/components/ui/button";
 import { Member, getMember, uploadMemberProfilePicture } from "@/lib/club-admin-api";
 import { formatFullName } from "@/lib/person-name";
@@ -99,6 +100,7 @@ export default function ClubMemberPhotoPage() {
               removeBackgroundEdges: t("photoRemoveBackgroundEdges"),
               removeBackgroundColour: t("photoRemoveBackgroundColour"),
               removeBackgroundFailed: t("photoRemoveBackgroundFailed"),
+              ...faceCheckEditorLabels(t),
               consentLabel: t("photoConsentLabel"),
               saveButton: t("photoSaveButton"),
               saveBusy: t("photoSaveBusy"),

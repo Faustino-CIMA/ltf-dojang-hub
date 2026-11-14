@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
+import { faceCheckEditorLabels } from "@/lib/face-check";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
@@ -495,6 +496,7 @@ export default function ClubMemberDetailPage() {
                     removeBackgroundEdges: t("photoRemoveBackgroundEdges"),
                     removeBackgroundColour: t("photoRemoveBackgroundColour"),
                     removeBackgroundFailed: t("photoRemoveBackgroundFailed"),
+                    ...faceCheckEditorLabels(t),
                     consentLabel: t("photoConsentLabel"),
                     saveButton: t("photoSaveButton"),
                     saveBusy: t("photoSaveBusy"),

@@ -1,12 +1,18 @@
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
+import { faceCheckEditorLabels } from "@/lib/face-check";
+import { checkFaceOnCrop } from "@/lib/face-landmarker";
 import { removeProfileBackground } from "@/lib/photo-background";
 
 import { ProfilePhotoManager } from "./profile-photo-manager";
 
 jest.mock("@/lib/license-photo-background", () => ({
   getLicensePhotoBackgroundColor: jest.fn(async () => "#112233"),
+}));
+
+jest.mock("@/lib/face-landmarker", () => ({
+  checkFaceOnCrop: jest.fn(async () => ({ status: "pass" })),
 }));
 
 jest.mock("@/lib/photo-background", () => {
@@ -71,6 +77,24 @@ const labels = {
   removeBackgroundEdges: "Cleaning the edges…",
   removeBackgroundColour: "Applying the background colour…",
   removeBackgroundFailed: "Background removal failed. You can still save the photo as it is.",
+  ...faceCheckEditorLabels((key) => {
+    const text: Record<string, string> = {
+      faceCheckDownload: "Downloading the face check… {percent}%",
+      faceCheckPrepare: "Preparing the photo…",
+      faceCheckFind: "Looking for one face…",
+      faceCheckLight: "Checking the light and the sharpness…",
+      faceCheckPass: "This photo can be saved.",
+      faceCheckNone: "We can't see a face. Use a photo of one person, looking at the camera.",
+      faceCheckMany: "Only one person should be in the photo.",
+      faceCheckPose: "Look straight at the camera, with your head level.",
+      faceCheckSize: "Move closer so the face fills the frame, and keep it in the centre.",
+      faceCheckDark: "The face is too dark. Use more light.",
+      faceCheckBright: "The face is too bright. Avoid strong light behind the camera.",
+      faceCheckBlur: "The photo is blurry. Hold still and try again.",
+      faceCheckSkipped: "The automatic check could not run. You can still save the photo. The club will review it.",
+    };
+    return text[key] ?? key;
+  }),
   consentLabel: "Consent",
   saveButton: "Save photo",
   saveBusy: "Saving photo...",
@@ -220,6 +244,7 @@ describe("ProfilePhotoManager", () => {
     });
     await screen.findByTestId("license-photo-background");
     fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByText("Save photo")).toBeEnabled());
     fireEvent.click(screen.getByText("Save photo"));
 
     await waitFor(() => {
@@ -256,7 +281,7 @@ describe("ProfilePhotoManager", () => {
     expect(bar).toHaveAttribute("aria-valuetext", "Downloading the removal tool… 40%");
     release?.(new Blob(["png"], { type: "image/png" }));
     await waitFor(() => {
-      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+      expect(screen.queryByText("Downloading the removal tool… 40%")).not.toBeInTheDocument();
     });
     expect(screen.getByTestId("cropper")).toBeInTheDocument();
   });
@@ -280,10 +305,51 @@ describe("ProfilePhotoManager", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("cropper")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByText("Save photo")).toBeEnabled());
     fireEvent.click(screen.getByText("Save photo"));
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("keeps save off until one face passes, and records a skip when the model cannot load", async () => {
+    const check = checkFaceOnCrop as jest.MockedFunction<typeof checkFaceOnCrop>;
+    check.mockResolvedValue({ status: "fail", hint: "many" });
+    const onSave = jest.fn(async () => {});
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} onSave={onSave} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    expect(await screen.findByText("Only one person should be in the photo.")).toBeInTheDocument();
+    expect(screen.getByText("Save photo")).toBeDisabled();
+
+    check.mockResolvedValue({ status: "skipped", reason: "model_unavailable" });
+    (URL.createObjectURL as jest.Mock).mockReturnValueOnce("blob:again");
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["again"], "again.jpg", { type: "image/jpeg" })] },
+    });
+    expect(
+      await screen.findByText(
+        "The automatic check could not run. You can still save the photo. The club will review it.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByText("Save photo")).toBeEnabled());
+    fireEvent.click(screen.getByText("Save photo"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = (onSave as jest.Mock).mock.calls[0][0] as {
+      photoEditMetadata: Record<string, unknown>;
+    };
+    expect(saved.photoEditMetadata).toEqual(
+      expect.objectContaining({
+        face_check: "skipped",
+        face_check_reason: "model_unavailable",
+      }),
+    );
+    check.mockResolvedValue({ status: "pass" });
   });
 
   it("opens the file picker when another photo is requested", async () => {

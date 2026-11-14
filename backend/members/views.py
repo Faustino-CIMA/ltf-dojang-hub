@@ -45,6 +45,7 @@ from .ltf_staff import (
     update_staff_member,
 )
 from .services import (
+    face_check_for_review,
     add_grade_promotion,
     clear_member_profile_picture,
     delete_grade_promotion,
@@ -850,6 +851,7 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
                     "last_name": member.last_name,
                     "current_url": current,
                     "pending_url": pending,
+                    "face_check": face_check_for_review(member.photo_edit_metadata),
                 }
             )
         decision = str(request.data.get("decision") or "").strip()

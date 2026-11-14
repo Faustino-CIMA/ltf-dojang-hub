@@ -487,8 +487,9 @@ La photo est imprimée sur la carte de licence : une bonne photo évite une réi
 2. Déposez une image dans le cadre, cliquez sur [[photoSelectFileButton]], ou cliquez sur [[photoCameraButton]] puis sur [[photoCameraCaptureButton]].
 3. Réglez [[photoZoomLabel]] et faites glisser l'image pour que le visage remplisse le cadre 8:10. L'encadré [[photoPreviewTitle]] montre le résultat.
 4. Si vous le souhaitez, cliquez sur [[photoRemoveBackgroundButton]]. La couleur sous [[photoBackgroundColorLabel]] est celle de la fédération et elle est appliquée pour vous. Une barre indique la progression. Vous pouvez quand même enregistrer la photo si le retrait échoue.
-5. Cochez [[photoConsentLabel]].
-6. Cliquez sur [[photoSaveButton]].
+5. Attendez que le contrôle du visage indique que la photo peut être enregistrée. Il cherche une seule personne, face à l'appareil. Si le contrôle ne peut pas être fait, vous pouvez quand même enregistrer, et le club vérifie la photo.
+6. Cochez [[photoConsentLabel]].
+7. Cliquez sur [[photoSaveButton]].
 
 > [!TIP]
 > Un mur uni, une bonne lumière et un regard droit vers l'objectif donnent le meilleur résultat. Les photos JPEG, PNG et HEIC jusqu'à 10 Mo sont acceptées.
