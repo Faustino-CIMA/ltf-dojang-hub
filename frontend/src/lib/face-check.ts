@@ -28,6 +28,9 @@ export const FACE_LUMA_MAX = 210;
 /** A 32px drawn edge scores about 4300; the same edge after a 4px box blur scores about 54. */
 export const FACE_BLUR_MIN = 80;
 export const FACE_CHECK_DEBOUNCE_MS = 400;
+/** Four checks a second, one at a time, on a small sample. Enough to follow a person who is standing still. */
+export const LIVE_FACE_INTERVAL_MS = 250;
+export const LIVE_FACE_LONG_SIDE = 320;
 
 export const FACE_CHECK_ASSET_DIR = "/face-check/1.2.3";
 export const FACE_LANDMARKER_FILE = "face_landmarker.task";

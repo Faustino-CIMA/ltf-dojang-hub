@@ -2,6 +2,8 @@ import { expandCrop, printWindowAfterRemoval } from "./photo-background";
 
 import {
   FACE_BLUR_MIN,
+  LIVE_FACE_INTERVAL_MS,
+  LIVE_FACE_LONG_SIDE,
   boxBlurPlane,
   evaluateFaceCheck,
   evaluateFacePlacement,
@@ -206,6 +208,8 @@ describe("face check rules", () => {
     expect(faceGuideReason({ faces: [card], luma: 128, blurVariance: 1, includeBlur: false })).toBe("ready");
     expect(framingGuideState("closer")).toBe("adjust");
     expect(framingGuideState("off")).toBe("off");
+    expect(LIVE_FACE_INTERVAL_MS).toBe(250);
+    expect(LIVE_FACE_LONG_SIDE).toBe(320);
   });
 
   it("treats a missing face check the same as a skipped one", () => {
