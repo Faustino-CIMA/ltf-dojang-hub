@@ -21,6 +21,7 @@ export const FACE_CHECK_ASSET_DIR = "/face-check/1.2.3";
 export const FACE_LANDMARKER_FILE = "face_landmarker.task";
 export const FACE_WASM_JS = "vision_wasm_internal.js";
 export const FACE_WASM_BINARY = "vision_wasm_internal.wasm";
+export const FACE_VISION_BUNDLE = "vision_bundle.mjs";
 
 export type FaceBox = {
   x: number;

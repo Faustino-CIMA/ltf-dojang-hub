@@ -10,6 +10,7 @@ import {
   FACE_COUNT_CAP,
   FACE_LANDMARKER_FILE,
   FACE_WASM_BINARY,
+  FACE_VISION_BUNDLE,
   FACE_WASM_JS,
   evaluateFaceCheck,
   faceBoxFromPoints,
@@ -91,7 +92,15 @@ async function loadLandmarker(
     await readWithProgress(loaderUrl, (loaded, total) => report("loader", loaded, total));
     const model = await readWithProgress(modelUrl, (loaded, total) => report("model", loaded, total));
     onProgress({ phase: "prepare" });
-    const vision = await import("@mediapipe/tasks-vision");
+    // The package bundle calls import() on a runtime path. Turbopack cannot
+    // resolve that, so the page loads the same file from our origin instead.
+    const bundleUrl = faceCheckAssetUrl(window.location.origin, FACE_VISION_BUNDLE);
+    const vision = (await import(/* turbopackIgnore: true */ bundleUrl)) as {
+      FilesetResolver: { forVisionTasks: (basePath: string) => Promise<unknown> };
+      FaceLandmarker: {
+        createFromOptions: (files: unknown, options: Record<string, unknown>) => Promise<Landmarker>;
+      };
+    };
     const files = await vision.FilesetResolver.forVisionTasks(origin);
     const created = await vision.FaceLandmarker.createFromOptions(files, {
       baseOptions: { modelAssetBuffer: model, delegate: "CPU" },

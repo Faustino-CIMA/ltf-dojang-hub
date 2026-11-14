@@ -16,18 +16,16 @@ const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 const MODEL_BYTES = 3758596;
 const WASM_FILES = ["vision_wasm_internal.js", "vision_wasm_internal.wasm"];
+const BUNDLE = "vision_bundle.mjs";
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const destination = path.join(frontendRoot, "public", "face-check", PACKAGE_VERSION);
-const packageWasm = path.join(
-  frontendRoot,
-  "node_modules",
-  "@mediapipe",
-  "tasks-vision",
-  "wasm",
-);
+const packageRoot = path.join(frontendRoot, "node_modules", "@mediapipe", "tasks-vision");
+const packageWasm = path.join(packageRoot, "wasm");
 
 await mkdir(destination, { recursive: true });
+
+await copyFile(path.join(packageRoot, BUNDLE), path.join(destination, BUNDLE));
 
 for (const name of WASM_FILES) {
   const source = path.join(packageWasm, name);

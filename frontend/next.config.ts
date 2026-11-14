@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  transpilePackages: ["@zxing/browser", "@zxing/library", "@mediapipe/tasks-vision"],
+  transpilePackages: ["@zxing/browser", "@zxing/library"],
   images: {
     remotePatterns: [
       { protocol: "http", hostname: "localhost", port: "8000", pathname: "/api/**" },
