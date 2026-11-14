@@ -487,8 +487,9 @@ Das Foto wird auf die Lizenzkarte gedruckt – ein gutes Foto erspart einen Neud
 2. Ziehen Sie ein Bild in das Feld, klicken Sie auf [[photoSelectFileButton]] oder auf [[photoCameraButton]] und dann auf [[photoCameraCaptureButton]].
 3. Stellen Sie mit [[photoZoomLabel]] die Größe ein und verschieben Sie das Bild, bis das Gesicht den 8:10-Rahmen füllt. Der Bereich [[photoPreviewTitle]] zeigt das Ergebnis.
 4. Klicken Sie bei Bedarf auf [[photoRemoveBackgroundButton]]. Die Farbe unter [[photoBackgroundColorLabel]] legt der Verband fest und sie wird für Sie angewendet. Ein Balken zeigt den Fortschritt. Das Foto kann auch gespeichert werden, wenn das Entfernen fehlschlägt.
-5. Setzen Sie das Häkchen bei [[photoConsentLabel]].
-6. Klicken Sie auf [[photoSaveButton]].
+5. Warten Sie, bis die Gesichtsprüfung sagt, dass das Foto gespeichert werden kann. Sie sucht eine Person, die in die Kamera schaut. Wenn die Prüfung nicht laufen kann, können Sie trotzdem speichern, und der Verein prüft das Foto.
+6. Setzen Sie das Häkchen bei [[photoConsentLabel]].
+7. Klicken Sie auf [[photoSaveButton]].
 
 > [!TIP]
 > Eine einfarbige Wand, gutes Licht und ein gerader Blick in die Kamera ergeben das beste Ergebnis. Angenommen werden JPEG-, PNG- und HEIC-Fotos bis 10 MB.

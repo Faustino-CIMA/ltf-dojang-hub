@@ -487,8 +487,9 @@ The photo is printed on the license card, so a good photo saves a reprint.
 2. Drop a picture into the box, click [[photoSelectFileButton]], or click [[photoCameraButton]] and then [[photoCameraCaptureButton]].
 3. Use [[photoZoomLabel]] and drag the picture until the face fills the 8:10 frame. The [[photoPreviewTitle]] shows the result.
 4. If you like, click [[photoRemoveBackgroundButton]]. The colour under [[photoBackgroundColorLabel]] is set by the federation and is applied for you. A bar shows the progress. You can still save the photo if removal fails.
-5. Tick [[photoConsentLabel]].
-6. Click [[photoSaveButton]].
+5. Wait until the face check says the photo can be saved. It looks for one person, facing the camera. If the check cannot run, you can still save, and the club reviews the photo.
+6. Tick [[photoConsentLabel]].
+7. Click [[photoSaveButton]].
 
 > [!TIP]
 > A plain wall, good light and a straight look into the camera give the best result. JPEG, PNG and HEIC photos up to 10 MB are accepted.

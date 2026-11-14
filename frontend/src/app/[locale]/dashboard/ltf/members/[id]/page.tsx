@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
+import { faceCheckEditorLabels } from "@/lib/face-check";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
@@ -400,6 +401,7 @@ export default function LtfMemberDetailPage() {
                         removeBackgroundEdges: t("photoRemoveBackgroundEdges"),
                         removeBackgroundColour: t("photoRemoveBackgroundColour"),
                         removeBackgroundFailed: t("photoRemoveBackgroundFailed"),
+                        ...faceCheckEditorLabels(t),
                         consentLabel: t("photoConsentLabel"),
                         saveButton: t("photoSaveButton"),
                         saveBusy: t("photoSaveBusy"),

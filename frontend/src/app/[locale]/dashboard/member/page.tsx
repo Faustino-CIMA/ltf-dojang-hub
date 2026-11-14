@@ -11,6 +11,7 @@ import { MemberHistoryTimeline } from "@/components/history/member-history-timel
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
+import { faceCheckEditorLabels } from "@/lib/face-check";
 import { apiRequest } from "@/lib/api";
 import {
   deleteMemberProfilePicture,
@@ -129,6 +130,7 @@ export default function MemberDashboardPage() {
                 removeBackgroundEdges: t("photoRemoveBackgroundEdges"),
                 removeBackgroundColour: t("photoRemoveBackgroundColour"),
                 removeBackgroundFailed: t("photoRemoveBackgroundFailed"),
+                ...faceCheckEditorLabels(t),
                 consentLabel: t("photoConsentLabel"),
                 saveButton: t("photoSaveButton"),
                 saveBusy: t("photoSaveBusy"),

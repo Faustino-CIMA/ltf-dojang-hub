@@ -111,6 +111,7 @@ class PictureNoticeTests(TestCase):
         detail = self.client.get(f"/api/members/{child.id}/picture-review/")
         self.assertEqual(detail.status_code, 200, detail.data)
         self.assertTrue(detail.data["pending_url"])
+        self.assertEqual(detail.data["face_check"], "skipped")
         approved = self.client.post(
             f"/api/members/{child.id}/picture-review/",
             {"decision": "approve"},
@@ -125,6 +126,14 @@ class PictureNoticeTests(TestCase):
         self.assertEqual(audit.metadata["decision"], "approve")
         self.assertNotIn("reason", audit.metadata)
         self.assertEqual(self.client.get("/api/notices/").data, [])
+
+    def test_picture_review_shows_a_passed_face_check_from_metadata(self):
+        child, _minor = self._queue()
+        child.photo_edit_metadata = {"pending_face_check": "pass", "crop": {"x": 1}}
+        child.save(update_fields=["photo_edit_metadata", "updated_at"])
+        detail = self.client.get(f"/api/members/{child.id}/picture-review/")
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(detail.data["face_check"], "pass")
 
     def test_rejection_keeps_the_current_photo_and_a_new_upload_clears_the_reason(self):
         child, minor = self._queue()

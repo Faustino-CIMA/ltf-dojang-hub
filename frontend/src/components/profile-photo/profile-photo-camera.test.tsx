@@ -1,10 +1,16 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
+import { faceCheckEditorLabels } from "@/lib/face-check";
+
 import { ProfilePhotoManager } from "./profile-photo-manager";
 
 jest.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+}));
+
+jest.mock("@/lib/face-landmarker", () => ({
+  checkFaceOnCrop: jest.fn(async () => ({ status: "pass" })),
 }));
 
 jest.mock("react-easy-crop", () => ({
@@ -39,6 +45,7 @@ const labels = {
   removeBackgroundEdges: "Cleaning the edges…",
   removeBackgroundColour: "Applying the background colour…",
   removeBackgroundFailed: "Background removal failed. You can still save the photo as it is.",
+  ...faceCheckEditorLabels((key) => key),
   consentLabel: "Consent",
   saveButton: "Save photo",
   saveBusy: "Saving photo...",

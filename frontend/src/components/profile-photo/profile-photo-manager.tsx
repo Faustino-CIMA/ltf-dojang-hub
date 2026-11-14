@@ -23,6 +23,14 @@ import {
 } from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
+import { checkFaceOnCrop } from "@/lib/face-landmarker";
+import {
+  FACE_CHECK_DEBOUNCE_MS,
+  progressBarPercent as faceProgressBarPercent,
+  type FaceCheckOutcome,
+  type FaceCheckProgress,
+  type FaceHint,
+} from "@/lib/face-check";
 import { getLicensePhotoBackgroundColor } from "@/lib/license-photo-background";
 import { MEMBER_PHOTO_ASPECT, MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH, memberPhotoAspectRatio } from "@/lib/member-photo-frame";
 import {
@@ -71,6 +79,19 @@ type ProfilePhotoManagerLabels = {
   removeBackgroundEdges: string;
   removeBackgroundColour: string;
   removeBackgroundFailed: string;
+  faceCheckDownload: string;
+  faceCheckPrepare: string;
+  faceCheckFind: string;
+  faceCheckLight: string;
+  faceCheckPass: string;
+  faceCheckNone: string;
+  faceCheckMany: string;
+  faceCheckPose: string;
+  faceCheckSize: string;
+  faceCheckDark: string;
+  faceCheckBright: string;
+  faceCheckBlur: string;
+  faceCheckSkipped: string;
   consentLabel: string;
   saveButton: string;
   saveBusy: string;
@@ -194,6 +215,9 @@ export function ProfilePhotoManager({
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [removalProgress, setRemovalProgress] = useState<PhotoBackgroundProgress | null>(null);
+  const [faceOutcome, setFaceOutcome] = useState<FaceCheckOutcome | null>(null);
+  const [faceProgress, setFaceProgress] = useState<FaceCheckProgress | null>(null);
+  const faceRequestRef = useRef(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -394,6 +418,8 @@ export function ProfilePhotoManager({
     setIsSaving(false);
     setIsRemovingBackground(false);
     setRemovalProgress(null);
+    setFaceOutcome(null);
+    setFaceProgress(null);
     setConsentConfirmed(false);
     setErrorMessage(null);
     setOriginalFile(null);
@@ -580,6 +606,39 @@ export function ProfilePhotoManager({
     };
   }, [backgroundColor, croppedAreaPixels, labels.removeBackgroundUnsupported, workingImageUrl]);
 
+  useEffect(() => {
+    if ((!isOpen && !isPageEditor) || !workingImageUrl || !croppedAreaPixels) {
+      return;
+    }
+    const requestId = faceRequestRef.current + 1;
+    faceRequestRef.current = requestId;
+    const crop = croppedAreaPixels;
+    const imageUrl = workingImageUrl;
+    setFaceOutcome(null);
+    setFaceProgress({ phase: "prepare" });
+    const timer = window.setTimeout(() => {
+      void checkFaceOnCrop({
+        imageUrl,
+        crop,
+        onProgress: (progress) => {
+          if (faceRequestRef.current === requestId) {
+            setFaceProgress(progress);
+          }
+        },
+      }).then((outcome) => {
+        if (faceRequestRef.current !== requestId) {
+          return;
+        }
+        setFaceProgress(null);
+        setFaceOutcome(outcome);
+      });
+    }, FACE_CHECK_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      faceRequestRef.current += 1;
+    };
+  }, [croppedAreaPixels, isOpen, isPageEditor, workingImageUrl]);
+
   const removalProgressLabel = (progress: PhotoBackgroundProgress): string => {
     if (progress.phase === "download") {
       return labels.removeBackgroundDownload.replaceAll("{percent}", String(progress.percent));
@@ -595,6 +654,36 @@ export function ProfilePhotoManager({
     }
     return labels.removeBackgroundColour;
   };
+
+  const faceHint = (hint: FaceHint): string => {
+    if (hint === "none") return labels.faceCheckNone;
+    if (hint === "many") return labels.faceCheckMany;
+    if (hint === "pose") return labels.faceCheckPose;
+    if (hint === "size") return labels.faceCheckSize;
+    if (hint === "dark") return labels.faceCheckDark;
+    if (hint === "bright") return labels.faceCheckBright;
+    return labels.faceCheckBlur;
+  };
+
+  const faceProgressLabel = (progress: FaceCheckProgress): string => {
+    if (progress.phase === "download") {
+      return labels.faceCheckDownload.replaceAll("{percent}", String(progress.percent));
+    }
+    if (progress.phase === "prepare") return labels.faceCheckPrepare;
+    if (progress.phase === "find") return labels.faceCheckFind;
+    return labels.faceCheckLight;
+  };
+
+  const faceMessage = (): string | null => {
+    if (faceProgress) return faceProgressLabel(faceProgress);
+    if (!faceOutcome) return null;
+    if (faceOutcome.status === "pass") return labels.faceCheckPass;
+    if (faceOutcome.status === "skipped") return labels.faceCheckSkipped;
+    return faceHint(faceOutcome.hint);
+  };
+
+  const faceAllowsSave =
+    !faceProgress && (faceOutcome?.status === "pass" || faceOutcome?.status === "skipped");
 
   const handleRemoveBackground = async () => {
     if (!workingFile || !workingImageUrl || !croppedAreaPixels) {
@@ -640,6 +729,9 @@ export function ProfilePhotoManager({
       setErrorMessage(labels.consentLabel);
       return;
     }
+    if (faceOutcome?.status !== "pass" && faceOutcome?.status !== "skipped") {
+      return;
+    }
 
     setIsSaving(true);
     setErrorMessage(null);
@@ -658,6 +750,10 @@ export function ProfilePhotoManager({
           background_color: backgroundColor,
           background_removed: backgroundRemoved,
           aspect_ratio: memberPhotoAspectRatio,
+          face_check: faceOutcome?.status === "pass" ? "pass" : "skipped",
+          ...(faceOutcome?.status === "skipped"
+            ? { face_check_reason: faceOutcome.reason }
+            : {}),
         },
         photoConsentConfirmed: consentConfirmed,
       });
@@ -843,25 +939,46 @@ export function ProfilePhotoManager({
               {isRemovingBackground ? labels.removeBackgroundBusy : labels.removeBackgroundButton}
             </Button>
           </div>
-          {removalProgress ? (
+          {removalProgress || faceProgress ? (
             <div className="space-y-1">
-              <p className="text-xs text-muted">{removalProgressLabel(removalProgress)}</p>
+              <p className="text-xs text-muted">
+                {removalProgress
+                  ? removalProgressLabel(removalProgress)
+                  : faceProgressLabel(faceProgress as FaceCheckProgress)}
+              </p>
               <div
                 className="h-1.5 overflow-hidden rounded-full bg-secondary"
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={
-                  removalProgress.phase === "download" ? removalProgress.percent : undefined
+                  removalProgress?.phase === "download"
+                    ? removalProgress.percent
+                    : faceProgress?.phase === "download"
+                      ? faceProgress.percent
+                      : undefined
                 }
-                aria-valuetext={removalProgressLabel(removalProgress)}
+                aria-valuetext={
+                  removalProgress
+                    ? removalProgressLabel(removalProgress)
+                    : faceProgressLabel(faceProgress as FaceCheckProgress)
+                }
               >
                 <div
                   className="h-full rounded-full bg-accent"
-                  style={{ width: `${progressBarPercent(removalProgress)}%` }}
+                  style={{
+                    width: `${
+                      removalProgress
+                        ? progressBarPercent(removalProgress)
+                        : faceProgressBarPercent(faceProgress as FaceCheckProgress)
+                    }%`,
+                  }}
                 />
               </div>
             </div>
+          ) : null}
+          {!faceProgress && faceOutcome ? (
+            <p className="text-xs text-muted">{faceMessage()}</p>
           ) : null}
 
           {previewImageUrl ? (
@@ -896,7 +1013,7 @@ export function ProfilePhotoManager({
         </Button>
         <Button
           type="button"
-          disabled={!workingImageUrl || !consentConfirmed || isSaving}
+          disabled={!workingImageUrl || !consentConfirmed || isSaving || !faceAllowsSave}
           onClick={handleSave}
         >
           {isSaving ? labels.saveBusy : labels.saveButton}

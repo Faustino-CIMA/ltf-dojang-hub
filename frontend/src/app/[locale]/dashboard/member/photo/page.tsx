@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { MemberLayout } from "@/components/member/member-layout";
 import { PhotoRejectionNote } from "@/components/profile-photo/photo-rejection-note";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
+import { faceCheckEditorLabels } from "@/lib/face-check";
 import { apiRequest } from "@/lib/api";
 import { Member, getMembers, uploadMemberProfilePicture } from "@/lib/ltf-admin-api";
 
@@ -114,6 +115,7 @@ export default function MemberProfilePhotoPage() {
               removeBackgroundEdges: t("photoRemoveBackgroundEdges"),
               removeBackgroundColour: t("photoRemoveBackgroundColour"),
               removeBackgroundFailed: t("photoRemoveBackgroundFailed"),
+              ...faceCheckEditorLabels(t),
               consentLabel: t("photoConsentLabel"),
               saveButton: t("photoSaveButton"),
               saveBusy: t("photoSaveBusy"),

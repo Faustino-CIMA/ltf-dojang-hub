@@ -46,3 +46,5 @@ next-env.d.ts
 
 # ISNet weights, fetched when the frontend image is built.
 /public/background-removal/
+# Face Landmarker weights and WASM, fetched when the frontend image is built.
+/public/face-check/

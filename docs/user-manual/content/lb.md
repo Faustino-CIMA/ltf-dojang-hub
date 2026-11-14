@@ -487,8 +487,9 @@ D'Foto gëtt op d'Lizenzkaart gedréckt – e gutt Foto erspuert en neien Drock.
 2. Zitt e Bild an d'Feld, klickt op [[photoSelectFileButton]], oder klickt op [[photoCameraButton]] an duerno op [[photoCameraCaptureButton]].
 3. Stellt mat [[photoZoomLabel]] d'Gréisst an a verréckelt d'Bild, bis d'Gesiicht de 8:10-Rumm fëllt. D'[[photoPreviewTitle]] weist d'Resultat.
 4. Wann Dir wëllt, klickt op [[photoRemoveBackgroundButton]]. D'Faarf ënner [[photoBackgroundColorLabel]] setzt d'Federatioun a se gëtt fir Iech applizéiert. Eng Läischt weist de Fortschrëtt. Dir kënnt d'Foto och späicheren, wann d'Ewechhuelen net geet.
-5. Kräizt [[photoConsentLabel]] un.
-6. Klickt op [[photoSaveButton]].
+5. Waart, bis d'Gesiichtskontroll seet, datt d'Foto gespäichert ka ginn. Si sicht eng Persoun, déi an d'Kamera kuckt. Wann d'Kontroll net lafe kann, kënnt Dir trotzdem späicheren, an de Club kuckt d'Foto no.
+6. Kräizt [[photoConsentLabel]] un.
+7. Klickt op [[photoSaveButton]].
 
 > [!TIP]
 > Eng einfach Mauer, gutt Liicht an e grade Bléck an d'Kamera ginn dat bescht Resultat. JPEG-, PNG- an HEIC-Fotoe bis 10 MB ginn akzeptéiert.

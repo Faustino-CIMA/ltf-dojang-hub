@@ -22,6 +22,9 @@ MIN_PRINT_WIDTH = 945
 MIN_PRINT_HEIGHT = 1181
 THUMBNAIL_WIDTH = 240
 THUMBNAIL_HEIGHT = 300
+FACE_CHECK_PASS = "pass"
+FACE_CHECK_SKIPPED = "skipped"
+FACE_CHECK_REASON = "model_unavailable"
 
 ALLOWED_ORIGINAL_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"}
 ALLOWED_ORIGINAL_CONTENT_TYPES = {
@@ -152,6 +155,53 @@ def delete_grade_promotion(
             if member.belt_rank != next_rank:
                 member.belt_rank = next_rank
                 member.save(update_fields=["belt_rank", "updated_at"])
+
+
+def normalize_face_check(metadata: dict[str, Any] | None) -> dict[str, str]:
+    source = metadata if isinstance(metadata, dict) else {}
+    value = str(source.get("face_check") or "").strip()
+    if value not in {FACE_CHECK_PASS, FACE_CHECK_SKIPPED}:
+        return {}
+    cleaned = {"face_check": value}
+    reason = str(source.get("face_check_reason") or "").strip()
+    if value == FACE_CHECK_SKIPPED and reason == FACE_CHECK_REASON:
+        cleaned["face_check_reason"] = reason
+    return cleaned
+
+
+def face_check_for_review(metadata: dict[str, Any] | None) -> str:
+    """A pending photo with no recorded check is treated as skipped."""
+    source = metadata if isinstance(metadata, dict) else {}
+    value = str(source.get("pending_face_check") or "").strip()
+    if value == FACE_CHECK_PASS:
+        return FACE_CHECK_PASS
+    return FACE_CHECK_SKIPPED
+
+
+def _store_pending_face_check(member: Member, metadata: dict[str, Any] | None) -> None:
+    stored = dict(member.photo_edit_metadata or {})
+    face = normalize_face_check(metadata)
+    if not face:
+        stored.pop("pending_face_check", None)
+        stored.pop("pending_face_check_reason", None)
+    else:
+        stored["pending_face_check"] = face["face_check"]
+        if "face_check_reason" in face:
+            stored["pending_face_check_reason"] = face["face_check_reason"]
+        else:
+            stored.pop("pending_face_check_reason", None)
+    member.photo_edit_metadata = stored
+
+
+def _pending_face_check_payload(member: Member) -> dict[str, str]:
+    source = member.photo_edit_metadata if isinstance(member.photo_edit_metadata, dict) else {}
+    face = normalize_face_check(
+        {
+            "face_check": source.get("pending_face_check"),
+            "face_check_reason": source.get("pending_face_check_reason"),
+        }
+    )
+    return face
 
 
 def _validate_upload_basics(
@@ -314,6 +364,11 @@ def process_member_profile_picture(
         **(photo_edit_metadata or {}),
         **processed_details,
     }
+    metadata.pop("face_check", None)
+    metadata.pop("face_check_reason", None)
+    metadata.pop("pending_face_check", None)
+    metadata.pop("pending_face_check_reason", None)
+    metadata.update(normalize_face_check(photo_edit_metadata))
 
     if review:
         with transaction.atomic():
@@ -333,10 +388,12 @@ def process_member_profile_picture(
                 )
             except OSError:
                 member.profile_picture_pending_thumbnail = None
+            _store_pending_face_check(member, photo_edit_metadata)
             member.save(
                 update_fields=[
                     "profile_picture_pending_processed",
                     "profile_picture_pending_thumbnail",
+                    "photo_edit_metadata",
                     "updated_at",
                 ]
             )
@@ -412,10 +469,15 @@ def clear_pending_profile_picture(member: Member) -> Member:
             except OSError:
                 pass
         setattr(member, field_name, None)
+    stored = dict(member.photo_edit_metadata or {})
+    stored.pop("pending_face_check", None)
+    stored.pop("pending_face_check_reason", None)
+    member.photo_edit_metadata = stored
     member.save(
         update_fields=[
             "profile_picture_pending_processed",
             "profile_picture_pending_thumbnail",
+            "photo_edit_metadata",
             "updated_at",
         ]
     )
@@ -430,6 +492,7 @@ def approve_pending_profile_picture(member: Member, actor) -> Member:
     approved = process_member_profile_picture(
         member,
         processed_image=pending,
+        photo_edit_metadata=_pending_face_check_payload(member),
         actor=actor,
         review=False,
     )

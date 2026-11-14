@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** Before a profile photo can be saved, the browser checks that it shows one face, looking at the camera, large enough and in the frame, and not too dark, bright, or blurry. The check stays on the device. If it cannot run, the photo can still be saved and the club is told to review it.
 - **Photos:** Removing a background uses the cropped portrait, shows a progress bar, and fills the federation's license-card colour (light grey unless LTF settings change it). The photo stays on the device. If removal fails, the photo is unchanged and can still be saved.
 - **Photos:** Switch camera works on an iPhone. The app releases the current camera first, then asks for the other one. If that fails, it says so.
 - **License cards:** Changing a grade, or any other detail printed on the card, refreshes the on-screen card. The printed card was already correct.
