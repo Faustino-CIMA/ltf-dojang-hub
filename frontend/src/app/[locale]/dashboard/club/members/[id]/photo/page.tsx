@@ -88,6 +88,7 @@ export default function ClubMemberPhotoPage() {
               cameraPermissionDenied: t("photoCameraPermissionDenied"),
               cameraStartError: t("photoCameraStartError"),
               cameraSwitchButton: t("photoCameraSwitch"),
+              cameraSwitchError: t("photoCameraSwitchFailed"),
               zoomLabel: t("photoZoomLabel"),
               backgroundColorLabel: t("photoBackgroundColorLabel"),
               removeBackgroundButton: t("photoRemoveBackgroundButton"),
