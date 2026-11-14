@@ -14,6 +14,7 @@ import {
   FACE_WASM_JS,
   evaluateFaceCheck,
   faceBoxFromPoints,
+  faceGuideReason,
   faceCheckAssetUrl,
   laplacianVariance,
   luminancePlane,
@@ -178,6 +179,57 @@ function facePixels(
   };
 }
 
+async function verdictForCanvas(
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D | null,
+  options: {
+    recordedBlur?: number;
+    includeBlur?: boolean;
+    onProgress?: (progress: FaceCheckProgress) => void;
+  },
+): Promise<FaceCheckOutcome> {
+  const report = options.onProgress ?? (() => undefined);
+  try {
+    report({ phase: "prepare" });
+    const landmarker = await loadLandmarker(report);
+    report({ phase: "find" });
+    const detected = landmarker.detect(canvas);
+    const faces = observationsFrom(detected);
+    const face = faces.length === 1 ? faces[0] : null;
+    const measured = face && context
+      ? facePixels(context, canvas.width, canvas.height, face.box)
+      : null;
+    report({ phase: "light" });
+    const includeBlur = options.includeBlur !== false;
+    const blurVariance = options.recordedBlur ?? (includeBlur ? measured?.blurVariance ?? 0 : Number.POSITIVE_INFINITY);
+    const luma = measured?.luma ?? 0;
+    const guide = faceGuideReason({ faces, luma, blurVariance, includeBlur });
+    const verdict = evaluateFaceCheck({
+      faces,
+      luma,
+      blurVariance: includeBlur ? blurVariance : Number.POSITIVE_INFINITY,
+    });
+    if (verdict === "pass") {
+      return { status: "pass", blurVariance, guide };
+    }
+    return { status: "fail", hint: verdict, blurVariance, guide };
+  } catch {
+    return { status: "skipped", reason: "model_unavailable" };
+  }
+}
+
+export async function checkFaceOnCanvas(options: {
+  canvas: HTMLCanvasElement;
+  includeBlur?: boolean;
+  onProgress?: (progress: FaceCheckProgress) => void;
+}): Promise<FaceCheckOutcome> {
+  const context = options.canvas.getContext("2d", { willReadFrequently: true });
+  return verdictForCanvas(options.canvas, context, {
+    includeBlur: options.includeBlur,
+    onProgress: options.onProgress,
+  });
+}
+
 export async function checkFaceOnCrop(options: {
   imageUrl: string;
   crop: { x: number; y: number; width: number; height: number };
@@ -187,31 +239,15 @@ export async function checkFaceOnCrop(options: {
 }): Promise<FaceCheckOutcome> {
   const report = options.onProgress ?? (() => undefined);
   try {
-    report({ phase: "prepare" });
-    const landmarker = await loadLandmarker(report);
     const image = await loadImage(options.imageUrl);
     const drawn = drawCrop(image, options.crop);
     if (!drawn) {
       return { status: "skipped", reason: "model_unavailable" };
     }
-    report({ phase: "find" });
-    const detected = landmarker.detect(drawn.canvas);
-    const faces = observationsFrom(detected);
-    const face = faces.length === 1 ? faces[0] : null;
-    const measured = face
-      ? facePixels(drawn.context, drawn.canvas.width, drawn.canvas.height, face.box)
-      : null;
-    report({ phase: "light" });
-    const blurVariance = options.recordedBlur ?? measured?.blurVariance ?? 0;
-    const verdict = evaluateFaceCheck({
-      faces,
-      luma: measured?.luma ?? 0,
-      blurVariance,
+    return verdictForCanvas(drawn.canvas, drawn.context, {
+      recordedBlur: options.recordedBlur,
+      onProgress: report,
     });
-    if (verdict === "pass") {
-      return { status: "pass", blurVariance };
-    }
-    return { status: "fail", hint: verdict, blurVariance };
   } catch {
     return { status: "skipped", reason: "model_unavailable" };
   }

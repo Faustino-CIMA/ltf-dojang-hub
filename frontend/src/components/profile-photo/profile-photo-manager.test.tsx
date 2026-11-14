@@ -33,13 +33,16 @@ jest.mock("react-easy-crop", () => {
     default: function CropperMock({
       image,
       onCropComplete,
+      onCropSizeChange,
     }: {
       image?: string;
       onCropComplete: (area: unknown, pixels: unknown) => void;
+      onCropSizeChange?: (size: { width: number; height: number }) => void;
     }) {
       React.useEffect(() => {
+        onCropSizeChange?.({ width: 200, height: 250 });
         onCropComplete(null, { x: 0, y: 0, width: 500, height: 700 });
-      }, [image, onCropComplete]);
+      }, [image, onCropComplete, onCropSizeChange]);
       return <div data-testid="cropper">cropper</div>;
     },
   };
@@ -92,6 +95,18 @@ const labels = {
       faceCheckBright: "The face is too bright. Avoid strong light behind the camera.",
       faceCheckBlur: "The photo is blurry. Hold still and try again.",
       faceCheckSkipped: "The automatic check could not run. You can still save the photo. The club will review it.",
+      faceGuideReady: "This framing can be saved.",
+      faceGuideNone: "We can't see a face yet.",
+      faceGuideMany: "Only one person in the frame.",
+      faceGuideTurn: "Look straight at the camera.",
+      faceGuideTilt: "Hold your head level.",
+      faceGuideChin: "Lift or lower your chin a little.",
+      faceGuideCloser: "Move a little closer.",
+      faceGuideFurther: "Move a little further away.",
+      faceGuideCentre: "Move into the middle of the frame.",
+      faceGuideDark: "The face is too dark.",
+      faceGuideBright: "The face is too bright.",
+      faceGuideOff: "The guide is not available. You can still take the photo.",
     };
     return text[key] ?? key;
   }),
@@ -251,6 +266,24 @@ describe("ProfilePhotoManager", () => {
       expect(onSave).toHaveBeenCalledTimes(1);
     });
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ photoConsentConfirmed: true }));
+  });
+
+  it("draws an amber or green outline from the save rule", async () => {
+    const check = checkFaceOnCrop as jest.MockedFunction<typeof checkFaceOnCrop>;
+    check.mockResolvedValueOnce({ status: "fail", hint: "size", guide: "closer" });
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    const guide = await screen.findByTestId("framing-guide");
+    expect(guide).toHaveAttribute("data-state", "adjust");
+    expect(screen.getByText("Move a little closer.")).toBeInTheDocument();
+    expect(guide.innerHTML).not.toContain("--danger");
+    expect(guide.innerHTML).not.toContain("--accent");
+    expect(guide.innerHTML).toContain("--warning");
   });
 
   it("shows the federation colour and download progress", async () => {

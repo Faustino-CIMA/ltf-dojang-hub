@@ -28,6 +28,9 @@ export const FACE_LUMA_MAX = 210;
 /** A 32px drawn edge scores about 4300; the same edge after a 4px box blur scores about 54. */
 export const FACE_BLUR_MIN = 80;
 export const FACE_CHECK_DEBOUNCE_MS = 400;
+/** Four checks a second, one at a time, on a small sample. Enough to follow a person who is standing still. */
+export const LIVE_FACE_INTERVAL_MS = 250;
+export const LIVE_FACE_LONG_SIDE = 320;
 
 export const FACE_CHECK_ASSET_DIR = "/face-check/1.2.3";
 export const FACE_LANDMARKER_FILE = "face_landmarker.task";
@@ -63,8 +66,8 @@ export type FaceCheckProgress =
   | { phase: "prepare" | "find" | "light" };
 
 export type FaceCheckOutcome =
-  | { status: "pass"; blurVariance?: number }
-  | { status: "fail"; hint: FaceHint; blurVariance?: number }
+  | { status: "pass"; blurVariance?: number; guide?: FaceGuideReason }
+  | { status: "fail"; hint: FaceHint; blurVariance?: number; guide?: FaceGuideReason }
   | { status: "skipped"; reason: "model_unavailable" };
 
 export function faceCheckAssetUrl(origin: string, file: string): string {
@@ -131,6 +134,75 @@ export function poseDegreesFromMatrix(
     pitchDeg: (pitch * 180) / Math.PI,
     rollDeg: (roll * 180) / Math.PI,
   };
+}
+
+export type FaceGuideReason =
+  | "ready"
+  | "none"
+  | "many"
+  | "turn"
+  | "tilt"
+  | "chin"
+  | "closer"
+  | "further"
+  | "centre"
+  | "dark"
+  | "bright"
+  | "blur"
+  | "off";
+
+/**
+ * The sentence for the framing guide. Pass and fail still come from
+ * evaluateFacePlacement, evaluateLuma, and the blur limit.
+ */
+export function faceGuideReason(input: {
+  faces: FaceObservation[];
+  luma: number;
+  blurVariance?: number;
+  includeBlur?: boolean;
+}): FaceGuideReason {
+  const placement = evaluateFacePlacement(input.faces);
+  if (placement === "none" || placement === "many") {
+    return placement;
+  }
+  if (placement === "pose") {
+    const face = input.faces[0];
+    if (Math.abs(face.rollDeg) > FACE_ROLL_MAX_DEG) {
+      return "tilt";
+    }
+    if (Math.abs(face.pitchDeg) > FACE_PITCH_MAX_DEG) {
+      return "chin";
+    }
+    return "turn";
+  }
+  if (placement === "size") {
+    const box = input.faces[0].box;
+    if (box.height < FACE_HEIGHT_MIN) {
+      return "closer";
+    }
+    if (box.height > FACE_HEIGHT_MAX) {
+      return "further";
+    }
+    return "centre";
+  }
+  const light = evaluateLuma(input.luma);
+  if (light !== "pass") {
+    return light;
+  }
+  if (input.includeBlur !== false && (input.blurVariance ?? 0) < FACE_BLUR_MIN) {
+    return "blur";
+  }
+  return "ready";
+}
+
+export function framingGuideState(reason: FaceGuideReason): "ready" | "adjust" | "off" {
+  if (reason === "ready") {
+    return "ready";
+  }
+  if (reason === "off") {
+    return "off";
+  }
+  return "adjust";
 }
 
 export function evaluateFacePlacement(faces: FaceObservation[]): "pass" | "none" | "many" | "pose" | "size" {
@@ -297,6 +369,18 @@ export function faceCheckEditorLabels(
     faceCheckBright: translate("faceCheckBright"),
     faceCheckBlur: translate("faceCheckBlur"),
     faceCheckSkipped: translate("faceCheckSkipped"),
+    faceGuideReady: translate("faceGuideReady"),
+    faceGuideNone: translate("faceGuideNone"),
+    faceGuideMany: translate("faceGuideMany"),
+    faceGuideTurn: translate("faceGuideTurn"),
+    faceGuideTilt: translate("faceGuideTilt"),
+    faceGuideChin: translate("faceGuideChin"),
+    faceGuideCloser: translate("faceGuideCloser"),
+    faceGuideFurther: translate("faceGuideFurther"),
+    faceGuideCentre: translate("faceGuideCentre"),
+    faceGuideDark: translate("faceGuideDark"),
+    faceGuideBright: translate("faceGuideBright"),
+    faceGuideOff: translate("faceGuideOff"),
   };
 }
 
