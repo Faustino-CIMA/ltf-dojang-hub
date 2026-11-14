@@ -794,7 +794,6 @@ export function ProfilePhotoManager({
     if (faceProgress) return faceProgressLabel(faceProgress);
     if (!faceOutcome) return null;
     if (faceOutcome.status === "pass") return labels.faceCheckPass;
-    if (faceOutcome.status === "skipped") return labels.faceCheckSkipped;
     return faceHint(faceOutcome.hint);
   };
 
