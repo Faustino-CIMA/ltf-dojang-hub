@@ -7,9 +7,21 @@ export const FACE_COUNT_CAP = 3;
 export const FACE_YAW_MAX_DEG = 15;
 export const FACE_PITCH_MAX_DEG = 12;
 export const FACE_ROLL_MAX_DEG = 10;
-export const FACE_HEIGHT_MIN = 0.5;
-export const FACE_HEIGHT_MAX = 0.85;
-export const FACE_EDGE_INSET = 0.08;
+/**
+ * The mesh box is chin to forehead, not chin to the crown of the hair.
+ * On a head-and-shoulders card the visible face is about 40-45% of the
+ * frame, so this shorter box is about a third of the frame. 30% still
+ * passes that framing. Above 70% the forehead-to-chin span alone fills
+ * the card, which means the head is cropped.
+ */
+export const FACE_HEIGHT_MIN = 0.3;
+export const FACE_HEIGHT_MAX = 0.7;
+/** Centre of the mesh box, as a fraction of the print crop. */
+export const FACE_CENTER_X_MIN = 0.35;
+export const FACE_CENTER_X_MAX = 0.65;
+/** Head-and-shoulders framing sits a little above the middle. */
+export const FACE_CENTER_Y_MIN = 0.32;
+export const FACE_CENTER_Y_MAX = 0.62;
 export const FACE_LUMA_MIN = 60;
 export const FACE_LUMA_MAX = 210;
 /** Locked by the sharp-edge and box-blur fixtures in face-check.test.ts. */
@@ -62,6 +74,16 @@ export function faceCheckAssetUrl(origin: string, file: string): string {
 
 export function reviewShowsSkippedFaceCheck(value: string | null | undefined): boolean {
   return value !== "pass";
+}
+
+/** Express a box that lives in the same pixel space as the print crop as fractions of that crop. */
+export function normalizeBoxToFrame(box: FaceBox, frame: FaceBox): FaceBox {
+  return {
+    x: (box.x - frame.x) / frame.width,
+    y: (box.y - frame.y) / frame.height,
+    width: box.width / frame.width,
+    height: box.height / frame.height,
+  };
 }
 
 export function faceBoxFromPoints(points: Array<{ x: number; y: number }>): FaceBox | null {
@@ -127,15 +149,20 @@ export function evaluateFacePlacement(faces: FaceObservation[]): "pass" | "none"
     return "pose";
   }
   const { x, y, width, height } = face.box;
-  const inset = FACE_EDGE_INSET;
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
   if (
     height < FACE_HEIGHT_MIN ||
     height > FACE_HEIGHT_MAX ||
     width <= 0 ||
-    x < inset ||
-    y < inset ||
-    x + width > 1 - inset ||
-    y + height > 1 - inset
+    x < -0.02 ||
+    y < -0.02 ||
+    x + width > 1.02 ||
+    y + height > 1.02 ||
+    centerX < FACE_CENTER_X_MIN ||
+    centerX > FACE_CENTER_X_MAX ||
+    centerY < FACE_CENTER_Y_MIN ||
+    centerY > FACE_CENTER_Y_MAX
   ) {
     return "size";
   }
