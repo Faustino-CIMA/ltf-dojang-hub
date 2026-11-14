@@ -181,6 +181,8 @@ function facePixels(
 export async function checkFaceOnCrop(options: {
   imageUrl: string;
   crop: { x: number; y: number; width: number; height: number };
+  /** Blur measured on the original capture. Used after our own removal so processing cannot fail the check. */
+  recordedBlur?: number;
   onProgress?: (progress: FaceCheckProgress) => void;
 }): Promise<FaceCheckOutcome> {
   const report = options.onProgress ?? (() => undefined);
@@ -200,15 +202,16 @@ export async function checkFaceOnCrop(options: {
       ? facePixels(drawn.context, drawn.canvas.width, drawn.canvas.height, face.box)
       : null;
     report({ phase: "light" });
+    const blurVariance = options.recordedBlur ?? measured?.blurVariance ?? 0;
     const verdict = evaluateFaceCheck({
       faces,
       luma: measured?.luma ?? 0,
-      blurVariance: measured?.blurVariance ?? 0,
+      blurVariance,
     });
     if (verdict === "pass") {
-      return { status: "pass" };
+      return { status: "pass", blurVariance };
     }
-    return { status: "fail", hint: verdict };
+    return { status: "fail", hint: verdict, blurVariance };
   } catch {
     return { status: "skipped", reason: "model_unavailable" };
   }
