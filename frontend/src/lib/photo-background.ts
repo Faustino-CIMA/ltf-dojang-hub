@@ -179,16 +179,384 @@ export function compositeOntoColor(pixels: Uint8ClampedArray, color: Rgb): void 
   }
 }
 
-function loadImage(source: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Unable to load image for processing."));
-    image.src = source;
-  });
+export type PhotoRaster = {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+};
+
+/** iPhone portrait shots are landscape files with this tag. 1 means already upright. */
+export function readJpegOrientation(bytes: Uint8Array): number {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    return 1;
+  }
+  let offset = 2;
+  while (offset + 4 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      break;
+    }
+    const marker = bytes[offset + 1];
+    if (marker === 0xda || marker === 0xd9) {
+      break;
+    }
+    const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
+    if (length < 2 || offset + 2 + length > bytes.length) {
+      break;
+    }
+    if (marker === 0xe1 && length >= 8) {
+      const start = offset + 4;
+      const exif =
+        bytes[start] === 0x45 &&
+        bytes[start + 1] === 0x78 &&
+        bytes[start + 2] === 0x69 &&
+        bytes[start + 3] === 0x66 &&
+        bytes[start + 4] === 0 &&
+        bytes[start + 5] === 0;
+      if (exif) {
+        const value = orientationFromTiff(bytes, start + 6);
+        if (value >= 1 && value <= 8) {
+          return value;
+        }
+      }
+    }
+    offset += 2 + length;
+  }
+  return 1;
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
+export function readJpegSize(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    return null;
+  }
+  let offset = 2;
+  while (offset + 9 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      return null;
+    }
+    const marker = bytes[offset + 1];
+    if (marker === 0xda || marker === 0xd9) {
+      return null;
+    }
+    const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
+    if (marker >= 0xc0 && marker <= 0xc2 && offset + 9 < bytes.length) {
+      const height = (bytes[offset + 5] << 8) | bytes[offset + 6];
+      const width = (bytes[offset + 7] << 8) | bytes[offset + 8];
+      if (width > 0 && height > 0) {
+        return { width, height };
+      }
+    }
+    if (length < 2) {
+      return null;
+    }
+    offset += 2 + length;
+  }
+  return null;
+}
+
+function orientationFromTiff(bytes: Uint8Array, tiffStart: number): number {
+  if (tiffStart + 8 > bytes.length) {
+    return 1;
+  }
+  const little = bytes[tiffStart] === 0x49 && bytes[tiffStart + 1] === 0x49;
+  const big = bytes[tiffStart] === 0x4d && bytes[tiffStart + 1] === 0x4d;
+  if (!little && !big) {
+    return 1;
+  }
+  const read16 = (pos: number) => {
+    if (pos + 1 >= bytes.length) {
+      return 0;
+    }
+    return little ? bytes[pos] | (bytes[pos + 1] << 8) : (bytes[pos] << 8) | bytes[pos + 1];
+  };
+  const read32 = (pos: number) => {
+    if (pos + 3 >= bytes.length) {
+      return 0;
+    }
+    return little
+      ? bytes[pos] | (bytes[pos + 1] << 8) | (bytes[pos + 2] << 16) | (bytes[pos + 3] << 24)
+      : (bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3];
+  };
+  if (read16(tiffStart + 2) !== 42) {
+    return 1;
+  }
+  let pos = tiffStart + read32(tiffStart + 4);
+  const count = read16(pos);
+  pos += 2;
+  for (let index = 0; index < count; index += 1) {
+    const entry = pos + index * 12;
+    if (entry + 10 >= bytes.length) {
+      break;
+    }
+    if (read16(entry) === 0x0112) {
+      return read16(entry + 8);
+    }
+  }
+  return 1;
+}
+
+export function orientedDimensions(
+  width: number,
+  height: number,
+  orientation: number,
+): { width: number; height: number } {
+  if (orientation >= 5 && orientation <= 8) {
+    return { width: height, height: width };
+  }
+  return { width, height };
+}
+
+export function shouldApplyOrientation(
+  bitmapWidth: number,
+  bitmapHeight: number,
+  rawWidth: number,
+  rawHeight: number,
+  orientation: number,
+): boolean {
+  if (orientation <= 1 || orientation > 8) {
+    return false;
+  }
+  const oriented = orientedDimensions(rawWidth, rawHeight, orientation);
+  const matchesOriented = bitmapWidth === oriented.width && bitmapHeight === oriented.height;
+  const matchesRaw = bitmapWidth === rawWidth && bitmapHeight === rawHeight;
+  if (matchesOriented && !matchesRaw) {
+    return false;
+  }
+  return true;
+}
+
+function orientedPoint(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  orientation: number,
+): [number, number] {
+  switch (orientation) {
+    case 2:
+      return [width - 1 - x, y];
+    case 3:
+      return [width - 1 - x, height - 1 - y];
+    case 4:
+      return [x, height - 1 - y];
+    case 5:
+      return [y, x];
+    case 6:
+      return [height - 1 - y, x];
+    case 7:
+      return [height - 1 - y, width - 1 - x];
+    case 8:
+      return [y, width - 1 - x];
+    default:
+      return [x, y];
+  }
+}
+
+/** Turn stored pixels upright. A circle stays a circle; only its place on the grid changes. */
+export function applyExifOrientation(raster: PhotoRaster, orientation: number): PhotoRaster {
+  if (orientation <= 1 || orientation > 8) {
+    return raster;
+  }
+  const { width, height, data } = raster;
+  const destSize = orientedDimensions(width, height, orientation);
+  const dest = new Uint8ClampedArray(destSize.width * destSize.height * 4);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const [destX, destY] = orientedPoint(x, y, width, height, orientation);
+      const sourceIndex = (y * width + x) * 4;
+      const destIndex = (destY * destSize.width + destX) * 4;
+      dest[destIndex] = data[sourceIndex];
+      dest[destIndex + 1] = data[sourceIndex + 1];
+      dest[destIndex + 2] = data[sourceIndex + 2];
+      dest[destIndex + 3] = data[sourceIndex + 3];
+    }
+  }
+  return { width: destSize.width, height: destSize.height, data: dest };
+}
+
+export function resampleCrop(
+  source: PhotoRaster,
+  crop: PhotoCrop,
+  destWidth: number,
+  destHeight: number,
+): PhotoRaster {
+  const width = Math.max(1, Math.round(destWidth));
+  const height = Math.max(1, Math.round(destHeight));
+  const dest = new Uint8ClampedArray(width * height * 4);
+  const scaleX = crop.width / width;
+  const scaleY = crop.height / height;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const sourceX = Math.min(
+        source.width - 1,
+        Math.max(0, Math.floor(crop.x + (x + 0.5) * scaleX)),
+      );
+      const sourceY = Math.min(
+        source.height - 1,
+        Math.max(0, Math.floor(crop.y + (y + 0.5) * scaleY)),
+      );
+      const sourceIndex = (sourceY * source.width + sourceX) * 4;
+      const destIndex = (y * width + x) * 4;
+      dest[destIndex] = source.data[sourceIndex];
+      dest[destIndex + 1] = source.data[sourceIndex + 1];
+      dest[destIndex + 2] = source.data[sourceIndex + 2];
+      dest[destIndex + 3] = source.data[sourceIndex + 3];
+    }
+  }
+  return { width, height, data: dest };
+}
+
+export function removalInputRaster(
+  stored: PhotoRaster,
+  orientation: number,
+  crop: PhotoCrop,
+  longSide = BACKGROUND_REMOVAL_LONG_SIDE,
+): PhotoRaster {
+  const oriented = applyExifOrientation(stored, orientation);
+  const expanded = expandCrop(crop, oriented.width, oriented.height);
+  const fitted = fitLongSide(expanded.width, expanded.height, longSide);
+  return resampleCrop(oriented, expanded, fitted.width, fitted.height);
+}
+
+/** Paint a different-sized cutout back onto the frame we sent to the model. */
+export function restoreRemovalFrame(input: PhotoRaster, cutout: PhotoRaster): PhotoRaster {
+  if (cutout.width === input.width && cutout.height === input.height) {
+    return cutout;
+  }
+  return resampleCrop(
+    cutout,
+    { x: 0, y: 0, width: cutout.width, height: cutout.height },
+    input.width,
+    input.height,
+  );
+}
+
+export function matchCropAspect(crop: PhotoCrop, aspect: number): PhotoCrop {
+  if (crop.width <= 0 || crop.height <= 0 || aspect <= 0) {
+    return crop;
+  }
+  const current = crop.width / crop.height;
+  if (Math.abs(current - aspect) / aspect < 0.001) {
+    return crop;
+  }
+  if (current > aspect) {
+    const width = crop.height * aspect;
+    return { x: crop.x + (crop.width - width) / 2, y: crop.y, width, height: crop.height };
+  }
+  const height = crop.width / aspect;
+  return { x: crop.x, y: crop.y + (crop.height - height) / 2, width: crop.width, height };
+}
+
+export function rasterForPrintFrame(
+  source: PhotoRaster,
+  crop: PhotoCrop,
+  frameWidth: number,
+  frameHeight: number,
+): PhotoRaster {
+  const x = Math.min(Math.max(0, crop.x), Math.max(0, source.width - 1));
+  const y = Math.min(Math.max(0, crop.y), Math.max(0, source.height - 1));
+  const clamped = {
+    x,
+    y,
+    width: Math.max(1, Math.min(crop.width, source.width - x)),
+    height: Math.max(1, Math.min(crop.height, source.height - y)),
+  };
+  const matched = matchCropAspect(clamped, frameWidth / frameHeight);
+  return resampleCrop(source, matched, frameWidth, frameHeight);
+}
+
+export function licensePhotoFromStored(options: {
+  stored: PhotoRaster;
+  orientation: number;
+  crop: PhotoCrop;
+  modelOutput: (input: PhotoRaster) => PhotoRaster;
+  frameWidth: number;
+  frameHeight: number;
+  longSide?: number;
+}): PhotoRaster {
+  const input = removalInputRaster(options.stored, options.orientation, options.crop, options.longSide);
+  const restored = restoreRemovalFrame(input, options.modelOutput(input));
+  return rasterForPrintFrame(
+    restored,
+    { x: 0, y: 0, width: restored.width, height: restored.height },
+    options.frameWidth,
+    options.frameHeight,
+  );
+}
+
+function rasterFromImageBitmap(bitmap: ImageBitmap): PhotoRaster {
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    throw new Error("Unable to read the photo.");
+  }
+  context.drawImage(bitmap, 0, 0);
+  const image = context.getImageData(0, 0, bitmap.width, bitmap.height);
+  return { width: bitmap.width, height: bitmap.height, data: new Uint8ClampedArray(image.data) };
+}
+
+function paintRaster(raster: PhotoRaster): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = raster.width;
+  canvas.height = raster.height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Unable to prepare the photo.");
+  }
+  const image = context.createImageData(raster.width, raster.height);
+  image.data.set(raster.data);
+  context.putImageData(image, 0, 0);
+  return canvas;
+}
+
+export async function rasterFromBlob(blob: Blob): Promise<PhotoRaster> {
+  const bytes = await blobBytes(blob);
+  const orientation = readJpegOrientation(bytes);
+  const rawSize = readJpegSize(bytes);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(blob, { imageOrientation: "none" });
+  } catch {
+    bitmap = await createImageBitmap(blob);
+  }
+  try {
+    const raw = rasterFromImageBitmap(bitmap);
+    if (
+      rawSize &&
+      shouldApplyOrientation(bitmap.width, bitmap.height, rawSize.width, rawSize.height, orientation)
+    ) {
+      return applyExifOrientation(raw, orientation);
+    }
+    return raw;
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function blobBytes(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === "function") {
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  return new Uint8Array(await new Response(blob).arrayBuffer());
+}
+
+export async function normalizePhotoFile(file: File): Promise<File> {
+  try {
+    const bytes = await blobBytes(file);
+    if (readJpegOrientation(bytes) === 1) {
+      return file;
+    }
+    const raster = await rasterFromBlob(file);
+    const blob = await canvasToBlob(paintRaster(raster), "image/jpeg", 0.92);
+    const stem = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return new File([blob], `${stem}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
@@ -196,7 +564,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
         return;
       }
       resolve(blob);
-    }, type);
+    }, type, quality);
   });
 }
 
@@ -218,29 +586,6 @@ function asPngBlob(removed: unknown): Blob {
   throw new Error("Background removal returned an unexpected result.");
 }
 
-async function blobToCanvas(blob: Blob): Promise<{
-  canvas: HTMLCanvasElement;
-  context: CanvasRenderingContext2D;
-  image: ImageData;
-}> {
-  const bitmap = await createImageBitmap(blob);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    bitmap.close();
-    throw new Error("Unable to read the cutout.");
-  }
-  context.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  return {
-    canvas,
-    context,
-    image: context.getImageData(0, 0, canvas.width, canvas.height),
-  };
-}
-
 export async function removeProfileBackground(options: {
   imageUrl: string;
   crop: PhotoCrop;
@@ -249,32 +594,14 @@ export async function removeProfileBackground(options: {
 }): Promise<Blob> {
   const report = options.onProgress ?? (() => undefined);
   report({ phase: "prepare" });
-  const image = await loadImage(options.imageUrl);
-  const expanded = expandCrop(
-    options.crop,
-    image.naturalWidth || image.width,
-    image.naturalHeight || image.height,
-  );
-  const fitted = fitLongSide(expanded.width, expanded.height);
-  const inputCanvas = document.createElement("canvas");
-  inputCanvas.width = fitted.width;
-  inputCanvas.height = fitted.height;
-  const inputContext = inputCanvas.getContext("2d");
-  if (!inputContext) {
-    throw new Error("Unable to prepare the photo.");
+  const response = await fetch(options.imageUrl);
+  if (!response.ok) {
+    throw new Error("Unable to load image for processing.");
   }
-  inputContext.drawImage(
-    image,
-    expanded.x,
-    expanded.y,
-    expanded.width,
-    expanded.height,
-    0,
-    0,
-    fitted.width,
-    fitted.height,
-  );
-  const inputBlob = await canvasToBlob(inputCanvas, "image/png");
+  // Orient first. A tall crop painted from an unrotated iPhone bitmap stretches the face.
+  const oriented = await rasterFromBlob(await response.blob());
+  const input = removalInputRaster(oriented, 1, options.crop);
+  const inputBlob = await canvasToBlob(paintRaster(input), "image/png");
 
   const downloads = new Map<string, { current: number; total: number }>();
   const bgModule = await import("@imgly/background-removal-js");
@@ -289,10 +616,10 @@ export async function removeProfileBackground(options: {
   });
 
   report({ phase: "edges" });
-  const cutout = await blobToCanvas(asPngBlob(removed));
-  decontaminateEdgeSpill(cutout.image.data);
+  const cutout = await rasterFromBlob(asPngBlob(removed));
+  const restored = restoreRemovalFrame(input, cutout);
+  decontaminateEdgeSpill(restored.data);
   report({ phase: "colour" });
-  compositeOntoColor(cutout.image.data, parseLicensePhotoColor(options.color));
-  cutout.context.putImageData(cutout.image, 0, 0);
-  return canvasToBlob(cutout.canvas, "image/png");
+  compositeOntoColor(restored.data, parseLicensePhotoColor(options.color));
+  return canvasToBlob(paintRaster(restored), "image/png");
 }

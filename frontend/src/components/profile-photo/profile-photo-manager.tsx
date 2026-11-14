@@ -35,9 +35,14 @@ import { getLicensePhotoBackgroundColor } from "@/lib/license-photo-background";
 import { MEMBER_PHOTO_ASPECT, MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH, memberPhotoAspectRatio } from "@/lib/member-photo-frame";
 import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
+  matchCropAspect,
+  normalizePhotoFile,
   progressBarPercent,
+  rasterForPrintFrame,
+  rasterFromBlob,
   removeProfileBackground,
   type PhotoBackgroundProgress,
+  type PhotoRaster,
 } from "@/lib/photo-background";
 
 const OUTPUT_WIDTH = MEMBER_PHOTO_WIDTH;
@@ -149,11 +154,58 @@ function loadImage(source: string): Promise<HTMLImageElement> {
   });
 }
 
+function fileFromRaster(raster: PhotoRaster, backgroundColor: string): Promise<File> {
+  const canvas = document.createElement("canvas");
+  canvas.width = raster.width;
+  canvas.height = raster.height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Unable to initialize image canvas.");
+  }
+  const pixels = document.createElement("canvas");
+  pixels.width = raster.width;
+  pixels.height = raster.height;
+  const pixelContext = pixels.getContext("2d");
+  if (!pixelContext) {
+    throw new Error("Unable to initialize image canvas.");
+  }
+  const image = pixelContext.createImageData(raster.width, raster.height);
+  image.data.set(raster.data);
+  pixelContext.putImageData(image, 0, 0);
+  context.fillStyle = backgroundColor;
+  context.fillRect(0, 0, raster.width, raster.height);
+  context.drawImage(pixels, 0, 0);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Unable to create cropped image output."));
+          return;
+        }
+        resolve(new File([blob], `profile-picture-${Date.now()}.jpg`, { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      0.92,
+    );
+  });
+}
+
 async function renderPrintReadyImage(
   imageSource: string,
   cropArea: Area,
   backgroundColor: string
 ): Promise<File> {
+  try {
+    const response = await fetch(imageSource);
+    if (response.ok) {
+      const oriented = await rasterFromBlob(await response.blob());
+      const printed = rasterForPrintFrame(oriented, cropArea, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+      return fileFromRaster(printed, backgroundColor);
+    }
+  } catch {
+    // The canvas path below still refuses to stretch a crop into the print frame.
+  }
+
   const image = await loadImage(imageSource);
   const canvas = document.createElement("canvas");
   canvas.width = OUTPUT_WIDTH;
@@ -163,14 +215,15 @@ async function renderPrintReadyImage(
     throw new Error("Unable to initialize image canvas.");
   }
 
+  const matched = matchCropAspect(cropArea, OUTPUT_WIDTH / OUTPUT_HEIGHT);
   context.fillStyle = backgroundColor;
   context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
   context.drawImage(
     image,
-    cropArea.x,
-    cropArea.y,
-    cropArea.width,
-    cropArea.height,
+    matched.x,
+    matched.y,
+    matched.width,
+    matched.height,
     0,
     0,
     OUTPUT_WIDTH,
@@ -262,6 +315,7 @@ export function ProfilePhotoManager({
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const facingRef = useRef<CameraFacing>(cameraFacing);
   const workingObjectUrlRef = useRef<string | null>(null);
+  const hydrateGenerationRef = useRef(0);
   const previewObjectUrlRef = useRef<string | null>(null);
   const storedPhotoObjectUrlRef = useRef<string | null>(null);
 
@@ -454,13 +508,20 @@ export function ProfilePhotoManager({
   };
 
   const hydrateFile = (file: File) => {
-    setErrorMessage(null);
-    setOriginalFile(file);
-    setWorkingFile(file);
-    setWorkingPreview(file);
-    setBackgroundRemoved(false);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
+    const generation = hydrateGenerationRef.current + 1;
+    hydrateGenerationRef.current = generation;
+    void normalizePhotoFile(file).then((working) => {
+      if (hydrateGenerationRef.current !== generation) {
+        return;
+      }
+      setErrorMessage(null);
+      setOriginalFile(file);
+      setWorkingFile(working);
+      setWorkingPreview(working);
+      setBackgroundRemoved(false);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+    });
   };
 
   const handleFileInput = (event: ChangeEvent<HTMLInputElement>) => {
@@ -897,6 +958,7 @@ export function ProfilePhotoManager({
             style={{ backgroundColor }}
           >
             <Cropper
+              key={workingImageUrl}
               image={workingImageUrl}
               crop={crop}
               zoom={zoom}
