@@ -61,22 +61,21 @@ export function expandCrop(
   return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y) };
 }
 
-/** Where the print crop sits inside the image that removal returns. */
+/**
+ * Where the print crop sits inside the full-resolution image removal returns.
+ * The model still sees a 1024 working copy. Only its mask is scaled back.
+ */
 export function printWindowAfterRemoval(
   imageWidth: number,
   imageHeight: number,
   crop: PhotoCrop,
-  longSide = BACKGROUND_REMOVAL_LONG_SIDE,
 ): PhotoCrop {
   const expanded = expandCrop(crop, imageWidth, imageHeight);
-  const fitted = fitLongSide(expanded.width, expanded.height, longSide);
-  const scaleX = fitted.width / expanded.width;
-  const scaleY = fitted.height / expanded.height;
   return {
-    x: (crop.x - expanded.x) * scaleX,
-    y: (crop.y - expanded.y) * scaleY,
-    width: crop.width * scaleX,
-    height: crop.height * scaleY,
+    x: crop.x - expanded.x,
+    y: crop.y - expanded.y,
+    width: crop.width,
+    height: crop.height,
   };
 }
 
@@ -190,6 +189,8 @@ function unmixChannel(channel: number, background: number, coverage: number): nu
 
 const CUTOUT_ALPHA_FLOOR = 16;
 const CUTOUT_SOLID_ALPHA = 200;
+const CUTOUT_SUBJECT_ALPHA = 128;
+const CUTOUT_BACKGROUND_DISTANCE = 48;
 
 function boxBlurChannel(
   source: Float32Array,
@@ -256,29 +257,220 @@ function erodeAlpha(alpha: Float32Array, width: number, height: number): Float32
   return dest;
 }
 
+function colourDistance(red: number, green: number, blue: number, background: Rgb): number {
+  const dr = red - background.r;
+  const dg = green - background.g;
+  const db = blue - background.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function dropBackgroundColouredFringe(raster: PhotoRaster): void {
+  const { data } = raster;
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  let count = 0;
+  for (let index = 0; index < data.length; index += 4) {
+    if (data[index + 3] >= CUTOUT_ALPHA_FLOOR) {
+      continue;
+    }
+    red += data[index];
+    green += data[index + 1];
+    blue += data[index + 2];
+    count += 1;
+  }
+  if (count === 0) {
+    return;
+  }
+  const background = { r: red / count, g: green / count, b: blue / count };
+  for (let index = 0; index < data.length; index += 4) {
+    const alpha = data[index + 3];
+    if (alpha < CUTOUT_ALPHA_FLOOR || alpha >= CUTOUT_SOLID_ALPHA) {
+      continue;
+    }
+    if (colourDistance(data[index], data[index + 1], data[index + 2], background) < CUTOUT_BACKGROUND_DISTANCE) {
+      data[index + 3] = 0;
+    }
+  }
+}
+
+function keepMainSubject(alpha: Float32Array, width: number, height: number): void {
+  const count = alpha.length;
+  const core = new Uint8Array(count);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      if (alpha[index] < CUTOUT_SUBJECT_ALPHA) {
+        continue;
+      }
+      if (x > 0 && alpha[index - 1] < CUTOUT_SUBJECT_ALPHA) {
+        continue;
+      }
+      if (x + 1 < width && alpha[index + 1] < CUTOUT_SUBJECT_ALPHA) {
+        continue;
+      }
+      if (y > 0 && alpha[index - width] < CUTOUT_SUBJECT_ALPHA) {
+        continue;
+      }
+      if (y + 1 < height && alpha[index + width] < CUTOUT_SUBJECT_ALPHA) {
+        continue;
+      }
+      core[index] = 1;
+    }
+  }
+  const labels = new Int32Array(count);
+  const queue = new Int32Array(count);
+  let nextLabel = 0;
+  let bestLabel = 0;
+  let bestCount = 0;
+  for (let start = 0; start < count; start += 1) {
+    if (!core[start] || labels[start] !== 0) {
+      continue;
+    }
+    nextLabel += 1;
+    let head = 0;
+    let tail = 0;
+    queue[tail] = start;
+    tail += 1;
+    labels[start] = nextLabel;
+    let area = 0;
+    while (head < tail) {
+      const index = queue[head];
+      head += 1;
+      area += 1;
+      const x = index % width;
+      const y = Math.floor(index / width);
+      const neighbours = [
+        x > 0 ? index - 1 : -1,
+        x + 1 < width ? index + 1 : -1,
+        y > 0 ? index - width : -1,
+        y + 1 < height ? index + width : -1,
+      ];
+      for (const neighbour of neighbours) {
+        if (neighbour < 0 || !core[neighbour] || labels[neighbour] !== 0) {
+          continue;
+        }
+        labels[neighbour] = nextLabel;
+        queue[tail] = neighbour;
+        tail += 1;
+      }
+    }
+    if (area > bestCount) {
+      bestCount = area;
+      bestLabel = nextLabel;
+    }
+  }
+  if (bestCount === 0) {
+    return;
+  }
+  const keep = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    if (labels[index] !== bestLabel) {
+      continue;
+    }
+    const x = index % width;
+    const y = Math.floor(index / width);
+    for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
+      const nextY = y + offsetY;
+      if (nextY < 0 || nextY >= height) {
+        continue;
+      }
+      for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
+        const nextX = x + offsetX;
+        if (nextX < 0 || nextX >= width) {
+          continue;
+        }
+        keep[nextY * width + nextX] = 1;
+      }
+    }
+  }
+  for (let index = 0; index < count; index += 1) {
+    if (!keep[index]) {
+      alpha[index] = 0;
+    }
+  }
+}
+
+function upsampleAlpha(
+  source: Float32Array,
+  sourceWidth: number,
+  sourceHeight: number,
+  destWidth: number,
+  destHeight: number,
+): Float32Array {
+  if (sourceWidth === destWidth && sourceHeight === destHeight) {
+    return source.slice();
+  }
+  const dest = new Float32Array(destWidth * destHeight);
+  for (let y = 0; y < destHeight; y += 1) {
+    const gy = destHeight === 1 ? 0 : (y * (sourceHeight - 1)) / Math.max(1, destHeight - 1);
+    const y0 = Math.floor(gy);
+    const y1 = Math.min(sourceHeight - 1, y0 + 1);
+    const fy = gy - y0;
+    for (let x = 0; x < destWidth; x += 1) {
+      const gx = destWidth === 1 ? 0 : (x * (sourceWidth - 1)) / Math.max(1, destWidth - 1);
+      const x0 = Math.floor(gx);
+      const x1 = Math.min(sourceWidth - 1, x0 + 1);
+      const fx = gx - x0;
+      dest[y * destWidth + x] =
+        source[y0 * sourceWidth + x0] * (1 - fx) * (1 - fy) +
+        source[y0 * sourceWidth + x1] * fx * (1 - fy) +
+        source[y1 * sourceWidth + x0] * (1 - fx) * fy +
+        source[y1 * sourceWidth + x1] * fx * fy;
+    }
+  }
+  return dest;
+}
+
+/**
+ * Put the model's mask on the original crop. The model's colour is ignored,
+ * so a sharp pattern in the photo stays sharp.
+ */
+export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRaster): PhotoRaster {
+  const data = new Uint8ClampedArray(original.data);
+  const alpha = new Float32Array(mask.width * mask.height);
+  for (let index = 0; index < alpha.length; index += 1) {
+    alpha[index] = mask.data[index * 4 + 3];
+  }
+  const scaled = upsampleAlpha(alpha, mask.width, mask.height, original.width, original.height);
+  for (let index = 0; index < scaled.length; index += 1) {
+    data[index * 4 + 3] = Math.max(0, Math.min(255, Math.round(scaled[index])));
+  }
+  const raster = { width: original.width, height: original.height, data };
+  cleanCutoutEdges(raster);
+  return raster;
+}
+
 /**
  * The mask leaks the old background into the fringe, and a tiny alpha turns
- * that leak into a saturated speckle. Drop the specks, pull the mask in by
- * one pixel, feather it, and take the fringe colour from nearby solid pixels.
+ * that leak into a saturated speckle. Drop specks and detached islands, then
+ * feather only the edge. Solid subject pixels keep their original colour.
  */
 export function cleanCutoutEdges(raster: PhotoRaster): void {
   const { width, height, data } = raster;
+  dropBackgroundColouredFringe(raster);
   const count = width * height;
   const alpha = new Float32Array(count);
+  const wasSolid = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    const coverage = data[index * 4 + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[index * 4 + 3];
+    alpha[index] = coverage;
+    wasSolid[index] = coverage >= CUTOUT_SOLID_ALPHA ? 1 : 0;
+  }
+  keepMainSubject(alpha, width, height);
   const solidRed = new Float32Array(count);
   const solidGreen = new Float32Array(count);
   const solidBlue = new Float32Array(count);
   const solidWeight = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
-    const offset = index * 4;
-    const coverage = data[offset + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[offset + 3];
-    alpha[index] = coverage;
-    if (coverage >= CUTOUT_SOLID_ALPHA) {
-      solidRed[index] = data[offset];
-      solidGreen[index] = data[offset + 1];
-      solidBlue[index] = data[offset + 2];
-      solidWeight[index] = 1;
+    if (!wasSolid[index] || alpha[index] < CUTOUT_SOLID_ALPHA) {
+      continue;
     }
+    const offset = index * 4;
+    solidRed[index] = data[offset];
+    solidGreen[index] = data[offset + 1];
+    solidBlue[index] = data[offset + 2];
+    solidWeight[index] = 1;
   }
   const feather = boxBlurChannel(erodeAlpha(alpha, width, height), width, height, 1);
   const blurredRed = boxBlurChannel(solidRed, width, height, 2);
@@ -289,7 +481,7 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     const offset = index * 4;
     const coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
     data[offset + 3] = coverage;
-    if (coverage === 0 || blurredWeight[index] <= 0.001) {
+    if (wasSolid[index] || coverage === 0 || blurredWeight[index] <= 0.001) {
       continue;
     }
     data[offset] = Math.max(0, Math.min(255, Math.round(blurredRed[index] / blurredWeight[index])));
@@ -729,8 +921,21 @@ export async function removeProfileBackground(options: {
   }
   // Orient first. A tall crop painted from an unrotated iPhone bitmap stretches the face.
   const oriented = await rasterFromBlob(await response.blob());
-  const input = removalInputRaster(oriented, 1, options.crop);
-  const inputBlob = await canvasToBlob(paintRaster(input), "image/png");
+  const expanded = expandCrop(options.crop, oriented.width, oriented.height);
+  const full = resampleCrop(
+    oriented,
+    expanded,
+    Math.max(1, Math.round(expanded.width)),
+    Math.max(1, Math.round(expanded.height)),
+  );
+  const fitted = fitLongSide(full.width, full.height);
+  const modelInput = resampleCrop(
+    full,
+    { x: 0, y: 0, width: full.width, height: full.height },
+    fitted.width,
+    fitted.height,
+  );
+  const inputBlob = await canvasToBlob(paintRaster(modelInput), "image/png");
 
   const downloads = new Map<string, { current: number; total: number }>();
   const bgModule = await import("@imgly/background-removal-js");
@@ -746,8 +951,7 @@ export async function removeProfileBackground(options: {
 
   report({ phase: "edges" });
   const cutout = await rasterFromBlob(asPngBlob(removed));
-  const restored = restoreRemovalFrame(input, cutout);
-  cleanCutoutEdges(restored);
+  const restored = compositeMaskOntoOriginal(full, cutout);
   report({ phase: "colour" });
   compositeOntoColor(restored.data, parseLicensePhotoColor(options.color));
   return canvasToBlob(paintRaster(restored), "image/png");

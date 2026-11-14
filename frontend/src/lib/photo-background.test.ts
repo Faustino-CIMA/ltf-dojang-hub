@@ -1,6 +1,9 @@
+import { laplacianVariance, luminancePlane } from "./face-check";
+
 import {
   applyExifOrientation,
   cleanCutoutEdges,
+  compositeMaskOntoOriginal,
   compositeOntoColor,
   decontaminateEdgeSpill,
   expandCrop,
@@ -116,6 +119,62 @@ describe("photo background maths", () => {
         expect(actual).toBeLessThanOrEqual(card.r + 2);
       }
     }
+  });
+
+  it("keeps a drawn sharp pattern when only the mask is scaled", () => {
+    const width = 40;
+    const height = 60;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const value = x % 2 === 0 ? 16 : 230;
+        data[index] = value;
+        data[index + 1] = value;
+        data[index + 2] = value;
+        data[index + 3] = 255;
+      }
+    }
+    const before = laplacianVariance(luminancePlane(data, width, height), width, height);
+    const maskWidth = 20;
+    const maskHeight = 30;
+    const mask = new Uint8ClampedArray(maskWidth * maskHeight * 4);
+    for (let index = 0; index < maskWidth * maskHeight; index += 1) {
+      mask[index * 4] = 128;
+      mask[index * 4 + 1] = 128;
+      mask[index * 4 + 2] = 128;
+      mask[index * 4 + 3] = 255;
+    }
+    const result = compositeMaskOntoOriginal(
+      { width, height, data },
+      { width: maskWidth, height: maskHeight, data: mask },
+    );
+    const after = laplacianVariance(luminancePlane(result.data, result.width, result.height), result.width, result.height);
+    expect(after).toBeGreaterThanOrEqual(before * 0.9);
+  });
+
+  it("removes a background island beside the subject", () => {
+    const width = 24;
+    const height = 16;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const subject = x >= 2 && x <= 9 && y >= 4 && y <= 11;
+        const island = x >= 16 && x <= 20 && y >= 4 && y <= 8;
+        data[index] = island ? 255 : subject ? 20 : 240;
+        data[index + 1] = island ? 40 : subject ? 16 : 240;
+        data[index + 2] = island ? 180 : subject ? 14 : 240;
+        data[index + 3] = subject || island ? 255 : 0;
+      }
+    }
+    const raster = { width, height, data };
+    cleanCutoutEdges(raster);
+    compositeOntoColor(raster.data, parseLicensePhotoColor("#D9D9D9"));
+    const island = (6 * width + 18) * 4;
+    expect(Array.from(raster.data.slice(island, island + 3))).toEqual([217, 217, 217]);
+    const subject = (7 * width + 5) * 4;
+    expect(raster.data[subject]).toBeLessThan(40);
   });
 });
 

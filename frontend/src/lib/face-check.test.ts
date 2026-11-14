@@ -1,4 +1,4 @@
-import { expandCrop, fitLongSide, printWindowAfterRemoval } from "./photo-background";
+import { expandCrop, printWindowAfterRemoval } from "./photo-background";
 
 import {
   FACE_BLUR_MIN,
@@ -147,23 +147,20 @@ describe("face check rules", () => {
 
     const imageWidth = 800;
     const imageHeight = 1000;
-    const window = printWindowAfterRemoval(imageWidth, imageHeight, print, 400);
+    const window = printWindowAfterRemoval(imageWidth, imageHeight, print);
     const expanded = expandCrop(print, imageWidth, imageHeight);
-    const fitted = fitLongSide(expanded.width, expanded.height, 400);
-    const scaleX = fitted.width / expanded.width;
-    const scaleY = fitted.height / expanded.height;
     const meshAfter = {
-      x: (mesh.x - expanded.x) * scaleX,
-      y: (mesh.y - expanded.y) * scaleY,
-      width: mesh.width * scaleX,
-      height: mesh.height * scaleY,
+      x: mesh.x - expanded.x,
+      y: mesh.y - expanded.y,
+      width: mesh.width,
+      height: mesh.height,
     };
     const onPrintCrop = normalizeBoxToFrame(meshAfter, window);
     const onWholeRemoval = normalizeBoxToFrame(meshAfter, {
       x: 0,
       y: 0,
-      width: fitted.width,
-      height: fitted.height,
+      width: expanded.width,
+      height: expanded.height,
     });
     expect(onPrintCrop.height).toBeCloseTo(0.34, 2);
     expect(evaluateFacePlacement([{ box: onPrintCrop, ...level }])).toBe("pass");

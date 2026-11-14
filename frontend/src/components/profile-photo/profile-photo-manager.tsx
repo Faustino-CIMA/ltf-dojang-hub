@@ -25,6 +25,7 @@ import "react-easy-crop/react-easy-crop.css";
 
 import { checkFaceOnCrop } from "@/lib/face-landmarker";
 import {
+  FACE_BLUR_MIN,
   FACE_CHECK_DEBOUNCE_MS,
   progressBarPercent as faceProgressBarPercent,
   type FaceCheckOutcome,
@@ -272,6 +273,7 @@ export function ProfilePhotoManager({
   const [faceOutcome, setFaceOutcome] = useState<FaceCheckOutcome | null>(null);
   const [faceProgress, setFaceProgress] = useState<FaceCheckProgress | null>(null);
   const faceRequestRef = useRef(0);
+  const sourceBlurRef = useRef<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -476,6 +478,7 @@ export function ProfilePhotoManager({
     setRemovalProgress(null);
     setFaceOutcome(null);
     setFaceProgress(null);
+    sourceBlurRef.current = null;
     setConsentConfirmed(false);
     setErrorMessage(null);
     setOriginalFile(null);
@@ -523,6 +526,7 @@ export function ProfilePhotoManager({
       setWorkingPreview(working);
       setBackgroundRemoved(false);
       setRemovalPrintCrop(null);
+      sourceBlurRef.current = null;
       setCrop({ x: 0, y: 0 });
       setZoom(1);
     });
@@ -679,12 +683,14 @@ export function ProfilePhotoManager({
     faceRequestRef.current = requestId;
     const crop = croppedAreaPixels;
     const imageUrl = workingImageUrl;
+    const removed = backgroundRemoved;
     setFaceOutcome(null);
     setFaceProgress({ phase: "prepare" });
     const timer = window.setTimeout(() => {
       void checkFaceOnCrop({
         imageUrl,
         crop,
+        recordedBlur: removed ? (sourceBlurRef.current ?? FACE_BLUR_MIN) : undefined,
         onProgress: (progress) => {
           if (faceRequestRef.current === requestId) {
             setFaceProgress(progress);
@@ -694,6 +700,9 @@ export function ProfilePhotoManager({
         if (faceRequestRef.current !== requestId) {
           return;
         }
+        if (!removed && outcome.status !== "skipped" && typeof outcome.blurVariance === "number") {
+          sourceBlurRef.current = outcome.blurVariance;
+        }
         setFaceProgress(null);
         setFaceOutcome(outcome);
       });
@@ -702,7 +711,7 @@ export function ProfilePhotoManager({
       window.clearTimeout(timer);
       faceRequestRef.current += 1;
     };
-  }, [croppedAreaPixels, isOpen, isPageEditor, workingImageUrl]);
+  }, [backgroundRemoved, croppedAreaPixels, isOpen, isPageEditor, workingImageUrl]);
 
   const removalProgressLabel = (progress: PhotoBackgroundProgress): string => {
     if (progress.phase === "download") {
@@ -1039,7 +1048,7 @@ export function ProfilePhotoManager({
                 }
               >
                 <div
-                  className="h-full rounded-full bg-accent"
+                  className="h-full rounded-full bg-foreground"
                   style={{
                     width: `${
                       removalProgress

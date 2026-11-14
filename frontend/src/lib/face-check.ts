@@ -63,8 +63,8 @@ export type FaceCheckProgress =
   | { phase: "prepare" | "find" | "light" };
 
 export type FaceCheckOutcome =
-  | { status: "pass" }
-  | { status: "fail"; hint: FaceHint }
+  | { status: "pass"; blurVariance?: number }
+  | { status: "fail"; hint: FaceHint; blurVariance?: number }
   | { status: "skipped"; reason: "model_unavailable" };
 
 export function faceCheckAssetUrl(origin: string, file: string): string {
