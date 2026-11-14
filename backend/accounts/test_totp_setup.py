@@ -187,8 +187,11 @@ class TotpSetupTests(TestCase):
         started = self.client.get("/api/auth/mfa/totp/")
         self.assertEqual(started.status_code, 200, started.data)
         secret = started.data["secret"]
+        # One code for both posts. A second _code() can land in the next 30s
+        # window, and the save then refuses it because the clock check is patched out.
+        code = _code(secret)
         self._age_sign_in(account_settings.REAUTHENTICATION_TIMEOUT + 5)
-        blocked = self.client.post("/api/auth/mfa/totp/", {"code": _code(secret)}, format="json")
+        blocked = self.client.post("/api/auth/mfa/totp/", {"code": code}, format="json")
         self.assertEqual(blocked.status_code, 409, getattr(blocked, "data", blocked.content))
         self.assertEqual(blocked.data["detail"], "mfa_password_to_save")
         from allauth.mfa.models import Authenticator
@@ -207,7 +210,7 @@ class TotpSetupTests(TestCase):
         self.assertEqual(resumed.status_code, 200, resumed.data)
         self.assertEqual(resumed.data["secret"], secret)
         with patch("allauth.mfa.totp.internal.auth.validate_totp_code", return_value=False):
-            activated = self.client.post("/api/auth/mfa/totp/", {"code": _code(secret)}, format="json")
+            activated = self.client.post("/api/auth/mfa/totp/", {"code": code}, format="json")
         self.assertEqual(activated.status_code, 200, activated.data)
 
     def test_past_the_timeout_a_wrong_code_is_still_refused(self):
