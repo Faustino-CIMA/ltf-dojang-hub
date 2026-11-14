@@ -23,10 +23,12 @@ import {
 } from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
-import { checkFaceOnCrop } from "@/lib/face-landmarker";
+import { checkFaceOnCanvas, checkFaceOnCrop } from "@/lib/face-landmarker";
 import {
   FACE_BLUR_MIN,
   FACE_CHECK_DEBOUNCE_MS,
+  LIVE_FACE_INTERVAL_MS,
+  LIVE_FACE_LONG_SIDE,
   progressBarPercent as faceProgressBarPercent,
   type FaceCheckOutcome,
   type FaceCheckProgress,
@@ -35,7 +37,14 @@ import {
 } from "@/lib/face-check";
 import { getLicensePhotoBackgroundColor } from "@/lib/license-photo-background";
 import { FramingGuide, GuideMark } from "@/components/profile-photo/framing-guide";
-import { MEMBER_PHOTO_ASPECT, MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH, memberPhotoAspectRatio } from "@/lib/member-photo-frame";
+import {
+  MEMBER_PHOTO_ASPECT,
+  MEMBER_PHOTO_HEIGHT,
+  MEMBER_PHOTO_WIDTH,
+  containedMediaRect,
+  memberPhotoAspectRatio,
+  printCropInFrame,
+} from "@/lib/member-photo-frame";
 import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
   matchCropAspect,
@@ -43,6 +52,7 @@ import {
   printWindowAfterRemoval,
   progressBarPercent,
   rasterForPrintFrame,
+  fitLongSide,
   rasterFromBlob,
   removeProfileBackground,
   type PhotoBackgroundProgress,
@@ -307,6 +317,9 @@ export function ProfilePhotoManager({
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [guideSize, setGuideSize] = useState<{ width: number; height: number } | null>(null);
+  const [liveGuide, setLiveGuide] = useState<FaceGuideReason | null>(null);
+  const [liveFrame, setLiveFrame] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [previewFacing, setPreviewFacing] = useState<CameraFacing>(cameraFacing);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [canSwitchCamera, setCanSwitchCamera] = useState(false);
@@ -331,6 +344,7 @@ export function ProfilePhotoManager({
   const sourceInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const facingRef = useRef<CameraFacing>(cameraFacing);
   const workingObjectUrlRef = useRef<string | null>(null);
@@ -528,7 +542,7 @@ export function ProfilePhotoManager({
     resetEditorState();
   };
 
-  const hydrateFile = (file: File) => {
+  const hydrateFile = (file: File, printCrop?: Area | null) => {
     const generation = hydrateGenerationRef.current + 1;
     hydrateGenerationRef.current = generation;
     void normalizePhotoFile(file).then((working) => {
@@ -540,7 +554,7 @@ export function ProfilePhotoManager({
       setWorkingFile(working);
       setWorkingPreview(working);
       setBackgroundRemoved(false);
-      setRemovalPrintCrop(null);
+      setRemovalPrintCrop(printCrop ?? null);
       sourceBlurRef.current = null;
       setCrop({ x: 0, y: 0 });
       setZoom(1);
@@ -560,6 +574,7 @@ export function ProfilePhotoManager({
     cameraStreamRef.current = stream;
     const inputs = await listVideoInputs();
     setCanSwitchCamera(canOfferCameraSwitch(inputs));
+    setPreviewFacing(facingRef.current);
     setIsCameraOpen(true);
     setCameraGeneration((generation) => generation + 1);
   };
@@ -636,7 +651,13 @@ export function ProfilePhotoManager({
       return;
     }
 
+    const mirror = facingRef.current === "user";
+    if (mirror) {
+      context.translate(canvas.width, 0);
+      context.scale(-1, 1);
+    }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const printCrop = printCropInFrame(video.videoWidth, video.videoHeight);
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -644,7 +665,7 @@ export function ProfilePhotoManager({
           return;
         }
         const file = new File([blob], `camera-${Date.now()}.png`, { type: "image/png" });
-        hydrateFile(file);
+        hydrateFile(file, printCrop);
         stopCamera();
       },
       "image/png"
@@ -728,6 +749,81 @@ export function ProfilePhotoManager({
     };
   }, [backgroundRemoved, croppedAreaPixels, isOpen, isPageEditor, workingImageUrl]);
 
+  useEffect(() => {
+    if (!isCameraOpen) {
+      return;
+    }
+    let stopped = false;
+    let busy = false;
+    let unavailable = false;
+    const placeFrame = () => {
+      const video = videoRef.current;
+      const box = previewRef.current;
+      if (!video || !box || video.videoWidth === 0 || video.videoHeight === 0) {
+        return null;
+      }
+      const picture = containedMediaRect(box.clientWidth, box.clientHeight, video.videoWidth, video.videoHeight);
+      const crop = printCropInFrame(video.videoWidth, video.videoHeight);
+      const scaleX = picture.width / video.videoWidth;
+      const scaleY = picture.height / video.videoHeight;
+      setLiveFrame({
+        left: picture.x + crop.x * scaleX,
+        top: picture.y + crop.y * scaleY,
+        width: crop.width * scaleX,
+        height: crop.height * scaleY,
+      });
+      return crop;
+    };
+    const tick = () => {
+      if (stopped || busy || unavailable || document.hidden) {
+        return;
+      }
+      const video = videoRef.current;
+      const crop = placeFrame();
+      if (!video || !crop) {
+        return;
+      }
+      const fitted = fitLongSide(crop.width, crop.height, LIVE_FACE_LONG_SIDE);
+      const canvas = document.createElement("canvas");
+      canvas.width = fitted.width;
+      canvas.height = fitted.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        return;
+      }
+      context.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, fitted.width, fitted.height);
+      busy = true;
+      void checkFaceOnCanvas({ canvas, includeBlur: false })
+        .then((outcome) => {
+          if (stopped) {
+            return;
+          }
+          if (outcome.status === "skipped") {
+            unavailable = true;
+            setLiveGuide("off");
+            return;
+          }
+          setLiveGuide(outcome.guide ?? (outcome.status === "pass" ? "ready" : "closer"));
+        })
+        .catch(() => {
+          if (!stopped) {
+            unavailable = true;
+            setLiveGuide("off");
+          }
+        })
+        .finally(() => {
+          busy = false;
+        });
+    };
+    const timer = window.setInterval(tick, LIVE_FACE_INTERVAL_MS);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      setLiveGuide(null);
+      setLiveFrame(null);
+    };
+  }, [isCameraOpen]);
+
   const removalProgressLabel = (progress: PhotoBackgroundProgress): string => {
     if (progress.phase === "download") {
       return labels.removeBackgroundDownload.replaceAll("{percent}", String(progress.percent));
@@ -794,7 +890,6 @@ export function ProfilePhotoManager({
     if (faceProgress) return faceProgressLabel(faceProgress);
     if (!faceOutcome) return null;
     if (faceOutcome.status === "pass") return labels.faceCheckPass;
-    if (faceOutcome.status === "skipped") return labels.faceCheckSkipped;
     return faceHint(faceOutcome.hint);
   };
 
@@ -962,15 +1057,31 @@ export function ProfilePhotoManager({
         </div>
         {isCameraOpen ? (
           <div className="mt-4 space-y-3">
-            <div className="relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="mx-auto max-h-72 w-full bg-black object-contain"
-              />
+            <div ref={previewRef} className="relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--scrim)]">
+              <div className={previewFacing === "user" ? "-scale-x-100" : undefined}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="mx-auto max-h-72 w-full bg-black object-contain"
+                />
+                {liveFrame && liveGuide ? (
+                  <div
+                    className="pointer-events-none absolute"
+                    style={{ left: liveFrame.left, top: liveFrame.top, width: liveFrame.width, height: liveFrame.height }}
+                  >
+                    <FramingGuide reason={liveGuide} />
+                  </div>
+                ) : null}
+              </div>
             </div>
+            {liveGuide ? (
+              <p role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-muted">
+                <GuideMark reason={liveGuide} />
+                <span>{guideText(liveGuide)}</span>
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" onClick={capturePhoto}>
                 {labels.cameraCaptureButton ?? "Take photo"}

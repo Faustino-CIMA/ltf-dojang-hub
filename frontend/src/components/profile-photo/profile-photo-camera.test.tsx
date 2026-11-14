@@ -11,6 +11,7 @@ jest.mock("next-intl", () => ({
 
 jest.mock("@/lib/face-landmarker", () => ({
   checkFaceOnCrop: jest.fn(async () => ({ status: "pass" })),
+  checkFaceOnCanvas: jest.fn(async () => ({ status: "skipped", reason: "model_unavailable" })),
 }));
 
 jest.mock("react-easy-crop", () => ({
