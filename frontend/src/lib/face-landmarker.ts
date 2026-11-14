@@ -14,6 +14,7 @@ import {
   FACE_WASM_JS,
   evaluateFaceCheck,
   faceBoxFromPoints,
+  faceGuideReason,
   faceCheckAssetUrl,
   laplacianVariance,
   luminancePlane,
@@ -203,15 +204,13 @@ export async function checkFaceOnCrop(options: {
       : null;
     report({ phase: "light" });
     const blurVariance = options.recordedBlur ?? measured?.blurVariance ?? 0;
-    const verdict = evaluateFaceCheck({
-      faces,
-      luma: measured?.luma ?? 0,
-      blurVariance,
-    });
+    const luma = measured?.luma ?? 0;
+    const guide = faceGuideReason({ faces, luma, blurVariance });
+    const verdict = evaluateFaceCheck({ faces, luma, blurVariance });
     if (verdict === "pass") {
-      return { status: "pass", blurVariance };
+      return { status: "pass", blurVariance, guide };
     }
-    return { status: "fail", hint: verdict, blurVariance };
+    return { status: "fail", hint: verdict, blurVariance, guide };
   } catch {
     return { status: "skipped", reason: "model_unavailable" };
   }

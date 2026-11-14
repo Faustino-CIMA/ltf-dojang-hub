@@ -30,9 +30,11 @@ import {
   progressBarPercent as faceProgressBarPercent,
   type FaceCheckOutcome,
   type FaceCheckProgress,
+  type FaceGuideReason,
   type FaceHint,
 } from "@/lib/face-check";
 import { getLicensePhotoBackgroundColor } from "@/lib/license-photo-background";
+import { FramingGuide, GuideMark } from "@/components/profile-photo/framing-guide";
 import { MEMBER_PHOTO_ASPECT, MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH, memberPhotoAspectRatio } from "@/lib/member-photo-frame";
 import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
@@ -99,6 +101,18 @@ type ProfilePhotoManagerLabels = {
   faceCheckBright: string;
   faceCheckBlur: string;
   faceCheckSkipped: string;
+  faceGuideReady: string;
+  faceGuideNone: string;
+  faceGuideMany: string;
+  faceGuideTurn: string;
+  faceGuideTilt: string;
+  faceGuideChin: string;
+  faceGuideCloser: string;
+  faceGuideFurther: string;
+  faceGuideCentre: string;
+  faceGuideDark: string;
+  faceGuideBright: string;
+  faceGuideOff: string;
   consentLabel: string;
   saveButton: string;
   saveBusy: string;
@@ -292,6 +306,7 @@ export function ProfilePhotoManager({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [guideSize, setGuideSize] = useState<{ width: number; height: number } | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [canSwitchCamera, setCanSwitchCamera] = useState(false);
@@ -748,7 +763,34 @@ export function ProfilePhotoManager({
     return labels.faceCheckLight;
   };
 
+  const guideReason = (): FaceGuideReason | null => {
+    if (faceProgress || !faceOutcome) return null;
+    if (faceOutcome.status === "skipped") return "off";
+    if (faceOutcome.guide) return faceOutcome.guide;
+    if (faceOutcome.status === "pass") return "ready";
+    return null;
+  };
+
+  const guideText = (reason: FaceGuideReason): string => {
+    if (reason === "ready") return labels.faceGuideReady;
+    if (reason === "none") return labels.faceGuideNone;
+    if (reason === "many") return labels.faceGuideMany;
+    if (reason === "turn") return labels.faceGuideTurn;
+    if (reason === "tilt") return labels.faceGuideTilt;
+    if (reason === "chin") return labels.faceGuideChin;
+    if (reason === "closer") return labels.faceGuideCloser;
+    if (reason === "further") return labels.faceGuideFurther;
+    if (reason === "centre") return labels.faceGuideCentre;
+    if (reason === "dark") return labels.faceGuideDark;
+    if (reason === "bright") return labels.faceGuideBright;
+    if (reason === "blur") return labels.faceCheckBlur;
+    return labels.faceGuideOff;
+  };
+
   const faceMessage = (): string | null => {
+    if (faceOutcome?.status === "skipped") return labels.faceCheckSkipped;
+    const reason = guideReason();
+    if (reason && reason !== "off") return guideText(reason);
     if (faceProgress) return faceProgressLabel(faceProgress);
     if (!faceOutcome) return null;
     if (faceOutcome.status === "pass") return labels.faceCheckPass;
@@ -990,7 +1032,16 @@ export function ProfilePhotoManager({
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={handleCropComplete}
+              onCropSizeChange={setGuideSize}
             />
+            {guideSize && guideReason() ? (
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                style={{ width: guideSize.width, height: guideSize.height }}
+              >
+                <FramingGuide reason={guideReason() as FaceGuideReason} />
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-3">
@@ -1061,7 +1112,10 @@ export function ProfilePhotoManager({
             </div>
           ) : null}
           {!faceProgress && faceOutcome ? (
-            <p className="text-xs text-muted">{faceMessage()}</p>
+            <p role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-muted">
+              {guideReason() ? <GuideMark reason={guideReason() as FaceGuideReason} /> : null}
+              <span>{faceMessage()}</span>
+            </p>
           ) : null}
 
           {previewImageUrl ? (

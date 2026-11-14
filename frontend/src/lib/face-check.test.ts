@@ -5,6 +5,8 @@ import {
   boxBlurPlane,
   evaluateFaceCheck,
   evaluateFacePlacement,
+  faceGuideReason,
+  framingGuideState,
   evaluateLuma,
   faceBoxFromPoints,
   laplacianVariance,
@@ -166,6 +168,44 @@ describe("face check rules", () => {
     expect(evaluateFacePlacement([{ box: onPrintCrop, ...level }])).toBe("pass");
     expect(onWholeRemoval.height).toBeLessThan(0.3);
     expect(evaluateFacePlacement([{ box: onWholeRemoval, ...level }])).toBe("size");
+  });
+
+  it("names the same adjustment the save rule would refuse", () => {
+    const level = { yawDeg: 0, pitchDeg: 0, rollDeg: 0 };
+    const card = face({ box: { x: 0.32, y: 0.28, width: 0.36, height: 0.42 } });
+    expect(faceGuideReason({ faces: [card], luma: 128, blurVariance: FACE_BLUR_MIN })).toBe("ready");
+    expect(framingGuideState("ready")).toBe("ready");
+    expect(
+      evaluateFaceCheck({ faces: [card], luma: 128, blurVariance: FACE_BLUR_MIN }),
+    ).toBe("pass");
+    expect(
+      faceGuideReason({
+        faces: [face({ ...level, box: { x: 0.35, y: 0.4, width: 0.3, height: 0.22 } })],
+        luma: 128,
+        blurVariance: FACE_BLUR_MIN,
+      }),
+    ).toBe("closer");
+    expect(
+      faceGuideReason({
+        faces: [face({ ...level, box: { x: 0.2, y: 0.1, width: 0.5, height: 0.75 } })],
+        luma: 128,
+        blurVariance: FACE_BLUR_MIN,
+      }),
+    ).toBe("further");
+    expect(
+      faceGuideReason({
+        faces: [face({ ...level, box: { x: 0.02, y: 0.2, width: 0.4, height: 0.45 } })],
+        luma: 128,
+        blurVariance: FACE_BLUR_MIN,
+      }),
+    ).toBe("centre");
+    expect(faceGuideReason({ faces: [face({ yawDeg: 20 })], luma: 128, blurVariance: FACE_BLUR_MIN })).toBe("turn");
+    expect(faceGuideReason({ faces: [face({ rollDeg: 12 })], luma: 128, blurVariance: FACE_BLUR_MIN })).toBe("tilt");
+    expect(faceGuideReason({ faces: [face({ pitchDeg: 14 })], luma: 128, blurVariance: FACE_BLUR_MIN })).toBe("chin");
+    expect(faceGuideReason({ faces: [card], luma: 20, blurVariance: FACE_BLUR_MIN })).toBe("dark");
+    expect(faceGuideReason({ faces: [card], luma: 128, blurVariance: 1, includeBlur: false })).toBe("ready");
+    expect(framingGuideState("closer")).toBe("adjust");
+    expect(framingGuideState("off")).toBe("off");
   });
 
   it("treats a missing face check the same as a skipped one", () => {
