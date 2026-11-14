@@ -176,6 +176,57 @@ describe("photo background maths", () => {
     const subject = (7 * width + 5) * 4;
     expect(raster.data[subject]).toBeLessThan(40);
   });
+
+  it("gives a stair-stepped diagonal a slope along the real edge", () => {
+    const width = 48;
+    const height = 48;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const subject = x < y;
+        data[index] = subject ? 24 : 236;
+        data[index + 1] = subject ? 20 : 236;
+        data[index + 2] = subject ? 18 : 236;
+        data[index + 3] = Math.floor(x / 4) < Math.floor(y / 4) ? 255 : 0;
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    const crossing: number[] = [];
+    for (let y = 16; y <= 32; y += 4) {
+      for (let dx = -3; dx <= 3; dx += 1) {
+        crossing.push(data[(y * width + (y + dx)) * 4 + 3]);
+      }
+    }
+    expect(new Set(crossing).size).toBeGreaterThanOrEqual(4);
+    expect(crossing.some((value) => value > 30 && value < 230)).toBe(true);
+    expect(data[(22 * width + 8) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(22 * width + 36) * 4 + 3]).toBeLessThan(20);
+    expect(data[(22 * width + 20) * 4 + 3]).toBeGreaterThan(80);
+  });
+
+  it("keeps a one-pixel strand the coarse mask still touches", () => {
+    const width = 32;
+    const height = 28;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const body = y >= 12 && x >= 4 && x <= 26;
+        const strand = (x === 8 || x === 14 || x === 20) && y >= 10 && y <= 11;
+        const on = body || strand;
+        data[index] = on ? 22 : 232;
+        data[index + 1] = on ? 18 : 232;
+        data[index + 2] = on ? 16 : 232;
+        data[index + 3] = body ? 255 : strand ? 220 : 0;
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(11 * width + 8) * 4 + 3]).toBeGreaterThan(140);
+    expect(data[(11 * width + 10) * 4 + 3]).toBeLessThan(40);
+    expect(data[(11 * width + 14) * 4 + 3]).toBeGreaterThan(140);
+    expect(data[(11 * width + 20) * 4 + 3]).toBeGreaterThan(140);
+  });
 });
 
 function circleRaster(width: number, height: number, cx: number, cy: number, radius: number): PhotoRaster {
