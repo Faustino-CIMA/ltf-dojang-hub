@@ -274,9 +274,11 @@ describe("ProfilePhotoManager", () => {
     await waitFor(() => {
       expect(screen.getByTestId("license-photo-background")).toHaveStyle({ backgroundColor: "#112233" });
     });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
 
     fireEvent.click(screen.getByText("Remove background"));
-    const bar = await screen.findByRole("progressbar");
+    await screen.findByText("Downloading the removal tool… 40%");
+    const bar = screen.getByRole("progressbar");
     expect(bar).toHaveAttribute("aria-valuenow", "40");
     expect(bar).toHaveAttribute("aria-valuetext", "Downloading the removal tool… 40%");
     release?.(new Blob(["png"], { type: "image/png" }));
@@ -299,6 +301,7 @@ describe("ProfilePhotoManager", () => {
       target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
     });
     await screen.findByTestId("license-photo-background");
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
     fireEvent.click(screen.getByText("Remove background"));
     expect(
       await screen.findByText("Background removal failed. You can still save the photo as it is.")
