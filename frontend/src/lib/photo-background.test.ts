@@ -227,6 +227,34 @@ describe("photo background maths", () => {
     expect(data[(11 * width + 14) * 4 + 3]).toBeGreaterThan(140);
     expect(data[(11 * width + 20) * 4 + 3]).toBeGreaterThan(140);
   });
+
+  it("drops a coloured block that touches a head-shaped blob", () => {
+    const width = 48;
+    const height = 56;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const head = (x: number, y: number) => ((x - 24) / 12) ** 2 + ((y - 30) / 16) ** 2 <= 1;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const poster = x <= 20 && y <= 16;
+        const strand = x === 36 && y >= 18 && y <= 30;
+        const onHead = head(x, y);
+        const on = onHead || poster || strand;
+        data[index] = poster ? 240 : on ? 24 : 236;
+        data[index + 1] = poster ? 30 : on ? 18 : 236;
+        data[index + 2] = poster ? 180 : on ? 16 : 236;
+        data[index + 3] = on ? 255 : 0;
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    compositeOntoColor(data, parseLicensePhotoColor("#D9D9D9"));
+    const poster = (4 * width + 4) * 4;
+    expect(Array.from(data.slice(poster, poster + 3))).toEqual([217, 217, 217]);
+    const crown = (20 * width + 24) * 4;
+    expect(data[crown]).toBeLessThan(40);
+    const hair = (22 * width + 36) * 4;
+    expect(data[hair]).toBeLessThan(80);
+  });
 });
 
 function circleRaster(width: number, height: number, cx: number, cy: number, radius: number): PhotoRaster {
