@@ -113,7 +113,7 @@ async function matchesHash(bytes: ArrayBuffer, expected: string): Promise<boolea
     for (const byte of view) {
       hex += byte.toString(16).padStart(2, "0");
     }
-    return hex === expected;
+    return hex === expected.toLowerCase();
   } catch {
     return true;
   }
@@ -125,7 +125,12 @@ function responseFromBytes(bytes: ArrayBuffer, contentType: string): Response {
   return new Response(bytes.slice(0), { status: 200, headers });
 }
 
-async function loadCachedBytes(cache: Cache | null, url: string, expected?: number): Promise<ArrayBuffer | null> {
+async function loadCachedBytes(
+  cache: Cache | null,
+  url: string,
+  expected?: number,
+  expectedHash?: string,
+): Promise<ArrayBuffer | null> {
   if (!cache) {
     return null;
   }
@@ -145,7 +150,7 @@ async function loadCachedBytes(cache: Cache | null, url: string, expected?: numb
     await dropCached(cache, url);
     return null;
   }
-  const namedHash = hashFromUrl(url);
+  const namedHash = expectedHash ?? hashFromUrl(url);
   const hashOk = namedHash ? await matchesHash(bytes, namedHash) : true;
   const sizeOk = expected === undefined || bytes.byteLength === expected;
   if (!hashOk || !sizeOk) {
@@ -296,6 +301,7 @@ type AssetFetchOptions = {
   stallMs?: number;
   firstByteMs?: number;
   expectedBytes?: number;
+  expectedHash?: string;
   sleep?: (ms: number) => Promise<void>;
   onRetry?: () => void;
 };
@@ -315,7 +321,7 @@ function budgets(options: AssetFetchOptions): { firstByteMs: number; stallMs: nu
 export async function fetchModelAsset(url: string, options: AssetFetchOptions = {}): Promise<Response> {
   const generation = downloadGeneration;
   const expected = expectedBytesFor(url, options.expectedBytes);
-  const cachedBytes = await loadCachedBytes(options.cache ?? null, url, expected);
+  const cachedBytes = await loadCachedBytes(options.cache ?? null, url, expected, options.expectedHash);
   if (generation !== downloadGeneration) {
     throw new BackgroundFetchError("network", "aborted");
   }
@@ -354,7 +360,7 @@ export async function fetchModelAsset(url: string, options: AssetFetchOptions = 
       }
       const body = await readBody(response, firstByteMs, stallMs, controller.signal);
       const wanted = expectedBytesFor(url, options.expectedBytes);
-      const namedHash = hashFromUrl(url);
+      const namedHash = options.expectedHash ?? hashFromUrl(url);
       const hashOk = namedHash ? await matchesHash(body, namedHash) : true;
       if ((wanted !== undefined && body.byteLength !== wanted) || !hashOk) {
         lastError = new BackgroundFetchError("network", "downloaded file is incomplete");

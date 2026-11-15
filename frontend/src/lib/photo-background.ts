@@ -1250,10 +1250,29 @@ function asPngBlob(removed: unknown): Blob {
   throw new Error("Background removal returned an unexpected result.");
 }
 
+export async function runSelectedMask<T>(options: {
+  mask: "isnet" | "modnet";
+  portrait: () => Promise<T>;
+  standard: () => Promise<T>;
+  onFallback?: () => void;
+}): Promise<T> {
+  if (options.mask !== "modnet") {
+    return options.standard();
+  }
+  try {
+    return await options.portrait();
+  } catch {
+    options.onFallback?.();
+    return options.standard();
+  }
+}
+
 export async function removeProfileBackground(options: {
   imageUrl: string;
   crop: PhotoCrop;
   attempt?: number;
+  mask?: "isnet" | "modnet";
+  onFallback?: () => void;
   onProgress?: (progress: PhotoBackgroundProgress) => void;
   onRetry?: () => void;
 }): Promise<Blob> {
@@ -1274,6 +1293,26 @@ export async function removeProfileBackground(options: {
       : resampleCrop(full, { x: 0, y: 0, width: full.width, height: full.height }, fitted.width, fitted.height);
   const inputBlob = await canvasToBlob(paintRaster(modelInput), "image/png");
 
+  const restored = await runSelectedMask({
+    mask: options.mask ?? "isnet",
+    onFallback: options.onFallback,
+    portrait: async () => {
+      const { portraitMatte } = await import("./modnet-mask");
+      const small = await portraitMatte(full, window.location.origin);
+      cleanCutoutEdges(small);
+      return applyMaskOnce(full, small);
+    },
+    standard: async () => removeWithStandardModel(inputBlob, full, options, report),
+  });
+  return canvasToBlob(paintRaster(restored), "image/png");
+}
+
+async function removeWithStandardModel(
+  inputBlob: Blob,
+  full: PhotoRaster,
+  options: { attempt?: number; onRetry?: () => void },
+  report: (progress: PhotoBackgroundProgress) => void,
+): Promise<PhotoRaster> {
   const downloads = new Map<string, { current: number; total: number }>();
   const bgModule = await import("@imgly/background-removal-js");
   let removed: unknown;
@@ -1302,6 +1341,5 @@ export async function removeProfileBackground(options: {
   report({ phase: "edges" });
   const cutout = await rasterFromBlob(asPngBlob(removed));
   cleanCutoutEdges(cutout);
-  const restored = applyMaskOnce(full, cutout);
-  return canvasToBlob(paintRaster(restored), "image/png");
+  return applyMaskOnce(full, cutout);
 }

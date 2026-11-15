@@ -19,6 +19,7 @@ import {
   readJpegOrientation,
   readJpegSize,
   removalInputRaster,
+  runSelectedMask,
   removalLibraryConfig,
   resampleCrop,
   shouldApplyOrientation,
@@ -43,6 +44,27 @@ describe("photo background maths", () => {
 
   it("scales the long side to 1024 and keeps the portrait shape", () => {
     expect(fitLongSide(945, 1181)).toEqual({ width: 819, height: 1024 });
+  });
+
+  it("keeps the usual model unless the portrait model is requested", async () => {
+    const standard = jest.fn(async () => "isnet");
+    const portrait = jest.fn(async () => "modnet");
+    await expect(runSelectedMask({ mask: "isnet", portrait, standard })).resolves.toBe("isnet");
+    expect(portrait).not.toHaveBeenCalled();
+    portrait.mockResolvedValueOnce("modnet");
+    await expect(runSelectedMask({ mask: "modnet", portrait, standard })).resolves.toBe("modnet");
+    expect(standard).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the usual model when the portrait model fails", async () => {
+    const standard = jest.fn(async () => "isnet");
+    const portrait = jest.fn(async () => {
+      throw new Error("missing");
+    });
+    const onFallback = jest.fn();
+    await expect(runSelectedMask({ mask: "modnet", portrait, standard, onFallback })).resolves.toBe("isnet");
+    expect(onFallback).toHaveBeenCalledTimes(1);
+    expect(standard).toHaveBeenCalledTimes(1);
   });
 
   it("does not reuse a failed removal download on the next try", async () => {

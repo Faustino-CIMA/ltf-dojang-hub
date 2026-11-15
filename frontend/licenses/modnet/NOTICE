@@ -1,0 +1,9 @@
+MODNet photographic portrait model
+Copyright ZHKKKe and contributors
+https://github.com/ZHKKKe/MODNet
+
+The ONNX file in this directory is the photographic portrait export of that model.
+It is downloaded when the frontend image is built and is not stored in git.
+The runtime files copied beside it are from onnxruntime-web 1.21.0 (MIT).
+
+The model is used under the Apache License 2.0. The full licence is in LICENSE.

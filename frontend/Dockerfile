@@ -16,6 +16,8 @@ RUN node scripts/fetch-background-removal-assets.mjs
 # Separate from the removal weights. Copies the pinned MediaPipe WASM and
 # downloads the pinned Face Landmarker task file onto this origin.
 RUN node scripts/fetch-face-check-assets.mjs
+# Portrait matte used only when the page is opened with mask=modnet.
+RUN node scripts/fetch-modnet-asset.mjs
 RUN npm run build && chown -R app:app /app
 
 EXPOSE 3000
