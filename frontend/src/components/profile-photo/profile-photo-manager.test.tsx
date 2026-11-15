@@ -347,11 +347,14 @@ describe("ProfilePhotoManager", () => {
     });
     await screen.findByTestId("license-photo-background");
     await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    remove.mockClear();
     fireEvent.click(screen.getByText("Remove background"));
     expect(
       await screen.findByText("Background removal failed. You can still save the photo as it is.")
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Removing background..." })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove background" })).toBeEnabled();
     expect(screen.getByTestId("cropper")).toBeInTheDocument();
     const firstUrl = remove.mock.calls[0][0].imageUrl;
     fireEvent.click(screen.getByRole("checkbox"));
@@ -360,6 +363,34 @@ describe("ProfilePhotoManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(remove).toHaveBeenCalledTimes(2));
     expect(remove.mock.calls[1][0].imageUrl).toBe(firstUrl);
+    expect(remove.mock.calls[1][0].attempt).toBe(2);
+    expect(remove.mock.calls[0][0].attempt).toBe(1);
+  });
+
+  it("starts a new download when Retry is pressed while the first one is still running", async () => {
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockImplementation(() => new Promise(() => undefined));
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByText("Save photo")).toBeEnabled());
+    remove.mockClear();
+    fireEvent.click(screen.getByText("Remove background"));
+    await screen.findByText("Removing background...");
+    expect(screen.getByText("Save photo")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Removing background..." })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(2));
+    expect(remove.mock.calls[1][0].imageUrl).toBe(remove.mock.calls[0][0].imageUrl);
+    expect(remove.mock.calls[0][0].attempt).toBe(1);
+    expect(remove.mock.calls[1][0].attempt).toBe(2);
+    expect(screen.getByText("Save photo")).toBeEnabled();
   });
 
   it("keeps save off until one face passes, and records a skip when the model cannot load", async () => {

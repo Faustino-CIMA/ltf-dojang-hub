@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** If the removal download stalls, Retry starts it again on the same photo. Pieces that already arrived are kept. The framing oval sits a little lower and a little smaller.
 - **Photos:** If background removal fails, Retry runs it again on the same photo. A weak connection retries the download, and a saved copy of the tool is used next time.
 - **Photos:** The saved card photo is resized once, from the original picture to the print frame. Removing the background only builds a mask. The on-screen preview is not the saved file.
 - **Photos:** Taking a photo opens the cropper on the same print window the live oval used. A tall phone picture is no longer enlarged to the editor width.

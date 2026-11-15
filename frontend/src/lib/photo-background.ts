@@ -31,6 +31,28 @@ export function backgroundRemovalPublicPath(origin: string): string {
   return `${base}${BACKGROUND_REMOVAL_ASSET_PATH}`;
 }
 
+/**
+ * Options passed to @imgly/background-removal.
+ * The library memoizes init() with JSON.stringify, which drops functions and
+ * keeps a rejected or still-pending promise. `attempt` is a real field, so
+ * each Retry is a new load. Zod strips it before the download starts.
+ */
+export function removalLibraryConfig(origin: string, attempt: number): {
+  publicPath: string;
+  model: typeof BACKGROUND_REMOVAL_MODEL;
+  device: "cpu";
+  output: { format: "image/png"; quality: 1 };
+  attempt: number;
+} {
+  return {
+    publicPath: backgroundRemovalPublicPath(origin),
+    model: BACKGROUND_REMOVAL_MODEL,
+    device: "cpu",
+    output: { format: "image/png", quality: 1 },
+    attempt,
+  };
+}
+
 function parseHexColor(value: string): Rgb | null {
   const match = /^#([0-9a-fA-F]{6})$/.exec(value.trim());
   if (!match) {
@@ -1123,6 +1145,7 @@ function asPngBlob(removed: unknown): Blob {
 export async function removeProfileBackground(options: {
   imageUrl: string;
   crop: PhotoCrop;
+  attempt?: number;
   onProgress?: (progress: PhotoBackgroundProgress) => void;
   onRetry?: () => void;
 }): Promise<Blob> {
@@ -1150,10 +1173,7 @@ export async function removeProfileBackground(options: {
     removed = await runWithModelFetch(
       () =>
         bgModule.removeBackground(inputBlob, {
-          publicPath: backgroundRemovalPublicPath(window.location.origin),
-          model: BACKGROUND_REMOVAL_MODEL,
-          device: "cpu",
-          output: { format: "image/png", quality: 1 },
+          ...removalLibraryConfig(window.location.origin, options.attempt ?? 1),
           progress: (key: string, current: number, total: number) => {
             report(progressFromLibraryKey(key, current, total, downloads));
           },
