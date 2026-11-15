@@ -59,6 +59,22 @@ describe("member photo frame", () => {
     expect(evaluateFacePlacement([{ box: onTheGuide, ...level }])).toBe("pass");
     expect(evaluateFacePlacement([{ box: inTheCropper, ...level }])).toBe("pass");
     expect(inTheCropper.height).toBeCloseTo(onTheGuide.height, 5);
+    const savedFace = {
+      x: onTheGuide.x * MEMBER_PHOTO_WIDTH,
+      y: onTheGuide.y * MEMBER_PHOTO_HEIGHT,
+      width: onTheGuide.width * MEMBER_PHOTO_WIDTH,
+      height: onTheGuide.height * MEMBER_PHOTO_HEIGHT,
+    };
+    expect(savedFace.height / MEMBER_PHOTO_HEIGHT).toBeCloseTo(onTheGuide.height, 5);
+    expect(evaluateFacePlacement([{
+      box: {
+        x: savedFace.x / MEMBER_PHOTO_WIDTH,
+        y: savedFace.y / MEMBER_PHOTO_HEIGHT,
+        width: savedFace.width / MEMBER_PHOTO_WIDTH,
+        height: savedFace.height / MEMBER_PHOTO_HEIGHT,
+      },
+      ...level,
+    }])).toBe("pass");
 
     const cover = coverFitWindow(frameWidth, frameHeight, cssWidth, cssHeight);
     const onTheCover = normalizeBoxToFrame(faceInFrame, cover);

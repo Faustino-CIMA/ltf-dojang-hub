@@ -2,9 +2,11 @@ import { laplacianVariance, luminancePlane } from "./face-check";
 
 import {
   applyExifOrientation,
+  applyMaskOnce,
   cleanCutoutEdges,
   compositeMaskOntoOriginal,
   compositeOntoColor,
+  copyCrop,
   decontaminateEdgeSpill,
   expandCrop,
   fitLongSide,
@@ -13,6 +15,7 @@ import {
   parseLicensePhotoColor,
   progressBarPercent,
   progressFromLibraryKey,
+  rasterForPrintFrame,
   readJpegOrientation,
   readJpegSize,
   removalInputRaster,
@@ -151,6 +154,53 @@ describe("photo background maths", () => {
     );
     const after = laplacianVariance(luminancePlane(result.data, result.width, result.height), result.width, result.height);
     expect(after).toBeGreaterThanOrEqual(before * 0.9);
+  });
+
+  it("applies the mask without changing the face colour", () => {
+    const width = 8;
+    const height = 8;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let index = 0; index < width * height; index += 1) {
+      data[index * 4] = 20 + (index % 5);
+      data[index * 4 + 1] = 30 + (index % 7);
+      data[index * 4 + 2] = 40;
+      data[index * 4 + 3] = 255;
+    }
+    const mask = new Uint8ClampedArray(4 * 4 * 4);
+    for (let index = 0; index < 16; index += 1) {
+      mask[index * 4] = 0;
+      mask[index * 4 + 1] = 255;
+      mask[index * 4 + 2] = 0;
+      mask[index * 4 + 3] = 255;
+    }
+    const result = applyMaskOnce({ width, height, data }, { width: 4, height: 4, data: mask });
+    for (let index = 0; index < width * height; index += 1) {
+      expect(result.data[index * 4]).toBe(data[index * 4]);
+      expect(result.data[index * 4 + 1]).toBe(data[index * 4 + 1]);
+      expect(result.data[index * 4 + 2]).toBe(data[index * 4 + 2]);
+    }
+    expect(result.data[3]).toBe(255);
+  });
+
+  it("copies a crop exactly and resizes only for the print frame", () => {
+    const width = 6;
+    const height = 8;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let index = 0; index < width * height; index += 1) {
+      data[index * 4] = index;
+      data[index * 4 + 1] = 10;
+      data[index * 4 + 2] = 20;
+      data[index * 4 + 3] = 255;
+    }
+    const copied = copyCrop({ width, height, data }, { x: 1, y: 2, width: 4, height: 4 });
+    expect(copied.width).toBe(4);
+    expect(copied.height).toBe(4);
+    const sourceIndex = (2 * width + 1) * 4;
+    expect(copied.data[0]).toBe(data[sourceIndex]);
+    expect(copied.data[1]).toBe(data[sourceIndex + 1]);
+    const printed = rasterForPrintFrame(copied, { x: 0, y: 0, width: 4, height: 4 }, 2, 3);
+    expect(printed.width).toBe(2);
+    expect(printed.height).toBe(3);
   });
 
   it("removes a background island beside the subject", () => {

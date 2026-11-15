@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** The saved card photo is resized once, from the original picture to the print frame. Removing the background only builds a mask. The on-screen preview is not the saved file.
 - **Photos:** Taking a photo opens the cropper on the same print window the live oval used. A tall phone picture is no longer enlarged to the editor width.
 - **Photos:** A coloured patch that touches the hair is left out of the cutout. Hair that is the same darkness as the head stays.
 - **Photos:** The framing outline is the whole head the save rule expects, including the hair, and the shoulders sit wider and lower. The camera asks for a larger frame so the preview is not an enlarged 720p still. A dark band along the edge of that frame stays outside the crop.
