@@ -191,6 +191,11 @@ const CUTOUT_ALPHA_FLOOR = 16;
 const CUTOUT_SOLID_ALPHA = 200;
 const CUTOUT_SUBJECT_ALPHA = 128;
 const CUTOUT_BACKGROUND_DISTANCE = 48;
+const CUTOUT_BRIDGE_RADIUS = 1;
+const CUTOUT_COLOUR_LINK = 64;
+const CUTOUT_SATURATED_CHROMA = 80;
+const CUTOUT_FOREIGN_DISTANCE = 90;
+const CUTOUT_HAIR_CHROMA = 48;
 const MATTE_GUIDE_RADIUS = 4;
 const MATTE_GUIDE_EPSILON = 256;
 
@@ -307,6 +312,38 @@ function colourDistance(red: number, green: number, blue: number, background: Rg
   return Math.sqrt(dr * dr + dg * dg + db * db);
 }
 
+function colourAt(pixels: Uint8ClampedArray, index: number): Rgb {
+  const offset = index * 4;
+  return { r: pixels[offset], g: pixels[offset + 1], b: pixels[offset + 2] };
+}
+
+function chromaOf(colour: Rgb): number {
+  return Math.max(colour.r, colour.g, colour.b) - Math.min(colour.r, colour.g, colour.b);
+}
+
+function solidInterior(alpha: Float32Array, width: number, height: number, index: number): boolean {
+  const x = index % width;
+  const y = Math.floor(index / width);
+  for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+    const nextY = y + offsetY;
+    if (nextY < 0 || nextY >= height) {
+      return false;
+    }
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      const nextX = x + offsetX;
+      if (nextX < 0 || nextX >= width || alpha[nextY * width + nextX] < CUTOUT_SOLID_ALPHA) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/** A bright poster colour sitting against dark hair. Low-chroma hair is not this. */
+function saturatedForeign(colour: Rgb, subject: Rgb): boolean {
+  return chromaOf(colour) >= CUTOUT_SATURATED_CHROMA && colourDistance(colour.r, colour.g, colour.b, subject) >= CUTOUT_FOREIGN_DISTANCE;
+}
+
 function dropBackgroundColouredFringe(raster: PhotoRaster): void {
   const { data } = raster;
   let red = 0;
@@ -337,28 +374,36 @@ function dropBackgroundColouredFringe(raster: PhotoRaster): void {
   }
 }
 
-function keepMainSubject(alpha: Float32Array, width: number, height: number): void {
+function keepMainSubject(
+  alpha: Float32Array,
+  width: number,
+  height: number,
+  pixels: Uint8ClampedArray,
+): void {
   const count = alpha.length;
-  const core = new Uint8Array(count);
+  const foreground = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    foreground[index] = alpha[index] >= CUTOUT_SUBJECT_ALPHA ? 1 : 0;
+  }
+  const eroded = new Uint8Array(count);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
-      if (alpha[index] < CUTOUT_SUBJECT_ALPHA) {
+      if (!foreground[index]) {
         continue;
       }
-      if (x > 0 && alpha[index - 1] < CUTOUT_SUBJECT_ALPHA) {
-        continue;
+      let solid = true;
+      for (let offsetY = -CUTOUT_BRIDGE_RADIUS; offsetY <= CUTOUT_BRIDGE_RADIUS && solid; offsetY += 1) {
+        for (let offsetX = -CUTOUT_BRIDGE_RADIUS; offsetX <= CUTOUT_BRIDGE_RADIUS; offsetX += 1) {
+          const nextX = x + offsetX;
+          const nextY = y + offsetY;
+          if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height || !foreground[nextY * width + nextX]) {
+            solid = false;
+            break;
+          }
+        }
       }
-      if (x + 1 < width && alpha[index + 1] < CUTOUT_SUBJECT_ALPHA) {
-        continue;
-      }
-      if (y > 0 && alpha[index - width] < CUTOUT_SUBJECT_ALPHA) {
-        continue;
-      }
-      if (y + 1 < height && alpha[index + width] < CUTOUT_SUBJECT_ALPHA) {
-        continue;
-      }
-      core[index] = 1;
+      eroded[index] = solid ? 1 : 0;
     }
   }
   const labels = new Int32Array(count);
@@ -367,7 +412,7 @@ function keepMainSubject(alpha: Float32Array, width: number, height: number): vo
   let bestLabel = 0;
   let bestCount = 0;
   for (let start = 0; start < count; start += 1) {
-    if (!core[start] || labels[start] !== 0) {
+    if (!eroded[start] || labels[start] !== 0) {
       continue;
     }
     nextLabel += 1;
@@ -390,7 +435,12 @@ function keepMainSubject(alpha: Float32Array, width: number, height: number): vo
         y + 1 < height ? index + width : -1,
       ];
       for (const neighbour of neighbours) {
-        if (neighbour < 0 || !core[neighbour] || labels[neighbour] !== 0) {
+        if (neighbour < 0 || !eroded[neighbour] || labels[neighbour] !== 0) {
+          continue;
+        }
+        const here = colourAt(pixels, index);
+        const there = colourAt(pixels, neighbour);
+        if (colourDistance(here.r, here.g, here.b, there) >= CUTOUT_COLOUR_LINK) {
           continue;
         }
         labels[neighbour] = nextLabel;
@@ -406,25 +456,76 @@ function keepMainSubject(alpha: Float32Array, width: number, height: number): vo
   if (bestCount === 0) {
     return;
   }
-  const keep = new Uint8Array(count);
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  const core = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
     if (labels[index] !== bestLabel) {
       continue;
     }
-    const x = index % width;
-    const y = Math.floor(index / width);
-    for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
-      const nextY = y + offsetY;
-      if (nextY < 0 || nextY >= height) {
+    core[index] = 1;
+    const colour = colourAt(pixels, index);
+    red += colour.r;
+    green += colour.g;
+    blue += colour.b;
+  }
+  const subject = { r: red / bestCount, g: green / bestCount, b: blue / bestCount };
+  const keep = new Uint8Array(count);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (!core[y * width + x]) {
         continue;
       }
-      for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
-        const nextX = x + offsetX;
-        if (nextX < 0 || nextX >= width) {
+      for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
+        const nextY = y + offsetY;
+        if (nextY < 0 || nextY >= height) {
           continue;
         }
-        keep[nextY * width + nextX] = 1;
+        for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
+          const nextX = x + offsetX;
+          if (nextX < 0 || nextX >= width) {
+            continue;
+          }
+          const next = nextY * width + nextX;
+          if (!foreground[next] || saturatedForeign(colourAt(pixels, next), subject)) {
+            continue;
+          }
+          keep[next] = 1;
+        }
       }
+    }
+  }
+  let tail = 0;
+  for (let index = 0; index < count; index += 1) {
+    if (keep[index]) {
+      queue[tail] = index;
+      tail += 1;
+    }
+  }
+  let head = 0;
+  while (head < tail) {
+    const index = queue[head];
+    head += 1;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const neighbours = [
+      x > 0 ? index - 1 : -1,
+      x + 1 < width ? index + 1 : -1,
+      y > 0 ? index - width : -1,
+      y + 1 < height ? index + width : -1,
+    ];
+    for (const neighbour of neighbours) {
+      if (neighbour < 0 || keep[neighbour] || !foreground[neighbour]) {
+        continue;
+      }
+      const colour = colourAt(pixels, neighbour);
+      if (chromaOf(colour) > CUTOUT_HAIR_CHROMA || saturatedForeign(colour, subject)) {
+        continue;
+      }
+      keep[neighbour] = 1;
+      queue[tail] = neighbour;
+      tail += 1;
     }
   }
   for (let index = 0; index < count; index += 1) {
@@ -486,9 +587,9 @@ export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRast
 
 /**
  * The mask leaks the old background into the fringe, and a tiny alpha turns
- * that leak into a saturated speckle. Drop specks and detached islands, then
- * refine the mask with the photo as a guide. Solid subject pixels keep their
- * original colour.
+ * that leak into a saturated speckle. Cut thin bridges, keep the main subject,
+ * and refuse a saturated colour that is not that subject. Then refine the
+ * mask with the photo as a guide. Solid subject pixels keep their original colour.
  */
 export function cleanCutoutEdges(raster: PhotoRaster): void {
   const { width, height, data } = raster;
@@ -504,7 +605,25 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     wasSolid[index] = coverage >= CUTOUT_SOLID_ALPHA ? 1 : 0;
     guidance[index] = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
   }
-  keepMainSubject(alpha, width, height);
+  keepMainSubject(alpha, width, height, data);
+  let subjectRed = 0;
+  let subjectGreen = 0;
+  let subjectBlue = 0;
+  let subjectCount = 0;
+  for (let index = 0; index < count; index += 1) {
+    if (alpha[index] < CUTOUT_SOLID_ALPHA) {
+      continue;
+    }
+    const colour = colourAt(data, index);
+    subjectRed += colour.r;
+    subjectGreen += colour.g;
+    subjectBlue += colour.b;
+    subjectCount += 1;
+  }
+  const subject =
+    subjectCount > 0
+      ? { r: subjectRed / subjectCount, g: subjectGreen / subjectCount, b: subjectBlue / subjectCount }
+      : null;
   const solidRed = new Float32Array(count);
   const solidGreen = new Float32Array(count);
   const solidBlue = new Float32Array(count);
@@ -527,8 +646,15 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
   for (let index = 0; index < count; index += 1) {
     const offset = index * 4;
     let coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
-    if (alpha[index] < CUTOUT_ALPHA_FLOOR && blurredWeight[index] <= 0.001) {
+    const foreign = subject !== null && saturatedForeign(colourAt(data, index), subject);
+    if (alpha[index] < CUTOUT_ALPHA_FLOOR && (blurredWeight[index] <= 0.001 || foreign)) {
       coverage = 0;
+    }
+    if (foreign) {
+      coverage = Math.min(coverage, alpha[index]);
+    }
+    if (alpha[index] >= CUTOUT_SOLID_ALPHA && solidInterior(alpha, width, height, index)) {
+      coverage = Math.max(coverage, alpha[index]);
     }
     data[offset + 3] = coverage;
     if (wasSolid[index] || coverage === 0 || blurredWeight[index] <= 0.001) {

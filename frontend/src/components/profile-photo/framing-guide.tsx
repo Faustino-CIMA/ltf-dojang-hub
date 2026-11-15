@@ -1,4 +1,5 @@
-import { framingGuideState, type FaceGuideReason } from "@/lib/face-check";
+import { framingGuideShape, framingGuideState, type FaceGuideReason } from "@/lib/face-check";
+import { MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH } from "@/lib/member-photo-frame";
 
 /**
  * Head-and-shoulders outline for the 945×1181 print crop.
@@ -9,27 +10,44 @@ export function FramingGuide({ reason }: { reason: FaceGuideReason }) {
   const state = framingGuideState(reason);
   const tone = state === "ready" ? "var(--success)" : state === "adjust" ? "var(--warning)" : "var(--muted)";
   const dash = state === "ready" ? undefined : "14 10";
+  const shape = framingGuideShape(MEMBER_PHOTO_WIDTH, MEMBER_PHOTO_HEIGHT);
   return (
     <svg
-      viewBox="0 0 945 1181"
+      viewBox={`0 0 ${MEMBER_PHOTO_WIDTH} ${MEMBER_PHOTO_HEIGHT}`}
       className="h-full w-full"
       data-testid="framing-guide"
       data-state={state}
       aria-hidden="true"
     >
       <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <Outline tone="var(--foreground)" width={10} dash={dash} />
-        <Outline tone={tone} width={4} dash={dash} />
+        <Outline shape={shape} tone="var(--foreground)" width={10} dash={dash} />
+        <Outline shape={shape} tone={tone} width={4} dash={dash} />
       </g>
     </svg>
   );
 }
 
-function Outline({ tone, width, dash }: { tone: string; width: number; dash?: string }) {
+function Outline({
+  shape,
+  tone,
+  width,
+  dash,
+}: {
+  shape: ReturnType<typeof framingGuideShape>;
+  tone: string;
+  width: number;
+  dash?: string;
+}) {
   return (
     <g stroke={tone} strokeWidth={width}>
-      <ellipse cx="472.5" cy="530" rx="190" ry="236" strokeDasharray={dash} />
-      <path d="M210 900 Q472.5 790 735 900" strokeDasharray={dash} />
+      <ellipse
+        cx={shape.head.cx}
+        cy={shape.head.cy}
+        rx={shape.head.rx}
+        ry={shape.head.ry}
+        strokeDasharray={dash}
+      />
+      <path d={shape.shoulders} strokeDasharray={dash} />
     </g>
   );
 }

@@ -80,10 +80,13 @@ function constraintAttempts(
   if (deviceId) {
     attempts.push({ deviceId: { exact: deviceId } });
   }
+  // A 1280×720 still is shorter than the 1181px print frame, so the preview
+  // was an enlargement and looked soft. Ask for a larger frame, without
+  // forcing 16:9, which pads a 4:3 phone sensor with a dark band.
   attempts.push({
     facingMode: { ideal: facing },
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
+    width: { ideal: 1920 },
+    height: { ideal: 1920 },
   });
   attempts.push({ facingMode: { ideal: facing } });
   attempts.push({ facingMode: facing });
