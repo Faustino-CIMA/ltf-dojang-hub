@@ -15,6 +15,14 @@ jest.mock("@/lib/face-landmarker", () => ({
   checkFaceOnCrop: jest.fn(async () => ({ status: "pass" })),
 }));
 
+jest.mock("@/lib/background-model-cache", () => {
+  const actual = jest.requireActual("@/lib/background-model-cache");
+  return {
+    ...actual,
+    prefetchBackgroundModel: jest.fn(async () => undefined),
+  };
+});
+
 jest.mock("@/lib/photo-background", () => {
   const actual = jest.requireActual("@/lib/photo-background");
   return {
@@ -80,6 +88,10 @@ const labels = {
   removeBackgroundEdges: "Cleaning the edges…",
   removeBackgroundColour: "Applying the background colour…",
   removeBackgroundFailed: "Background removal failed. You can still save the photo as it is.",
+  removeBackgroundRetry: "Retry",
+  removeBackgroundWeak: "Weak connection. You can still save the photo as it is.",
+  removeBackgroundRetrying: "Weak connection, retrying…",
+  removeBackgroundOffline: "You are offline. Removal will try again when the connection returns. You can still save the photo as it is.",
   ...faceCheckEditorLabels((key) => {
     const text: Record<string, string> = {
       faceCheckDownload: "Downloading the face check… {percent}%",
@@ -339,13 +351,15 @@ describe("ProfilePhotoManager", () => {
     expect(
       await screen.findByText("Background removal failed. You can still save the photo as it is.")
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.getByTestId("cropper")).toBeInTheDocument();
+    const firstUrl = remove.mock.calls[0][0].imageUrl;
     fireEvent.click(screen.getByRole("checkbox"));
     await waitFor(() => expect(screen.getByText("Save photo")).toBeEnabled());
-    fireEvent.click(screen.getByText("Save photo"));
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledTimes(1);
-    });
+    remove.mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(2));
+    expect(remove.mock.calls[1][0].imageUrl).toBe(firstUrl);
   });
 
   it("keeps save off until one face passes, and records a skip when the model cannot load", async () => {

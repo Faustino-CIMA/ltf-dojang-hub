@@ -2,9 +2,9 @@
 
 import Cropper, { Area } from "react-easy-crop";
 import { ChangeEvent, DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SwitchCamera } from "lucide-react";
+import { RefreshCw, SwitchCamera } from "lucide-react";
 
-import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { ActionNotices, PageNotice } from "@/components/ui/list-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import {
 } from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
+import { BackgroundFetchError, prefetchBackgroundModel } from "@/lib/background-model-cache";
 import { checkFaceOnCanvas, checkFaceOnCrop } from "@/lib/face-landmarker";
 import {
   FACE_BLUR_MIN,
@@ -51,6 +52,7 @@ import {
   printWindowAfterRemoval,
   progressBarPercent,
   rasterForPrintFrame,
+  backgroundRemovalPublicPath,
   fitLongSide,
   rasterFromBlob,
   removeProfileBackground,
@@ -99,6 +101,10 @@ type ProfilePhotoManagerLabels = {
   removeBackgroundEdges: string;
   removeBackgroundColour: string;
   removeBackgroundFailed: string;
+  removeBackgroundRetry: string;
+  removeBackgroundWeak: string;
+  removeBackgroundRetrying: string;
+  removeBackgroundOffline: string;
   faceCheckDownload: string;
   faceCheckPrepare: string;
   faceCheckFind: string;
@@ -306,6 +312,8 @@ export function ProfilePhotoManager({
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [removalProgress, setRemovalProgress] = useState<PhotoBackgroundProgress | null>(null);
+  const [removalProblem, setRemovalProblem] = useState<"network" | "processing" | "offline" | "retrying" | null>(null);
+  const [prefetchPercent, setPrefetchPercent] = useState<number | null>(null);
   const [faceOutcome, setFaceOutcome] = useState<FaceCheckOutcome | null>(null);
   const [faceProgress, setFaceProgress] = useState<FaceCheckProgress | null>(null);
   const faceRequestRef = useRef(0);
@@ -515,6 +523,8 @@ export function ProfilePhotoManager({
     setIsSaving(false);
     setIsRemovingBackground(false);
     setRemovalProgress(null);
+    setRemovalProblem(null);
+    setPrefetchPercent(null);
     setFaceOutcome(null);
     setFaceProgress(null);
     sourceBlurRef.current = null;
@@ -913,19 +923,28 @@ export function ProfilePhotoManager({
     if (!workingFile || !workingImageUrl || !croppedAreaPixels) {
       return;
     }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setRemovalProblem("offline");
+      setErrorMessage(null);
+      return;
+    }
+    const imageUrl = workingImageUrl;
+    const crop = croppedAreaPixels;
     setIsRemovingBackground(true);
     setRemovalProgress({ phase: "prepare" });
+    setRemovalProblem(null);
     setErrorMessage(null);
     try {
-      const source = await loadImage(workingImageUrl);
+      const source = await loadImage(imageUrl);
       const printWindow = printWindowAfterRemoval(
         source.naturalWidth || source.width,
         source.naturalHeight || source.height,
-        croppedAreaPixels,
+        crop,
       );
       const removedBlob = await removeProfileBackground({
-        imageUrl: workingImageUrl,
-        crop: croppedAreaPixels,
+        imageUrl,
+        crop,
+        onRetry: () => setRemovalProblem("retrying"),
         onProgress: setRemovalProgress,
       });
       const removedFile = new File([removedBlob], `bg-removed-${Date.now()}.png`, {
@@ -936,15 +955,61 @@ export function ProfilePhotoManager({
       setWorkingFile(removedFile);
       setWorkingPreview(removedFile);
       setBackgroundRemoved(true);
+      setRemovalProblem(null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
-    } catch {
-      setErrorMessage(labels.removeBackgroundFailed);
+    } catch (error) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      if (offline) {
+        setRemovalProblem("offline");
+      } else if (error instanceof BackgroundFetchError && error.kind === "network") {
+        setRemovalProblem("network");
+      } else {
+        setRemovalProblem("processing");
+      }
     } finally {
       setIsRemovingBackground(false);
       setRemovalProgress(null);
     }
   };
+
+  useEffect(() => {
+    if (!isOpen && !isPageEditor) {
+      return;
+    }
+    let cancelled = false;
+    void prefetchBackgroundModel({
+      publicPath: backgroundRemovalPublicPath(window.location.origin),
+      onProgress: (percent) => {
+        if (!cancelled) {
+          setPrefetchPercent(percent);
+        }
+      },
+    })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setPrefetchPercent(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isPageEditor]);
+
+  const handleRemoveBackgroundRef = useRef(handleRemoveBackground);
+  handleRemoveBackgroundRef.current = handleRemoveBackground;
+
+  useEffect(() => {
+    if (removalProblem !== "offline" && removalProblem !== "network") {
+      return;
+    }
+    const onOnline = () => {
+      void handleRemoveBackgroundRef.current();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [removalProblem]);
 
   const handleSave = async () => {
     if (!workingImageUrl || !croppedAreaPixels || !originalFile) {
@@ -1269,6 +1334,36 @@ export function ProfilePhotoManager({
       </label>
 
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
+      {removalProblem ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <PageNotice tone="warning">
+            {removalProblem === "offline"
+              ? labels.removeBackgroundOffline
+              : removalProblem === "network"
+                ? labels.removeBackgroundWeak
+                : removalProblem === "retrying"
+                  ? labels.removeBackgroundRetrying
+                  : labels.removeBackgroundFailed}
+          </PageNotice>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isRemovingBackground}
+            onClick={() => {
+              void handleRemoveBackground();
+            }}
+          >
+            <RefreshCw aria-hidden />
+            {labels.removeBackgroundRetry}
+          </Button>
+        </div>
+      ) : null}
+      {prefetchPercent !== null && !isRemovingBackground ? (
+        <p className="text-xs text-muted">
+          {labels.removeBackgroundDownload.replaceAll("{percent}", String(prefetchPercent))}
+        </p>
+      ) : null}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={handleCancel}>
