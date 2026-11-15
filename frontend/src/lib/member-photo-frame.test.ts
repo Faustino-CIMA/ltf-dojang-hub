@@ -1,12 +1,13 @@
+import { evaluateFacePlacement, FACE_HEIGHT_MAX, normalizeBoxToFrame } from "@/lib/face-check";
+
 import {
   MEMBER_PHOTO_ASPECT,
   MEMBER_PHOTO_HEIGHT,
   MEMBER_PHOTO_WIDTH,
+  cameraFraming,
   containedMediaRect,
-  contentBoxAvoidingDarkEdges,
   memberPhotoAspectRatio,
   printCropInFrame,
-  printCropInsideContent,
 } from "@/lib/member-photo-frame";
 
 describe("member photo frame", () => {
@@ -31,25 +32,59 @@ describe("member photo frame", () => {
     expect(picture.x).toBe(0);
   });
 
-  it("keeps the print crop off a dark band at the bottom of the frame", () => {
-    const width = 80;
-    const height = 60;
-    const pixels = new Uint8ClampedArray(width * height * 4);
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const index = (y * width + x) * 4;
-        const dark = y >= 54;
-        pixels[index] = dark ? 0 : 180;
-        pixels[index + 1] = dark ? 0 : 180;
-        pixels[index + 2] = dark ? 0 : 180;
-        pixels[index + 3] = 255;
-      }
-    }
-    const content = contentBoxAvoidingDarkEdges(pixels, width, height);
-    expect(content.y).toBe(0);
-    expect(content.height).toBe(54);
-    const crop = printCropInsideContent(content);
-    expect(crop.y + crop.height).toBeLessThanOrEqual(54);
-    expect(crop.width / crop.height).toBeCloseTo(MEMBER_PHOTO_ASPECT, 2);
+  it("keeps a passing live face passing in the cropper on a tall phone frame", () => {
+    const devicePixelRatio = 3;
+    const frameWidth = 1440;
+    const frameHeight = 1920;
+    expect(Math.max(frameWidth, frameHeight)).toBeGreaterThanOrEqual(1920);
+    expect(frameWidth / frameHeight).toBeCloseTo(3 / 4, 5);
+    const cssWidth = 390;
+    const cssHeight = 288;
+    const level = { yawDeg: 0, pitchDeg: 0, rollDeg: 0 };
+    const meshInPrint = { x: 0.28, y: 0.22, width: 0.44, height: 0.5 };
+
+    const preview = cameraFraming(frameWidth, frameHeight, cssWidth, cssHeight);
+    const screen = cameraFraming(frameWidth, frameHeight, cssWidth * devicePixelRatio, cssHeight * devicePixelRatio);
+    expect(screen.crop).toEqual(preview.crop);
+    expect(screen.guide.width).toBeCloseTo(preview.guide.width * devicePixelRatio, 4);
+
+    const faceInFrame = {
+      x: preview.crop.x + meshInPrint.x * preview.crop.width,
+      y: preview.crop.y + meshInPrint.y * preview.crop.height,
+      width: meshInPrint.width * preview.crop.width,
+      height: meshInPrint.height * preview.crop.height,
+    };
+    const onTheGuide = normalizeBoxToFrame(faceInFrame, preview.crop);
+    const inTheCropper = normalizeBoxToFrame(faceInFrame, preview.crop);
+    expect(evaluateFacePlacement([{ box: onTheGuide, ...level }])).toBe("pass");
+    expect(evaluateFacePlacement([{ box: inTheCropper, ...level }])).toBe("pass");
+    expect(inTheCropper.height).toBeCloseTo(onTheGuide.height, 5);
+
+    const cover = coverFitWindow(frameWidth, frameHeight, cssWidth, cssHeight);
+    const onTheCover = normalizeBoxToFrame(faceInFrame, cover);
+    expect(onTheCover.height).toBeGreaterThan(FACE_HEIGHT_MAX);
+    expect(evaluateFacePlacement([{ box: onTheCover, ...level }])).not.toBe("pass");
   });
 });
+
+/** The cropper's old cover fit: stretch a tall picture to the editor width and keep the centre. */
+function coverFitWindow(frameWidth: number, frameHeight: number, boxWidth: number, boxHeight: number) {
+  const mediaAspect = frameWidth / frameHeight;
+  const boxAspect = boxWidth / boxHeight;
+  const displayWidth = mediaAspect < boxAspect ? boxWidth : boxHeight * mediaAspect;
+  const displayHeight = mediaAspect < boxAspect ? boxWidth / mediaAspect : boxHeight;
+  const fittingWidth = Math.min(displayWidth, boxWidth);
+  const fittingHeight = Math.min(displayHeight, boxHeight);
+  const visible =
+    fittingWidth > fittingHeight * MEMBER_PHOTO_ASPECT
+      ? { width: fittingHeight * MEMBER_PHOTO_ASPECT, height: fittingHeight }
+      : { width: fittingWidth, height: fittingWidth / MEMBER_PHOTO_ASPECT };
+  const scaleX = frameWidth / displayWidth;
+  const scaleY = frameHeight / displayHeight;
+  return {
+    x: ((boxWidth - visible.width) / 2 - (boxWidth - displayWidth) / 2) * scaleX,
+    y: ((boxHeight - visible.height) / 2 - (boxHeight - displayHeight) / 2) * scaleY,
+    width: visible.width * scaleX,
+    height: visible.height * scaleY,
+  };
+}

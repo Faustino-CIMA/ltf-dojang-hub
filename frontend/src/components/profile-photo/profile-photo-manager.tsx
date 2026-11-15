@@ -41,11 +41,8 @@ import {
   MEMBER_PHOTO_ASPECT,
   MEMBER_PHOTO_HEIGHT,
   MEMBER_PHOTO_WIDTH,
-  containedMediaRect,
-  contentBoxAvoidingDarkEdges,
+  cameraFraming,
   memberPhotoAspectRatio,
-  printCropInFrame,
-  printCropInsideContent,
 } from "@/lib/member-photo-frame";
 import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
@@ -668,15 +665,7 @@ export function ProfilePhotoManager({
       context.scale(-1, 1);
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    let printCrop = printCropInFrame(video.videoWidth, video.videoHeight);
-    try {
-      const frame = context.getImageData(0, 0, canvas.width, canvas.height);
-      printCrop = printCropInsideContent(
-        contentBoxAvoidingDarkEdges(frame.data, canvas.width, canvas.height),
-      );
-    } catch {
-      // A tainted frame keeps the print window of the whole camera picture.
-    }
+    const printCrop = cameraFraming(video.videoWidth, video.videoHeight, 1, 1).crop;
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -781,17 +770,19 @@ export function ProfilePhotoManager({
       if (!video || !box || video.videoWidth === 0 || video.videoHeight === 0) {
         return null;
       }
-      const picture = containedMediaRect(box.clientWidth, box.clientHeight, video.videoWidth, video.videoHeight);
-      const crop = printCropInFrame(video.videoWidth, video.videoHeight);
-      const scaleX = picture.width / video.videoWidth;
-      const scaleY = picture.height / video.videoHeight;
+      const framing = cameraFraming(
+        video.videoWidth,
+        video.videoHeight,
+        box.clientWidth,
+        box.clientHeight,
+      );
       setLiveFrame({
-        left: picture.x + crop.x * scaleX,
-        top: picture.y + crop.y * scaleY,
-        width: crop.width * scaleX,
-        height: crop.height * scaleY,
+        left: framing.guide.x,
+        top: framing.guide.y,
+        width: framing.guide.width,
+        height: framing.guide.height,
       });
-      return crop;
+      return framing.crop;
     };
     const tick = () => {
       if (stopped || busy || unavailable || document.hidden) {
@@ -1158,7 +1149,7 @@ export function ProfilePhotoManager({
               initialCroppedAreaPixels={removalPrintCrop ?? undefined}
               cropShape="rect"
               showGrid
-              objectFit="cover"
+              objectFit="contain"
               style={{ containerStyle: { backgroundColor }, mediaStyle: { backgroundColor } }}
               onCropChange={setCrop}
               onZoomChange={setZoom}
