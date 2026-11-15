@@ -1,4 +1,12 @@
-import { BackgroundFetchError, backoffMs, fetchModelAsset, modelChunkUrls, prefetchBackgroundModel } from "./background-model-cache";
+import {
+  BackgroundFetchError,
+  abortModelDownloads,
+  backoffMs,
+  fetchModelAsset,
+  modelChunkUrls,
+  prefetchBackgroundModel,
+  runWithModelFetch,
+} from "./background-model-cache";
 
 class TestResponse {
   status: number;
@@ -153,4 +161,145 @@ describe("background model download", () => {
     expect(urls).toEqual(["https://app.example/background-removal/1.7.0/models/isnet_fp16/chunk"]);
     expect(fetchImpl.mock.calls.some((call) => String(call[0]).includes("skip.wasm"))).toBe(false);
   });
+
+  it("keeps reading while bytes are still arriving", async () => {
+    let reads = 0;
+    const response = await fetchModelAsset("https://app.example/background-removal/1.7.0/models/isnet", {
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        body: {
+          getReader: () => ({
+            read: async () => {
+              reads += 1;
+              await new Promise((resolve) => setTimeout(resolve, 15));
+              if (reads < 3) {
+                return { done: false, value: new Uint8Array([reads]) };
+              }
+              return { done: true };
+            },
+            cancel: async () => undefined,
+          }),
+        },
+      }) as unknown as Response,
+      cache: null,
+      attempts: 1,
+      stallMs: 200,
+    });
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual([1, 2]);
+  });
+
+  it("gives up when the request itself never answers", async () => {
+    await expect(
+      fetchModelAsset("https://app.example/background-removal/1.7.0/models/isnet", {
+        fetchImpl: () => new Promise(() => undefined),
+        cache: null,
+        attempts: 1,
+        stallMs: 30,
+      }),
+    ).rejects.toMatchObject({ kind: "network" });
+  });
+
+  it("gives up when a download accepts the request and then sends no more bytes", async () => {
+    const fetchImpl = jest.fn(async () => stalledResponse());
+    const cache = { match: jest.fn(async () => undefined), put: jest.fn(), delete: jest.fn() } as unknown as Cache;
+    await expect(
+      fetchModelAsset("https://app.example/background-removal/1.7.0/models/isnet", {
+        fetchImpl,
+        cache,
+        attempts: 1,
+        stallMs: 30,
+      }),
+    ).rejects.toMatchObject({ kind: "network" });
+    expect(cache.put).not.toHaveBeenCalled();
+    expect(cache.delete).toHaveBeenCalled();
+  });
+
+  it("keeps a finished chunk and fetches the one that failed again", async () => {
+    const stored = new Map<string, Response>([
+      ["https://app.example/background-removal/1.7.0/onnxruntime-web/ort.wasm", ok("wasm")],
+    ]);
+    const cache = {
+      match: jest.fn(async (url: string) => stored.get(url)),
+      put: jest.fn(async (url: string, response: Response) => {
+        stored.set(url, response);
+      }),
+      delete: jest.fn(),
+    } as unknown as Cache;
+    const fetchImpl = jest.fn<Promise<Response>, [string]>(async () => ok("model"));
+    const wasm = await fetchModelAsset("https://app.example/background-removal/1.7.0/onnxruntime-web/ort.wasm", {
+      fetchImpl,
+      cache,
+    });
+    const model = await fetchModelAsset("https://app.example/background-removal/1.7.0/models/isnet", {
+      fetchImpl,
+      cache,
+      attempts: 1,
+      stallMs: 1000,
+    });
+    expect(await wasm.text()).toBe("wasm");
+    expect(await model.text()).toBe("model");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0][0]).toContain("isnet");
+  });
+
+  it("drops a stalled download when Retry starts another one", async () => {
+    const url = "https://app.example/background-removal/1.7.0/models/isnet";
+    const hung = fetchModelAsset(url, {
+      fetchImpl: async () => stalledResponse(),
+      cache: null,
+      attempts: 1,
+      stallMs: 10000,
+    });
+    abortModelDownloads();
+    await expect(hung).rejects.toMatchObject({ kind: "network" });
+    const fetchImpl = jest.fn(async () => ok("weights"));
+    const again = await fetchModelAsset(url, {
+      fetchImpl,
+      cache: null,
+      attempts: 1,
+      stallMs: 1000,
+    });
+    expect(await again.text()).toBe("weights");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the library's model fetch through the cached download", async () => {
+    const original = globalThis.fetch;
+    const inner = jest.fn<Promise<Response>, [string]>(async () => ok("chunk"));
+    globalThis.fetch = inner as unknown as typeof fetch;
+    try {
+      await runWithModelFetch(
+        async () => {
+          const response = await fetch("https://app.example/background-removal/1.7.0/models/isnet", {});
+          expect(await response.text()).toBe("chunk");
+          const other = await fetch("https://app.example/photo.png");
+          expect(await other.text()).toBe("chunk");
+        },
+        { cache: null },
+      );
+    } finally {
+      globalThis.fetch = original;
+    }
+    expect(inner).toHaveBeenCalledTimes(2);
+    expect(String(inner.mock.calls[0][0])).toContain("/background-removal/1.7.0/");
+  });
 });
+
+function stalledResponse(): Response {
+  const reader = {
+    read: () => new Promise<{ done: boolean; value?: Uint8Array }>(() => undefined),
+    cancel: async () => undefined,
+  };
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-length": "1000" }),
+    body: { getReader: () => reader },
+    arrayBuffer: () => new Promise<ArrayBuffer>(() => undefined),
+    clone() {
+      return this;
+    },
+  } as unknown as Response;
+}

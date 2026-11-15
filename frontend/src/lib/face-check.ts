@@ -29,6 +29,10 @@ export const FACE_CENTER_Y_MAX = 0.62;
 export const FACE_HAIR_ABOVE_MESH = 0.35;
 /** Cheek-to-cheek, including hair, as a fraction of the full head height. */
 export const FACE_HEAD_WIDTH_OVER_HEIGHT = 0.75;
+/** The drawn oval is a little smaller than the hair-to-chin head. About 6%. */
+export const GUIDE_OVAL_SCALE = 0.94;
+/** The oval and the shoulder line sit this far down the frame. */
+export const GUIDE_SHIFT_DOWN = 0.04;
 export const FACE_LUMA_MIN = 60;
 export const FACE_LUMA_MAX = 210;
 /** Locked by the sharp-edge and box-blur fixtures in face-check.test.ts. */
@@ -211,17 +215,20 @@ export type FramingGuideShape = {
  * The outline for the print crop. The camera and the cropper both draw this,
  * so the oval cannot drift away from the save rule.
  * The mesh box is the middle of the accepted 30–70% band, centred and a
- * little high. The oval continues from the chin up over the hair.
+ * little high. The oval continues from the chin up over the hair, then sits
+ * slightly lower and a little smaller so the head is not pressed to the top.
  */
 export function framingGuideShape(frameWidth: number, frameHeight: number): FramingGuideShape {
   const meshHeight = ((FACE_HEIGHT_MIN + FACE_HEIGHT_MAX) / 2) * frameHeight;
   const centerX = ((FACE_CENTER_X_MIN + FACE_CENTER_X_MAX) / 2) * frameWidth;
   const meshCenterY = ((FACE_CENTER_Y_MIN + FACE_CENTER_Y_MAX) / 2) * frameHeight;
   const hair = meshHeight * FACE_HAIR_ABOVE_MESH;
-  const headHeight = meshHeight + hair;
+  const fullHeight = meshHeight + hair;
+  const headHeight = fullHeight * GUIDE_OVAL_SCALE;
   const headWidth = headHeight * FACE_HEAD_WIDTH_OVER_HEIGHT;
-  const chin = meshCenterY + meshHeight / 2;
-  const shoulderY = frameHeight * 0.92;
+  const shift = frameHeight * GUIDE_SHIFT_DOWN;
+  const chin = meshCenterY + meshHeight / 2 + shift;
+  const shoulderY = frameHeight * 0.92 + shift;
   const shoulderHalf = frameWidth * 0.46;
   const neckY = Math.min(shoulderY - frameHeight * 0.04, chin + frameHeight * 0.06);
   const round = (value: number) => Math.round(value * 10) / 10;
@@ -231,7 +238,7 @@ export function framingGuideShape(frameWidth: number, frameHeight: number): Fram
   return {
     head: {
       cx,
-      cy: round(meshCenterY - hair / 2),
+      cy: round(meshCenterY - hair / 2 + shift),
       rx: round(headWidth / 2),
       ry: round(headHeight / 2),
     },

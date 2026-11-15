@@ -19,6 +19,7 @@ import {
   readJpegOrientation,
   readJpegSize,
   removalInputRaster,
+  removalLibraryConfig,
   resampleCrop,
   shouldApplyOrientation,
   type PhotoRaster,
@@ -42,6 +43,29 @@ describe("photo background maths", () => {
 
   it("scales the long side to 1024 and keeps the portrait shape", () => {
     expect(fitLongSide(945, 1181)).toEqual({ width: 819, height: 1024 });
+  });
+
+  it("does not reuse a failed removal download on the next try", async () => {
+    const cache = new Map<string, Promise<unknown>>();
+    const loads: number[] = [];
+    const memoized = (config: { attempt: number; progress?: () => void }) => {
+      const key = JSON.stringify(config);
+      const cached = cache.get(key);
+      if (cached) {
+        return cached;
+      }
+      const promise = Promise.reject(new Error("network"));
+      cache.set(key, promise);
+      loads.push(config.attempt);
+      return promise;
+    };
+    const first = { ...removalLibraryConfig("https://app.example", 1), progress: () => undefined };
+    const same = { ...removalLibraryConfig("https://app.example", 1), progress: () => undefined };
+    const retry = { ...removalLibraryConfig("https://app.example", 2), progress: () => undefined };
+    await expect(memoized(first)).rejects.toThrow("network");
+    await expect(memoized(same)).rejects.toThrow("network");
+    await expect(memoized(retry)).rejects.toThrow("network");
+    expect(loads).toEqual([1, 2]);
   });
 
   it("sums download chunks and holds the later stages", () => {

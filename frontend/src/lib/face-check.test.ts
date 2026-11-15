@@ -12,6 +12,8 @@ import {
   FACE_HEIGHT_MAX,
   FACE_HEIGHT_MIN,
   framingGuideShape,
+  GUIDE_OVAL_SCALE,
+  GUIDE_SHIFT_DOWN,
   LIVE_FACE_INTERVAL_MS,
   LIVE_FACE_LONG_SIDE,
   boxBlurPlane,
@@ -263,9 +265,18 @@ describe("face check rules", () => {
     const meshCenterY = ((FACE_CENTER_Y_MIN + FACE_CENTER_Y_MAX) / 2) * MEMBER_PHOTO_HEIGHT;
     const meshTop = meshCenterY - meshHeight / 2;
     const chin = meshCenterY + meshHeight / 2;
-    expect(shape.head.ry * 2).toBeGreaterThan(meshHeight);
-    expect(shape.head.cy - shape.head.ry).toBeLessThan(meshTop - meshHeight * FACE_HAIR_ABOVE_MESH + 1);
-    expect(shape.head.cy + shape.head.ry).toBeCloseTo(chin, 0);
+    const fullHeight = meshHeight + meshHeight * FACE_HAIR_ABOVE_MESH;
+    const shift = MEMBER_PHOTO_HEIGHT * GUIDE_SHIFT_DOWN;
+    const round = (value: number) => Math.round(value * 10) / 10;
+    expect(GUIDE_OVAL_SCALE).toBeGreaterThanOrEqual(0.92);
+    expect(GUIDE_OVAL_SCALE).toBeLessThanOrEqual(0.95);
+    expect(shift).toBeGreaterThan(MEMBER_PHOTO_HEIGHT * 0.03);
+    expect(shape.head.ry).toBe(round((fullHeight * GUIDE_OVAL_SCALE) / 2));
+    expect(shape.head.ry * 2).toBeLessThan(fullHeight);
+    expect(shape.head.cy).toBe(round(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + shift));
+    expect(shape.head.cy).toBeGreaterThan(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2);
+    expect(Math.abs(meshCenterY - shape.head.cy)).toBeLessThan(shape.head.ry);
+    expect(shape.head.cy - shape.head.ry).toBeLessThan(meshTop);
     expect(shape.head.rx * 2).toBeCloseTo(shape.head.ry * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT, 0);
     expect(shape.head.cx).toBeCloseTo(((FACE_CENTER_X_MIN + FACE_CENTER_X_MAX) / 2) * MEMBER_PHOTO_WIDTH, 0);
     const shoulders = shape.shoulders.match(/M ([\d.]+) ([\d.]+) Q ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+)/);
@@ -274,6 +285,7 @@ describe("face check rules", () => {
     const shoulderY = Number(shoulders?.[2]);
     const right = Number(shoulders?.[5]);
     expect(right - left).toBeGreaterThan(shape.head.rx * 2);
+    expect(shoulderY).toBeCloseTo(MEMBER_PHOTO_HEIGHT * 0.92 + shift, 0);
     expect(shoulderY).toBeGreaterThan(chin);
   });
 

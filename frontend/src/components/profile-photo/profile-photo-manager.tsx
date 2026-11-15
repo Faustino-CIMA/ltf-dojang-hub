@@ -23,7 +23,7 @@ import {
 } from "@/lib/camera-capture";
 import "react-easy-crop/react-easy-crop.css";
 
-import { BackgroundFetchError, prefetchBackgroundModel } from "@/lib/background-model-cache";
+import { abortModelDownloads, BackgroundFetchError, prefetchBackgroundModel } from "@/lib/background-model-cache";
 import { checkFaceOnCanvas, checkFaceOnCrop } from "@/lib/face-landmarker";
 import {
   FACE_BLUR_MIN,
@@ -919,11 +919,18 @@ export function ProfilePhotoManager({
   const faceAllowsSave =
     !faceProgress && (faceOutcome?.status === "pass" || faceOutcome?.status === "skipped");
 
+  const removalAttemptRef = useRef(0);
+
   const handleRemoveBackground = async () => {
     if (!workingFile || !workingImageUrl || !croppedAreaPixels) {
       return;
     }
+    abortModelDownloads();
+    const attempt = removalAttemptRef.current + 1;
+    removalAttemptRef.current = attempt;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setIsRemovingBackground(false);
+      setRemovalProgress(null);
       setRemovalProblem("offline");
       setErrorMessage(null);
       return;
@@ -944,9 +951,21 @@ export function ProfilePhotoManager({
       const removedBlob = await removeProfileBackground({
         imageUrl,
         crop,
-        onRetry: () => setRemovalProblem("retrying"),
-        onProgress: setRemovalProgress,
+        attempt,
+        onRetry: () => {
+          if (removalAttemptRef.current === attempt) {
+            setRemovalProblem("retrying");
+          }
+        },
+        onProgress: (progress) => {
+          if (removalAttemptRef.current === attempt) {
+            setRemovalProgress(progress);
+          }
+        },
       });
+      if (removalAttemptRef.current !== attempt) {
+        return;
+      }
       const removedFile = new File([removedBlob], `bg-removed-${Date.now()}.png`, {
         type: "image/png",
       });
@@ -959,6 +978,9 @@ export function ProfilePhotoManager({
       setCrop({ x: 0, y: 0 });
       setZoom(1);
     } catch (error) {
+      if (removalAttemptRef.current !== attempt) {
+        return;
+      }
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       if (offline) {
         setRemovalProblem("offline");
@@ -968,8 +990,10 @@ export function ProfilePhotoManager({
         setRemovalProblem("processing");
       }
     } finally {
-      setIsRemovingBackground(false);
-      setRemovalProgress(null);
+      if (removalAttemptRef.current === attempt) {
+        setIsRemovingBackground(false);
+        setRemovalProgress(null);
+      }
     }
   };
 
@@ -1334,22 +1358,23 @@ export function ProfilePhotoManager({
       </label>
 
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
-      {removalProblem ? (
+      {removalProblem || isRemovingBackground ? (
         <div className="flex flex-wrap items-center gap-2">
-          <PageNotice tone="warning">
-            {removalProblem === "offline"
-              ? labels.removeBackgroundOffline
-              : removalProblem === "network"
-                ? labels.removeBackgroundWeak
-                : removalProblem === "retrying"
-                  ? labels.removeBackgroundRetrying
-                  : labels.removeBackgroundFailed}
-          </PageNotice>
+          {removalProblem ? (
+            <PageNotice tone="warning">
+              {removalProblem === "offline"
+                ? labels.removeBackgroundOffline
+                : removalProblem === "network"
+                  ? labels.removeBackgroundWeak
+                  : removalProblem === "retrying"
+                    ? labels.removeBackgroundRetrying
+                    : labels.removeBackgroundFailed}
+            </PageNotice>
+          ) : null}
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={isRemovingBackground}
             onClick={() => {
               void handleRemoveBackground();
             }}
