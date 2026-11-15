@@ -9,6 +9,14 @@ jest.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+jest.mock("@/lib/background-model-cache", () => {
+  const actual = jest.requireActual("@/lib/background-model-cache");
+  return {
+    ...actual,
+    prefetchBackgroundModel: jest.fn(async () => undefined),
+  };
+});
+
 jest.mock("@/lib/face-landmarker", () => ({
   checkFaceOnCrop: jest.fn(async () => ({ status: "pass" })),
   checkFaceOnCanvas: jest.fn(async () => ({ status: "skipped", reason: "model_unavailable" })),
@@ -46,6 +54,10 @@ const labels = {
   removeBackgroundEdges: "Cleaning the edges…",
   removeBackgroundColour: "Applying the background colour…",
   removeBackgroundFailed: "Background removal failed. You can still save the photo as it is.",
+  removeBackgroundRetry: "Retry",
+  removeBackgroundWeak: "Weak connection. You can still save the photo as it is.",
+  removeBackgroundRetrying: "Weak connection, retrying…",
+  removeBackgroundOffline: "You are offline. Removal will try again when the connection returns. You can still save the photo as it is.",
   ...faceCheckEditorLabels((key) => key),
   consentLabel: "Consent",
   saveButton: "Save photo",

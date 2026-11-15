@@ -5,6 +5,8 @@
  * frame. Weights are served from this origin. The photo is not uploaded.
  */
 
+import { BackgroundFetchError, runWithModelFetch } from "@/lib/background-model-cache";
+
 export const LICENSE_PHOTO_BACKGROUND_DEFAULT = "#D9D9D9";
 export const BACKGROUND_REMOVAL_MODEL = "isnet_fp16";
 export const BACKGROUND_REMOVAL_LONG_SIDE = 1024;
@@ -1122,6 +1124,7 @@ export async function removeProfileBackground(options: {
   imageUrl: string;
   crop: PhotoCrop;
   onProgress?: (progress: PhotoBackgroundProgress) => void;
+  onRetry?: () => void;
 }): Promise<Blob> {
   const report = options.onProgress ?? (() => undefined);
   report({ phase: "prepare" });
@@ -1142,15 +1145,31 @@ export async function removeProfileBackground(options: {
 
   const downloads = new Map<string, { current: number; total: number }>();
   const bgModule = await import("@imgly/background-removal-js");
-  const removed = await bgModule.removeBackground(inputBlob, {
-    publicPath: backgroundRemovalPublicPath(window.location.origin),
-    model: BACKGROUND_REMOVAL_MODEL,
-    device: "cpu",
-    output: { format: "image/png", quality: 1 },
-    progress: (key: string, current: number, total: number) => {
-      report(progressFromLibraryKey(key, current, total, downloads));
-    },
-  });
+  let removed: unknown;
+  try {
+    removed = await runWithModelFetch(
+      () =>
+        bgModule.removeBackground(inputBlob, {
+          publicPath: backgroundRemovalPublicPath(window.location.origin),
+          model: BACKGROUND_REMOVAL_MODEL,
+          device: "cpu",
+          output: { format: "image/png", quality: 1 },
+          progress: (key: string, current: number, total: number) => {
+            report(progressFromLibraryKey(key, current, total, downloads));
+          },
+        }),
+      { onRetry: options.onRetry },
+    );
+  } catch (error) {
+    if (error instanceof BackgroundFetchError) {
+      throw error;
+    }
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    if (offline || error instanceof TypeError) {
+      throw new BackgroundFetchError("network", error instanceof Error ? error.message : "download failed");
+    }
+    throw new BackgroundFetchError("processing", error instanceof Error ? error.message : "removal failed");
+  }
 
   report({ phase: "edges" });
   const cutout = await rasterFromBlob(asPngBlob(removed));
