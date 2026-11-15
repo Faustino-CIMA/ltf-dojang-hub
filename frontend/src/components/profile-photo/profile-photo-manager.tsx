@@ -60,6 +60,8 @@ import {
 
 const OUTPUT_WIDTH = MEMBER_PHOTO_WIDTH;
 const OUTPUT_HEIGHT = MEMBER_PHOTO_HEIGHT;
+const DISPLAY_PREVIEW_WIDTH = 160;
+const DISPLAY_PREVIEW_HEIGHT = 200;
 
 export type ProfilePhotoUploadPayload = {
   processedImage: File;
@@ -218,13 +220,15 @@ function fileFromRaster(raster: PhotoRaster, backgroundColor: string): Promise<F
 async function renderPrintReadyImage(
   imageSource: string,
   cropArea: Area,
-  backgroundColor: string
+  backgroundColor: string,
+  frameWidth = OUTPUT_WIDTH,
+  frameHeight = OUTPUT_HEIGHT,
 ): Promise<File> {
   try {
     const response = await fetch(imageSource);
     if (response.ok) {
       const oriented = await rasterFromBlob(await response.blob());
-      const printed = rasterForPrintFrame(oriented, cropArea, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+      const printed = rasterForPrintFrame(oriented, cropArea, frameWidth, frameHeight);
       return fileFromRaster(printed, backgroundColor);
     }
   } catch {
@@ -233,8 +237,8 @@ async function renderPrintReadyImage(
 
   const image = await loadImage(imageSource);
   const canvas = document.createElement("canvas");
-  canvas.width = OUTPUT_WIDTH;
-  canvas.height = OUTPUT_HEIGHT;
+  canvas.width = frameWidth;
+  canvas.height = frameHeight;
   const context = canvas.getContext("2d");
   if (!context) {
     throw new Error("Unable to initialize image canvas.");
@@ -248,10 +252,10 @@ async function renderPrintReadyImage(
   const y1 = Math.max(y0 + 1, Math.min(imageHeight, cropArea.y + cropArea.height));
   const matched = matchCropAspect(
     { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
-    OUTPUT_WIDTH / OUTPUT_HEIGHT,
+    frameWidth / frameHeight,
   );
   context.fillStyle = backgroundColor;
-  context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  context.fillRect(0, 0, frameWidth, frameHeight);
   context.drawImage(
     image,
     matched.x,
@@ -260,8 +264,8 @@ async function renderPrintReadyImage(
     matched.height,
     0,
     0,
-    OUTPUT_WIDTH,
-    OUTPUT_HEIGHT
+    frameWidth,
+    frameHeight,
   );
 
   const outputBlob = await new Promise<Blob>((resolve, reject) => {
@@ -314,7 +318,6 @@ export function ProfilePhotoManager({
   const [workingFile, setWorkingFile] = useState<File | null>(null);
   const [workingImageUrl, setWorkingImageUrl] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [storedPhotoPreviewUrl, setStoredPhotoPreviewUrl] = useState<string | null>(null);
   const [backgroundColor, setBackgroundColor] = useState(LICENSE_PHOTO_BACKGROUND_DEFAULT);
   const backgroundColorRef = useRef(LICENSE_PHOTO_BACKGROUND_DEFAULT);
@@ -505,7 +508,6 @@ export function ProfilePhotoManager({
     const objectUrl = URL.createObjectURL(file);
     previewObjectUrlRef.current = objectUrl;
     setPreviewImageUrl(objectUrl);
-    setPreviewFile(file);
   };
 
   const resetEditorState = () => {
@@ -522,7 +524,6 @@ export function ProfilePhotoManager({
     setWorkingFile(null);
     setWorkingImageUrl(null);
     setPreviewImageUrl(null);
-    setPreviewFile(null);
     setBackgroundColor(backgroundColorRef.current);
     setBackgroundRemoved(false);
     setRemovalPrintCrop(null);
@@ -701,7 +702,9 @@ export function ProfilePhotoManager({
         const generated = await renderPrintReadyImage(
           workingImageUrl,
           croppedAreaPixels,
-          backgroundColor
+          backgroundColor,
+          DISPLAY_PREVIEW_WIDTH,
+          DISPLAY_PREVIEW_HEIGHT,
         );
         if (!isCancelled) {
           setPreviewFromFile(generated);
@@ -923,7 +926,6 @@ export function ProfilePhotoManager({
       const removedBlob = await removeProfileBackground({
         imageUrl: workingImageUrl,
         crop: croppedAreaPixels,
-        color: backgroundColor,
         onProgress: setRemovalProgress,
       });
       const removedFile = new File([removedBlob], `bg-removed-${Date.now()}.png`, {
@@ -964,9 +966,11 @@ export function ProfilePhotoManager({
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const processedOutput =
-        previewFile ||
-        (await renderPrintReadyImage(workingImageUrl, croppedAreaPixels, backgroundColor));
+      const processedOutput = await renderPrintReadyImage(
+        workingImageUrl,
+        croppedAreaPixels,
+        backgroundColor,
+      );
       await onSave({
         processedImage: processedOutput,
         originalImage: originalFile,

@@ -567,10 +567,10 @@ function upsampleAlpha(
 }
 
 /**
- * Put the model's mask on the original crop. The model's colour is ignored,
- * so a sharp pattern in the photo stays sharp.
+ * Put the model's mask on the original crop. Only the alpha is scaled.
+ * The face colour is the original pixels.
  */
-export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRaster): PhotoRaster {
+export function applyMaskOnce(original: PhotoRaster, mask: PhotoRaster): PhotoRaster {
   const data = new Uint8ClampedArray(original.data);
   const alpha = new Float32Array(mask.width * mask.height);
   for (let index = 0; index < alpha.length; index += 1) {
@@ -580,7 +580,15 @@ export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRast
   for (let index = 0; index < scaled.length; index += 1) {
     data[index * 4 + 3] = Math.max(0, Math.min(255, Math.round(scaled[index])));
   }
-  const raster = { width: original.width, height: original.height, data };
+  return { width: original.width, height: original.height, data };
+}
+
+/**
+ * Put the model's mask on the original crop. The model's colour is ignored,
+ * so a sharp pattern in the photo stays sharp.
+ */
+export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRaster): PhotoRaster {
+  const raster = applyMaskOnce(original, mask);
   cleanCutoutEdges(raster);
   return raster;
 }
@@ -902,6 +910,23 @@ export function resampleCrop(
   return { width, height, data: dest };
 }
 
+/** A 1:1 crop. This copies pixels. It does not scale them. */
+export function copyCrop(source: PhotoRaster, crop: PhotoCrop): PhotoRaster {
+  const x = Math.max(0, Math.min(source.width - 1, Math.round(crop.x)));
+  const y = Math.max(0, Math.min(source.height - 1, Math.round(crop.y)));
+  const right = Math.max(x + 1, Math.min(source.width, Math.round(crop.x + crop.width)));
+  const bottom = Math.max(y + 1, Math.min(source.height, Math.round(crop.y + crop.height)));
+  const width = right - x;
+  const height = bottom - y;
+  const data = new Uint8ClampedArray(width * height * 4);
+  const rowBytes = width * 4;
+  for (let row = 0; row < height; row += 1) {
+    const start = ((y + row) * source.width + x) * 4;
+    data.set(source.data.subarray(start, start + rowBytes), row * rowBytes);
+  }
+  return { width, height, data };
+}
+
 export function removalInputRaster(
   stored: PhotoRaster,
   orientation: number,
@@ -970,11 +995,20 @@ export function licensePhotoFromStored(options: {
   frameHeight: number;
   longSide?: number;
 }): PhotoRaster {
-  const input = removalInputRaster(options.stored, options.orientation, options.crop, options.longSide);
-  const restored = restoreRemovalFrame(input, options.modelOutput(input));
+  const oriented = applyExifOrientation(options.stored, options.orientation);
+  const expanded = expandCrop(options.crop, oriented.width, oriented.height);
+  const full = copyCrop(oriented, expanded);
+  const fitted = fitLongSide(full.width, full.height, options.longSide);
+  const modelInput =
+    fitted.width === full.width && fitted.height === full.height
+      ? full
+      : resampleCrop(full, { x: 0, y: 0, width: full.width, height: full.height }, fitted.width, fitted.height);
+  const cutout = options.modelOutput(modelInput);
+  cleanCutoutEdges(cutout);
+  const masked = applyMaskOnce(full, cutout);
   return rasterForPrintFrame(
-    restored,
-    { x: 0, y: 0, width: restored.width, height: restored.height },
+    masked,
+    { x: 0, y: 0, width: masked.width, height: masked.height },
     options.frameWidth,
     options.frameHeight,
   );
@@ -1041,13 +1075,14 @@ async function blobBytes(blob: Blob): Promise<Uint8Array> {
 export async function normalizePhotoFile(file: File): Promise<File> {
   try {
     const bytes = await blobBytes(file);
-    if (readJpegOrientation(bytes) === 1) {
+    const heic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+    if (readJpegOrientation(bytes) === 1 && !heic) {
       return file;
     }
     const raster = await rasterFromBlob(file);
-    const blob = await canvasToBlob(paintRaster(raster), "image/jpeg", 0.92);
+    const blob = await canvasToBlob(paintRaster(raster), "image/png");
     const stem = file.name.replace(/\.[^.]+$/, "") || "photo";
-    return new File([blob], `${stem}.jpg`, { type: "image/jpeg" });
+    return new File([blob], `${stem}.png`, { type: "image/png" });
   } catch {
     return file;
   }
@@ -1086,7 +1121,6 @@ function asPngBlob(removed: unknown): Blob {
 export async function removeProfileBackground(options: {
   imageUrl: string;
   crop: PhotoCrop;
-  color: string;
   onProgress?: (progress: PhotoBackgroundProgress) => void;
 }): Promise<Blob> {
   const report = options.onProgress ?? (() => undefined);
@@ -1098,19 +1132,12 @@ export async function removeProfileBackground(options: {
   // Orient first. A tall crop painted from an unrotated iPhone bitmap stretches the face.
   const oriented = await rasterFromBlob(await response.blob());
   const expanded = expandCrop(options.crop, oriented.width, oriented.height);
-  const full = resampleCrop(
-    oriented,
-    expanded,
-    Math.max(1, Math.round(expanded.width)),
-    Math.max(1, Math.round(expanded.height)),
-  );
+  const full = copyCrop(oriented, expanded);
   const fitted = fitLongSide(full.width, full.height);
-  const modelInput = resampleCrop(
-    full,
-    { x: 0, y: 0, width: full.width, height: full.height },
-    fitted.width,
-    fitted.height,
-  );
+  const modelInput =
+    fitted.width === full.width && fitted.height === full.height
+      ? full
+      : resampleCrop(full, { x: 0, y: 0, width: full.width, height: full.height }, fitted.width, fitted.height);
   const inputBlob = await canvasToBlob(paintRaster(modelInput), "image/png");
 
   const downloads = new Map<string, { current: number; total: number }>();
@@ -1127,8 +1154,7 @@ export async function removeProfileBackground(options: {
 
   report({ phase: "edges" });
   const cutout = await rasterFromBlob(asPngBlob(removed));
-  const restored = compositeMaskOntoOriginal(full, cutout);
-  report({ phase: "colour" });
-  compositeOntoColor(restored.data, parseLicensePhotoColor(options.color));
+  cleanCutoutEdges(cutout);
+  const restored = applyMaskOnce(full, cutout);
   return canvasToBlob(paintRaster(restored), "image/png");
 }
