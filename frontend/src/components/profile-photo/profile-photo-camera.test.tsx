@@ -58,6 +58,7 @@ const labels = {
   removeBackgroundWeak: "Weak connection. You can still save the photo as it is.",
   removeBackgroundRetrying: "Weak connection, retrying…",
   removeBackgroundOffline: "You are offline. Removal will try again when the connection returns. You can still save the photo as it is.",
+  removeBackgroundShields: "Brave is hiding this page from the removal tool. Turn off Shields for app.ltkdf.org, then try again. You can still save the photo as it is.",
   ...faceCheckEditorLabels((key) => key),
   consentLabel: "Consent",
   saveButton: "Save photo",

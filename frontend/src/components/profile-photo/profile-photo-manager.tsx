@@ -24,6 +24,7 @@ import {
 import "react-easy-crop/react-easy-crop.css";
 
 import { abortModelDownloads, BackgroundFetchError, prefetchBackgroundModel } from "@/lib/background-model-cache";
+import { canvasReadbackIsStable } from "@/lib/removal-shields";
 import { checkFaceOnCanvas, checkFaceOnCrop } from "@/lib/face-landmarker";
 import {
   FACE_BLUR_MIN,
@@ -105,6 +106,7 @@ type ProfilePhotoManagerLabels = {
   removeBackgroundWeak: string;
   removeBackgroundRetrying: string;
   removeBackgroundOffline: string;
+  removeBackgroundShields: string;
   faceCheckDownload: string;
   faceCheckPrepare: string;
   faceCheckFind: string;
@@ -312,7 +314,7 @@ export function ProfilePhotoManager({
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [removalProgress, setRemovalProgress] = useState<PhotoBackgroundProgress | null>(null);
-  const [removalProblem, setRemovalProblem] = useState<"network" | "processing" | "offline" | "retrying" | null>(null);
+  const [removalProblem, setRemovalProblem] = useState<"network" | "processing" | "offline" | "retrying" | "shields" | null>(null);
   const [prefetchPercent, setPrefetchPercent] = useState<number | null>(null);
   const [faceOutcome, setFaceOutcome] = useState<FaceCheckOutcome | null>(null);
   const [faceProgress, setFaceProgress] = useState<FaceCheckProgress | null>(null);
@@ -981,8 +983,9 @@ export function ProfilePhotoManager({
       if (removalAttemptRef.current !== attempt) {
         return;
       }
-      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-      if (offline) {
+      if (!canvasReadbackIsStable()) {
+        setRemovalProblem("shields");
+      } else if (typeof navigator !== "undefined" && navigator.onLine === false) {
         setRemovalProblem("offline");
       } else if (error instanceof BackgroundFetchError && error.kind === "network") {
         setRemovalProblem("network");
@@ -996,6 +999,15 @@ export function ProfilePhotoManager({
       }
     }
   };
+
+  useEffect(() => {
+    if (!isOpen && !isPageEditor) {
+      return;
+    }
+    if (!canvasReadbackIsStable()) {
+      setRemovalProblem("shields");
+    }
+  }, [isOpen, isPageEditor]);
 
   useEffect(() => {
     if (!isOpen && !isPageEditor) {
@@ -1364,6 +1376,8 @@ export function ProfilePhotoManager({
             <PageNotice tone="warning">
               {removalProblem === "offline"
                 ? labels.removeBackgroundOffline
+                : removalProblem === "shields"
+                  ? labels.removeBackgroundShields
                 : removalProblem === "network"
                   ? labels.removeBackgroundWeak
                   : removalProblem === "retrying"

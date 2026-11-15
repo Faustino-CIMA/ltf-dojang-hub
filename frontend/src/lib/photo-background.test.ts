@@ -329,6 +329,78 @@ describe("photo background maths", () => {
     const hair = (22 * width + 36) * 4;
     expect(data[hair]).toBeLessThan(80);
   });
+
+  it("fills a bright highlight inside a face and leaves a gap that opens to the border", () => {
+    const width = 40;
+    const height = 40;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const face = (x: number, y: number) => (x - 20) ** 2 + (y - 18) ** 2 <= 12 ** 2;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const highlight = (x - 20) ** 2 + (y - 14) ** 2 <= 2 ** 2;
+        const onFace = face(x, y) && !highlight;
+        const gap = x >= 30 && x <= 34 && y >= 28;
+        data[index] = highlight ? 255 : onFace ? 210 : 40;
+        data[index + 1] = highlight ? 250 : onFace ? 170 : 40;
+        data[index + 2] = highlight ? 240 : onFace ? 150 : 40;
+        data[index + 3] = onFace ? 255 : 0;
+        if (gap) {
+          data[index + 3] = 0;
+        }
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    const highlight = (14 * width + 20) * 4;
+    expect(data[highlight + 3]).toBeGreaterThan(200);
+    const opening = (36 * width + 32) * 4;
+    expect(data[opening + 3]).toBeLessThan(20);
+  });
+
+  it("keeps a hand that touches the body and drops a poster on a one-pixel bridge", () => {
+    const width = 48;
+    const height = 32;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const body = x >= 8 && x <= 24 && y >= 8 && y <= 24;
+        const hand = x >= 25 && x <= 31 && y >= 10 && y <= 16;
+        const bridge = x === 32 && y === 13;
+        const poster = x >= 33 && x <= 44 && y >= 10 && y <= 18;
+        const on = body || hand || bridge || poster;
+        data[index] = poster || bridge ? 240 : on ? 200 : 30;
+        data[index + 1] = poster || bridge ? 30 : on ? 160 : 30;
+        data[index + 2] = poster || bridge ? 180 : on ? 140 : 30;
+        data[index + 3] = on ? 255 : 0;
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(13 * width + 28) * 4 + 3]).toBeGreaterThan(200);
+    const poster = (16 * width + 40) * 4;
+    expect(data[poster + 3]).toBeLessThan(20);
+    expect(data[(13 * width + 32) * 4 + 3]).toBeLessThan(200);
+  });
+
+  it("keeps a hair wisp that touches the head", () => {
+    const width = 30;
+    const height = 30;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const head = (x - 14) ** 2 + (y - 16) ** 2 <= 8 ** 2;
+        const wisp = x === 14 && y >= 4 && y <= 8;
+        const on = head || wisp;
+        data[index] = on ? 30 : 220;
+        data[index + 1] = on ? 24 : 220;
+        data[index + 2] = on ? 20 : 220;
+        data[index + 3] = on ? 255 : 0;
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(6 * width + 14) * 4 + 3]).toBeGreaterThan(140);
+  });
 });
 
 function circleRaster(width: number, height: number, cx: number, cy: number, radius: number): PhotoRaster {

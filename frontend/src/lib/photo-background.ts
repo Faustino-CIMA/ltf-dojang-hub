@@ -216,10 +216,8 @@ const CUTOUT_SOLID_ALPHA = 200;
 const CUTOUT_SUBJECT_ALPHA = 128;
 const CUTOUT_BACKGROUND_DISTANCE = 48;
 const CUTOUT_BRIDGE_RADIUS = 1;
-const CUTOUT_COLOUR_LINK = 64;
 const CUTOUT_SATURATED_CHROMA = 80;
 const CUTOUT_FOREIGN_DISTANCE = 90;
-const CUTOUT_HAIR_CHROMA = 48;
 const MATTE_GUIDE_RADIUS = 4;
 const MATTE_GUIDE_EPSILON = 256;
 
@@ -368,7 +366,7 @@ function saturatedForeign(colour: Rgb, subject: Rgb): boolean {
   return chromaOf(colour) >= CUTOUT_SATURATED_CHROMA && colourDistance(colour.r, colour.g, colour.b, subject) >= CUTOUT_FOREIGN_DISTANCE;
 }
 
-function dropBackgroundColouredFringe(raster: PhotoRaster): void {
+function dropBackgroundColouredFringe(raster: PhotoRaster, enclosed?: Uint8Array): void {
   const { data } = raster;
   let red = 0;
   let green = 0;
@@ -388,6 +386,10 @@ function dropBackgroundColouredFringe(raster: PhotoRaster): void {
   }
   const background = { r: red / count, g: green / count, b: blue / count };
   for (let index = 0; index < data.length; index += 4) {
+    const pixel = index / 4;
+    if (enclosed?.[pixel]) {
+      continue;
+    }
     const alpha = data[index + 3];
     if (alpha < CUTOUT_ALPHA_FLOOR || alpha >= CUTOUT_SOLID_ALPHA) {
       continue;
@@ -398,30 +400,20 @@ function dropBackgroundColouredFringe(raster: PhotoRaster): void {
   }
 }
 
-function keepMainSubject(
-  alpha: Float32Array,
-  width: number,
-  height: number,
-  pixels: Uint8ClampedArray,
-): void {
-  const count = alpha.length;
-  const foreground = new Uint8Array(count);
-  for (let index = 0; index < count; index += 1) {
-    foreground[index] = alpha[index] >= CUTOUT_SUBJECT_ALPHA ? 1 : 0;
-  }
-  const eroded = new Uint8Array(count);
+function erodeMask(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
+  const eroded = new Uint8Array(mask.length);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
-      if (!foreground[index]) {
+      if (!mask[index]) {
         continue;
       }
       let solid = true;
-      for (let offsetY = -CUTOUT_BRIDGE_RADIUS; offsetY <= CUTOUT_BRIDGE_RADIUS && solid; offsetY += 1) {
-        for (let offsetX = -CUTOUT_BRIDGE_RADIUS; offsetX <= CUTOUT_BRIDGE_RADIUS; offsetX += 1) {
+      for (let offsetY = -radius; offsetY <= radius && solid; offsetY += 1) {
+        for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
           const nextX = x + offsetX;
           const nextY = y + offsetY;
-          if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height || !foreground[nextY * width + nextX]) {
+          if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height || !mask[nextY * width + nextX]) {
             solid = false;
             break;
           }
@@ -430,13 +422,18 @@ function keepMainSubject(
       eroded[index] = solid ? 1 : 0;
     }
   }
+  return eroded;
+}
+
+function largestComponent(mask: Uint8Array, width: number, height: number): Uint8Array {
+  const count = mask.length;
   const labels = new Int32Array(count);
   const queue = new Int32Array(count);
   let nextLabel = 0;
   let bestLabel = 0;
   let bestCount = 0;
   for (let start = 0; start < count; start += 1) {
-    if (!eroded[start] || labels[start] !== 0) {
+    if (!mask[start] || labels[start] !== 0) {
       continue;
     }
     nextLabel += 1;
@@ -459,12 +456,7 @@ function keepMainSubject(
         y + 1 < height ? index + width : -1,
       ];
       for (const neighbour of neighbours) {
-        if (neighbour < 0 || !eroded[neighbour] || labels[neighbour] !== 0) {
-          continue;
-        }
-        const here = colourAt(pixels, index);
-        const there = colourAt(pixels, neighbour);
-        if (colourDistance(here.r, here.g, here.b, there) >= CUTOUT_COLOUR_LINK) {
+        if (neighbour < 0 || !mask[neighbour] || labels[neighbour] !== 0) {
           continue;
         }
         labels[neighbour] = nextLabel;
@@ -477,55 +469,51 @@ function keepMainSubject(
       bestLabel = nextLabel;
     }
   }
+  const core = new Uint8Array(count);
   if (bestCount === 0) {
-    return;
+    return core;
   }
+  for (let index = 0; index < count; index += 1) {
+    core[index] = labels[index] === bestLabel ? 1 : 0;
+  }
+  return core;
+}
+
+function meanColour(pixels: Uint8ClampedArray, mask: Uint8Array, lowChromaOnly: boolean): Rgb | null {
   let red = 0;
   let green = 0;
   let blue = 0;
-  const core = new Uint8Array(count);
-  for (let index = 0; index < count; index += 1) {
-    if (labels[index] !== bestLabel) {
+  let count = 0;
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) {
       continue;
     }
-    core[index] = 1;
     const colour = colourAt(pixels, index);
+    if (lowChromaOnly && chromaOf(colour) >= CUTOUT_SATURATED_CHROMA) {
+      continue;
+    }
     red += colour.r;
     green += colour.g;
     blue += colour.b;
+    count += 1;
   }
-  const subject = { r: red / bestCount, g: green / bestCount, b: blue / bestCount };
-  const keep = new Uint8Array(count);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (!core[y * width + x]) {
-        continue;
-      }
-      for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
-        const nextY = y + offsetY;
-        if (nextY < 0 || nextY >= height) {
-          continue;
-        }
-        for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
-          const nextX = x + offsetX;
-          if (nextX < 0 || nextX >= width) {
-            continue;
-          }
-          const next = nextY * width + nextX;
-          if (!foreground[next] || saturatedForeign(colourAt(pixels, next), subject)) {
-            continue;
-          }
-          keep[next] = 1;
-        }
-      }
-    }
+  if (count === 0) {
+    return null;
   }
+  return { r: red / count, g: green / count, b: blue / count };
+}
+
+function floodAllowed(seeds: Uint8Array, allowed: Uint8Array, width: number, height: number): Uint8Array {
+  const keep = new Uint8Array(seeds.length);
+  const queue = new Int32Array(seeds.length);
   let tail = 0;
-  for (let index = 0; index < count; index += 1) {
-    if (keep[index]) {
-      queue[tail] = index;
-      tail += 1;
+  for (let index = 0; index < seeds.length; index += 1) {
+    if (!seeds[index] || !allowed[index]) {
+      continue;
     }
+    keep[index] = 1;
+    queue[tail] = index;
+    tail += 1;
   }
   let head = 0;
   while (head < tail) {
@@ -540,11 +528,7 @@ function keepMainSubject(
       y + 1 < height ? index + width : -1,
     ];
     for (const neighbour of neighbours) {
-      if (neighbour < 0 || keep[neighbour] || !foreground[neighbour]) {
-        continue;
-      }
-      const colour = colourAt(pixels, neighbour);
-      if (chromaOf(colour) > CUTOUT_HAIR_CHROMA || saturatedForeign(colour, subject)) {
+      if (neighbour < 0 || keep[neighbour] || !allowed[neighbour]) {
         continue;
       }
       keep[neighbour] = 1;
@@ -552,11 +536,136 @@ function keepMainSubject(
       tail += 1;
     }
   }
-  for (let index = 0; index < count; index += 1) {
-    if (!keep[index]) {
-      alpha[index] = 0;
+  return keep;
+}
+
+function reachesBorder(blocked: Uint8Array, width: number, height: number): Uint8Array {
+  const count = blocked.length;
+  const reached = new Uint8Array(count);
+  const queue = new Int32Array(count);
+  let tail = 0;
+  const tryAdd = (index: number) => {
+    if (index < 0 || blocked[index] || reached[index]) {
+      return;
+    }
+    reached[index] = 1;
+    queue[tail] = index;
+    tail += 1;
+  };
+  for (let x = 0; x < width; x += 1) {
+    tryAdd(x);
+    tryAdd((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y += 1) {
+    tryAdd(y * width);
+    tryAdd(y * width + width - 1);
+  }
+  let head = 0;
+  while (head < tail) {
+    const index = queue[head];
+    head += 1;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const neighbours = [
+      x > 0 ? index - 1 : -1,
+      x + 1 < width ? index + 1 : -1,
+      y > 0 ? index - width : -1,
+      y + 1 < height ? index + width : -1,
+    ];
+    for (const neighbour of neighbours) {
+      tryAdd(neighbour);
     }
   }
+  return reached;
+}
+
+/**
+ * The person is the largest piece after a one-pixel bridge cut, plus foreground
+ * that touches it. A bright highlight inside the face is filled back in.
+ * A separate poster is not. Colour difference does not split the person.
+ */
+function selectPerson(
+  alpha: Float32Array,
+  width: number,
+  height: number,
+  pixels: Uint8ClampedArray,
+): { person: Uint8Array; enclosed: Uint8Array } {
+  const count = alpha.length;
+  const foreground = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    foreground[index] = alpha[index] >= CUTOUT_SUBJECT_ALPHA ? 1 : 0;
+  }
+  const eroded = erodeMask(foreground, width, height, CUTOUT_BRIDGE_RADIUS);
+  const geometric = largestComponent(eroded, width, height);
+  const subject = meanColour(pixels, geometric, true) ?? meanColour(pixels, geometric, false);
+  const passable = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    if (!eroded[index]) {
+      continue;
+    }
+    if (subject && saturatedForeign(colourAt(pixels, index), subject)) {
+      continue;
+    }
+    passable[index] = 1;
+  }
+  let core = largestComponent(passable, width, height);
+  if (!core.some((pixel) => pixel === 1)) {
+    core = largestComponent(foreground, width, height);
+  }
+  const allowed = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    if (!foreground[index]) {
+      continue;
+    }
+    if (subject && !core[index] && saturatedForeign(colourAt(pixels, index), subject)) {
+      continue;
+    }
+    allowed[index] = 1;
+  }
+  const person = floodAllowed(core, allowed, width, height);
+  const outside = reachesBorder(person, width, height);
+  const enclosed = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    if (person[index] || outside[index]) {
+      continue;
+    }
+    person[index] = 1;
+    enclosed[index] = 1;
+  }
+  return { person, enclosed };
+}
+
+function nearPerson(person: Uint8Array, width: number, height: number, index: number, radius: number): boolean {
+  const x = index % width;
+  const y = Math.floor(index / width);
+  for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+    const nextY = y + offsetY;
+    if (nextY < 0 || nextY >= height) {
+      continue;
+    }
+    for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+      const nextX = x + offsetX;
+      if (nextX < 0 || nextX >= width) {
+        continue;
+      }
+      if (person[nextY * width + nextX]) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function outerFringe(person: Uint8Array, width: number, height: number, index: number): boolean {
+  if (!person[index]) {
+    return false;
+  }
+  const x = index % width;
+  const y = Math.floor(index / width);
+  if (x === 0 || y === 0 || x + 1 === width || y + 1 === height) {
+    return true;
+  }
+  return !person[index - 1] || !person[index + 1] || !person[index - width] || !person[index + width];
 }
 
 function upsampleAlpha(
@@ -618,50 +727,49 @@ export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRast
 }
 
 /**
- * The mask leaks the old background into the fringe, and a tiny alpha turns
- * that leak into a saturated speckle. Cut thin bridges, keep the main subject,
- * and refuse a saturated colour that is not that subject. Then refine the
- * mask with the photo as a guide. Solid subject pixels keep their original colour.
+ * Cut a thin bridge, keep the person and what touches them, and fill holes
+ * inside that person. A poster colour is refused only on the outer edge.
+ * The guided filter feathers that edge. Solid interior pixels stay solid.
  */
 export function cleanCutoutEdges(raster: PhotoRaster): void {
   const { width, height, data } = raster;
-  dropBackgroundColouredFringe(raster);
   const count = width * height;
   const alpha = new Float32Array(count);
-  const wasSolid = new Uint8Array(count);
   const guidance = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
     const offset = index * 4;
-    const coverage = data[offset + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[offset + 3];
-    alpha[index] = coverage;
-    wasSolid[index] = coverage >= CUTOUT_SOLID_ALPHA ? 1 : 0;
+    alpha[index] = data[offset + 3] < CUTOUT_ALPHA_FLOOR ? 0 : data[offset + 3];
     guidance[index] = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
   }
-  keepMainSubject(alpha, width, height, data);
-  let subjectRed = 0;
-  let subjectGreen = 0;
-  let subjectBlue = 0;
-  let subjectCount = 0;
+  const { person, enclosed } = selectPerson(alpha, width, height, data);
+  const wasSolid = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
-    if (alpha[index] < CUTOUT_SOLID_ALPHA) {
+    if (!person[index]) {
+      alpha[index] = 0;
       continue;
     }
-    const colour = colourAt(data, index);
-    subjectRed += colour.r;
-    subjectGreen += colour.g;
-    subjectBlue += colour.b;
-    subjectCount += 1;
+    if (enclosed[index] || alpha[index] >= CUTOUT_SOLID_ALPHA) {
+      alpha[index] = Math.max(alpha[index], CUTOUT_SOLID_ALPHA);
+    }
+    wasSolid[index] = alpha[index] >= CUTOUT_SOLID_ALPHA ? 1 : 0;
+    data[index * 4 + 3] = alpha[index];
   }
-  const subject =
-    subjectCount > 0
-      ? { r: subjectRed / subjectCount, g: subjectGreen / subjectCount, b: subjectBlue / subjectCount }
-      : null;
+  for (let index = 0; index < count; index += 1) {
+    if (!person[index]) {
+      data[index * 4 + 3] = 0;
+    }
+  }
+  dropBackgroundColouredFringe(raster, enclosed);
+  for (let index = 0; index < count; index += 1) {
+    alpha[index] = data[index * 4 + 3];
+  }
+  const subject = meanColour(data, person, true) ?? meanColour(data, person, false);
   const solidRed = new Float32Array(count);
   const solidGreen = new Float32Array(count);
   const solidBlue = new Float32Array(count);
   const solidWeight = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
-    if (!wasSolid[index] || alpha[index] < CUTOUT_SOLID_ALPHA) {
+    if (!wasSolid[index]) {
       continue;
     }
     const offset = index * 4;
@@ -677,16 +785,16 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
   const blurredWeight = boxBlurChannel(solidWeight, width, height, MATTE_GUIDE_RADIUS);
   for (let index = 0; index < count; index += 1) {
     const offset = index * 4;
+    const interior = person[index] === 1 && (enclosed[index] === 1 || solidInterior(alpha, width, height, index));
     let coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
-    const foreign = subject !== null && saturatedForeign(colourAt(data, index), subject);
-    if (alpha[index] < CUTOUT_ALPHA_FLOOR && (blurredWeight[index] <= 0.001 || foreign)) {
+    if (interior) {
+      coverage = 255;
+    } else if (!person[index] && !nearPerson(person, width, height, index, MATTE_GUIDE_RADIUS)) {
       coverage = 0;
     }
-    if (foreign) {
-      coverage = Math.min(coverage, alpha[index]);
-    }
-    if (alpha[index] >= CUTOUT_SOLID_ALPHA && solidInterior(alpha, width, height, index)) {
-      coverage = Math.max(coverage, alpha[index]);
+    const fringe = outerFringe(person, width, height, index);
+    if (!enclosed[index] && fringe && subject && saturatedForeign(colourAt(data, index), subject)) {
+      coverage = 0;
     }
     data[offset + 3] = coverage;
     if (wasSolid[index] || coverage === 0 || blurredWeight[index] <= 0.001) {

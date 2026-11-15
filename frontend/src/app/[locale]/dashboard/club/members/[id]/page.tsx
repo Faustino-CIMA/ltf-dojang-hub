@@ -500,6 +500,7 @@ export default function ClubMemberDetailPage() {
                     removeBackgroundWeak: t("photoRemoveBackgroundWeak"),
                     removeBackgroundRetrying: t("photoRemoveBackgroundRetrying"),
                     removeBackgroundOffline: t("photoRemoveBackgroundOffline"),
+                    removeBackgroundShields: t("photoRemoveBackgroundShields"),
                     ...faceCheckEditorLabels(t),
                     consentLabel: t("photoConsentLabel"),
                     saveButton: t("photoSaveButton"),
