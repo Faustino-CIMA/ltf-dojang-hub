@@ -42,8 +42,10 @@ import {
   MEMBER_PHOTO_HEIGHT,
   MEMBER_PHOTO_WIDTH,
   containedMediaRect,
+  contentBoxAvoidingDarkEdges,
   memberPhotoAspectRatio,
   printCropInFrame,
+  printCropInsideContent,
 } from "@/lib/member-photo-frame";
 import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
@@ -241,7 +243,16 @@ async function renderPrintReadyImage(
     throw new Error("Unable to initialize image canvas.");
   }
 
-  const matched = matchCropAspect(cropArea, OUTPUT_WIDTH / OUTPUT_HEIGHT);
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  const x0 = Math.max(0, Math.min(cropArea.x, Math.max(0, imageWidth - 1)));
+  const y0 = Math.max(0, Math.min(cropArea.y, Math.max(0, imageHeight - 1)));
+  const x1 = Math.max(x0 + 1, Math.min(imageWidth, cropArea.x + cropArea.width));
+  const y1 = Math.max(y0 + 1, Math.min(imageHeight, cropArea.y + cropArea.height));
+  const matched = matchCropAspect(
+    { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
+    OUTPUT_WIDTH / OUTPUT_HEIGHT,
+  );
   context.fillStyle = backgroundColor;
   context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
   context.drawImage(
@@ -657,7 +668,15 @@ export function ProfilePhotoManager({
       context.scale(-1, 1);
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const printCrop = printCropInFrame(video.videoWidth, video.videoHeight);
+    let printCrop = printCropInFrame(video.videoWidth, video.videoHeight);
+    try {
+      const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+      printCrop = printCropInsideContent(
+        contentBoxAvoidingDarkEdges(frame.data, canvas.width, canvas.height),
+      );
+    } catch {
+      // A tainted frame keeps the print window of the whole camera picture.
+    }
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -1139,7 +1158,8 @@ export function ProfilePhotoManager({
               initialCroppedAreaPixels={removalPrintCrop ?? undefined}
               cropShape="rect"
               showGrid
-              style={{ containerStyle: { backgroundColor } }}
+              objectFit="cover"
+              style={{ containerStyle: { backgroundColor }, mediaStyle: { backgroundColor } }}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={handleCropComplete}

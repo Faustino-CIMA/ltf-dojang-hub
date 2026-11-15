@@ -22,6 +22,13 @@ export const FACE_CENTER_X_MAX = 0.65;
 /** Head-and-shoulders framing sits a little above the middle. */
 export const FACE_CENTER_Y_MIN = 0.32;
 export const FACE_CENTER_Y_MAX = 0.62;
+/**
+ * The mesh stops at the forehead. The drawn head adds this fraction of the
+ * mesh height above it, so the oval includes the hair.
+ */
+export const FACE_HAIR_ABOVE_MESH = 0.35;
+/** Cheek-to-cheek, including hair, as a fraction of the full head height. */
+export const FACE_HEAD_WIDTH_OVER_HEIGHT = 0.75;
 export const FACE_LUMA_MIN = 60;
 export const FACE_LUMA_MAX = 210;
 /** Locked by the sharp-edge and box-blur fixtures in face-check.test.ts. */
@@ -193,6 +200,43 @@ export function faceGuideReason(input: {
     return "blur";
   }
   return "ready";
+}
+
+export type FramingGuideShape = {
+  head: { cx: number; cy: number; rx: number; ry: number };
+  shoulders: string;
+};
+
+/**
+ * The outline for the print crop. The camera and the cropper both draw this,
+ * so the oval cannot drift away from the save rule.
+ * The mesh box is the middle of the accepted 30–70% band, centred and a
+ * little high. The oval continues from the chin up over the hair.
+ */
+export function framingGuideShape(frameWidth: number, frameHeight: number): FramingGuideShape {
+  const meshHeight = ((FACE_HEIGHT_MIN + FACE_HEIGHT_MAX) / 2) * frameHeight;
+  const centerX = ((FACE_CENTER_X_MIN + FACE_CENTER_X_MAX) / 2) * frameWidth;
+  const meshCenterY = ((FACE_CENTER_Y_MIN + FACE_CENTER_Y_MAX) / 2) * frameHeight;
+  const hair = meshHeight * FACE_HAIR_ABOVE_MESH;
+  const headHeight = meshHeight + hair;
+  const headWidth = headHeight * FACE_HEAD_WIDTH_OVER_HEIGHT;
+  const chin = meshCenterY + meshHeight / 2;
+  const shoulderY = frameHeight * 0.92;
+  const shoulderHalf = frameWidth * 0.46;
+  const neckY = Math.min(shoulderY - frameHeight * 0.04, chin + frameHeight * 0.06);
+  const round = (value: number) => Math.round(value * 10) / 10;
+  const left = round(centerX - shoulderHalf);
+  const right = round(centerX + shoulderHalf);
+  const cx = round(centerX);
+  return {
+    head: {
+      cx,
+      cy: round(meshCenterY - hair / 2),
+      rx: round(headWidth / 2),
+      ry: round(headHeight / 2),
+    },
+    shoulders: `M ${left} ${round(shoulderY)} Q ${cx} ${round(neckY)} ${right} ${round(shoulderY)}`,
+  };
 }
 
 export function framingGuideState(reason: FaceGuideReason): "ready" | "adjust" | "off" {

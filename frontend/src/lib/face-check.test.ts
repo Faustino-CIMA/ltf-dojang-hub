@@ -1,7 +1,17 @@
+import { MEMBER_PHOTO_HEIGHT, MEMBER_PHOTO_WIDTH } from "./member-photo-frame";
 import { expandCrop, printWindowAfterRemoval } from "./photo-background";
 
 import {
   FACE_BLUR_MIN,
+  FACE_CENTER_X_MAX,
+  FACE_CENTER_X_MIN,
+  FACE_CENTER_Y_MAX,
+  FACE_CENTER_Y_MIN,
+  FACE_HAIR_ABOVE_MESH,
+  FACE_HEAD_WIDTH_OVER_HEIGHT,
+  FACE_HEIGHT_MAX,
+  FACE_HEIGHT_MIN,
+  framingGuideShape,
   LIVE_FACE_INTERVAL_MS,
   LIVE_FACE_LONG_SIDE,
   boxBlurPlane,
@@ -63,6 +73,31 @@ function edgePlane(width: number, height: number): Float32Array {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       plane[y * width + x] = x < width / 2 ? 0 : 255;
+    }
+  }
+  return plane;
+}
+
+function drawnFace(width: number, height: number): Float32Array {
+  const plane = new Float32Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const nx = (x / width - 0.5) * 2;
+      const ny = (y / height - 0.45) * 2;
+      const inHead = (nx * nx) / 0.7 + ny * ny < 1;
+      let value = inHead ? 158 - ny * 10 : 210;
+      const eye = (center: number) =>
+        Math.abs(x - center) < width * 0.06 && Math.abs(y - height * 0.38) < Math.max(2, height * 0.015);
+      if (inHead && (eye(width * 0.35) || eye(width * 0.65))) {
+        value = 28;
+      }
+      if (inHead && Math.abs(y - height * 0.7) < Math.max(1, height * 0.01) && Math.abs(x - width * 0.5) < width * 0.16) {
+        value = 55;
+      }
+      if (inHead && y < height * 0.18) {
+        value = 30;
+      }
+      plane[y * width + x] = value;
     }
   }
   return plane;
@@ -132,6 +167,16 @@ describe("face check rules", () => {
     const blurredScore = laplacianVariance(blurred, 32, 32);
     expect(sharpScore).toBeGreaterThanOrEqual(FACE_BLUR_MIN);
     expect(blurredScore).toBeLessThan(FACE_BLUR_MIN);
+  });
+
+  it("keeps a sharp drawn face above the blur limit and a smeared one below it", () => {
+    const width = 240;
+    const height = 300;
+    const face = drawnFace(width, height);
+    const sharpScore = laplacianVariance(face, width, height);
+    const smearedScore = laplacianVariance(boxBlurPlane(face, width, height, 2), width, height);
+    expect(sharpScore).toBeGreaterThan(FACE_BLUR_MIN);
+    expect(smearedScore).toBeLessThan(FACE_BLUR_MIN);
   });
 
   it("accepts an identity-card framing before removal and on the print crop after it", () => {
@@ -210,6 +255,26 @@ describe("face check rules", () => {
     expect(framingGuideState("off")).toBe("off");
     expect(LIVE_FACE_INTERVAL_MS).toBe(250);
     expect(LIVE_FACE_LONG_SIDE).toBe(320);
+  });
+
+  it("draws a whole head around the face box the save rule accepts", () => {
+    const shape = framingGuideShape(MEMBER_PHOTO_WIDTH, MEMBER_PHOTO_HEIGHT);
+    const meshHeight = ((FACE_HEIGHT_MIN + FACE_HEIGHT_MAX) / 2) * MEMBER_PHOTO_HEIGHT;
+    const meshCenterY = ((FACE_CENTER_Y_MIN + FACE_CENTER_Y_MAX) / 2) * MEMBER_PHOTO_HEIGHT;
+    const meshTop = meshCenterY - meshHeight / 2;
+    const chin = meshCenterY + meshHeight / 2;
+    expect(shape.head.ry * 2).toBeGreaterThan(meshHeight);
+    expect(shape.head.cy - shape.head.ry).toBeLessThan(meshTop - meshHeight * FACE_HAIR_ABOVE_MESH + 1);
+    expect(shape.head.cy + shape.head.ry).toBeCloseTo(chin, 0);
+    expect(shape.head.rx * 2).toBeCloseTo(shape.head.ry * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT, 0);
+    expect(shape.head.cx).toBeCloseTo(((FACE_CENTER_X_MIN + FACE_CENTER_X_MAX) / 2) * MEMBER_PHOTO_WIDTH, 0);
+    const shoulders = shape.shoulders.match(/M ([\d.]+) ([\d.]+) Q ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+)/);
+    expect(shoulders).not.toBeNull();
+    const left = Number(shoulders?.[1]);
+    const shoulderY = Number(shoulders?.[2]);
+    const right = Number(shoulders?.[5]);
+    expect(right - left).toBeGreaterThan(shape.head.rx * 2);
+    expect(shoulderY).toBeGreaterThan(chin);
   });
 
   it("treats a missing face check the same as a skipped one", () => {
