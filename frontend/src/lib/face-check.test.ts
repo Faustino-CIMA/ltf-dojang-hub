@@ -270,7 +270,9 @@ describe("face check rules", () => {
     const round = (value: number) => Math.round(value * 10) / 10;
     expect(GUIDE_OVAL_SCALE).toBeGreaterThanOrEqual(0.92);
     expect(GUIDE_OVAL_SCALE).toBeLessThanOrEqual(0.95);
-    expect(shift).toBeGreaterThan(MEMBER_PHOTO_HEIGHT * 0.03);
+    expect(GUIDE_SHIFT_DOWN).toBeGreaterThan(0.06);
+    expect(GUIDE_SHIFT_DOWN).toBeLessThanOrEqual(0.08);
+    expect(shift).toBeGreaterThan(MEMBER_PHOTO_HEIGHT * 0.06);
     expect(shape.head.ry).toBe(round((fullHeight * GUIDE_OVAL_SCALE) / 2));
     expect(shape.head.ry * 2).toBeLessThan(fullHeight);
     expect(shape.head.cy).toBe(round(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + shift));

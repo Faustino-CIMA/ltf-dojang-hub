@@ -1,8 +1,11 @@
+import { webcrypto } from "node:crypto";
+
 import {
   BackgroundFetchError,
   abortModelDownloads,
   backoffMs,
   fetchModelAsset,
+  MODEL_FIRST_BYTE_MS,
   modelChunkUrls,
   prefetchBackgroundModel,
   runWithModelFetch,
@@ -285,7 +288,85 @@ describe("background model download", () => {
     expect(inner).toHaveBeenCalledTimes(2);
     expect(String(inner.mock.calls[0][0])).toContain("/background-removal/1.7.0/");
   });
+
+  it("keeps a fast download that the browser only hands over after buffering", async () => {
+    expect(MODEL_FIRST_BYTE_MS).toBeGreaterThan(12000);
+    const bytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    let pending = true;
+    const response = await fetchModelAsset("https://app.example/background-removal/1.7.0/models/isnet", {
+      attempts: 1,
+      cache: null,
+      stallMs: 30,
+      firstByteMs: 200,
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/octet-stream", "content-length": String(bytes.byteLength) }),
+          body: {
+            getReader: () => ({
+              read: async () => {
+                if (pending) {
+                  pending = false;
+                  await new Promise((resolve) => setTimeout(resolve, 60));
+                  return { done: false, value: bytes };
+                }
+                return { done: true };
+              },
+              cancel: async () => undefined,
+            }),
+          },
+        }) as unknown as Response,
+    });
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual(Array.from(bytes));
+  });
+
+  it("replaces a cached chunk that is the wrong size instead of failing every removal", async () => {
+    const url = "https://app.example/background-removal/1.7.0/models/isnet";
+    const good = "weights-ok";
+    const cache = {
+      match: jest.fn(async () => new TestResponse("x", { status: 200, headers: new Headers({ "content-length": "1" }) }) as unknown as Response),
+      put: jest.fn(async () => undefined),
+      delete: jest.fn(async () => true),
+    } as unknown as Cache;
+    const fetchImpl = jest.fn<Promise<Response>, [string]>(async () => ok(good));
+    const response = await fetchModelAsset(url, {
+      fetchImpl,
+      cache,
+      attempts: 1,
+      stallMs: 1000,
+      expectedBytes: good.length,
+    });
+    expect(await response.text()).toBe(good);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(cache.delete).toHaveBeenCalledWith(url);
+  });
+
+  it("drops a cached chunk whose bytes do not match the name in the manifest", async () => {
+    const subtle = globalThis.crypto?.subtle ?? webcrypto.subtle;
+    if (!globalThis.crypto?.subtle) {
+      Object.defineProperty(globalThis, "crypto", { value: webcrypto, configurable: true });
+    }
+    const good = new Uint8Array([4, 5, 6, 7]).buffer;
+    const digest = await subtle.digest("SHA-256", good);
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const url = `https://app.example/background-removal/1.7.0/${hash}`;
+    const cache = {
+      match: jest.fn(async () => new TestResponse("nope", { status: 200 }) as unknown as Response),
+      put: jest.fn(async () => undefined),
+      delete: jest.fn(async () => true),
+    } as unknown as Cache;
+    const fetchImpl = jest.fn<Promise<Response>, [string]>(async () => okBytes(good));
+    const response = await fetchModelAsset(url, { fetchImpl, cache, attempts: 1, stallMs: 1000 });
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array(good));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(cache.delete).toHaveBeenCalledWith(url);
+  });
 });
+
+function okBytes(body: ArrayBuffer): Response {
+  return new TestResponse(body) as unknown as Response;
+}
 
 function stalledResponse(): Response {
   const reader = {

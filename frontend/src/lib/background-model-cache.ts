@@ -1,8 +1,15 @@
-export const MODEL_CACHE_NAME = "ltf-background-removal-1.7.0";
+/** Bumped so a bad copy stored by the previous download code is never used. */
+export const MODEL_CACHE_NAME = "ltf-background-removal-1.7.0-v2";
+const RETIRED_CACHE_NAMES = ["ltf-background-removal-1.7.0"];
 export const MODEL_ASSET_PATH = "/background-removal/1.7.0/";
 export const MODEL_FETCH_ATTEMPTS = 3;
-/** Give up when a chunk sends no new bytes for this long. A slow trickle keeps going. */
-export const MODEL_STALL_MS = 12000;
+/**
+ * A 4MB model piece can sit in the browser buffer before JavaScript sees a
+ * byte. That wait is not a dropped connection.
+ */
+export const MODEL_FIRST_BYTE_MS = 60000;
+/** Give up when bytes have started and then nothing new arrives. */
+export const MODEL_STALL_MS = 20000;
 
 export class BackgroundFetchError extends Error {
   readonly kind: "network" | "processing";
@@ -35,10 +42,15 @@ export function backoffMs(attempt: number): number {
   return 200 * 2 ** Math.max(0, attempt - 1);
 }
 
+const expectedBytesByPath = new Map<string, number>();
+
 export async function openModelCache(): Promise<Cache | null> {
   try {
     if (typeof caches === "undefined" || !caches.open) {
       return null;
+    }
+    if (caches.delete) {
+      await Promise.all(RETIRED_CACHE_NAMES.map((name) => caches.delete(name).catch(() => false)));
     }
     return await caches.open(MODEL_CACHE_NAME);
   } catch {
@@ -46,23 +58,109 @@ export async function openModelCache(): Promise<Cache | null> {
   }
 }
 
-async function readCached(cache: Cache | null, url: string): Promise<Response | null> {
-  if (!cache) {
-    return null;
-  }
+function pathOf(url: string): string {
   try {
-    return (await cache.match(url)) ?? null;
+    return new URL(url).pathname;
   } catch {
-    return null;
+    return url;
   }
 }
 
-async function storeCached(cache: Cache | null, url: string, body: ArrayBuffer, headers: Headers): Promise<void> {
+function isManifestUrl(url: string): boolean {
+  return pathOf(url).endsWith("resources.json");
+}
+
+function hashFromUrl(url: string): string | null {
+  const name = pathOf(url).split("/").pop() ?? "";
+  return /^[0-9a-f]{64}$/.test(name) ? name : null;
+}
+
+function rememberManifest(body: ArrayBuffer, resourcesUrl: string): void {
+  try {
+    const text = new TextDecoder().decode(body);
+    const data = JSON.parse(text) as Record<string, { chunks?: Array<{ name?: string; offsets?: number[] }> }>;
+    for (const entry of Object.values(data)) {
+      for (const chunk of entry.chunks ?? []) {
+        const offsets = chunk.offsets ?? [];
+        const size = (offsets[1] ?? 0) - (offsets[0] ?? 0);
+        if (!chunk.name || size <= 0) {
+          continue;
+        }
+        expectedBytesByPath.set(pathOf(new URL(chunk.name, resourcesUrl).toString()), size);
+      }
+    }
+  } catch {
+    // The library reports a bad manifest. Don't block the bytes we already have.
+  }
+}
+
+function expectedBytesFor(url: string, explicit?: number): number | undefined {
+  if (explicit !== undefined && explicit > 0) {
+    return explicit;
+  }
+  return expectedBytesByPath.get(pathOf(url));
+}
+
+async function matchesHash(bytes: ArrayBuffer, expected: string): Promise<boolean> {
+  try {
+    const subtle = globalThis.crypto?.subtle;
+    if (!subtle) {
+      return true;
+    }
+    const digest = await subtle.digest("SHA-256", bytes);
+    const view = new Uint8Array(digest);
+    let hex = "";
+    for (const byte of view) {
+      hex += byte.toString(16).padStart(2, "0");
+    }
+    return hex === expected;
+  } catch {
+    return true;
+  }
+}
+
+function responseFromBytes(bytes: ArrayBuffer, contentType: string): Response {
+  const headers = new Headers();
+  headers.set("content-type", contentType || "application/octet-stream");
+  return new Response(bytes.slice(0), { status: 200, headers });
+}
+
+async function loadCachedBytes(cache: Cache | null, url: string, expected?: number): Promise<ArrayBuffer | null> {
+  if (!cache) {
+    return null;
+  }
+  let cached: Response | undefined;
+  try {
+    cached = (await cache.match(url)) ?? undefined;
+  } catch {
+    return null;
+  }
+  if (!cached) {
+    return null;
+  }
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await cached.arrayBuffer();
+  } catch {
+    await dropCached(cache, url);
+    return null;
+  }
+  const namedHash = hashFromUrl(url);
+  const hashOk = namedHash ? await matchesHash(bytes, namedHash) : true;
+  const sizeOk = expected === undefined || bytes.byteLength === expected;
+  if (!hashOk || !sizeOk) {
+    await dropCached(cache, url);
+    return null;
+  }
+  return bytes;
+}
+
+async function storeCached(cache: Cache | null, url: string, body: ArrayBuffer, contentType: string): Promise<void> {
   if (!cache) {
     return;
   }
   try {
-    await cache.put(url, new Response(body.slice(0), { status: 200, headers }));
+    await cache.put(url, responseFromBytes(body, contentType));
   } catch {
     // iOS may refuse the Cache API when storage is full. The download still succeeds.
   }
@@ -155,20 +253,28 @@ function openReader(response: Response): ByteReader | null {
   return body.getReader();
 }
 
-/** Read until the body ends. Reject if no new bytes arrive, even when the platform ignores abort. */
-async function readBody(response: Response, stallMs: number, signal: AbortSignal): Promise<ArrayBuffer> {
+/** Read until the body ends. The first byte may wait while the browser buffers a chunk. */
+async function readBody(
+  response: Response,
+  firstByteMs: number,
+  stallMs: number,
+  signal: AbortSignal,
+): Promise<ArrayBuffer> {
   const reader = openReader(response);
   if (!reader) {
-    return raceStall(response.arrayBuffer(), stallMs, signal);
+    return raceStall(response.arrayBuffer(), firstByteMs, signal);
   }
   const parts: Uint8Array[] = [];
+  let seen = 0;
   try {
     while (!signal.aborted) {
-      const next = await raceStall(reader.read(), stallMs, signal);
+      const budget = seen === 0 ? firstByteMs : stallMs;
+      const next = await raceStall(reader.read(), budget, signal);
       if (next.done) {
         break;
       }
       if (next.value && next.value.byteLength > 0) {
+        seen += next.value.byteLength;
         parts.push(next.value);
       }
     }
@@ -188,27 +294,40 @@ type AssetFetchOptions = {
   cache?: Cache | null;
   attempts?: number;
   stallMs?: number;
+  firstByteMs?: number;
+  expectedBytes?: number;
   sleep?: (ms: number) => Promise<void>;
   onRetry?: () => void;
 };
 
+function budgets(options: AssetFetchOptions): { firstByteMs: number; stallMs: number } {
+  const stallMs = options.stallMs ?? MODEL_STALL_MS;
+  const firstByteMs = options.firstByteMs ?? (options.stallMs !== undefined ? options.stallMs : MODEL_FIRST_BYTE_MS);
+  return { firstByteMs, stallMs };
+}
+
 /**
  * Cache-first download of one self-hosted model file.
- * A stalled body is a network failure and is retried. A normal HTTP error is not.
- * A finished file stays in the cache. A file that did not finish is dropped.
+ * A finished, complete file stays in the cache. A short or wrong file is dropped
+ * and fetched again. A stalled body is a network failure. A normal HTTP error is not.
+ * The returned response is a fresh body the removal library can read.
  */
 export async function fetchModelAsset(url: string, options: AssetFetchOptions = {}): Promise<Response> {
   const generation = downloadGeneration;
-  const cached = await readCached(options.cache ?? null, url);
+  const expected = expectedBytesFor(url, options.expectedBytes);
+  const cachedBytes = await loadCachedBytes(options.cache ?? null, url, expected);
   if (generation !== downloadGeneration) {
     throw new BackgroundFetchError("network", "aborted");
   }
-  if (cached) {
-    return cached;
+  if (cachedBytes) {
+    if (isManifestUrl(url)) {
+      rememberManifest(cachedBytes, url);
+    }
+    return responseFromBytes(cachedBytes, isManifestUrl(url) ? "application/json" : "application/octet-stream");
   }
   const fetchImpl = options.fetchImpl ?? ((address, init) => fetch(address, init));
   const attempts = options.attempts ?? MODEL_FETCH_ATTEMPTS;
-  const stallMs = options.stallMs ?? MODEL_STALL_MS;
+  const { firstByteMs, stallMs } = budgets(options);
   const sleep = options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -225,7 +344,7 @@ export async function fetchModelAsset(url: string, options: AssetFetchOptions = 
     const controller = new AbortController();
     activeDownloads.add(controller);
     try {
-      const response = await raceStall(fetchImpl(url, { signal: controller.signal }), stallMs, controller.signal);
+      const response = await raceStall(fetchImpl(url, { signal: controller.signal }), firstByteMs, controller.signal);
       if (!response.ok) {
         if (response.status >= 500 || response.status === 408 || response.status === 429) {
           lastError = new BackgroundFetchError("network", `status ${response.status}`);
@@ -233,10 +352,20 @@ export async function fetchModelAsset(url: string, options: AssetFetchOptions = 
         }
         throw new BackgroundFetchError("processing", `status ${response.status}`);
       }
-      const body = await readBody(response, stallMs, controller.signal);
-      const headers = new Headers(response.headers);
-      await storeCached(options.cache ?? null, url, body, headers);
-      return new Response(body, { status: 200, headers });
+      const body = await readBody(response, firstByteMs, stallMs, controller.signal);
+      const wanted = expectedBytesFor(url, options.expectedBytes);
+      const namedHash = hashFromUrl(url);
+      const hashOk = namedHash ? await matchesHash(body, namedHash) : true;
+      if ((wanted !== undefined && body.byteLength !== wanted) || !hashOk) {
+        lastError = new BackgroundFetchError("network", "downloaded file is incomplete");
+        continue;
+      }
+      const contentType = isManifestUrl(url) ? "application/json" : response.headers.get("content-type") || "application/octet-stream";
+      if (isManifestUrl(url)) {
+        rememberManifest(body, url);
+      }
+      await storeCached(options.cache ?? null, url, body, contentType);
+      return responseFromBytes(body, contentType);
     } catch (error) {
       await dropCached(options.cache ?? null, url);
       if (controller.signal.aborted) {
