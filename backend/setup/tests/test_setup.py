@@ -1,7 +1,7 @@
 import csv
 import io
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -31,6 +31,24 @@ def csv_file(name):
     return SimpleUploadedFile(name, (FIXTURES / name).read_bytes(), content_type="text/csv")
 
 
+def keep_enrolment_grace(user):
+    """Keep the open MFA window for staff created after the policy ship date.
+
+    Migrations stamp shipped_on when the test database is built. A suite that
+    crosses local midnight then treats a new elevated account as having no
+    grace, and the desk check answers 403 before setup can.
+    """
+    from accounts.mfa import get_policy
+    from accounts.models import StaffMfaGrace
+
+    policy = get_policy()
+    if policy is None:
+        return
+    user.date_joined = timezone.make_aware(datetime.combine(policy.shipped_on, datetime.min.time()))
+    user.save(update_fields=["date_joined"])
+    StaffMfaGrace.objects.filter(user_id=user.id).delete()
+
+
 @override_settings(DEMO_MODE=False)
 class SetupAvailabilityTests(TestCase):
     def setUp(self):
@@ -39,6 +57,8 @@ class SetupAvailabilityTests(TestCase):
         self.superuser.role = User.Roles.MEMBER
         self.superuser.save(update_fields=["role"])
         self.other = User.objects.create_user(username="setup-other", password="pass12345", role=User.Roles.LTF_ADMIN)
+        keep_enrolment_grace(self.superuser)
+        keep_enrolment_grace(self.other)
 
     def test_status_is_closed_for_non_superusers(self):
         self.client.force_authenticate(user=self.other)
