@@ -32,7 +32,7 @@ export const FACE_HEAD_WIDTH_OVER_HEIGHT = 0.75;
 /** The drawn oval is a little smaller than the hair-to-chin head. About 6%. */
 export const GUIDE_OVAL_SCALE = 0.94;
 /** The oval and the shoulder line sit this far down the frame. */
-export const GUIDE_SHIFT_DOWN = 0.04;
+export const GUIDE_SHIFT_DOWN = 0.07;
 export const FACE_LUMA_MIN = 60;
 export const FACE_LUMA_MAX = 210;
 /** Locked by the sharp-edge and box-blur fixtures in face-check.test.ts. */
