@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** Bright spots on a face are no longer filled with the card grey, and a separate object beside the person is left out. If Brave is blocking the removal tool, the page says how to turn Shields off for this site. The photo can still be saved.
 - **Photos:** Background removal works again on a normal connection. A saved copy of the tool is used only when it is complete, and a bad copy is replaced. The framing oval sits a little further down.
 - **Photos:** If the removal download stalls, Retry starts it again on the same photo. Pieces that already arrived are kept. The framing oval sits a little lower and a little smaller.
 - **Photos:** If background removal fails, Retry runs it again on the same photo. A weak connection retries the download, and a saved copy of the tool is used next time.

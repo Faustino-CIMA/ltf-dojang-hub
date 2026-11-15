@@ -4,6 +4,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { faceCheckEditorLabels } from "@/lib/face-check";
 import { checkFaceOnCrop } from "@/lib/face-landmarker";
 import { removeProfileBackground } from "@/lib/photo-background";
+import { BackgroundFetchError } from "@/lib/background-model-cache";
+import { canvasReadbackIsStable } from "@/lib/removal-shields";
 
 import { ProfilePhotoManager } from "./profile-photo-manager";
 
@@ -22,6 +24,10 @@ jest.mock("@/lib/background-model-cache", () => {
     prefetchBackgroundModel: jest.fn(async () => undefined),
   };
 });
+
+jest.mock("@/lib/removal-shields", () => ({
+  canvasReadbackIsStable: jest.fn(() => true),
+}));
 
 jest.mock("@/lib/photo-background", () => {
   const actual = jest.requireActual("@/lib/photo-background");
@@ -92,6 +98,7 @@ const labels = {
   removeBackgroundWeak: "Weak connection. You can still save the photo as it is.",
   removeBackgroundRetrying: "Weak connection, retrying…",
   removeBackgroundOffline: "You are offline. Removal will try again when the connection returns. You can still save the photo as it is.",
+  removeBackgroundShields: "Brave is hiding this page from the removal tool. Turn off Shields for app.ltkdf.org, then try again. You can still save the photo as it is.",
   ...faceCheckEditorLabels((key) => {
     const text: Record<string, string> = {
       faceCheckDownload: "Downloading the face check… {percent}%",
@@ -391,6 +398,42 @@ describe("ProfilePhotoManager", () => {
     expect(remove.mock.calls[0][0].attempt).toBe(1);
     expect(remove.mock.calls[1][0].attempt).toBe(2);
     expect(screen.getByText("Save photo")).toBeEnabled();
+  });
+
+  it("warns when the browser scrambles canvas reads and still allows save", async () => {
+    (canvasReadbackIsStable as jest.Mock).mockReturnValue(false);
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} onSave={jest.fn(async () => {})} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    expect(
+      await screen.findByText(
+        "Brave is hiding this page from the removal tool. Turn off Shields for app.ltkdf.org, then try again. You can still save the photo as it is.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByText("Save photo")).toBeEnabled());
+    (canvasReadbackIsStable as jest.Mock).mockReturnValue(true);
+  });
+
+  it("keeps the weak-connection notice when the model fetch fails and the canvas is clean", async () => {
+    (canvasReadbackIsStable as jest.Mock).mockReturnValue(true);
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockRejectedValueOnce(new BackgroundFetchError("network", "stalled"));
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByText("Remove background"));
+    expect(await screen.findByText("Weak connection. You can still save the photo as it is.")).toBeInTheDocument();
+    expect(screen.queryByText(/Turn off Shields/)).not.toBeInTheDocument();
   });
 
   it("keeps save off until one face passes, and records a skip when the model cannot load", async () => {
