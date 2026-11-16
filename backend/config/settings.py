@@ -118,6 +118,7 @@ INSTALLED_APPS = [
     "clubmgmt.apps.ClubmgmtConfig",
     "nationalteam.apps.NationalteamConfig",
     "setup.apps.SetupConfig",
+    "removal.apps.RemovalConfig",
 ]
 
 MIDDLEWARE = [
@@ -404,6 +405,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": config("DRF_ANON_THROTTLE_RATE", default="100/hour"),
         "user": config("DRF_USER_THROTTLE_RATE", default="6000/hour"),
+        "removal": config("DRF_REMOVAL_THROTTLE_RATE", default="30/hour"),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -578,7 +580,12 @@ CELERY_BEAT_SCHEDULE = {
 }
 CELERY_TASK_ROUTES = {
     "licenses.tasks.execute_print_job_task": {"queue": CELERY_PRINT_JOB_QUEUE},
+    "removal.tasks.cutout_photo": {"queue": "removal"},
 }
+BIREFNET_DIR = config("BIREFNET_DIR", default="/opt/birefnet-matting")
+REMOVAL_INLINE = config("REMOVAL_INLINE", default=False, cast=bool)
+REMOVAL_WAIT_SECONDS = config("REMOVAL_WAIT_SECONDS", cast=int, default=45)
+REMOVAL_MAX_BYTES = config("REMOVAL_MAX_BYTES", cast=int, default=12 * 1024 * 1024)
 
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")

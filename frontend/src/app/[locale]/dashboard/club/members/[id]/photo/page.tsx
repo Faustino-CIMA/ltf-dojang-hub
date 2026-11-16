@@ -106,6 +106,8 @@ export default function ClubMemberPhotoPage() {
               removeBackgroundOffline: t("photoRemoveBackgroundOffline"),
               removeBackgroundShields: t("photoRemoveBackgroundShields"),
               removeBackgroundFallback: t("photoRemoveBackgroundFallback"),
+              removeBackgroundServer: t("photoRemoveBackgroundServer"),
+              removeBackgroundServerFallback: t("photoRemoveBackgroundServerFallback"),
               ...faceCheckEditorLabels(t),
               consentLabel: t("photoConsentLabel"),
               saveButton: t("photoSaveButton"),

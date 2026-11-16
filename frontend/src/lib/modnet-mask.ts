@@ -13,11 +13,14 @@ export const MODNET_SHA256 = "07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b
 export const MODNET_BYTES = 25888640;
 export const MODNET_LONG_SIDE = 512;
 
-export type RemovalMask = "isnet" | "modnet";
+export type RemovalMask = "isnet" | "modnet" | "server";
 
 export function removalMaskFromSearch(search: string): RemovalMask {
   const query = search.startsWith("?") ? search.slice(1) : search;
-  return new URLSearchParams(query).get("mask") === "isnet" ? "isnet" : "modnet";
+  const mask = new URLSearchParams(query).get("mask");
+  if (mask === "isnet") return "isnet";
+  if (mask === "server") return "server";
+  return "modnet";
 }
 
 export function modnetInputSize(width: number, height: number): { width: number; height: number } {

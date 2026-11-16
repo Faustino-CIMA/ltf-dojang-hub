@@ -5,6 +5,7 @@ import {
   applyMaskOnce,
   cleanCutoutEdges,
   compositeMaskOntoOriginal,
+  compositeCutoutForCard,
   compositeOntoColor,
   copyCrop,
   decontaminateEdgeSpill,
@@ -40,6 +41,30 @@ describe("photo background maths", () => {
       width: 100,
       height: 100,
     });
+  });
+
+  it("lays a soft shadow under the person and keeps the card grey around it", () => {
+    const width = 24;
+    const height = 24;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 4; y <= 10; y += 1) {
+      for (let x = 6; x <= 14; x += 1) {
+        const index = (y * width + x) * 4;
+        data[index] = 250;
+        data[index + 1] = 250;
+        data[index + 2] = 250;
+        data[index + 3] = 255;
+      }
+    }
+    compositeCutoutForCard(data, width, height, parseLicensePhotoColor("#D9D9D9"));
+    const subject = (7 * width + 10) * 4;
+    expect(data[subject]).toBeGreaterThan(230);
+    const below = (16 * width + 10) * 4;
+    expect(data[below]).toBeLessThan(217);
+    expect(data[0]).toBe(217);
+    expect(data[1]).toBe(217);
+    expect(data[2]).toBe(217);
+    expect(data[3]).toBe(255);
   });
 
   it("scales the long side to 1024 and keeps the portrait shape", () => {

@@ -1,0 +1,50 @@
+# Cutout-only image. The website image does not include these weights or PyTorch.
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+ENV BIREFNET_DIR=/opt/birefnet-matting
+
+ARG UID=1000
+ARG GID=1000
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  build-essential \
+  gettext \
+  curl \
+  libcairo2 \
+  libpango-1.0-0 \
+  libpangoft2-1.0-0 \
+  libpangocairo-1.0-0 \
+  libgdk-pixbuf-2.0-0 \
+  libffi8 \
+  shared-mime-info \
+  fonts-dejavu \
+  && groupadd -g ${GID} app \
+  && useradd -u ${UID} -g ${GID} --create-home app \
+  && mkdir -p /var/www/staticfiles /var/lib/celerybeat /opt/birefnet-matting \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.lock /app/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock \
+  && pip install --no-cache-dir \
+    torch==2.6.0 \
+    torchvision==0.21.0 \
+    --index-url https://download.pytorch.org/whl/cpu \
+  && pip install --no-cache-dir \
+    timm==1.0.15 \
+    kornia==0.8.1 \
+    einops==0.8.1 \
+    safetensors==0.6.2 \
+    transformers==4.48.3
+
+COPY --chown=app:app backend/ /app
+COPY --chown=app:app frontend/src/messages /app/i18n_frontend
+COPY --chown=app:app backend/removal/vendor/birefnet_matting /opt/birefnet-matting
+RUN python /app/scripts/fetch_birefnet_matting.py /opt/birefnet-matting \
+  && chown -R app:app /opt/birefnet-matting

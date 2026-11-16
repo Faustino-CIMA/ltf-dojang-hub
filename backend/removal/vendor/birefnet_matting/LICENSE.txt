@@ -1,0 +1,7 @@
+MIT License
+
+Copyright (c) 2024 ZhengPeng
+
+The model code in this folder is from ZhengPeng7/BiRefNet-matting.
+The weight file is downloaded at image build and is not stored in git.
+https://github.com/ZhengPeng7/BiRefNet

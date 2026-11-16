@@ -8,6 +8,11 @@
 import { BackgroundFetchError, runWithModelFetch } from "@/lib/background-model-cache";
 
 export const LICENSE_PHOTO_BACKGROUND_DEFAULT = "#D9D9D9";
+/** Soft shadow under the person on the card grey. One place for preview and Save. */
+export const CUTOUT_SHADOW_OFFSET_X = 0;
+export const CUTOUT_SHADOW_OFFSET_Y = 8;
+export const CUTOUT_SHADOW_BLUR = 14;
+export const CUTOUT_SHADOW_STRENGTH = 0.16;
 export const BACKGROUND_REMOVAL_MODEL = "isnet_fp16";
 export const BACKGROUND_REMOVAL_LONG_SIDE = 1024;
 export const BACKGROUND_REMOVAL_CROP_MARGIN = 0.08;
@@ -22,7 +27,7 @@ export type PhotoCrop = {
 
 export type PhotoBackgroundProgress =
   | { phase: "download"; percent: number }
-  | { phase: "prepare" | "person" | "edges" | "colour" };
+  | { phase: "prepare" | "person" | "edges" | "colour" | "server" };
 
 type Rgb = { r: number; g: number; b: number };
 
@@ -996,6 +1001,43 @@ export function compositeOntoColor(pixels: Uint8ClampedArray, color: Rgb): void 
   }
 }
 
+/** Grey card fill, then a light shadow, then the person. Used once for the preview and for Save. */
+export function compositeCutoutForCard(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  color: Rgb,
+): void {
+  const count = width * height;
+  const alpha = new Float32Array(count);
+  for (let index = 0; index < count; index += 1) {
+    alpha[index] = pixels[index * 4 + 3] / 255;
+  }
+  const blurred = boxMean(boxMean(alpha, width, height, CUTOUT_SHADOW_BLUR), width, height, CUTOUT_SHADOW_BLUR);
+  const out = new Uint8ClampedArray(pixels.length);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      const sampleX = x - CUTOUT_SHADOW_OFFSET_X;
+      const sampleY = y - CUTOUT_SHADOW_OFFSET_Y;
+      let shade = 0;
+      if (sampleX >= 0 && sampleY >= 0 && sampleX < width && sampleY < height) {
+        shade = blurred[sampleY * width + sampleX] * CUTOUT_SHADOW_STRENGTH;
+      }
+      const coverage = alpha[index];
+      const offset = index * 4;
+      const baseRed = color.r * (1 - shade);
+      const baseGreen = color.g * (1 - shade);
+      const baseBlue = color.b * (1 - shade);
+      out[offset] = Math.round(pixels[offset] * coverage + baseRed * (1 - coverage));
+      out[offset + 1] = Math.round(pixels[offset + 1] * coverage + baseGreen * (1 - coverage));
+      out[offset + 2] = Math.round(pixels[offset + 2] * coverage + baseBlue * (1 - coverage));
+      out[offset + 3] = 255;
+    }
+  }
+  pixels.set(out);
+}
+
 export type PhotoRaster = {
   width: number;
   height: number;
@@ -1451,8 +1493,9 @@ export async function removeProfileBackground(options: {
   imageUrl: string;
   crop: PhotoCrop;
   attempt?: number;
-  mask?: "isnet" | "modnet";
+  mask?: "isnet" | "modnet" | "server";
   onFallback?: () => void;
+  onServerFallback?: () => void;
   onProgress?: (progress: PhotoBackgroundProgress) => void;
   onRetry?: () => void;
 }): Promise<Blob> {
@@ -1472,9 +1515,20 @@ export async function removeProfileBackground(options: {
       ? full
       : resampleCrop(full, { x: 0, y: 0, width: full.width, height: full.height }, fitted.width, fitted.height);
   const inputBlob = await canvasToBlob(paintRaster(modelInput), "image/png");
+  const asked = options.mask ?? "modnet";
+  if (asked === "server") {
+    report({ phase: "server" });
+    try {
+      const { requestServerCutout } = await import("./server-removal");
+      const fullBlob = await canvasToBlob(paintRaster(full), "image/png");
+      return await requestServerCutout(fullBlob);
+    } catch {
+      options.onServerFallback?.();
+    }
+  }
 
   const restored = await runSelectedMask({
-    mask: options.mask ?? "modnet",
+    mask: asked === "isnet" ? "isnet" : "modnet",
     onFallback: options.onFallback,
     portrait: async () => {
       const { portraitMatte } = await import("./modnet-mask");
