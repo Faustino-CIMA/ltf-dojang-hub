@@ -19,9 +19,9 @@ export const FACE_HEIGHT_MAX = 0.7;
 /** Centre of the mesh box, as a fraction of the print crop. */
 export const FACE_CENTER_X_MIN = 0.35;
 export const FACE_CENTER_X_MAX = 0.65;
-/** Head-and-shoulders framing sits a little above the middle. */
-export const FACE_CENTER_Y_MIN = 0.32;
-export const FACE_CENTER_Y_MAX = 0.62;
+/** The face sits in the lower part of a head-and-shoulders frame. */
+export const FACE_CENTER_Y_MIN = 0.34;
+export const FACE_CENTER_Y_MAX = 0.64;
 /**
  * The mesh stops at the forehead. The drawn head adds this fraction of the
  * mesh height above it, so the oval includes the hair.
@@ -29,15 +29,23 @@ export const FACE_CENTER_Y_MAX = 0.62;
 export const FACE_HAIR_ABOVE_MESH = 0.35;
 /** Cheek-to-cheek, including hair, as a fraction of the full head height. */
 export const FACE_HEAD_WIDTH_OVER_HEIGHT = 0.75;
-/** The drawn oval is a little smaller than the hair-to-chin head. About 6%. */
-export const GUIDE_OVAL_SCALE = 0.94;
-/** The oval and the shoulder line sit this far down the frame. */
-export const GUIDE_SHIFT_DOWN = 0.07;
+/**
+ * The drawn oval is larger than the hair-to-chin head it is built from,
+ * so a head that filled the previous outline has room around it.
+ */
+export const GUIDE_OVAL_SCALE = 1.2;
+/** Lowers the oval. The shoulder arc stays inside the frame, near the bottom. */
+export const GUIDE_SHIFT_DOWN = 0.11;
 export const FACE_LUMA_MIN = 60;
 export const FACE_LUMA_MAX = 210;
 /** Locked by the sharp-edge and box-blur fixtures in face-check.test.ts. */
-/** A 32px drawn edge scores about 4300; the same edge after a 4px box blur scores about 54. */
+/**
+ * A 32px drawn edge scores about 4300; the same edge after a 4px box blur scores about 54.
+ * The score is taken after the face is reduced to this long side. On a full phone frame
+ * the same sharp face is spread across many more pixels, and the raw score falls under the limit.
+ */
 export const FACE_BLUR_MIN = 80;
+export const FACE_BLUR_SAMPLE_LONG_SIDE = 240;
 export const FACE_CHECK_DEBOUNCE_MS = 400;
 /** Four checks a second, one at a time, on a small sample. Enough to follow a person who is standing still. */
 export const LIVE_FACE_INTERVAL_MS = 250;
@@ -214,9 +222,9 @@ export type FramingGuideShape = {
 /**
  * The outline for the print crop. The camera and the cropper both draw this,
  * so the oval cannot drift away from the save rule.
- * The mesh box is the middle of the accepted 30–70% band, centred and a
- * little high. The oval continues from the chin up over the hair, then sits
- * slightly lower and a little smaller so the head is not pressed to the top.
+ * The mesh box is the middle of the accepted band. The oval continues from
+ * the chin up over the hair, then grows and sits lower so the shoulders
+ * land near the bottom of the frame.
  */
 export function framingGuideShape(frameWidth: number, frameHeight: number): FramingGuideShape {
   const meshHeight = ((FACE_HEIGHT_MIN + FACE_HEIGHT_MAX) / 2) * frameHeight;
@@ -228,7 +236,7 @@ export function framingGuideShape(frameWidth: number, frameHeight: number): Fram
   const headWidth = headHeight * FACE_HEAD_WIDTH_OVER_HEIGHT;
   const shift = frameHeight * GUIDE_SHIFT_DOWN;
   const chin = meshCenterY + meshHeight / 2 + shift;
-  const shoulderY = frameHeight * 0.92 + shift;
+  const shoulderY = Math.min(frameHeight * 0.96, frameHeight * 0.84 + shift);
   const shoulderHalf = frameWidth * 0.46;
   const neckY = Math.min(shoulderY - frameHeight * 0.04, chin + frameHeight * 0.06);
   const round = (value: number) => Math.round(value * 10) / 10;
@@ -382,6 +390,55 @@ export function laplacianVariance(plane: Float32Array, width: number, height: nu
   }
   const mean = sum / count;
   return sumSquares / count - mean * mean;
+}
+
+/** Area average. A sharp edge stays a step; a smear that covers many source pixels stays soft. */
+export function downsamplePlane(
+  source: Float32Array,
+  width: number,
+  height: number,
+  nextWidth: number,
+  nextHeight: number,
+): Float32Array {
+  const dest = new Float32Array(nextWidth * nextHeight);
+  for (let y = 0; y < nextHeight; y += 1) {
+    const y0 = Math.floor((y * height) / nextHeight);
+    const y1 = Math.min(height, Math.max(y0 + 1, Math.floor(((y + 1) * height) / nextHeight)));
+    for (let x = 0; x < nextWidth; x += 1) {
+      const x0 = Math.floor((x * width) / nextWidth);
+      const x1 = Math.min(width, Math.max(x0 + 1, Math.floor(((x + 1) * width) / nextWidth)));
+      let sum = 0;
+      let count = 0;
+      for (let sampleY = y0; sampleY < y1; sampleY += 1) {
+        for (let sampleX = x0; sampleX < x1; sampleX += 1) {
+          sum += source[sampleY * width + sampleX];
+          count += 1;
+        }
+      }
+      dest[y * nextWidth + x] = count === 0 ? 0 : sum / count;
+    }
+  }
+  return dest;
+}
+
+/**
+ * Laplacian variance at one analysis size. A full-resolution phone face is
+ * mostly smooth skin, so the per-pixel score of a sharp picture falls under
+ * the limit that was set on a small drawn face.
+ */
+export function blurVarianceAtSampleSize(plane: Float32Array, width: number, height: number): number {
+  const longSide = Math.max(width, height);
+  if (width < 3 || height < 3) {
+    return 0;
+  }
+  if (longSide <= FACE_BLUR_SAMPLE_LONG_SIDE) {
+    return laplacianVariance(plane, width, height);
+  }
+  const scale = FACE_BLUR_SAMPLE_LONG_SIDE / longSide;
+  const nextWidth = Math.max(3, Math.round(width * scale));
+  const nextHeight = Math.max(3, Math.round(height * scale));
+  const sampled = downsamplePlane(plane, width, height, nextWidth, nextHeight);
+  return laplacianVariance(sampled, nextWidth, nextHeight);
 }
 
 export function evaluateFaceCheck(input: {

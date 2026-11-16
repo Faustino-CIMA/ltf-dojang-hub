@@ -46,14 +46,13 @@ describe("photo background maths", () => {
     expect(fitLongSide(945, 1181)).toEqual({ width: 819, height: 1024 });
   });
 
-  it("keeps the usual model unless the portrait model is requested", async () => {
+  it("uses the portrait model unless the page asks for the usual one", async () => {
     const standard = jest.fn(async () => "isnet");
     const portrait = jest.fn(async () => "modnet");
-    await expect(runSelectedMask({ mask: "isnet", portrait, standard })).resolves.toBe("isnet");
-    expect(portrait).not.toHaveBeenCalled();
-    portrait.mockResolvedValueOnce("modnet");
     await expect(runSelectedMask({ mask: "modnet", portrait, standard })).resolves.toBe("modnet");
-    expect(standard).toHaveBeenCalledTimes(1);
+    expect(standard).not.toHaveBeenCalled();
+    await expect(runSelectedMask({ mask: "isnet", portrait, standard })).resolves.toBe("isnet");
+    expect(portrait).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the usual model when the portrait model fails", async () => {
@@ -422,6 +421,37 @@ describe("photo background maths", () => {
     }
     cleanCutoutEdges({ width, height, data });
     expect(data[(6 * width + 14) * 4 + 3]).toBeGreaterThan(140);
+  });
+
+  it("drops a poster touching the top-left of the head and keeps a hair wisp", () => {
+    const width = 80;
+    const height = 72;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const head = (x: number, y: number) => (x - 40) ** 2 + (y - 36) ** 2 <= 18 ** 2;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const poster = x <= 30 && y <= 26 && !head(x, y);
+        const wisp = x === 40 && y >= 14 && y <= 18 && !head(x, y);
+        const onHead = head(x, y);
+        data[index] = poster ? 150 : 210;
+        data[index + 1] = poster ? 110 : 210;
+        data[index + 2] = poster ? 90 : 210;
+        data[index + 3] = 0;
+        if (onHead || wisp) {
+          data[index] = 36;
+          data[index + 1] = 28;
+          data[index + 2] = 24;
+          data[index + 3] = wisp ? 210 : 255;
+        } else if (poster) {
+          data[index + 3] = 255;
+        }
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(8 * width + 8) * 4 + 3]).toBeLessThan(20);
+    expect(data[(16 * width + 40) * 4 + 3]).toBeGreaterThan(100);
+    expect(data[(36 * width + 40) * 4 + 3]).toBeGreaterThan(200);
   });
 });
 

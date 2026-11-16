@@ -437,8 +437,26 @@ describe("ProfilePhotoManager", () => {
     expect(screen.queryByText(/Turn off Shields/)).not.toBeInTheDocument();
   });
 
-  it("asks for the portrait model when the page flag is set", async () => {
-    window.history.pushState(null, "", "/photo?mask=modnet");
+  it("uses the usual removal tool when the page asks for it", async () => {
+    window.history.pushState(null, "", "/photo?mask=isnet");
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByText("Remove background"));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
+    expect(remove.mock.calls.at(-1)?.[0].mask).toBe("isnet");
+    window.history.pushState(null, "", "/photo");
+  });
+
+  it("uses the portrait model when the page does not name a mask", async () => {
+    window.history.pushState(null, "", "/photo");
     const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
     remove.mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
     const { container } = render(
@@ -452,7 +470,6 @@ describe("ProfilePhotoManager", () => {
     fireEvent.click(screen.getByText("Remove background"));
     await waitFor(() => expect(remove).toHaveBeenCalled());
     expect(remove.mock.calls.at(-1)?.[0].mask).toBe("modnet");
-    window.history.pushState(null, "", "/photo");
   });
 
   it("says when the portrait model failed and the usual tool was used", async () => {

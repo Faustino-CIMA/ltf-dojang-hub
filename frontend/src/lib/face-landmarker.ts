@@ -16,7 +16,7 @@ import {
   faceBoxFromPoints,
   faceGuideReason,
   faceCheckAssetUrl,
-  laplacianVariance,
+  blurVarianceAtSampleSize,
   luminancePlane,
   meanLuma,
   poseDegreesFromMatrix,
@@ -175,7 +175,7 @@ function facePixels(
   const pixels = context.getImageData(x, y, boxWidth, boxHeight).data;
   return {
     luma: meanLuma(pixels),
-    blurVariance: laplacianVariance(luminancePlane(pixels, boxWidth, boxHeight), boxWidth, boxHeight),
+    blurVariance: blurVarianceAtSampleSize(luminancePlane(pixels, boxWidth, boxHeight), boxWidth, boxHeight),
   };
 }
 
