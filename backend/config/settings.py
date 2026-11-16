@@ -584,7 +584,8 @@ CELERY_TASK_ROUTES = {
 }
 BIREFNET_DIR = config("BIREFNET_DIR", default="/opt/birefnet-matting")
 REMOVAL_INLINE = config("REMOVAL_INLINE", default=False, cast=bool)
-REMOVAL_WAIT_SECONDS = config("REMOVAL_WAIT_SECONDS", cast=int, default=45)
+# Cold load of the full model plus one photo. Stays under the 120s web timeout.
+REMOVAL_WAIT_SECONDS = config("REMOVAL_WAIT_SECONDS", cast=int, default=100)
 REMOVAL_MAX_BYTES = config("REMOVAL_MAX_BYTES", cast=int, default=12 * 1024 * 1024)
 
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")

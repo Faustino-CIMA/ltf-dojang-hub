@@ -2,7 +2,8 @@ import { readActiveDeskHeader } from "./active-desk";
 import { API_URL } from "./api";
 import { getToken } from "./auth";
 
-export const SERVER_CUTOUT_TIMEOUT_MS = 50000;
+/** A little longer than the server wait, so a cold load can finish or fail cleanly. */
+export const SERVER_CUTOUT_TIMEOUT_MS = 110000;
 
 /** Full-resolution crop. The server does not keep the file. */
 export async function requestServerCutout(image: Blob): Promise<Blob> {

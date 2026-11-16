@@ -1,7 +1,12 @@
-"""Portrait cutout on this server. The photo bytes are not written to disk or logs."""
+"""Portrait cutout on this server. The photo bytes are not written to disk or logs.
+
+The model is loaded for one photo and then dropped. The worker process also
+exits after that photo, so idle memory goes back to the machine.
+"""
 
 from __future__ import annotations
 
+import gc
 import io
 import logging
 
@@ -20,6 +25,13 @@ class RemovalUnavailable(Exception):
     """The cutout model cannot run. The phone should use its own model."""
 
 
+def release_model() -> None:
+    """Drop the loaded weights so this process can return the memory."""
+    global _loaded
+    _loaded = None
+    gc.collect()
+
+
 def cutout_png(image_bytes: bytes) -> bytes:
     """Return a PNG of the original colours with the model's alpha. Nothing is saved."""
     if not image_bytes:
@@ -28,18 +40,21 @@ def cutout_png(image_bytes: bytes) -> bytes:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     except Exception as exc:
         raise RemovalUnavailable("unreadable image") from exc
-    alpha = _alpha(image)
-    image.putalpha(alpha)
-    output = io.BytesIO()
-    image.save(output, format="PNG")
-    logger.info(
-        "removal.cutout bytes_in=%s bytes_out=%s width=%s height=%s",
-        len(image_bytes),
-        output.tell(),
-        image.width,
-        image.height,
-    )
-    return output.getvalue()
+    try:
+        alpha = _alpha(image)
+        image.putalpha(alpha)
+        output = io.BytesIO()
+        image.save(output, format="PNG")
+        logger.info(
+            "removal.cutout bytes_in=%s bytes_out=%s width=%s height=%s",
+            len(image_bytes),
+            output.tell(),
+            image.width,
+            image.height,
+        )
+        return output.getvalue()
+    finally:
+        release_model()
 
 
 def _alpha(image: Image.Image) -> Image.Image:
@@ -50,10 +65,12 @@ def _alpha(image: Image.Image) -> Image.Image:
     resized = resize(image, [INPUT_SIDE, INPUT_SIDE])
     tensor = to_tensor(resized).unsqueeze(0)
     tensor = normalize(tensor, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    with torch.no_grad():
+    with torch.inference_mode():
         prediction = model(tensor)[-1].sigmoid()
-    mask = prediction[0].squeeze(0).clamp(0, 1)
+    mask = prediction[0].squeeze(0).clamp(0, 1).cpu()
+    del tensor, prediction
     grey = to_pil_image(mask)
+    del mask
     return grey.resize(image.size, Image.Resampling.BILINEAR)
 
 

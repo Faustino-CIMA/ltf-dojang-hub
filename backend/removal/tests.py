@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
+import removal.inference as inference
 from removal.inference import RemovalUnavailable
 from removal.tasks import cutout_photo
 from removal.views import RemovalRateThrottle
@@ -100,3 +101,31 @@ class ServerCutoutTests(TestCase):
 
     def test_the_job_is_not_on_the_mail_queue(self):
         self.assertEqual(cutout_photo.queue, "removal")
+
+    def test_the_model_is_dropped_after_the_photo(self):
+        from unittest.mock import patch
+
+        inference._loaded = object()
+        photo = _photo().read()
+
+        def fake_alpha(image):
+            self.assertIsNotNone(inference._loaded)
+            return Image.new("L", image.size, 255)
+
+        with patch.object(inference, "_alpha", fake_alpha):
+            png = inference.cutout_png(photo)
+        self.assertTrue(png.startswith(b"\x89PNG"))
+        self.assertIsNone(inference._loaded)
+
+    def test_the_worker_exits_after_one_photo(self):
+        from django.conf import settings
+
+        compose = Path(__file__).resolve().parents[2] / "docker-compose.yml"
+        text = compose.read_text()
+        block = text.split("removal-worker:", 1)[1].split("\n  beat:", 1)[0]
+        self.assertIn("--pool=prefork", block)
+        self.assertIn("--concurrency=1", block)
+        self.assertIn("--max-tasks-per-child=1", block)
+        self.assertIn("-Q removal", block)
+        self.assertNotIn("celery,removal", block)
+        self.assertGreaterEqual(settings.REMOVAL_WAIT_SECONDS, 100)
