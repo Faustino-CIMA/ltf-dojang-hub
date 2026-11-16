@@ -100,6 +100,8 @@ const labels = {
   removeBackgroundOffline: "You are offline. Removal will try again when the connection returns. You can still save the photo as it is.",
   removeBackgroundShields: "Brave is hiding this page from the removal tool. Turn off Shields for app.ltkdf.org, then try again. You can still save the photo as it is.",
   removeBackgroundFallback: "The portrait model could not be loaded. The usual removal tool was used instead.",
+  removeBackgroundServer: "Removing the background…",
+  removeBackgroundServerFallback: "The server could not finish, so the portrait model on this phone was used instead.",
   ...faceCheckEditorLabels((key) => {
     const text: Record<string, string> = {
       faceCheckDownload: "Downloading the face check… {percent}%",

@@ -49,7 +49,9 @@ import {
 } from "@/lib/member-photo-frame";
 import {
   LICENSE_PHOTO_BACKGROUND_DEFAULT,
+  compositeCutoutForCard,
   matchCropAspect,
+  parseLicensePhotoColor,
   normalizePhotoFile,
   printWindowAfterRemoval,
   progressBarPercent,
@@ -109,6 +111,8 @@ type ProfilePhotoManagerLabels = {
   removeBackgroundOffline: string;
   removeBackgroundShields: string;
   removeBackgroundFallback: string;
+  removeBackgroundServer: string;
+  removeBackgroundServerFallback: string;
   faceCheckDownload: string;
   faceCheckPrepare: string;
   faceCheckFind: string;
@@ -207,10 +211,10 @@ function fileFromRaster(raster: PhotoRaster, backgroundColor: string): Promise<F
     throw new Error("Unable to initialize image canvas.");
   }
   const image = pixelContext.createImageData(raster.width, raster.height);
-  image.data.set(raster.data);
+  const composited = new Uint8ClampedArray(raster.data);
+  compositeCutoutForCard(composited, raster.width, raster.height, parseLicensePhotoColor(backgroundColor));
+  image.data.set(composited);
   pixelContext.putImageData(image, 0, 0);
-  context.fillStyle = backgroundColor;
-  context.fillRect(0, 0, raster.width, raster.height);
   context.drawImage(pixels, 0, 0);
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -264,9 +268,14 @@ async function renderPrintReadyImage(
     { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
     frameWidth / frameHeight,
   );
-  context.fillStyle = backgroundColor;
-  context.fillRect(0, 0, frameWidth, frameHeight);
-  context.drawImage(
+  const layer = document.createElement("canvas");
+  layer.width = frameWidth;
+  layer.height = frameHeight;
+  const layerContext = layer.getContext("2d");
+  if (!layerContext) {
+    throw new Error("Unable to initialize image canvas.");
+  }
+  layerContext.drawImage(
     image,
     matched.x,
     matched.y,
@@ -277,6 +286,15 @@ async function renderPrintReadyImage(
     frameWidth,
     frameHeight,
   );
+  try {
+    const drawn = layerContext.getImageData(0, 0, frameWidth, frameHeight);
+    compositeCutoutForCard(drawn.data, frameWidth, frameHeight, parseLicensePhotoColor(backgroundColor));
+    context.putImageData(drawn, 0, 0);
+  } catch {
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, frameWidth, frameHeight);
+    context.drawImage(layer, 0, 0);
+  }
 
   const outputBlob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -317,7 +335,7 @@ export function ProfilePhotoManager({
   const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [removalProgress, setRemovalProgress] = useState<PhotoBackgroundProgress | null>(null);
   const [removalProblem, setRemovalProblem] = useState<
-    "network" | "processing" | "offline" | "retrying" | "shields" | "fallback" | null
+    "network" | "processing" | "offline" | "retrying" | "shields" | "fallback" | "server-fallback" | null
   >(null);
   const [prefetchPercent, setPrefetchPercent] = useState<number | null>(null);
   const [faceOutcome, setFaceOutcome] = useState<FaceCheckOutcome | null>(null);
@@ -863,6 +881,9 @@ export function ProfilePhotoManager({
     if (progress.phase === "person") {
       return labels.removeBackgroundPerson;
     }
+    if (progress.phase === "server") {
+      return labels.removeBackgroundServer;
+    }
     if (progress.phase === "edges") {
       return labels.removeBackgroundEdges;
     }
@@ -955,6 +976,7 @@ export function ProfilePhotoManager({
         crop,
       );
       let fellBack = false;
+      let serverFellBack = false;
       const removedBlob = await removeProfileBackground({
         imageUrl,
         crop,
@@ -962,6 +984,9 @@ export function ProfilePhotoManager({
         mask: removalMaskFromSearch(window.location.search),
         onFallback: () => {
           fellBack = true;
+        },
+        onServerFallback: () => {
+          serverFellBack = true;
         },
         onRetry: () => {
           if (removalAttemptRef.current === attempt) {
@@ -985,7 +1010,7 @@ export function ProfilePhotoManager({
       setWorkingFile(removedFile);
       setWorkingPreview(removedFile);
       setBackgroundRemoved(true);
-      setRemovalProblem(fellBack ? "fallback" : null);
+      setRemovalProblem(serverFellBack ? "server-fallback" : fellBack ? "fallback" : null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
     } catch (error) {
@@ -1389,6 +1414,8 @@ export function ProfilePhotoManager({
                   ? labels.removeBackgroundShields
                 : removalProblem === "fallback"
                   ? labels.removeBackgroundFallback
+                : removalProblem === "server-fallback"
+                  ? labels.removeBackgroundServerFallback
                 : removalProblem === "network"
                   ? labels.removeBackgroundWeak
                   : removalProblem === "retrying"

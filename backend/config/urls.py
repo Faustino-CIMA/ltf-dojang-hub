@@ -33,6 +33,7 @@ from accounts.views import (
 )
 from licenses.module_renewals import ModuleRenewalLinkView
 from ops.views import PublicI18nView
+from removal.views import ServerCutoutView
 from config.views import root_entry
 from imports.views import (
     ClubImportConfirmView,
@@ -315,6 +316,7 @@ urlpatterns = [
         name="federation-profile-logo-content",
     ),
     path("api/notices/", AdminNoticeListView.as_view(), name="admin-notices"),
+    path("api/photos/cutout/", ServerCutoutView.as_view(), name="photo-cutout"),
     path("api/health/", health_check, name="health-check"),
     path("api/public/stats/", PublicStatsView.as_view(), name="public-stats"),
     path("api/i18n/<str:locale>/", PublicI18nView.as_view(), name="public-i18n"),

@@ -4,6 +4,7 @@ import { modnetInputSize, modnetTensor, rasterWithMatte, removalMaskFromSearch }
 describe("portrait mask flag", () => {
   it("uses the usual model unless the page asks for the portrait model", () => {
     expect(removalMaskFromSearch("")).toBe("modnet");
+    expect(removalMaskFromSearch("?mask=server")).toBe("server");
     expect(removalMaskFromSearch("?mask=isnet")).toBe("isnet");
     expect(removalMaskFromSearch("?mask=modnet")).toBe("modnet");
     expect(removalMaskFromSearch("mask=isnet")).toBe("isnet");
