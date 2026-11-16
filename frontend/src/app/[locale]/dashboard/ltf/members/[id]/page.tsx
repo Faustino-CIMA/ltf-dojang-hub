@@ -406,6 +406,7 @@ export default function LtfMemberDetailPage() {
                         removeBackgroundRetrying: t("photoRemoveBackgroundRetrying"),
                         removeBackgroundOffline: t("photoRemoveBackgroundOffline"),
                         removeBackgroundShields: t("photoRemoveBackgroundShields"),
+                        removeBackgroundFallback: t("photoRemoveBackgroundFallback"),
                         ...faceCheckEditorLabels(t),
                         consentLabel: t("photoConsentLabel"),
                         saveButton: t("photoSaveButton"),

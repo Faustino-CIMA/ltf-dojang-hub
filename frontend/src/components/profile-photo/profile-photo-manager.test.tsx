@@ -99,6 +99,7 @@ const labels = {
   removeBackgroundRetrying: "Weak connection, retrying…",
   removeBackgroundOffline: "You are offline. Removal will try again when the connection returns. You can still save the photo as it is.",
   removeBackgroundShields: "Brave is hiding this page from the removal tool. Turn off Shields for app.ltkdf.org, then try again. You can still save the photo as it is.",
+  removeBackgroundFallback: "The portrait model could not be loaded. The usual removal tool was used instead.",
   ...faceCheckEditorLabels((key) => {
     const text: Record<string, string> = {
       faceCheckDownload: "Downloading the face check… {percent}%",
@@ -434,6 +435,44 @@ describe("ProfilePhotoManager", () => {
     fireEvent.click(screen.getByText("Remove background"));
     expect(await screen.findByText("Weak connection. You can still save the photo as it is.")).toBeInTheDocument();
     expect(screen.queryByText(/Turn off Shields/)).not.toBeInTheDocument();
+  });
+
+  it("asks for the portrait model when the page flag is set", async () => {
+    window.history.pushState(null, "", "/photo?mask=modnet");
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByText("Remove background"));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
+    expect(remove.mock.calls.at(-1)?.[0].mask).toBe("modnet");
+    window.history.pushState(null, "", "/photo");
+  });
+
+  it("says when the portrait model failed and the usual tool was used", async () => {
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockImplementationOnce(async (options) => {
+      options.onFallback?.();
+      return new Blob(["png"], { type: "image/png" });
+    });
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByText("Remove background"));
+    expect(
+      await screen.findByText("The portrait model could not be loaded. The usual removal tool was used instead."),
+    ).toBeInTheDocument();
   });
 
   it("keeps save off until one face passes, and records a skip when the model cannot load", async () => {

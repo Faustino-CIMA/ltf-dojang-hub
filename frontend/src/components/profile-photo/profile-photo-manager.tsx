@@ -25,6 +25,7 @@ import "react-easy-crop/react-easy-crop.css";
 
 import { abortModelDownloads, BackgroundFetchError, prefetchBackgroundModel } from "@/lib/background-model-cache";
 import { canvasReadbackIsStable } from "@/lib/removal-shields";
+import { removalMaskFromSearch } from "@/lib/modnet-mask";
 import { checkFaceOnCanvas, checkFaceOnCrop } from "@/lib/face-landmarker";
 import {
   FACE_BLUR_MIN,
@@ -107,6 +108,7 @@ type ProfilePhotoManagerLabels = {
   removeBackgroundRetrying: string;
   removeBackgroundOffline: string;
   removeBackgroundShields: string;
+  removeBackgroundFallback: string;
   faceCheckDownload: string;
   faceCheckPrepare: string;
   faceCheckFind: string;
@@ -314,7 +316,9 @@ export function ProfilePhotoManager({
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [removalProgress, setRemovalProgress] = useState<PhotoBackgroundProgress | null>(null);
-  const [removalProblem, setRemovalProblem] = useState<"network" | "processing" | "offline" | "retrying" | "shields" | null>(null);
+  const [removalProblem, setRemovalProblem] = useState<
+    "network" | "processing" | "offline" | "retrying" | "shields" | "fallback" | null
+  >(null);
   const [prefetchPercent, setPrefetchPercent] = useState<number | null>(null);
   const [faceOutcome, setFaceOutcome] = useState<FaceCheckOutcome | null>(null);
   const [faceProgress, setFaceProgress] = useState<FaceCheckProgress | null>(null);
@@ -950,10 +954,15 @@ export function ProfilePhotoManager({
         source.naturalHeight || source.height,
         crop,
       );
+      let fellBack = false;
       const removedBlob = await removeProfileBackground({
         imageUrl,
         crop,
         attempt,
+        mask: removalMaskFromSearch(window.location.search),
+        onFallback: () => {
+          fellBack = true;
+        },
         onRetry: () => {
           if (removalAttemptRef.current === attempt) {
             setRemovalProblem("retrying");
@@ -976,7 +985,7 @@ export function ProfilePhotoManager({
       setWorkingFile(removedFile);
       setWorkingPreview(removedFile);
       setBackgroundRemoved(true);
-      setRemovalProblem(null);
+      setRemovalProblem(fellBack ? "fallback" : null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
     } catch (error) {
@@ -1378,6 +1387,8 @@ export function ProfilePhotoManager({
                 ? labels.removeBackgroundOffline
                 : removalProblem === "shields"
                   ? labels.removeBackgroundShields
+                : removalProblem === "fallback"
+                  ? labels.removeBackgroundFallback
                 : removalProblem === "network"
                   ? labels.removeBackgroundWeak
                   : removalProblem === "retrying"

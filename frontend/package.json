@@ -8,6 +8,7 @@
     "start": "next start",
     "fetch-background-model": "node scripts/fetch-background-removal-assets.mjs",
     "fetch-face-check": "node scripts/fetch-face-check-assets.mjs",
+    "fetch-modnet": "node scripts/fetch-modnet-asset.mjs",
     "lint": "eslint",
     "test": "jest",
     "typecheck": "tsc --noEmit"
