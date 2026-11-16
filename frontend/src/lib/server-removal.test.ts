@@ -1,4 +1,4 @@
-import { requestServerCutout } from "./server-removal";
+import { requestServerCutout, SERVER_CUTOUT_TIMEOUT_MS } from "./server-removal";
 
 jest.mock("./auth", () => ({ getToken: () => "token-1" }));
 jest.mock("./active-desk", () => ({ readActiveDeskHeader: () => "member" }));
@@ -23,6 +23,10 @@ describe("server cutout request", () => {
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Token token-1");
     expect(init.body).toBeInstanceOf(FormData);
+  });
+
+  it("waits long enough for a cold load before the phone model takes over", () => {
+    expect(SERVER_CUTOUT_TIMEOUT_MS).toBeGreaterThanOrEqual(110000);
   });
 
   it("fails when the server does not answer, so the phone model can take over", async () => {

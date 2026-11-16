@@ -179,7 +179,8 @@ services:
       - app-net
 
   # Not started by a normal `docker compose up` (profile: removal).
-  # Give this service about 6 GB of memory before enabling it. See the pull request.
+  # One photo, then the process exits. Measured peak about 4.2 GB. Cap this
+  # service at 5 GB in Coolify so a spike cannot take the website with it.
   removal-worker:
     profiles: ["removal"]
     image: ltf-license-manager-removal
@@ -206,11 +207,13 @@ services:
       BIREFNET_DIR: /opt/birefnet-matting
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
     depends_on:
       redis:
         condition: service_healthy
     command: >
-      sh -c "runuser -u app -- sh -lc 'celery -A config worker -l info -Q removal --concurrency=1'"
+      sh -c "runuser -u app -- sh -lc 'celery -A config worker -l info -Q removal --pool=prefork --concurrency=1 --max-tasks-per-child=1'"
     networks:
       - app-net
 
