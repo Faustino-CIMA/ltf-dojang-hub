@@ -178,12 +178,13 @@ services:
     networks:
       - app-net
 
-  # Not started by a normal `docker compose up` (profile: removal).
-  # One photo, then the process exits. Measured peak about 4.2 GB. Cap this
-  # service at 5 GB in Coolify so a spike cannot take the website with it.
+  # Starts with the rest of the app. The 5 GB cap is in this file because the
+  # host has no separate memory field for one service. One photo, then the
+  # process exits. Measured peak about 4.2 GB. No swap beyond that cap.
   removal-worker:
-    profiles: ["removal"]
     image: ltf-license-manager-removal
+    mem_limit: 5g
+    memswap_limit: 5g
     build:
       context: .
       dockerfile: backend/Dockerfile.removal

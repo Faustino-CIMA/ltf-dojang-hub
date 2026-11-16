@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** The server cutout starts with the rest of the app and is limited to 5 GB. If that container is down, the phone still uses its own portrait model.
 - **Photos:** The server cutout loads its model for one photo and then lets that memory go. A slow start still falls back to the portrait model on the phone.
 - **Photos:** Opening the photo page with mask=server asks our own server to remove the background. If that fails, the portrait model on the phone is used and the page says so. The usual page is unchanged. A light shadow sits under the person on the card grey in the preview and in the saved photo.
 - **Photos:** Removing the background no longer drops the face when the shirt is darker than the skin. A coloured object touching the head is still left out. If that cleanup would erase the head, the model mask is kept.
