@@ -382,9 +382,35 @@ function isSkinTone(colour: Rgb): boolean {
   return r - Math.max(g, b) >= 8;
 }
 
-/** A poster colour sitting against the person. Skin, low-chroma hair, and a white uniform are not this. */
-function saturatedForeign(colour: Rgb, subject: Rgb): boolean {
+/**
+ * Grey or brown hair, including a thin strand over a light wall.
+ * A bright near-white wall and a saturated poster are not hair.
+ */
+function isHairTone(colour: Rgb): boolean {
   if (isSkinTone(colour)) {
+    return false;
+  }
+  const chroma = chromaOf(colour);
+  if (chroma >= CUTOUT_SATURATED_CHROMA) {
+    return false;
+  }
+  const luma = colour.r * 0.299 + colour.g * 0.587 + colour.b * 0.114;
+  return !(luma > 200 && chroma < 18);
+}
+
+/** A thin strand over a light wall. Saturated poster colour is not a strand. */
+function isSoftStrand(colour: Rgb): boolean {
+  const chroma = chromaOf(colour);
+  if (chroma >= CUTOUT_SATURATED_CHROMA) {
+    return false;
+  }
+  const luma = colour.r * 0.299 + colour.g * 0.587 + colour.b * 0.114;
+  return !(luma > 200 && chroma < 18);
+}
+
+/** A poster colour sitting against the person. Skin, grey-brown hair, and a white uniform are not this. */
+function saturatedForeign(colour: Rgb, subject: Rgb): boolean {
+  if (isSkinTone(colour) || isHairTone(colour)) {
     return false;
   }
   return chromaOf(colour) >= CUTOUT_FOREIGN_CHROMA && colourDistance(colour.r, colour.g, colour.b, subject) >= CUTOUT_FOREIGN_DISTANCE;
@@ -418,18 +444,31 @@ function dropBackgroundColouredFringe(raster: PhotoRaster, enclosed?: Uint8Array
     if (alpha < CUTOUT_ALPHA_FLOOR || alpha >= CUTOUT_SOLID_ALPHA) {
       continue;
     }
+    if (isHairTone(colourAt(data, pixel))) {
+      continue;
+    }
     if (colourDistance(data[index], data[index + 1], data[index + 2], background) < CUTOUT_BACKGROUND_DISTANCE) {
       data[index + 3] = 0;
     }
   }
 }
 
-function erodeMask(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
+function erodeMask(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  radius: number,
+  keep?: Uint8Array,
+): Uint8Array {
   const eroded = new Uint8Array(mask.length);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
       if (!mask[index]) {
+        continue;
+      }
+      if (keep?.[index]) {
+        eroded[index] = 1;
         continue;
       }
       let solid = true;
@@ -642,9 +681,9 @@ function reachesBorder(blocked: Uint8Array, width: number, height: number): Uint
 
 /**
  * The person is the largest piece after a one-pixel bridge cut, plus foreground
- * that touches it. A bright highlight inside the face is filled back in.
- * A poster touching the head is not, including one that is colourful without
- * being neon. Low-chroma hair and a white uniform stay.
+ * that touches it. Skin and hair are not eaten by that cut. A bright highlight
+ * inside the face is filled back in. A saturated poster touching the hair is not.
+ * Low-chroma hair and a white uniform stay.
  */
 function selectPerson(
   alpha: Float32Array,
@@ -654,10 +693,18 @@ function selectPerson(
 ): { person: Uint8Array; enclosed: Uint8Array } {
   const count = alpha.length;
   const foreground = new Uint8Array(count);
+  const outline = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
     foreground[index] = alpha[index] >= CUTOUT_SUBJECT_ALPHA ? 1 : 0;
+    if (!foreground[index]) {
+      continue;
+    }
+    const colour = colourAt(pixels, index);
+    if (isSkinTone(colour) || isHairTone(colour)) {
+      outline[index] = 1;
+    }
   }
-  const eroded = erodeMask(foreground, width, height, CUTOUT_BRIDGE_RADIUS);
+  const eroded = erodeMask(foreground, width, height, CUTOUT_BRIDGE_RADIUS, outline);
   const geometric = largestComponent(eroded, width, height);
   const subject = subjectColour(pixels, geometric, width, height);
   const passable = new Uint8Array(count);
@@ -892,10 +939,121 @@ function removedMostOfTheFace(
 }
 
 /**
+ * Semi-transparent grey-brown strands that touch the head.
+ * Their soft alpha is kept. Island and hole cleanup do not run on them.
+ */
+function connectedSoftHair(
+  alpha: Float32Array,
+  pixels: Uint8ClampedArray,
+  person: Uint8Array,
+  width: number,
+  height: number,
+): Uint8Array {
+  const count = alpha.length;
+  const candidate = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    const value = alpha[index];
+    if (value < CUTOUT_ALPHA_FLOOR || value >= CUTOUT_SUBJECT_ALPHA) {
+      continue;
+    }
+    if (!isSoftStrand(colourAt(pixels, index))) {
+      continue;
+    }
+    candidate[index] = 1;
+  }
+  const keep = new Uint8Array(count);
+  const queue = new Int32Array(count);
+  let tail = 0;
+  const nearPerson = (index: number) => {
+    const x = index % width;
+    const y = Math.floor(index / width);
+    for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
+      const nextY = y + offsetY;
+      if (nextY < 0 || nextY >= height) {
+        continue;
+      }
+      for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
+        const nextX = x + offsetX;
+        if (nextX < 0 || nextX >= width) {
+          continue;
+        }
+        if (person[nextY * width + nextX]) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  for (let index = 0; index < count; index += 1) {
+    if (!candidate[index] || !nearPerson(index)) {
+      continue;
+    }
+    keep[index] = 1;
+    queue[tail] = index;
+    tail += 1;
+  }
+  let head = 0;
+  while (head < tail) {
+    const index = queue[head];
+    head += 1;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const neighbours = [
+      x > 0 ? index - 1 : -1,
+      x + 1 < width ? index + 1 : -1,
+      y > 0 ? index - width : -1,
+      y + 1 < height ? index + width : -1,
+    ];
+    for (const neighbour of neighbours) {
+      if (neighbour < 0 || keep[neighbour] || !candidate[neighbour]) {
+        continue;
+      }
+      keep[neighbour] = 1;
+      queue[tail] = neighbour;
+      tail += 1;
+    }
+  }
+  return keep;
+}
+
+function hairBandBottom(foreground: Uint8Array, width: number, height: number): number {
+  let minY = height;
+  let maxY = -1;
+  for (let index = 0; index < foreground.length; index += 1) {
+    if (!foreground[index]) {
+      continue;
+    }
+    const y = Math.floor(index / width);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  if (maxY < minY) {
+    return -1;
+  }
+  return minY + Math.round((maxY - minY + 1) * 0.62);
+}
+
+function posterMajority(zone: Uint8Array, pixels: Uint8ClampedArray, subject: Rgb | null): boolean {
+  let total = 0;
+  let posters = 0;
+  for (let index = 0; index < zone.length; index += 1) {
+    if (!zone[index]) {
+      continue;
+    }
+    total += 1;
+    if (subject && saturatedForeign(colourAt(pixels, index), subject)) {
+      posters += 1;
+    }
+  }
+  return total > 0 && posters / total >= 0.5;
+}
+
+/**
  * Cut a thin bridge, keep the person and what touches them, and fill holes
- * inside that person. A poster colour is refused only on the outer edge.
- * The guided filter feathers that edge. Solid interior pixels stay solid.
- * Skin is never a poster. If the result would erase the head, the model mask is kept.
+ * inside that person. Solid skin and hair are not eaten by the bridge cut.
+ * Soft grey-brown strands keep the model's alpha and are feathered, not binarised.
+ * A saturated poster in the hair band is removed. If that cleanup would erase
+ * the head, the face is put back and the poster pieces outside it stay out.
  */
 export function cleanCutoutEdges(raster: PhotoRaster): void {
   const { width, height, data } = raster;
@@ -910,6 +1068,7 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     foreground[index] = savedAlpha[index] >= CUTOUT_SUBJECT_ALPHA ? 1 : 0;
   }
   const head = upperCenterPiece(foreground, width, height);
+  const band = hairBandBottom(foreground, width, height);
   const alpha = new Float32Array(count);
   const guidance = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
@@ -918,10 +1077,11 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     guidance[index] = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
   }
   const { person, enclosed } = selectPerson(alpha, width, height, data);
+  const soft = connectedSoftHair(savedAlpha, saved, person, width, height);
   const wasSolid = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
     if (!person[index]) {
-      alpha[index] = 0;
+      alpha[index] = soft[index] ? savedAlpha[index] : 0;
       continue;
     }
     if (enclosed[index] || alpha[index] >= CUTOUT_SOLID_ALPHA) {
@@ -931,15 +1091,17 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     data[index * 4 + 3] = alpha[index];
   }
   for (let index = 0; index < count; index += 1) {
-    if (!person[index]) {
-      data[index * 4 + 3] = 0;
+    if (person[index]) {
+      continue;
     }
+    data[index * 4 + 3] = soft[index] ? Math.round(savedAlpha[index]) : 0;
   }
   dropBackgroundColouredFringe(raster, enclosed);
   for (let index = 0; index < count; index += 1) {
     alpha[index] = data[index * 4 + 3];
   }
-  const subject = subjectColour(data, person, width, height);
+  const subject = subjectColour(saved, person, width, height);
+  const posterIsHead = posterMajority(head, saved, subject);
   const solidRed = new Float32Array(count);
   const solidGreen = new Float32Array(count);
   const solidBlue = new Float32Array(count);
@@ -959,22 +1121,40 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
   const blurredGreen = boxBlurChannel(solidGreen, width, height, MATTE_GUIDE_RADIUS);
   const blurredBlue = boxBlurChannel(solidBlue, width, height, MATTE_GUIDE_RADIUS);
   const blurredWeight = boxBlurChannel(solidWeight, width, height, MATTE_GUIDE_RADIUS);
+  const dropPoster = (index: number) => {
+    if (posterIsHead && head[index]) {
+      return false;
+    }
+    if (!subject || !saturatedForeign(colourAt(saved, index), subject)) {
+      return false;
+    }
+    const y = Math.floor(index / width);
+    if (band >= 0 && y <= band) {
+      return true;
+    }
+    return nearPerson(person, width, height, index, 8);
+  };
   for (let index = 0; index < count; index += 1) {
     const offset = index * 4;
     const interior = person[index] === 1 && (enclosed[index] === 1 || solidInterior(alpha, width, height, index));
     let coverage = Math.max(0, Math.min(255, Math.round(feather[index])));
-    if (interior) {
+    if (soft[index]) {
+      coverage = Math.max(coverage, Math.round(savedAlpha[index]));
+    } else if (interior) {
       coverage = 255;
     } else if (!person[index] && !nearPerson(person, width, height, index, MATTE_GUIDE_RADIUS)) {
       coverage = 0;
     }
     const fringe = outerFringe(person, width, height, index);
-    const foreign = subject !== null && saturatedForeign(colourAt(data, index), subject);
-    if (!enclosed[index] && foreign && (fringe || !person[index])) {
+    const foreign = subject !== null && saturatedForeign(colourAt(saved, index), subject);
+    if (!soft[index] && !enclosed[index] && foreign && (fringe || !person[index])) {
+      coverage = 0;
+    }
+    if (dropPoster(index)) {
       coverage = 0;
     }
     data[offset + 3] = coverage;
-    if (wasSolid[index] || coverage === 0 || blurredWeight[index] <= 0.001) {
+    if (wasSolid[index] || soft[index] || coverage === 0 || blurredWeight[index] <= 0.001) {
       continue;
     }
     data[offset] = Math.max(0, Math.min(255, Math.round(blurredRed[index] / blurredWeight[index])));
@@ -982,7 +1162,24 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     data[offset + 2] = Math.max(0, Math.min(255, Math.round(blurredBlue[index] / blurredWeight[index])));
   }
   if (removedMostOfTheFace(saved, data, head)) {
-    data.set(saved);
+    for (let index = 0; index < count; index += 1) {
+      if (!head[index]) {
+        continue;
+      }
+      if (!posterIsHead && dropPoster(index)) {
+        continue;
+      }
+      const offset = index * 4;
+      data[offset] = saved[offset];
+      data[offset + 1] = saved[offset + 1];
+      data[offset + 2] = saved[offset + 2];
+      data[offset + 3] = saved[offset + 3];
+    }
+  }
+  for (let index = 0; index < count; index += 1) {
+    if (dropPoster(index)) {
+      data[index * 4 + 3] = 0;
+    }
   }
 }
 
