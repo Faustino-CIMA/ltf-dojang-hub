@@ -217,6 +217,8 @@ const CUTOUT_SUBJECT_ALPHA = 128;
 const CUTOUT_BACKGROUND_DISTANCE = 48;
 const CUTOUT_BRIDGE_RADIUS = 1;
 const CUTOUT_SATURATED_CHROMA = 80;
+/** A printed poster is often less neon than 80, and still far from hair and skin. */
+const CUTOUT_FOREIGN_CHROMA = 48;
 const CUTOUT_FOREIGN_DISTANCE = 90;
 const MATTE_GUIDE_RADIUS = 4;
 const MATTE_GUIDE_EPSILON = 256;
@@ -361,9 +363,9 @@ function solidInterior(alpha: Float32Array, width: number, height: number, index
   return true;
 }
 
-/** A bright poster colour sitting against dark hair. Low-chroma hair is not this. */
+/** A poster colour sitting against the person. Low-chroma hair and a white uniform are not this. */
 function saturatedForeign(colour: Rgb, subject: Rgb): boolean {
-  return chromaOf(colour) >= CUTOUT_SATURATED_CHROMA && colourDistance(colour.r, colour.g, colour.b, subject) >= CUTOUT_FOREIGN_DISTANCE;
+  return chromaOf(colour) >= CUTOUT_FOREIGN_CHROMA && colourDistance(colour.r, colour.g, colour.b, subject) >= CUTOUT_FOREIGN_DISTANCE;
 }
 
 function dropBackgroundColouredFringe(raster: PhotoRaster, enclosed?: Uint8Array): void {
@@ -479,11 +481,10 @@ function largestComponent(mask: Uint8Array, width: number, height: number): Uint
   return core;
 }
 
-function meanColour(pixels: Uint8ClampedArray, mask: Uint8Array, lowChromaOnly: boolean): Rgb | null {
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-  let count = 0;
+function medianColour(pixels: Uint8ClampedArray, mask: Uint8Array, lowChromaOnly: boolean): Rgb | null {
+  const reds: number[] = [];
+  const greens: number[] = [];
+  const blues: number[] = [];
   for (let index = 0; index < mask.length; index += 1) {
     if (!mask[index]) {
       continue;
@@ -492,15 +493,18 @@ function meanColour(pixels: Uint8ClampedArray, mask: Uint8Array, lowChromaOnly: 
     if (lowChromaOnly && chromaOf(colour) >= CUTOUT_SATURATED_CHROMA) {
       continue;
     }
-    red += colour.r;
-    green += colour.g;
-    blue += colour.b;
-    count += 1;
+    reds.push(colour.r);
+    greens.push(colour.g);
+    blues.push(colour.b);
   }
-  if (count === 0) {
+  if (reds.length === 0) {
     return null;
   }
-  return { r: red / count, g: green / count, b: blue / count };
+  const mid = (values: number[]) => {
+    values.sort((left, right) => left - right);
+    return values[Math.floor(values.length / 2)];
+  };
+  return { r: mid(reds), g: mid(greens), b: mid(blues) };
 }
 
 function floodAllowed(seeds: Uint8Array, allowed: Uint8Array, width: number, height: number): Uint8Array {
@@ -582,7 +586,8 @@ function reachesBorder(blocked: Uint8Array, width: number, height: number): Uint
 /**
  * The person is the largest piece after a one-pixel bridge cut, plus foreground
  * that touches it. A bright highlight inside the face is filled back in.
- * A separate poster is not. Colour difference does not split the person.
+ * A poster touching the head is not, including one that is colourful without
+ * being neon. Low-chroma hair and a white uniform stay.
  */
 function selectPerson(
   alpha: Float32Array,
@@ -597,7 +602,7 @@ function selectPerson(
   }
   const eroded = erodeMask(foreground, width, height, CUTOUT_BRIDGE_RADIUS);
   const geometric = largestComponent(eroded, width, height);
-  const subject = meanColour(pixels, geometric, true) ?? meanColour(pixels, geometric, false);
+  const subject = medianColour(pixels, geometric, true) ?? medianColour(pixels, geometric, false);
   const passable = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
     if (!eroded[index]) {
@@ -763,7 +768,7 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
   for (let index = 0; index < count; index += 1) {
     alpha[index] = data[index * 4 + 3];
   }
-  const subject = meanColour(data, person, true) ?? meanColour(data, person, false);
+  const subject = medianColour(data, person, true) ?? medianColour(data, person, false);
   const solidRed = new Float32Array(count);
   const solidGreen = new Float32Array(count);
   const solidBlue = new Float32Array(count);
@@ -793,7 +798,8 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
       coverage = 0;
     }
     const fringe = outerFringe(person, width, height, index);
-    if (!enclosed[index] && fringe && subject && saturatedForeign(colourAt(data, index), subject)) {
+    const foreign = subject !== null && saturatedForeign(colourAt(data, index), subject);
+    if (!enclosed[index] && foreign && (fringe || !person[index])) {
       coverage = 0;
     }
     data[offset + 3] = coverage;
@@ -1294,7 +1300,7 @@ export async function removeProfileBackground(options: {
   const inputBlob = await canvasToBlob(paintRaster(modelInput), "image/png");
 
   const restored = await runSelectedMask({
-    mask: options.mask ?? "isnet",
+    mask: options.mask ?? "modnet",
     onFallback: options.onFallback,
     portrait: async () => {
       const { portraitMatte } = await import("./modnet-mask");

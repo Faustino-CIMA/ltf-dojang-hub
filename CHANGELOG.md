@@ -3,7 +3,10 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
-- **Photos:** Opening the photo page with mask=modnet uses a portrait model. If that model cannot load, the usual removal tool is used and the page says so.
+- **Photos:** Background removal uses the portrait model. Opening the page with mask=isnet keeps the previous tool for a comparison. If the portrait model cannot load, the previous tool is used and the page says so.
+- **Photos:** A coloured poster touching the head is left out of the portrait cutout. A thin strand of hair that touches the head stays.
+- **Photos:** A sharp photo from the phone is no longer marked blurry. Sharpness is measured on the face at one size, so a large picture is judged the same way as a small one. A smeared photo still fails.
+- **Photos:** The framing oval is larger and sits lower. A head that filled the previous oval has room around it, and the shoulders sit near the bottom of the frame.
 - **Photos:** Bright spots on a face are no longer filled with the card grey, and a separate object beside the person is left out. If Brave is blocking the removal tool, the page says how to turn Shields off for this site. The photo can still be saved.
 - **Photos:** Background removal works again on a normal connection. A saved copy of the tool is used only when it is complete, and a bad copy is replaced. The framing oval sits a little further down.
 - **Photos:** If the removal download stalls, Retry starts it again on the same photo. Pieces that already arrived are kept. The framing oval sits a little lower and a little smaller.

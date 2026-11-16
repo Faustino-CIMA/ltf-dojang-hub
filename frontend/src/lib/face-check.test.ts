@@ -17,6 +17,7 @@ import {
   LIVE_FACE_INTERVAL_MS,
   LIVE_FACE_LONG_SIDE,
   boxBlurPlane,
+  blurVarianceAtSampleSize,
   evaluateFaceCheck,
   evaluateFacePlacement,
   faceGuideReason,
@@ -78,6 +79,35 @@ function edgePlane(width: number, height: number): Float32Array {
     }
   }
   return plane;
+}
+
+function bilinearUpscale(
+  source: Float32Array,
+  width: number,
+  height: number,
+  factor: number,
+): { plane: Float32Array; width: number; height: number } {
+  const nextWidth = width * factor;
+  const nextHeight = height * factor;
+  const plane = new Float32Array(nextWidth * nextHeight);
+  for (let y = 0; y < nextHeight; y += 1) {
+    const gy = nextHeight === 1 ? 0 : (y * (height - 1)) / (nextHeight - 1);
+    const y0 = Math.floor(gy);
+    const y1 = Math.min(height - 1, y0 + 1);
+    const fy = gy - y0;
+    for (let x = 0; x < nextWidth; x += 1) {
+      const gx = nextWidth === 1 ? 0 : (x * (width - 1)) / (nextWidth - 1);
+      const x0 = Math.floor(gx);
+      const x1 = Math.min(width - 1, x0 + 1);
+      const fx = gx - x0;
+      plane[y * nextWidth + x] =
+        source[y0 * width + x0] * (1 - fx) * (1 - fy) +
+        source[y0 * width + x1] * fx * (1 - fy) +
+        source[y1 * width + x0] * (1 - fx) * fy +
+        source[y1 * width + x1] * fx * fy;
+    }
+  }
+  return { plane, width: nextWidth, height: nextHeight };
 }
 
 function drawnFace(width: number, height: number): Float32Array {
@@ -181,6 +211,22 @@ describe("face check rules", () => {
     expect(smearedScore).toBeLessThan(FACE_BLUR_MIN);
   });
 
+  it("keeps a sharp face that was spread across a phone-sized frame, and rejects a smeared one", () => {
+    const width = 240;
+    const height = 300;
+    const sharp = drawnFace(width, height);
+    const large = bilinearUpscale(sharp, width, height, 4);
+    const rawLarge = laplacianVariance(large.plane, large.width, large.height);
+    const sampledSharp = blurVarianceAtSampleSize(large.plane, large.width, large.height);
+    const smeared = bilinearUpscale(boxBlurPlane(sharp, width, height, 3), width, height, 4);
+    const sampledSmear = blurVarianceAtSampleSize(smeared.plane, smeared.width, smeared.height);
+    expect(rawLarge).toBeLessThan(FACE_BLUR_MIN);
+    expect(sampledSharp).toBeGreaterThanOrEqual(FACE_BLUR_MIN);
+    expect(sampledSmear).toBeLessThan(FACE_BLUR_MIN);
+    expect(evaluateFaceCheck({ faces: [face()], luma: 128, blurVariance: sampledSharp })).toBe("pass");
+    expect(evaluateFaceCheck({ faces: [face()], luma: 128, blurVariance: sampledSmear })).toBe("blur");
+  });
+
   it("accepts an identity-card framing before removal and on the print crop after it", () => {
     const print = { x: 100, y: 50, width: 200, height: 250 };
     const faceHeight = print.height * 0.34;
@@ -268,15 +314,19 @@ describe("face check rules", () => {
     const fullHeight = meshHeight + meshHeight * FACE_HAIR_ABOVE_MESH;
     const shift = MEMBER_PHOTO_HEIGHT * GUIDE_SHIFT_DOWN;
     const round = (value: number) => Math.round(value * 10) / 10;
-    expect(GUIDE_OVAL_SCALE).toBeGreaterThanOrEqual(0.92);
-    expect(GUIDE_OVAL_SCALE).toBeLessThanOrEqual(0.95);
-    expect(GUIDE_SHIFT_DOWN).toBeGreaterThan(0.06);
-    expect(GUIDE_SHIFT_DOWN).toBeLessThanOrEqual(0.08);
-    expect(shift).toBeGreaterThan(MEMBER_PHOTO_HEIGHT * 0.06);
+    const previousScale = 0.94;
+    const previousCenterY = ((0.32 + 0.62) / 2) * MEMBER_PHOTO_HEIGHT;
+    const previousShift = MEMBER_PHOTO_HEIGHT * 0.07;
+    const previousRy = round((fullHeight * previousScale) / 2);
+    const previousCy = round(previousCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + previousShift);
+    expect(GUIDE_OVAL_SCALE).toBeGreaterThan(1);
+    expect(GUIDE_SHIFT_DOWN).toBeGreaterThan(0.1);
     expect(shape.head.ry).toBe(round((fullHeight * GUIDE_OVAL_SCALE) / 2));
-    expect(shape.head.ry * 2).toBeLessThan(fullHeight);
+    expect(shape.head.ry).toBeGreaterThan(previousRy);
     expect(shape.head.cy).toBe(round(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + shift));
-    expect(shape.head.cy).toBeGreaterThan(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2);
+    expect(shape.head.cy - shape.head.ry).toBeLessThan(previousCy - previousRy);
+    expect(shape.head.cy + shape.head.ry).toBeGreaterThan(previousCy + previousRy);
+    expect(shape.head.rx).toBeGreaterThan(round((previousRy * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT) / 2));
     expect(Math.abs(meshCenterY - shape.head.cy)).toBeLessThan(shape.head.ry);
     expect(shape.head.cy - shape.head.ry).toBeLessThan(meshTop);
     expect(shape.head.rx * 2).toBeCloseTo(shape.head.ry * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT, 0);
@@ -287,7 +337,8 @@ describe("face check rules", () => {
     const shoulderY = Number(shoulders?.[2]);
     const right = Number(shoulders?.[5]);
     expect(right - left).toBeGreaterThan(shape.head.rx * 2);
-    expect(shoulderY).toBeCloseTo(MEMBER_PHOTO_HEIGHT * 0.92 + shift, 0);
+    expect(shoulderY).toBeLessThanOrEqual(MEMBER_PHOTO_HEIGHT * 0.96);
+    expect(shoulderY).toBeGreaterThan(MEMBER_PHOTO_HEIGHT * 0.9);
     expect(shoulderY).toBeGreaterThan(chin);
   });
 

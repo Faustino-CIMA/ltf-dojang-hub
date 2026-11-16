@@ -1,6 +1,6 @@
 /**
- * Optional portrait matte. MODNet (Apache-2.0) runs at 512 on a small copy.
- * ISNet stays the default. WebGPU is not used: this build ships the CPU runtime.
+ * Portrait matte. MODNet (Apache-2.0) runs at 512 on a small copy.
+ * It is the mask used unless the page asks for the usual tool. WebGPU is off.
  */
 
 import { fetchModelAsset } from "@/lib/background-model-cache";
@@ -17,7 +17,7 @@ export type RemovalMask = "isnet" | "modnet";
 
 export function removalMaskFromSearch(search: string): RemovalMask {
   const query = search.startsWith("?") ? search.slice(1) : search;
-  return new URLSearchParams(query).get("mask") === "modnet" ? "modnet" : "isnet";
+  return new URLSearchParams(query).get("mask") === "isnet" ? "isnet" : "modnet";
 }
 
 export function modnetInputSize(width: number, height: number): { width: number; height: number } {

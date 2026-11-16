@@ -3,10 +3,10 @@ import { modnetInputSize, modnetTensor, rasterWithMatte, removalMaskFromSearch }
 
 describe("portrait mask flag", () => {
   it("uses the usual model unless the page asks for the portrait model", () => {
-    expect(removalMaskFromSearch("")).toBe("isnet");
+    expect(removalMaskFromSearch("")).toBe("modnet");
     expect(removalMaskFromSearch("?mask=isnet")).toBe("isnet");
     expect(removalMaskFromSearch("?mask=modnet")).toBe("modnet");
-    expect(removalMaskFromSearch("mask=modnet")).toBe("modnet");
+    expect(removalMaskFromSearch("mask=isnet")).toBe("isnet");
   });
 
   it("scales a drawn face to a 512 portrait input and keeps black at -1", () => {
