@@ -220,6 +220,9 @@ const CUTOUT_SATURATED_CHROMA = 80;
 /** A printed poster is often less neon than 80, and still far from hair and skin. */
 const CUTOUT_FOREIGN_CHROMA = 48;
 const CUTOUT_FOREIGN_DISTANCE = 90;
+/** Ordinary skin sits in this chroma band. A black uniform must not make it look foreign. */
+const SKIN_CHROMA_MIN = 12;
+const SKIN_CHROMA_MAX = 100;
 const MATTE_GUIDE_RADIUS = 4;
 const MATTE_GUIDE_EPSILON = 256;
 
@@ -363,8 +366,27 @@ function solidInterior(alpha: Float32Array, width: number, height: number, index
   return true;
 }
 
-/** A poster colour sitting against the person. Low-chroma hair and a white uniform are not this. */
+/**
+ * Warm skin, light or dark. A black dobok is the largest low-chroma region, so a
+ * distance from that median would call the face a poster and delete it.
+ */
+function isSkinTone(colour: Rgb): boolean {
+  const { r, g, b } = colour;
+  if (r < 45 || r <= g || r <= b) {
+    return false;
+  }
+  const chroma = chromaOf(colour);
+  if (chroma < SKIN_CHROMA_MIN || chroma > SKIN_CHROMA_MAX) {
+    return false;
+  }
+  return r - Math.max(g, b) >= 8;
+}
+
+/** A poster colour sitting against the person. Skin, low-chroma hair, and a white uniform are not this. */
 function saturatedForeign(colour: Rgb, subject: Rgb): boolean {
+  if (isSkinTone(colour)) {
+    return false;
+  }
   return chromaOf(colour) >= CUTOUT_FOREIGN_CHROMA && colourDistance(colour.r, colour.g, colour.b, subject) >= CUTOUT_FOREIGN_DISTANCE;
 }
 
@@ -507,6 +529,41 @@ function medianColour(pixels: Uint8ClampedArray, mask: Uint8Array, lowChromaOnly
   return { r: mid(reds), g: mid(greens), b: mid(blues) };
 }
 
+/** The upper part of the person. The shirt must not become the colour the face is judged against. */
+function upperPerson(mask: Uint8Array, width: number, height: number): Uint8Array {
+  let minY = height;
+  let maxY = -1;
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) {
+      continue;
+    }
+    const y = Math.floor(index / width);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  const upper = new Uint8Array(mask.length);
+  if (maxY < minY) {
+    return upper;
+  }
+  const limit = minY + Math.max(1, Math.round((maxY - minY + 1) * 0.55));
+  for (let index = 0; index < mask.length; index += 1) {
+    if (mask[index] && Math.floor(index / width) <= limit) {
+      upper[index] = 1;
+    }
+  }
+  return upper;
+}
+
+function subjectColour(pixels: Uint8ClampedArray, mask: Uint8Array, width: number, height: number): Rgb | null {
+  const upper = upperPerson(mask, width, height);
+  return (
+    medianColour(pixels, upper, true) ??
+    medianColour(pixels, upper, false) ??
+    medianColour(pixels, mask, true) ??
+    medianColour(pixels, mask, false)
+  );
+}
+
 function floodAllowed(seeds: Uint8Array, allowed: Uint8Array, width: number, height: number): Uint8Array {
   const keep = new Uint8Array(seeds.length);
   const queue = new Int32Array(seeds.length);
@@ -602,7 +659,7 @@ function selectPerson(
   }
   const eroded = erodeMask(foreground, width, height, CUTOUT_BRIDGE_RADIUS);
   const geometric = largestComponent(eroded, width, height);
-  const subject = medianColour(pixels, geometric, true) ?? medianColour(pixels, geometric, false);
+  const subject = subjectColour(pixels, geometric, width, height);
   const passable = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
     if (!eroded[index]) {
@@ -616,6 +673,12 @@ function selectPerson(
   let core = largestComponent(passable, width, height);
   if (!core.some((pixel) => pixel === 1)) {
     core = largestComponent(foreground, width, height);
+  }
+  const raisedHead = upperCenterPiece(passable, width, height);
+  for (let index = 0; index < count; index += 1) {
+    if (raisedHead[index]) {
+      core[index] = 1;
+    }
   }
   const allowed = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
@@ -731,14 +794,122 @@ export function compositeMaskOntoOriginal(original: PhotoRaster, mask: PhotoRast
   return raster;
 }
 
+function labelMask(mask: Uint8Array, width: number, height: number): Int32Array {
+  const labels = new Int32Array(mask.length);
+  const queue = new Int32Array(mask.length);
+  let nextLabel = 0;
+  for (let start = 0; start < mask.length; start += 1) {
+    if (!mask[start] || labels[start] !== 0) {
+      continue;
+    }
+    nextLabel += 1;
+    let head = 0;
+    let tail = 0;
+    queue[tail] = start;
+    tail += 1;
+    labels[start] = nextLabel;
+    while (head < tail) {
+      const index = queue[head];
+      head += 1;
+      const x = index % width;
+      const y = Math.floor(index / width);
+      const neighbours = [
+        x > 0 ? index - 1 : -1,
+        x + 1 < width ? index + 1 : -1,
+        y > 0 ? index - width : -1,
+        y + 1 < height ? index + width : -1,
+      ];
+      for (const neighbour of neighbours) {
+        if (neighbour < 0 || !mask[neighbour] || labels[neighbour] !== 0) {
+          continue;
+        }
+        labels[neighbour] = nextLabel;
+        queue[tail] = neighbour;
+        tail += 1;
+      }
+    }
+  }
+  return labels;
+}
+
+/** The piece in the top middle of the frame. Shoulders and a corner poster lose this vote. */
+function upperCenterPiece(mask: Uint8Array, width: number, height: number): Uint8Array {
+  const labels = labelMask(mask, width, height);
+  const piece = new Uint8Array(mask.length);
+  const top = Math.max(1, Math.round(height * 0.5));
+  const left = Math.round(width * 0.35);
+  const right = Math.min(width - 1, Math.round(width * 0.65));
+  const score = new Map<number, number>();
+  for (let y = 0; y < top; y += 1) {
+    for (let x = left; x <= right; x += 1) {
+      const label = labels[y * width + x];
+      if (label === 0) {
+        continue;
+      }
+      score.set(label, (score.get(label) ?? 0) + 1);
+    }
+  }
+  let best = 0;
+  let bestScore = 0;
+  for (const [label, count] of score) {
+    if (count > bestScore) {
+      best = label;
+      bestScore = count;
+    }
+  }
+  if (bestScore < 12) {
+    return piece;
+  }
+  for (let index = 0; index < labels.length; index += 1) {
+    if (labels[index] === best && Math.floor(index / width) < top && index % width >= left && index % width <= right) {
+      piece[index] = 1;
+    }
+  }
+  return piece;
+}
+
+/** True when the cleanup erased most of the head. The caller then keeps the model mask. */
+function removedMostOfTheFace(
+  before: Uint8ClampedArray,
+  after: Uint8ClampedArray,
+  zone: Uint8Array,
+): boolean {
+  let total = 0;
+  let kept = 0;
+  for (let index = 0; index < zone.length; index += 1) {
+    if (!zone[index] || before[index * 4 + 3] < CUTOUT_SUBJECT_ALPHA) {
+      continue;
+    }
+    total += 1;
+    if (after[index * 4 + 3] >= CUTOUT_SUBJECT_ALPHA) {
+      kept += 1;
+    }
+  }
+  if (total < 12) {
+    return false;
+  }
+  return kept / total < 0.5;
+}
+
 /**
  * Cut a thin bridge, keep the person and what touches them, and fill holes
  * inside that person. A poster colour is refused only on the outer edge.
  * The guided filter feathers that edge. Solid interior pixels stay solid.
+ * Skin is never a poster. If the result would erase the head, the model mask is kept.
  */
 export function cleanCutoutEdges(raster: PhotoRaster): void {
   const { width, height, data } = raster;
   const count = width * height;
+  const saved = new Uint8ClampedArray(data);
+  const savedAlpha = new Float32Array(count);
+  for (let index = 0; index < count; index += 1) {
+    savedAlpha[index] = data[index * 4 + 3];
+  }
+  const foreground = new Uint8Array(count);
+  for (let index = 0; index < count; index += 1) {
+    foreground[index] = savedAlpha[index] >= CUTOUT_SUBJECT_ALPHA ? 1 : 0;
+  }
+  const head = upperCenterPiece(foreground, width, height);
   const alpha = new Float32Array(count);
   const guidance = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
@@ -768,7 +939,7 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
   for (let index = 0; index < count; index += 1) {
     alpha[index] = data[index * 4 + 3];
   }
-  const subject = medianColour(data, person, true) ?? medianColour(data, person, false);
+  const subject = subjectColour(data, person, width, height);
   const solidRed = new Float32Array(count);
   const solidGreen = new Float32Array(count);
   const solidBlue = new Float32Array(count);
@@ -809,6 +980,9 @@ export function cleanCutoutEdges(raster: PhotoRaster): void {
     data[offset] = Math.max(0, Math.min(255, Math.round(blurredRed[index] / blurredWeight[index])));
     data[offset + 1] = Math.max(0, Math.min(255, Math.round(blurredGreen[index] / blurredWeight[index])));
     data[offset + 2] = Math.max(0, Math.min(255, Math.round(blurredBlue[index] / blurredWeight[index])));
+  }
+  if (removedMostOfTheFace(saved, data, head)) {
+    data.set(saved);
   }
 }
 

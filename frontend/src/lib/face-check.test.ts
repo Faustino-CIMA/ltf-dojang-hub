@@ -13,6 +13,7 @@ import {
   FACE_HEIGHT_MIN,
   framingGuideShape,
   GUIDE_OVAL_SCALE,
+  GUIDE_OVAL_TRIM,
   GUIDE_SHIFT_DOWN,
   LIVE_FACE_INTERVAL_MS,
   LIVE_FACE_LONG_SIDE,
@@ -319,14 +320,21 @@ describe("face check rules", () => {
     const previousShift = MEMBER_PHOTO_HEIGHT * 0.07;
     const previousRy = round((fullHeight * previousScale) / 2);
     const previousCy = round(previousCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + previousShift);
+    const untrimmedRy = round((fullHeight * GUIDE_OVAL_SCALE) / 2);
+    const untrimmedCy = round(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + shift);
+    const pinnedTop = untrimmedCy - untrimmedRy;
     expect(GUIDE_OVAL_SCALE).toBeGreaterThan(1);
+    expect(GUIDE_OVAL_TRIM).toBeGreaterThan(0.9);
+    expect(GUIDE_OVAL_TRIM).toBeLessThan(1);
     expect(GUIDE_SHIFT_DOWN).toBeGreaterThan(0.1);
-    expect(shape.head.ry).toBe(round((fullHeight * GUIDE_OVAL_SCALE) / 2));
-    expect(shape.head.ry).toBeGreaterThan(previousRy);
-    expect(shape.head.cy).toBe(round(meshCenterY - (meshHeight * FACE_HAIR_ABOVE_MESH) / 2 + shift));
-    expect(shape.head.cy - shape.head.ry).toBeLessThan(previousCy - previousRy);
+    expect(shape.head.ry).toBe(round(untrimmedRy * GUIDE_OVAL_TRIM));
+    expect(shape.head.ry).toBeLessThan(untrimmedRy);
+    expect(shape.head.ry).toBeGreaterThan(previousRy * GUIDE_OVAL_TRIM);
+    expect(shape.head.cy - shape.head.ry).toBeCloseTo(pinnedTop, 5);
+    expect(pinnedTop).toBeLessThan(previousCy - previousRy);
     expect(shape.head.cy + shape.head.ry).toBeGreaterThan(previousCy + previousRy);
-    expect(shape.head.rx).toBeGreaterThan(round((previousRy * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT) / 2));
+    expect(shape.head.rx).toBe(round(((fullHeight * GUIDE_OVAL_SCALE * FACE_HEAD_WIDTH_OVER_HEIGHT) / 2) * GUIDE_OVAL_TRIM));
+    expect(shape.head.rx).toBeGreaterThan(round((previousRy * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT) / 2) * GUIDE_OVAL_TRIM);
     expect(Math.abs(meshCenterY - shape.head.cy)).toBeLessThan(shape.head.ry);
     expect(shape.head.cy - shape.head.ry).toBeLessThan(meshTop);
     expect(shape.head.rx * 2).toBeCloseTo(shape.head.ry * 2 * FACE_HEAD_WIDTH_OVER_HEIGHT, 0);

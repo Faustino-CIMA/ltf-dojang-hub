@@ -3,6 +3,8 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** Removing the background no longer drops the face when the shirt is darker than the skin. A coloured object touching the head is still left out. If that cleanup would erase the head, the model mask is kept.
+- **Photos:** The framing oval is a little smaller in width and height. Its top edge stays where it was.
 - **Photos:** Background removal uses the portrait model. Opening the page with mask=isnet keeps the previous tool for a comparison. If the portrait model cannot load, the previous tool is used and the page says so.
 - **Photos:** A coloured poster touching the head is left out of the portrait cutout. A thin strand of hair that touches the head stays.
 - **Photos:** A sharp photo from the phone is no longer marked blurry. Sharpness is measured on the face at one size, so a large picture is judged the same way as a small one. A smeared photo still fails.
