@@ -541,6 +541,60 @@ describe("photo background maths", () => {
     expect(data[(22 * width + 32) * 4 + 3]).toBeGreaterThan(200);
     expect(data[(18 * width + 32) * 4 + 3]).toBeGreaterThan(200);
   });
+
+  it("drops a saturated poster on the hair and keeps the head, the hair, and soft strands", () => {
+    const width = 72;
+    const height = 84;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const head = (x: number, y: number) => ((x - 36) / 14) ** 2 + ((y - 46) / 16) ** 2 <= 1;
+    const hair = (x: number, y: number) => y <= 40 && ((x - 36) / 16) ** 2 + ((y - 36) / 14) ** 2 <= 1;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        data[index] = 232;
+        data[index + 1] = 228;
+        data[index + 2] = 222;
+        const leftPoster = x >= 8 && x <= 24 && y >= 24 && y <= 34;
+        const rightPoster = x >= 48 && x <= 62 && y >= 24 && y <= 34;
+        const strand = (x === 30 || x === 36 || x === 42) && y >= 8 && y <= 22;
+        if (head(x, y)) {
+          data[index] = 198;
+          data[index + 1] = 148;
+          data[index + 2] = 118;
+          data[index + 3] = 255;
+        } else if (hair(x, y)) {
+          data[index] = 72;
+          data[index + 1] = 54;
+          data[index + 2] = 40;
+          data[index + 3] = 255;
+        } else if (strand) {
+          data[index] = 108;
+          data[index + 1] = 82;
+          data[index + 2] = 58;
+          data[index + 3] = 96;
+        } else if (leftPoster) {
+          data[index] = 36;
+          data[index + 1] = 48;
+          data[index + 2] = 210;
+          data[index + 3] = 255;
+        } else if (rightPoster) {
+          data[index] = 220;
+          data[index + 1] = 96;
+          data[index + 2] = 24;
+          data[index + 3] = 255;
+        }
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(28 * width + 12) * 4 + 3]).toBeLessThan(20);
+    expect(data[(28 * width + 56) * 4 + 3]).toBeLessThan(20);
+    expect(data[(46 * width + 36) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(30 * width + 36) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(30 * width + 22) * 4 + 3]).toBeGreaterThan(100);
+    expect(data[(14 * width + 36) * 4 + 3]).toBeGreaterThan(0);
+    expect(data[(14 * width + 30) * 4 + 3]).toBeGreaterThan(0);
+    expect(data[(14 * width + 42) * 4 + 3]).toBeGreaterThan(0);
+  });
 });
 
 function circleRaster(width: number, height: number, cx: number, cy: number, radius: number): PhotoRaster {

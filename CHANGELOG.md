@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** A saturated poster beside the hair is left out, including when the face itself is kept. Fine grey-brown strands keep a soft edge and are not clipped or treated as the wall behind them.
 - **Photos:** Removing the background no longer drops the face when the shirt is darker than the skin. A coloured object touching the head is still left out. If that cleanup would erase the head, the model mask is kept.
 - **Photos:** The framing oval is a little smaller in width and height. Its top edge stays where it was.
 - **Photos:** Background removal uses the portrait model. Opening the page with mask=isnet keeps the previous tool for a comparison. If the portrait model cannot load, the previous tool is used and the page says so.
