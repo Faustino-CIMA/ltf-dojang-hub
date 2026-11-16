@@ -36,6 +36,8 @@ export const FACE_HEAD_WIDTH_OVER_HEIGHT = 0.75;
 export const GUIDE_OVAL_SCALE = 1.2;
 /** Lowers the oval. The shoulder arc stays inside the frame, near the bottom. */
 export const GUIDE_SHIFT_DOWN = 0.11;
+/** A little smaller than the outline above, in both width and height. The crown stays put. */
+export const GUIDE_OVAL_TRIM = 0.94;
 export const FACE_LUMA_MIN = 60;
 export const FACE_LUMA_MAX = 210;
 /** Locked by the sharp-edge and box-blur fixtures in face-check.test.ts. */
@@ -223,8 +225,8 @@ export type FramingGuideShape = {
  * The outline for the print crop. The camera and the cropper both draw this,
  * so the oval cannot drift away from the save rule.
  * The mesh box is the middle of the accepted band. The oval continues from
- * the chin up over the hair, then grows and sits lower so the shoulders
- * land near the bottom of the frame.
+ * the chin up over the hair, then sits lower. It is then a little smaller,
+ * with the crown left where that larger oval put it.
  */
 export function framingGuideShape(frameWidth: number, frameHeight: number): FramingGuideShape {
   const meshHeight = ((FACE_HEIGHT_MIN + FACE_HEIGHT_MAX) / 2) * frameHeight;
@@ -243,12 +245,17 @@ export function framingGuideShape(frameWidth: number, frameHeight: number): Fram
   const left = round(centerX - shoulderHalf);
   const right = round(centerX + shoulderHalf);
   const cx = round(centerX);
+  const untrimmedRy = round(headHeight / 2);
+  const untrimmedCy = round(meshCenterY - hair / 2 + shift);
+  const top = untrimmedCy - untrimmedRy;
+  const ry = round(untrimmedRy * GUIDE_OVAL_TRIM);
+  const rx = round((headWidth / 2) * GUIDE_OVAL_TRIM);
   return {
     head: {
       cx,
-      cy: round(meshCenterY - hair / 2 + shift),
-      rx: round(headWidth / 2),
-      ry: round(headHeight / 2),
+      cy: top + ry,
+      rx,
+      ry,
     },
     shoulders: `M ${left} ${round(shoulderY)} Q ${cx} ${round(neckY)} ${right} ${round(shoulderY)}`,
   };

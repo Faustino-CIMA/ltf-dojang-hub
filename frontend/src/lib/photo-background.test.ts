@@ -434,9 +434,9 @@ describe("photo background maths", () => {
         const poster = x <= 30 && y <= 26 && !head(x, y);
         const wisp = x === 40 && y >= 14 && y <= 18 && !head(x, y);
         const onHead = head(x, y);
-        data[index] = poster ? 150 : 210;
-        data[index + 1] = poster ? 110 : 210;
-        data[index + 2] = poster ? 90 : 210;
+        data[index] = poster ? 40 : 210;
+        data[index + 1] = poster ? 70 : 210;
+        data[index + 2] = poster ? 210 : 210;
         data[index + 3] = 0;
         if (onHead || wisp) {
           data[index] = 36;
@@ -452,6 +452,94 @@ describe("photo background maths", () => {
     expect(data[(8 * width + 8) * 4 + 3]).toBeLessThan(20);
     expect(data[(16 * width + 40) * 4 + 3]).toBeGreaterThan(100);
     expect(data[(36 * width + 40) * 4 + 3]).toBeGreaterThan(200);
+  });
+
+  it("keeps a skin-toned head on a dark shirt", () => {
+    const width = 64;
+    const height = 80;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const head = (x: number, y: number) => (x - 32) ** 2 + (y - 24) ** 2 <= 16 ** 2;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const shirt = y >= 36 && x >= 12 && x <= 52;
+        const neck = y >= 32 && y < 36 && x >= 26 && x <= 38;
+        const onHead = head(x, y);
+        if (onHead || neck) {
+          data[index] = 200;
+          data[index + 1] = 150;
+          data[index + 2] = 114;
+          data[index + 3] = 255;
+        } else if (shirt) {
+          data[index] = 18;
+          data[index + 1] = 20;
+          data[index + 2] = 28;
+          data[index + 3] = 255;
+        }
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(24 * width + 32) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(20 * width + 32) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(50 * width + 32) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(50 * width + 18) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(50 * width + 46) * 4 + 3]).toBeGreaterThan(200);
+  });
+
+  it("keeps a skin-toned head that sits above a larger dark shirt", () => {
+    const width = 64;
+    const height = 88;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const head = (x: number, y: number) => (x - 32) ** 2 + (y - 18) ** 2 <= 12 ** 2;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const shirt = y >= 40 && x >= 8 && x <= 56;
+        if (head(x, y)) {
+          data[index] = 186;
+          data[index + 1] = 132;
+          data[index + 2] = 102;
+          data[index + 3] = 255;
+        } else if (shirt) {
+          data[index] = 16;
+          data[index + 1] = 18;
+          data[index + 2] = 26;
+          data[index + 3] = 255;
+        }
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(18 * width + 32) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(14 * width + 32) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(60 * width + 20) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(60 * width + 44) * 4 + 3]).toBeGreaterThan(200);
+  });
+
+  it("keeps the head when a colour rule would erase it", () => {
+    const width = 64;
+    const height = 80;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const head = (x: number, y: number) => (x - 32) ** 2 + (y - 22) ** 2 <= 14 ** 2;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        const shirt = y >= 34 && x >= 14 && x <= 50;
+        if (head(x, y)) {
+          data[index] = 30;
+          data[index + 1] = 190;
+          data[index + 2] = 40;
+          data[index + 3] = 255;
+        } else if (shirt) {
+          data[index] = 16;
+          data[index + 1] = 18;
+          data[index + 2] = 24;
+          data[index + 3] = 255;
+        }
+      }
+    }
+    cleanCutoutEdges({ width, height, data });
+    expect(data[(22 * width + 32) * 4 + 3]).toBeGreaterThan(200);
+    expect(data[(18 * width + 32) * 4 + 3]).toBeGreaterThan(200);
   });
 });
 
