@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Club, Member, createMember, getClubs, updateMember } from "@/lib/club-admin-api";
+import { sanitizeStoredNumber } from "@/lib/card-read";
 import { parseDisplayDateToIso, formatDateInputValue } from "@/lib/date-display";
 import { LICENSE_ROLE_VALUES, canonicalizeLicenseRole, type LicenseRoleValue } from "@/lib/license-roles";
 
@@ -32,6 +33,7 @@ const createSchema = z
     secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
     is_active: z.boolean(),
     social_security_number: z.string().optional(),
+    social_security_country: z.enum(["LU", "DE", "FR", "BE"]),
   })
   .superRefine((values, context) => {
     if (values.secondary_license_role && !values.primary_license_role) {
@@ -68,6 +70,7 @@ const editSchema = z.object({
   primary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")),
   secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")),
   is_active: z.boolean(),
+  usual_name: z.string().max(150),
 });
 
 type CreateValues = z.infer<typeof createSchema>;
@@ -101,6 +104,7 @@ export function MemberFormPanel({
   onSaved: () => void | Promise<void>;
 }) {
   const t = useTranslations("ClubAdmin");
+  const verifyT = useTranslations("Verification");
   const clubT = useTranslations("ClubMgmt");
   const importT = useTranslations("Import");
   const common = useTranslations("Common");
@@ -137,6 +141,7 @@ export function MemberFormPanel({
       primary_license_role: "",
       secondary_license_role: "",
       is_active: true,
+      social_security_country: "LU",
     },
   });
   const editForm = useForm<EditValues>({
@@ -152,6 +157,7 @@ export function MemberFormPanel({
       primary_license_role: "",
       secondary_license_role: "",
       is_active: true,
+      usual_name: "",
     },
   });
 
@@ -194,6 +200,7 @@ export function MemberFormPanel({
       secondary_license_role: "",
       is_active: true,
       social_security_number: "",
+      social_security_country: "LU",
     });
     setErrorMessage(null);
   }, [open, mode, selectedClubId, clubOptions, createForm]);
@@ -213,6 +220,7 @@ export function MemberFormPanel({
       primary_license_role: canonicalizeLicenseRole(member.primary_license_role),
       secondary_license_role: canonicalizeLicenseRole(member.secondary_license_role),
       is_active: member.is_active,
+      usual_name: member.usual_name ?? "",
     });
     setErrorMessage(null);
   }, [open, mode, member, editForm]);
@@ -240,6 +248,7 @@ export function MemberFormPanel({
         secondary_license_role: (values.secondary_license_role ?? "") as LicenseRoleValue | "",
         is_active: values.is_active,
         social_security_number: requireSsn ? values.social_security_number?.trim() : undefined,
+        social_security_country: requireSsn ? values.social_security_country : undefined,
       });
       await onSaved();
     } catch (error) {
@@ -253,15 +262,21 @@ export function MemberFormPanel({
     }
     setErrorMessage(null);
     try {
+      const locked = Boolean(member.card_verified);
       await updateMember(member.id, {
         club: member.club,
-        first_name: values.first_name.trim(),
-        last_name: values.last_name.trim(),
-        sex: values.sex,
+        ...(locked
+          ? {}
+          : {
+              first_name: values.first_name.trim(),
+              last_name: values.last_name.trim(),
+              sex: values.sex,
+              date_of_birth: parseDisplayDateToIso(values.date_of_birth),
+            }),
+        usual_name: values.usual_name.trim(),
         email: values.email.trim(),
         wt_licenseid: values.wt_licenseid.trim(),
         ltf_licenseid: values.ltf_licenseid.trim(),
-        date_of_birth: parseDisplayDateToIso(values.date_of_birth),
         primary_license_role: values.primary_license_role,
         secondary_license_role: values.secondary_license_role,
         is_active: values.is_active,
@@ -314,10 +329,14 @@ export function MemberFormPanel({
             ) : null}
           </div>
         ) : null}
+        {editing && member?.card_verified ? (
+          <p className="text-sm text-muted sm:col-span-2">{verifyT("lockedHint")}</p>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="member-panel-first-name" required>{t("firstNameLabel")}</Label>
           <Input
             id="member-panel-first-name"
+            disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
           />
           {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name) ? (
@@ -330,6 +349,7 @@ export function MemberFormPanel({
           <Label htmlFor="member-panel-last-name" required>{t("lastNameLabel")}</Label>
           <Input
             id="member-panel-last-name"
+            disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("last_name") : createForm.register("last_name"))}
           />
           {(editing ? editForm.formState.errors.last_name : createForm.formState.errors.last_name) ? (
@@ -343,6 +363,7 @@ export function MemberFormPanel({
           <PopoverSelect
             ariaLabel={t("sexLabel")}
             className="w-full"
+            disabled={Boolean(editing && member?.card_verified)}
             value={editing ? editForm.watch("sex") : createForm.watch("sex")}
             onValueChange={(value) => {
               const sex = value as "M" | "F";
@@ -405,13 +426,37 @@ export function MemberFormPanel({
             </div>
             {requireSsn ? (
               <div className="space-y-2 sm:col-span-2">
+                <Label>{verifyT("ssnCountry")}</Label>
+                <PopoverSelect
+                  ariaLabel={verifyT("ssnCountry")}
+                  className="w-full"
+                  value={createForm.watch("social_security_country")}
+                  onValueChange={(value) => {
+                    createForm.setValue("social_security_country", value as "LU" | "DE" | "FR" | "BE");
+                    createForm.setValue(
+                      "social_security_number",
+                      sanitizeStoredNumber(value, createForm.getValues("social_security_number") || ""),
+                    );
+                  }}
+                  options={[
+                    { value: "LU", label: verifyT("countryLU") },
+                    { value: "DE", label: verifyT("countryDE") },
+                    { value: "FR", label: verifyT("countryFR") },
+                    { value: "BE", label: verifyT("countryBE") },
+                  ]}
+                />
                 <Label htmlFor="member-panel-ssn" required>{clubT("ssn")}</Label>
                 <Input
                   id="member-panel-ssn"
-                  inputMode="numeric"
                   autoComplete="off"
-                  maxLength={13}
+                  maxLength={createForm.watch("social_security_country") === "FR" ? 15 : createForm.watch("social_security_country") === "DE" ? 12 : createForm.watch("social_security_country") === "BE" ? 11 : 13}
                   {...createForm.register("social_security_number")}
+                  onChange={(event) => {
+                    createForm.setValue(
+                      "social_security_number",
+                      sanitizeStoredNumber(createForm.getValues("social_security_country"), event.target.value),
+                    );
+                  }}
                 />
               </div>
             ) : null}
@@ -422,9 +467,16 @@ export function MemberFormPanel({
           <Input
             id="member-panel-dob"
             placeholder="29 Nov 2026"
+            disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("date_of_birth") : createForm.register("date_of_birth"))}
           />
         </div>
+        {editing ? (
+          <div className="space-y-2">
+            <Label htmlFor="member-panel-usual">{verifyT("usualName")}</Label>
+            <Input id="member-panel-usual" {...editForm.register("usual_name")} />
+          </div>
+        ) : null}
         {editing ? (
           <div className="space-y-2">
             <Label>{t("beltRankLabel")}</Label>

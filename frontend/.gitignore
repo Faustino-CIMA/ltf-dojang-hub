@@ -48,3 +48,5 @@ next-env.d.ts
 /public/background-removal/
 # Face Landmarker weights and WASM, fetched when the frontend image is built.
 /public/face-check/
+# On-device card reader, copied when the frontend image is built.
+/public/ocr/

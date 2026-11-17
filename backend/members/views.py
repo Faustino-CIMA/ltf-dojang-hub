@@ -21,7 +21,7 @@ from clubmgmt.serializers import CommitteeTermHistorySerializer
 from clubmgmt.body_measurements import annotate_latest_measurements, measurement_club_ids
 from clubmgmt.teams import ClubTeamMembership
 
-from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer
+from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer, MemberVerification
 from .serializers import (
     GradePromotionCreateSerializer,
     GradePromotionHistorySerializer,
@@ -93,6 +93,17 @@ def _finance_only_view(user) -> bool:
     if desk == "ltf_finance":
         return True
     return getattr(user, "role", None) == "ltf_finance"
+
+
+def _with_card_verified(queryset):
+    return queryset.annotate(
+        card_verified=Exists(
+            MemberVerification.objects.filter(
+                member_id=OuterRef("pk"),
+                status=MemberVerification.Status.VERIFIED,
+            )
+        )
+    )
 
 
 class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet, MemberVerificationActions):
@@ -336,13 +347,13 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet, MemberVe
                 directed = field.desc(nulls_last=True) if descending else field.asc(nulls_last=True)
                 from accounts.desks import scope_to_active_club
 
-                return scope_to_active_club(self.request, queryset, "club_id").order_by(
+                return scope_to_active_club(self.request, _with_card_verified(queryset), "club_id").order_by(
                     directed, "last_name", "first_name", "id"
                 )
         from accounts.desks import scope_to_active_club
 
         return apply_list_ordering(
-            scope_to_active_club(self.request, queryset, "club_id"),
+            scope_to_active_club(self.request, _with_card_verified(queryset), "club_id"),
             ordering,
             allowed=allowed,
             default=("last_name", "first_name", "id"),

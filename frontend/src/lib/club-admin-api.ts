@@ -70,6 +70,7 @@ export type Member = {
   club: number;
   first_name: string;
   last_name: string;
+  usual_name?: string;
   sex: "M" | "F";
   email: string;
   wt_licenseid: string;
@@ -85,6 +86,7 @@ export type Member = {
   photo_consent_attested_by?: number | null;
   is_active: boolean;
   account_state?: "none" | "pending" | "active" | "disabled";
+  card_verified?: boolean;
   minor_account?: boolean;
   picture_review?: "" | "pending";
   review_state?: "" | "none" | "pending" | "rejected";
@@ -213,12 +215,14 @@ export type MemberInput = {
   club?: number;
   first_name?: string;
   last_name?: string;
+  usual_name?: string;
   sex?: "M" | "F";
   email?: string;
   wt_licenseid?: string;
   ltf_licenseid?: string;
   ltf_license_prefix?: "LUX" | "LTF";
   social_security_number?: string;
+  social_security_country?: string;
   date_of_birth?: string | null;
   belt_rank?: string;
   primary_license_role?: LicenseRoleValue | "";

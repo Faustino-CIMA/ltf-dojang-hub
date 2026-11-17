@@ -28,6 +28,7 @@ import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { VerifiedBadge } from "@/components/members/verified-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { PhotoReviewMark, PictureReviewPanel } from "@/components/members/picture-review-panel";
 import { useDeskAccess } from "@/components/desk-access";
@@ -107,6 +108,7 @@ function memberToUpdateBody(member: Member, is_active: boolean) {
 
 export default function ClubAdminMembersPage() {
   const t = useTranslations("ClubAdmin");
+  const verifyT = useTranslations("Verification");
   const importT = useTranslations("Import");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -1106,7 +1108,12 @@ export default function ClubAdminMembersPage() {
                 key: "name",
                 header: common("fullNameLabel"),
                 sortable: true,
-                render: (member: Member) => formatFullName(member),
+                render: (member: Member) => (
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span>{formatFullName(member)}</span>
+                    {member.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
+                  </span>
+                ),
               },
               {
                 key: "account",
