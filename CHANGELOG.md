@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A club admin or an LTF admin can verify a member from the text of a Luxembourg, German, French, or Belgian social security card. A match locks the legal name, date of birth, sex, and social security number until someone unlocks them and gives a reason. The card photo is not accepted.
 - **Members:** A new member starts at 10th Kup and has no licence number until the first licence request. Club management asks for the social security number when that module is on.
 - **Ops:** The ops page shows whether the background-removal worker is online, how many photos are waiting, and the last successful removal.
 - **Photos:** Removing the background uses the server. If the server cannot finish, the portrait model on the phone is used. The page says whether Server or Local did the work.

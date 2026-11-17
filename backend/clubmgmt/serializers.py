@@ -138,6 +138,7 @@ class MemberRecordSerializer(serializers.ModelSerializer):
             "member",
             "member_name",
             "social_security_number",
+            "social_security_country",
             "nationality_1",
             "nationality_2",
             "joined_at",
@@ -174,11 +175,10 @@ class MemberRecordSerializer(serializers.ModelSerializer):
         return f"{obj.member.first_name} {obj.member.last_name}"
 
     def validate_social_security_number(self, value):
-        from .models import validate_luxembourg_ssn
+        return str(value or "").strip()
 
-        if value:
-            validate_luxembourg_ssn(value)
-        return value
+    def validate_social_security_country(self, value):
+        return str(value or "").strip().upper()
 
     def validate_membership_fee(self, value):
         if value is None:
@@ -191,6 +191,37 @@ class MemberRecordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         assert_single_invoice_address(getattr(self, "initial_data", {}).get("addresses"))
+        if "social_security_number" in attrs or "social_security_country" in attrs:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+
+            from members.ssn_countries import SsnError, validate_ssn
+            from members.verification import ensure_record_update_unlocked
+
+            number = attrs.get(
+                "social_security_number",
+                getattr(self.instance, "social_security_number", ""),
+            )
+            country = attrs.get(
+                "social_security_country",
+                getattr(self.instance, "social_security_country", ""),
+            )
+            country = str(country or "").strip().upper()
+            number = str(number or "").strip()
+            if number and not country:
+                country = "LU"
+                attrs["social_security_country"] = country
+            if self.instance is not None:
+                try:
+                    ensure_record_update_unlocked(self.instance, attrs)
+                except DjangoValidationError as exc:
+                    raise serializers.ValidationError(exc.message_dict) from exc
+            if number:
+                try:
+                    attrs["social_security_number"] = validate_ssn(country, number)
+                except SsnError as exc:
+                    raise serializers.ValidationError(
+                        {"social_security_number": exc.messages}
+                    ) from exc
         return attrs
 
 

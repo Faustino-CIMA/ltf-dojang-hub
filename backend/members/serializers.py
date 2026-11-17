@@ -45,7 +45,7 @@ def _new_member_needs_ssn(user, club) -> bool:
     return can_manage_club_records(user, getattr(club, "id", club))
 
 
-def _check_new_member_ssn(value, *, club, user) -> None:
+def _check_new_member_ssn(value, *, club, user, country: str = "LU") -> None:
     raw = str(value or "").strip()
     required = _new_member_needs_ssn(user, club)
     if required and not raw:
@@ -58,22 +58,25 @@ def _check_new_member_ssn(value, *, club, user) -> None:
         )
     if not raw:
         return
-    from django.core.exceptions import ValidationError as DjangoValidationError
+    from members.ssn_countries import SsnError, validate_ssn
 
-    from clubmgmt.models import validate_luxembourg_ssn
-
+    country = str(country or "LU").strip().upper() or "LU"
     try:
-        validate_luxembourg_ssn(raw)
-    except DjangoValidationError as exc:
+        validate_ssn(country, raw)
+    except SsnError as exc:
         raise serializers.ValidationError({"social_security_number": exc.messages}) from exc
 
 
-def _store_new_member_ssn(member, ssn: str) -> None:
+def _store_new_member_ssn(member, ssn: str, country: str = "LU") -> None:
     from clubmgmt.models import MemberRecord
 
+    from members.ssn_countries import validate_ssn
+
+    country = str(country or "LU").strip().upper() or "LU"
     record, _created = MemberRecord.objects.get_or_create(member=member)
-    record.social_security_number = ssn
-    record.save(update_fields=["social_security_number", "updated_at"])
+    record.social_security_number = validate_ssn(country, ssn)
+    record.social_security_country = country
+    record.save(update_fields=["social_security_number", "social_security_country", "updated_at"])
 
 
 class MemberSerializer(serializers.ModelSerializer):
@@ -118,6 +121,11 @@ class MemberSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,
     )
+    social_security_country = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
 
     class Meta:
         model = Member
@@ -127,12 +135,14 @@ class MemberSerializer(serializers.ModelSerializer):
             "club",
             "first_name",
             "last_name",
+            "usual_name",
             "sex",
             "email",
             "wt_licenseid",
             "ltf_licenseid",
             "ltf_license_prefix",
             "social_security_number",
+            "social_security_country",
             "date_of_birth",
             "belt_rank",
             "primary_license_role",
@@ -223,7 +233,17 @@ class MemberSerializer(serializers.ModelSerializer):
                 attrs.get("social_security_number"),
                 club=attrs.get("club"),
                 user=getattr(self.context.get("request"), "user", None),
+                country=attrs.get("social_security_country") or "LU",
             )
+        if self.instance is not None:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+
+            from members.verification import ensure_member_update_unlocked
+
+            try:
+                ensure_member_update_unlocked(self.instance, attrs)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError(exc.message_dict) from exc
         if self.instance is not None and "club" in attrs and attrs.get("club") is None:
             raise serializers.ValidationError(
                 {"club": "Use LTF staff to record someone with no club."}
@@ -263,17 +283,20 @@ class MemberSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("ltf_license_prefix", None)
         ssn = str(validated_data.pop("social_security_number", "") or "").strip()
+        country = str(validated_data.pop("social_security_country", "") or "").strip().upper() or "LU"
         if not str(validated_data.get("belt_rank", "")).strip():
             validated_data["belt_rank"] = OFFICIAL_GRADES[0]
         # The licence number is assigned with the first licence request, not here.
         validated_data["ltf_licenseid"] = str(validated_data.get("ltf_licenseid", "") or "").strip()
         member = super().create(validated_data)
         if ssn:
-            _store_new_member_ssn(member, ssn)
+            _store_new_member_ssn(member, ssn, country)
         return member
 
     def update(self, instance, validated_data):
         validated_data.pop("ltf_license_prefix", None)
+        validated_data.pop("social_security_number", None)
+        validated_data.pop("social_security_country", None)
         previous_belt_rank = str(instance.belt_rank or "").strip()
         updated_member = super().update(instance, validated_data)
         new_belt_rank = str(updated_member.belt_rank or "").strip()

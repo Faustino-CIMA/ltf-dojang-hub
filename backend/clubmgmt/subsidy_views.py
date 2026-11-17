@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -14,7 +13,10 @@ from rest_framework.views import APIView
 from clubs.models import Club
 from members.models import Member
 
-from .models import CoachQualification, ExtraordinarySubsidy, MemberRecord, SubsidySeason, validate_luxembourg_ssn
+from members.ssn_countries import SsnError, validate_ssn
+from members.verification import is_verified
+
+from .models import CoachQualification, ExtraordinarySubsidy, MemberRecord, SubsidySeason
 from .subsidies import (
     _licensed_ids,
     build_dossier,
@@ -218,14 +220,19 @@ class SubsidyYouthIdView(APIView):
         if member is None:
             raise ValidationError({"member_id": "Member not found."})
         raw = str(request.data.get("national_id") or "").strip()
+        record, _created = MemberRecord.objects.get_or_create(member=member)
+        if is_verified(member) and raw != (record.social_security_number or ""):
+            raise ValidationError(
+                {"national_id": "This field is locked. Unlock the member before changing it."}
+            )
         if raw:
             try:
-                validate_luxembourg_ssn(raw)
-            except DjangoValidationError as error:
+                raw = validate_ssn("LU", raw)
+            except SsnError as error:
                 raise ValidationError({"national_id": error.messages}) from error
-        record, _created = MemberRecord.objects.get_or_create(member=member)
+            record.social_security_country = "LU"
         record.social_security_number = raw
-        record.save(update_fields=["social_security_number"])
+        record.save(update_fields=["social_security_number", "social_security_country", "updated_at"])
         return Response(build_dossier(club, _year(request)))
 
 

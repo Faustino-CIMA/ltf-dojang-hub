@@ -155,11 +155,9 @@ class MemberRecord(models.Model):
         related_name="member_records",
     )
     pays_license_fee = models.BooleanField(default=True)
-    social_security_number = models.CharField(
-        max_length=13,
-        blank=True,
-        validators=[validate_luxembourg_ssn],
-    )
+    social_security_number = models.CharField(max_length=20, blank=True)
+    # LU, DE, FR, or BE. Empty until a number is stored. Existing numbers are LU.
+    social_security_country = models.CharField(max_length=2, blank=True)
     nationality_1 = models.CharField(max_length=64, blank=True)
     nationality_2 = models.CharField(max_length=64, blank=True)
     joined_at = models.DateField(null=True, blank=True)
