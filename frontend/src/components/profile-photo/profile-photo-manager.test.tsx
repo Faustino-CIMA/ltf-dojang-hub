@@ -102,6 +102,11 @@ const labels = {
   removeBackgroundFallback: "The portrait model could not be loaded. The usual removal tool was used instead.",
   removeBackgroundServer: "Removing the background…",
   removeBackgroundServerFallback: "The server could not finish, so the portrait model on this phone was used instead.",
+  removalServer: "Server",
+  removalLocal: "Local",
+  removalServerStatus: "The background was removed on the server.",
+  removalLocalStatus: "The background was removed on this device.",
+  removalEngineGroup: "Where the background was removed",
   ...faceCheckEditorLabels((key) => {
     const text: Record<string, string> = {
       faceCheckDownload: "Downloading the face check… {percent}%",
@@ -457,7 +462,7 @@ describe("ProfilePhotoManager", () => {
     window.history.pushState(null, "", "/photo");
   });
 
-  it("uses the portrait model when the page does not name a mask", async () => {
+  it("uses the server when the page does not name a mask", async () => {
     window.history.pushState(null, "", "/photo");
     const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
     remove.mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
@@ -471,7 +476,54 @@ describe("ProfilePhotoManager", () => {
     await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
     fireEvent.click(screen.getByText("Remove background"));
     await waitFor(() => expect(remove).toHaveBeenCalled());
+    expect(remove.mock.calls.at(-1)?.[0].mask).toBe("server");
+    expect(await screen.findByText("The background was removed on the server.")).toBeInTheDocument();
+    expect(screen.getByTestId("removal-engine-server")).toHaveAttribute("data-tone", "success");
+    expect(screen.getByTestId("removal-engine-local")).toHaveAttribute("data-tone", "neutral");
+  });
+
+  it("keeps the portrait model when the page asks for it", async () => {
+    window.history.pushState(null, "", "/photo?mask=modnet");
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockResolvedValueOnce(new Blob(["png"], { type: "image/png" }));
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByText("Remove background"));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
     expect(remove.mock.calls.at(-1)?.[0].mask).toBe("modnet");
+    expect(await screen.findByText("The background was removed on this device.")).toBeInTheDocument();
+    expect(screen.getByTestId("removal-engine-local")).toHaveAttribute("data-tone", "success");
+    window.history.pushState(null, "", "/photo");
+  });
+
+  it("marks Local when the server falls back, and keeps the warning", async () => {
+    window.history.pushState(null, "", "/photo");
+    const remove = removeProfileBackground as jest.MockedFunction<typeof removeProfileBackground>;
+    remove.mockImplementationOnce(async (options) => {
+      options.onServerFallback?.();
+      return new Blob(["png"], { type: "image/png" });
+    });
+    const { container } = render(
+      <ProfilePhotoManager labels={labels} imageUrl={null} thumbnailUrl={null} />
+    );
+    fireEvent.click(screen.getByText("Change photo"));
+    fireEvent.change(container.querySelectorAll("input[type='file']")[0], {
+      target: { files: [new File(["hello"], "sample.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
+    fireEvent.click(screen.getByText("Remove background"));
+    expect(
+      await screen.findByText("The server could not finish, so the portrait model on this phone was used instead."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("The background was removed on this device.")).toBeInTheDocument();
+    expect(screen.getByTestId("removal-engine-local")).toHaveAttribute("data-tone", "success");
+    expect(screen.getByTestId("removal-engine-server")).toHaveAttribute("data-tone", "neutral");
   });
 
   it("says when the portrait model failed and the usual tool was used", async () => {

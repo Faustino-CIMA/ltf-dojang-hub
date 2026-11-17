@@ -2,17 +2,17 @@
  * In-browser background removal for the license-card photo.
  *
  * The cutout runs on the current crop (plus a margin), not the whole camera
- * frame. Weights are served from this origin. The photo is not uploaded.
+ * frame. The server does this unless the page asks for a model on the phone.
  */
 
 import { BackgroundFetchError, runWithModelFetch } from "@/lib/background-model-cache";
 
 export const LICENSE_PHOTO_BACKGROUND_DEFAULT = "#D9D9D9";
-/** Soft shadow under the person on the card grey. One place for preview and Save. */
-export const CUTOUT_SHADOW_OFFSET_X = 0;
-export const CUTOUT_SHADOW_OFFSET_Y = 8;
-export const CUTOUT_SHADOW_BLUR = 14;
-export const CUTOUT_SHADOW_STRENGTH = 0.16;
+/**
+ * Soft shadow on the card grey. The size follows the picture, so the small
+ * preview and the saved frame show the same shadow. One place for both.
+ */
+export const CUTOUT_SHADOW_STRENGTH = 0.55;
 export const BACKGROUND_REMOVAL_MODEL = "isnet_fp16";
 export const BACKGROUND_REMOVAL_LONG_SIDE = 1024;
 export const BACKGROUND_REMOVAL_CROP_MARGIN = 0.08;
@@ -1001,7 +1001,26 @@ export function compositeOntoColor(pixels: Uint8ClampedArray, color: Rgb): void 
   }
 }
 
-/** Grey card fill, then a light shadow, then the person. Used once for the preview and for Save. */
+/** Blur and drop, as a fraction of the picture, so a tall saved frame matches the preview. */
+export function cutoutShadowForFrame(height: number): { offsetY: number; blur: number; strength: number } {
+  const span = Math.max(1, height);
+  return {
+    offsetY: Math.max(2, Math.round(span * 0.03)),
+    blur: Math.max(2, Math.round(span * 0.07)),
+    strength: CUTOUT_SHADOW_STRENGTH,
+  };
+}
+
+/**
+ * Grey card fill, then a soft shadow around the solid shape, then the person.
+ * Used once for the preview and for Save.
+ *
+ * The shadow follows the solid part of the person and spreads into the grey
+ * beside them. A shadow that only sits under the feet is cut off, because the
+ * shoulders already reach the bottom of a licence photo. A soft server edge
+ * also keeps the wall colour in half-transparent pixels, which would paint
+ * over a shadow that lives only inside that edge.
+ */
 export function compositeCutoutForCard(
   pixels: Uint8ClampedArray,
   width: number,
@@ -1010,20 +1029,24 @@ export function compositeCutoutForCard(
 ): void {
   const count = width * height;
   const alpha = new Float32Array(count);
+  const core = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
-    alpha[index] = pixels[index * 4 + 3] / 255;
+    const coverage = pixels[index * 4 + 3] / 255;
+    alpha[index] = coverage;
+    core[index] = coverage >= 0.5 ? 1 : 0;
   }
-  const blurred = boxMean(boxMean(alpha, width, height, CUTOUT_SHADOW_BLUR), width, height, CUTOUT_SHADOW_BLUR);
+  const shadow = cutoutShadowForFrame(height);
+  const blurred = boxMean(boxMean(core, width, height, shadow.blur), width, height, shadow.blur);
   const out = new Uint8ClampedArray(pixels.length);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
-      const sampleX = x - CUTOUT_SHADOW_OFFSET_X;
-      const sampleY = y - CUTOUT_SHADOW_OFFSET_Y;
-      let shade = 0;
-      if (sampleX >= 0 && sampleY >= 0 && sampleX < width && sampleY < height) {
-        shade = blurred[sampleY * width + sampleX] * CUTOUT_SHADOW_STRENGTH;
+      const above = y - shadow.offsetY;
+      let shade = blurred[index];
+      if (above >= 0) {
+        shade = Math.max(shade, blurred[above * width + x]);
       }
+      shade *= shadow.strength;
       const coverage = alpha[index];
       const offset = index * 4;
       const baseRed = color.r * (1 - shade);
@@ -1515,7 +1538,7 @@ export async function removeProfileBackground(options: {
       ? full
       : resampleCrop(full, { x: 0, y: 0, width: full.width, height: full.height }, fitted.width, fitted.height);
   const inputBlob = await canvasToBlob(paintRaster(modelInput), "image/png");
-  const asked = options.mask ?? "modnet";
+  const asked = options.mask ?? "server";
   if (asked === "server") {
     report({ phase: "server" });
     try {

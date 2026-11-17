@@ -113,6 +113,11 @@ type ProfilePhotoManagerLabels = {
   removeBackgroundFallback: string;
   removeBackgroundServer: string;
   removeBackgroundServerFallback: string;
+  removalServer: string;
+  removalLocal: string;
+  removalServerStatus: string;
+  removalLocalStatus: string;
+  removalEngineGroup: string;
   faceCheckDownload: string;
   faceCheckPrepare: string;
   faceCheckFind: string;
@@ -354,6 +359,7 @@ export function ProfilePhotoManager({
   const [backgroundColor, setBackgroundColor] = useState(LICENSE_PHOTO_BACKGROUND_DEFAULT);
   const backgroundColorRef = useRef(LICENSE_PHOTO_BACKGROUND_DEFAULT);
   const [backgroundRemoved, setBackgroundRemoved] = useState(false);
+  const [removalEngine, setRemovalEngine] = useState<"server" | "local" | null>(null);
   const [removalPrintCrop, setRemovalPrintCrop] = useState<Area | null>(null);
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -560,6 +566,7 @@ export function ProfilePhotoManager({
     setPreviewImageUrl(null);
     setBackgroundColor(backgroundColorRef.current);
     setBackgroundRemoved(false);
+    setRemovalEngine(null);
     setRemovalPrintCrop(null);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
@@ -597,6 +604,7 @@ export function ProfilePhotoManager({
       setWorkingFile(working);
       setWorkingPreview(working);
       setBackgroundRemoved(false);
+      setRemovalEngine(null);
       setRemovalPrintCrop(printCrop ?? null);
       sourceBlurRef.current = null;
       setCrop({ x: 0, y: 0 });
@@ -1010,6 +1018,8 @@ export function ProfilePhotoManager({
       setWorkingFile(removedFile);
       setWorkingPreview(removedFile);
       setBackgroundRemoved(true);
+      const asked = removalMaskFromSearch(window.location.search);
+      setRemovalEngine(asked === "server" && !serverFellBack ? "server" : "local");
       setRemovalProblem(serverFellBack ? "server-fallback" : fellBack ? "fallback" : null);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
@@ -1333,7 +1343,42 @@ export function ProfilePhotoManager({
             >
               {isRemovingBackground ? labels.removeBackgroundBusy : labels.removeBackgroundButton}
             </Button>
+            <div role="group" aria-label={labels.removalEngineGroup} className="inline-flex items-center gap-1">
+              {(
+                [
+                  ["server", labels.removalServer],
+                  ["local", labels.removalLocal],
+                ] as const
+              ).map(([engine, label]) => {
+                const active = removalEngine === engine;
+                return (
+                  <span
+                    key={engine}
+                    data-testid={`removal-engine-${engine}`}
+                    data-tone={active ? "success" : "neutral"}
+                    aria-current={active ? "true" : undefined}
+                    aria-label={
+                      active
+                        ? `${label}. ${engine === "server" ? labels.removalServerStatus : labels.removalLocalStatus}`
+                        : label
+                    }
+                    className={`inline-flex h-5 items-center rounded-[var(--radius-chip)] border px-1.5 text-xs font-medium ${
+                      active
+                        ? "badge-success"
+                        : "border-[var(--border)] bg-secondary text-[var(--default-foreground)]"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
           </div>
+          {removalEngine ? (
+            <p role="status" aria-live="polite" className="text-xs text-muted">
+              {removalEngine === "server" ? labels.removalServerStatus : labels.removalLocalStatus}
+            </p>
+          ) : null}
           {removalProgress || faceProgress ? (
             <div className="space-y-1">
               <p className="text-xs text-muted">
