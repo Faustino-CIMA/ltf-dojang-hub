@@ -1780,7 +1780,7 @@
     "deleteGradeTitle": "Grad löschen",
     "deleteGradeDescription": "Sie löschen diese Graduierung. Der aktuelle Gürtelgrad des Mitglieds wird auf den letzten verbleibenden Grad gesetzt.",
     "beltRankManagedInGradesHint": "Ändern Sie den Gürtelgrad im Bereich Grade.",
-    "beltRankCreateHint": "Fügen Sie den Grad des Mitglieds nach dem Anlegen der Akte im Bereich Grade hinzu.",
+    "beltRankCreateHint": "Ein neues Mitglied beginnt beim 10. Kup. Die Lizenznummer wird mit dem ersten Lizenzantrag vergeben.",
     "editGradeTitle": "Grad bearbeiten",
     "gradeIssuedByLabel": "Ausgestellt von",
     "gradeIssuedByClubOption": "Verein",

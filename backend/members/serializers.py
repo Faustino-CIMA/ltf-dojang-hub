@@ -2,9 +2,8 @@ from rest_framework import serializers
 
 from licenses.models import License, LicenseHistoryEvent
 
-from .grades import OFFICIAL_GRADE_SET
+from .grades import OFFICIAL_GRADE_SET, OFFICIAL_GRADES
 from .models import GradePromotionHistory, Member, MemberTransfer
-from .services import generate_next_ltf_license_id
 from .transfers import get_club_tourist_threshold, is_club_tourist
 
 
@@ -36,6 +35,45 @@ def _normalize_official_grade(value: str) -> str:
     if normalized not in OFFICIAL_GRADE_SET:
         raise serializers.ValidationError("Grade must be a standard belt rank.")
     return normalized
+
+
+def _new_member_needs_ssn(user, club) -> bool:
+    if user is None or not getattr(user, "is_authenticated", False) or club is None:
+        return False
+    from clubmgmt.access import can_manage_club_records
+
+    return can_manage_club_records(user, getattr(club, "id", club))
+
+
+def _check_new_member_ssn(value, *, club, user) -> None:
+    raw = str(value or "").strip()
+    required = _new_member_needs_ssn(user, club)
+    if required and not raw:
+        raise serializers.ValidationError(
+            {"social_security_number": "A social security number is required."}
+        )
+    if raw and not required:
+        raise serializers.ValidationError(
+            {"social_security_number": "A social security number cannot be stored for this club."}
+        )
+    if not raw:
+        return
+    from django.core.exceptions import ValidationError as DjangoValidationError
+
+    from clubmgmt.models import validate_luxembourg_ssn
+
+    try:
+        validate_luxembourg_ssn(raw)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError({"social_security_number": exc.messages}) from exc
+
+
+def _store_new_member_ssn(member, ssn: str) -> None:
+    from clubmgmt.models import MemberRecord
+
+    record, _created = MemberRecord.objects.get_or_create(member=member)
+    record.social_security_number = ssn
+    record.save(update_fields=["social_security_number", "updated_at"])
 
 
 class MemberSerializer(serializers.ModelSerializer):
@@ -75,6 +113,11 @@ class MemberSerializer(serializers.ModelSerializer):
         required=False,
         default="LTF",
     )
+    social_security_number = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
 
     class Meta:
         model = Member
@@ -89,6 +132,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "wt_licenseid",
             "ltf_licenseid",
             "ltf_license_prefix",
+            "social_security_number",
             "date_of_birth",
             "belt_rank",
             "primary_license_role",
@@ -174,6 +218,12 @@ class MemberSerializer(serializers.ModelSerializer):
             )
         if self.instance is None and not attrs.get("club"):
             raise serializers.ValidationError({"club": "Club is required."})
+        if self.instance is None:
+            _check_new_member_ssn(
+                attrs.get("social_security_number"),
+                club=attrs.get("club"),
+                user=getattr(self.context.get("request"), "user", None),
+            )
         if self.instance is not None and "club" in attrs and attrs.get("club") is None:
             raise serializers.ValidationError(
                 {"club": "Use LTF staff to record someone with no club."}
@@ -211,10 +261,16 @@ class MemberSerializer(serializers.ModelSerializer):
         return normalized
 
     def create(self, validated_data):
-        ltf_prefix = validated_data.pop("ltf_license_prefix", "LTF")
-        if not str(validated_data.get("ltf_licenseid", "")).strip():
-            validated_data["ltf_licenseid"] = generate_next_ltf_license_id(prefix=ltf_prefix)
-        return super().create(validated_data)
+        validated_data.pop("ltf_license_prefix", None)
+        ssn = str(validated_data.pop("social_security_number", "") or "").strip()
+        if not str(validated_data.get("belt_rank", "")).strip():
+            validated_data["belt_rank"] = OFFICIAL_GRADES[0]
+        # The licence number is assigned with the first licence request, not here.
+        validated_data["ltf_licenseid"] = str(validated_data.get("ltf_licenseid", "") or "").strip()
+        member = super().create(validated_data)
+        if ssn:
+            _store_new_member_ssn(member, ssn)
+        return member
 
     def update(self, instance, validated_data):
         validated_data.pop("ltf_license_prefix", None)
