@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CircleAlert, Copy, ImageIcon, KeyRound, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { CircleAlert, Copy, ImageIcon, KeyRound, Pencil, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-react";
 
 import { MemberFilterBar, MemberIssueChip } from "@/components/members/member-filter-bar";
 import { PageSizeSelect } from "@/components/ui/list-page-chrome";
@@ -48,7 +48,7 @@ import {
 } from "@/lib/club-admin-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
-import { COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
+import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { getClubTeams, type ClubTeam } from "@/lib/club-teams-api";
 import { displayPageSize, LIST_PAGE_SIZE_OPTIONS, readListPage } from "@/lib/list-page";
 import { toOrderingParam, type TableSort } from "@/lib/table-sort";
@@ -143,6 +143,7 @@ export default function ClubAdminMembersPage() {
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<number[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [competitionOn, setCompetitionOn] = useState(false);
+  const [clubManagementOn, setClubManagementOn] = useState(false);
   const [clubTeams, setClubTeams] = useState<ClubTeam[]>([]);
   const [teamFilter, setTeamFilter] = useState<number[] | "none">([]);
   const [pendingRowStatusMember, setPendingRowStatusMember] = useState<Member | null>(null);
@@ -384,7 +385,10 @@ export default function ClubAdminMembersPage() {
     let cancelled = false;
     getModuleStatus()
       .then((status) => {
-        if (!cancelled) setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
+        if (!cancelled) {
+          setCompetitionOn(isClubModuleAssigned(status, COMPETITION_MODULE_ID, selectedClubId));
+          setClubManagementOn(isClubModuleAssigned(status, CLUB_MANAGEMENT_MODULE_ID, selectedClubId));
+        }
       })
       .catch(() => {
         if (!cancelled) setCompetitionOn(false);
@@ -948,9 +952,10 @@ export default function ClubAdminMembersPage() {
                 <ActionMenu
                   label={t("membersMenuLabel")}
                   actions={[
-                    { key: "create", label: t("createMember"), onSelect: startCreate },
+                    { key: "create", icon: <UserPlus aria-hidden />, label: t("createMember"), onSelect: startCreate },
                     {
                       key: "import",
+                      icon: <Upload aria-hidden />,
                       label: importT("importMembers"),
                       onSelect: () => router.push(`/${locale}/dashboard/club/members/import`),
                     },
@@ -1349,6 +1354,7 @@ export default function ClubAdminMembersPage() {
         mode="create"
         clubs={[]}
         selectedClubId={selectedClubId}
+        requireSsn={clubManagementOn}
         onClose={() => setCreateOpen(false)}
         onSaved={async () => {
           setCreateOpen(false);

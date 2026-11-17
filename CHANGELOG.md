@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A new member starts at 10th Kup and has no licence number until the first licence request. Club management asks for the social security number when that module is on.
 - **Ops:** The ops page shows whether the background-removal worker is online, how many photos are waiting, and the last successful removal.
 - **Photos:** Removing the background uses the server. If the server cannot finish, the portrait model on the phone is used. The page says whether Server or Local did the work.
 - **Photos:** A soft shadow shows in the grey around the person, in the preview and in the saved photo.

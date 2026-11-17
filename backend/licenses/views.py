@@ -2088,6 +2088,10 @@ class ClubOrderViewSet(OptionalPaginationListMixin, viewsets.ReadOnlyModelViewSe
         actor = request.user if request.user.is_authenticated else None
 
         with transaction.atomic():
+            from members.services import ensure_ltf_license_id
+
+            for member in members:
+                ensure_ltf_license_id(member)
             order = Order.objects.create(
                 club=club,
                 member=None,

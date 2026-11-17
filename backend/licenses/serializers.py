@@ -373,6 +373,9 @@ class OrderCreateSerializer(serializers.Serializer):
         total = subtotal + tax_total
 
         with transaction.atomic():
+            from members.services import ensure_ltf_license_id
+
+            ensure_ltf_license_id(member)
             order = Order.objects.create(
                 club=club,
                 member=member,

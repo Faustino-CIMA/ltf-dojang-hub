@@ -1780,7 +1780,7 @@
     "deleteGradeTitle": "Supprimer le grade",
     "deleteGradeDescription": "Vous allez supprimer ce passage de grade. Le grade de ceinture actuel du membre reprendra le dernier grade restant.",
     "beltRankManagedInGradesHint": "Changez le grade de ceinture dans l'onglet Grades.",
-    "beltRankCreateHint": "Ajoutez le grade du membre après la création de la fiche, dans la section Grades.",
+    "beltRankCreateHint": "Un nouveau membre commence au 10e Kup. Le numéro de licence est attribué à la première demande de licence.",
     "editGradeTitle": "Modifier le grade",
     "gradeIssuedByLabel": "Délivré par",
     "gradeIssuedByClubOption": "Club",

@@ -253,8 +253,9 @@ class MemberApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_id = response.data["id"]
         created_member = Member.objects.get(id=created_id)
-        self.assertEqual(created_member.ltf_licenseid, "LUX-0001")
-        self.assertEqual(created_member.ltf_licenseid, response.data["ltf_licenseid"])
+        self.assertEqual(created_member.ltf_licenseid, "")
+        self.assertEqual(created_member.belt_rank, "10th Kup")
+        self.assertEqual(response.data["ltf_licenseid"], "")
 
     def test_club_admin_create_member_auto_generates_ltf_licenseid_with_default_prefix(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -270,8 +271,9 @@ class MemberApiTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_member = Member.objects.get(id=response.data["id"])
-        self.assertEqual(created_member.ltf_licenseid, "LTF-0001")
-        self.assertEqual(created_member.ltf_licenseid, response.data["ltf_licenseid"])
+        self.assertEqual(created_member.ltf_licenseid, "")
+        self.assertEqual(created_member.belt_rank, "10th Kup")
+        self.assertEqual(response.data["ltf_licenseid"], "")
 
     def test_club_admin_create_member_falls_back_when_counter_table_missing(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -292,12 +294,112 @@ class MemberApiTests(TestCase):
             )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created_member = Member.objects.get(id=response.data["id"])
-        self.assertEqual(created_member.ltf_licenseid, "LTF-0001")
+        self.assertEqual(created_member.ltf_licenseid, "")
 
-    def test_generated_ltf_licenseid_expands_beyond_four_digits(self):
-        MemberLicenseIdCounter.objects.create(prefix="LTF", next_value=10000)
+    def test_first_licence_request_assigns_the_next_id_and_keeps_it(self):
+        from decimal import Decimal
+
+        from licenses.serializers import OrderCreateSerializer
+
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(
+            "/api/members/",
+            {"club": self.club.id, "first_name": "No", "last_name": "Number", "sex": "M"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        member = Member.objects.get(id=created.data["id"])
+        self.assertEqual(member.ltf_licenseid, "")
+        Member.objects.create(club=self.club, first_name="Imported", last_name="High", ltf_licenseid="LTF-0019")
+        OrderCreateSerializer(context={"request": created.wsgi_request}).create(
+            {
+                "club": self.club,
+                "member": member,
+                "currency": "EUR",
+                "tax_total": Decimal("0.00"),
+                "items": [
+                    {
+                        "license_type": self.license_type,
+                        "year": 2026,
+                        "price_snapshot": Decimal("10.00"),
+                        "quantity": 1,
+                    }
+                ],
+            }
+        )
+        member.refresh_from_db()
+        self.assertEqual(member.ltf_licenseid, "LTF-0020")
+        from members.services import ensure_ltf_license_id
+
+        self.assertEqual(ensure_ltf_license_id(member), "LTF-0020")
+
+    @patch("members.serializers._new_member_needs_ssn", return_value=True)
+    def test_club_management_create_stores_a_valid_ssn_and_does_not_echo_it(self, _needed):
+        from clubmgmt.models import MemberRecord
+
+        self.client.force_authenticate(user=self.club_admin)
+        missing = self.client.post(
+            "/api/members/",
+            {"club": self.club.id, "first_name": "Ada", "last_name": "NoSsn", "sex": "F"},
+            format="json",
+        )
+        self.assertEqual(missing.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("social_security_number", missing.data)
+        bad = self.client.post(
+            "/api/members/",
+            {
+                "club": self.club.id,
+                "first_name": "Ada",
+                "last_name": "BadSsn",
+                "sex": "F",
+                "social_security_number": "123",
+            },
+            format="json",
+        )
+        self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+        created = self.client.post(
+            "/api/members/",
+            {
+                "club": self.club.id,
+                "first_name": "Ada",
+                "last_name": "WithSsn",
+                "sex": "F",
+                "social_security_number": "1971100213046",
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn("social_security_number", created.data)
+        self.assertNotIn("1971100213046", json.dumps(created.data))
+        record = MemberRecord.objects.get(member_id=created.data["id"])
+        self.assertEqual(record.social_security_number, "1971100213046")
+
+    @patch("members.serializers._new_member_needs_ssn", return_value=False)
+    def test_create_refuses_an_ssn_when_club_management_is_off(self, _needed):
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/members/",
+            {
+                "club": self.club.id,
+                "first_name": "Ada",
+                "last_name": "Plain",
+                "sex": "F",
+                "social_security_number": "1971100213046",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("social_security_number", response.data)
+
+    def test_generated_ltf_licenseid_follows_the_highest_existing_number(self):
+        Member.objects.create(club=self.club, first_name="Low", last_name="Id", ltf_licenseid="LTF-0007")
+        Member.objects.create(club=self.club, first_name="High", last_name="Id", ltf_licenseid="LTF-0042")
+        MemberLicenseIdCounter.objects.create(prefix="LTF", next_value=3)
         generated = generate_next_ltf_license_id(prefix="LTF")
-        self.assertEqual(generated, "LTF-10000")
+        self.assertEqual(generated, "LTF-0043")
+        Member.objects.create(club=self.club, first_name="Next", last_name="Id", ltf_licenseid=generated)
+        again = generate_next_ltf_license_id(prefix="LTF")
+        self.assertEqual(again, "LTF-0044")
 
     def test_generated_ltf_licenseid_skips_existing_six_digit_equivalent(self):
         Member.objects.create(
