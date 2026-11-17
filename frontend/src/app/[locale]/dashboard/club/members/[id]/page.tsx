@@ -25,6 +25,7 @@ import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { faceCheckEditorLabels } from "@/lib/face-check";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { VerifiedBadge } from "@/components/members/verified-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -85,6 +86,7 @@ function parseMemberDetailTab(value: string | null): MemberDetailTab {
 
 export default function ClubMemberDetailPage() {
   const t = useTranslations("ClubAdmin");
+  const verifyT = useTranslations("Verification");
   const commonT = useTranslations("Common");
   const importT = useTranslations("Import");
   const params = useParams();
@@ -420,6 +422,7 @@ export default function ClubMemberDetailPage() {
                 memberId={member.id}
                 clubId={member.club}
                 overviewEmail={member.email ?? ""}
+                numberLocked={Boolean(member.card_verified)}
               />
             ) : null}
             {activeTab === "overview" ? (
@@ -441,8 +444,13 @@ export default function ClubMemberDetailPage() {
                     }
                   />
                   <MemberNationalTeamBadge memberId={member.id} />
+                  {member.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
                 </div>
                 {canManageMemberFull ? (
+                  <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/${locale}/dashboard/club/members/${member.id}/verify`}>{verifyT("verify")}</Link>
+                  </Button>
                   <RowActionMenu
                     label={commonT("rowActionsLabel")}
                     actions={[
@@ -461,6 +469,7 @@ export default function ClubMemberDetailPage() {
                         : []),
                     ]}
                   />
+                  </div>
                 ) : null}
               </div>
               <div className="mt-4">

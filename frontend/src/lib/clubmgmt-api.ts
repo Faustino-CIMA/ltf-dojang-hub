@@ -9,6 +9,7 @@ export type MemberRecord = {
   member: number;
   member_name: string;
   social_security_number: string;
+  social_security_country?: string;
   nationality_1: string;
   nationality_2: string;
   joined_at: string | null;

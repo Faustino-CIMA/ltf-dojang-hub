@@ -18,6 +18,9 @@ RUN node scripts/fetch-background-removal-assets.mjs
 RUN node scripts/fetch-face-check-assets.mjs
 # Portrait matte used only when the page is opened with mask=modnet.
 RUN node scripts/fetch-modnet-asset.mjs
+# On-device card reader. Copies the locked OCR runtime onto this origin.
+# The card photo is never part of this copy.
+RUN node scripts/copy-card-reader.mjs
 RUN npm run build && chown -R app:app /app
 
 EXPOSE 3000

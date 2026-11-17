@@ -10,6 +10,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { VerifiedBadge } from "@/components/members/verified-badge";
 import { PhotoReviewMark, PictureReviewPanel } from "@/components/members/picture-review-panel";
 import { useDeskAccess } from "@/components/desk-access";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
@@ -76,6 +77,7 @@ function staffFunctionLabel(t: (key: string) => string, member: Member) {
 
 export default function LtfAdminMembersPage() {
   const t = useTranslations("LtfAdmin");
+  const verifyT = useTranslations("Verification");
   const importT = useTranslations("Import");
   const common = useTranslations("Common");
   const pathname = usePathname();
@@ -384,6 +386,7 @@ export default function LtfAdminMembersPage() {
         render: (row: Member) => (
           <span className="inline-flex flex-wrap items-center gap-2">
             <span>{formatFullName(row)}</span>
+            {row.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
             {row.is_ltf_staff ? <StatusBadge label={staffFunctionLabel(t, row)} tone="info" /> : null}
             {row.is_club_tourist ? <StatusBadge label={t("clubTouristBadge")} tone="warning" /> : null}
           </span>
@@ -572,7 +575,7 @@ export default function LtfAdminMembersPage() {
           ]
         : []),
     ],
-    [accountLabel, canDecidePhoto, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, readOnly, selectedIds, t, toggleSelectRow, visibleIds]
+    [accountLabel, canDecidePhoto, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, readOnly, selectedIds, t, toggleSelectRow, verifyT, visibleIds]
   );
 
   return (

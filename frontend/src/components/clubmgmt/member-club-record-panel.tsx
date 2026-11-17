@@ -15,6 +15,7 @@ import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatFullName } from "@/lib/person-name";
+import { sanitizeStoredNumber } from "@/lib/card-read";
 import {
   convertPersonToMember,
   findContactMemberMatches,
@@ -66,6 +67,7 @@ type Props = {
   memberId: number;
   clubId: number;
   overviewEmail?: string;
+  numberLocked?: boolean;
 };
 
 const emptyAddress = (): AddressValue => ({
@@ -189,8 +191,9 @@ function phoneLabelText(label: string, t: ReturnType<typeof useTranslations>) {
   return t(`phoneLabel_${code}`);
 }
 
-export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: Props) {
+export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", numberLocked = false }: Props) {
   const t = useTranslations("ClubMgmt");
+  const verifyT = useTranslations("Verification");
   const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
@@ -260,6 +263,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         invoice_delivery: nextRecord.invoice_delivery || "email",
         membership_fee: nextRecord.membership_fee ?? null,
         pays_license_fee: nextRecord.pays_license_fee !== false,
+        social_security_country: nextRecord.social_security_country || "LU",
         nationality_1: nationalityCodeFromStored(nextRecord.nationality_1),
         nationality_2: nationalityCodeFromStored(nextRecord.nationality_2),
         emails: nextRecord.emails.filter((row) => row.email.trim()),
@@ -295,6 +299,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
       invoice_delivery: saved.invoice_delivery || "email",
       membership_fee: saved.membership_fee ?? null,
       pays_license_fee: saved.pays_license_fee !== false,
+      social_security_country: saved.social_security_country || "LU",
       nationality_1: nationalityCodeFromStored(saved.nationality_1),
       nationality_2: nationalityCodeFromStored(saved.nationality_2),
       emails: saved.emails.filter((row) => row.email.trim()),
@@ -879,14 +884,41 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "" }: 
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
+            <Label>{verifyT("ssnCountry")}</Label>
+            <PopoverSelect
+              ariaLabel={verifyT("ssnCountry")}
+              className="mt-1 w-full"
+              disabled={numberLocked}
+              value={record.social_security_country || "LU"}
+              onValueChange={(value) =>
+                setRecord({
+                  ...record,
+                  social_security_country: value,
+                  social_security_number: sanitizeStoredNumber(value, record.social_security_number),
+                })
+              }
+              options={[
+                { value: "LU", label: verifyT("countryLU") },
+                { value: "DE", label: verifyT("countryDE") },
+                { value: "FR", label: verifyT("countryFR") },
+                { value: "BE", label: verifyT("countryBE") },
+              ]}
+            />
+            {numberLocked ? <p className="mt-1 text-xs text-muted">{verifyT("lockedHint")}</p> : null}
+          </div>
+          <div>
             <Label>{t("ssn")}</Label>
             <Input
               className="mt-1"
-              maxLength={13}
-              inputMode="numeric"
+              disabled={numberLocked}
+              maxLength={(record.social_security_country || "LU") === "FR" ? 15 : (record.social_security_country || "LU") === "DE" ? 12 : (record.social_security_country || "LU") === "BE" ? 11 : 13}
+              autoComplete="off"
               value={record.social_security_number}
               onChange={(event) =>
-                setRecord({ ...record, social_security_number: event.target.value.replace(/\D/g, "").slice(0, 13) })
+                setRecord({
+                  ...record,
+                  social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", event.target.value),
+                })
               }
             />
           </div>

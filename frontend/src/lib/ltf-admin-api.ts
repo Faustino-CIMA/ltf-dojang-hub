@@ -56,6 +56,7 @@ export type Member = {
   club: number | null;
   first_name: string;
   last_name: string;
+  usual_name?: string;
   sex: "M" | "F";
   email: string;
   wt_licenseid: string;
@@ -71,6 +72,7 @@ export type Member = {
   photo_consent_attested_by?: number | null;
   is_active: boolean;
   account_state?: "none" | "pending" | "active" | "disabled";
+  card_verified?: boolean;
   minor_account?: boolean;
   picture_review?: "" | "pending";
   review_state?: "" | "none" | "pending" | "rejected";

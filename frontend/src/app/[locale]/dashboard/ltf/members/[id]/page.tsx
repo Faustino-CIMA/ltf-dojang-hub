@@ -25,6 +25,7 @@ import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { staffFunctionLabel as staffFunctionText } from "@/lib/ltf-staff-label";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { VerifiedBadge } from "@/components/members/verified-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -81,6 +82,7 @@ function parseMemberDetailTab(value: string | null): MemberDetailTab {
 
 export default function LtfMemberDetailPage() {
   const t = useTranslations("LtfAdmin");
+  const verifyT = useTranslations("Verification");
   const commonT = useTranslations("Common");
   const params = useParams();
   const router = useRouter();
@@ -344,8 +346,13 @@ export default function LtfMemberDetailPage() {
                                 : t("accountBadgeNone")
                         }
                       />
+                      {member.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
                     </div>
                     {canManageStaff ? (
+                      <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/${locale}/dashboard/ltf/members/${member.id}/verify`}>{verifyT("verify")}</Link>
+                      </Button>
                       <RowActionMenu
                         label={commonT("rowActionsLabel")}
                         actions={[
@@ -365,6 +372,7 @@ export default function LtfMemberDetailPage() {
                             : []),
                         ]}
                       />
+                      </div>
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm text-muted">{t("membersReadOnlyHint")}</p>

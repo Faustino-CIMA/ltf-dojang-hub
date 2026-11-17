@@ -162,22 +162,28 @@ def is_verified(member) -> bool:
 
 
 def verification_state(member) -> dict:
+    country, number = _stored_number(member)
+    has_number = bool(str(number or "").strip())
     row = _verification_row(member)
     if row is None or row.status != row.Status.VERIFIED:
-        return {
+        state = {
             "status": "unverified",
             "verified": False,
             "method": "",
             "verified_at": None,
             "locked_fields": [],
         }
-    return {
-        "status": "verified",
-        "verified": True,
-        "method": row.method,
-        "verified_at": row.verified_at,
-        "locked_fields": list(row.locked_fields or []),
-    }
+    else:
+        state = {
+            "status": "verified",
+            "verified": True,
+            "method": row.method,
+            "verified_at": row.verified_at,
+            "locked_fields": list(row.locked_fields or []),
+        }
+    state["has_number"] = has_number
+    state["country"] = country if has_number else ""
+    return state
 
 
 def can_verify_member(user, member) -> bool:
