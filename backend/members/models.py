@@ -565,3 +565,31 @@ class MemberVerificationEvent(models.Model):
         indexes = [
             models.Index(fields=["member", "-created_at"], name="member_verif_event_member"),
         ]
+
+
+class VerificationChallenge(models.Model):
+    """A one-time desktop code. The raw token is not stored, and neither is a card image."""
+
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="verification_challenges",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="verification_challenges",
+    )
+    session_key = models.CharField(max_length=128, blank=True)
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["member", "session_key"], name="member_verif_chal_session"),
+        ]

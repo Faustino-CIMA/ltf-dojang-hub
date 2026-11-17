@@ -233,7 +233,8 @@ async function executeApiRequest<T>(path: string, options: RequestOptions = {}):
     path.startsWith("/api/auth/resend-verification/") ||
     path.startsWith("/api/auth/password-reset/") ||
     path.startsWith("/api/auth/account-setup/") ||
-    path.startsWith("/api/module-renewals/");
+    path.startsWith("/api/module-renewals/") ||
+    path.startsWith("/api/verification-challenges/");
   const deskHeader = !skipAuthHeader ? readActiveDeskHeader() : null;
   const defaultHeaders: Record<string, string> = {
     ...(token && !skipAuthHeader ? { Authorization: `Token ${token}` } : {}),

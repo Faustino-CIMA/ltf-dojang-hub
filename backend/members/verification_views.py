@@ -2,17 +2,27 @@
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import MemberVerificationEvent
 from .verification import (
     VerificationError,
     can_verify_member,
+    cancel_challenge,
+    challenge_block_reason,
+    challenge_for_token,
     compare_is_limited,
     compare_member,
+    create_challenge,
     is_verified,
     lock_member,
+    mark_challenge_used,
+    note_token_guess,
     read_card_text,
+    request_session_key,
+    token_guess_limited,
     unlock_member,
     verification_state,
 )
@@ -85,7 +95,32 @@ class MemberVerificationActions:
         denied = self._verification_forbidden(request, member)
         if denied is not None:
             return denied
-        return Response(verification_state(member))
+        return Response(verification_state(member, session_key=request_session_key(request)))
+
+    @action(detail=True, methods=["post"], url_path="verification-challenges")
+    def verification_challenges(self, request, pk=None):
+        member = self.get_object()
+        denied = self._verification_forbidden(request, member)
+        if denied is not None:
+            return denied
+        raw, row = create_challenge(
+            member,
+            actor=request.user,
+            session_key=request_session_key(request),
+        )
+        return Response({"token": raw, "expires_at": row.expires_at}, status=201)
+
+    @action(detail=True, methods=["post"], url_path="verification-challenges/cancel")
+    def verification_challenges_cancel(self, request, pk=None):
+        member = self.get_object()
+        denied = self._verification_forbidden(request, member)
+        if denied is not None:
+            return denied
+        raw = ""
+        if hasattr(request.data, "get"):
+            raw = str(request.data.get("token") or "")
+        cancel_challenge(member, session_key=request_session_key(request), raw_token=raw)
+        return Response(verification_state(member, session_key=request_session_key(request)))
 
     @action(detail=True, methods=["get"], url_path="verification/events")
     def verification_events(self, request, pk=None):
@@ -159,4 +194,97 @@ class MemberVerificationActions:
             unlock_member(member, actor=request.user, reason=request.data.get("reason"))
         except VerificationError as exc:
             return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
-        return Response(verification_state(member))
+        return Response(verification_state(member, session_key=request_session_key(request)))
+
+
+def _client_ip(request) -> str:
+    return str(request.META.get("REMOTE_ADDR") or "unknown")[:64]
+
+
+def _challenge_summary(row) -> dict:
+    state = verification_state(row.member)
+    return {
+        "open": True,
+        "expires_at": row.expires_at,
+        "country": state["country"],
+        "has_number": state["has_number"],
+        "verified": False,
+    }
+
+
+class VerificationChallengeView(APIView):
+    """The phone call. The token is the credential. No card image is accepted."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        return self._open(request, token, consume=False)
+
+    def post(self, request, token):
+        if _image_sent(request):
+            return Response({"detail": "The card photo is not accepted."}, status=400)
+        row, blocked = self._open(request, token, consume=False, as_row=True)
+        if blocked is not None:
+            return blocked
+        member = row.member
+        if compare_is_limited(row.created_by_id or 0, member.id):
+            return Response({"detail": "Too many checks. Try again later."}, status=429)
+        if is_verified(member):
+            mark_challenge_used(row)
+            return Response({"match": True, "verified": True})
+        try:
+            card = read_card_text(request.data)
+        except VerificationError as exc:
+            return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
+        try:
+            result = compare_member(member, card)
+        except VerificationError as exc:
+            return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
+        if not result.match:
+            body = {"match": False, "fields": list(result.fields), "verified": False}
+            if result.reason:
+                body["reason"] = result.reason
+            return Response(body)
+        if card.confirm_names is None:
+            return Response(
+                {
+                    "match": True,
+                    "needs_confirmation": True,
+                    "card_first_name": result.card_first_name,
+                    "card_last_name": result.card_last_name,
+                    "verified": False,
+                }
+            )
+        try:
+            lock_member(member, card, actor=row.created_by)
+        except VerificationError as exc:
+            if exc.code == "mismatch":
+                return Response({"match": False, "fields": list(exc.fields), "verified": False})
+            return Response({"detail": _ERROR_TEXT.get(exc.code, "The card could not be checked.")}, status=400)
+        except DjangoValidationError as exc:
+            return Response(getattr(exc, "message_dict", {"detail": exc.messages}), status=400)
+        mark_challenge_used(row)
+        return Response(
+            {
+                "match": True,
+                "verified": True,
+                "locked_fields": list(verification_state(member)["locked_fields"]),
+            }
+        )
+
+    def _open(self, request, token, consume=False, as_row=False):
+        ip = _client_ip(request)
+        if token_guess_limited(ip):
+            blocked = Response({"detail": "Too many checks. Try again later."}, status=429)
+            return (None, blocked) if as_row else blocked
+        row = challenge_for_token(str(token or ""))
+        reason = challenge_block_reason(row)
+        if reason == "invalid":
+            note_token_guess(ip)
+        if reason:
+            blocked = Response({"detail": reason}, status=404 if reason == "invalid" else 410)
+            return (None, blocked) if as_row else blocked
+        if as_row:
+            return row, None
+        return Response(_challenge_summary(row))

@@ -14,7 +14,7 @@ export default function ClubMemberVerifyPage() {
   const memberId = typeof rawId === "string" ? Number(rawId) : Number(rawId?.[0]);
   return (
     <ClubAdminLayout title={t("title")}>
-      <MemberVerifyScreen memberId={memberId} backHref={`/${locale}/dashboard/club/members/${memberId}`} />
+      <MemberVerifyScreen memberId={memberId} locale={locale} backHref={`/${locale}/dashboard/club/members/${memberId}`} />
     </ClubAdminLayout>
   );
 }

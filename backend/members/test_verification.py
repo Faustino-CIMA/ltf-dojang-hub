@@ -431,6 +431,119 @@ class VerificationApiTests(TestCase):
         self.assertIn("no social security number", response.data["detail"].lower())
 
 
+class DesktopCodeTests(TestCase):
+    def setUp(self):
+        VerificationApiTests.setUp(self)
+
+    def _card(self, **overrides):
+        return VerificationApiTests._card(self, **overrides)
+    def test_code_is_hashed_single_use_and_hides_the_member(self):
+        from members.models import VerificationChallenge
+
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(
+            f"/api/members/{self.member.id}/verification-challenges/",
+            {},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        token = created.data["token"]
+        self.assertGreaterEqual(len(token), 32)
+        row = VerificationChallenge.objects.get(member=self.member)
+        self.assertNotIn(token, row.token_hash)
+        self.assertEqual(len(row.token_hash), 64)
+        state = self.client.get(f"/api/members/{self.member.id}/verification/")
+        self.assertTrue(state.data["challenge_open"])
+        self.assertNotIn(token, json.dumps(state.data, default=str))
+        self.client.logout()
+        looked = self.client.get(f"/api/verification-challenges/{token}/")
+        self.assertEqual(looked.status_code, 200, looked.data)
+        self.assertEqual(looked.data["country"], "LU")
+        self.assertTrue(looked.data["has_number"])
+        shown = json.dumps(looked.data, default=str)
+        self.assertNotIn(self.member.first_name, shown)
+        self.assertNotIn(self.number, shown)
+        self.assertNotIn(f'"member": {self.member.id}', shown)
+        self.assertNotIn(f'"id": {self.member.id}', shown)
+        preview = self.client.post(
+            f"/api/verification-challenges/{token}/",
+            self._card(),
+            format="json",
+        )
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertTrue(preview.data["needs_confirmation"])
+        row.refresh_from_db()
+        self.assertIsNone(row.used_at)
+        locked = self.client.post(
+            f"/api/verification-challenges/{token}/",
+            self._card(confirm_names=False),
+            format="json",
+        )
+        self.assertEqual(locked.status_code, 200, locked.data)
+        self.assertTrue(locked.data["verified"])
+        self.assertNotIn(self.number, json.dumps(locked.data, default=str))
+        used = self.client.post(
+            f"/api/verification-challenges/{token}/",
+            self._card(),
+            format="json",
+        )
+        self.assertEqual(used.status_code, 410)
+        self.assertEqual(used.data["detail"], "used")
+
+    def test_starting_again_cancels_the_previous_code(self):
+        self.client.force_authenticate(user=self.club_admin)
+        first = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        second = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        self.client.logout()
+        old = self.client.post(
+            f"/api/verification-challenges/{first.data['token']}/",
+            self._card(),
+            format="json",
+        )
+        self.assertEqual(old.status_code, 410)
+        self.assertEqual(old.data["detail"], "cancelled")
+        current = self.client.get(f"/api/verification-challenges/{second.data['token']}/")
+        self.assertEqual(current.status_code, 200)
+
+    def test_closing_cancels_only_that_code(self):
+        self.client.force_authenticate(user=self.club_admin)
+        first = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        self.client.post(
+            f"/api/members/{self.member.id}/verification-challenges/cancel/",
+            {"token": first.data["token"]},
+            format="json",
+        )
+        self.client.logout()
+        cancelled = self.client.get(f"/api/verification-challenges/{first.data['token']}/")
+        self.assertEqual(cancelled.status_code, 410)
+        self.assertEqual(cancelled.data["detail"], "cancelled")
+
+    def test_a_photo_and_a_guess_are_refused(self):
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        token = created.data["token"]
+        self.client.logout()
+        photo = self.client.post(
+            f"/api/verification-challenges/{token}/",
+            self._card(image="not-a-real-photo"),
+            format="json",
+        )
+        self.assertEqual(photo.status_code, 400)
+        from members.models import VerificationChallenge
+
+        self.assertIsNone(VerificationChallenge.objects.get(member=self.member).used_at)
+        for _ in range(30):
+            guess = self.client.get("/api/verification-challenges/not-a-real-code-0000000000/")
+            self.assertEqual(guess.status_code, 404)
+        blocked = self.client.get("/api/verification-challenges/not-a-real-code-0000000000/")
+        self.assertEqual(blocked.status_code, 429)
+
+    def test_coach_cannot_make_a_code(self):
+        self.client.force_authenticate(user=self.coach)
+        response = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+
 class CompareRuleTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(

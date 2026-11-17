@@ -5563,6 +5563,14 @@
     "countryLU": "Luxembourg",
     "countryDE": "Germany",
     "countryFR": "France",
-    "countryBE": "Belgium"
+    "countryBE": "Belgium",
+    "qrTitle": "Check the card on a phone",
+    "qrHint": "Scan this code with the phone that will read the card. The code works once and lasts 10 minutes.",
+    "qrWaiting": "Waiting for the phone.",
+    "qrExpired": "This code has expired. Start again.",
+    "qrCancelled": "This code was cancelled.",
+    "qrUsed": "This code has already been used.",
+    "qrInvalid": "This code is not valid.",
+    "startAgain": "Start again"
   }
 }

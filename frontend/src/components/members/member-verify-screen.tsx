@@ -13,11 +13,14 @@ import { openCamera, stopMediaStream, isCameraDenied } from "@/lib/camera-captur
 import { readCardImage } from "@/lib/card-ocr";
 import { readCardText, type CardCountry } from "@/lib/card-read";
 import {
+  compareCardChallenge,
   compareMemberCard,
+  getCardChallenge,
   getMemberVerification,
   unlockMemberCard,
   type CardCompareBody,
 } from "@/lib/member-verification";
+import { DesktopCardHandoff } from "@/components/members/desktop-card-handoff";
 
 type Phase =
   | { kind: "loading" }
@@ -30,10 +33,21 @@ type Phase =
   | { kind: "verified" }
   | { kind: "unlocked" };
 
-export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; backHref: string }) {
+export function MemberVerifyScreen({
+  memberId = 0,
+  backHref,
+  handoffToken = "",
+  locale = "en",
+}: {
+  memberId?: number;
+  backHref: string;
+  handoffToken?: string;
+  locale?: string;
+}) {
   const t = useTranslations("Verification");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [layout, setLayout] = useState<"phone" | "desktop" | null>(handoffToken ? "phone" : null);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [country, setCountry] = useState<CardCountry>("LU");
   const [cameraNote, setCameraNote] = useState<"" | "denied" | "missing">("");
@@ -42,8 +56,32 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
   const [reason, setReason] = useState("");
 
   useEffect(() => {
+    if (handoffToken) {
+      return;
+    }
+    const query = window.matchMedia("(max-width: 767px)");
+    const apply = () => setLayout(query.matches ? "phone" : "desktop");
+    const frame = window.requestAnimationFrame(apply);
+    query.addEventListener("change", apply);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      query.removeEventListener("change", apply);
+    };
+  }, [handoffToken]);
+
+  useEffect(() => {
+    if (!handoffToken && layout !== "phone") {
+      return;
+    }
     let cancelled = false;
-    getMemberVerification(memberId)
+    const load = handoffToken
+      ? getCardChallenge(handoffToken).then((state) => ({
+          country: state.country,
+          has_number: state.has_number,
+          verified: state.verified,
+        }))
+      : getMemberVerification(memberId);
+    load
       .then((state) => {
         if (cancelled) {
           return;
@@ -57,16 +95,23 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
         }
         setPhase(state.verified ? { kind: "verified" } : { kind: "camera" });
       })
-      .catch(() => {
-        if (!cancelled) {
-          setRequestError(t("unreadable"));
-          setPhase({ kind: "camera" });
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
         }
+        const code = error instanceof Error ? error.message : "";
+        if (code === "expired" || code === "cancelled" || code === "used" || code === "invalid") {
+          setRequestError(t(code === "expired" ? "qrExpired" : code === "cancelled" ? "qrCancelled" : code === "used" ? "qrUsed" : "qrInvalid"));
+          setPhase({ kind: "no-number" });
+          return;
+        }
+        setRequestError(t("unreadable"));
+        setPhase({ kind: "camera" });
       });
     return () => {
       cancelled = true;
     };
-  }, [memberId, t]);
+  }, [handoffToken, layout, memberId, t]);
 
   useEffect(() => {
     if (phase.kind !== "camera") {
@@ -145,7 +190,9 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
       body.sex = read.sex;
     }
     try {
-      const result = await compareMemberCard(memberId, body);
+      const result = handoffToken
+        ? await compareCardChallenge(handoffToken, body)
+        : await compareMemberCard(memberId, body);
       if (result.needs_confirmation) {
         setKeepUsual(true);
         setPhase({
@@ -173,11 +220,14 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
     }
     setRequestError(null);
     try {
-      const result = await compareMemberCard(memberId, {
+      const body = {
         ...phase.body,
         confirm_names: useCardNames,
         keep_usual_name: useCardNames && keepUsual,
-      });
+      };
+      const result = handoffToken
+        ? await compareCardChallenge(handoffToken, body)
+        : await compareMemberCard(memberId, body);
       setPhase(result.verified ? { kind: "verified" } : { kind: "mismatch", fields: result.fields || [] });
     } catch {
       setRequestError(t("unreadable"));
@@ -201,6 +251,10 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
 
   const fieldText = (fields: string[]) =>
     fields.map((field) => t(`field_${field}` as "field_number")).join(", ");
+
+  if (!handoffToken && layout === "desktop" && memberId) {
+    return <DesktopCardHandoff memberId={memberId} locale={locale} backHref={backHref} />;
+  }
 
   return (
     <div className="space-y-3">
@@ -266,6 +320,7 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
       {phase.kind === "verified" ? (
         <div className="space-y-3">
           <p className="text-sm text-success">{t("verifiedDone")}</p>
+          {handoffToken ? null : (
           <div className="space-y-2">
             <Label htmlFor="unlock-reason">{t("unlockReason")}</Label>
             <Input id="unlock-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
@@ -273,6 +328,7 @@ export function MemberVerifyScreen({ memberId, backHref }: { memberId: number; b
               {t("unlockSubmit")}
             </Button>
           </div>
+          )}
         </div>
       ) : null}
 
