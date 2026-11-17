@@ -1721,7 +1721,7 @@
     "deleteGradeTitle": "Delete grade",
     "deleteGradeDescription": "You are about to delete this grade promotion. The member's current belt rank will update to the latest remaining grade.",
     "beltRankManagedInGradesHint": "Change belt rank in the Grades tab.",
-    "beltRankCreateHint": "Add the member's grade after creating the profile, in the Grades section.",
+    "beltRankCreateHint": "A new member starts at 10th Kup. The licence number is given with the first licence request.",
     "editGradeTitle": "Edit grade",
     "gradeIssuedByLabel": "Issued by",
     "gradeIssuedByClubOption": "Club",

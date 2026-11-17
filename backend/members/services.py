@@ -552,9 +552,15 @@ def _used_ltf_license_serials(prefix: str) -> set[int]:
     return used
 
 
+def _highest_ltf_license_serial(prefix: str) -> int:
+    used = _used_ltf_license_serials(prefix)
+    return max(used) if used else 0
+
+
 def _next_available_ltf_license_id(*, prefix: str, start_value: int) -> tuple[str, int]:
+    """The next number after the highest ID already stored, generated or imported."""
     used_serials = _used_ltf_license_serials(prefix)
-    next_value = max(int(start_value), 1)
+    next_value = max(int(start_value), _highest_ltf_license_serial(prefix) + 1, 1)
     while next_value in used_serials:
         next_value += 1
     return format_ltf_license_id(prefix=prefix, serial=next_value), next_value
@@ -609,7 +615,7 @@ def generate_next_ltf_license_id(*, prefix: str) -> str:
             )
             candidate, next_value = _next_available_ltf_license_id(
                 prefix=normalized_prefix,
-                start_value=int(counter.next_value),
+                start_value=_highest_ltf_license_serial(normalized_prefix) + 1,
             )
             counter.next_value = next_value + 1
             counter.save(update_fields=["next_value", "updated_at"])

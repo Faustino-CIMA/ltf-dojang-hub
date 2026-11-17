@@ -18,7 +18,6 @@ from licenses.history import log_license_created, log_license_status_change
 from licenses.models import License, LicenseType
 
 from .models import LtfStaffFunction, Member
-from .services import generate_next_ltf_license_id
 
 STAFF_LICENSE_ROLES = {
     LtfStaffFunction.Function.SECRETARY: Member.LicenseRole.STAFF,
@@ -194,9 +193,8 @@ def create_staff_member(payload: dict, *, actor, locale: str | None = None) -> t
             email=str(payload.get("email") or "").strip(),
             date_of_birth=_parse_date(payload.get("date_of_birth"), "date_of_birth"),
             is_active=True,
+            belt_rank=str(payload.get("belt_rank") or "").strip() or "10th Kup",
         )
-        if not member.ltf_licenseid:
-            member.ltf_licenseid = generate_next_ltf_license_id(prefix="LTF")
         member.save()
 
     if "club" in payload and member_id:
@@ -307,6 +305,9 @@ def issue_staff_license(member: Member, *, license_type: LicenseType, year, acto
         status=License.Status.ACTIVE
     ).exists():
         raise LtfStaffError("active_licence_exists")
+    from .services import ensure_ltf_license_id
+
+    ensure_ltf_license_id(member)
     license_record = License.objects.create(
         member=member,
         club=None,

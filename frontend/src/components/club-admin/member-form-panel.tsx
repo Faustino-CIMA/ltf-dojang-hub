@@ -31,6 +31,7 @@ const createSchema = z
     primary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
     secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
     is_active: z.boolean(),
+    social_security_number: z.string().optional(),
   })
   .superRefine((values, context) => {
     if (values.secondary_license_role && !values.primary_license_role) {
@@ -86,6 +87,7 @@ export function MemberFormPanel({
   member,
   clubs,
   selectedClubId,
+  requireSsn = false,
   onClose,
   onSaved,
 }: {
@@ -94,10 +96,12 @@ export function MemberFormPanel({
   member?: Member | null;
   clubs: Club[];
   selectedClubId: number | null;
+  requireSsn?: boolean;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
   const t = useTranslations("ClubAdmin");
+  const clubT = useTranslations("ClubMgmt");
   const importT = useTranslations("Import");
   const common = useTranslations("Common");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -189,6 +193,7 @@ export function MemberFormPanel({
       primary_license_role: "",
       secondary_license_role: "",
       is_active: true,
+      social_security_number: "",
     });
     setErrorMessage(null);
   }, [open, mode, selectedClubId, clubOptions, createForm]);
@@ -234,6 +239,7 @@ export function MemberFormPanel({
         primary_license_role: (values.primary_license_role ?? "") as LicenseRoleValue | "",
         secondary_license_role: (values.secondary_license_role ?? "") as LicenseRoleValue | "",
         is_active: values.is_active,
+        social_security_number: requireSsn ? values.social_security_number?.trim() : undefined,
       });
       await onSaved();
     } catch (error) {
@@ -391,10 +397,25 @@ export function MemberFormPanel({
             <Input id="member-panel-ltf" {...editForm.register("ltf_licenseid")} />
           </div>
         ) : (
-          <div className="space-y-2">
-            <Label>{t("beltRankLabel")}</Label>
-            <p className="text-xs text-muted">{t("beltRankCreateHint")}</p>
-          </div>
+          <>
+            <div className="space-y-2">
+              <Label>{t("beltRankLabel")}</Label>
+              <p className="text-sm font-medium text-foreground">10th Kup</p>
+              <p className="text-xs text-muted">{t("beltRankCreateHint")}</p>
+            </div>
+            {requireSsn ? (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="member-panel-ssn" required>{clubT("ssn")}</Label>
+                <Input
+                  id="member-panel-ssn"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={13}
+                  {...createForm.register("social_security_number")}
+                />
+              </div>
+            ) : null}
+          </>
         )}
         <div className="space-y-2">
           <Label htmlFor="member-panel-dob">{t("dobLabel")}</Label>
