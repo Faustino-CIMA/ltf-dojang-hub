@@ -1,6 +1,6 @@
 # Member verification and locking
 
-Status: spec only. No code in this change. Waiting for approval.
+Status: spec only. The rest of this document is approved. The name-matching section is the recommendation added for confirmation. No code until this spec is merged.
 
 A club admin or an LTF admin can check a member against the Luxembourg social security card. When the card and the record agree, the member is verified and the checked fields lock. The photograph of the card is never stored. The same check, the same lock, and the same badge are meant to be reused later for enrolment, including when the person fills the form themselves.
 
@@ -19,7 +19,7 @@ The mark has a text label as well as the colour. The accessible name is "Verifie
 
 ### Phone check
 
-The admin opens Verify on the member. On a phone, the camera opens at once. The page says what will be read (name, date of birth, social security number) and that the picture is not kept. The person holds the card in the frame. The phone reads the text. If every checked field matches the record, the page says verified and the fields lock. If something does not match, the page names the fields that differ and does not lock anything. The admin can correct the record, when it is not locked, and try again, or stop.
+The admin opens Verify on the member. On a phone, the camera opens at once. The page says what will be read (name, date of birth, social security number) and that the picture is not kept. The person holds the card in the frame. The phone reads the text. The card text is the reference. Names follow the subset rule in Name matching. The social security number, the date of birth, and sex when the card shows it, must match exactly. If that holds, the admin is offered the full names from the card, then the fields lock. If something does not match, the page names the fields that differ and does not lock anything. The admin can correct the record, when it is not locked, and try again, or stop.
 
 ### Desktop and laptop
 
@@ -36,31 +36,70 @@ The admin must already be signed in. The phone page does not create a login.
 
 ## What is compared
 
-After light cleanup (trim, case, accents, date written as a day-month-year or as the 13-digit number's date):
+The text read from the card is the reference. Both sides are normalised first, as in Name matching.
 
-| Card | Record |
-| --- | --- |
-| Family name | `last_name` |
-| Given names | `first_name` |
-| Date of birth | `date_of_birth` |
-| 13-digit social security number | the club record's `social_security_number`, when club management stores one |
-| Sex, when the card shows it | `sex` |
-
-Every one of those must match. A near match is shown as a mismatch, not as a pass. There is no button that marks the member verified without a match.
+| Card | Record | Rule |
+| --- | --- | --- |
+| 13-digit social security number | the club record's `social_security_number` | exact, after digits only. This is the definitive key |
+| Date of birth | `date_of_birth` | exact, after reading a day-month-year or the date inside the 13-digit number |
+| Sex, when the card shows it | `sex` | exact |
+| Family name and given names | `last_name` and `first_name` | subset of the card, in Name matching |
 
 If the club has no social security number yet, the check cannot succeed. The admin enters it through the existing club-management field first. The number is not taken from the card and saved on a mismatch.
+
+## Name matching
+
+Recommendation, for confirmation. People have more than one first name and more than one last name, and they will not always type all of them.
+
+Normalise both the card text and the stored names before comparing:
+
+- case is ignored
+- accents and other diacritics are stripped (`é` and `e` are the same letter)
+- hyphens and spaces are the same break between tokens (`Jean-Pierre` and `Jean Pierre` are the same two tokens)
+- apostrophes are removed (`O'Neil` and `Oneil` are the same token)
+- particles stay as their own tokens: `de`, `da`, `van`, `von`, and the same kind of word
+- extra whitespace is collapsed
+
+The card is the reference.
+
+Hard fields have no tolerance:
+
+- the social security number is 13 digits and must be the same on both sides
+- the date of birth must be the same
+- sex must be the same when the card shows it
+
+Names are a subset of the card, and order does not matter:
+
+- every name token the member entered must appear on the card
+- at least one first-name token and at least one last-name token must match
+- tokens on the card that the member did not enter are allowed (a second given name, a second family name)
+- a token of 5 letters or more may differ by one character, for a misread letter. Shorter tokens must match exactly, so `de` and `da` are not the same, and a 4-letter name is not fuzzy
+
+Examples:
+
+- Stored `Ana Silva`, card `Ana Maria da Silva`: match. `Ana` and `Silva` are on the card. `Maria` and `da` were not entered, and that is allowed.
+- Stored `Jean Pierre`, card `Jean-Pierre`: match, after hyphen and space are treated the same.
+- Stored `Anna Silva`, card `Ana Silva`: no match. `Anna` is 4 letters, so the one-character rule does not apply.
+- Stored `Marc`, card `Marc Hansen`, with no last name entered: no match, because no last-name token matched.
+- Social security number off by one digit: no match, even when every name matches.
+
+On a match, before anything locks, the screen offers to replace the stored first and last names with the full names from the card. The admin confirms or skips. Confirm writes those full names, then locks. Skip leaves the shorter names that already matched, then locks those. The offer is not a way to verify a mismatch.
+
+A mismatch does not verify. The screen names the field that differs (number, date, sex, or which name token). Nothing is partially verified. There is no button that marks the member verified anyway. Changing a locked field later is only Unlock, with a reason in the audit log, and then a new check.
+
+Usual name. The legal names are what the card carries and what locks. An optional usual name is the name the person goes by. It is not compared to the card, and it is not locked. When the admin accepts the full legal names from the card, the names they had typed can be kept as the usual name if they ask. Enrolment later uses the same split: legal name locked after a check, usual name free.
 
 ## What locks
 
 Only the fields that were checked:
 
-- first name
-- last name
+- legal first name
+- legal last name
 - date of birth
 - sex
 - social security number
 
-Address, email, phone, grade, club, photo, and licence stay editable. A normal save of a locked field is refused. The screen shows the field as locked and points at Unlock.
+The usual name is not locked. Address, email, phone, grade, club, photo, and licence stay editable. A normal save of a locked field is refused. The screen shows the field as locked and points at Unlock. There is no override that writes a locked field, or that marks a mismatch as verified, without Unlock and an audit reason.
 
 ## Unlock and correct
 
@@ -86,14 +125,14 @@ Fallbacks, in order:
 
 1. Ask for another photo, with the card flat and the light even.
 2. If the reader cannot find a 13-digit number, say the card was unreadable and stop.
-3. Do not offer "confirm anyway".
+3. Do not offer "confirm anyway". A one-character slip is tolerated only on a name token of 5 letters or more. It is never tolerated on the social security number, the date of birth, or sex.
 
 ## Data
 
 Schema only. No backfill.
 
 - `MemberVerification`: one row per member. Status `unverified` or `verified`. When it was verified, by which user, and that the method was the card check.
-- Locked fields live on that row (the list above). Empty when unverified.
+- Locked fields live on that row (legal first name, legal last name, date of birth, sex, social security number). Empty when unverified. The usual name is a separate optional field on the member and is never in this list.
 - `VerificationChallenge`: the desktop code. Stores a hash of the token, the member, the admin session, when it expires, and when it was used. Not the raw token. Not an image.
 
 Existing members stay unverified. Nothing is locked until a check succeeds.
@@ -104,7 +143,7 @@ All of these sit behind the same auth as member edit, except the phone call that
 
 - `POST /api/members/{id}/verification-challenges/` creates a code for that member and the current admin session. Answer: the token and when it expires. The desktop turns that into a QR code whose URL is only the site plus the token. No member id and no personal data in the URL.
 - `GET /api/members/{id}/verification/` is what the desktop polls. It returns status, locked fields, and whether a challenge is still open. Short timeout. No card data.
-- `POST /api/verification-challenges/{token}/compare/` is the phone. Body: the extracted fields, not the image. The server compares, answers match or the list of differing fields, and does not keep the extracted text. A match consumes the token, writes the verification row, and locks. A mismatch consumes nothing except rate-limit budget, so a retake can reuse the same code until it expires or succeeds.
+- `POST /api/verification-challenges/{token}/compare/` is the phone. Body: the extracted fields, not the image. The server compares with the name rules above, answers match or the list of differing fields, and does not keep the extracted text. A match does not lock yet: the admin is shown the full names from the card and confirms or skips the update. That confirmation consumes the token, writes the names they accepted, writes the verification row, and locks. A mismatch consumes nothing except rate-limit budget, so a retake can reuse the same code until it expires or succeeds. A mismatch never verifies part of the record.
 
 The token is 256 bits, stored only as a hash, single use, 10 minutes, bound to one member and one admin session. Guessing it is rate limited. Compare is constant-time on the social security number.
 
