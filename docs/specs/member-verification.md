@@ -176,14 +176,14 @@ The picture is handled in memory and then dropped.
 - The image does not leave the phone. That matters most for minors: the card photo of a child never reaches the server.
 - There is no server-side reader and no third-party reader. If the phone cannot read the card, the check stops. It does not upload the picture.
 
-## Reading the Luxembourg card
+## Reading the card
 
 Each card carries the fields listed under Cards by country. Glare, a worn card, or a tilted photo will misread characters. The check fails closed: a bad read is a mismatch, the wrong card, or an unreadable card, never a verify.
 
 Fallbacks, in order:
 
 1. Ask for another photo, with the card flat and the light even.
-2. If the reader cannot find a 13-digit number, say the card was unreadable and stop.
+2. If the reader cannot find a number in the shape of the member's country, say the card was unreadable and stop. A German health-card number is the wrong number, not an unreadable one: say so.
 3. Do not offer "confirm anyway". A one-character slip is tolerated only on a name token of 5 letters or more. It is never tolerated on the social security number, the date of birth, or sex.
 
 ## Data
