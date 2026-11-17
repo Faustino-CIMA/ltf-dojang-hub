@@ -224,6 +224,7 @@ class HealthSummaryTests(TestCase):
     @patch("ops.health.probe_postgres", return_value={"ok": True, "detail": "connected"})
     @patch("ops.health.probe_redis", return_value={"ok": True, "detail": "reachable"})
     @patch("ops.health.probe_celery", return_value={"ok": True, "detail": "workers responded"})
+    @patch("ops.health.probe_removal", return_value={"ok": True, "detail": "worker is taking removal jobs"})
     @patch("ops.health.probe_smtp", return_value={"ok": True, "detail": "open"})
     @patch("ops.health.probe_media", return_value={"ok": True, "detail": "writable"})
     @patch("ops.health.probe_migrations", return_value={"ok": True, "detail": "up to date"})
@@ -233,10 +234,37 @@ class HealthSummaryTests(TestCase):
         self.assertNotIn("docker", health["checks"])
         self.assertEqual(
             set(health["checks"]),
-            {"postgres", "redis", "celery", "smtp", "media", "migrations", "env_keys", "clock"},
+            {"postgres", "redis", "celery", "removal", "smtp", "media", "migrations", "env_keys", "clock"},
         )
         self.assertTrue(health["ok"])
         self.assertRegex(health["checks"]["clock"]["detail"], r" UTC$")
+
+    def test_removal_card_uses_a_short_broker_check_and_fake_last_success(self):
+        from django.core.cache import cache
+
+        cache.set(
+            "removal:last_success",
+            {"finished_at": "2026-11-17T09:00:00+00:00", "duration_ms": 12400},
+            timeout=60,
+        )
+        with patch("ops.health._removal_queue_length", return_value=2), patch(
+            "ops.health._removal_worker_online", return_value=True
+        ):
+            from ops.health import probe_removal
+
+            card = probe_removal()
+        self.assertTrue(card["ok"])
+        self.assertEqual(card["queue_length"], 2)
+        self.assertEqual(card["memory_limit"], "5g")
+        self.assertEqual(card["last_success_at"], "2026-11-17T09:00:00+00:00")
+        self.assertEqual(card["last_duration_ms"], 12400)
+        with patch("ops.health._removal_queue_length", return_value=0), patch(
+            "ops.health._removal_worker_online", return_value=False
+        ):
+            from ops.health import probe_removal
+
+            down = probe_removal()
+        self.assertFalse(down["ok"])
 
 
 class I18nHelperTests(TestCase):

@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Ops:** The ops page shows whether the background-removal worker is online, how many photos are waiting, and the last successful removal.
 - **Photos:** Removing the background uses the server. If the server cannot finish, the portrait model on the phone is used. The page says whether Server or Local did the work.
 - **Photos:** A soft shadow shows in the grey around the person, in the preview and in the saved photo.
 - **Photos:** The server cutout starts with the rest of the app and is limited to 5 GB. If that container is down, the phone still uses its own portrait model.

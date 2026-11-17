@@ -16,6 +16,7 @@ import {
   Server,
   ShieldAlert,
   Users,
+  Scan,
   Workflow,
   Zap,
   type LucideIcon,
@@ -32,18 +33,38 @@ import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDisplayDateTime } from "@/lib/date-display";
 import { healthDetailText, orderOpsHealthChecks } from "@/lib/ops-health-cards";
-import { getOpsOverview, getOpsSessions, type OpsOverview, type OpsSession } from "@/lib/ops-api";
+import { getOpsOverview, getOpsSessions, type HealthCheck, type OpsOverview, type OpsSession } from "@/lib/ops-api";
 
 const HEALTH_CHECKS: Array<{ key: string; icon: LucideIcon }> = [
   { key: "clock", icon: Clock },
   { key: "postgres", icon: Database },
   { key: "redis", icon: Zap },
   { key: "celery", icon: Workflow },
+  { key: "removal", icon: Scan },
   { key: "smtp", icon: Mail },
   { key: "media", icon: HardDrive },
   { key: "migrations", icon: GitBranch },
   { key: "env_keys", icon: KeyRound },
 ];
+
+function RemovalStatus({ check }: { check: HealthCheck }) {
+  const t = useTranslations("Ops");
+  const waiting = typeof check.queue_length === "number" ? String(check.queue_length) : "—";
+  const limit = typeof check.memory_limit === "string" && check.memory_limit ? check.memory_limit : "—";
+  const when = typeof check.last_success_at === "string" ? formatDisplayDateTime(check.last_success_at) : "";
+  const duration =
+    typeof check.last_duration_ms === "number"
+      ? t("healthRemovalDuration", { seconds: (check.last_duration_ms / 1000).toFixed(1) })
+      : "";
+  return (
+    <div className="mt-2 space-y-1 text-sm text-muted">
+      <p>{check.ok ? t("healthRemovalOnline") : t("healthRemovalOffline")}</p>
+      <p>{t("healthRemovalWaiting", { count: waiting })}</p>
+      <p>{when ? t("healthRemovalLast", { when, duration }) : t("healthRemovalNone")}</p>
+      <p>{t("healthRemovalLimit", { limit })}</p>
+    </div>
+  );
+}
 
 function checkLabel(t: ReturnType<typeof useTranslations>, name: string) {
   const key = `healthCheck_${name}`;
@@ -198,9 +219,13 @@ export default function OpsOverviewPage() {
                         />
                       }
                     />
-                    <p className="mt-2 text-sm text-muted">
-                      {check ? healthDetailText(check.detail) || t("healthMissing") : t("healthMissing")}
-                    </p>
+                    {key === "removal" && check ? (
+                      <RemovalStatus check={check} />
+                    ) : (
+                      <p className="mt-2 text-sm text-muted">
+                        {check ? healthDetailText(check.detail) || t("healthMissing") : t("healthMissing")}
+                      </p>
+                    )}
                   </div>
                 );
               })}

@@ -587,6 +587,8 @@ REMOVAL_INLINE = config("REMOVAL_INLINE", default=False, cast=bool)
 # Cold load of the full model plus one photo. Stays under the 120s web timeout.
 REMOVAL_WAIT_SECONDS = config("REMOVAL_WAIT_SECONDS", cast=int, default=100)
 REMOVAL_MAX_BYTES = config("REMOVAL_MAX_BYTES", cast=int, default=12 * 1024 * 1024)
+# The cap in docker-compose.yml (mem_limit). Shown on the ops card. Not a live reading.
+REMOVAL_MEMORY_LIMIT = "5g"
 
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")

@@ -44,6 +44,58 @@ def probe_redis() -> dict:
         return _status(False, str(exc)[:300], {"backend": location or "locmem"})
 
 
+def probe_removal() -> dict:
+    """Whether the cutout worker is up. This does not load the photo model."""
+    limit = str(getattr(settings, "REMOVAL_MEMORY_LIMIT", "5g") or "5g")
+    last = cache.get("removal:last_success")
+    if not isinstance(last, dict):
+        last = {}
+    queue_length = _removal_queue_length()
+    online = _removal_worker_online()
+    detail = "worker is taking removal jobs" if online else "no removal worker responded"
+    return _status(
+        online,
+        detail,
+        {
+            "queue_length": queue_length,
+            "memory_limit": limit,
+            "last_success_at": last.get("finished_at"),
+            "last_duration_ms": last.get("duration_ms"),
+        },
+    )
+
+
+def _removal_queue_length() -> int | None:
+    url = str(getattr(settings, "CELERY_BROKER_URL", "") or "")
+    if not url.startswith("redis"):
+        return None
+    try:
+        import redis
+
+        client = redis.Redis.from_url(url, socket_connect_timeout=1, socket_timeout=1)
+        try:
+            return int(client.llen("removal"))
+        finally:
+            client.close()
+    except Exception:
+        return None
+
+
+def _removal_worker_online() -> bool:
+    try:
+        from config.celery import app
+
+        inspector = app.control.inspect(timeout=1.0)
+        found = inspector.active_queues() or {}
+    except Exception:
+        return False
+    for queues in found.values():
+        for item in queues or []:
+            if isinstance(item, dict) and item.get("name") == "removal":
+                return True
+    return False
+
+
 def probe_celery() -> dict:
     try:
         from config.celery import app
@@ -135,6 +187,7 @@ def collect_health() -> dict:
         "postgres": probe_postgres(),
         "redis": probe_redis(),
         "celery": probe_celery(),
+        "removal": probe_removal(),
         "smtp": probe_smtp(),
         "media": probe_media(),
         "migrations": probe_migrations(),

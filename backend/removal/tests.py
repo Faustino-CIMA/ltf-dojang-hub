@@ -1,3 +1,4 @@
+import base64
 import io
 import shutil
 import tempfile
@@ -115,6 +116,20 @@ class ServerCutoutTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertEqual(list(Path(self.media).rglob("*")), [])
 
+    def test_a_finished_cutout_remembers_when_it_finished(self):
+        from django.core.cache import cache
+        from unittest.mock import patch
+
+        cache.delete("removal:last_success")
+        with patch("removal.tasks.cutout_png", return_value=b"png-bytes") as cutout:
+            encoded = cutout_photo.run(base64.b64encode(b"not-a-photo").decode("ascii"))
+        cutout.assert_called_once()
+        self.assertTrue(encoded)
+        remembered = cache.get("removal:last_success")
+        self.assertIn("finished_at", remembered)
+        self.assertGreaterEqual(remembered["duration_ms"], 0)
+        self.assertNotIn("not-a-photo", str(remembered))
+
     def test_the_job_is_not_on_the_mail_queue(self):
         self.assertEqual(cutout_photo.queue, "removal")
 
@@ -146,6 +161,15 @@ class ServerCutoutTests(TestCase):
         self.assertNotIn("profiles:", block)
         self.assertIn("mem_limit: 5g", block)
         self.assertIn("memswap_limit: 5g", block)
+        self.assertIn("inspect ping", block)
+        self.assertIn("start_period: 180s", block)
+        self.assertEqual(settings.REMOVAL_MEMORY_LIMIT, "5g")
+        import re
+
+        for name in ("db", "redis", "backend", "worker", "beat", "mailpit", "frontend"):
+            service = re.search(rf"\n  {name}:\n(.*?)(?=\n  [a-z]|\nvolumes:|\Z)", text, re.S)
+            self.assertIsNotNone(service, name)
+            self.assertIn("healthcheck:", service.group(1), name)
         self.assertNotIn("celery,removal", block)
         self.assertGreaterEqual(settings.REMOVAL_WAIT_SECONDS, 100)
         worker = text.split("\n  worker:", 1)[1].split("\n  removal-worker:", 1)[0]
