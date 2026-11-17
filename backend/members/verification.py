@@ -1,0 +1,424 @@
+"""Compare card text with a member and lock the legal fields when it matches.
+
+The photo never arrives here. Callers must reject an image before this module
+sees the body. The audit row stores names, date of birth, and sex. It does
+not store the social security number.
+"""
+
+from __future__ import annotations
+
+import hmac
+import re
+import unicodedata
+from dataclasses import dataclass
+from datetime import date
+
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.utils import timezone
+
+from accounts.desks import holds_desk
+
+from .ssn_countries import (
+    SsnError,
+    belgian_century_matches,
+    birth_agrees,
+    compact_ssn,
+    encoded_sex,
+)
+
+LOCKED_FIELD_NAMES = (
+    "first_name",
+    "last_name",
+    "date_of_birth",
+    "sex",
+    "social_security_number",
+)
+_LOCKED_MESSAGE = "This field is locked. Unlock the member before changing it."
+_COMPARE_LIMIT = 30
+_COMPARE_WINDOW_SECONDS = 60 * 60
+
+
+class VerificationError(Exception):
+    def __init__(self, code: str, fields=()):
+        self.code = code
+        self.fields = tuple(fields)
+        super().__init__(code)
+
+
+@dataclass(frozen=True)
+class CardText:
+    first_names: str
+    last_names: str
+    number: str
+    date_of_birth: date | None
+    sex: str
+    confirm_names: bool | None
+    keep_usual_name: bool
+
+
+@dataclass(frozen=True)
+class CompareResult:
+    match: bool
+    fields: tuple[str, ...] = ()
+    reason: str = ""
+    card_first_name: str = ""
+    card_last_name: str = ""
+
+
+def _fold(value: str) -> list[str]:
+    text = (value or "").replace("’", "'").replace("`", "'").replace("'", "")
+    text = text.replace("-", " ")
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    text = text.lower()
+    text = re.sub(r"\s+", " ", text).strip()
+    return [part for part in text.split(" ") if part]
+
+
+def _distance_one(left: str, right: str) -> bool:
+    if abs(len(left) - len(right)) > 1 or len(left) > 40 or len(right) > 40:
+        return False
+    if len(left) == len(right):
+        return sum(a != b for a, b in zip(left, right)) == 1
+    if len(left) < len(right):
+        left, right = right, left
+    # One extra character in `left`.
+    shift = 0
+    for index, char in enumerate(right):
+        if char != left[index + shift]:
+            if shift:
+                return False
+            shift = 1
+            if char != left[index + shift]:
+                return False
+    return True
+
+
+def _token_on_card(token: str, card_tokens: list[str]) -> bool:
+    if token in card_tokens:
+        return True
+    if len(token) < 5:
+        return False
+    return any(_distance_one(token, candidate) for candidate in card_tokens)
+
+
+def names_match(entered: str, card: str) -> bool:
+    entered_tokens = _fold(entered)
+    card_tokens = _fold(card)
+    if not entered_tokens or not card_tokens:
+        return False
+    return all(_token_on_card(token, card_tokens) for token in entered_tokens)
+
+
+def read_card_text(data) -> CardText:
+    if data is None or not hasattr(data, "get"):
+        raise VerificationError("invalid")
+    first_names = str(data.get("first_names") or "").strip()
+    last_names = str(data.get("last_names") or "").strip()
+    if len(first_names) > 150 or len(last_names) > 150:
+        raise VerificationError("name_too_long")
+    number = str(data.get("number") or "").strip()
+    if len(number) > 32:
+        raise VerificationError("number_too_long")
+    raw_date = str(data.get("date_of_birth") or "").strip()
+    parsed_date = None
+    if raw_date:
+        try:
+            parsed_date = date.fromisoformat(raw_date)
+        except ValueError as exc:
+            raise VerificationError("date") from exc
+    sex = str(data.get("sex") or "").strip().upper()
+    if sex and sex not in ("M", "F"):
+        raise VerificationError("sex")
+    confirm = None
+    if "confirm_names" in data and data.get("confirm_names") is not None:
+        confirm = data.get("confirm_names")
+        if not isinstance(confirm, bool):
+            raise VerificationError("confirm_names")
+    return CardText(
+        first_names=first_names,
+        last_names=last_names,
+        number=number,
+        date_of_birth=parsed_date,
+        sex=sex,
+        confirm_names=confirm,
+        keep_usual_name=data.get("keep_usual_name") is True,
+    )
+
+
+def _verification_row(member):
+    from .models import MemberVerification
+
+    # Query by id. The reverse one-to-one cache stays empty after a miss, so a
+    # later read on the same instance would still look unverified.
+    return MemberVerification.objects.filter(member_id=member.pk).first()
+
+
+def is_verified(member) -> bool:
+    row = _verification_row(member)
+    return bool(row and row.status == row.Status.VERIFIED)
+
+
+def verification_state(member) -> dict:
+    row = _verification_row(member)
+    if row is None or row.status != row.Status.VERIFIED:
+        return {
+            "status": "unverified",
+            "verified": False,
+            "method": "",
+            "verified_at": None,
+            "locked_fields": [],
+        }
+    return {
+        "status": "verified",
+        "verified": True,
+        "method": row.method,
+        "verified_at": row.verified_at,
+        "locked_fields": list(row.locked_fields or []),
+    }
+
+
+def can_verify_member(user, member) -> bool:
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "role", "") == "coach":
+        return False
+    if holds_desk(user, "ltf_admin"):
+        return True
+    if getattr(user, "role", "") != "club_admin" or not getattr(member, "club_id", None):
+        return False
+    return member.club.admins.filter(pk=user.pk).exists()
+
+
+def compare_is_limited(user_id: int, member_id: int) -> bool:
+    key = f"member-verify:{user_id}:{member_id}"
+    if cache.add(key, 1, timeout=_COMPARE_WINDOW_SECONDS):
+        return False
+    try:
+        count = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=_COMPARE_WINDOW_SECONDS)
+        return False
+    return count > _COMPARE_LIMIT
+
+
+def _stored_number(member):
+    from django.core.exceptions import ObjectDoesNotExist
+
+    try:
+        record = member.club_record
+    except ObjectDoesNotExist:
+        return "", ""
+    country = (record.social_security_country or "").strip().upper() or "LU"
+    return country, record.social_security_number or ""
+
+
+def _same_number(stored: str, extracted: str) -> bool:
+    if len(stored) != len(extracted):
+        return False
+    return hmac.compare_digest(stored.encode(), extracted.encode())
+
+
+def compare_member(member, card: CardText) -> CompareResult:
+    country, stored = _stored_number(member)
+    if not stored:
+        raise VerificationError("missing_number")
+    if not card.number:
+        return CompareResult(False, ("number",))
+    try:
+        extracted = compact_ssn(country, card.number)
+    except SsnError as exc:
+        reason = "health_card" if exc.ssn_code == "health_card" else ""
+        return CompareResult(False, ("number",), reason)
+    try:
+        stored_compact = compact_ssn(country, stored)
+    except SsnError:
+        stored_compact = re.sub(r"[\s.\-]", "", stored).upper()
+    if not _same_number(stored_compact, extracted):
+        return CompareResult(False, ("number",))
+    if country == "BE" and not belgian_century_matches(extracted, member.date_of_birth):
+        return CompareResult(False, ("number",))
+
+    fields: list[str] = []
+    if not names_match(member.first_name, card.first_names):
+        fields.append("first_name")
+    if not names_match(member.last_name, card.last_names):
+        fields.append("last_name")
+    if member.date_of_birth and card.date_of_birth and card.date_of_birth != member.date_of_birth:
+        fields.append("date_of_birth")
+    elif not birth_agrees(country, extracted, member.date_of_birth):
+        fields.append("date_of_birth")
+    printed_sex = card.sex
+    number_sex = encoded_sex(country, extracted)
+    record_sex = (member.sex or "").upper()
+    if record_sex:
+        if printed_sex and printed_sex != record_sex:
+            fields.append("sex")
+        elif number_sex and number_sex != record_sex and "sex" not in fields:
+            fields.append("sex")
+    if fields:
+        return CompareResult(False, tuple(fields))
+    return CompareResult(
+        True,
+        card_first_name=card.first_names,
+        card_last_name=card.last_names,
+    )
+
+
+def _values_differ(current, new) -> bool:
+    if current == new:
+        return False
+    return str(current or "") != str(new or "")
+
+
+def ensure_member_update_unlocked(member, attrs: dict) -> None:
+    if not is_verified(member):
+        return
+    errors = {}
+    for field in ("first_name", "last_name", "date_of_birth", "sex"):
+        if field in attrs and _values_differ(getattr(member, field), attrs[field]):
+            errors[field] = _LOCKED_MESSAGE
+    if "social_security_number" in attrs or "social_security_country" in attrs:
+        country, stored = _stored_number(member)
+        if "social_security_number" in attrs and _values_differ(
+            stored, str(attrs.get("social_security_number") or "").strip()
+        ):
+            errors["social_security_number"] = _LOCKED_MESSAGE
+        if "social_security_country" in attrs and _values_differ(
+            country, str(attrs.get("social_security_country") or "").strip().upper()
+        ):
+            errors["social_security_country"] = _LOCKED_MESSAGE
+    if errors:
+        raise ValidationError(errors)
+
+
+def ensure_record_update_unlocked(record, attrs: dict) -> None:
+    member = record.member
+    if not is_verified(member):
+        return
+    errors = {}
+    if "social_security_number" in attrs and _values_differ(
+        record.social_security_number, attrs.get("social_security_number")
+    ):
+        errors["social_security_number"] = _LOCKED_MESSAGE
+    if "social_security_country" in attrs and _values_differ(
+        record.social_security_country, str(attrs.get("social_security_country") or "").strip().upper()
+    ):
+        errors["social_security_country"] = _LOCKED_MESSAGE
+    if errors:
+        raise ValidationError(errors)
+
+
+def _audit(member, actor, action: str, *, reason: str, fields: list[str], old: dict, new: dict) -> None:
+    from .models import MemberVerificationEvent
+
+    MemberVerificationEvent.objects.create(
+        member=member,
+        actor=actor if getattr(actor, "is_authenticated", False) else None,
+        action=action,
+        reason=reason,
+        fields=fields,
+        old_first_name=old["first_name"],
+        new_first_name=new["first_name"],
+        old_last_name=old["last_name"],
+        new_last_name=new["last_name"],
+        old_date_of_birth=old["date_of_birth"],
+        new_date_of_birth=new["date_of_birth"],
+        old_sex=old["sex"],
+        new_sex=new["sex"],
+        ssn_changed=False,
+    )
+
+
+@transaction.atomic
+def lock_member(member, card: CardText, *, actor) -> None:
+    from clubmgmt.models import MemberRecord
+
+    from .models import Member, MemberVerification
+
+    member = Member.objects.select_for_update().get(pk=member.pk)
+    MemberRecord.objects.select_for_update().filter(member_id=member.pk).first()
+    if is_verified(member):
+        raise VerificationError("verified")
+    result = compare_member(member, card)
+    if not result.match:
+        raise VerificationError("mismatch", result.fields)
+    old = {
+        "first_name": member.first_name,
+        "last_name": member.last_name,
+        "date_of_birth": member.date_of_birth,
+        "sex": member.sex,
+    }
+    new = dict(old)
+    if card.confirm_names:
+        # The member form already stores given names in title case and surnames in capitals.
+        new["first_name"] = Member.normalize_first_name(card.first_names)
+        new["last_name"] = Member.normalize_last_name(card.last_names)
+        if (
+            card.keep_usual_name
+            and not (member.usual_name or "").strip()
+            and (new["first_name"] != old["first_name"] or new["last_name"] != old["last_name"])
+        ):
+            member.usual_name = f"{old['first_name']} {old['last_name']}".strip()[:150]
+        member.first_name = new["first_name"]
+        member.last_name = new["last_name"]
+        member.save(update_fields=["first_name", "last_name", "usual_name", "updated_at"])
+    MemberVerification.objects.update_or_create(
+        member=member,
+        defaults={
+            "status": MemberVerification.Status.VERIFIED,
+            "verified_at": timezone.now(),
+            "verified_by": actor if getattr(actor, "is_authenticated", False) else None,
+            "method": MemberVerification.Method.CARD,
+            "locked_fields": list(LOCKED_FIELD_NAMES),
+        },
+    )
+    _audit(
+        member,
+        actor,
+        "verify",
+        reason="",
+        fields=list(LOCKED_FIELD_NAMES),
+        old=old,
+        new=new,
+    )
+
+
+@transaction.atomic
+def unlock_member(member, *, actor, reason: str) -> None:
+    from .models import Member, MemberVerification
+
+    member = Member.objects.select_for_update().get(pk=member.pk)
+    row = _verification_row(member)
+    if row is None or row.status != MemberVerification.Status.VERIFIED:
+        raise VerificationError("not_verified")
+    reason = str(reason or "").strip()
+    if not reason:
+        raise VerificationError("reason")
+    if len(reason) > 500:
+        raise VerificationError("reason_too_long")
+    current = {
+        "first_name": member.first_name,
+        "last_name": member.last_name,
+        "date_of_birth": member.date_of_birth,
+        "sex": member.sex,
+    }
+    row.status = MemberVerification.Status.UNVERIFIED
+    row.locked_fields = []
+    row.verified_at = None
+    row.verified_by = None
+    row.method = ""
+    row.save(
+        update_fields=["status", "locked_fields", "verified_at", "verified_by", "method"]
+    )
+    _audit(
+        member,
+        actor,
+        "unlock",
+        reason=reason,
+        fields=list(LOCKED_FIELD_NAMES),
+        old=current,
+        new=current,
+    )

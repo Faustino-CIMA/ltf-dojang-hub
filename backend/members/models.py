@@ -67,6 +67,8 @@ class Member(models.Model):
     )
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
+    # Everyday name. Not compared with the card and not locked by verification.
+    usual_name = models.CharField(max_length=150, blank=True)
     # Blank only while the import is parked. A resolved member is male or female.
     sex = models.CharField(max_length=1, choices=Sex.choices, blank=True, default=Sex.MALE)
     import_status = models.CharField(
@@ -487,4 +489,79 @@ class AdminNotice(models.Model):
                 condition=models.Q(resolved_at__isnull=True),
                 name="one_open_admin_notice_per_member_kind",
             ),
+        ]
+
+
+class MemberVerification(models.Model):
+    """One verification row. No card image and no social security number."""
+
+    class Status(models.TextChoices):
+        UNVERIFIED = "unverified", _("Unverified")
+        VERIFIED = "verified", _("Verified")
+
+    class Method(models.TextChoices):
+        CARD = "card", _("Card check")
+
+    member = models.OneToOneField(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="verification",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.UNVERIFIED,
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="member_verifications",
+    )
+    method = models.CharField(max_length=20, blank=True)
+    locked_fields = models.JSONField(default=list, blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.member_id} {self.status}"
+
+
+class MemberVerificationEvent(models.Model):
+    """Who verified or unlocked a member. The social security number is not stored."""
+
+    class Action(models.TextChoices):
+        VERIFY = "verify", _("Verify")
+        UNLOCK = "unlock", _("Unlock")
+
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="verification_events",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="member_verification_events",
+    )
+    action = models.CharField(max_length=20, choices=Action.choices)
+    reason = models.TextField(blank=True)
+    fields = models.JSONField(default=list, blank=True)
+    old_first_name = models.CharField(max_length=150, blank=True)
+    new_first_name = models.CharField(max_length=150, blank=True)
+    old_last_name = models.CharField(max_length=150, blank=True)
+    new_last_name = models.CharField(max_length=150, blank=True)
+    old_date_of_birth = models.DateField(null=True, blank=True)
+    new_date_of_birth = models.DateField(null=True, blank=True)
+    old_sex = models.CharField(max_length=1, blank=True)
+    new_sex = models.CharField(max_length=1, blank=True)
+    ssn_changed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["member", "-created_at"], name="member_verif_event_member"),
         ]

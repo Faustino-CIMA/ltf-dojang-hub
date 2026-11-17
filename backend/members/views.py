@@ -34,6 +34,7 @@ from .serializers import (
 from accounts.permissions import IsLtfAdmin
 from clubs.models import Club
 
+from .verification_views import MemberVerificationActions
 from .ltf_staff import (
     LtfStaffError,
     canonical_staff_function,
@@ -94,7 +95,7 @@ def _finance_only_view(user) -> bool:
     return getattr(user, "role", None) == "ltf_finance"
 
 
-class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet):
+class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet, MemberVerificationActions):
     serializer_class = MemberSerializer
     permission_classes = [permissions.IsAuthenticated]
     _COACH_ALLOWED_UPDATE_FIELDS = {"belt_rank"}
