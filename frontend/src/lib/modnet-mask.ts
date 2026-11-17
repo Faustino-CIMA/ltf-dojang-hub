@@ -1,6 +1,7 @@
 /**
  * Portrait matte. MODNet (Apache-2.0) runs at 512 on a small copy.
- * It is the mask used unless the page asks for the usual tool. WebGPU is off.
+ * The server removes the background unless the page asks for this model
+ * or the usual tool. WebGPU is off.
  */
 
 import { fetchModelAsset } from "@/lib/background-model-cache";
@@ -19,8 +20,8 @@ export function removalMaskFromSearch(search: string): RemovalMask {
   const query = search.startsWith("?") ? search.slice(1) : search;
   const mask = new URLSearchParams(query).get("mask");
   if (mask === "isnet") return "isnet";
-  if (mask === "server") return "server";
-  return "modnet";
+  if (mask === "modnet") return "modnet";
+  return "server";
 }
 
 export function modnetInputSize(width: number, height: number): { width: number; height: number } {

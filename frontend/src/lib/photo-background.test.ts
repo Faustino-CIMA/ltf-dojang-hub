@@ -6,6 +6,7 @@ import {
   cleanCutoutEdges,
   compositeMaskOntoOriginal,
   compositeCutoutForCard,
+  cutoutShadowForFrame,
   compositeOntoColor,
   copyCrop,
   decontaminateEdgeSpill,
@@ -59,12 +60,45 @@ describe("photo background maths", () => {
     compositeCutoutForCard(data, width, height, parseLicensePhotoColor("#D9D9D9"));
     const subject = (7 * width + 10) * 4;
     expect(data[subject]).toBeGreaterThan(230);
-    const below = (16 * width + 10) * 4;
-    expect(data[below]).toBeLessThan(217);
+    const below = (13 * width + 10) * 4;
+    expect(data[below]).toBeLessThan(200);
     expect(data[0]).toBe(217);
     expect(data[1]).toBe(217);
     expect(data[2]).toBe(217);
     expect(data[3]).toBe(255);
+  });
+
+  it("shows a shadow beside a soft server edge, not only under the feet", () => {
+    const width = 80;
+    const height = 100;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const centerX = 40;
+    const centerY = 42;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const distance = Math.hypot(x - centerX, y - centerY);
+        const coverage = distance <= 18 ? 255 : distance >= 22 ? 0 : Math.round((255 * (22 - distance)) / 4);
+        const index = (y * width + x) * 4;
+        data[index] = coverage > 0 ? 240 : 255;
+        data[index + 1] = coverage > 0 ? 200 : 255;
+        data[index + 2] = coverage > 0 ? 170 : 255;
+        data[index + 3] = coverage;
+      }
+    }
+    compositeCutoutForCard(data, width, height, parseLicensePhotoColor("#D9D9D9"));
+    const beside = (centerY * width + centerX + 24) * 4;
+    expect(data[beside]).toBeLessThan(200);
+    expect(data[beside + 3]).toBe(255);
+    const below = ((centerY + 26) * width + centerX) * 4;
+    expect(data[below]).toBeLessThan(200);
+    const far = 0;
+    expect(data[far]).toBe(217);
+    const subject = (centerY * width + centerX) * 4;
+    expect(data[subject]).toBeGreaterThan(220);
+    const saved = cutoutShadowForFrame(1181);
+    const preview = cutoutShadowForFrame(200);
+    expect(saved.blur).toBeGreaterThan(preview.blur);
+    expect(saved.offsetY).toBeGreaterThan(8);
   });
 
   it("scales the long side to 1024 and keeps the portrait shape", () => {
