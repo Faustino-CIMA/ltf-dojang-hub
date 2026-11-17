@@ -91,6 +91,22 @@ class ServerCutoutTests(TestCase):
         self.assertNotIn("iVBORw0KGgo", written)
         self.assertIn("bytes_out=", written)
 
+    def test_a_stopped_worker_answers_unavailable(self):
+        from unittest.mock import MagicMock, patch
+
+        job = MagicMock()
+        job.get.side_effect = TimeoutError("worker gone")
+        with self.settings(REMOVAL_INLINE=False):
+            with patch("removal.views.cutout_photo.apply_async", return_value=job) as queued:
+                with patch("removal.views.cutout_png") as inline:
+                    response = self.client.post("/api/photos/cutout/", {"image": _photo()}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        queued.assert_called_once()
+        self.assertEqual(queued.call_args.kwargs["queue"], "removal")
+        inline.assert_not_called()
+        job.forget.assert_called_once()
+        self.assertEqual(list(Path(self.media).rglob("*")), [])
+
     def test_unavailable_model_is_a_quiet_failure(self):
         from unittest.mock import patch
 
@@ -127,5 +143,14 @@ class ServerCutoutTests(TestCase):
         self.assertIn("--concurrency=1", block)
         self.assertIn("--max-tasks-per-child=1", block)
         self.assertIn("-Q removal", block)
+        self.assertNotIn("profiles:", block)
+        self.assertIn("mem_limit: 5g", block)
+        self.assertIn("memswap_limit: 5g", block)
         self.assertNotIn("celery,removal", block)
         self.assertGreaterEqual(settings.REMOVAL_WAIT_SECONDS, 100)
+        worker = text.split("\n  worker:", 1)[1].split("\n  removal-worker:", 1)[0]
+        self.assertIn("-Q celery,", worker)
+        self.assertIn("print_jobs", worker)
+        self.assertNotIn("removal", worker)
+        backend = text.split("\n  backend:", 1)[1].split("\n  worker:", 1)[0]
+        self.assertNotIn("removal-worker", backend)
