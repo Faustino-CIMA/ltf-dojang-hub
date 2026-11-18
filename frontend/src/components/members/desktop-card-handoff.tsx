@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
-import { HANDOFF_QR_PX, handoffQrMarkup } from "@/lib/handoff-qr";
+import { HANDOFF_QR_MAX_PX, handoffQrMarkup } from "@/lib/handoff-qr";
 import {
   cancelMemberChallenge,
   cardCheckPath,
@@ -137,8 +137,8 @@ export function DesktopCardHandoff({
       {phase === "waiting" && svg ? (
         <div className="space-y-3">
           <div
-            className="inline-block rounded-md border border-border bg-[var(--brand-on-ink)] p-3 text-[var(--brand-ink)]"
-            data-handoff-qr={HANDOFF_QR_PX}
+            className="inline-block max-w-full rounded-md border border-border bg-[var(--brand-on-ink)] text-[var(--brand-ink)]"
+            data-handoff-qr={HANDOFF_QR_MAX_PX}
             dangerouslySetInnerHTML={{ __html: svg }}
           />
           {expiry ? <p className="text-sm text-foreground">{expiry}</p> : null}
