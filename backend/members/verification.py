@@ -7,8 +7,10 @@ not store the social security number.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import re
+import secrets
 import unicodedata
 from dataclasses import dataclass
 from datetime import date
@@ -161,7 +163,7 @@ def is_verified(member) -> bool:
     return bool(row and row.status == row.Status.VERIFIED)
 
 
-def verification_state(member) -> dict:
+def verification_state(member, session_key: str = "") -> dict:
     country, number = _stored_number(member)
     has_number = bool(str(number or "").strip())
     row = _verification_row(member)
@@ -183,6 +185,9 @@ def verification_state(member) -> dict:
         }
     state["has_number"] = has_number
     state["country"] = country if has_number else ""
+    open_challenge = _open_challenge(member, session_key)
+    state["challenge_open"] = open_challenge is not None
+    state["challenge_expires_at"] = open_challenge.expires_at if open_challenge is not None else None
     return state
 
 
@@ -428,3 +433,131 @@ def unlock_member(member, *, actor, reason: str) -> None:
         old=current,
         new=current,
     )
+
+
+_CHALLENGE_MINUTES = 10
+_GUESS_LIMIT = 30
+
+
+def request_session_key(request) -> str:
+    """Bind a code to the desktop sign-in, even when a cookie is also present."""
+    authorization = str(request.headers.get("Authorization") or "")
+    if authorization.lower().startswith("token "):
+        return authorization.split(" ", 1)[1].strip()[:128]
+    header = str(request.headers.get("X-Session-Token") or "")
+    if header:
+        return header[:128]
+    auth = getattr(request, "auth", None)
+    for attr in ("session_key", "key"):
+        value = getattr(auth, attr, None)
+        if value:
+            return str(value)[:128]
+    django_request = getattr(request, "_request", request)
+    session = getattr(django_request, "_allauth_token_session", None)
+    return str(getattr(session, "session_key", "") or "")[:128]
+
+
+def _token_hash(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _open_challenge(member, session_key: str):
+    from .models import VerificationChallenge
+
+    return (
+        VerificationChallenge.objects.filter(
+            member=member,
+            session_key=session_key,
+            used_at__isnull=True,
+            cancelled_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        )
+        .order_by("-id")
+        .first()
+    )
+
+
+def create_challenge(member, *, actor, session_key: str) -> tuple[str, object]:
+    from .models import VerificationChallenge
+
+    now = timezone.now()
+    VerificationChallenge.objects.filter(
+        member=member,
+        session_key=session_key,
+        used_at__isnull=True,
+        cancelled_at__isnull=True,
+    ).update(cancelled_at=now)
+    raw = secrets.token_urlsafe(32)
+    row = VerificationChallenge.objects.create(
+        member=member,
+        created_by=actor if getattr(actor, "is_authenticated", False) else None,
+        session_key=session_key,
+        token_hash=_token_hash(raw),
+        expires_at=now + timezone.timedelta(minutes=_CHALLENGE_MINUTES),
+    )
+    return raw, row
+
+
+def cancel_challenge(member, *, session_key: str, raw_token: str = "") -> None:
+    from .models import VerificationChallenge
+
+    now = timezone.now()
+    rows = VerificationChallenge.objects.filter(
+        member=member,
+        session_key=session_key,
+        used_at__isnull=True,
+        cancelled_at__isnull=True,
+    )
+    if raw_token:
+        rows = rows.filter(token_hash=_token_hash(raw_token))
+    rows.update(cancelled_at=now)
+
+
+def challenge_for_token(raw: str):
+    from .models import VerificationChallenge
+
+    if not raw or len(raw) > 128 or len(raw) < 20:
+        return None
+    return (
+        VerificationChallenge.objects.select_related("member", "created_by")
+        .filter(token_hash=_token_hash(raw))
+        .first()
+    )
+
+
+def challenge_block_reason(row) -> str:
+    if row is None:
+        return "invalid"
+    now = timezone.now()
+    if row.cancelled_at is not None:
+        return "cancelled"
+    if row.used_at is not None:
+        return "used"
+    if row.expires_at <= now:
+        return "expired"
+    return ""
+
+
+def mark_challenge_used(row) -> None:
+    if row.used_at is None:
+        row.used_at = timezone.now()
+        row.save(update_fields=["used_at"])
+
+
+def token_guess_limited(ip: str) -> bool:
+    key = f"verify-token-guess:{ip or 'unknown'}"
+    try:
+        count = int(cache.get(key) or 0)
+    except (TypeError, ValueError):
+        count = 0
+    return count >= _GUESS_LIMIT
+
+
+def note_token_guess(ip: str) -> None:
+    key = f"verify-token-guess:{ip or 'unknown'}"
+    if cache.add(key, 1, timeout=_COMPARE_WINDOW_SECONDS):
+        return
+    try:
+        cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=_COMPARE_WINDOW_SECONDS)

@@ -14,7 +14,7 @@ export default function LtfMemberVerifyPage() {
   const memberId = typeof rawId === "string" ? Number(rawId) : Number(rawId?.[0]);
   return (
     <LtfAdminLayout title={t("title")}>
-      <MemberVerifyScreen memberId={memberId} backHref={`/${locale}/dashboard/ltf/members/${memberId}`} />
+      <MemberVerifyScreen memberId={memberId} locale={locale} backHref={`/${locale}/dashboard/ltf/members/${memberId}`} />
     </LtfAdminLayout>
   );
 }

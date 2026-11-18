@@ -5564,6 +5564,14 @@
     "countryLU": "Lëtzebuerg",
     "countryDE": "Däitschland",
     "countryFR": "Frankräich",
-    "countryBE": "Belsch"
+    "countryBE": "Belsch",
+    "qrTitle": "D'Kaart um Telefon nokucken",
+    "qrHint": "Scannt dëse Code mam Telefon, deen d'Kaart liest. De Code gëllt eng Kéier a 10 Minutten.",
+    "qrWaiting": "Waarden op den Telefon.",
+    "qrExpired": "Dëse Code ass ofgelaf. Fänkt nei un.",
+    "qrCancelled": "Dëse Code gouf ofgebrach.",
+    "qrUsed": "Dëse Code gouf scho benotzt.",
+    "qrInvalid": "Dëse Code ass net gëlteg.",
+    "startAgain": "Nei ufänken"
   }
 }

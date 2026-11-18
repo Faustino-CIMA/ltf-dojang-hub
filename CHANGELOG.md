@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** On a computer, Verify shows a code the phone can scan. The phone reads the card. The computer updates when the check finishes. The code works once, for 10 minutes, and the picture is not kept.
 - **Members:** A club admin or an LTF admin can check a member from a phone camera. The phone reads the card and only the text is sent. A match shows a green shield on the member. The picture is not kept.
 - **Members:** A club admin or an LTF admin can verify a member from the text of a Luxembourg, German, French, or Belgian social security card. A match locks the legal name, date of birth, sex, and social security number until someone unlocks them and gives a reason. The card photo is not accepted.
 - **Members:** A new member starts at 10th Kup and has no licence number until the first licence request. Club management asks for the social security number when that module is on.

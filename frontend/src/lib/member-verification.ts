@@ -9,6 +9,8 @@ export type VerificationState = {
   locked_fields: string[];
   country: CardCountry | "";
   has_number: boolean;
+  challenge_open?: boolean;
+  challenge_expires_at?: string | null;
 };
 
 export type CardCompareBody = {
@@ -39,6 +41,46 @@ export function getMemberVerification(memberId: number) {
 
 export function compareMemberCard(memberId: number, body: CardCompareBody) {
   return apiRequest<CardCompareResult>(`/api/members/${memberId}/verification/compare/`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export type CardChallenge = {
+  token: string;
+  expires_at: string;
+};
+
+export function cardCheckPath(locale: string, token: string) {
+  return `/${locale}/card-check/${encodeURIComponent(token)}`;
+}
+
+export function createMemberChallenge(memberId: number) {
+  return apiRequest<CardChallenge>(`/api/members/${memberId}/verification-challenges/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function cancelMemberChallenge(memberId: number, token: string) {
+  return apiRequest<VerificationState>(`/api/members/${memberId}/verification-challenges/cancel/`, {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function getCardChallenge(token: string) {
+  return apiRequest<{
+    open: boolean;
+    expires_at: string;
+    country: CardCountry | "";
+    has_number: boolean;
+    verified: boolean;
+  }>(`/api/verification-challenges/${encodeURIComponent(token)}/`);
+}
+
+export function compareCardChallenge(token: string, body: CardCompareBody) {
+  return apiRequest<CardCompareResult>(`/api/verification-challenges/${encodeURIComponent(token)}/`, {
     method: "POST",
     body: JSON.stringify(body),
   });

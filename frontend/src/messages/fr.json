@@ -5563,6 +5563,14 @@
     "countryLU": "Luxembourg",
     "countryDE": "Allemagne",
     "countryFR": "France",
-    "countryBE": "Belgique"
+    "countryBE": "Belgique",
+    "qrTitle": "Contrôler la carte sur un téléphone",
+    "qrHint": "Scannez ce code avec le téléphone qui lira la carte. Le code ne sert qu'une fois et dure 10 minutes.",
+    "qrWaiting": "En attente du téléphone.",
+    "qrExpired": "Ce code a expiré. Commencez à nouveau.",
+    "qrCancelled": "Ce code a été annulé.",
+    "qrUsed": "Ce code a déjà été utilisé.",
+    "qrInvalid": "Ce code n'est pas valable.",
+    "startAgain": "Recommencer"
   }
 }
