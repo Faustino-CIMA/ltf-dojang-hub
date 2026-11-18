@@ -28,6 +28,7 @@ import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { memberVerifyPath, verifyMemberMenuAction } from "@/components/members/verify-member-action";
 import { VerifiedBadge } from "@/components/members/verified-badge";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { PhotoReviewMark, PictureReviewPanel } from "@/components/members/picture-review-panel";
@@ -1219,6 +1220,11 @@ export default function ClubAdminMembersPage() {
                                 label: t("editAction"),
                                 onSelect: () => router.push(`/${locale}/dashboard/club/members/${member.id}?edit=1`),
                               },
+                              ...verifyMemberMenuAction({
+                                verified: Boolean(member.card_verified),
+                                label: verifyT("verifyMember"),
+                                onSelect: () => router.push(memberVerifyPath(locale, "club", member.id)),
+                              }),
                               ...(accountRowAction(
                                 member.account_state,
                                 member.user != null && member.user === currentUserId,
