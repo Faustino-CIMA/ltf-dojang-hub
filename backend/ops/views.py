@@ -16,6 +16,7 @@ from rest_framework.pagination import PageNumberPagination
 from accounts.email_utils import build_password_reset_url, send_password_reset_email
 from accounts.models import User
 
+from .audit_list import filtered_ops_audit
 from .health import collect_health
 from .i18n import (
     SUPPORTED_LOCALES,
@@ -43,6 +44,19 @@ class OpsPageNumberPagination(PageNumberPagination):
     page_size = 50
     page_size_query_param = "page_size"
     max_page_size = 200
+
+
+class OpsAuditPagination(OpsPageNumberPagination):
+    def get_paginated_response(self, data):
+        return response.Response(
+            {
+                "count": self.page.paginator.count,
+                "next": self.get_next_link(),
+                "previous": self.get_previous_link(),
+                "actions": getattr(self, "actions", []),
+                "results": data,
+            }
+        )
 
 
 class PublicI18nView(views.APIView):
@@ -636,11 +650,11 @@ class OpsAuditListView(views.APIView):
     permission_classes = [IsSuperuser]
 
     def get(self, request):
-        qs = OpsAuditLog.objects.select_related("actor").all()
-        action = request.query_params.get("action")
-        if action:
-            qs = qs.filter(action=action)
-        paginator = OpsPageNumberPagination()
+        qs = filtered_ops_audit(request.query_params)
+        paginator = OpsAuditPagination()
+        paginator.actions = list(
+            OpsAuditLog.objects.order_by("action").values_list("action", flat=True).distinct()
+        )
         page = paginator.paginate_queryset(qs, request, view=self)
         return paginator.get_paginated_response(OpsAuditLogSerializer(page, many=True).data)
 

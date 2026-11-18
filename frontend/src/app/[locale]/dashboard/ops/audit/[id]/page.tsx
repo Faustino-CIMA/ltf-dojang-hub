@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { formatDisplayDateTime } from "@/lib/date-display";
+import { opsAuditActionLabel } from "@/lib/ops-audit-page";
 import { getOpsAuditDetail, type OpsAuditEntry } from "@/lib/ops-api";
 
 export default function OpsAuditDetailPage() {
@@ -38,7 +39,17 @@ export default function OpsAuditDetailPage() {
   }, [params.id, t]);
 
   return (
-    <OpsLayout title={t("auditDetailTitle")} subtitle={entry?.action}>
+    <OpsLayout
+      title={t("auditDetailTitle")}
+      subtitle={
+        entry
+          ? opsAuditActionLabel(entry.action, {
+              verify: t("auditActionVerify"),
+              unlock: t("auditActionUnlock"),
+            })
+          : undefined
+      }
+    >
       <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
       <div className="mb-4">
         <Button asChild variant="outline">
@@ -60,12 +71,19 @@ export default function OpsAuditDetailPage() {
           </p>
           <p>
             <span className="text-muted">{t("colAction")}: </span>
-            {entry.action}
+            {opsAuditActionLabel(entry.action, {
+              verify: t("auditActionVerify"),
+              unlock: t("auditActionUnlock"),
+            })}
           </p>
           <p>
             <span className="text-muted">{t("colTarget")}: </span>
             {entry.target_type}
             {entry.target_id ? ` #${entry.target_id}` : ""}
+          </p>
+          <p>
+            <span className="text-muted">{t("auditClub")}: </span>
+            {entry.club_name || "—"}
           </p>
           <p>
             <span className="text-muted">{t("colMessage")}: </span>

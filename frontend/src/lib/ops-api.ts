@@ -137,10 +137,15 @@ export type OpsAuditEntry = {
   action: string;
   target_type: string;
   target_id: string;
+  club_name: string;
   message: string;
   ip: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+};
+
+export type OpsAuditPage = PaginatedResponse<OpsAuditEntry> & {
+  actions: string[];
 };
 
 export type OpsJobs = {
@@ -312,12 +317,26 @@ export function retryOpsPrintJob(printJobId: number) {
   return apiRequest(`/api/ops/jobs/print-jobs/${printJobId}/retry/`, { method: "POST" });
 }
 
-export function getOpsAudit(params: { page?: number; action?: string } = {}) {
+export function getOpsAudit(
+  params: {
+    page?: number;
+    pageSize?: number;
+    q?: string;
+    action?: string;
+    actor?: string;
+    from?: string;
+    to?: string;
+  } = {},
+) {
   const search = new URLSearchParams();
   if (params.page) search.set("page", String(params.page));
+  search.set("page_size", String(params.pageSize || 50));
+  if (params.q) search.set("q", params.q);
   if (params.action) search.set("action", params.action);
-  search.set("page_size", "50");
-  return apiRequest<PaginatedResponse<OpsAuditEntry>>(`/api/ops/audit/?${search.toString()}`);
+  if (params.actor) search.set("actor", params.actor);
+  if (params.from) search.set("from", params.from);
+  if (params.to) search.set("to", params.to);
+  return apiRequest<OpsAuditPage>(`/api/ops/audit/?${search.toString()}`);
 }
 
 export function getOpsAuditDetail(id: number) {

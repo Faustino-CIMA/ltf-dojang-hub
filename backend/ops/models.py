@@ -153,6 +153,7 @@ class OpsAuditLog(models.Model):
         indexes = [
             models.Index(fields=["-created_at"], name="opsaudit_created_idx"),
             models.Index(fields=["action", "-created_at"], name="opsaudit_action_created_idx"),
+            models.Index(fields=["actor", "-created_at"], name="opsaudit_actor_created_idx"),
         ]
 
     def __str__(self) -> str:

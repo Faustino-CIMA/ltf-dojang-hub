@@ -84,6 +84,7 @@ class SecurityAlertSerializer(serializers.ModelSerializer):
 
 class OpsAuditLogSerializer(serializers.ModelSerializer):
     actor_name = serializers.CharField(source="actor.username", read_only=True, default="")
+    club_name = serializers.SerializerMethodField()
 
     class Meta:
         model = OpsAuditLog
@@ -94,8 +95,24 @@ class OpsAuditLogSerializer(serializers.ModelSerializer):
             "action",
             "target_type",
             "target_id",
+            "club_name",
             "message",
             "ip",
             "metadata",
             "created_at",
         ]
+
+    def get_club_name(self, obj: OpsAuditLog) -> str:
+        metadata = obj.metadata if isinstance(obj.metadata, dict) else {}
+        name = metadata.get("club_name")
+        return name if isinstance(name, str) else ""
+
+    def to_representation(self, instance):
+        from .audit_redact import redact_audit_value
+
+        data = super().to_representation(instance)
+        metadata = redact_audit_value(data.get("metadata") or {})
+        data["metadata"] = metadata
+        club_name = metadata.get("club_name") if isinstance(metadata, dict) else ""
+        data["club_name"] = club_name if isinstance(club_name, str) else ""
+        return data

@@ -323,11 +323,15 @@ def ensure_record_update_unlocked(record, attrs: dict) -> None:
 
 
 def _audit(member, actor, action: str, *, reason: str, fields: list[str], old: dict, new: dict) -> None:
+    from ops.models import OpsAuditLog
+    from ops.verification_audit import verification_audit_message, verification_audit_metadata
+
     from .models import MemberVerificationEvent
 
-    MemberVerificationEvent.objects.create(
+    authenticated = actor if getattr(actor, "is_authenticated", False) else None
+    event = MemberVerificationEvent.objects.create(
         member=member,
-        actor=actor if getattr(actor, "is_authenticated", False) else None,
+        actor=authenticated,
         action=action,
         reason=reason,
         fields=fields,
@@ -340,6 +344,32 @@ def _audit(member, actor, action: str, *, reason: str, fields: list[str], old: d
         old_sex=old["sex"],
         new_sex=new["sex"],
         ssn_changed=False,
+    )
+    club_name = ""
+    club = getattr(member, "club", None)
+    if club is not None:
+        club_name = getattr(club, "name", "") or ""
+    OpsAuditLog.objects.create(
+        actor=authenticated,
+        action=f"member_verification.{action}",
+        target_type="member",
+        target_id=str(member.pk),
+        message=verification_audit_message(
+            action=action,
+            last_name=member.last_name,
+            first_name=member.first_name,
+            club_name=club_name,
+            reason=reason,
+        ),
+        metadata=verification_audit_metadata(
+            event_id=event.id,
+            fields=fields,
+            ssn_changed=event.ssn_changed,
+            club_id=getattr(member, "club_id", None),
+            club_name=club_name,
+            old=old,
+            new=new,
+        ),
     )
 
 
