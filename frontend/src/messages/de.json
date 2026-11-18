@@ -5546,6 +5546,7 @@
   "Verification": {
     "badge": "Geprüft",
     "verify": "Prüfen",
+    "verifyMember": "Mitglied prüfen",
     "title": "Die Karte prüfen",
     "intro": "Das Telefon liest den Namen, das Geburtsdatum und die Sozialversicherungsnummer. Das Bild wird nicht behalten.",
     "noNumber": "Tragen Sie die Sozialversicherungsnummer in der Vereinsakte ein, bevor Sie prüfen.",

@@ -5546,6 +5546,7 @@
   "Verification": {
     "badge": "Verified",
     "verify": "Verify",
+    "verifyMember": "Verify member",
     "title": "Check the card",
     "intro": "The phone reads the name, the date of birth, and the social security number. The picture is not kept.",
     "noNumber": "Enter the social security number on the club record before this check.",

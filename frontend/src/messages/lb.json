@@ -5547,6 +5547,7 @@
   "Verification": {
     "badge": "Nogekuckt",
     "verify": "Nokucken",
+    "verifyMember": "Member nokucken",
     "title": "D'Kaart nokucken",
     "intro": "Den Telefon liest den Numm, de Gebuertsdatum an d'Sozialversécherungsnummer. D'Bild gëtt net behalen.",
     "noNumber": "Schreift d'Sozialversécherungsnummer an der Veräinsfiche, ier Dir nokuckt.",

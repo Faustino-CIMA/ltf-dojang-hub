@@ -5546,6 +5546,7 @@
   "Verification": {
     "badge": "Vérifié",
     "verify": "Vérifier",
+    "verifyMember": "Vérifier le membre",
     "title": "Contrôler la carte",
     "intro": "Le téléphone lit le nom, la date de naissance et le numéro de sécurité sociale. La photo n'est pas conservée.",
     "noNumber": "Indiquez le numéro de sécurité sociale sur la fiche du club avant ce contrôle.",
