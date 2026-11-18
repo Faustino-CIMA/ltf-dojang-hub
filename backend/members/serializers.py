@@ -47,14 +47,19 @@ def _new_member_needs_ssn(user, club) -> bool:
 
 def _check_new_member_ssn(value, *, club, user, country: str = "LU") -> None:
     raw = str(value or "").strip()
-    required = _new_member_needs_ssn(user, club)
+    from clubmgmt.access import is_club_admin_of, is_ltf_manager
+
+    allowed = is_ltf_manager(user) or is_club_admin_of(user, getattr(club, "id", club))
+    required = allowed and _new_member_needs_ssn(user, club)
+    if not allowed:
+        if raw:
+            raise serializers.ValidationError(
+                {"social_security_number": "A social security number cannot be stored for this club."}
+            )
+        return
     if required and not raw:
         raise serializers.ValidationError(
             {"social_security_number": "A social security number is required."}
-        )
-    if raw and not required:
-        raise serializers.ValidationError(
-            {"social_security_number": "A social security number cannot be stored for this club."}
         )
     if not raw:
         return
@@ -67,16 +72,67 @@ def _check_new_member_ssn(value, *, club, user, country: str = "LU") -> None:
         raise serializers.ValidationError({"social_security_number": exc.messages}) from exc
 
 
-def _store_new_member_ssn(member, ssn: str, country: str = "LU") -> None:
+def _identity_writes(user, member, ssn, country, nationality_1, nationality_2):
+    write_ssn = ssn is not None or country is not None
+    write_nationality = nationality_1 is not None or nationality_2 is not None
+    if not write_ssn and not write_nationality:
+        return False, False
+    if _may_see_member_identity(user, member):
+        return write_ssn, write_nationality
+    supplied = [ssn, country, nationality_1, nationality_2]
+    if any(str(value or "").strip() for value in supplied if value is not None):
+        raise serializers.ValidationError(
+            {"social_security_number": "A social security number cannot be stored for this club."}
+        )
+    return False, False
+
+
+def _may_see_member_identity(user, member) -> bool:
+    from clubmgmt.access import is_club_admin_of, is_ltf_manager
+
+    if is_ltf_manager(user):
+        return True
+    return is_club_admin_of(user, getattr(member, "club_id", None))
+
+
+def _identity_record(member):
+    from django.core.exceptions import ObjectDoesNotExist
+
+    try:
+        return member.club_record
+    except ObjectDoesNotExist:
+        return None
+
+
+def _store_member_identity(
+    member,
+    *,
+    ssn: str = "",
+    country: str = "LU",
+    nationality_1: str | None = None,
+    nationality_2: str | None = None,
+    write_ssn: bool = False,
+    write_nationality: bool = False,
+) -> None:
+    if not write_ssn and not write_nationality:
+        return
     from clubmgmt.models import MemberRecord
 
     from members.ssn_countries import validate_ssn
 
-    country = str(country or "LU").strip().upper() or "LU"
     record, _created = MemberRecord.objects.get_or_create(member=member)
-    record.social_security_number = validate_ssn(country, ssn)
-    record.social_security_country = country
-    record.save(update_fields=["social_security_number", "social_security_country", "updated_at"])
+    fields = ["updated_at"]
+    if write_ssn:
+        raw = str(ssn or "").strip()
+        country = str(country or record.social_security_country or "LU").strip().upper() or "LU"
+        record.social_security_number = validate_ssn(country, raw) if raw else ""
+        record.social_security_country = country if raw else (record.social_security_country or "")
+        fields.extend(["social_security_number", "social_security_country"])
+    if write_nationality:
+        record.nationality_1 = str(nationality_1 or "").strip()[:64]
+        record.nationality_2 = str(nationality_2 or "").strip()[:64]
+        fields.extend(["nationality_1", "nationality_2"])
+    record.save(update_fields=fields)
 
 
 class MemberSerializer(serializers.ModelSerializer):
@@ -127,6 +183,8 @@ class MemberSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,
     )
+    nationality_1 = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    nationality_2 = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Member
@@ -144,6 +202,8 @@ class MemberSerializer(serializers.ModelSerializer):
             "ltf_license_prefix",
             "social_security_number",
             "social_security_country",
+            "nationality_1",
+            "nationality_2",
             "date_of_birth",
             "belt_rank",
             "primary_license_role",
@@ -285,21 +345,37 @@ class MemberSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("ltf_license_prefix", None)
-        ssn = str(validated_data.pop("social_security_number", "") or "").strip()
-        country = str(validated_data.pop("social_security_country", "") or "").strip().upper() or "LU"
+        ssn = validated_data.pop("social_security_number", None)
+        country = validated_data.pop("social_security_country", None)
+        nationality_1 = validated_data.pop("nationality_1", None)
+        nationality_2 = validated_data.pop("nationality_2", None)
         if not str(validated_data.get("belt_rank", "")).strip():
             validated_data["belt_rank"] = OFFICIAL_GRADES[0]
         # The licence number is assigned with the first licence request, not here.
         validated_data["ltf_licenseid"] = str(validated_data.get("ltf_licenseid", "") or "").strip()
         member = super().create(validated_data)
-        if ssn:
-            _store_new_member_ssn(member, ssn, country)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        write_ssn, write_nationality = _identity_writes(
+            user, member, ssn, country, nationality_1, nationality_2
+        )
+        _store_member_identity(
+            member,
+            ssn=str(ssn or ""),
+            country=str(country or "LU"),
+            nationality_1=nationality_1,
+            nationality_2=nationality_2,
+            write_ssn=write_ssn,
+            write_nationality=write_nationality,
+        )
         return member
 
     def update(self, instance, validated_data):
         validated_data.pop("ltf_license_prefix", None)
-        validated_data.pop("social_security_number", None)
-        validated_data.pop("social_security_country", None)
+        ssn = validated_data.pop("social_security_number", None)
+        country = validated_data.pop("social_security_country", None)
+        nationality_1 = validated_data.pop("nationality_1", None)
+        nationality_2 = validated_data.pop("nationality_2", None)
         previous_belt_rank = str(instance.belt_rank or "").strip()
         updated_member = super().update(instance, validated_data)
         new_belt_rank = str(updated_member.belt_rank or "").strip()
@@ -317,6 +393,20 @@ class MemberSerializer(serializers.ModelSerializer):
                 metadata={"source": "member_serializer.update"},
                 sync_member=False,
             )
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        write_ssn, write_nationality = _identity_writes(
+            user, updated_member, ssn, country, nationality_1, nationality_2
+        )
+        _store_member_identity(
+            updated_member,
+            ssn=str(ssn or ""),
+            country=str(country or ""),
+            nationality_1=nationality_1,
+            nationality_2=nationality_2,
+            write_ssn=write_ssn,
+            write_nationality=write_nationality,
+        )
         return updated_member
 
     def get_profile_picture_url(self, obj: Member):
@@ -465,6 +555,18 @@ class MemberSerializer(serializers.ModelSerializer):
         if not self._measurements_visible(instance):
             for key in ("latest_weight_kg", "latest_weight_on", "latest_height_cm", "latest_height_on", "teams"):
                 data.pop(key, None)
+        view = self.context.get("view")
+        if getattr(view, "action", None) != "retrieve":
+            return data
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not _may_see_member_identity(user, instance):
+            return data
+        record = _identity_record(instance)
+        data["social_security_number"] = getattr(record, "social_security_number", "") or ""
+        data["social_security_country"] = getattr(record, "social_security_country", "") or ""
+        data["nationality_1"] = getattr(record, "nationality_1", "") or ""
+        data["nationality_2"] = getattr(record, "nationality_2", "") or ""
         return data
 
     def get_current_licenses(self, obj: Member):

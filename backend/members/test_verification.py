@@ -254,7 +254,9 @@ class VerificationApiTests(TestCase):
         self.assertEqual(event.new_last_name, "DA SILVA")
         shown = self.client.get(f"/api/members/{self.member.id}/")
         self.assertTrue(shown.data["card_verified"])
-        self.assertNotIn(self.number, json.dumps(shown.data))
+        self.assertEqual(shown.data["social_security_number"], self.number)
+        listing = self.client.get("/api/members/")
+        self.assertNotIn(self.number, json.dumps(listing.data))
         self.assertFalse(any(field.name == "social_security_number" for field in event._meta.fields))
 
     def test_mismatch_does_not_lock_and_names_the_field(self):
@@ -401,7 +403,9 @@ class VerificationApiTests(TestCase):
         shown = self.client.get(f"/api/members/{self.member.id}/")
         self.assertEqual(shown.status_code, 200)
         self.assertFalse(shown.data["card_verified"])
-        self.assertNotIn(self.number, json.dumps(shown.data))
+        self.assertEqual(shown.data["social_security_number"], self.number)
+        listing = self.client.get("/api/members/")
+        self.assertNotIn(self.number, json.dumps(listing.data))
 
     def test_too_many_compares_are_limited(self):
         self.client.force_authenticate(user=self.club_admin)

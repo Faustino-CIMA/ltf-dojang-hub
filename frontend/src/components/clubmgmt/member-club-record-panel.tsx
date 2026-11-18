@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pencil, Trash2, ExternalLink, User } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -134,18 +134,20 @@ function DraftActions({
   );
 }
 
-function NationalityField({
+export function NationalityField({
   label,
   value,
   onChange,
   noneLabel,
   locale,
+  icon,
 }: {
   label: string;
   value: string;
   onChange: (next: string) => void;
   noneLabel: string;
   locale: string;
+  icon?: ReactNode;
 }) {
   const options = useMemo(() => {
     const listed = nationalityOptions(locale);
@@ -159,7 +161,10 @@ function NationalityField({
 
   return (
     <div>
-      <Label>{label}</Label>
+      <div className="flex items-center gap-2">
+        {icon}
+        <Label>{label}</Label>
+      </div>
       <div className="mt-1">
         <Select
           value={selected}

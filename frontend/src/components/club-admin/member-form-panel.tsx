@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { Flag, IdCard } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -12,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
+import { NationalityField } from "@/components/clubmgmt/member-club-record-panel";
 import { Club, Member, createMember, getClubs, updateMember } from "@/lib/club-admin-api";
 import { sanitizeStoredNumber } from "@/lib/card-read";
+import { nationalityCodeFromStored } from "@/lib/nationalities";
 import { parseDisplayDateToIso, formatDateInputValue } from "@/lib/date-display";
 import { LICENSE_ROLE_VALUES, canonicalizeLicenseRole, type LicenseRoleValue } from "@/lib/license-roles";
 
@@ -34,6 +37,8 @@ const createSchema = z
     is_active: z.boolean(),
     social_security_number: z.string().optional(),
     social_security_country: z.enum(["LU", "DE", "FR", "BE"]),
+    nationality_1: z.string().optional(),
+    nationality_2: z.string().optional(),
   })
   .superRefine((values, context) => {
     if (values.secondary_license_role && !values.primary_license_role) {
@@ -71,6 +76,10 @@ const editSchema = z.object({
   secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")),
   is_active: z.boolean(),
   usual_name: z.string().max(150),
+  social_security_number: z.string().optional(),
+  social_security_country: z.enum(["LU", "DE", "FR", "BE"]),
+  nationality_1: z.string().optional(),
+  nationality_2: z.string().optional(),
 });
 
 type CreateValues = z.infer<typeof createSchema>;
@@ -104,6 +113,7 @@ export function MemberFormPanel({
   onSaved: () => void | Promise<void>;
 }) {
   const t = useTranslations("ClubAdmin");
+  const locale = useLocale();
   const verifyT = useTranslations("Verification");
   const clubT = useTranslations("ClubMgmt");
   const importT = useTranslations("Import");
@@ -142,6 +152,8 @@ export function MemberFormPanel({
       secondary_license_role: "",
       is_active: true,
       social_security_country: "LU",
+      nationality_1: "",
+      nationality_2: "",
     },
   });
   const editForm = useForm<EditValues>({
@@ -158,6 +170,10 @@ export function MemberFormPanel({
       secondary_license_role: "",
       is_active: true,
       usual_name: "",
+      social_security_number: "",
+      social_security_country: "LU",
+      nationality_1: "",
+      nationality_2: "",
     },
   });
 
@@ -201,6 +217,8 @@ export function MemberFormPanel({
       is_active: true,
       social_security_number: "",
       social_security_country: "LU",
+      nationality_1: "",
+      nationality_2: "",
     });
     setErrorMessage(null);
   }, [open, mode, selectedClubId, clubOptions, createForm]);
@@ -221,6 +239,10 @@ export function MemberFormPanel({
       secondary_license_role: canonicalizeLicenseRole(member.secondary_license_role),
       is_active: member.is_active,
       usual_name: member.usual_name ?? "",
+      social_security_number: member.social_security_number ?? "",
+      social_security_country: (member.social_security_country || "LU") as "LU" | "DE" | "FR" | "BE",
+      nationality_1: nationalityCodeFromStored(member.nationality_1 ?? ""),
+      nationality_2: nationalityCodeFromStored(member.nationality_2 ?? ""),
     });
     setErrorMessage(null);
   }, [open, mode, member, editForm]);
@@ -247,8 +269,10 @@ export function MemberFormPanel({
         primary_license_role: (values.primary_license_role ?? "") as LicenseRoleValue | "",
         secondary_license_role: (values.secondary_license_role ?? "") as LicenseRoleValue | "",
         is_active: values.is_active,
-        social_security_number: requireSsn ? values.social_security_number?.trim() : undefined,
-        social_security_country: requireSsn ? values.social_security_country : undefined,
+        social_security_number: values.social_security_number?.trim() ?? "",
+        social_security_country: values.social_security_country,
+        nationality_1: values.nationality_1 ?? "",
+        nationality_2: values.nationality_2 ?? "",
       });
       await onSaved();
     } catch (error) {
@@ -274,6 +298,14 @@ export function MemberFormPanel({
               date_of_birth: parseDisplayDateToIso(values.date_of_birth),
             }),
         usual_name: values.usual_name.trim(),
+        ...(locked
+          ? {}
+          : {
+              social_security_number: values.social_security_number?.trim() ?? "",
+              social_security_country: values.social_security_country,
+            }),
+        nationality_1: values.nationality_1 ?? "",
+        nationality_2: values.nationality_2 ?? "",
         email: values.email.trim(),
         wt_licenseid: values.wt_licenseid.trim(),
         ltf_licenseid: values.ltf_licenseid.trim(),
@@ -424,42 +456,6 @@ export function MemberFormPanel({
               <p className="text-sm font-medium text-foreground">10th Kup</p>
               <p className="text-xs text-muted">{t("beltRankCreateHint")}</p>
             </div>
-            {requireSsn ? (
-              <div className="space-y-2 sm:col-span-2">
-                <Label>{verifyT("ssnCountry")}</Label>
-                <PopoverSelect
-                  ariaLabel={verifyT("ssnCountry")}
-                  className="w-full"
-                  value={createForm.watch("social_security_country")}
-                  onValueChange={(value) => {
-                    createForm.setValue("social_security_country", value as "LU" | "DE" | "FR" | "BE");
-                    createForm.setValue(
-                      "social_security_number",
-                      sanitizeStoredNumber(value, createForm.getValues("social_security_number") || ""),
-                    );
-                  }}
-                  options={[
-                    { value: "LU", label: verifyT("countryLU") },
-                    { value: "DE", label: verifyT("countryDE") },
-                    { value: "FR", label: verifyT("countryFR") },
-                    { value: "BE", label: verifyT("countryBE") },
-                  ]}
-                />
-                <Label htmlFor="member-panel-ssn" required>{clubT("ssn")}</Label>
-                <Input
-                  id="member-panel-ssn"
-                  autoComplete="off"
-                  maxLength={createForm.watch("social_security_country") === "FR" ? 15 : createForm.watch("social_security_country") === "DE" ? 12 : createForm.watch("social_security_country") === "BE" ? 11 : 13}
-                  {...createForm.register("social_security_number")}
-                  onChange={(event) => {
-                    createForm.setValue(
-                      "social_security_number",
-                      sanitizeStoredNumber(createForm.getValues("social_security_country"), event.target.value),
-                    );
-                  }}
-                />
-              </div>
-            ) : null}
           </>
         )}
         <div className="space-y-2">
@@ -477,6 +473,90 @@ export function MemberFormPanel({
             <Input id="member-panel-usual" {...editForm.register("usual_name")} />
           </div>
         ) : null}
+        <div className="space-y-2 sm:col-span-2">
+          <div className="flex items-center gap-2">
+            <IdCard className="h-4 w-4 text-muted" aria-hidden="true" />
+            <Label htmlFor="member-panel-ssn" required={requireSsn && !editing}>{clubT("ssn")}</Label>
+          </div>
+          <p className="text-xs text-muted">{verifyT("identityHint")}</p>
+          {editing && member?.card_verified ? <p className="text-xs text-muted">{verifyT("lockedHint")}</p> : null}
+          <PopoverSelect
+            ariaLabel={verifyT("ssnCountry")}
+            className="w-full"
+            disabled={Boolean(editing && member?.card_verified)}
+            value={(editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU"}
+            onValueChange={(value) => {
+              const country = value as "LU" | "DE" | "FR" | "BE";
+              if (editing) {
+                editForm.setValue("social_security_country", country);
+                editForm.setValue(
+                  "social_security_number",
+                  sanitizeStoredNumber(country, editForm.getValues("social_security_number") || ""),
+                );
+              } else {
+                createForm.setValue("social_security_country", country);
+                createForm.setValue(
+                  "social_security_number",
+                  sanitizeStoredNumber(country, createForm.getValues("social_security_number") || ""),
+                );
+              }
+            }}
+            options={[
+              { value: "LU", label: verifyT("countryLU") },
+              { value: "DE", label: verifyT("countryDE") },
+              { value: "FR", label: verifyT("countryFR") },
+              { value: "BE", label: verifyT("countryBE") },
+            ]}
+          />
+          <Input
+            id="member-panel-ssn"
+            autoComplete="off"
+            required={requireSsn && !editing}
+            disabled={Boolean(editing && member?.card_verified)}
+            maxLength={((editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU") === "FR" ? 15 : ((editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU") === "DE" ? 12 : ((editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU") === "BE" ? 11 : 13}
+            {...(editing ? editForm.register("social_security_number") : createForm.register("social_security_number"))}
+            onChange={(event) => {
+              const country = (editing ? editForm.getValues("social_security_country") : createForm.getValues("social_security_country")) || "LU";
+              const next = sanitizeStoredNumber(country, event.target.value);
+              if (editing) {
+                editForm.setValue("social_security_number", next);
+              } else {
+                createForm.setValue("social_security_number", next);
+              }
+            }}
+          />
+        </div>
+        <div className="space-y-2">
+          <NationalityField
+            label={clubT("nationality1")}
+            icon={<Flag className="h-4 w-4 text-muted" aria-hidden="true" />}
+            value={nationalityCodeFromStored((editing ? editForm.watch("nationality_1") : createForm.watch("nationality_1")) || "")}
+            noneLabel={clubT("nationalityNone")}
+            locale={locale}
+            onChange={(next) => {
+              if (editing) {
+                editForm.setValue("nationality_1", next);
+              } else {
+                createForm.setValue("nationality_1", next);
+              }
+            }}
+          />
+        </div>
+        <div className="space-y-2">
+          <NationalityField
+            label={clubT("nationality2")}
+            value={nationalityCodeFromStored((editing ? editForm.watch("nationality_2") : createForm.watch("nationality_2")) || "")}
+            noneLabel={clubT("nationalityNone")}
+            locale={locale}
+            onChange={(next) => {
+              if (editing) {
+                editForm.setValue("nationality_2", next);
+              } else {
+                createForm.setValue("nationality_2", next);
+              }
+            }}
+          />
+        </div>
         {editing ? (
           <div className="space-y-2">
             <Label>{t("beltRankLabel")}</Label>

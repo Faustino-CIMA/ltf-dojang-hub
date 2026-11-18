@@ -5576,6 +5576,7 @@
     "qrExpires": "Dëse Code leeft um {time} of.",
     "qrFallback": "Wann de Code net erschéngt, maacht dëse Link um Telefon op.",
     "qrCopy": "Link kopéieren",
-    "qrCopied": "Link kopéiert."
+    "qrCopied": "Link kopéiert.",
+    "identityHint": "Néideg fir d'Nationalekipp. Pflicht, wann d'Veräinsverwaltung un ass."
   }
 }

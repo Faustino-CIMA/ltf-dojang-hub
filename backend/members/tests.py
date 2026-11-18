@@ -337,6 +337,9 @@ class MemberApiTests(TestCase):
     def test_club_management_create_stores_a_valid_ssn_and_does_not_echo_it(self, _needed):
         from clubmgmt.models import MemberRecord
 
+        from members.test_verification import _open_grace
+
+        _open_grace(self.club_admin)
         self.client.force_authenticate(user=self.club_admin)
         missing = self.client.post(
             "/api/members/",
@@ -375,7 +378,12 @@ class MemberApiTests(TestCase):
         self.assertEqual(record.social_security_number, "1971100213046")
 
     @patch("members.serializers._new_member_needs_ssn", return_value=False)
-    def test_create_refuses_an_ssn_when_club_management_is_off(self, _needed):
+    def test_create_stores_an_optional_ssn_when_club_management_is_off(self, _needed):
+        from clubmgmt.models import MemberRecord
+
+        from members.test_verification import _open_grace
+
+        _open_grace(self.club_admin)
         self.client.force_authenticate(user=self.club_admin)
         response = self.client.post(
             "/api/members/",
@@ -385,11 +393,14 @@ class MemberApiTests(TestCase):
                 "last_name": "Plain",
                 "sex": "F",
                 "social_security_number": "1971100213046",
+                "social_security_country": "LU",
             },
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("social_security_number", response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertNotIn("1971100213046", json.dumps(response.data))
+        record = MemberRecord.objects.get(member_id=response.data["id"])
+        self.assertEqual(record.social_security_number, "1971100213046")
 
     def test_generated_ltf_licenseid_follows_the_highest_existing_number(self):
         Member.objects.create(club=self.club, first_name="Low", last_name="Id", ltf_licenseid="LTF-0007")

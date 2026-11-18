@@ -5575,6 +5575,7 @@
     "qrExpires": "Dieser Code läuft um {time} ab.",
     "qrFallback": "Wenn der Code nicht erscheint, öffnen Sie diesen Link auf dem Telefon.",
     "qrCopy": "Link kopieren",
-    "qrCopied": "Link kopiert."
+    "qrCopied": "Link kopiert.",
+    "identityHint": "Für die Nationalmannschaft nötig. Pflicht, wenn die Vereinsverwaltung aktiv ist."
   }
 }
