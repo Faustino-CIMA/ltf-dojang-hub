@@ -5572,6 +5572,10 @@
     "qrCancelled": "Dëse Code gouf ofgebrach.",
     "qrUsed": "Dëse Code gouf scho benotzt.",
     "qrInvalid": "Dëse Code ass net gëlteg.",
-    "startAgain": "Nei ufänken"
+    "startAgain": "Nei ufänken",
+    "qrExpires": "Dëse Code leeft um {time} of.",
+    "qrFallback": "Wann de Code net erschéngt, maacht dëse Link um Telefon op.",
+    "qrCopy": "Link kopéieren",
+    "qrCopied": "Link kopéiert."
   }
 }

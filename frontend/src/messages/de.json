@@ -5571,6 +5571,10 @@
     "qrCancelled": "Dieser Code wurde abgebrochen.",
     "qrUsed": "Dieser Code wurde bereits verwendet.",
     "qrInvalid": "Dieser Code ist nicht gültig.",
-    "startAgain": "Neu beginnen"
+    "startAgain": "Neu beginnen",
+    "qrExpires": "Dieser Code läuft um {time} ab.",
+    "qrFallback": "Wenn der Code nicht erscheint, öffnen Sie diesen Link auf dem Telefon.",
+    "qrCopy": "Link kopieren",
+    "qrCopied": "Link kopiert."
   }
 }
