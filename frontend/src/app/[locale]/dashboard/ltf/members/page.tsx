@@ -10,6 +10,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { LtfAdminLayout } from "@/components/ltf-admin/ltf-admin-layout";
 import { LtfStaffPanel, type StaffPanelMode } from "@/components/ltf-admin/ltf-staff-panel";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
+import { memberVerifyPath, verifyMemberMenuAction } from "@/components/members/verify-member-action";
 import { VerifiedBadge } from "@/components/members/verified-badge";
 import { PhotoReviewMark, PictureReviewPanel } from "@/components/members/picture-review-panel";
 import { useDeskAccess } from "@/components/desk-access";
@@ -479,6 +480,11 @@ export default function LtfAdminMembersPage() {
                         label: t("staffEditAction"),
                         onSelect: () => void openPanel(row.is_ltf_staff ? "edit" : "create", row),
                       },
+                      ...verifyMemberMenuAction({
+                        verified: Boolean(row.card_verified),
+                        label: verifyT("verifyMember"),
+                        onSelect: () => router.push(memberVerifyPath(locale, "ltf", row.id)),
+                      }),
                       ...(accountRowAction(row.account_state, row.user != null && row.user === currentUserId) === "create"
                         ? [
                             {
@@ -575,7 +581,7 @@ export default function LtfAdminMembersPage() {
           ]
         : []),
     ],
-    [accountLabel, canDecidePhoto, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, openPanel, readOnly, selectedIds, t, toggleSelectRow, verifyT, visibleIds]
+    [accountLabel, canDecidePhoto, canManageStaff, clubById, common, currentUserId, getLicenseStatusMeta, grantClubAdmin, headerCheck, locale, openPanel, readOnly, router, selectedIds, t, toggleSelectRow, verifyT, visibleIds]
   );
 
   return (
