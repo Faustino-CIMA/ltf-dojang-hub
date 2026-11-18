@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { HANDOFF_QR_PX, handoffQrMarkup } from "@/lib/handoff-qr";
 import {
   cancelMemberChallenge,
   cardCheckPath,
@@ -13,7 +15,7 @@ import {
   getMemberVerification,
 } from "@/lib/member-verification";
 
-type Phase = "loading" | "waiting" | "verified" | "expired" | "no-number" | "failed";
+type Phase = "loading" | "waiting" | "verified" | "expired" | "no-number" | "failed" | "fallback";
 
 export function DesktopCardHandoff({
   memberId,
@@ -27,12 +29,17 @@ export function DesktopCardHandoff({
   const t = useTranslations("Verification");
   const tokenRef = useRef("");
   const [svg, setSvg] = useState("");
+  const [link, setLink] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [copied, setCopied] = useState(false);
   const [phase, setPhase] = useState<Phase>("loading");
   const [requestError, setRequestError] = useState<string | null>(null);
 
   const start = useCallback(async () => {
     setPhase("loading");
     setRequestError(null);
+    setCopied(false);
+    setSvg("");
     const state = await getMemberVerification(memberId);
     if (state.verified) {
       setPhase("verified");
@@ -50,27 +57,29 @@ export function DesktopCardHandoff({
     const created = await createMemberChallenge(memberId);
     tokenRef.current = created.token;
     const url = `${window.location.origin}${cardCheckPath(locale, created.token)}`;
-    const qrcode = await import("qrcode");
-    const markup = await qrcode.toString(url, {
-      type: "svg",
-      margin: 1,
-      errorCorrectionLevel: "M",
-      color: { dark: "#111111", light: "#ffffff" },
-    });
-    setSvg(markup);
-    setPhase("waiting");
+    setLink(url);
+    setExpiresAt(created.expires_at);
+    try {
+      setSvg(handoffQrMarkup(url));
+      setPhase("waiting");
+    } catch {
+      setPhase("fallback");
+    }
   }, [locale, memberId]);
 
   useEffect(() => {
     let live = true;
-    start().catch(() => {
-      if (live) {
-        setRequestError(t("unreadable"));
-        setPhase("failed");
-      }
-    });
+    const timer = window.setTimeout(() => {
+      start().catch(() => {
+        if (live) {
+          setRequestError(t("unreadable"));
+          setPhase("failed");
+        }
+      });
+    }, 0);
     return () => {
       live = false;
+      window.clearTimeout(timer);
       const current = tokenRef.current;
       tokenRef.current = "";
       if (current) {
@@ -80,7 +89,7 @@ export function DesktopCardHandoff({
   }, [memberId, start, t]);
 
   useEffect(() => {
-    if (phase !== "waiting") {
+    if (phase !== "waiting" && phase !== "fallback") {
       return;
     }
     const look = () => {
@@ -100,6 +109,21 @@ export function DesktopCardHandoff({
     return () => window.clearInterval(timer);
   }, [memberId, phase]);
 
+  const expiry = expiresAt
+    ? t("qrExpires", {
+        time: new Date(expiresAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
+      })
+    : "";
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <Button variant="outline" size="sm" asChild>
@@ -113,15 +137,27 @@ export function DesktopCardHandoff({
       {phase === "waiting" && svg ? (
         <div className="space-y-3">
           <div
-            className="inline-block rounded-md border border-border bg-white p-3"
+            className="inline-block rounded-md border border-border bg-[var(--brand-on-ink)] p-3 text-[var(--brand-ink)]"
+            data-handoff-qr={HANDOFF_QR_PX}
             dangerouslySetInnerHTML={{ __html: svg }}
           />
+          {expiry ? <p className="text-sm text-foreground">{expiry}</p> : null}
           <p className="text-sm text-foreground">{t("qrWaiting")}</p>
+        </div>
+      ) : null}
+      {phase === "fallback" && link ? (
+        <div className="space-y-3">
+          <p className="text-sm text-warning">{t("qrFallback")}</p>
+          {expiry ? <p className="text-sm text-foreground">{expiry}</p> : null}
+          <Input readOnly value={link} aria-label={t("qrFallback")} onFocus={(event) => event.currentTarget.select()} />
+          <Button type="button" variant="outline" onClick={() => void copyLink()}>
+            {copied ? t("qrCopied") : t("qrCopy")}
+          </Button>
         </div>
       ) : null}
       {phase === "verified" ? <p className="text-sm text-success">{t("verifiedDone")}</p> : null}
       {phase === "expired" ? <p className="text-sm text-destructive">{t("qrExpired")}</p> : null}
-      {phase === "expired" || phase === "failed" ? (
+      {phase === "expired" || phase === "failed" || phase === "fallback" ? (
         <Button type="button" onClick={() => void start().catch(() => setPhase("failed"))}>
           {t("startAgain")}
         </Button>
