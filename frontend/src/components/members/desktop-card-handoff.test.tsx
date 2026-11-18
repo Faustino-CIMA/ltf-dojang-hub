@@ -7,7 +7,8 @@ if (!global.TextEncoder) {
 }
 
 import { DesktopCardHandoff } from "./desktop-card-handoff";
-import { HANDOFF_QR_PX } from "@/lib/handoff-qr";
+import { HANDOFF_PX_PER_MODULE, HANDOFF_QR_MAX_PX, handoffQrPixelSize } from "@/lib/handoff-qr";
+import QRCode from "qrcode";
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -57,11 +58,27 @@ describe("DesktopCardHandoff", () => {
     );
     await waitFor(() => expect(container.querySelector("svg")).not.toBeNull());
     const svg = container.querySelector("svg");
-    expect(svg?.getAttribute("width")).toBe(String(HANDOFF_QR_PX));
-    expect(svg?.getAttribute("height")).toBe(String(HANDOFF_QR_PX));
+    const span = Number(svg?.getAttribute("viewBox")?.split(" ")[2]);
+    const px = Number(svg?.getAttribute("width"));
+    expect(px).toBe(span * HANDOFF_PX_PER_MODULE);
+    expect(px).toBeLessThanOrEqual(HANDOFF_QR_MAX_PX);
+    expect(svg?.getAttribute("height")).toBe(String(px));
+    expect(svg?.getAttribute("shape-rendering")).toBe("crispEdges");
     const drawing = svg?.querySelector("path")?.getAttribute("d") ?? "";
     expect(drawing.length).toBeGreaterThan(20);
     expect(svg?.outerHTML).not.toContain("members");
     expect(screen.getByText(/qrExpires/)).toBeInTheDocument();
+  });
+});
+
+describe("handoff QR size", () => {
+  it("uses four pixels per module for a production hand-off address", () => {
+    const token = "a".repeat(43);
+    const url = `https://app.ltkdf.org/en/card-check/${token}`;
+    const symbol = QRCode.create(url, { errorCorrectionLevel: "M" });
+    expect(symbol.version).toBe(5);
+    expect(symbol.modules.size).toBe(37);
+    expect(handoffQrPixelSize(symbol.modules.size)).toBe(180);
+    expect(180).toBeLessThanOrEqual(HANDOFF_QR_MAX_PX);
   });
 });
