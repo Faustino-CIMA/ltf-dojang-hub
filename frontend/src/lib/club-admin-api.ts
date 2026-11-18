@@ -71,6 +71,10 @@ export type Member = {
   first_name: string;
   last_name: string;
   usual_name?: string;
+  social_security_number?: string;
+  social_security_country?: string;
+  nationality_1?: string;
+  nationality_2?: string;
   sex: "M" | "F";
   email: string;
   wt_licenseid: string;
@@ -223,6 +227,8 @@ export type MemberInput = {
   ltf_license_prefix?: "LUX" | "LTF";
   social_security_number?: string;
   social_security_country?: string;
+  nationality_1?: string;
+  nationality_2?: string;
   date_of_birth?: string | null;
   belt_rank?: string;
   primary_license_role?: LicenseRoleValue | "";

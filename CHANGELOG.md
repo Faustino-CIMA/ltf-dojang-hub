@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** Create and edit ask for the social security number, its country, and nationalities. The number is required only when club management is on. A verified number stays locked until it is unlocked.
 - **Members:** The code on a computer is smaller. It stays sharp, and it still fits on a phone screen.
 - **Members:** The code on a computer is large enough to scan. It says when it expires. If it cannot be drawn, the page shows a link to copy.
 - **Members:** On a computer, Verify shows a code the phone can scan. The phone reads the card. The computer updates when the check finishes. The code works once, for 10 minutes, and the picture is not kept.
