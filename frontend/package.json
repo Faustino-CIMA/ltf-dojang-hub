@@ -31,6 +31,7 @@
     "next": "16.4.6",
     "next-intl": "^4.15.1",
     "onnxruntime-web": "^1.21.0",
+    "onnxruntime-web-portrait": "npm:onnxruntime-web@1.31.1",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",

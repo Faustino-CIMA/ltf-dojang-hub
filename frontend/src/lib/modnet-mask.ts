@@ -2,6 +2,10 @@
  * Portrait matte. MODNet (Apache-2.0) runs at 512 on a small copy.
  * The server removes the background unless the page asks for this model
  * or the usual tool. WebGPU is off.
+ *
+ * Brave on an iPhone is WebKit and this page is not cross-origin isolated,
+ * so the runtime stays on one thread and the fixed-SIMD build. JSPI and
+ * relaxed SIMD are not used. The files are copied onto this site.
  */
 
 import { fetchModelAsset } from "@/lib/background-model-cache";
@@ -13,6 +17,14 @@ export const MODNET_ASSET_DIR = "/background-removal/modnet/";
 export const MODNET_SHA256 = "07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9";
 export const MODNET_BYTES = 25888640;
 export const MODNET_LONG_SIDE = 512;
+
+/** One thread, fixed SIMD, wasm only. The usual removal tool stays on onnxruntime-web 1.21.0. */
+export const portraitRuntime = {
+  threads: 1,
+  proxy: false,
+  simd: "fixed",
+  providers: ["wasm"],
+} as const;
 
 export type RemovalMask = "isnet" | "modnet" | "server";
 
@@ -61,7 +73,14 @@ type OrtSession = {
   run: (feeds: Record<string, unknown>) => Promise<Record<string, OrtTensor>>;
 };
 type OrtModule = {
-  env: { wasm: { wasmPaths?: string; numThreads?: number } };
+  env: {
+    wasm: {
+      wasmPaths?: string;
+      numThreads?: number;
+      proxy?: boolean;
+      simd?: "fixed";
+    };
+  };
   Tensor: new (type: "float32", data: Float32Array, dims: number[]) => unknown;
   InferenceSession: {
     create: (buffer: ArrayBuffer, options: { executionProviders: string[] }) => Promise<OrtSession>;
@@ -76,9 +95,11 @@ function assetUrl(origin: string, file: string): string {
 }
 
 async function loadOrt(origin: string): Promise<OrtModule> {
-  const ort = (await import("onnxruntime-web/wasm")) as unknown as OrtModule;
+  const ort = (await import("onnxruntime-web-portrait/wasm")) as unknown as OrtModule;
   ort.env.wasm.wasmPaths = assetUrl(origin, "");
-  ort.env.wasm.numThreads = 1;
+  ort.env.wasm.numThreads = portraitRuntime.threads;
+  ort.env.wasm.proxy = portraitRuntime.proxy;
+  ort.env.wasm.simd = portraitRuntime.simd;
   return ort;
 }
 
@@ -90,7 +111,7 @@ async function loadSession(origin: string, ort: OrtModule): Promise<OrtSession> 
         expectedHash: MODNET_SHA256,
       });
       const bytes = await response.arrayBuffer();
-      return ort.InferenceSession.create(bytes, { executionProviders: ["wasm"] });
+      return ort.InferenceSession.create(bytes, { executionProviders: [...portraitRuntime.providers] });
     })().catch((error: unknown) => {
       sessionPromise = null;
       throw error;
