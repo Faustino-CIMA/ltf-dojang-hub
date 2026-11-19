@@ -1144,9 +1144,9 @@ sqlparse==0.6.1 \
     --hash=sha256:3be5a72d04c873d690d7c6dedd33d6fae2ef82759881ceec02fc2efd0cba564f \
     --hash=sha256:ca722573f848ff2d30e40ea30f53a104b7dea7635ea9285891263eb2c58fb6e7
     # via django
-stripe==16.1.0 \
-    --hash=sha256:21e72b6779b8cff337ca8d2b8d30138f2d68f6a8d739701076f06a418ad75b8c \
-    --hash=sha256:3798e07a0603c8923710414cd1942ae847ed43cebbf34c3258417c189711ea70
+stripe==17.1.0 \
+    --hash=sha256:767b8e0f350b2b00fae7f8fbe7e28d4c215aac23529c833f0e77ec20c5f3bb48 \
+    --hash=sha256:c8089bacd9f7d95b62e3f4c0fc6cb5dc719eb09b9d09c6ff330800d36bf8b6eb
     # via -r requirements.txt
 tinycss2==1.5.1 \
     --hash=sha256:3415ba0f5839c062696996998176c4a3751d18b7edaaeeb658c9ce21ec150661 \

@@ -16,7 +16,7 @@ resend==2.54.0
 # The Redis extra pulls kombu[redis], which imports packaging.
 # Without it, queueing a webhook or a print job raises ModuleNotFoundError.
 celery[redis]==5.7.0
-stripe==16.1.0
+stripe==17.1.0
 cryptography==50.0.2
 weasyprint==70.0
 qrcode==8.2

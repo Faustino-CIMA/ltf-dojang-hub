@@ -40,6 +40,55 @@ class StripeAdapterTests(SimpleTestCase):
         with self.assertRaises(SignatureVerificationError):
             construct_webhook_event(payload=payload, sig_header="t=1,v1=invalid", secret="whsec_test")
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_adapter")
+    def test_requests_keep_the_pinned_api_version(self):
+        from django.conf import settings
+        from licenses import stripe_adapter
+
+        with patch("licenses.stripe_adapter.stripe.checkout.Session.create", return_value="session"):
+            create_checkout_session(mode="payment")
+        self.assertEqual(stripe_adapter.stripe.api_version, settings.STRIPE_API_VERSION)
+        self.assertEqual(settings.STRIPE_API_VERSION, "2026-01-28.clover")
+        self.assertNotEqual(stripe_adapter.stripe.api_version, "2026-11-18.endive")
+
+    def test_signature_check_uses_stripe_construct_event(self):
+        payload = json.dumps({"id": "evt_test", "object": "event", "type": "checkout.session.completed"})
+        with (
+            patch("licenses.stripe_adapter.stripe.Webhook.construct_event", return_value={"id": "evt_test"}) as verified,
+            patch(
+                "licenses.stripe_adapter.stripe.Webhook.construct_event_without_verification",
+                side_effect=AssertionError("signature check was skipped"),
+            ),
+        ):
+            construct_webhook_event(payload=payload, sig_header="t=1,v1=abc", secret="whsec_test")
+        verified.assert_called_once_with(payload=payload, sig_header="t=1,v1=abc", secret="whsec_test")
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_adapter", STRIPE_API_VERSION="2024-06-20")
+    def test_a_signed_checkout_event_keeps_the_order_id(self):
+        payload = json.dumps(
+            {
+                "id": "evt_checkout",
+                "object": "event",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {
+                        "id": "cs_test_order",
+                        "object": "checkout.session",
+                        "metadata": {"order_id": "42"},
+                    }
+                },
+            }
+        )
+        event = construct_webhook_event(
+            payload=payload,
+            sig_header=_sign(payload, "whsec_test"),
+            secret="whsec_test",
+        )
+        if not isinstance(event, dict) and hasattr(event, "to_dict"):
+            event = event.to_dict()
+        self.assertEqual(event["type"], "checkout.session.completed")
+        self.assertEqual(event["data"]["object"]["metadata"]["order_id"], "42")
+
     @override_settings(STRIPE_SECRET_KEY="sk_test_adapter", STRIPE_API_VERSION="2024-06-20")
     def test_a_valid_webhook_signature_returns_the_event(self):
         payload = json.dumps({"id": "evt_test", "object": "event", "type": "payment_intent.succeeded"})
