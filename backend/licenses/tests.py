@@ -2653,6 +2653,36 @@ class StripeConfirmCheckoutTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["status"], "paid")
 
+    @override_settings(STRIPE_SECRET_KEY="sk_test_confirm")
+    @patch("licenses.stripe_adapter.retrieve_payment_intent")
+    @patch("licenses.stripe_adapter.retrieve_checkout_session")
+    def test_confirm_checkout_reads_order_id_from_a_session_object(self, retrieve_mock, intent_mock):
+        class _Meta:
+            order_id = str(self.order.id)
+
+        class _Session:
+            id = "cs_from_metadata"
+            payment_status = "paid"
+            payment_intent = "pi_from_metadata"
+            customer = "cus_from_metadata"
+            metadata = _Meta()
+
+        retrieve_mock.return_value = _Session()
+        intent_mock.return_value = {}
+        self.client.force_authenticate(user=self.club_admin)
+        response = self.client.post(
+            "/api/stripe/confirm-checkout/",
+            {"session_id": "cs_from_metadata"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "paid")
+        self.order.refresh_from_db()
+        self.license_record.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.PAID)
+        self.assertEqual(self.license_record.status, License.Status.ACTIVE)
+        self.assertEqual(self.order.stripe_checkout_session_id, "cs_from_metadata")
+
     def test_confirm_checkout_rejects_other_club_admin(self):
         self.client.force_authenticate(user=self.other_admin)
         response = self.client.post(
@@ -2762,6 +2792,60 @@ class StripeWebhookSignatureTests(TestCase):
         self.assertTrue(
             FinanceAuditLog.objects.filter(order=self.order, action="order.paid").exists()
         )
+
+    @override_settings(
+        STRIPE_WEBHOOK_SECRET="whsec_test",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    )
+    def test_signed_checkout_session_activates_the_license(self):
+        today = timezone.localdate()
+        license_type = LicenseType.objects.create(name="Webhook Annual", code="webhook-annual")
+        license_record = License.objects.create(
+            member=self.member,
+            club=self.club,
+            license_type=license_type,
+            year=today.year,
+            status=License.Status.PENDING,
+            start_date=today,
+            end_date=today + timedelta(days=30),
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            license=license_record,
+            price_snapshot=Decimal("30.00"),
+            quantity=1,
+        )
+        payload = json.dumps(
+            {
+                "id": "evt_checkout_1",
+                "object": "event",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {
+                        "id": "cs_webhook_123",
+                        "object": "checkout.session",
+                        "payment_intent": "pi_webhook_123",
+                        "customer": "cus_webhook_123",
+                        "metadata": {"order_id": str(self.order.id)},
+                    }
+                },
+            }
+        )
+        signature = self._sign_payload(payload, "whsec_test")
+        with patch("licenses.stripe_adapter.retrieve_payment_intent", return_value={}):
+            response = self.client.post(
+                "/api/stripe/webhook/",
+                data=payload,
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE=signature,
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.order.refresh_from_db()
+        license_record.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.PAID)
+        self.assertEqual(self.order.stripe_checkout_session_id, "cs_webhook_123")
+        self.assertEqual(license_record.status, License.Status.ACTIVE)
 
     @override_settings(
         STRIPE_WEBHOOK_SECRET="whsec_test",
