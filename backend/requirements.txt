@@ -24,7 +24,7 @@ django-simple-history==3.13.0
 Pillow==13.0.0
 bleach==6.4.0
 openpyxl==3.1.5
-pypdf==5.9.0
+pypdf==7.1.1
 # Turns the existing card PDF into the on-screen preview image. Printing still
 # uses WeasyPrint's PDF bytes unchanged.
 pypdfium2==5.15.2
