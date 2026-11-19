@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, next-major]
   push:
-    branches: [develop, main]
+    branches: [develop, main, next-major]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

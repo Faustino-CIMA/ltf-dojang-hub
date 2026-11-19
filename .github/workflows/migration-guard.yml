@@ -2,9 +2,9 @@ name: Migration Guard
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, next-major]
   push:
-    branches: [develop, main]
+    branches: [develop, main, next-major]
 
 jobs:
   migration-guard:
