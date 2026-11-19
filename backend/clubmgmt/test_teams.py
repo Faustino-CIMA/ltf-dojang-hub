@@ -1205,10 +1205,10 @@ class ClubTeamApiTests(TestCase):
 
 class WeightClassRuleTests(SimpleTestCase):
     def test_margin_and_poomsae_divisions(self):
-        self.assertEqual(kyorugi_margin(Decimal("54.0"), "senior", "M"), ("-54 kg", "0.0"))
-        self.assertEqual(kyorugi_margin(Decimal("52.4"), "senior", "M"), ("-54 kg", "-1.6"))
-        self.assertEqual(kyorugi_margin(Decimal("87.1"), "senior", "M"), ("+87 kg", "0.1"))
-        self.assertEqual(kyorugi_margin(Decimal("40.2"), "cadet", "M"), ("-41 kg", "-0.8"))
+        self.assertEqual(kyorugi_margin(Decimal("54.0"), "senior", "M"), ("-54 kg", "0.00"))
+        self.assertEqual(kyorugi_margin(Decimal("52.4"), "senior", "M"), ("-54 kg", "-1.60"))
+        self.assertEqual(kyorugi_margin(Decimal("87.1"), "senior", "M"), ("+87 kg", "0.10"))
+        self.assertEqual(kyorugi_margin(Decimal("40.2"), "cadet", "M"), ("-41 kg", "-0.80"))
         self.assertEqual(kyorugi_margin(Decimal("30.0"), "pupils", "M"), ("", None))
         year = 2026
         self.assertEqual(poomsae_division(date(2015, 6, 1), year), "")

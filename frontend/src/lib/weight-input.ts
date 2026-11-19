@@ -20,7 +20,7 @@ export function parseWeightKg(
   }
   const [whole, fraction = ""] = text.split(".");
   const digits = `${fraction}000`;
-  let hundredths =
+  const hundredths =
     Number(whole) * 100 + Number(digits[0]) * 10 + Number(digits[1]) + (Number(digits[2]) >= 5 ? 1 : 0);
   if (hundredths < 0) {
     return null;
