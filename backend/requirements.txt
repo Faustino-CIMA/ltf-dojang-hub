@@ -22,7 +22,7 @@ weasyprint==70.0
 qrcode==8.2
 django-simple-history==3.13.0
 Pillow==13.0.0
-bleach==5.0.1
+bleach==6.4.0
 openpyxl==3.1.5
 pypdf==5.9.0
 # Turns the existing card PDF into the on-screen preview image. Printing still
