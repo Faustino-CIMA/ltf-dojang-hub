@@ -98,9 +98,11 @@ imprint: |
 
 # Wëllkomm {#welcome}
 
-LTF Dojang Hub ass de gemeinsamen Online-Büro vun der Lëtzebuerger Taekwondo Federatioun a vun hire Veräiner. D'Veräiner féieren hir Memberlëscht, bestellen Lizenzen, huelen d'Präsenz am Training, rechnen d'Cotisatiounen of a féieren hire Buttek. D'Federatioun kontrolléiert d'Lizenzen, dréckt d'Lizenzkaarten a féiert hir Comptabilitéit. Jiddereen deelt ee Kalenner. Et ass en Outil fir d'Verwaltung, fir d'Leit, déi an de Veräiner an an der Federatioun schaffen. E Club-Admin kann fir e Member ab 16 e Login uleeën. Eltere loggen sech net an.
+LTF Dojang Hub ass do, wou Äre Veräin an d'Lëtzebuerger Taekwondo Federatioun déi deeglech Aarbecht maachen: Memberlëscht, Lizenzen, Präsenz am Training, Cotisatiounen, Buttek an ee gemeinsame Kalenner. D'Federatioun kontrolléiert d'Lizenzen, dréckt d'Kaarten a féiert hir eege Comptabilitéit.
 
-Déi ëffentlech Säit ass schwaarz a rout. Si weist [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] mécht d'Aloggen op. Wien scho ageloggt ass, gesäit op där Plaz [[Home.openDashboard]]. An der App follegt [[Home.welcomeLead]] dem hellen oder däischteren Thema.
+Dir benotzt et, wann Dir fir e Veräin oder fir d'Federatioun schafft. E Club-Admin kann engem Member ab 16 e Zougang ginn. Eltere loggen sech net an. Kuckt [Rollen](#roles).
+
+Déi ëffentlech Säit ass schwaarz a rout. Si weist [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] mécht d'Aloggen op. Wann Dir scho ageloggt sidd, steet op där Plaz [[Home.openDashboard]]. An der App follegt [[Home.welcomeLead]] der heller oder däischterer Duerstellung, déi Dir gewielt hutt.
 
 ## Fir wien ass dëst Handbuch? {#audience}
 
@@ -113,14 +115,14 @@ D'Handbuch ass no deem opgebaut, **wat Dir maacht**, an net no Ecranen. Liest d�
 | am Büro vun der LTF | [LTF-Admin](#ltf-admin) oder [LTF-Finanzen](#ltf-finance) |
 | den techneschen Administrateur | [Moduler (techneschen Administrateur)](#ops) |
 
-Eltere brauchen dëst Handbuch net: si hu kee Login. E Member ab 16 kann vum Veräin e Login kréien, an de Veräin këmmert sech weider ëm d'Donnéeën.
+Eltere brauchen dëst Handbuch net. Wie sech alogge kann, steet ënner [Rollen](#roles).
 
 ## Wéi Dir dëst Handbuch liest {#conventions}
 
-- Wierder an engem bloe Këschtchen, wéi [[Common.signOut]], sinn déi **exakt Bezeechnungen um Ecran**.
-- Weeër wéi [[Common.navGroupClubManagement]] › [[navFinance]] › [[navBilling]] weisen, wou Dir klickt – vum Menü lénks bis bei den Onglet uewen.
-- Nummeréiert Schrëtt maacht Dir an där Reiefolleg. Eng Zeil mat engem Haken seet, wat Dir duerno gesitt.
-- Rout nummeréiert Krees op engem Screenshot ginn an der Lëscht ënner dem Bild erkläert.
+- E bloe Këschtchen, wéi [[Common.signOut]], ass de genee Wuertlaut um Ecran.
+- [[Common.navGroupClubManagement]] › [[navFinance]] › [[navBilling]] heescht: dës Grupp, dann dës Säit, dann dësen Onglet.
+- Maacht d'nummeréiert Schrëtt an där Reiefolleg. Eng Zeil mat engem Haken seet, wat duerno stëmme soll.
+- Déi rout Zuelen op engem Bild erkläert d'Lëscht drënner.
 
 > [!TIP]
 > Tipps spueren Iech Zäit.
@@ -132,8 +134,6 @@ Eltere brauchen dëst Handbuch net: si hu kee Login. E Member ab 16 kann vum Ver
 > „Gutt ze wëssen“-Këschten erklären, firwat d'App sech esou verhält.
 
 # Éischt Schrëtt {#getting-started}
-
-Dir braucht just e Webbrowser op engem Computer, Tablet oder Handy. Et muss näischt installéiert ginn.
 
 ## Aloggen {#sign-in}
 
@@ -161,9 +161,7 @@ Dir kommt op d'Startsäit vun Ärer Roll, zum Beispill op d'Iwwersiicht vum Ver�
 D'Säit fir d'Aloggen huet datselwecht Schwaarz-Rout wéi déi ëffentlech Säit. [[Auth.forgotPassword]] steet beim Formulaire. Kuckt [Passwuert vergiess](#forgotten-password).
 
 > [!NOTE]
-> Et gëtt keng ëffentlech Umeldung. E Login entsteet, wann een zum Club-Admin oder Trainer ernannt gëtt (kuckt [Club-Admins](#club-admins) an [Onglet Trainer](#coaches-tab)), oder duerch d'LTF.
->
-> Eltere kréien kee Login. E Club-Admin oder d'LTF kann fir e Member ab 16 e Login uleeën.
+> Op dëser Säit gëtt et keng Umeldung. E Club-Admin oder d'LTF leet Äre Zougang un. Kuckt [Club-Admins](#club-admins) an [Trainer](#coaches-tab). Eltere kréien keen.
 
 ## Äert éischt Passwuert {#first-password}
 
@@ -212,11 +210,13 @@ D'App huet eng Säit, op där Dir Är Zoustëmmung an Är Rechter iwwer Är Donn
 D'Säit <span class="ui">Privacy &amp; GDPR</span> huet dräi Elementer:
 
 - <span class="ui">I consent to data processing.</span> (Ech sinn d'accord mat der Veraarbechtung vun den Donnéeën) – Kräizchen setzen oder ewechhuelen. D'Ännerung gëtt direkt gespäichert.
-- <span class="ui">Export my data</span> – weist Är Donnéeën op der Säit ënner <span class="ui">Export preview</span>: Är Login-Donnéeën an, wann Äre Login mat engem Member-Dossier verbonnen ass, Numm, Grad a Veräin vun dësem Member, d'Lizenzen, de Verlaf vu Lizenzen a Grader an d'Detailer vum Foto. D'Donnéeë ginn nëmmen um Ecran gewisen, net als Fichier erofgelueden.
-- <span class="ui">Delete my data</span> – läscht Äre Login.
+- <span class="ui">Export my data</span> – weist Är Donnéeën op der Säit ënner <span class="ui">Export preview</span>: d'Angaben zu Ärem Zougang an, wann de Zougang mat engem Member verbonnen ass, Numm, Grad a Veräin, d'Lizenzen, de Verlaf vu Lizenzen a Grader an d'Detailer vum Foto. D'Säit weist d'Donnéeën. Si späichert kee Fichier.
+- <span class="ui">Delete my data</span> – läscht Äre Zougang.
 
 > [!WARNING]
-> <span class="ui">Delete my data</span> freet net no. Äre Login gëtt direkt geläscht, an Dir gitt ausgeloggt. Wann de Login mat engem Member-Dossier verbonnen ass, gëtt d'Profilfoto ewechgeholl, d'Notizen am Graderverlaf ginn eidel gemaach, an déi privat Adresse op deem Member-Dossier ginn ewechgeholl. Déi selwecht privat Adresse ginn ewechgeholl, wann en Administrateur dëse Login läscht. Adressen, déi engem anere gehéieren, zum Beispill engem Elterendeel als Kontakt, bleiwen. Rechnungen, déi scho gestallt goufen, behalen d'Adress, déi drop gedréckt war. De Member-Dossier a seng Lizenze bleiwen beim Veräin.
+> <span class="ui">Delete my data</span> freet net no.
+>
+> Äre Zougang gëtt direkt geläscht, an Dir gitt ausgeloggt. Wann en mat engem Member verbonnen ass, geet d'Profilfoto ewech, d'Notizen am Graderverlaf ginn eidel gemaach, an déi privat Adresse vun deem Member ginn ewechgeholl. En Administrateur, deen dee selwechte Zougang läscht, hëlt déi selwecht privat Adressen ewech. Eng Adress, déi engem anere gehéiert, zum Beispill engem Elterendeel als Kontakt, bleift. Eng Rechnung, déi scho verschéckt ass, behält d'Adress, déi drop steet. De Member an d'Lizenze bleiwen beim Veräin.
 
 > [!NOTE]
 > Dës Säit gëtt de Moment iwwerpréift. Hiren Text ass fir de Moment just op Englesch, och wann Dir d'App op Franséisch, Däitsch oder Lëtzebuergesch benotzt.
@@ -230,7 +230,7 @@ All Säit huet dee selwechte Kader: de Menü lénks, eng Leescht uewen an d'Aarb
 <div class="legend" markdown="1">
 1. **Menü**. E bleift stoen, wärend Dir tëscht de Säite wiesselt. D'Gruppe sinn ënner anerem [[Common.navGroupClub]], [[Common.navGroupClubManagement]], [[Common.navGroupCompetition]] an [[Common.navGroupCalendar]]. Säite vun der Federatioun benotzen [[Common.navGroupLtfManagement]]. Dir gesitt nëmmen dat, wat Är Roll an d'Moduler vun Ärem Veräin erlaben.
 2. **Clubsteierung** – mécht e klengt Feld op, [[Common.selectedClubLabel]]. Wann d'Lëscht laang ass, tippt Dir an [[Common.clubSearchPlaceholder]]. All Säit weist dann de Veräin, deen Dir wielt.
-3. Ären Numm, Äre Benotzernumm an Äert **Rollen-Badge**, zum Beispill [[Common.roleClubAdmin]].
+3. Ären Numm, Äre Benotzernumm an Är Roll, zum Beispill [[Common.roleClubAdmin]].
 4. **Sprooch** – [[Common.languageLabel]]. English, Français, Deutsch oder Lëtzebuergesch, zu all Moment.
 5. [[Auth.mfaSecurity]] – Authenticator, Erhuelungscoden, Passkeys, Passwuert an E-Mail-Coden.
 6. [[Common.signOut]]
@@ -242,34 +242,34 @@ D'Ännere vun engem Dossier mécht e Feld op der Säit op. D'Lëscht bleift derh
 An der Kappzeil gëtt et ausserdeem [[Common.themeLabel]]: [[Common.themeLight]], [[Common.themeDark]] oder [[Common.themeSystem]]. Déi ëffentlech Säite bleiwen schwaarz a rout. An der App setzt dës Wiel dat hellt oder däischtert Thema, och d'Wëllkommszeil.
 
 > [!TIP]
-> Um Handy klappt de Menü zou. Tippt uewe lénks op de Menü-Knäppchen, fir en opzemaachen.
+> Um Handy maacht Dir de Menü uewe lénks op.
 
 ## Rollen: wie dierf wat? {#roles}
 
-Är Roll bestëmmt, wéi ee Menü Dir gesitt. Een Login kann méi wéi ee Schreifdësch hunn, zum Beispill Club-Admin vum eegene Veräin an LTF-Admin. Mat méi wéi engem weist d'Kappzeil [[Common.deskSwitcherLabel]]. Maacht se op a wielt een aneren. E Schreifdësch nëmme fir ze kucken ass mat [[Common.deskViewOnly]] markéiert. E kann seng Lëschten opmaachen. Späicheren, Läschen an Importéiere bleiwen aus, an de Knäppchen seet [[Common.deskViewOnlyAction]]. Mat engem Schreifdësch bleift d'Kappzeil e Rollebadge.
+Är Roll bestëmmt, wéi ee Menü Dir gesitt. Een Zougang kann méi wéi eng Roll hunn, zum Beispill Club-Admin vun Ärem Veräin an LTF-Admin. Dann weist d'Kappzeil [[Common.deskSwitcherLabel]]. Maacht se op a wielt d'Roll, an där Dir schaffe wëllt. Eng Roll mat [[Common.deskViewOnly]] kann d'Lëschten opmaachen. Späicheren, Läschen an Importéiere bleiwen aus, an et steet [[Common.deskViewOnlyAction]]. Mat nëmmen enger Roll weist d'Kappzeil einfach dës Roll.
 
-E Superuser mécht [[Common.openOpsConsole]] aus der Kappzeil op. Dee Knäppchen wielt den Ops-Schreifdësch. [[Common.deskSwitcherLabel]] féiert dëse Schreifdësch als [[Common.roleSuperuser]], zesumme mat den anere Schreifdëscher. D'Wiel vun engem Veräins-, LTF- oder Finanz-Schreifdësch mécht dee Schreifdësch op. [[Common.openFederationDashboard]] bleift nëmmen, wann dës Lëscht den Dashboard vun der Federatioun net scho ka opmaachen.
+[[Common.openOpsConsole]] an der Kappzeil mécht déi technesch Konsole op a wielt dës Roll. [[Common.deskSwitcherLabel]] féiert se als Zeil [[Common.roleSuperuser]], niewent Ären anere Rollen. Wiel Dir eng Veräins-, LTF- oder Finanzroll, geet déi Roll op. [[Common.openFederationDashboard]] bleift nëmmen, wann dës Lëscht d'Iwwersiicht vun der Federatioun net scho ka opmaachen.
 
-![D'Schreifdëschlëscht, op an der Ops-Konsole](fig:ops-desks)
+![D'Rollelëscht, op an der technescher Konsole](fig:ops-desks)
 
 <div class="legend" markdown="1">
-1. [[Common.deskSwitcherLabel]] – Ops ass d'Zeil [[Common.roleSuperuser]]. Déi aner Zeile sinn déi aner Schreifdëscher.
+1. [[Common.deskSwitcherLabel]] – d'Zeil [[Common.roleSuperuser]] ass déi technesch Konsole. Déi aner Zeile sinn Är aner Rollen.
 </div>
 
-Personal-Schreifdëscher (LTF-Admin, LTF-Finanzen, Club-Admin an Ops) froen eng Authenticator-App. Déi éischt 14 Deeg freet en Hinweis, se anzeriichten. Duerno bleift de Schreifdësch zou, bis dat gemaach ass.
+LTF-Admin, LTF-Finanzen, Club-Admin an déi technesch Konsole froen eng Authenticator-App. Déi éischt 14 Deeg erënnert en Hinweis drun. Duerno bleift d'Roll zou, bis dat gemaach ass.
 
 De Sproochmenü bitt English, Français, Deutsch a Lëtzebuergesch. Englesch bleift d'Virastellung.
 
-| Rollen-Badge | Typesch Persoun | Haaptaarbecht |
+| Roll um Ecran | Typesch Persoun | Haaptaarbecht |
 |---|---|---|
 | [[Common.roleCoach]] | Trainer | gesäit d'Trainingswoch, hëlt d'Präsenz, gesäit de Kalenner |
 | [[Common.roleClubAdmin]] | President, Sekretär, Keesseminister, Benevole | féiert de Veräin: Memberen, Lizenzen, Finanzen, Training, Buttek |
 | [[Common.roleLtfAdmin]] | Büro vun der Federatioun | Veräiner, Lizenzen, Kaarten, Transferten, Nationalequipe, Kalenner vun der Federatioun |
 | [[Common.roleLtfFinance]] | Keesseminister vun der Federatioun | Bestellungen, Rechnungen, Bezuelungen a Comptabilitéit vun der Federatioun |
-| [[Common.roleSuperuser]] | technesche Administrateur | Moduler, Benotzer, Zoustand vum System |
+| [[Common.roleSuperuser]] | technesche Administrateur | wéi eng Deeler vun der App all Veräin benotzen dierf, an d'Zougäng |
 
 > [!NOTE]
-> **Elteren hu kee Login.** E Member ab 16 kann sech aloggen, nodeem e Club-Admin oder d'LTF e Login ugeluecht huet. Et gëtt keng E-Mail geschéckt, bis Dir selwer e Link schéckt. De Veräin hält d'Donnéeën a beäntwert d'Froen.
+> **Eltere loggen sech net an.** E Member ab 16 kann sech aloggen, soubal e Club-Admin oder d'LTF de Zougang ugeluecht huet. D'E-Mail geet eréischt eraus, wann Dir de Link selwer schéckt. De Veräin hält d'Donnéeën a beäntwert d'Froen.
 
 Wat all Roll am Menü vum Veräin gesäit:
 
@@ -313,7 +313,7 @@ E Pak bënnt mindestens zwee vun dëse Moduler zu engem Pauschalpräis. Ënner [
 
 <p class="roles"><span class="chip">Trainer</span></p>
 
-E Club-Admin ernennt Iech ënner [[navSettings]] › [[clubSettingsTrainersTab]] zum Trainer. Dir kritt dann e Login mam Badge [[Common.roleCoach]].
+E Club-Admin ernennt Iech ënner [[navSettings]] › [[clubSettingsTrainersTab]] zum Trainer. Dir kritt dann e Zougang, deen [[Common.roleCoach]] weist.
 
 > [!NOTE]
 > D'Trainerroll gëtt nach ausgebaut. Dëst Kapitel beschreift, wat fir Trainer haut funktionéiert: d'Trainingswoch, d'Präsenz an de Kalenner. Wann de Competitiounsmodul un ass, maachen Trainer och [[navTeams]] op (kuckt [Ekippen a Competitioun](#club-teams)). Weider Funktioune fir Trainer si geplangt.
@@ -362,7 +362,7 @@ Trainer gesinn d'ëffentlech Evenementer vum Veräin an och déi mat [[calendarV
 
 ## Iwwersiicht vum Veräin {#club-overview}
 
-[[navOverview]] ass Äre Cockpit. Et geet op mat [[Home.welcomeLead]] an Ärem Virnumm. [[Home.welcomeAttention]] weist, wat op Iech waart, oder [[Home.welcomeAllClear]], wann näischt dran ass. D'Säit zielt och d'Memberen, d'Lizenzen an déi oppe Rechnungen. D'[[actionQueueTitle]] weist, wat op Iech waart – all Kéier mat engem Knäppchen, deen déi richteg Säit opmécht.
+[[navOverview]] ass Är Startsäit. Si geet op mat [[Home.welcomeLead]] an Ärem Virnumm. [[Home.welcomeAttention]] weist, wat op Iech waart, oder [[Home.welcomeAllClear]], wann näischt dran ass. D'Säit zielt och d'Memberen, d'Lizenzen an déi oppe Rechnungen. [[actionQueueTitle]] weist, wat waart, an all Zeil mécht déi richteg Säit op.
 
 ![D'Iwwersiicht vum Veräin](fig:club-overview)
 
@@ -383,12 +383,12 @@ Trainer gesinn d'ëffentlech Evenementer vum Veräin an och déi mat [[calendarV
 3. [[Common.filterGroupUser]]
 4. [[Common.filterGroupPerson]] – den Ekippefilter, wann d'Competitioun un ass.
 5. De Menü [[membersMenuLabel]]: Memberen uleeën oder importéieren.
-6. [[Common.rowActionsLabel]] – [[editAction]] oder [[deleteAction]] fir dës Zeil. [[editAction]] mécht e Säitepanneau op.
+6. [[Common.rowActionsLabel]] – [[editAction]] oder [[deleteAction]] fir dës Zeil. [[editAction]] mécht de Formulaire niewent der Lëscht op.
 </div>
 
 ![De Memberemenü: uleeën oder importéieren](fig:members-menu)
 
-D'Kolonn [[sexLabel]] ass e klengt ♂ oder ♀, keen grousst Badge. E Klick op e Kolonnentitel sortéiert. [[membersMenuLabel]] an d'Zeilemenü ginn als kleng Panneaue op.
+D'Kolonn [[sexLabel]] ass e klengt ♂ oder ♀. E Klick op e Kolonnentitel sortéiert. [[membersMenuLabel]] an d'Zeilemenü ginn als kleng Felder op.
 
 D'Sich bleift op der Säit. Déi aner Filtere ginn iwwer [[Common.filterGroupStatus]], [[Common.filterGroupUser]] a [[Common.filterGroupPerson]] op. [[Common.filterGroupUser]] ass [[accountFilterNone]], [[accountFilterPending]], [[accountFilterActive]] oder [[accountFilterDisabled]]. Op der LTF-Lëscht ass [[Common.filterGroupPerson]] [[LtfAdmin.staffFilterAll]], [[LtfAdmin.staffFilterClub]] oder [[LtfAdmin.staffFilterStaff]]. Op der Veräinslëscht ass [[Common.filterGroupPerson]] den Ekippefilter, wann d'Competitioun un ass, inklusiv [[teamsFilterNone]]. [[Common.resetFilters]] bréngt de gewinnten Ufank. En Hoken bleift beim Sichen, Filtere oder Bliederen, bis Dir [[clearSelection]] oder d'Aktioun fäerdeg maacht. [[selectedMembersCountLabel|count=2]] zielt och Zeilen, déi net op dëser Säit stinn. Déi selwecht Hoken bleiwen op de Memberlëschte vum Veräin an der LTF, de Lizenzlëschte vum Veräin an der LTF, der LTF-Veräinslëscht, den Ops-Benotzer, de bei-geluechte Persounen an der Veräinsfacturatioun. D'Zeile pro Säit kënnen 50, 150, 300 oder all sinn. Lizenzlëschten hunn eng Kolonn [[expiresLabel]]. En Datum bannent 30 Deeg ass eng Warnung. En Datum, deen scho laanscht ass, ass gedämpt.
 
@@ -406,7 +406,7 @@ E Klick op en Numm mécht de Member op. De Menü [[Common.batchActionsLabel]] g�
 
 ## E Member uleeën {#add-member}
 
-1. Maacht ënner [[navMembers]] de Menü [[membersMenuLabel]] op a klickt op [[createMember]]. De Formulaire geet an engem Säitepanneau op. D'Lëscht bleift hannendrun.
+1. Maacht ënner [[navMembers]] de Menü [[membersMenuLabel]] op a klickt op [[createMember]]. De Formulaire geet niewent der Lëscht op. D'Lëscht bleift stoen.
 2. Fëllt [[firstNameLabel]], [[lastNameLabel]], [[sexLabel]] an [[dobLabel]] aus.
 3. Wielt de [[ltfLicensePrefixLabel]]. D'LTF-Lizenznummer selwer gëtt beim Späicheren automatesch erstallt. Fëllt [[Import.wtLicenseLabel]] nëmmen aus, wann de Sportler schonn eng World-Taekwondo-Lizenz huet.
 4. De Gürtelgrad dréit Dir nom Späicheren am Onglet [[memberGradesTab]] an.
@@ -448,12 +448,12 @@ D'Säit vun engem Member huet sechs Ongleten.
 4. [[memberLicenseHistoryTab]]
 5. [[memberGradesTab]]
 6. [[memberClubMovementsTab]] – Wiessele vun engem Veräin an deen aneren.
-7. D'Donnéeë vun der Iwwersiicht änneren. [[editAction]] mécht e Säitepanneau op.
+7. D'Iwwersiicht änneren. [[editAction]] mécht de Formulaire niewent der Lëscht op.
 8. [[photoChangeButton]] – mécht de Foto-Editor op (kuckt [D'Foto vun engem Member](#member-photo)).
 9. [[downloadStatementAction]] – e PDF mat de Rechnungen a Bezuelunge vum Member.
 </div>
 
-Wann de Sportler an der Nationalequipe ass, weist d'Iwwersiicht [[nationalTeamBadge]] mat der Selektioun an der Saison. Dëst Badge ass nëmmen ze liesen. De Veräin mécht net de Staff-Dossier vun der Federatioun op, an d'Nimm vun den Trainer stinn net op dëser Säit. D'Selektioun selwer féiert d'LTF. Kuckt [Nationalequipe](#national-team).
+Wann de Sportler an der Nationalequipe ass, weist d'Iwwersiicht [[nationalTeamBadge]] mat der Selektioun an der Saison. Dat kënnt Dir hei net änneren. De Veräin mécht net de Staff-Dossier vun der Federatioun op, an d'Nimm vun den Trainer stinn net op dëser Säit. D'Selektioun selwer féiert d'LTF. Kuckt [Nationalequipe](#national-team).
 
 Wann de Competitiounsmodul un ass, weist d'Iwwersiicht och [[teamsCardTitle]] an [[gearTitle]]. Gréisst a Gewiicht gi um Ekippeblat agedroen, net als Onglet hei. Kuckt [Gréisst a Gewiicht](#height-weight) an [Ekipementsgréissten](#equipment).
 
@@ -525,24 +525,32 @@ D'Bestellung an hir Rechnung erschéngen ënner [[navFinance]] › [[navOrders]]
 
 ## D'Lizenzlëscht {#licences}
 
-[[navLicenses]] weist all Lizenz vum Veräin mat hirem Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]]. Sicht no Member, Joer oder Status. Klickt op e Kolonnentitel, fir ze sortéieren. D'Kolonn [[expiresLabel]] benotzt déi selwecht Datumen wéi de Rescht vun der App. En Datum bannent 30 Deeg ass eng Warnung. En Datum, deen scho laanscht ass, ass gedämpt. D'Hoken op dëser Lëscht bleiwen beim Sichen, Filtere oder Bliederen. Op der eegener Lizenzlëscht vun der Federatioun stinn Änneren a Läschen am Zeilemenü, an de Formulaire geet an engem Säitepanneau op. Kuckt [Memberen, Lizenzen an Transferten](#ltf-licences).
+[[navLicenses]] weist all Lizenz vum Veräin, mat [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]]. Sicht no Member, Joer oder Status. Klickt op e Kolonnentitel, fir ze sortéieren.
 
-E Club-Admin leet mat [[createUserAccounts]] e Login fir d'Membere vum eegene Veräin un. En LTF-Admin kann dat fir all Member maachen, och ouni Veräin. [[accountConfirm]] seet, wat ugeluecht gëtt a wie iwwersprong gëtt. [[accountNoEmailSent]] Ënner 16 gëtt et kee Login. En fehlend Gebuertsdatum muss fir d'éischt gespäichert ginn. Inaktiv Memberen ginn iwwersprong. Wann d'Konten do sinn, gëtt e Fichier mat Linke fir déi éischt Umeldung erofgelueden. [[accountFileWarning]] E Login ze verlinken mécht dëse Fichier net. D'Memberlëscht an d'Memberkaart weisen [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]] oder [[accountBadgeDisabled]].
+D'Kolonn [[expiresLabel]] benotzt déi selwecht Datumen wéi de Rescht vun der App. En Datum bannent 30 Deeg ass eng Warnung. En Datum, deen scho laanscht ass, ass gedämpt. D'Hoken op dëser Lëscht bleiwen beim Sichen, Filtere oder Bliederen.
+
+Op der Lizenzlëscht vun der Federatioun stinn Änneren a Läschen am Zeilemenü, an de Formulaire geet niewent der Lëscht op. Kuckt [Memberen, Lizenzen an Transferten](#ltf-licences).
+
+E Club-Admin leet mat [[createUserAccounts]] e Zougang fir d'Membere vum eegene Veräin un. En LTF-Admin kann dat fir all Member maachen, och ouni Veräin.
+
+[[accountConfirm]] seet, wat ugeluecht gëtt a wie ausgelooss gëtt. [[accountNoEmailSent]] Ënner 16 gëtt et kee Zougang. Späichert en fehlend Gebuertsdatum fir d'éischt. Inaktiv Memberen ginn ausgelooss.
+
+Wann d'Zougäng do sinn, gëtt e Fichier mat de Linke fir déi éischt Umeldung gespäichert. [[accountFileWarning]] E schonn existente Zougang ze verlinken mécht dëse Fichier net. D'Memberlëscht an d'Memberkaart weisen [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]] oder [[accountBadgeDisabled]].
 
 ![D'Lizenzlëscht](fig:licences)
 
 ## Lizenzkaarten drécken {#print-cards}
 
-[[navPrinting]] weist d'Kaarten-Drockopträg vum Veräin. Déi selwecht Sektioun mécht och [[navPrinterProfiles]] op, wou d'X/Y-Verrécklung vun engem Drécker gespäichert ass.
+[[navPrinting]] weist d'Kaarten-Drockopträg vum Veräin. Déi selwecht Sektioun mécht och [[navPrinterProfiles]] op, wou d'Verrécklung fir e Drécker gespäichert ass.
 
 1. Maacht [[navPrinting]] op.
 2. Maacht d'Zeilemenü op. Wann en Optrag [[printJobStatusSucceeded]] weist, klickt op [[printJobPreviewPdfAction]], fir de PDF opzemaachen, oder op [[printJobDownloadPdfAction]], fir `license-cards_<Veräin>_<Optrag>_<Datum>.pdf` ze späicheren. Dréckt de Fichier op 100 % (ouni „un d'Säit upassen“).
-3. Am selwechte Menü stinn [[printJobExecuteAction]], [[printJobRetryAction]] an [[printJobCancelAction]]. [[deleteAction]] steet als lescht. Confirméiert, fir e Brouillon, en erfollegräichen, feelgeschloenen oder annuléierten Optrag ewechzehuelen. En Optrag an der Queue oder am Gaang muss fir d'éischt ofgebrach ginn.
+3. Am selwechte Menü stinn [[printJobExecuteAction]], [[printJobRetryAction]] an [[printJobCancelAction]]. [[deleteAction]] steet als lescht. Confirméiert, fir e Brouillon, en Optrag deen gelongen ass, een deen feelgeschloe ass oder een deen Dir ofgebrach hutt, ewechzehuelen. Waart den Optrag nach oder gëtt en grad gedréckt, brécht en fir d'éischt of.
 
 ![Drockopträg](fig:print-jobs)
 
 > [!TIP]
-> Wann den Drock e puer Millimeter dernieft ass, frot d'LTF no engem Drockerprofil mat der passender X/Y-Verrécklung, amplaz den Design vun der Kaart z'änneren.
+> Wann d'Kaart e puer Millimeter niewent der Säit sëtzt, frot d'LTF no engem Drockerprofil mat der passender Verrécklung. Ännert dofir net den Design vun der Kaart.
 
 ## Transferten tëscht Veräiner {#transfers}
 
@@ -692,15 +700,15 @@ D'LTF-Rechnunge fir Är Lizenzbestellunge fannt Dir ënner [[navInvoices]], wann
 
 Bezuelt per Iwwerweisung a setzt d'Rechnungsnummer an d'Kommunikatioun. D'LTF-Finanzen erfaassen d'Bezuelung an aktivéieren d'Lizenzen.
 
-Oder bezuelt mat der Kaart. Bei enger ausgestallter LTF-Rechnung, op där nach e Montant op ass, maacht d'Zeilemenü oder d'Rechnung op a klickt op [[Common.payNow]]. Dir verloosst d'App an gesitt d'Säit vum Kaartenubidder (Stripe). Do steet eng Zeil fir dës LTF-Rechnung, mat der Rechnungsnummer an dem nach oppe Montant, an d'Felder fir d'Kaart. Bestätegt d'Bezuelung do. Den Ubiddder schéckt Iech an dës App zréck, d'Lizenze ginn aktivéiert an d'Säit weist [[Checkout.successTitle]].
+Oder bezuelt mat der Kaart. Bei enger ausgestallter LTF-Rechnung, op där nach e Montant op ass, maacht d'Zeilemenü oder d'Rechnung op a klickt op [[Common.payNow]]. Dir verloosst dës App a kommt op d'Säit vun der Kaartefirma. Do steet eng Zeil fir dës LTF-Rechnung, mat der Rechnungsnummer an dem nach oppe Montant, an d'Felder fir d'Kaart. Bestätegt d'Bezuelung do. Dir kommt an dës App zréck, d'Lizenze ginn aktiv, an d'Säit weist [[Checkout.successTitle]].
 
 ![Elo bezuelen, am Zeilemenü vun enger LTF-Rechnung](fig:pay-now)
 
-Wann Dir de Zréck-Link vum Ubiddder benotzt an net bezuelt, kommt Dir hei zréck an d'Säit weist [[Checkout.cancelTitle]]. Et gëtt näischt belaascht, an d'Lizenze bleiwe, wéi se waren. Eng Veräinsrechnung un e Member gëtt op dëser Säit net bezuelt. Elteren hu kee Login. E Member-Login mécht dës Kaartebezuelung net op.
+Wann Dir de Zréck-Link vun der Kaartefirma benotzt an net bezuelt, kommt Dir hei zréck an d'Säit weist [[Checkout.cancelTitle]]. Et gëtt näischt belaascht, an d'Lizenze bleiwe, wéi se waren. Eng Veräinsrechnung un e Member gëtt op dëser Säit net bezuelt. De Zougang vun engem Member mécht dës Kaartebezuelung net op.
 
 ![Bezuelung ofgebrach, mam Wee zréck op de Veräin](fig:checkout-return)
 
-Op béide Säiten ass de Knäppchen ënner dem Titel de Wee zréck. E nennt de Schreifdësch, deen Dir verlooss hutt:
+Op béide Säiten ass de Knäppchen ënner dem Titel de Wee zréck. E nennt d'Roll, déi Dir verlooss hutt:
 
 - [[Checkout.returnClub]] – déi üblech Bezeechnung, wann e Club-Admin vun de Rechnunge vum Veräin koum
 - [[Checkout.returnLtf]]
@@ -864,7 +872,7 @@ Wie besteet, kritt den neie Grad am Onglet [[memberGradesTab]] agedroen.
 
 ![D'Ekippelëscht](fig:teams)
 
-1. Maacht [[navTeams]] op a klickt op [[teamsAdd]]. De Formulaire geet an engem Säitepanneau op.
+1. Maacht [[navTeams]] op a klickt op [[teamsAdd]]. De Formulaire geet niewent der Lëscht op.
 2. Gitt [[teamsName]] an. Wielt [[teamsDisciplineKyorugi]] oder [[teamsDisciplinePoomsae]]. Klickt op [[teamsSave]].
 3. Maacht d'Ekipp op. [[teamsManageAction]] setzt Leit derbäi an hëlt se ewech. All Persoun ass [[teamRoleAthlete]] oder [[teamRoleCoach]]. D'Trainer stinn als éischt.
 4. Maacht um Blat [[teamCompetition]] op. Gitt [[teamCompetitionDate]] an [[teamCompetitionName]] an a klickt op [[teamCompetitionAdd]]. D'Altersklasse benotzen d'Joer vun deem Datum. [[teamCompetitionRemove]] läscht den Datum, den Numm an de Kategorie-Set. D'Ekipp, d'Gewiichter an d'Puer bleiwen.
@@ -974,7 +982,7 @@ De Kalenner gëtt vun der LTF an all de Veräiner gedeelt. All Evenement entsche
 | [[Events.calendarVisibility_presidents]] | – | d'LTF-Admins an den aktuelle President vun all Veräin, deen ënner [[Events.calendarAudienceClubs]] ugekräizt ass |
 
 > [!NOTE]
-> D'Beschreiwungen um Ecran nennen och Memberen. E Member gesäit en Evenement nëmme mat engem Login, an nëmmen wann d'Visibilitéit Memberen abegraff. Kuckt [Rollen](#roles). Eltere loggen sech net an.
+> D'Beschreiwungen um Ecran nennen och Memberen. E Member gesäit en Evenement nëmme mat engem Zougang, an nëmmen wann d'Wiel Memberen abegraff. Kuckt [Rollen](#roles).
 
 > [!TIP]
 > Dir plangt en Turnéier vum Veräin? Wielt [[Events.calendarVisibility_shared]], da gesinn déi aner Veräiner den Datum fréi a kënnen Iwwerschneidunge vermeiden.
@@ -1048,7 +1056,7 @@ Fir e Mandat zouzemaachen, ouni e Nofollger ze nennen, benotzt [[committeeEndTer
 
 D'Comitésäit vun der Federatioun funktionéiert genee esou. Den LTF-Admin mécht se iwwer [[LtfAdmin.navCommittee]] op. D'Weiderginn vun engem Federatiounsmandat kann all Erwuessene sichen, och ouni Veräin. Persounen ënner 18 an inaktiv Memberen bleiwen eraus.
 
-Verlinkt een e Login mat engem Member, deen schonn e Federatiounsmandat huet, ginn d'Schreifdëscher op, déi dëst Mandat zougeuerdnet huet. An der gewinnter Zouwiesung mécht de President LTF-Admin ganz op an LTF-Finanzen nëmme liesend, an de Keesseminister ëmgedréint. Ännert oder läscht een dëse Login, wandere oder zoumaachen dës Schreifdëscher. En bei-geluechten Import kritt kee Schreifdësch. En inaktive Member kritt weider d'Schreifdëscher, déi d'Zouwiesung erlaabt. E Kontakt brauch e Login, ier e Schreifdësch verlinkt gëtt. Veräinsmandater maachen kee Federatiounsschreifdësch op.
+Verlinkt Dir e Zougang mat engem Member, deen schonn e Federatiounsmandat huet, kritt déi Persoun d'Federatiounsrollen, déi zu deem Mandat gehéieren. An der gewinnter Astellung huet de President LTF-Admin ganz an LTF-Finanzen nëmme fir ze liesen, an de Keesseminister ëmgedréint. Ännert oder läscht Dir dëse Zougang, wanderen dës Rollen mat oder si ginn zou. Wien nach op e Veräin waart, kritt keng Federatiounsroll. En inaktive Member kritt weider d'Rollen, déi d'Astellung erlaabt. E Kontakt brauch e Zougang, ier eng Federatiounsroll verlinkt gëtt. E Veräinsmandat mécht keng Federatiounsroll op.
 
 > [!WARNING]
 > Wann de Keesseminister wiesselt, aktualiséiert de Comité **virun** der nächster Ronn vu Bezuelungen. Ouni aktuellt Mandat kann am Veräin keen eng Bezuelung erfaassen.
@@ -1063,7 +1071,7 @@ Verlinkt een e Login mat engem Member, deen schonn e Federatiounsmandat huet, gi
 
 1. Maacht [[navClubAdmins]] op. Klickt riets op Äre Veräin, fir seng Memberen ze weisen.
 2. Klickt op e Member an dann nach eng Kéier op de Veräin.
-3. Wann de Member nach kee Login huet, gitt ënner [[adminEmailTitle]] eng E-Mail-Adress an. Eng Wëllkomms-E-Mail gëtt geschéckt. Déi invitéiert Persoun setzt E-Mail a Passwuert ënner [Äert éischt Passwuert](#first-password) fest.
+3. Wann de Member nach kee Zougang huet, gitt ënner [[adminEmailTitle]] eng E-Mail-Adress an. Eng Wëllkomms-E-Mail geet eraus. Déi invitéiert Persoun setzt E-Mail a Passwuert ënner [Äert éischt Passwuert](#first-password).
 
 ![Club-Admins](fig:club-admins)
 
@@ -1100,7 +1108,7 @@ De Menü vun der Federatioun, ënner [[Common.navGroupLtfManagement]], enthält 
 
 ## Iwwersiicht vun der Federatioun {#ltf-overview}
 
-D'Iwwersiicht zielt Veräiner, Memberen a Lizenzen. Hir Lëscht vun Aktiounen weist Veräiner ouni Admin, Transferten mat engem Montant, déi nach op sinn, a Memberen, déi op eng Lizenz waarden.
+D'Iwwersiicht zielt Veräiner, Memberen a Lizenzen. Si weist och, wat op Iech waart: Veräiner ouni Admin, Transferte mat engem Montant, deen nach op ass, a Memberen, déi op eng Lizenz waarden.
 
 ![D'Iwwersiicht vun der LTF](fig:ltf-overview)
 
@@ -1122,8 +1130,8 @@ Nodeems Dir e Logo eropgelueden hutt, weist d'Säit eng Virschau. Wärend se lue
 
 ## Memberen, Lizenzen an Transferten {#ltf-licences}
 
-- [[LtfAdmin.navMembers]] an [[LtfAdmin.navLicenses]] weisen all Veräiner zur selwechter Zäit; mat dem Veräinsfeld uewen kënnt Dir agrenzen. E Klick op e Kolonnentitel sortéiert. An der Lizenzlëscht stinn [[editAction]] an [[deleteAction]] ënner [[Common.rowActionsLabel]], an Änneren mécht e Säitepanneau op.
-- Filtert Memberen mat [[LtfAdmin.staffFilterStaff]], fir de Personal vun der Federatioun ze gesinn. Eng Persoun ouni Veräin gëtt als [[LtfAdmin.noClub]] gewisen. [[LtfAdmin.staffAddAction]] mécht e Säitepanneau op. Loosst de Veräin op [[LtfAdmin.staffNoClubOption]], fir se als LTF-Personal ze lizenzéieren, ouni Veräinsbestellung an ouni Veräinsrechnung. [[LtfAdmin.staffIssueAction]] stellt d'Lizenz fir dat gewielt Joer aus. Dat lafend Joer ass direkt aktiv. Eng fréier Personallizenz leeft wéi eng Veräinslizenz of a steet duerno als ofgelaf.
+- [[LtfAdmin.navMembers]] an [[LtfAdmin.navLicenses]] weisen all Veräiner zur selwechter Zäit. Grenzt d'Lëscht uewen iwwer d'Veräinsfeld an. E Klick op e Kolonnentitel sortéiert. An der Lizenzlëscht stinn [[editAction]] an [[deleteAction]] ënner [[Common.rowActionsLabel]], an Änneren mécht de Formulaire niewent der Lëscht op.
+- Filtert Memberen mat [[LtfAdmin.staffFilterStaff]], fir de Personal vun der Federatioun ze gesinn. Eng Persoun ouni Veräin gëtt als [[LtfAdmin.noClub]] gewisen. [[LtfAdmin.staffAddAction]] mécht de Formulaire niewent der Lëscht op. Loosst de Veräin op [[LtfAdmin.staffNoClubOption]], fir se als LTF-Personal ze lizenzéieren, ouni Veräinsbestellung an ouni Veräinsrechnung. [[LtfAdmin.staffIssueAction]] stellt d'Lizenz fir dat gewielt Joer aus. Dat lafend Joer ass direkt aktiv. Eng fréier Personallizenz leeft wéi eng Veräinslizenz of a steet duerno als ofgelaf.
 - [[LtfAdmin.navParkedMembers]] weist Persounen, déi bei engem Import op d'Säit gestallt goufen, bis Dir e Veräin an e Geschlecht zouweist oder d'Zeil läscht. [[LtfAdmin.parkedSubtitle]] Si stinn net an enger Veräinslëscht, enger Lizenz, enger Kaart, enger Ekipp oder enger Zuelung. Kuckt [Éischt Ariichtung](#setup).
 - [[LtfAdmin.navMemberTransfers]] weist déi lescht Clubwiesselen, Transferte mat engem Montant a méiglech Clubtouristen – Memberen, déi ongewéinlech dacks de Veräin gewiesselt hunn.
 
@@ -1133,7 +1141,7 @@ Nodeems Dir e Logo eropgelueden hutt, weist d'Säit eng Virschau. Wärend se lue
 
 ## Lizenzkaarten {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] enthält d'Modeller vun de Kaarten. Maacht e Modell am Designer op, fir de Foto, den Numm, de Grad, d'Lizenznummer an de QR-Code ze placéieren. D'Zeilemenü setzt en och als Standard, späichert eng Kopie, exportéiert oder läscht de Modell. Publizéiert eng Versioun a setzt se als Standard: domat drécken d'Club-Admins. [[LtfAdmin.navPrinting]] gruppéiert [[LtfAdmin.navLicenseCardPrintJobs]] an [[LtfAdmin.navPrinterProfiles]] esou wéi um Club-Dashboard. D'Drockopträg weisen d'Jobs vun alle Veräiner; Kucken, Eroflueden a Läschen stinn am Zeilemenü. D'Dréckerprofiler späicheren d'X/Y-Verrécklung vu bekannten Drécker.
+[[LtfAdmin.navLicenseCards]] enthält d'Modeller vun de Kaarten. Maacht e Modell am Designer op, fir de Foto, den Numm, de Grad, d'Lizenznummer an de QR-Code ze setzen. D'Zeilemenü setzt en och als Standard, späichert eng Kopie, exportéiert oder läscht de Modell. Publizéiert eng Versioun a setzt se als Standard: domat drécken d'Club-Admins. [[LtfAdmin.navPrinting]] gruppéiert [[LtfAdmin.navLicenseCardPrintJobs]] an [[LtfAdmin.navPrinterProfiles]] esou wéi am Veräin. D'Drockopträg weisen d'Opträg vun alle Veräiner. Kucken, späicheren a läsche stinn am Zeilemenü. D'Dréckerprofiler späicheren, wéi wäit e bekannte Drécker d'Kaart verréckelt.
 
 ![De Kaarten-Designer](fig:designer)
 
@@ -1141,15 +1149,15 @@ Nodeems Dir e Logo eropgelueden hutt, weist d'Säit eng Virschau. Wärend se lue
 
 ## Nationalequipe {#national-team}
 
-[[LtfAdmin.navNationalTeam]] ass de Selektiounsdesk vun der Federatioun. Den LTF-Admin kann en änneren. D'LTF-Finanzen kënnen dee selwechten Desk opmaachen an nëmme liesen. Veräiner gesinn dës Säit net. Bei engem Veräinsmember gesinn si nëmmen [[nationalTeamBadge]], mat Selektioun a Saison, an net dëse Staff-Dossier.
+[[LtfAdmin.navNationalTeam]] ass d'Säit vun der Federatioun fir d'Selektiounen. Den LTF-Admin kann se änneren. D'LTF-Finanzen kënnen déi selwecht Säit opmaachen an nëmme liesen. Veräiner gesinn dës Säit net. Bei engem Veräinsmember gesinn si nëmmen [[nationalTeamBadge]], mat Selektioun a Saison, an net dëse Staff-Dossier.
 
-D'Säit huet dräi Deeler: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] an [[LtfAdmin.nationalTeamTabLevels]]. D'Filter benotzen [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] an [[LtfAdmin.nationalTeamClub]]. Formulairë ginn an engem Säitepanneau op.
+D'Säit huet dräi Deeler: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] an [[LtfAdmin.nationalTeamTabLevels]]. D'Filter benotzen [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] an [[LtfAdmin.nationalTeamClub]]. Formulairë ginn niewent der Lëscht op.
 
-![De Schreifdësch vun der Nationalequipe](fig:national-team)
+![D'Nationalequipe](fig:national-team)
 
 **Selektiounen.** [[LtfAdmin.nationalTeamAddSquad]] leet eng Selektioun un. [[LtfAdmin.nationalTeamAddSquadHint]] [[LtfAdmin.nationalTeamAddSelection]] hëlt e Sportler aus engem Veräin fir d'Saison op. Setzt [[LtfAdmin.nationalTeamAgeClass]]. D'Klassen ëmfaassen [[LtfAdmin.nationalTeamAgePupils]] an [[LtfAdmin.nationalTeamAgeMinimes]], déi regional sinn an net World-Taekwondo-Klassen, dozou [[LtfAdmin.nationalTeamAgeCadet]], [[LtfAdmin.nationalTeamAgeJunior]] an [[LtfAdmin.nationalTeamAgeSenior]]. [[LtfAdmin.nationalTeamWeight]] däerf eidel bleiwen. De Status gëtt als [[LtfAdmin.nationalTeamLevel]], [[LtfAdmin.nationalTeamCosl]] an [[LtfAdmin.nationalTeamSupport]] (Sportlycée oder SSEA) gefouert.
 
-**Staff.** Maacht [[LtfAdmin.nationalTeamTabStaff]] op a klickt op [[LtfAdmin.nationalTeamStaffAdd]]. Zu de Rolle gehéieren [[LtfAdmin.nationalTeamStaffNationalCoach]], [[LtfAdmin.nationalTeamStaffPhysiotherapist]] an [[LtfAdmin.nationalTeamStaffPhotographer]]. Numm a Roll sinn dat, wat e Veräin wësse dierf. De private Staff-Dossier bleift op dësem Desk.
+**Staff.** Maacht [[LtfAdmin.nationalTeamTabStaff]] op a klickt op [[LtfAdmin.nationalTeamStaffAdd]]. Zu de Rolle gehéieren [[LtfAdmin.nationalTeamStaffNationalCoach]], [[LtfAdmin.nationalTeamStaffPhysiotherapist]] an [[LtfAdmin.nationalTeamStaffPhotographer]]. Numm a Roll sinn dat, wat e Veräin wësse dierf. De private Staff-Dossier bleift op dëser Säit.
 
 **Niveauen a Saison.** [[LtfAdmin.nationalTeamTabLevels]] enthält d'Kaderniveauen an d'Saisondatumen. [[LtfAdmin.nationalTeamSaveSeason]] späichert Ufank an Enn. [[LtfAdmin.nationalTeamForbidOverlap]] hält e Sportler a jee enger Selektioun.
 
@@ -1177,7 +1185,13 @@ De Finanzmenü enthält [[LtfFinance.navOverview]], [[LtfFinance.navOrders]], [[
 
 [[settingsTabClubFees]] weist, wat d'LTF de Veräiner rechent (Affiliatioun, Versécherung…): [[clubFeeCadenceAnnual]], [[clubFeeCadencePerMember]], [[clubFeeCadencePerEvent]] oder [[clubFeeCadenceOneOff]]. Wielt am Onglet [[settingsTabBilling]] d'[[clubFeeBillingYearLabel]], d'Käschten an d'Veräiner a klickt op [[clubFeeBillingSubmitYear|year=2026]]. E Veräin, deen fir dat Joer schonn eng Rechnung huet, gëtt iwwersprongen – Dir kënnt d'Ronn also ouni Risiko nach eng Kéier maachen. [[clubFeeBillingRecurringLabel]] widderhëlt d'Facturatioun all Mount oder all Joer.
 
-[[settingsTabModuleFees]] ass de Jorespräis fir [[moduleClubManagement]] an den Evenementskalenner. [[moduleFeesTitle]] Klickt op [[moduleFeeAdd]], wielt de Modul, dann [[moduleFeePricingFlat]] oder [[moduleFeePricingPerMember]], an e Montant. [[moduleFeeMinimumLabel]] ass fräiwëlleg: de Veräin bezilt mindestens dëse Montant, wann de gerechente Präis drënner läit. Wann dëse Minimum net méi héich ass wéi e Pauschalpräis, weist [[modulePricesTitle]] am Veräinsprofil en net. De gerechente Montant bleift deeselwechten, an dësen Editeur weist d'Feld weider. En neie Präis gëllt vum Datum un, deen Dir wielt. Rechnungen, déi scho verschéckt sinn, bleiwen, wéi se sinn. [[moduleFeeBillingHint]] Club-Admins liesen d'Schätzung an hirem Profil. Si kënnen se net änneren, an eng net bezuelt Rechnung schalt de Modul net aus.
+[[settingsTabModuleFees]] ass de Jorespräis fir [[moduleClubManagement]] an den Evenementskalenner. [[moduleFeesTitle]]
+
+Klickt op [[moduleFeeAdd]], wielt de Modul, dann [[moduleFeePricingFlat]] oder [[moduleFeePricingPerMember]], an tragt de Montant an.
+
+[[moduleFeeMinimumLabel]] ass fräiwëlleg. De Veräin bezilt mindestens dëse Montant, wann de gerechente Präis drënner läit. Wann dëse Minimum net méi héich ass wéi e Pauschalpräis, weist [[modulePricesTitle]] am Veräinsprofil en net. De Veräin bezilt dee selwechte Montant, an dës Säit weist d'Feld weider.
+
+En neie Präis gëllt vum Datum un, deen Dir wielt. Rechnungen, déi scho verschéckt sinn, bleiwen, wéi se sinn. [[moduleFeeBillingHint]] Club-Admins liesen d'Schätzung an hirem Profil. Si kënnen se net änneren. Eng net bezuelt Rechnung schalt de Modul net aus.
 
 ![D'Käschte fir d'Veräiner ofrechnen](fig:fin-billing)
 
@@ -1188,7 +1202,7 @@ De Finanzmenü enthält [[LtfFinance.navOverview]], [[LtfFinance.navOrders]], [[
 3. Fir dat ze reduzéieren, wat e Veräin schëlleg ass, gitt e [[creditNoteAmountLabel]] an e [[creditNoteReasonLabel]] an a klickt op [[addCreditNoteAction]].
 4. Fir eng net bezuelt Rechnung nozefroen, klickt op [[sendReminderAction]]. [[lastRemindedAtLabel]] weist, wéini Dir dat déi leschte Kéier gemaach hutt.
 
-D'Somm an der Rechnungs-E-Mail entsprécht der Somm um PDF. Eng bezuelt Rechnung nennt de bezuelte Montant. Eng Rechnung, déi net bezuelt ass, nennt de Montant, deen nach op ass. Dat gëllt och, wann eng Lizenzrechnung am selwechte Schrëtt als bezuelt markéiert a verschéckt gëtt. Eng Erënnerung nennt de Montant, deen nach op ass, net déi ursprénglech Somm. D'Wierder follegen der Sprooch vum Veräin oder der Sprooch, déi fir déi Persoun gewielt ass, soss Englesch.
+D'Somm an der E-Mail ass déi selwecht wéi um PDF. Eng bezuelt Rechnung nennt de bezuelte Montant. Eng Rechnung, déi net bezuelt ass, nennt de Montant, deen nach op ass. Dat gëllt och, wann eng Lizenzrechnung am selwechte Schrëtt als bezuelt markéiert a verschéckt gëtt. Eng Erënnerung nennt de Montant, deen nach op ass, net déi ursprénglech Somm. D'Wierder follegen der Sprooch vum Veräin oder der Sprooch, déi fir déi Persoun gewielt ass, soss Englesch. Kuckt [Profil](#profile-tab).
 
 Ënner [[LtfFinance.navOrders]], [[LtfFinance.navInvoices]] an [[LtfFinance.navPayments]] bleift d'Sich op der Säit, an [[Common.filterGroupStatus]] geet als klengt Feld op. [[Common.resetFilters]] setzt en op all zréck. Dës Lëschten hunn keng Hoken. Kuckt [Lizenze bestellen](#order-licences).
 
@@ -1204,22 +1218,22 @@ D'Somm an der Rechnungs-E-Mail entsprécht der Somm um PDF. Eng bezuelt Rechnung
 
 <p class="roles"><span class="chip">Superuser</span></p>
 
-Den techneschen Administrateur mécht d'[[Common.openOpsConsole]] op. Ënner Modules gëtt e signéierte Produitcode vun der LTF aginn an ageléist, an all Veräin kritt d'Moduler, déi e benotzen dierf. De Katalog weist och Moduler, déi nach net verfügbar sinn, wéi den Inventaire vun der Federatioun an d'Turnéieren; si kënnen net ageschalt ginn. E Modul anzeschalten ass eppes anescht wéi säi Präis. D'Präisser fir d'Clubverwaltung an de Kalenner sinn d'[Modulkäschten](#club-fees). Eng net bezuelt Modulrechnung schalt de Modul net aus.
+Den techneschen Administrateur mécht d'[[Common.openOpsConsole]] op. Ënner Modules gitt Dir de Code an, deen d'LTF geschéckt huet, a bestätegt en. Duerno wielt Dir, wéi eng Deeler vun der App all Veräin benotzen dierf. D'Lëscht nennt och Deeler, fir déi et nach keng Säiten gëtt, wéi den Inventaire vun der Federatioun an d'Turnéieren. Déi kënnt Dir net aschalten. En Deel anzeschalten ass eppes anescht wéi säi Präis. D'Präisser fir d'Clubverwaltung an de Kalenner sinn d'[Modulkäschten](#club-fees). Eng net bezuelt Rechnung schalt den Deel net aus.
 
 ![Ops – Moduler](fig:ops-modules)
 
 ## Éischt Ariichtung {#setup}
 
-[[Setup.title]] ass fir e Superuser, eng Kéier, ier d'Federatioun an der App schafft. Et ass net den Assistent vum Veräin ënner [Memberen aus enger Tabell importéieren](#import). Op der Demonstratiounsinstallatioun ass d'Säit verstoppt, a si spärt sech, wann Dir fäerdeg sidd.
+[[Setup.title]] ass fir den techneschen Administrateur, eng Kéier, ier d'Federatioun an der App schafft. Et ass net den Import vum Veräin ënner [Memberen aus enger Tabell importéieren](#import). Op der Demonstratiounsinstallatioun ass d'Säit verstoppt, a si spärt sech, wann Dir fäerdeg sidd.
 
-Maacht d'Ops-Konsol op. Wann d'Ariichtung nach op ass, schéckt d'Iwwersiicht Iech op dës Säit, an e Banner bitt [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
+Maacht déi technesch Konsole op. Wann d'Ariichtung nach op ass, féiert d'Iwwersiicht Iech op dës Säit, an e Stréch uewen bitt [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
 
 ![Éischt Ariichtung](fig:setup)
 
 Dir bréngt dräi Dateien, der Rei no. Op dëser Säit gëtt keng E-Mail geschéckt, an E-Mail-Adressen an de Dateie ginn ignoréiert. [[Setup.summaryEmail]]
 
 1. [[Setup.step_clubs]]. Luet den Export vun de Veräiner erop. Eng Zeil mam Numm LTF gëtt net als Veräin ugeluecht. D'Federatioun (WT oder ITF) ass nëmmen eng Vermutung aus dem Numm: ännert se, wann se falsch ass. Eng RCS-Nummer ass fräiwëlleg; wann Dir eng agitt, benotzt d'Form B123456. Klickt op [[Setup.confirmClubs]].
-2. [[Setup.step_members]]. Luet den Export vun de Memberen erop. Uerdnet d'Kolonnen zou, kuckt d'Virschau a bestätegt – dee selwechte Rhythmus wéi beim Veräinsimport, mä dat ass net dësen Assistent. Uerdnet d'Kolonn Member ID souwuel der WT-Lizenznummer wéi och der LTF-Lizenznummer zou. Déi automatesch Zouuerdnung mécht dat. Loosst Email ouni Zouuerdnung. Wann [[importPrefixRewriteLabel]] un ass, gëtt LUX- nëmme bei der LTF-Nummer zu LTF-. Aktiv oder inaktiv follegt dem Joer vum Enn vun der Memberschaft, net enger eegener Kolonn. Dëst Joer oder e spéidert Joer, an en eidelt Datum, sinn [[Setup.active]]. E fréiert Joer ass [[Setup.inactive]], an d'Persoun gëtt trotzdem importéiert. Wann den Enndatum net gelies ka ginn, wielt [[Setup.active]] oder [[Setup.inactive]], oder stellt d'Zeil op d'Säit. Rott net.
+2. [[Setup.step_members]]. Luet den Export vun de Memberen erop. Uerdnet d'Kolonnen zou, kuckt d'Virschau a bestätegt. Dat ass net den Import vum Veräin. Uerdnet d'Kolonn Member ID souwuel der WT-Lizenznummer wéi och der LTF-Lizenznummer zou. [[Import.autoMapButton]] mécht dat. Loosst Email ouni Zouuerdnung. Wann [[importPrefixRewriteLabel]] un ass, gëtt LUX- nëmme bei der LTF-Nummer zu LTF-. Aktiv oder inaktiv follegt dem Joer vum Enn vun der Memberschaft, net enger eegener Kolonn. Dëst Joer oder e spéidert Joer, an en eidelt Datum, sinn [[Setup.active]]. E fréiert Joer ass [[Setup.inactive]], an d'Persoun gëtt trotzdem importéiert. Wann den Enndatum net gelies ka ginn, wielt [[Setup.active]] oder [[Setup.inactive]], oder stellt d'Zeil op d'Säit. Rott net.
 3. Stellt eng Zeil op d'Säit, wann d'Veräinszell eidel ass, de Veräin net bei deenen ass, déi Dir importéiert hutt, oder den Enndatum net gelies ka ginn. Klickt op [[Setup.parkRow]], oder op [[Setup.parkAllUnresolved]] fir all Zeil, déi op d'Säit gestallt ka ginn. De Status ass [[Setup.statusParked]]. Bei enger eideler Veräinszell ass [[Setup.clubNotYet]] eng richteg Wiel a stellt déi Persoun fir méi spéit op d'Säit. [[Setup.ltfStaff]] ass d'Wiel, wann d'Persoun bei d'Federatioun gehéiert an net bei e Veräin. Dir däerft bestätegen, soulaang op d'Säit gestallte Zeilen bleiwen. [[Setup.blockingTitle]] Klickt op [[Setup.confirmMembers]].
 4. [[Setup.step_admins]]. Luet den Export vun de Veräiner an den Admins erop. Eng fäerdeg Zeil gëtt zum Club-Admin a gëtt mam Member aus dem viregte Schrëtt verbonnen. Klickt op [[Setup.confirmAdmins]]. Et gëtt näischt per E-Mail geschéckt. [[Setup.copyLink]] kopéiert de Link vun enger Persoun. [[Setup.downloadLinks]] lued se all erof.
 
@@ -1238,7 +1252,7 @@ Persounen, déi op d'Säit gestallt sinn, kuckt Dir méi spéit ënner [[LtfAdmi
 Kontrolléiert de Benotzernumm (dat ass net ëmmer Är E-Mail-Adress) an d'Passwuert. Wann d'Säit seet, datt Är E-Mail net bestätegt ass, kuckt [Är E-Mail-Adress bestätegen](#verify-email). Passwuert vergiess? Kuckt [Passwuert vergiess](#forgotten-password).
 
 ### Kënne Memberen oder Elteren sech aloggen?
-Elteren net. E Member ab 16 kann sech aloggen, nodeem e Club-Admin oder d'LTF e Login ugeluecht huet. Et gëtt keng E-Mail geschéckt. Méi jonk Memberen hu kee Login. De Veräin hält d'Donnéeën um neiste Stand.
+Elteren net. E Member ab 16 kann sech aloggen, soubal e Club-Admin oder d'LTF de Zougang ugeluecht huet. D'E-Mail geet eréischt eraus, wann Dir de Link schéckt. Méi jonk Memberen hu kee Zougang. De Veräin hält d'Donnéeën um neiste Stand. Kuckt [Rollen](#roles).
 
 ### E Menüpunkt, deen hei beschriwwen ass, feelt.
 Är Roll oder d'Moduler vun Ärem Veräin enthalen en net. Kuckt [Rollen](#roles) a [Moduler](#modules).
@@ -1256,7 +1270,7 @@ Liest de Grond an der Zeil. Meeschtens brauch e Kand een, deen d'Rechnung kritt 
 De Grond steet nieft dem Typ: d'Bestellfënster ass zou, et gëtt kee Präis, oder d'Memberen hunn dës Lizenz schonn. D'Fënsteren an d'Präisser setzen d'LTF-Finanzen fest.
 
 ### Déi gedréckte Kaart ass verréckelt.
-Dréckt op 100 % a benotzt en Drockerprofil mat der richteger Verrécklung (kuckt [Lizenzkaarten drécken](#print-cards)).
+Dréckt op 100 %, ouni ze verklengeren, a frot d'LTF no engem Drockerprofil, wann d'Kaart niewent der Säit sëtzt (kuckt [Lizenzkaarten drécken](#print-cards)).
 
 ### D'Datume gesinn aus wéi mm/dd/yyyy.
 D'Datumsfelder riichte sech no der Sprooch vun Ärem Browser. Stellt de Browser op Lëtzebuergesch, Däitsch, Franséisch oder Englesch (Groussbritannien), fir Dag/Mount/Joer ze gesinn.
@@ -1268,7 +1282,7 @@ Bei engem neie Cours setzt Dir Schüler ënner [[trainingAddStudents]] derbäi a
 Dat ass d'Zuel vun den Evenementer, déi ukommen an déi Dir gesitt. D'Wuert [[Events.calendarNavNew]] erschéngt, wann der e puer nei fir Iech sinn.
 
 ### Wou kann ech meng Rechter iwwer den Dateschutz ausüben?
-Mat engem Login benotzt Dir d'Säit aus [Dateschutz an Är Donnéeën](#privacy). Memberen an Elteren wenden sech un hire Veräin oder un d'LTF; déi kënnen hir Donnéeën exportéieren oder verbesseren.
+Wann Dir Iech alogge kënnt, benotzt Dir d'Säit aus [Dateschutz an Är Donnéeën](#privacy). Memberen an Elteren wenden sech un hire Veräin oder un d'LTF. Déi kënnen d'Donnéeën exportéieren oder verbesseren.
 
 ### Kënne mir online bezuelen?
-Jo. Bei enger LTF-Rechnung, déi de Veräin nach bezuele muss, mécht [[Common.payNow]] d'Säit vum Kaartenubidder op. Si weist d'Rechnungsnummer an de nach oppe Montant. Dir gitt d'Kaart an a bestätegt, an d'App seet duerno, datt d'Bezuelung gelongen ass an d'Lizenze aktivéiert sinn. Geet Dir zréck, ouni ze bezuelen, gëtt näischt belaascht. Duerno nennt de Knäppchen de Schreifdësch, deen Dir verlooss hutt, zum Beispill [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Eng Veräinsrechnung un e Member gëtt hei net bezuelt. Dir kënnt weider per Iwwerweisung bezuelen. Kuckt [D'LTF bezuelen](#pay-ltf).
+Jo. Bei enger LTF-Rechnung, déi de Veräin nach bezuele muss, mécht [[Common.payNow]] d'Säit vun der Kaartefirma op. Si weist d'Rechnungsnummer an de nach oppe Montant. Dir gitt d'Kaart an a bestätegt. D'App seet duerno, datt d'Bezuelung gelongen ass an d'Lizenze aktiv sinn. Geet Dir zréck, ouni ze bezuelen, gëtt näischt belaascht. Duerno nennt de Knäppchen d'Roll, déi Dir verlooss hutt, zum Beispill [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Eng Veräinsrechnung un e Member gëtt hei net bezuelt. Dir kënnt weider per Iwwerweisung bezuelen. Kuckt [D'LTF bezuelen](#pay-ltf).
