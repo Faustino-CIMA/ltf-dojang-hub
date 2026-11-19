@@ -113,9 +113,22 @@ def probe_celery() -> dict:
         return _status(False, str(exc)[:300])
 
 
+def _smtp_endpoint() -> tuple[str, int]:
+    mailers = getattr(settings, "MAILERS", {}) or {}
+    default = mailers.get("default") if isinstance(mailers, dict) else None
+    options = default.get("OPTIONS") if isinstance(default, dict) else None
+    if not isinstance(options, dict):
+        return "", 0
+    host = str(options.get("host") or "").strip()
+    try:
+        port = int(options.get("port") or 0)
+    except (TypeError, ValueError):
+        port = 0
+    return host, port
+
+
 def probe_smtp() -> dict:
-    host = str(getattr(settings, "EMAIL_HOST", "") or "").strip()
-    port = int(getattr(settings, "EMAIL_PORT", 0) or 0)
+    host, port = _smtp_endpoint()
     if not host:
         resend = str(getattr(settings, "RESEND_API_KEY", "") or "").strip()
         if resend and resend.lower() not in {"", "replace-me", "changeme", "change-me"}:
@@ -168,7 +181,7 @@ def probe_env_keys() -> dict:
         "STRIPE_WEBHOOK_SECRET": _secret_present(getattr(settings, "STRIPE_WEBHOOK_SECRET", "")),
         "PAYCONIQ_API_KEY": _secret_present(getattr(settings, "PAYCONIQ_API_KEY", "")),
         "RESEND_API_KEY": _secret_present(getattr(settings, "RESEND_API_KEY", "")),
-        "EMAIL_HOST": bool(str(getattr(settings, "EMAIL_HOST", "") or "").strip()),
+        "EMAIL_HOST": bool(_smtp_endpoint()[0]),
     }
     missing = [key for key, present in checks.items() if not present]
     return _status(True, "presence only, values are never returned", {"configured": checks, "missing": missing})
