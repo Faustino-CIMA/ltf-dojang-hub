@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** The card reader on the phone is tesseract.js 7. It still reads English on the device, and the picture is still cleared.
 - **Dependencies:** Icons, form checks, the photo cropper, the shop code scanner, and the test helpers move to their current major versions. The pages should look and work the same.
 - **Dependencies:** The frontend linter is ESLint 10.15.0. TypeScript stays on 5.9.3. The same rules still apply, and the pages are unchanged.
 - **Dependencies:** Stripe's Python library is 17.1.0. Webhook signatures are still checked by Stripe. Requests still use API version 2026-01-28.clover.
