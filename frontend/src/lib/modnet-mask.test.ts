@@ -1,5 +1,16 @@
 import { applyMaskOnce } from "./photo-background";
-import { modnetInputSize, modnetTensor, rasterWithMatte, removalMaskFromSearch } from "./modnet-mask";
+import { modnetInputSize, modnetTensor, portraitRuntime, rasterWithMatte, removalMaskFromSearch } from "./modnet-mask";
+
+describe("portrait runtime", () => {
+  it("stays on one fixed-SIMD thread and does not use the graphics chip", () => {
+    expect(portraitRuntime).toEqual({
+      threads: 1,
+      proxy: false,
+      simd: "fixed",
+      providers: ["wasm"],
+    });
+  });
+});
 
 describe("portrait mask flag", () => {
   it("uses the usual model unless the page asks for the portrait model", () => {
