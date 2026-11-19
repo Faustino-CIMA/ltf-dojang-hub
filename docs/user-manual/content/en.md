@@ -98,9 +98,11 @@ imprint: |
 
 # Welcome {#welcome}
 
-LTF Dojang Hub is the shared online desk of the Luxembourg Taekwondo Federation and its clubs. Clubs keep their member list, order licenses, take the roll in training, bill membership fees and run their shop. The federation checks licenses, prints license cards and keeps its books. Everyone shares one calendar. It is a management tool for the staff of the clubs and the federation. A club admin can create a login for a member aged 16 or over. Parents do not sign in.
+LTF Dojang Hub is where your club and the Luxembourg Taekwondo Federation keep the day-to-day work: the member list, licenses, the training roll, fees, the shop, and one shared calendar. The federation checks licenses, prints the cards and keeps its own books.
 
-The public page is black and red. It reads [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] opens the sign-in page. Someone who is already signed in sees [[Home.openDashboard]] in that place. Inside the app, [[Home.welcomeLead]] follows the light or dark theme.
+You use it if you work for a club or for the federation. A club admin can give a sign-in to a member aged 16 or over. Parents do not sign in. See [Roles](#roles).
+
+The public page is black and red. It shows [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] opens the sign-in page. If you are already signed in, that spot shows [[Home.openDashboard]]. Once you are inside, [[Home.welcomeLead]] follows the light or dark display you chose.
 
 ## Who this manual is for {#audience}
 
@@ -113,14 +115,14 @@ The manual is organised by **what you do**, not by screen. Read the first two ch
 | working at the LTF office | [LTF Admin](#ltf-admin) or [LTF Finance](#ltf-finance) |
 | the technical administrator | [Modules (technical administrator)](#ops) |
 
-Parents do not need this manual: they have no login. A member aged 16 or over can be given a login by the club, and the club still looks after their data.
+Parents do not use this manual. Who can sign in is under [Roles](#roles).
 
 ## How to read this manual {#conventions}
 
-- Words in a blue box, such as [[Common.signOut]], are the **exact labels on screen**.
-- Paths such as [[Common.navGroupClubManagement]] › [[navFinance]] › [[navBilling]] tell you where to click, from the menu on the left to the tab at the top.
-- Numbered steps are things to do, in that order. A line with a tick tells you what you should see afterwards.
-- Red numbered circles in a screenshot are explained in the list under the picture.
+- A blue box, such as [[Common.signOut]], is the exact wording on the screen.
+- [[Common.navGroupClubManagement]] › [[navFinance]] › [[navBilling]] means: open that group, then that page, then that tab.
+- Follow numbered steps in order. A ticked line is what you should see when the step has worked.
+- Red numbers on a picture are explained in the list under it.
 
 > [!TIP]
 > Tips save you time.
@@ -132,8 +134,6 @@ Parents do not need this manual: they have no login. A member aged 16 or over ca
 > “Good to know” boxes explain why the app behaves the way it does.
 
 # Getting started {#getting-started}
-
-All you need is a web browser on a computer, tablet or phone. There is nothing to install.
 
 ## Signing in {#sign-in}
 
@@ -161,9 +161,7 @@ You arrive on the start page for your role, for example the club overview or the
 The sign-in page uses the same black-and-red brand as the public page. [[Auth.forgotPassword]] sits with the form. See [Forgotten password](#forgotten-password).
 
 > [!NOTE]
-> There is no public sign-up. Logins are created when someone is made a club admin or a coach (see [Club admins](#club-admins) and [Coaches tab](#coaches-tab)), by the LTF, or when a club admin creates one for a member aged 16 or over.
->
-> Parents do not get a login.
+> There is no registration on this page. A club admin or the LTF creates your sign-in. See [Club admins](#club-admins) and [Coaches](#coaches-tab). Parents are not given one.
 
 ## Your first password {#first-password}
 
@@ -201,7 +199,7 @@ No email? Ask your club admin or the LTF. On the club-admins list the row menu o
 
 ## Privacy and your data {#privacy}
 
-The app has a page where you manage your own consent and data rights. It is not in the menu, so you open it by its address.
+This page is where you manage your own consent and your data. It is not in the menu, so you open it by its address.
 {: .lead}
 
 1. Sign in.
@@ -212,11 +210,13 @@ The app has a page where you manage your own consent and data rights. It is not 
 The page <span class="ui">Privacy &amp; GDPR</span> has three controls:
 
 - <span class="ui">I consent to data processing.</span> – tick or clear the box. The change is saved at once.
-- <span class="ui">Export my data</span> – shows your data on the page, under <span class="ui">Export preview</span>: your login details and, if your login is linked to a member record, that member's name, grade and club, the licenses, the license and grade history and the photo details. The data is only shown on screen, not downloaded as a file.
-- <span class="ui">Delete my data</span> – deletes your login.
+- <span class="ui">Export my data</span> – shows your data on the page, under <span class="ui">Export preview</span>: your sign-in details and, if the sign-in is linked to a member, that member's name, grade and club, the licenses, the license and grade history, and the photo details. The page shows the data. It does not save a file.
+- <span class="ui">Delete my data</span> – deletes your sign-in.
 
 > [!WARNING]
-> <span class="ui">Delete my data</span> does not ask for confirmation. It deletes your login at once and signs you out. If the login is linked to a member record, the profile photo is removed, the notes on the grade history are cleared, and the private addresses on that member record are removed. The same private addresses are removed when an administrator deletes that login. Addresses that belong to someone else, such as a parent stored as a contact, stay. Invoices already issued keep the address that was printed on them. The member record and its licenses stay with the club.
+> <span class="ui">Delete my data</span> does not ask you to confirm.
+>
+> Your sign-in is deleted at once, and you are signed out. If it is linked to a member, the profile photo goes, the notes on the grade history are cleared, and the private addresses on that member are removed. An administrator who deletes that sign-in removes the same private addresses. An address that belongs to someone else, such as a parent stored as a contact, stays. An invoice already sent keeps the address that was printed on it. The member record and the licenses stay with the club.
 
 > [!NOTE]
 > This page is being reviewed. For now its text is in English only, also when you use the app in French, German, or Luxembourgish.
@@ -230,46 +230,46 @@ Every page has the same frame: the menu on the left, a bar across the top and th
 <div class="legend" markdown="1">
 1. **Menu**. It stays in place while you move between pages. Groups include [[Common.navGroupClub]], [[Common.navGroupClubManagement]], [[Common.navGroupCompetition]] and [[Common.navGroupCalendar]]. Federation pages use [[Common.navGroupLtfManagement]]. You only see what your role and your club's modules allow.
 2. **Club control** – opens a small panel, [[Common.selectedClubLabel]]. When the list is long, type in [[Common.clubSearchPlaceholder]]. Every page then shows the club you pick.
-3. Your name, your username and your **role badge**, for example [[Common.roleClubAdmin]].
+3. Your name, your username and your role, for example [[Common.roleClubAdmin]].
 4. **Language** – [[Common.languageLabel]]. English, Français, Deutsch, or Lëtzebuergesch, at any time.
 5. [[Auth.mfaSecurity]] – authenticator, recovery codes, passkeys, password, and email codes.
 6. [[Common.signOut]]
 7. [[Common.sidebarCollapse]] – makes the menu narrow to give tables more room. The app version is shown next to it.
 </div>
 
-Editing a record opens in a panel at the side of the page. The list stays behind it. On a list, row actions sit in [[Common.rowActionsLabel]]. Click a column heading to sort.
+Editing a record opens beside the list. The list stays where it is. On a list, the actions for one row are in [[Common.rowActionsLabel]]. Click a column heading to sort.
 
-The header also has [[Common.themeLabel]]: [[Common.themeLight]], [[Common.themeDark]] or [[Common.themeSystem]]. The public pages stay black and red. Inside the app, this choice sets the light or dark theme, including the welcome line.
+The header also has [[Common.themeLabel]]: [[Common.themeLight]], [[Common.themeDark]] or [[Common.themeSystem]]. The public pages stay black and red. Inside, this choice sets the light or dark display, including the welcome line.
 
 > [!TIP]
-> On a phone the menu folds away. Tap the menu button at the top left to open it.
+> On a phone, open the menu from the top left.
 
 ## Roles: who can do what {#roles}
 
-Your {{role}} decides which menu you see. One login can hold more than one desk, for example club admin of your club and LTF admin. With more than one, the header shows [[Common.deskSwitcherLabel]]. Open it and choose another. A view-only desk is labelled [[Common.deskViewOnly]]. It can open its lists. Save, delete, and import stay off, and the control says [[Common.deskViewOnlyAction]]. With one desk, the header stays a plain role label.
+Your {{role}} decides which menu you see. One sign-in can include more than one role, for example club admin of your club and LTF admin. When it does, the header shows [[Common.deskSwitcherLabel]]. Open it and choose the role you want. A role marked [[Common.deskViewOnly]] can open its lists. Save, delete and import stay off, and the control says [[Common.deskViewOnlyAction]]. With only one role, the header just shows that role.
 
-A superuser opens [[Common.openOpsConsole]] from the header. That button selects the Ops desk. [[Common.deskSwitcherLabel]] lists that desk as [[Common.roleSuperuser]], together with the other desks. Choosing a club, LTF, or finance desk opens that desk. [[Common.openFederationDashboard]] stays only when that list cannot already open the federation dashboard.
+[[Common.openOpsConsole]] in the header opens the technical console and selects that role. [[Common.deskSwitcherLabel]] lists it as [[Common.roleSuperuser]], next to your other roles. Choosing a club, LTF or finance role opens that role. [[Common.openFederationDashboard]] stays only when that list cannot already open the federation overview.
 
-![The desk list, open on the Ops console](fig:ops-desks)
+![The role list, open on the technical console](fig:ops-desks)
 
 <div class="legend" markdown="1">
-1. [[Common.deskSwitcherLabel]] – Ops is the [[Common.roleSuperuser]] row. The other rows are the other desks.
+1. [[Common.deskSwitcherLabel]] – the [[Common.roleSuperuser]] row is the technical console. The other rows are your other roles.
 </div>
 
-Staff desks (LTF admin, LTF finance, club admin, and ops) ask for an authenticator app. For the first 14 days a notice asks you to set it up. After that the desk stays closed until you do.
+LTF admin, LTF finance, club admin and the technical console ask you to set up an authenticator app. For the first 14 days a notice reminds you. After that the role stays closed until you do.
 
 The language menu offers English, Français, Deutsch, and Lëtzebuergesch. English is the default.
 
-| Role badge | Typical person | Main work |
+| Role on screen | Typical person | Main work |
 |---|---|---|
 | [[Common.roleCoach]] | coach | sees the training week, takes the roll, sees the calendar |
 | [[Common.roleClubAdmin]] | president, secretary, treasurer, volunteer | runs the club: members, licenses, money, training, shop |
 | [[Common.roleLtfAdmin]] | federation office | clubs, licenses, cards, transfers, national team, federation calendar |
 | [[Common.roleLtfFinance]] | federation treasurer | federation orders, invoices, payments, books |
-| [[Common.roleSuperuser]] | technical administrator | modules, users, system health |
+| [[Common.roleSuperuser]] | technical administrator | which parts of the app each club may use, and the sign-ins |
 
 > [!NOTE]
-> **Parents do not have a login.** A member aged 16 or over can sign in after a club admin or the LTF creates a login. Nothing is emailed until you send a link yourself. The club keeps the data and answers questions.
+> **Parents do not sign in.** A member aged 16 or over can sign in after a club admin or the LTF creates the sign-in. Nothing is emailed until you send the link yourself. The club keeps the data and answers questions.
 
 What each club role sees in the club menu:
 
@@ -290,30 +290,30 @@ What each club role sees in the club menu:
 
 ## Modules: why some menus are missing {#modules}
 
-Parts of the app are switched on per club by the LTF as {{modules}}:
+The LTF turns parts of the app on for each club. This manual calls those parts {{modules}}.
 
 - **Club management** adds [[navFinance]], [[navFamilies]], [[navTraining]], [[navPromotion]] and [[navShop]] under [[Common.navGroupClubManagement]].
 - **Event calendar** adds [[Events.calendarTitle]] under [[Common.navGroupCalendar]].
 - **Competition** ([[moduleCompetition]]) adds [[navTeams]] under [[Common.navGroupCompetition]]. See [Teams and competition](#club-teams).
 
-If your club has no module, you still have the [[Common.navGroupClub]] pages: members, licenses, printing and transfers. Ask the LTF if you are missing a module you need.
+With none of these on, you still have the [[Common.navGroupClub]] pages: members, licenses, printing and transfers. Ask the LTF if a page you need is missing.
 
-The LTF sets a yearly price for club management and the calendar. An unpaid invoice does not switch a module off. Club admins can read the estimate on the club profile. See [Club fees](#club-fees) and [Profile](#profile-tab).
+The LTF sets a yearly price for club management and the calendar. An unpaid invoice does not turn a module off. Club admins can read the estimate on the club profile. See [Club fees](#club-fees) and [Profile](#profile-tab).
 
-A bundle is at least two of those modules at one flat price. Under [[moduleOrderOnTitle]], a bundle appears only when that bundle itself was bought. A bundle that only contains a module you already have stays in the list under [[moduleOrderChoose]], and it says [[moduleOrderModuleOn|name=Competition]]. It does not show that module's end date, and it cannot be ordered again.
+A bundle is two or more of those modules at one price. Under [[moduleOrderOnTitle]], a bundle is listed only when that bundle itself was bought. A bundle that only overlaps a module you already have stays under [[moduleOrderChoose]], and it says [[moduleOrderModuleOn|name=Competition]]. It does not show that module's end date, and you cannot order it again.
 
 ![Already on, and a bundle that cannot be ordered again](fig:module-order)
 
 <div class="legend" markdown="1">
-1. [[moduleOrderOnTitle]] – modules already switched on, and a bundle only after that bundle was bought.
-2. [[moduleOrderChoose]] – a bundle that overlaps a module already on stays here, and it cannot be ticked.
+1. [[moduleOrderOnTitle]] – modules already on, and a bundle only after that bundle was bought.
+2. [[moduleOrderChoose]] – a bundle that overlaps a module already on stays here, and you cannot tick it.
 </div>
 
 # Coaches {#coaches}
 
 <p class="roles"><span class="chip">Coach</span></p>
 
-A club admin makes you a coach in [[navSettings]] › [[clubSettingsTrainersTab]]. You then get a login with the [[Common.roleCoach]] badge.
+A club admin makes you a coach in [[navSettings]] › [[clubSettingsTrainersTab]]. You then get a sign-in that shows [[Common.roleCoach]].
 
 > [!NOTE]
 > The coach role is still being built. This chapter describes what works for coaches today: the training week, the roll and the calendar. When the competition module is on, coaches also open [[navTeams]] (see [Teams and competition](#club-teams)). More coach features are planned.
@@ -362,7 +362,7 @@ Coaches see public club events and also [[calendarVisibility_internal]] ones, so
 
 ## Club overview {#club-overview}
 
-[[navOverview]] is your dashboard. It opens with [[Home.welcomeLead]] and your first name. [[Home.welcomeAttention]] lists what needs you, or [[Home.welcomeAllClear]] when nothing does. The page also counts members, licenses and open invoices, and its [[actionQueueTitle]] lists things that need you, each with a button that opens the right page.
+[[navOverview]] is your start page. It opens with [[Home.welcomeLead]] and your first name. [[Home.welcomeAttention]] lists what needs you, or [[Home.welcomeAllClear]] when nothing does. The page also counts members, licenses and open invoices. [[actionQueueTitle]] lists what is waiting, and each line opens the right page.
 
 ![The club overview](fig:club-overview)
 
@@ -383,14 +383,20 @@ Coaches see public club events and also [[calendarVisibility_internal]] ones, so
 3. [[Common.filterGroupUser]]
 4. [[Common.filterGroupPerson]] – the team filter when competition is on.
 5. The [[membersMenuLabel]] menu: create or import members.
-6. [[Common.rowActionsLabel]] – [[editAction]] or [[deleteAction]] for this row. [[editAction]] opens a side panel.
+6. [[Common.rowActionsLabel]] – [[editAction]] or [[deleteAction]] for this row. [[editAction]] opens beside the list.
 </div>
 
 ![The members menu: create or import](fig:members-menu)
 
-The [[sexLabel]] column is a small ♂ or ♀, not a large badge. Click a column heading to sort. [[membersMenuLabel]] and the row menu open as small panels.
+The [[sexLabel]] column is a small ♂ or ♀. Click a column heading to sort. [[membersMenuLabel]] and the row menu open as small panels.
 
-Search stays on the page. The other filters open from [[Common.filterGroupStatus]], [[Common.filterGroupUser]], and [[Common.filterGroupPerson]]. [[Common.filterGroupUser]] is [[accountFilterNone]], [[accountFilterPending]], [[accountFilterActive]], or [[accountFilterDisabled]]. On the LTF list, [[Common.filterGroupPerson]] is [[LtfAdmin.staffFilterAll]], [[LtfAdmin.staffFilterClub]], or [[LtfAdmin.staffFilterStaff]]. On the club list, [[Common.filterGroupPerson]] is the team filter when competition is on, including [[teamsFilterNone]]. [[Common.resetFilters]] returns them to the usual start. A tick stays when you search, filter, or change page, until you [[clearSelection]] or finish the action. [[selectedMembersCountLabel|count=2]] includes rows that are not on this page. The same ticks stay on the club and LTF member lists, the club and LTF license lists, the LTF clubs list, ops users, parked members, and club billing. Rows per page can be 50, 150, 300, or all. License tables have an [[expiresLabel]] column. A date within 30 days is a warning. A date already past is muted.
+Search stays on the page. The other filters open from [[Common.filterGroupStatus]], [[Common.filterGroupUser]] and [[Common.filterGroupPerson]].
+
+[[Common.filterGroupUser]] is [[accountFilterNone]], [[accountFilterPending]], [[accountFilterActive]] or [[accountFilterDisabled]]. On the LTF list, [[Common.filterGroupPerson]] is [[LtfAdmin.staffFilterAll]], [[LtfAdmin.staffFilterClub]] or [[LtfAdmin.staffFilterStaff]]. On the club list, [[Common.filterGroupPerson]] is the team filter when competition is on, including [[teamsFilterNone]]. [[Common.resetFilters]] puts the filters back to the usual start.
+
+A tick stays when you search, filter or change page, until you [[clearSelection]] or finish the action. [[selectedMembersCountLabel|count=2]] includes rows that are not on this page. The same ticks stay on the club and LTF member lists, the club and LTF license lists, the LTF clubs list, the technical console's users, parked members, and club billing.
+
+You can show 50, 150, 300 or all rows. License tables have an [[expiresLabel]] column. A date within 30 days is a warning. A date already past is muted.
 
 Click a name to open the member. The [[Common.batchActionsLabel]] menu works on all ticked members at once:
 
@@ -406,7 +412,7 @@ Click a name to open the member. The [[Common.batchActionsLabel]] menu works on 
 
 ## Adding a member {#add-member}
 
-1. In [[navMembers]], open [[membersMenuLabel]] and click [[createMember]]. The form opens in a side panel. The list stays behind it.
+1. In [[navMembers]], open [[membersMenuLabel]] and click [[createMember]]. The form opens beside the list. The list stays where it is.
 2. Fill in [[firstNameLabel]], [[lastNameLabel]], [[sexLabel]] and [[dobLabel]].
 3. Choose the [[ltfLicensePrefixLabel]]. The LTF license number itself is created automatically when you save. Fill in [[Import.wtLicenseLabel]] only if the athlete already has a World Taekwondo license.
 4. Set the belt grade after saving, on the [[memberGradesTab]] tab.
@@ -427,7 +433,7 @@ Use this once, when your club starts with the app, or to add a whole group.
 6. [[Import.confirmStepTitle]]: click [[Import.startImport]].
 7. [[Import.resultStepTitle]] shows what was created, updated and skipped. The success line reads [[Import.importSuccessMessage|created=12;updated=3;skipped=1]].
 
-![Step 1 of the import wizard](fig:import)
+![The first step of the import](fig:import)
 
 > [!TIP]
 > If your file has a membership end date column, use [[Import.membershipYearRulesLabel]] to import current members as active and skip people who left years ago.
@@ -448,12 +454,12 @@ A member's page has six tabs.
 4. [[memberLicenseHistoryTab]]
 5. [[memberGradesTab]]
 6. [[memberClubMovementsTab]] – transfers between clubs.
-7. Edit the overview data. [[editAction]] opens a side panel.
+7. Edit the overview. [[editAction]] opens beside the list.
 8. [[photoChangeButton]] – opens the photo editor (see [A member's photo](#member-photo)).
 9. [[downloadStatementAction]] – a PDF of the member's invoices and payments.
 </div>
 
-If the athlete is on the national team, the overview shows [[nationalTeamBadge]] with the squad and the season. That badge is read-only. The club does not open the federation's staff file, and coach names are not listed on this page. The squad itself is kept by the LTF. See [National team](#national-team).
+If the athlete is on the national team, the overview shows [[nationalTeamBadge]] with the squad and the season. You cannot change it here. The club does not open the federation's staff file, and coach names are not listed on this page. The squad itself is kept by the LTF. See [National team](#national-team).
 
 When the competition module is on, the overview also shows [[teamsCardTitle]] and [[gearTitle]]. Height and weight are recorded on the team sheet, not as a tab here. See [Height and weight](#height-weight) and [Equipment sizes](#equipment).
 
@@ -514,7 +520,7 @@ The page shows [[orderLicenseSuccessTitle]]. The licenses are [[statusPending]] 
 > [!NOTE]
 > A license type you cannot choose shows why, for example [[orderLicenseUnavailableReasonWindow]] or [[orderLicenseUnavailableReasonNoPrice]]. Ordering windows and prices are set by the LTF.
 
-The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navInvoices]]. On those lists, and on [[navPayments]], search stays on the page. [[Common.filterGroupStatus]] opens as a small panel. On the club lists, [[financeLedgerLabel]] opens the same way. [[Common.resetFilters]] returns them to all. Those lists do not tick rows. Pay the federation invoice as explained in [Paying the LTF](#pay-ltf).
+The order and its invoice appear under [[navFinance]] › [[navOrders]] and [[navInvoices]]. On those lists, and on [[navPayments]], search stays on the page. [[Common.filterGroupStatus]] opens as a small panel. On the club lists, [[financeLedgerLabel]] opens the same way. [[Common.resetFilters]] puts them back to all. Those lists do not tick rows. Pay the federation invoice as explained in [Paying the LTF](#pay-ltf).
 
 ![Invoices: Status and Accounting open as panels](fig:invoices)
 
@@ -525,24 +531,32 @@ The order and its invoice appear in [[navFinance]] › [[navOrders]] and [[navIn
 
 ## The licenses list {#licences}
 
-[[navLicenses]] shows every license of the club with its status: [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Click a column heading to sort. The [[expiresLabel]] column uses the same dates as the rest of the app. A date within 30 days is a warning. A date already past is muted. Ticks on this list stay when you search, filter, or change page. On the federation's own license list, edit and delete sit in the row menu and the form opens in a side panel. See [Members, licenses and transfers](#ltf-licences).
+[[navLicenses]] shows every license of the club, with [[filterActiveTitle]], [[filterPendingTitle]] or [[filterExpiredTitle]]. Search by member, year or status. Click a column heading to sort.
 
-A club admin creates a login for the club's own members with [[createUserAccounts]]. An LTF admin can do it for every member, including someone with no club. [[accountConfirm]] says what will be created and who is skipped. [[accountNoEmailSent]] There is no login under 16. A missing date of birth has to be saved first. Inactive members are skipped. After the accounts exist, a file of first-login links downloads. [[accountFileWarning]] Linking a login does not make that file. The members list and the member card show [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]], or [[accountBadgeDisabled]].
+The [[expiresLabel]] column uses the same dates as the rest of the app. A date within 30 days is a warning. A date already past is muted. Ticks on this list stay when you search, filter or change page.
+
+On the federation's own license list, edit and delete sit in the row menu, and the form opens beside the list. See [Members, licenses and transfers](#ltf-licences).
+
+A club admin creates a sign-in for the club's own members with [[createUserAccounts]]. An LTF admin can do it for every member, including someone with no club.
+
+[[accountConfirm]] says what will be created and who is skipped. [[accountNoEmailSent]] There is no sign-in under 16. Save a missing date of birth first. Inactive members are skipped.
+
+When the sign-ins exist, a file of first-sign-in links is saved. [[accountFileWarning]] Linking a sign-in that already exists does not make that file. The members list and the member card show [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]] or [[accountBadgeDisabled]].
 
 ![The licenses list](fig:licences)
 
 ## Printing license cards {#print-cards}
 
-[[navPrinting]] lists the club's card print jobs. The same section also opens [[navPrinterProfiles]], where a printer's X/Y offset is stored.
+[[navPrinting]] lists the club's card print jobs. The same section also opens [[navPrinterProfiles]], where the shift for a printer is stored.
 
 1. Open [[navPrinting]].
 2. Open the row menu. When a job shows [[printJobStatusSucceeded]], click [[printJobPreviewPdfAction]] to open the PDF, or [[printJobDownloadPdfAction]] to save `license-cards_<club>_<job>_<date>.pdf`. Print the file at 100 % (no “fit to page”).
-3. The same menu holds [[printJobExecuteAction]], [[printJobRetryAction]] and [[printJobCancelAction]]. [[deleteAction]] is last. Confirm to remove a draft, succeeded, failed or cancelled job. Cancel a queued or running job before deleting it.
+3. The same menu holds [[printJobExecuteAction]], [[printJobRetryAction]] and [[printJobCancelAction]]. [[deleteAction]] is last. Confirm to remove a draft, a job that succeeded, a job that failed, or a job you cancelled. If the job is still waiting or still printing, cancel it before you delete it.
 
 ![Print jobs](fig:print-jobs)
 
 > [!TIP]
-> If the print sits a few millimetres off, ask the LTF for a printer profile with the right X/Y offset instead of changing the card design.
+> If the card sits a few millimetres off the page, ask the LTF for a printer profile with the right shift. Do not change the card design to compensate.
 
 ## Transfers between clubs {#transfers}
 
@@ -692,15 +706,15 @@ LTF invoices for your license orders are in [[navInvoices]] with the [[financeLe
 
 Pay by bank transfer and put the invoice number in the communication. LTF Finance records the payment and activates the licenses.
 
-Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. You leave the app for the card provider's page (Stripe). That page shows one line for this LTF invoice, with the invoice number and the amount still open, and the fields for the card. Confirm the payment there. The provider sends you back to this app, the licenses are activated, and the page reads [[Checkout.successTitle]].
+Or pay by card. On an issued LTF invoice that still has an amount open, open the row menu or the invoice and click [[Common.payNow]]. You leave this app for the card company's page. That page shows one line for this LTF invoice, with the invoice number and the amount still open, and the fields for the card. Confirm the payment there. You come back to this app, the licenses are activated, and the page reads [[Checkout.successTitle]].
 
 ![Pay now, in the row menu of an LTF invoice](fig:pay-now)
 
-If you use the provider's back link and do not pay, you return here and the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licenses stay as they were. A club invoice sent to a member is not paid on this page. Parents have no login. A member login does not open this card payment.
+If you use the card company's back link and do not pay, you return here and the page reads [[Checkout.cancelTitle]]. Nothing is charged and the licenses stay as they were. A club invoice sent to a member is not paid on this page. A member's sign-in does not open this card payment.
 
 ![Payment cancelled, with the way back to the club](fig:checkout-return)
 
-On both pages, the button under the title is the way back. It names the desk you left:
+On both pages, the button under the title is the way back. It names the role you left:
 
 - [[Checkout.returnClub]] – the usual label when a club admin started from the club's invoices
 - [[Checkout.returnLtf]]
@@ -864,7 +878,7 @@ A pass records the new grade on the member's [[memberGradesTab]] tab.
 
 ![The teams list](fig:teams)
 
-1. Open [[navTeams]] and click [[teamsAdd]]. The form opens in a side panel.
+1. Open [[navTeams]] and click [[teamsAdd]]. The form opens beside the list.
 2. Enter [[teamsName]]. Choose [[teamsDisciplineKyorugi]] or [[teamsDisciplinePoomsae]]. Click [[teamsSave]].
 3. Open the team. [[teamsManageAction]] adds and removes people. Each person is [[teamRoleAthlete]] or [[teamRoleCoach]]. Coaches are listed first.
 4. On the sheet, open [[teamCompetition]]. Enter [[teamCompetitionDate]] and [[teamCompetitionName]], then click [[teamCompetitionAdd]]. Age classes use that date's year. [[teamCompetitionRemove]] clears the date, the name and the category set. The squad, the weights and the pairs stay.
@@ -974,7 +988,7 @@ The calendar is shared by the LTF and all clubs. Each event decides who can see 
 | [[Events.calendarVisibility_presidents]] | – | LTF Admins and the current president of each club ticked under [[Events.calendarAudienceClubs]] |
 
 > [!NOTE]
-> The descriptions on screen also mention members. A member sees an event only with a login, and only when the visibility includes members. See [Roles](#roles). Parents do not sign in.
+> The descriptions on screen also mention members. A member sees an event only with a sign-in, and only when the choice includes members. See [Roles](#roles).
 
 > [!TIP]
 > Planning a club tournament? Use [[Events.calendarVisibility_shared]] so other clubs see the date early and avoid clashes.
@@ -1048,7 +1062,7 @@ To close an office without naming a successor, use [[committeeEndTerm]]. [[commi
 
 The federation committee page works the same way. LTF Admin opens it from [[LtfAdmin.navCommittee]]. Handing over a federation office can search every adult, including someone with no club. People under 18 and inactive members are left out.
 
-Linking a login to a member who already holds a federation office opens the desks that office is mapped to. In the usual map, President opens LTF Admin in full and LTF Finance as view only, and Treasurer the other way around. Changing or clearing that login moves or closes those desks. A parked import receives no desk. An inactive member still receives the desks the map allows. A contact needs a login before a desk is linked. Club offices do not open a federation desk.
+Linking a sign-in to a member who already holds a federation office opens the federation roles that office includes. In the usual setup, President gets LTF Admin in full and LTF Finance as view only, and Treasurer the other way round. Changing or clearing that sign-in moves or closes those roles. Someone still waiting to be placed in a club gets no federation role. An inactive member still gets the roles the setup allows. A contact needs a sign-in before a federation role is linked. A club office does not open a federation role.
 
 > [!WARNING]
 > When the treasurer changes, update the committee **before** the next payment run. Without a current office nobody in the club can record payments.
@@ -1063,7 +1077,7 @@ Linking a login to a member who already holds a federation office opens the desk
 
 1. Open [[navClubAdmins]]. Click your club on the right to list its members.
 2. Click a member, then click the club again.
-3. If the member has no login yet, enter an email under [[adminEmailTitle]]. A welcome email is sent. The invited person sets an email and a password on [Your first password](#first-password).
+3. If the member has no sign-in yet, enter an email under [[adminEmailTitle]]. A welcome email is sent. The invited person sets an email and a password on [Your first password](#first-password).
 
 ![Club admins](fig:club-admins)
 
@@ -1100,7 +1114,7 @@ The federation menu, under [[Common.navGroupLtfManagement]], contains [[LtfAdmin
 
 ## Federation overview {#ltf-overview}
 
-The overview counts clubs, members and licenses, and its action queue lists clubs without an admin, pending transfers with a fee and members waiting for a license.
+The overview counts clubs, members and licenses. It also lists what needs you: clubs without an admin, transfers that still have a fee, and members waiting for a license.
 
 ![The LTF overview](fig:ltf-overview)
 
@@ -1122,8 +1136,8 @@ After you upload a logo, the page shows a preview. While it loads, it says [[Com
 
 ## Members, licenses and transfers {#ltf-licences}
 
-- [[LtfAdmin.navMembers]] and [[LtfAdmin.navLicenses]] show all clubs at once; use the club panel at the top to narrow down. Click a column heading to sort. On the license list, [[editAction]] and [[deleteAction]] are in [[Common.rowActionsLabel]], and edit opens a side panel.
-- Filter members with [[LtfAdmin.staffFilterStaff]] to see federation staff. A person with no club is shown as [[LtfAdmin.noClub]]. [[LtfAdmin.staffAddAction]] opens a side panel. Leave the club on [[LtfAdmin.staffNoClubOption]] to license them as LTF staff, with no club order and no club invoice. [[LtfAdmin.staffIssueAction]] issues the license for the year you choose. The current year is active at once. A past staff license expires like a club license and then shows as expired.
+- [[LtfAdmin.navMembers]] and [[LtfAdmin.navLicenses]] show all clubs at once. Use the club panel at the top to narrow the list. Click a column heading to sort. On the license list, [[editAction]] and [[deleteAction]] are in [[Common.rowActionsLabel]], and edit opens beside the list.
+- Filter members with [[LtfAdmin.staffFilterStaff]] to see federation staff. A person with no club is shown as [[LtfAdmin.noClub]]. [[LtfAdmin.staffAddAction]] opens beside the list. Leave the club on [[LtfAdmin.staffNoClubOption]] to license them as LTF staff, with no club order and no club invoice. [[LtfAdmin.staffIssueAction]] issues the license for the year you choose. The current year is active at once. A past staff license expires like a club license and then shows as expired.
 - [[LtfAdmin.navParkedMembers]] lists people saved during an import until you assign a club and a sex, or delete the row. [[LtfAdmin.parkedSubtitle]] They are not in a club list, a license, a card, a team or a count. See [First-run setup](#setup).
 - [[LtfAdmin.navMemberTransfers]] lists recent club changes, transfers with a fee and possible {{club tourists}} – members who changed club unusually often.
 
@@ -1133,7 +1147,7 @@ After you upload a logo, the page shows a preview. While it loads, it says [[Com
 
 ## License cards {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, license number and QR code. The row menu also sets the default, saves a copy, exports, or deletes the template. Publish a version and set it as default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as the club dashboard. Print jobs lists every club's jobs; preview, download and delete are in the row menu. Printer profiles stores the X/Y offsets of known printers.
+[[LtfAdmin.navLicenseCards]] holds the card templates. Open a template in the designer to place the photo, name, grade, license number and QR code. The row menu also sets the default, saves a copy, exports or deletes the template. Publish a version and set it as the default: club admins print with it. [[LtfAdmin.navPrinting]] groups [[LtfAdmin.navLicenseCardPrintJobs]] and [[LtfAdmin.navPrinterProfiles]] the same way as in the club. Print jobs lists every club's jobs. Preview, save and delete are in the row menu. Printer profiles store how far a known printer shifts the card.
 
 ![The card designer](fig:designer)
 
@@ -1141,15 +1155,15 @@ After you upload a logo, the page shows a preview. While it loads, it says [[Com
 
 ## National team {#national-team}
 
-[[LtfAdmin.navNationalTeam]] is the federation's squad desk. LTF Admin can change it. LTF Finance can open the same desk and only read it. Clubs do not see this page. On a club member they only see [[nationalTeamBadge]], with the squad and the season, and not this staff file.
+[[LtfAdmin.navNationalTeam]] is the federation's page for the squads. LTF Admin can change it. LTF Finance can open the same page and only read it. Clubs do not see this page. On a club member they only see [[nationalTeamBadge]], with the squad and the season, and not this staff file.
 
-The page has three parts: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] and [[LtfAdmin.nationalTeamTabLevels]]. Filters use [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] and [[LtfAdmin.nationalTeamClub]]. Forms open in a side panel.
+The page has three parts: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] and [[LtfAdmin.nationalTeamTabLevels]]. Filters use [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] and [[LtfAdmin.nationalTeamClub]]. Forms open beside the list.
 
-![The national team desk](fig:national-team)
+![The national team](fig:national-team)
 
 **Selections.** [[LtfAdmin.nationalTeamAddSquad]] adds a squad. [[LtfAdmin.nationalTeamAddSquadHint]] [[LtfAdmin.nationalTeamAddSelection]] adds an athlete from a club for the season. Set [[LtfAdmin.nationalTeamAgeClass]]. The classes include [[LtfAdmin.nationalTeamAgePupils]] and [[LtfAdmin.nationalTeamAgeMinimes]], which are regional and not World Taekwondo divisions, plus [[LtfAdmin.nationalTeamAgeCadet]], [[LtfAdmin.nationalTeamAgeJunior]] and [[LtfAdmin.nationalTeamAgeSenior]]. [[LtfAdmin.nationalTeamWeight]] may be left empty. Status is recorded as [[LtfAdmin.nationalTeamLevel]], [[LtfAdmin.nationalTeamCosl]] and [[LtfAdmin.nationalTeamSupport]] (Sportlycée or SSEA).
 
-**Staff.** Open [[LtfAdmin.nationalTeamTabStaff]] and click [[LtfAdmin.nationalTeamStaffAdd]]. Roles include [[LtfAdmin.nationalTeamStaffNationalCoach]], [[LtfAdmin.nationalTeamStaffPhysiotherapist]] and [[LtfAdmin.nationalTeamStaffPhotographer]]. The name and the role are what a club is allowed to know. The private staff file stays on this desk.
+**Staff.** Open [[LtfAdmin.nationalTeamTabStaff]] and click [[LtfAdmin.nationalTeamStaffAdd]]. Roles include [[LtfAdmin.nationalTeamStaffNationalCoach]], [[LtfAdmin.nationalTeamStaffPhysiotherapist]] and [[LtfAdmin.nationalTeamStaffPhotographer]]. The name and the role are what a club is allowed to know. The private staff file stays on this page.
 
 **Levels and season.** [[LtfAdmin.nationalTeamTabLevels]] holds the cadre levels and the season dates. [[LtfAdmin.nationalTeamSaveSeason]] stores the start and end. [[LtfAdmin.nationalTeamForbidOverlap]] keeps an athlete on one squad at a time.
 
@@ -1177,7 +1191,13 @@ In [[LtfFinance.navLicenseSettings]], the tab [[settingsTabLicenseTypes]] define
 
 [[settingsTabClubFees]] lists what the LTF charges clubs (affiliation, insurance…), [[clubFeeCadenceAnnual]], [[clubFeeCadencePerMember]], [[clubFeeCadencePerEvent]] or [[clubFeeCadenceOneOff]]. On the [[settingsTabBilling]] tab, choose the [[clubFeeBillingYearLabel]], the fees and the clubs, and click [[clubFeeBillingSubmitYear|year=2026]]. A club already invoiced for that year is skipped, so you can run it again safely. [[clubFeeBillingRecurringLabel]] repeats the billing monthly or yearly.
 
-[[settingsTabModuleFees]] is the yearly price for [[moduleClubManagement]] and the event calendar. [[moduleFeesTitle]] Click [[moduleFeeAdd]], choose the module, then [[moduleFeePricingFlat]] or [[moduleFeePricingPerMember]], and an amount. [[moduleFeeMinimumLabel]] is optional: the club pays at least that amount when the calculated price is lower. When that minimum is not higher than a flat price, [[modulePricesTitle]] on the club profile does not show it. The amount charged is the same, and this editor still shows the field. A new price starts on the date you choose. Invoices already sent stay as they are. [[moduleFeeBillingHint]] Club admins can read the estimate on their profile. They cannot edit it, and an unpaid invoice does not switch the module off.
+[[settingsTabModuleFees]] is the yearly price for [[moduleClubManagement]] and the event calendar. [[moduleFeesTitle]]
+
+Click [[moduleFeeAdd]], choose the module, then [[moduleFeePricingFlat]] or [[moduleFeePricingPerMember]], and type the amount.
+
+[[moduleFeeMinimumLabel]] is optional. The club pays at least that amount when the calculated price is lower. When that minimum is not higher than a flat price, [[modulePricesTitle]] on the club profile does not show it. The club still pays the same amount, and this page still shows the field.
+
+A new price starts on the date you choose. Invoices already sent stay as they are. [[moduleFeeBillingHint]] Club admins can read the estimate on their profile. They cannot change it. An unpaid invoice does not turn the module off.
 
 ![Billing club fees](fig:fin-billing)
 
@@ -1188,7 +1208,7 @@ In [[LtfFinance.navLicenseSettings]], the tab [[settingsTabLicenseTypes]] define
 3. To reduce what a club owes, enter a [[creditNoteAmountLabel]] and [[creditNoteReasonLabel]] and click [[addCreditNoteAction]].
 4. To chase an unpaid invoice, click [[sendReminderAction]]. [[lastRemindedAtLabel]] shows when you last did.
 
-The total in the invoice email matches the total on the PDF. A paid invoice says the amount paid. An invoice that is not paid says the amount due. That includes a license invoice marked paid in the same step as the email. A reminder states the amount still due, not the original total. The words follow the club's language, or the language chosen for that person, and otherwise English.
+The total in the email is the same total as on the PDF. A paid invoice says the amount paid. An invoice that is not paid says the amount due. That includes a license invoice marked paid in the same step as the email. A reminder states the amount still due, not the original total. The wording follows the club's language, or the language chosen for that person, otherwise English. See [Profile](#profile-tab).
 
 On [[LtfFinance.navOrders]], [[LtfFinance.navInvoices]], and [[LtfFinance.navPayments]], search stays on the page and [[Common.filterGroupStatus]] opens as a small panel. [[Common.resetFilters]] returns it to all. Those lists do not tick rows. See [Ordering licenses](#order-licences).
 
@@ -1204,22 +1224,22 @@ On [[LtfFinance.navOrders]], [[LtfFinance.navInvoices]], and [[LtfFinance.navPay
 
 <p class="roles"><span class="chip">Superuser</span></p>
 
-The technical administrator opens the [[Common.openOpsConsole]]. Under Modules, a signed product code from the LTF is entered and redeemed, and each club is given the modules it may use. The catalogue also lists modules that are not shipped yet, such as federation inventory and tournaments; they cannot be switched on. Switching a module on is separate from its price. Prices for club management and the calendar are [module fees](#club-fees). An unpaid module invoice does not switch the module off.
+The technical administrator opens the [[Common.openOpsConsole]]. Under Modules, enter the code the LTF sent you and confirm it. Then choose the parts of the app each club may use. The list also names parts that have no pages yet, such as federation inventory and tournaments. You cannot turn those on. Turning a part on is separate from its price. Prices for club management and the calendar are [module fees](#club-fees). An unpaid invoice does not turn the part off.
 
 ![Ops – modules](fig:ops-modules)
 
 ## First-run setup {#setup}
 
-[[Setup.title]] is for a superuser, once, before the federation works in the app. It is not the club wizard in [Importing members](#import). It is hidden on the demonstration installation, and it locks when you finish.
+[[Setup.title]] is for the technical administrator, once, before the federation works in the app. It is not the club import in [Importing members](#import). It is hidden on the demonstration installation, and it locks when you finish.
 
-Open the ops console. If setup is still open, the overview sends you to this page, and a banner offers [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
+Open the technical console. If setup is still open, the overview sends you to this page, and a bar at the top offers [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
 
 ![First-run setup](fig:setup)
 
 You bring in three files, in order. Nothing on this page sends an email, and email addresses in the files are ignored. [[Setup.summaryEmail]]
 
 1. [[Setup.step_clubs]]. Upload the club export. A row named LTF is not created as a club. Federation (WT or ITF) is only a guess from the name: change it if it is wrong. An RCS number is optional; if you type one, use the form B123456. Click [[Setup.confirmClubs]].
-2. [[Setup.step_members]]. Upload the member export. Map the columns, preview, then confirm — the same rhythm as the club import, but this is not that wizard. Map the Member ID column to both the WT license id and the LTF license id. Auto-map does that. Leave Email unmapped. If [[importPrefixRewriteLabel]] is on, LUX- becomes LTF- on the LTF id only. Active or inactive follows the membership end year, not a separate column. This year or a later year, and a blank date, are [[Setup.active]]. An earlier year is [[Setup.inactive]], and the person is still imported. If the end date cannot be read, choose [[Setup.active]] or [[Setup.inactive]], or park the row. Do not guess.
+2. [[Setup.step_members]]. Upload the member export. Match the columns, check the preview, then confirm. This is not the club import. Match the Member ID column to both the WT license id and the LTF license id. [[Import.autoMapButton]] does that. Leave Email unmatched. If [[importPrefixRewriteLabel]] is on, LUX- becomes LTF- on the LTF id only. Active or inactive follows the membership end year, not a separate column. This year or a later year, and a blank date, are [[Setup.active]]. An earlier year is [[Setup.inactive]], and the person is still imported. If the end date cannot be read, choose [[Setup.active]] or [[Setup.inactive]], or park the row. Do not guess.
 3. Park a row when the club cell is empty, the club is not one you imported, or the end date cannot be read. Click [[Setup.parkRow]], or [[Setup.parkAllUnresolved]] for every row that can be parked. The status is [[Setup.statusParked]]. For an empty club cell, [[Setup.clubNotYet]] is a real choice and parks that person for later. [[Setup.ltfStaff]] is the choice when the person belongs to the federation rather than a club. You may confirm while parked rows remain. [[Setup.blockingTitle]] Click [[Setup.confirmMembers]].
 4. [[Setup.step_admins]]. Upload the club-and-admin export. A ready row becomes a club admin linked to the member from the previous step. Click [[Setup.confirmAdmins]]. Nothing is emailed. [[Setup.copyLink]] copies one person's link. [[Setup.downloadLinks]] downloads them all.
 
@@ -1238,7 +1258,7 @@ Parked people are reviewed later under [[LtfAdmin.navParkedMembers]]. They stay 
 Check the username (it is not always your email) and the password. If the page says your email isn't verified, see [Verifying your email](#verify-email). If you forgot your password, see [Forgotten password](#forgotten-password).
 
 ### Can members or parents sign in?
-Parents cannot. A member aged 16 or over can sign in after a club admin or the LTF creates a login. Nothing is emailed. Younger members have no login. The club keeps the data up to date.
+Parents cannot. A member aged 16 or over can sign in after a club admin or the LTF creates the sign-in. Nothing is emailed until you send the link. Younger members have no sign-in. The club keeps the data up to date. See [Roles](#roles).
 
 ### A menu item described here is missing.
 Your role or your club's modules do not include it. See [Roles](#roles) and [Modules](#modules).
@@ -1256,7 +1276,7 @@ Read the reason in the row. Usually a child needs a bill recipient (see [Familie
 The reason is written next to the type: the ordering window is closed, there is no price, or the members already have that license. Windows and prices are set by LTF Finance.
 
 ### The printed card is shifted.
-Print at 100 % and use a printer profile with the right offset (see [Printing license cards](#print-cards)).
+Print at 100 %, with no scaling, and ask the LTF for a printer profile if the card sits off the page (see [Printing license cards](#print-cards)).
 
 ### Dates look like mm/dd/yyyy.
 Date fields follow your browser's language settings. Set your browser to English (United Kingdom), Luxembourgish, German or French to see day/month/year.
@@ -1268,7 +1288,7 @@ On a new class, add students under [[trainingAddStudents]] and save. Next time, 
 It is the number of upcoming events you can see. The word [[Events.calendarNavNew]] appears when some of them are new to you.
 
 ### Where are my data protection rights?
-If you have a login, use the page described in [Privacy and your data](#privacy). Members and parents ask their club or the LTF, who can export or correct their data.
+If you can sign in, use the page in [Privacy and your data](#privacy). Members and parents ask their club or the LTF, who can export or correct the data.
 
 ### Can we pay online?
-Yes. On an LTF invoice that the club still has to pay, [[Common.payNow]] opens the card provider's page. It shows the invoice number and the amount still open. You enter the card and confirm, and the app then says the payment succeeded and the licenses are activated. If you go back without paying, nothing is charged. Afterwards the button names the desk you left, for example [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] or [[Checkout.returnOps]]. A club invoice sent to a member is not paid here. You can still pay by bank transfer. See [Paying the LTF](#pay-ltf).
+Yes. On an LTF invoice that the club still has to pay, [[Common.payNow]] opens the card company's page. It shows the invoice number and the amount still open. You enter the card and confirm. The app then says the payment succeeded and the licenses are activated. If you go back without paying, nothing is charged. Afterwards the button names the role you left, for example [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] or [[Checkout.returnOps]]. A club invoice sent to a member is not paid here. You can still pay by bank transfer. See [Paying the LTF](#pay-ltf).

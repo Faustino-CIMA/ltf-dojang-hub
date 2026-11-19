@@ -92,15 +92,17 @@ imprint: |
   <p><strong>LTF Dojang Hub – Benutzerhandbuch</strong><br>Ausgabe Oktober 2026, für App-Version 0.13.0.</p>
   <p>Herausgegeben für die Vereine der Luxemburger Taekwondo-Föderation (LTF). Erhältlich auf Englisch, Deutsch, Französisch und Luxemburgisch.</p>
   <p>Alle Bildschirmfotos stammen aus einer Demo-Installation mit erfundenen Vereinen, Personen und Beträgen. Ähnlichkeiten mit realen Personen sind zufällig.</p>
-  <p>Die App ist auf Englisch und Luxemburgisch verfügbar. Dieses Handbuch zeigt die <strong>englischen Bildschirmtexte</strong> in <span class="ui">blauen Kästchen</span> – genau so, wie sie in der App stehen. Das Glossar am Ende nennt zu jedem wichtigen Begriff auch die luxemburgische Bezeichnung.</p>
+  <p>Die blauen Kästchen in diesem Handbuch sind die <strong>englischen Beschriftungen</strong> der Bildschirmfotos. In der App können Sie auch Deutsch, Französisch oder Lëtzebuergesch wählen. Das Glossar nennt dazu die luxemburgische Beschriftung.</p>
   <p>Die App wird laufend verbessert. Sieht Ihr Bildschirm anders aus als in diesem Handbuch, gilt der Bildschirm – bitte melden Sie es der LTF, damit die nächste Ausgabe angepasst wird.</p>
 ---
 
 # Willkommen {#welcome}
 
-LTF Dojang Hub ist das gemeinsame Online-Büro der Luxemburger Taekwondo-Föderation und ihrer Vereine. Die Vereine führen ihre Mitgliederliste, bestellen Lizenzen, erfassen die Anwesenheit im Training, rechnen Mitgliedsbeiträge ab und betreiben ihren Shop. Der Verband prüft Lizenzen, druckt Lizenzkarten und führt seine Bücher. Alle teilen einen Kalender. Sie ist ein Verwaltungswerkzeug für die Mitarbeitenden der Vereine und des Verbands. Ein Club-Admin kann für ein Mitglied ab 16 ein Login anlegen. Eltern melden sich nicht an.
+LTF Dojang Hub ist der Ort, an dem Ihr Verein und die Luxemburger Taekwondo-Föderation die laufende Arbeit erledigen: Mitgliederliste, Lizenzen, Anwesenheit im Training, Beiträge, Shop und ein gemeinsamer Kalender. Der Verband prüft die Lizenzen, druckt die Karten und führt seine eigenen Bücher.
 
-Die öffentliche Seite ist schwarz und rot. Sie zeigt [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] öffnet die Anmeldung. Wer schon angemeldet ist, sieht an dieser Stelle [[Home.openDashboard]]. In der App folgt [[Home.welcomeLead]] dem hellen oder dunklen Thema.
+Sie nutzen das Handbuch, wenn Sie für einen Verein oder für den Verband arbeiten. Ein Club-Admin kann einem Mitglied ab 16 einen Zugang geben. Eltern melden sich nicht an. Siehe [Rollen](#roles).
+
+Die öffentliche Seite ist schwarz und rot. Sie zeigt [[Home.headlineOne]] [[Home.headlineClub]] [[Home.headlineAthlete]]. [[Home.signIn]] öffnet die Anmeldung. Sind Sie schon angemeldet, steht an dieser Stelle [[Home.openDashboard]]. In der App folgt [[Home.welcomeLead]] der hellen oder dunklen Darstellung, die Sie gewählt haben.
 
 ## Für wen ist dieses Handbuch? {#audience}
 
@@ -113,14 +115,14 @@ Das Handbuch ist nach **Aufgaben** gegliedert, nicht nach Bildschirmseiten. Lese
 | im Büro der LTF tätig | [LTF Admin](#ltf-admin) oder [LTF Finance](#ltf-finance) |
 | technischer Administrator | [Module (technischer Administrator)](#ops) |
 
-Eltern brauchen dieses Handbuch nicht: Sie haben keinen Login. Ein Mitglied ab 16 kann vom Verein ein Login bekommen, und der Verein pflegt die Daten weiter.
+Eltern brauchen dieses Handbuch nicht. Wer sich anmelden kann, steht unter [Rollen](#roles).
 
 ## So lesen Sie dieses Handbuch {#conventions}
 
-- Wörter in einem blauen Kästchen, wie [[Common.signOut]], sind die **genauen Bezeichnungen auf dem Bildschirm** (auf Englisch, wie in der App).
-- Pfade wie [[Common.navGroupClubManagement]] › [[navFinance]] › [[navBilling]] zeigen, wo Sie klicken – vom Menü links bis zum Reiter oben.
-- Nummerierte Schritte führen Sie der Reihe nach aus. Eine Zeile mit Häkchen sagt, was Sie danach sehen sollten.
-- Rote nummerierte Kreise in einem Bildschirmfoto werden in der Liste unter dem Bild erklärt.
+- Ein blaues Kästchen, etwa [[Common.signOut]], ist der englische Wortlaut auf dem Bildschirm.
+- [[Common.navGroupClubManagement]] › [[navFinance]] › [[navBilling]] heißt: diese Gruppe, dann diese Seite, dann dieser Reiter.
+- Arbeiten Sie die nummerierten Schritte der Reihe nach ab. Eine Zeile mit Häkchen sagt, was danach stimmen soll.
+- Die roten Zahlen auf einem Bild erklärt die Liste darunter.
 
 > [!TIP]
 > Tipps sparen Ihnen Zeit.
@@ -132,8 +134,6 @@ Eltern brauchen dieses Handbuch nicht: Sie haben keinen Login. Ein Mitglied ab 1
 > „Gut zu wissen“-Kästen erklären, warum sich die App so verhält.
 
 # Erste Schritte {#getting-started}
-
-Sie brauchen nur einen Webbrowser auf Computer, Tablet oder Smartphone. Es muss nichts installiert werden.
 
 ## Anmelden {#sign-in}
 
@@ -161,9 +161,7 @@ Sie landen auf der Startseite Ihrer Rolle, zum Beispiel auf der Vereinsübersich
 Die Anmeldeseite nutzt dasselbe Schwarz-Rot wie die öffentliche Seite. [[Auth.forgotPassword]] steht beim Formular. Siehe [Passwort vergessen](#forgotten-password).
 
 > [!NOTE]
-> Eine öffentliche Registrierung gibt es nicht. Logins entstehen, wenn jemand Club-Admin oder Trainer wird (siehe [Club-Admins](#club-admins) und [Reiter Trainer](#coaches-tab)), oder durch die LTF.
->
-> Eltern erhalten keinen Login. Ein Club-Admin oder die LTF kann für ein Mitglied ab 16 ein Login anlegen.
+> Auf dieser Seite gibt es keine Registrierung. Ein Club-Admin oder die LTF legt Ihren Zugang an. Siehe [Club-Admins](#club-admins) und [Trainer](#coaches-tab). Eltern bekommen keinen.
 
 ## Ihr erstes Passwort {#first-password}
 
@@ -201,7 +199,7 @@ Keine E-Mail? Fragen Sie Ihren Club-Admin oder die LTF. In der Liste der Club-Ad
 
 ## Datenschutz und Ihre Daten {#privacy}
 
-Die App hat eine Seite, auf der Sie Ihre Einwilligung und Ihre Datenschutzrechte selbst verwalten. Sie steht nicht im Menü; Sie öffnen sie über ihre Adresse.
+Hier verwalten Sie Ihre Einwilligung und Ihre Daten. Die Seite steht nicht im Menü. Sie öffnen sie über die Adresse.
 {: .lead}
 
 1. Melden Sie sich an.
@@ -212,11 +210,13 @@ Die App hat eine Seite, auf der Sie Ihre Einwilligung und Ihre Datenschutzrechte
 Die Seite <span class="ui">Privacy &amp; GDPR</span> hat drei Bedienelemente:
 
 - <span class="ui">I consent to data processing.</span> (Ich willige in die Datenverarbeitung ein) – Häkchen setzen oder entfernen. Die Änderung wird sofort gespeichert.
-- <span class="ui">Export my data</span> – zeigt Ihre Daten auf der Seite unter <span class="ui">Export preview</span>: Ihre Login-Daten und, wenn Ihr Login mit einem Mitgliedsdatensatz verknüpft ist, Name, Grad und Verein dieses Mitglieds, die Lizenzen, den Lizenz- und Gradverlauf sowie Angaben zum Foto. Die Daten werden nur angezeigt, nicht als Datei heruntergeladen.
-- <span class="ui">Delete my data</span> – löscht Ihren Login.
+- <span class="ui">Export my data</span> – zeigt Ihre Daten auf der Seite unter <span class="ui">Export preview</span>: die Angaben zu Ihrem Zugang und, wenn der Zugang mit einem Mitglied verknüpft ist, Name, Grad und Verein, die Lizenzen, den Lizenz- und Gradverlauf sowie die Angaben zum Foto. Die Seite zeigt die Daten. Sie speichert keine Datei.
+- <span class="ui">Delete my data</span> – löscht Ihren Zugang.
 
 > [!WARNING]
-> <span class="ui">Delete my data</span> fragt nicht nach. Ihr Login wird sofort gelöscht, und Sie werden abgemeldet. Ist der Login mit einem Mitgliedsdatensatz verknüpft, wird das Profilfoto entfernt, die Notizen im Gradverlauf werden geleert, und die privaten Adressen auf diesem Mitgliedsdatensatz werden entfernt. Dieselben privaten Adressen werden entfernt, wenn ein Administrator diesen Login löscht. Adressen, die jemand anderem gehören, etwa einem Elternteil als Kontakt, bleiben. Bereits ausgestellte Rechnungen behalten die Adresse, die auf ihnen gedruckt wurde. Der Mitgliedsdatensatz und seine Lizenzen bleiben beim Verein.
+> <span class="ui">Delete my data</span> fragt nicht nach.
+>
+> Ihr Zugang wird sofort gelöscht, und Sie werden abgemeldet. Ist er mit einem Mitglied verknüpft, verschwindet das Profilfoto, die Notizen im Gradverlauf werden geleert, und die privaten Adressen dieses Mitglieds werden entfernt. Löscht ein Administrator denselben Zugang, fallen dieselben privaten Adressen weg. Eine Adresse, die jemand anderem gehört, etwa einem Elternteil als Kontakt, bleibt. Eine schon verschickte Rechnung behält die Adresse, die darauf steht. Der Mitgliedseintrag und die Lizenzen bleiben beim Verein.
 
 > [!NOTE]
 > Diese Seite wird derzeit überprüft. Ihr Text ist vorerst nur auf Englisch, auch wenn Sie die App auf Französisch, Deutsch oder Luxemburgisch nutzen.
@@ -230,46 +230,46 @@ Jede Seite hat denselben Rahmen: das Menü links, eine Leiste oben und den Arbei
 <div class="legend" markdown="1">
 1. **Menü**. Es bleibt stehen, während Sie zwischen den Seiten wechseln. Die Gruppen sind unter anderem [[Common.navGroupClub]], [[Common.navGroupClubManagement]], [[Common.navGroupCompetition]] und [[Common.navGroupCalendar]]. Verbandsseiten nutzen [[Common.navGroupLtfManagement]]. Sie sehen nur, was Ihre Rolle und die Module Ihres Vereins erlauben.
 2. **Vereinssteuerung** – öffnet ein kleines Feld, [[Common.selectedClubLabel]]. Ist die Liste lang, tippen Sie in [[Common.clubSearchPlaceholder]]. Alle Seiten zeigen dann den Verein, den Sie wählen.
-3. Ihr Name, Ihr Benutzername und Ihr **Rollenabzeichen**, zum Beispiel [[Common.roleClubAdmin]].
+3. Ihr Name, Ihr Benutzername und Ihre Rolle, zum Beispiel [[Common.roleClubAdmin]].
 4. **Sprache** – [[Common.languageLabel]]. English, Français, Deutsch oder Lëtzebuergesch, jederzeit.
 5. [[Auth.mfaSecurity]] – Authenticator, Wiederherstellungscodes, Passkeys, Passwort und E-Mail-Codes.
 6. [[Common.signOut]] (Abmelden)
 7. [[Common.sidebarCollapse]] – macht das Menü schmal, damit Tabellen mehr Platz haben. Daneben steht die App-Version.
 </div>
 
-Das Bearbeiten eines Datensatzes öffnet ein Feld an der Seite. Die Liste bleibt dahinter. In einer Liste sitzen die Zeilenaktionen in [[Common.rowActionsLabel]]. Ein Klick auf eine Spaltenüberschrift sortiert.
+Beim Bearbeiten öffnet sich das Formular neben der Liste. Die Liste bleibt stehen. Die Aktionen einer Zeile stehen in [[Common.rowActionsLabel]]. Ein Klick auf eine Spaltenüberschrift sortiert.
 
-In der Kopfzeile gibt es außerdem [[Common.themeLabel]]: [[Common.themeLight]], [[Common.themeDark]] oder [[Common.themeSystem]]. Die öffentlichen Seiten bleiben schwarz und rot. In der App setzt diese Wahl das helle oder dunkle Thema, auch die Willkommenszeile.
+In der Kopfzeile gibt es außerdem [[Common.themeLabel]]: [[Common.themeLight]], [[Common.themeDark]] oder [[Common.themeSystem]]. Die öffentlichen Seiten bleiben schwarz und rot. In der App gilt diese Wahl für die helle oder dunkle Darstellung, auch für die Begrüßung.
 
 > [!TIP]
-> Auf dem Smartphone klappt das Menü ein. Tippen Sie oben links auf die Menüschaltfläche, um es zu öffnen.
+> Auf dem Handy öffnen Sie das Menü oben links.
 
 ## Rollen: wer darf was? {#roles}
 
-Ihre Rolle bestimmt, welches Menü Sie sehen. Ein Login kann mehr als einen Schreibtisch haben, zum Beispiel Club-Admin des eigenen Vereins und LTF-Admin. Bei mehr als einem zeigt die Kopfzeile [[Common.deskSwitcherLabel]]. Öffnen Sie die Liste und wählen Sie einen anderen. Ein nur lesender Schreibtisch ist mit [[Common.deskViewOnly]] gekennzeichnet. Er kann seine Listen öffnen. Speichern, Löschen und Importieren bleiben aus, und die Schaltfläche sagt [[Common.deskViewOnlyAction]]. Bei einem Schreibtisch bleibt die Kopfzeile ein schlichtes Rollenabzeichen.
+Ihre Rolle bestimmt, welches Menü Sie sehen. Ein Zugang kann mehrere Rollen umfassen, zum Beispiel Club-Admin Ihres Vereins und LTF-Admin. Dann zeigt die Kopfzeile [[Common.deskSwitcherLabel]]. Öffnen Sie die Liste und wählen Sie die Rolle, in der Sie arbeiten wollen. Eine Rolle mit [[Common.deskViewOnly]] kann die Listen öffnen. Speichern, Löschen und Importieren bleiben aus, und es steht [[Common.deskViewOnlyAction]]. Bei nur einer Rolle zeigt die Kopfzeile einfach diese Rolle.
 
-Ein Superuser öffnet [[Common.openOpsConsole]] aus der Kopfzeile. Diese Schaltfläche wählt den Ops-Schreibtisch. [[Common.deskSwitcherLabel]] führt diesen Schreibtisch als [[Common.roleSuperuser]], zusammen mit den anderen Schreibtischen. Die Wahl eines Vereins-, LTF- oder Finanz-Schreibtischs öffnet diesen Schreibtisch. [[Common.openFederationDashboard]] bleibt nur, wenn diese Liste das Verbands-Dashboard nicht schon öffnen kann.
+[[Common.openOpsConsole]] in der Kopfzeile öffnet die technische Konsole und wählt diese Rolle. In [[Common.deskSwitcherLabel]] steht sie als Zeile [[Common.roleSuperuser]], neben Ihren anderen Rollen. Wählen Sie eine Vereins-, LTF- oder Finanzrolle, öffnet sich diese Rolle. [[Common.openFederationDashboard]] bleibt nur, wenn die Liste die Verbandsübersicht nicht schon öffnen kann.
 
-![Die Schreibtischliste, geöffnet in der Ops-Konsole](fig:ops-desks)
+![Die Rollenliste, geöffnet in der technischen Konsole](fig:ops-desks)
 
 <div class="legend" markdown="1">
-1. [[Common.deskSwitcherLabel]] – Ops ist die Zeile [[Common.roleSuperuser]]. Die anderen Zeilen sind die anderen Schreibtische.
+1. [[Common.deskSwitcherLabel]] – die Zeile [[Common.roleSuperuser]] ist die technische Konsole. Die anderen Zeilen sind Ihre anderen Rollen.
 </div>
 
-Personal-Schreibtische (LTF-Admin, LTF-Finanzen, Club-Admin und Ops) verlangen eine Authenticator-App. In den ersten 14 Tagen bittet ein Hinweis um die Einrichtung. Danach bleibt der Schreibtisch zu, bis das erledigt ist.
+LTF-Admin, LTF-Finanzen, Club-Admin und die technische Konsole verlangen eine Authenticator-App. In den ersten 14 Tagen erinnert ein Hinweis daran. Danach bleibt die Rolle zu, bis die App eingerichtet ist.
 
 Das Sprachmenü bietet English, Français, Deutsch und Lëtzebuergesch. Englisch bleibt die Vorgabe.
 
-| Rollenabzeichen | Typische Person | Hauptaufgaben |
+| Rolle auf dem Bildschirm | Typische Person | Hauptaufgaben |
 |---|---|---|
 | [[Common.roleCoach]] | Trainer | sieht die Trainingswoche, erfasst die Anwesenheit, sieht den Kalender |
 | [[Common.roleClubAdmin]] | Präsident, Sekretär, Kassierer, Ehrenamtliche | führt den Verein: Mitglieder, Lizenzen, Finanzen, Training, Shop |
 | [[Common.roleLtfAdmin]] | Verbandsbüro | Vereine, Lizenzen, Karten, Transfers, Nationalmannschaft, Verbandskalender |
 | [[Common.roleLtfFinance]] | Verbandskassierer | Bestellungen, Rechnungen, Zahlungen und Bücher des Verbands |
-| [[Common.roleSuperuser]] | technischer Administrator | Module, Benutzer, Systemzustand |
+| [[Common.roleSuperuser]] | technischer Administrator | welche Teile der App ein Verein nutzen darf, und die Zugänge |
 
 > [!NOTE]
-> **Eltern haben keinen Login.** Ein Mitglied ab 16 kann sich anmelden, nachdem ein Club-Admin oder die LTF ein Login angelegt hat. Es wird nichts per E-Mail geschickt, bis Sie selbst einen Link senden. Der Verein pflegt die Daten und beantwortet die Fragen.
+> **Eltern melden sich nicht an.** Ein Mitglied ab 16 kann sich anmelden, sobald ein Club-Admin oder die LTF den Zugang angelegt hat. Es geht erst dann eine E-Mail hinaus, wenn Sie den Link selbst schicken. Der Verein pflegt die Daten und beantwortet die Fragen.
 
 Was jede Vereinsrolle im Vereinsmenü sieht:
 
@@ -290,17 +290,17 @@ Was jede Vereinsrolle im Vereinsmenü sieht:
 
 ## Module: warum Menüpunkte fehlen können {#modules}
 
-Teile der App schaltet die LTF pro Verein als Module frei:
+Die LTF schaltet Teile der App für jeden Verein frei. In diesem Handbuch heißen diese Teile Module.
 
-- **Vereinsverwaltung** (Club management) ergänzt [[navFinance]], [[navFamilies]], [[navTraining]], [[navPromotion]] und [[navShop]] unter [[Common.navGroupClubManagement]].
-- **Veranstaltungskalender** (Event calendar) ergänzt [[Events.calendarTitle]] unter [[Common.navGroupCalendar]].
+- **Vereinsverwaltung** ergänzt [[navFinance]], [[navFamilies]], [[navTraining]], [[navPromotion]] und [[navShop]] unter [[Common.navGroupClubManagement]].
+- **Veranstaltungskalender** ergänzt [[Events.calendarTitle]] unter [[Common.navGroupCalendar]].
 - **Wettkampf** ([[moduleCompetition]]) ergänzt [[navTeams]] unter [[Common.navGroupCompetition]]. Siehe [Mannschaften und Wettkampf](#club-teams).
 
-Auch ohne Modul haben Sie die Seiten unter [[Common.navGroupClub]]: Mitglieder, Lizenzen, Druck und Transfers. Fehlt Ihnen ein Modul, fragen Sie die LTF.
+Ohne diese Teile bleiben Ihnen die Seiten unter [[Common.navGroupClub]]: Mitglieder, Lizenzen, Druck und Transfers. Fehlt eine Seite, fragen Sie die LTF.
 
-Die LTF legt einen Jahrespreis für die Vereinsverwaltung und den Kalender fest. Eine unbezahlte Rechnung schaltet ein Modul nicht aus. Club-Admins können die Schätzung im Vereinsprofil lesen. Siehe [Vereinsgebühren](#club-fees) und [Profil](#profile-tab).
+Die LTF setzt einen Jahrespreis für Vereinsverwaltung und Kalender. Eine unbezahlte Rechnung schaltet ein Modul nicht aus. Club-Admins lesen die Schätzung im Vereinsprofil. Siehe [Vereinsgebühren](#club-fees) und [Profil](#profile-tab).
 
-Ein Paket bündelt mindestens zwei dieser Module zu einem Pauschalpreis. Unter [[moduleOrderOnTitle]] erscheint ein Paket nur, wenn dieses Paket selbst gekauft wurde. Ein Paket, das nur ein Modul enthält, das Sie schon haben, bleibt in der Liste unter [[moduleOrderChoose]] und sagt [[moduleOrderModuleOn|name=Competition]]. Es zeigt nicht das Enddatum dieses Moduls und kann nicht noch einmal bestellt werden.
+Ein Paket sind zwei oder mehr dieser Module zu einem Preis. Unter [[moduleOrderOnTitle]] steht ein Paket nur, wenn genau dieses Paket gekauft wurde. Ein Paket, das nur ein Modul überlappt, das Sie schon haben, bleibt unter [[moduleOrderChoose]] und zeigt [[moduleOrderModuleOn|name=Competition]]. Es nennt nicht das Enddatum dieses Moduls, und Sie können es nicht noch einmal bestellen.
 
 ![Bereits an, und ein Paket, das nicht noch einmal bestellt werden kann](fig:module-order)
 
@@ -313,7 +313,7 @@ Ein Paket bündelt mindestens zwei dieser Module zu einem Pauschalpreis. Unter [
 
 <p class="roles"><span class="chip">Trainer</span></p>
 
-Ein Club-Admin ernennt Sie unter [[navSettings]] › [[clubSettingsTrainersTab]] zum Trainer. Danach erhalten Sie einen Login mit dem Abzeichen [[Common.roleCoach]].
+Ein Club-Admin ernennt Sie unter [[navSettings]] › [[clubSettingsTrainersTab]] zum Trainer. Danach bekommen Sie einen Zugang, der [[Common.roleCoach]] zeigt.
 
 > [!NOTE]
 > Die Trainerrolle wird noch ausgebaut. Dieses Kapitel beschreibt, was für Trainer heute funktioniert: die Trainingswoche, die Anwesenheit und den Kalender. Ist das Wettkampfmodul an, öffnen Trainer auch [[navTeams]] (siehe [Mannschaften und Wettkampf](#club-teams)). Weitere Trainerfunktionen sind geplant.
@@ -362,7 +362,7 @@ Trainer sehen öffentliche Vereinstermine und zusätzlich [[calendarVisibility_i
 
 ## Vereinsübersicht {#club-overview}
 
-[[navOverview]] ist Ihr Cockpit. Es öffnet mit [[Home.welcomeLead]] und Ihrem Vornamen. [[Home.welcomeAttention]] zeigt, was Sie brauchen, oder [[Home.welcomeAllClear]], wenn nichts ansteht. Die Seite zählt außerdem Mitglieder, Lizenzen und offene Rechnungen. Die [[actionQueueTitle]] (Aufgabenliste) zeigt, was auf Sie wartet – jeweils mit einer Schaltfläche, die die richtige Seite öffnet.
+[[navOverview]] ist Ihre Startseite. Sie öffnet mit [[Home.welcomeLead]] und Ihrem Vornamen. [[Home.welcomeAttention]] zeigt, was auf Sie wartet, oder [[Home.welcomeAllClear]], wenn nichts ansteht. Die Seite zählt außerdem Mitglieder, Lizenzen und offene Rechnungen. [[actionQueueTitle]] listet, was wartet, und jede Zeile öffnet die passende Seite.
 
 ![Die Vereinsübersicht](fig:club-overview)
 
@@ -383,14 +383,20 @@ Trainer sehen öffentliche Vereinstermine und zusätzlich [[calendarVisibility_i
 3. [[Common.filterGroupUser]]
 4. [[Common.filterGroupPerson]] – der Mannschaftsfilter, wenn Wettkampf an ist.
 5. Das Menü [[membersMenuLabel]]: Mitglieder anlegen oder importieren.
-6. [[Common.rowActionsLabel]] – [[editAction]] oder [[deleteAction]] für diese Zeile. [[editAction]] öffnet ein Seitenfeld.
+6. [[Common.rowActionsLabel]] – [[editAction]] oder [[deleteAction]] für diese Zeile. [[editAction]] öffnet das Formular neben der Liste.
 </div>
 
 ![Das Mitgliedermenü: anlegen oder importieren](fig:members-menu)
 
-Die Spalte [[sexLabel]] ist ein kleines ♂ oder ♀, kein großes Abzeichen. Ein Klick auf eine Spaltenüberschrift sortiert. [[membersMenuLabel]] und das Zeilenmenü öffnen sich als kleine Felder.
+Die Spalte [[sexLabel]] ist ein kleines ♂ oder ♀. Ein Klick auf eine Spaltenüberschrift sortiert. [[membersMenuLabel]] und das Zeilenmenü öffnen sich als kleine Felder.
 
-Die Suche bleibt auf der Seite. Die anderen Filter öffnen sich über [[Common.filterGroupStatus]], [[Common.filterGroupUser]] und [[Common.filterGroupPerson]]. [[Common.filterGroupUser]] ist [[accountFilterNone]], [[accountFilterPending]], [[accountFilterActive]] oder [[accountFilterDisabled]]. In der LTF-Liste ist [[Common.filterGroupPerson]] [[LtfAdmin.staffFilterAll]], [[LtfAdmin.staffFilterClub]] oder [[LtfAdmin.staffFilterStaff]]. In der Vereinsliste ist [[Common.filterGroupPerson]] der Mannschaftsfilter, wenn Wettkampf an ist, einschließlich [[teamsFilterNone]]. [[Common.resetFilters]] stellt den üblichen Anfang her. Ein Haken bleibt beim Suchen, Filtern oder Blättern, bis Sie [[clearSelection]] oder die Aktion beenden. [[selectedMembersCountLabel|count=2]] zählt auch Zeilen, die nicht auf dieser Seite stehen. Dieselben Haken bleiben auf den Mitgliederlisten von Verein und LTF, den Lizenzlisten von Verein und LTF, der LTF-Vereinsliste, den Ops-Benutzern, den beiseitegelegten Personen und der Vereinsabrechnung. Die Zeilen pro Seite können 50, 150, 300 oder alle sein. Lizenzlisten haben eine Spalte [[expiresLabel]]. Ein Datum innerhalb von 30 Tagen ist eine Warnung. Ein bereits vergangenes Datum ist gedämpft.
+Die Suche bleibt auf der Seite. Die übrigen Filter öffnen sich über [[Common.filterGroupStatus]], [[Common.filterGroupUser]] und [[Common.filterGroupPerson]].
+
+[[Common.filterGroupUser]] ist [[accountFilterNone]], [[accountFilterPending]], [[accountFilterActive]] oder [[accountFilterDisabled]]. In der LTF-Liste ist [[Common.filterGroupPerson]] [[LtfAdmin.staffFilterAll]], [[LtfAdmin.staffFilterClub]] oder [[LtfAdmin.staffFilterStaff]]. In der Vereinsliste ist [[Common.filterGroupPerson]] der Mannschaftsfilter, wenn Wettkampf an ist, einschließlich [[teamsFilterNone]]. [[Common.resetFilters]] setzt die Filter auf den üblichen Anfang zurück.
+
+Ein Haken bleibt beim Suchen, Filtern oder Blättern, bis Sie [[clearSelection]] wählen oder die Aktion abschließen. [[selectedMembersCountLabel|count=2]] zählt auch Zeilen, die nicht auf dieser Seite stehen. Dieselben Haken gelten für die Mitgliederlisten von Verein und LTF, die Lizenzlisten von Verein und LTF, die LTF-Vereinsliste, die Benutzer in der technischen Konsole, die beiseitegelegten Personen und die Vereinsabrechnung.
+
+Sie können 50, 150, 300 oder alle Zeilen anzeigen. Lizenzlisten haben eine Spalte [[expiresLabel]]. Ein Datum innerhalb von 30 Tagen ist eine Warnung. Ein schon vergangenes Datum ist blass.
 
 Ein Klick auf einen Namen öffnet das Mitglied. Das Menü [[Common.batchActionsLabel]] wirkt auf alle angehakten Mitglieder gleichzeitig:
 
@@ -406,7 +412,7 @@ Ein Klick auf einen Namen öffnet das Mitglied. Das Menü [[Common.batchActionsL
 
 ## Ein Mitglied anlegen {#add-member}
 
-1. Öffnen Sie unter [[navMembers]] das Menü [[membersMenuLabel]] und klicken Sie auf [[createMember]]. Das Formular öffnet sich in einem Seitenfeld. Die Liste bleibt dahinter.
+1. Öffnen Sie unter [[navMembers]] das Menü [[membersMenuLabel]] und klicken Sie auf [[createMember]]. Das Formular öffnet sich neben der Liste. Die Liste bleibt stehen.
 2. Füllen Sie [[firstNameLabel]], [[lastNameLabel]], [[sexLabel]] und [[dobLabel]] aus.
 3. Wählen Sie das [[ltfLicensePrefixLabel]]. Die LTF-Lizenznummer selbst wird beim Speichern automatisch vergeben. Füllen Sie [[Import.wtLicenseLabel]] nur aus, wenn der Sportler bereits eine World-Taekwondo-Lizenz hat.
 4. Den Gürtelgrad tragen Sie nach dem Speichern im Reiter [[memberGradesTab]] ein.
@@ -448,12 +454,12 @@ Die Seite eines Mitglieds hat sechs Reiter.
 4. [[memberLicenseHistoryTab]] (Lizenzhistorie)
 5. [[memberGradesTab]] (Grade)
 6. [[memberClubMovementsTab]] – Wechsel zwischen Vereinen.
-7. Übersichtsdaten bearbeiten. [[editAction]] öffnet ein Seitenfeld.
+7. Übersicht bearbeiten. [[editAction]] öffnet das Formular neben der Liste.
 8. [[photoChangeButton]] – öffnet den Foto-Editor (siehe [Das Foto eines Mitglieds](#member-photo)).
 9. [[downloadStatementAction]] – ein PDF mit den Rechnungen und Zahlungen des Mitglieds.
 </div>
 
-Steht der Sportler in der Nationalmannschaft, zeigt die Übersicht [[nationalTeamBadge]] mit Kader und Saison. Dieses Kennzeichen ist nur zum Lesen. Der Verein öffnet nicht die Betreuerakte des Verbands, und Trainernamen stehen auf dieser Seite nicht. Den Kader selbst führt die LTF. Siehe [Nationalmannschaft](#national-team).
+Steht der Sportler in der Nationalmannschaft, zeigt die Übersicht [[nationalTeamBadge]] mit Kader und Saison. Das können Sie hier nicht ändern. Der Verein öffnet nicht die Betreuerakte des Verbands, und Trainernamen stehen auf dieser Seite nicht. Den Kader selbst führt die LTF. Siehe [Nationalmannschaft](#national-team).
 
 Ist das Wettkampfmodul an, zeigt die Übersicht außerdem [[teamsCardTitle]] und [[gearTitle]]. Größe und Gewicht stehen auf dem Mannschaftsblatt, nicht als eigener Reiter. Siehe [Größe und Gewicht](#height-weight) und [Ausrüstungsgrößen](#equipment).
 
@@ -525,24 +531,32 @@ Bestellung und Rechnung erscheinen unter [[navFinance]] › [[navOrders]] und [[
 
 ## Die Lizenzliste {#licences}
 
-[[navLicenses]] zeigt alle Lizenzen des Vereins mit Status: [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]] (aktiv, ausstehend, abgelaufen). Suchen Sie nach Mitglied, Jahr oder Status. Ein Klick auf eine Spaltenüberschrift sortiert. Die Spalte [[expiresLabel]] nutzt dieselben Daten wie der Rest der App. Ein Datum innerhalb von 30 Tagen ist eine Warnung. Ein bereits vergangenes Datum ist gedämpft. Haken auf dieser Liste bleiben beim Suchen, Filtern oder Blättern. In der Lizenzliste des Verbands sitzen Bearbeiten und Löschen im Zeilenmenü, und das Formular öffnet sich in einem Seitenfeld. Siehe [Mitglieder, Lizenzen und Transfers](#ltf-licences).
+[[navLicenses]] zeigt jede Lizenz des Vereins, mit [[filterActiveTitle]], [[filterPendingTitle]] oder [[filterExpiredTitle]] (aktiv, ausstehend, abgelaufen). Suchen Sie nach Mitglied, Jahr oder Status. Ein Klick auf eine Spaltenüberschrift sortiert.
 
-Ein Club-Admin legt mit [[createUserAccounts]] ein Login für die eigenen Vereinsmitglieder an. Ein LTF-Admin kann das für jedes Mitglied tun, auch ohne Verein. [[accountConfirm]] sagt, was angelegt wird und wer übersprungen wird. [[accountNoEmailSent]] Unter 16 gibt es kein Login. Ein fehlendes Geburtsdatum muss zuerst gespeichert werden. Inaktive Mitglieder werden übersprungen. Wenn die Konten da sind, wird eine Datei mit Erst-Login-Links heruntergeladen. [[accountFileWarning]] Ein Login zu verknüpfen erzeugt diese Datei nicht. Die Mitgliederliste und die Mitgliedskarte zeigen [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]] oder [[accountBadgeDisabled]].
+Die Spalte [[expiresLabel]] nutzt dieselben Daten wie der Rest der App. Ein Datum innerhalb von 30 Tagen ist eine Warnung. Ein schon vergangenes Datum ist blass. Haken auf dieser Liste bleiben beim Suchen, Filtern oder Blättern.
+
+In der Lizenzliste des Verbands sitzen Bearbeiten und Löschen im Zeilenmenü, und das Formular öffnet sich neben der Liste. Siehe [Mitglieder, Lizenzen und Transfers](#ltf-licences).
+
+Ein Club-Admin legt mit [[createUserAccounts]] einen Zugang für die eigenen Vereinsmitglieder an. Ein LTF-Admin kann das für jedes Mitglied tun, auch ohne Verein.
+
+[[accountConfirm]] sagt, was angelegt wird und wer ausgelassen wird. [[accountNoEmailSent]] Unter 16 gibt es keinen Zugang. Speichern Sie ein fehlendes Geburtsdatum zuerst. Inaktive Mitglieder werden ausgelassen.
+
+Wenn die Zugänge da sind, wird eine Datei mit den Links für die erste Anmeldung gespeichert. [[accountFileWarning]] Einen schon vorhandenen Zugang zu verknüpfen erzeugt diese Datei nicht. Die Mitgliederliste und die Mitgliedskarte zeigen [[accountBadgeNone]], [[accountBadgePending]], [[accountBadgeActive]] oder [[accountBadgeDisabled]].
 
 ![Die Lizenzliste](fig:licences)
 
 ## Lizenzkarten drucken {#print-cards}
 
-[[navPrinting]] listet die Kartendruckaufträge des Vereins. Derselbe Bereich öffnet auch [[navPrinterProfiles]], wo der X/Y-Versatz eines Druckers gespeichert ist.
+[[navPrinting]] listet die Kartendruckaufträge des Vereins. Derselbe Bereich öffnet auch [[navPrinterProfiles]], wo die Verschiebung für einen Drucker gespeichert ist.
 
 1. Öffnen Sie [[navPrinting]].
 2. Öffnen Sie das Zeilenmenü. Zeigt ein Auftrag [[printJobStatusSucceeded]], klicken Sie auf [[printJobPreviewPdfAction]], um das PDF zu öffnen, oder auf [[printJobDownloadPdfAction]], um `license-cards_<Verein>_<Auftrag>_<Datum>.pdf` zu speichern. Drucken Sie die Datei in 100 % (ohne „An Seite anpassen“).
-3. Im selben Menü stehen [[printJobExecuteAction]], [[printJobRetryAction]] und [[printJobCancelAction]]. [[deleteAction]] steht zuletzt. Bestätigen Sie, um einen Entwurf, einen erfolgreichen, fehlgeschlagenen oder abgebrochenen Auftrag zu entfernen. Einen Auftrag in der Warteschlange oder in Arbeit müssen Sie zuerst abbrechen.
+3. Im selben Menü stehen [[printJobExecuteAction]], [[printJobRetryAction]] und [[printJobCancelAction]]. [[deleteAction]] steht zuletzt. Bestätigen Sie, um einen Entwurf, einen gelungenen, einen fehlgeschlagenen oder einen abgebrochenen Auftrag zu entfernen. Wartet der Auftrag noch oder wird er gerade gedruckt, brechen Sie ihn zuerst ab.
 
 ![Druckaufträge](fig:print-jobs)
 
 > [!TIP]
-> Sitzt der Druck einige Millimeter daneben, bitten Sie die LTF um ein Druckerprofil mit dem passenden X/Y-Versatz, statt das Kartendesign zu ändern.
+> Sitzt die Karte ein paar Millimeter neben der Seite, bitten Sie die LTF um ein Druckerprofil mit der passenden Verschiebung. Ändern Sie dafür nicht das Kartendesign.
 
 ## Transfers zwischen Vereinen {#transfers}
 
@@ -692,15 +706,15 @@ LTF-Rechnungen für Ihre Lizenzbestellungen finden Sie unter [[navInvoices]], we
 
 Bezahlen Sie per Überweisung und setzen Sie die Rechnungsnummer in den Verwendungszweck. LTF Finance erfasst die Zahlung und aktiviert die Lizenzen.
 
-Oder bezahlen Sie mit Karte. Öffnen Sie bei einer ausgestellten LTF-Rechnung mit offenem Betrag das Zeilenmenü oder die Rechnung und klicken Sie auf [[Common.payNow]]. Sie verlassen die App und sehen die Seite des Kartenanbieters (Stripe). Dort steht eine Zeile für diese LTF-Rechnung, mit der Rechnungsnummer und dem noch offenen Betrag, und die Felder für die Karte. Bestätigen Sie die Zahlung dort. Der Anbieter schickt Sie in diese App zurück, die Lizenzen werden aktiviert und die Seite zeigt [[Checkout.successTitle]].
+Oder bezahlen Sie mit Karte. Bei einer ausgestellten LTF-Rechnung, auf der noch ein Betrag offen ist, öffnen Sie das Zeilenmenü oder die Rechnung und klicken Sie auf [[Common.payNow]]. Sie verlassen diese App und landen auf der Seite des Kartenunternehmens. Dort steht eine Zeile für diese LTF-Rechnung, mit Rechnungsnummer und noch offenem Betrag, und die Felder für die Karte. Bestätigen Sie die Zahlung dort. Sie kommen in diese App zurück, die Lizenzen werden aktiv, und die Seite zeigt [[Checkout.successTitle]].
 
 ![Jetzt bezahlen, im Zeilenmenü einer LTF-Rechnung](fig:pay-now)
 
-Wenn Sie den Zurück-Link des Anbieters benutzen, ohne zu zahlen, kommen Sie hierher zurück und die Seite zeigt [[Checkout.cancelTitle]]. Es wird nichts belastet, und die Lizenzen bleiben, wie sie waren. Eine Vereinsrechnung an ein Mitglied wird auf dieser Seite nicht bezahlt. Eltern haben kein Login. Ein Mitglieder-Login öffnet diese Kartenzahlung nicht.
+Nutzen Sie den Zurück-Link des Kartenunternehmens, ohne zu zahlen, kommen Sie hierher zurück und die Seite zeigt [[Checkout.cancelTitle]]. Es wird nichts belastet, und die Lizenzen bleiben, wie sie waren. Eine Vereinsrechnung an ein Mitglied wird auf dieser Seite nicht bezahlt. Der Zugang eines Mitglieds öffnet diese Kartenzahlung nicht.
 
 ![Zahlung abgebrochen, mit dem Weg zurück zum Verein](fig:checkout-return)
 
-Auf beiden Seiten ist die Schaltfläche unter der Überschrift der Weg zurück. Sie nennt den Schreibtisch, den Sie verlassen haben:
+Auf beiden Seiten ist die Schaltfläche unter der Überschrift der Weg zurück. Sie nennt die Rolle, die Sie verlassen haben:
 
 - [[Checkout.returnClub]] – die übliche Beschriftung, wenn ein Club-Admin von den Rechnungen des Vereins kam
 - [[Checkout.returnLtf]]
@@ -864,7 +878,7 @@ Bei Bestehen wird der neue Grad im Reiter [[memberGradesTab]] des Mitglieds eing
 
 ![Die Mannschaftsliste](fig:teams)
 
-1. Öffnen Sie [[navTeams]] und klicken Sie auf [[teamsAdd]]. Das Formular öffnet sich in einem Seitenfeld.
+1. Öffnen Sie [[navTeams]] und klicken Sie auf [[teamsAdd]]. Das Formular öffnet sich neben der Liste.
 2. Geben Sie [[teamsName]] ein. Wählen Sie [[teamsDisciplineKyorugi]] oder [[teamsDisciplinePoomsae]]. Klicken Sie auf [[teamsSave]].
 3. Öffnen Sie die Mannschaft. [[teamsManageAction]] nimmt Personen auf und heraus. Jede Person ist [[teamRoleAthlete]] oder [[teamRoleCoach]]. Trainer stehen oben.
 4. Öffnen Sie auf dem Blatt [[teamCompetition]]. Geben Sie [[teamCompetitionDate]] und [[teamCompetitionName]] ein und klicken Sie auf [[teamCompetitionAdd]]. Die Altersklassen nutzen das Jahr dieses Datums. [[teamCompetitionRemove]] löscht Datum, Name und Kategoriensatz. Aufgebot, Gewichte und Paare bleiben.
@@ -974,7 +988,7 @@ Den Kalender teilen sich die LTF und alle Vereine. Jeder Termin legt fest, wer i
 | [[Events.calendarVisibility_presidents]] | – | LTF Admins und der amtierende Präsident jedes unter [[Events.calendarAudienceClubs]] angehakten Vereins |
 
 > [!NOTE]
-> Die Beschreibungen auf dem Bildschirm nennen auch Mitglieder. Ein Mitglied sieht einen Termin nur mit einem Login, und nur wenn die Sichtbarkeit Mitglieder einschließt. Siehe [Rollen](#roles). Eltern melden sich nicht an.
+> Die Beschreibungen auf dem Bildschirm nennen auch Mitglieder. Ein Mitglied sieht einen Termin nur mit einem Zugang, und nur wenn die Auswahl Mitglieder einschließt. Siehe [Rollen](#roles).
 
 > [!TIP]
 > Sie planen ein Vereinsturnier? Wählen Sie [[Events.calendarVisibility_shared]], damit andere Vereine den Termin früh sehen und Überschneidungen vermeiden.
@@ -1048,7 +1062,7 @@ Um ein Amt zu schließen, ohne eine Nachfolge zu nennen, nutzen Sie [[committeeE
 
 Die Vorstandsseite des Verbands funktioniert genauso. LTF Admin öffnet sie über [[LtfAdmin.navCommittee]]. Die Übergabe eines Verbandsamts kann jeden Erwachsenen suchen, auch ohne Verein. Personen unter 18 und inaktive Mitglieder bleiben draußen.
 
-Verknüpft man ein Login mit einem Mitglied, das schon ein Verbandsamt hat, öffnen sich die Schreibtische, die dieses Amt zugeordnet hat. In der üblichen Zuordnung öffnet der Präsident LTF-Admin voll und LTF-Finanzen nur lesend, und der Kassierer umgekehrt. Ändert oder löscht man dieses Login, wandern oder schließen sich diese Schreibtische. Ein beiseitegelegter Import erhält keinen Schreibtisch. Ein inaktives Mitglied erhält weiter die Schreibtische, die die Zuordnung erlaubt. Ein Kontakt braucht ein Login, bevor ein Schreibtisch verknüpft wird. Vereinsämter öffnen keinen Verbandsschreibtisch.
+Verknüpfen Sie einen Zugang mit einem Mitglied, das schon ein Verbandsamt hat, bekommt diese Person die Verbandsrollen, die zu dem Amt gehören. In der üblichen Einrichtung hat der Präsident LTF-Admin vollständig und LTF-Finanzen nur zum Lesen, der Kassierer umgekehrt. Ändern oder löschen Sie diesen Zugang, wandern diese Rollen mit oder sie enden. Wer noch auf einen Verein wartet, bekommt keine Verbandsrolle. Ein inaktives Mitglied bekommt weiter die Rollen, die die Einrichtung erlaubt. Ein Kontakt braucht einen Zugang, bevor eine Verbandsrolle verknüpft wird. Ein Vereinsamt öffnet keine Verbandsrolle.
 
 > [!WARNING]
 > Wechselt der Kassierer, aktualisieren Sie den Vorstand **vor** dem nächsten Zahlungslauf. Ohne aktuelles Amt kann im Verein niemand Zahlungen erfassen.
@@ -1063,7 +1077,7 @@ Verknüpft man ein Login mit einem Mitglied, das schon ein Verbandsamt hat, öff
 
 1. Öffnen Sie [[navClubAdmins]]. Klicken Sie rechts auf Ihren Verein, um seine Mitglieder aufzulisten.
 2. Klicken Sie auf ein Mitglied und dann wieder auf den Verein.
-3. Hat das Mitglied noch keinen Login, geben Sie unter [[adminEmailTitle]] eine E-Mail-Adresse ein. Eine Willkommens-E-Mail wird verschickt. Die eingeladene Person legt E-Mail und Passwort unter [Ihr erstes Passwort](#first-password) fest.
+3. Hat das Mitglied noch keinen Zugang, geben Sie unter [[adminEmailTitle]] eine E-Mail-Adresse ein. Eine Willkommens-E-Mail geht hinaus. Die eingeladene Person setzt E-Mail und Passwort unter [Ihr erstes Passwort](#first-password).
 
 ![Club-Admins](fig:club-admins)
 
@@ -1100,7 +1114,7 @@ Das Verbandsmenü, unter [[Common.navGroupLtfManagement]], enthält [[LtfAdmin.n
 
 ## Verbandsübersicht {#ltf-overview}
 
-Die Übersicht zählt Vereine, Mitglieder und Lizenzen. Ihre Aufgabenliste zeigt Vereine ohne Admin, ausstehende Transfers mit Ablöse und Mitglieder, die auf eine Lizenz warten.
+Die Übersicht zählt Vereine, Mitglieder und Lizenzen. Sie listet außerdem, was auf Sie wartet: Vereine ohne Admin, Transfers mit noch offener Ablöse und Mitglieder, die auf eine Lizenz warten.
 
 ![Die LTF-Übersicht](fig:ltf-overview)
 
@@ -1122,8 +1136,8 @@ Nach dem Hochladen eines Logos zeigt die Seite eine Vorschau. Während sie lädt
 
 ## Mitglieder, Lizenzen und Transfers {#ltf-licences}
 
-- [[LtfAdmin.navMembers]] und [[LtfAdmin.navLicenses]] zeigen alle Vereine gleichzeitig; mit dem Vereinsfeld oben grenzen Sie ein. Ein Klick auf eine Spaltenüberschrift sortiert. In der Lizenzliste stehen [[editAction]] und [[deleteAction]] in [[Common.rowActionsLabel]], und Bearbeiten öffnet ein Seitenfeld.
-- Filtern Sie Mitglieder mit [[LtfAdmin.staffFilterStaff]], um das Verbandspersonal zu sehen. Eine Person ohne Verein wird als [[LtfAdmin.noClub]] angezeigt. [[LtfAdmin.staffAddAction]] öffnet ein Seitenfeld. Lassen Sie den Verein auf [[LtfAdmin.staffNoClubOption]], um die Person als LTF-Personal zu lizenzieren, ohne Vereinsbestellung und ohne Vereinsrechnung. [[LtfAdmin.staffIssueAction]] stellt die Lizenz für das gewählte Jahr aus. Das laufende Jahr ist sofort aktiv. Eine frühere Personallizenz läuft wie eine Vereinslizenz ab und steht danach als abgelaufen.
+- [[LtfAdmin.navMembers]] und [[LtfAdmin.navLicenses]] zeigen alle Vereine auf einmal. Grenzen Sie die Liste oben über das Vereinsfeld ein. Ein Klick auf eine Spaltenüberschrift sortiert. In der Lizenzliste stehen [[editAction]] und [[deleteAction]] in [[Common.rowActionsLabel]], und Bearbeiten öffnet das Formular neben der Liste.
+- Filtern Sie Mitglieder mit [[LtfAdmin.staffFilterStaff]], um das Verbandspersonal zu sehen. Eine Person ohne Verein wird als [[LtfAdmin.noClub]] angezeigt. [[LtfAdmin.staffAddAction]] öffnet das Formular neben der Liste. Lassen Sie den Verein auf [[LtfAdmin.staffNoClubOption]], um die Person als LTF-Personal zu lizenzieren, ohne Vereinsbestellung und ohne Vereinsrechnung. [[LtfAdmin.staffIssueAction]] stellt die Lizenz für das gewählte Jahr aus. Das laufende Jahr ist sofort aktiv. Eine frühere Personallizenz läuft wie eine Vereinslizenz ab und steht danach als abgelaufen.
 - [[LtfAdmin.navParkedMembers]] listet Personen, die bei einem Import beiseitegelegt wurden, bis Sie einen Verein und ein Geschlecht zuweisen oder die Zeile löschen. [[LtfAdmin.parkedSubtitle]] Sie stehen nicht in einer Vereinsliste, einer Lizenz, einer Karte, einer Mannschaft oder einer Zählung. Siehe [Ersteinrichtung](#setup).
 - [[LtfAdmin.navMemberTransfers]] listet die letzten Vereinswechsel, Transfers mit Ablöse und mögliche Vereinstouristen – Mitglieder, die ungewöhnlich oft den Verein gewechselt haben.
 
@@ -1133,7 +1147,7 @@ Nach dem Hochladen eines Logos zeigt die Seite eine Vorschau. Während sie lädt
 
 ## Lizenzkarten {#ltf-cards}
 
-[[LtfAdmin.navLicenseCards]] enthält die Kartenvorlagen. Öffnen Sie eine Vorlage im Designer, um Foto, Name, Grad, Lizenznummer und QR-Code zu platzieren. Das Zeilenmenü setzt sie außerdem als Standard, speichert eine Kopie, exportiert oder löscht die Vorlage. Veröffentlichen Sie eine Version und legen Sie sie als Standard fest: Damit drucken die Club-Admins. [[LtfAdmin.navPrinting]] fasst [[LtfAdmin.navLicenseCardPrintJobs]] und [[LtfAdmin.navPrinterProfiles]] so zusammen wie das Vereins-Dashboard. Druckaufträge listen die Jobs aller Vereine; Vorschau, Download und Löschen stehen im Zeilenmenü. Druckerprofile speichern den X/Y-Versatz bekannter Drucker.
+[[LtfAdmin.navLicenseCards]] enthält die Kartenvorlagen. Öffnen Sie eine Vorlage im Designer, um Foto, Name, Grad, Lizenznummer und QR-Code zu setzen. Das Zeilenmenü setzt sie außerdem als Standard, speichert eine Kopie, exportiert oder löscht die Vorlage. Veröffentlichen Sie eine Version und legen Sie sie als Standard fest: damit drucken die Club-Admins. [[LtfAdmin.navPrinting]] fasst [[LtfAdmin.navLicenseCardPrintJobs]] und [[LtfAdmin.navPrinterProfiles]] so zusammen wie im Verein. Die Druckaufträge listen die Aufträge aller Vereine. Vorschau, Speichern und Löschen stehen im Zeilenmenü. Druckerprofile speichern, wie weit ein bekannter Drucker die Karte verschiebt.
 
 ![Der Karten-Designer](fig:designer)
 
@@ -1141,15 +1155,15 @@ Nach dem Hochladen eines Logos zeigt die Seite eine Vorschau. Während sie lädt
 
 ## Nationalmannschaft {#national-team}
 
-[[LtfAdmin.navNationalTeam]] ist der Kader-Schreibtisch des Verbands. LTF Admin kann ihn ändern. LTF Finance kann denselben Schreibtisch öffnen und nur lesen. Vereine sehen diese Seite nicht. Bei einem Vereinsmitglied sehen sie nur [[nationalTeamBadge]], mit Kader und Saison, und nicht diese Betreuerakte.
+[[LtfAdmin.navNationalTeam]] ist die Seite des Verbands für die Kader. LTF Admin kann sie ändern. LTF Finance kann dieselbe Seite öffnen und nur lesen. Vereine sehen diese Seite nicht. Bei einem Vereinsmitglied sehen sie nur [[nationalTeamBadge]], mit Kader und Saison, und nicht diese Betreuerakte.
 
-Die Seite hat drei Teile: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] und [[LtfAdmin.nationalTeamTabLevels]]. Die Filter nutzen [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] und [[LtfAdmin.nationalTeamClub]]. Formulare öffnen sich in einem Seitenfeld.
+Die Seite hat drei Teile: [[LtfAdmin.nationalTeamTabSelections]], [[LtfAdmin.nationalTeamTabStaff]] und [[LtfAdmin.nationalTeamTabLevels]]. Die Filter nutzen [[LtfAdmin.nationalTeamSeason]], [[LtfAdmin.nationalTeamSquad]] und [[LtfAdmin.nationalTeamClub]]. Formulare öffnen sich neben der Liste.
 
-![Der Kader-Schreibtisch](fig:national-team)
+![Die Nationalmannschaft](fig:national-team)
 
 **Auswahl.** [[LtfAdmin.nationalTeamAddSquad]] legt einen Kader an. [[LtfAdmin.nationalTeamAddSquadHint]] [[LtfAdmin.nationalTeamAddSelection]] nimmt einen Sportler aus einem Verein für die Saison auf. Setzen Sie [[LtfAdmin.nationalTeamAgeClass]]. Die Klassen umfassen [[LtfAdmin.nationalTeamAgePupils]] und [[LtfAdmin.nationalTeamAgeMinimes]], die regional sind und keine World-Taekwondo-Klassen, dazu [[LtfAdmin.nationalTeamAgeCadet]], [[LtfAdmin.nationalTeamAgeJunior]] und [[LtfAdmin.nationalTeamAgeSenior]]. [[LtfAdmin.nationalTeamWeight]] darf leer bleiben. Der Status wird als [[LtfAdmin.nationalTeamLevel]], [[LtfAdmin.nationalTeamCosl]] und [[LtfAdmin.nationalTeamSupport]] (Sportlycée oder SSEA) geführt.
 
-**Betreuer.** Öffnen Sie [[LtfAdmin.nationalTeamTabStaff]] und klicken Sie auf [[LtfAdmin.nationalTeamStaffAdd]]. Zu den Rollen gehören [[LtfAdmin.nationalTeamStaffNationalCoach]], [[LtfAdmin.nationalTeamStaffPhysiotherapist]] und [[LtfAdmin.nationalTeamStaffPhotographer]]. Name und Rolle sind das, was ein Verein wissen darf. Die private Betreuerakte bleibt auf diesem Schreibtisch.
+**Betreuer.** Öffnen Sie [[LtfAdmin.nationalTeamTabStaff]] und klicken Sie auf [[LtfAdmin.nationalTeamStaffAdd]]. Zu den Rollen gehören [[LtfAdmin.nationalTeamStaffNationalCoach]], [[LtfAdmin.nationalTeamStaffPhysiotherapist]] und [[LtfAdmin.nationalTeamStaffPhotographer]]. Name und Rolle sind das, was ein Verein wissen darf. Die private Betreuerakte bleibt auf dieser Seite.
 
 **Stufen und Saison.** [[LtfAdmin.nationalTeamTabLevels]] enthält die Kaderebenen und die Saisondaten. [[LtfAdmin.nationalTeamSaveSeason]] speichert Anfang und Ende. [[LtfAdmin.nationalTeamForbidOverlap]] hält einen Sportler in jeweils einem Kader.
 
@@ -1177,7 +1191,13 @@ Unter [[LtfFinance.navLicenseSettings]] definiert der Reiter [[settingsTabLicens
 
 [[settingsTabClubFees]] listet, was die LTF den Vereinen berechnet (Mitgliedschaft im Verband, Versicherung …): [[clubFeeCadenceAnnual]], [[clubFeeCadencePerMember]], [[clubFeeCadencePerEvent]] oder [[clubFeeCadenceOneOff]]. Wählen Sie im Reiter [[settingsTabBilling]] das [[clubFeeBillingYearLabel]], die Gebühren und die Vereine und klicken Sie auf [[clubFeeBillingSubmitYear|year=2026]]. Ein Verein, der für dieses Jahr schon eine Rechnung hat, wird übersprungen – Sie können den Lauf also gefahrlos wiederholen. [[clubFeeBillingRecurringLabel]] wiederholt die Abrechnung monatlich oder jährlich.
 
-[[settingsTabModuleFees]] ist der Jahrespreis für [[moduleClubManagement]] und den Veranstaltungskalender. [[moduleFeesTitle]] Klicken Sie auf [[moduleFeeAdd]], wählen Sie das Modul, dann [[moduleFeePricingFlat]] oder [[moduleFeePricingPerMember]], und einen Betrag. [[moduleFeeMinimumLabel]] ist freiwillig: Der Verein zahlt mindestens diesen Betrag, wenn der errechnete Preis darunter liegt. Liegt dieses Minimum nicht über einem Pauschalpreis, zeigt [[modulePricesTitle]] im Vereinsprofil es nicht. Der berechnete Betrag bleibt gleich, und dieser Editor zeigt das Feld weiter. Ein neuer Preis gilt ab dem Datum, das Sie wählen. Schon versendete Rechnungen bleiben, wie sie sind. [[moduleFeeBillingHint]] Club-Admins lesen die Schätzung in ihrem Profil. Sie können sie nicht ändern, und eine unbezahlte Rechnung schaltet das Modul nicht aus.
+[[settingsTabModuleFees]] ist der Jahrespreis für [[moduleClubManagement]] und den Veranstaltungskalender. [[moduleFeesTitle]]
+
+Klicken Sie auf [[moduleFeeAdd]], wählen Sie das Modul, dann [[moduleFeePricingFlat]] oder [[moduleFeePricingPerMember]], und tragen Sie den Betrag ein.
+
+[[moduleFeeMinimumLabel]] ist freiwillig. Der Verein zahlt mindestens diesen Betrag, wenn der errechnete Preis darunter liegt. Liegt dieses Minimum nicht über einem Pauschalpreis, zeigt [[modulePricesTitle]] im Vereinsprofil es nicht. Der Verein zahlt denselben Betrag, und diese Seite zeigt das Feld weiter.
+
+Ein neuer Preis gilt ab dem Datum, das Sie wählen. Schon verschickte Rechnungen bleiben, wie sie sind. [[moduleFeeBillingHint]] Club-Admins lesen die Schätzung in ihrem Profil. Sie können sie nicht ändern. Eine unbezahlte Rechnung schaltet das Modul nicht aus.
 
 ![Vereinsgebühren abrechnen](fig:fin-billing)
 
@@ -1204,22 +1224,22 @@ Unter [[LtfFinance.navOrders]], [[LtfFinance.navInvoices]] und [[LtfFinance.navP
 
 <p class="roles"><span class="chip">Superuser</span></p>
 
-Der technische Administrator öffnet die [[Common.openOpsConsole]]. Unter Modules wird ein signierter Produktcode der LTF eingegeben und eingelöst, und jeder Verein erhält die Module, die er nutzen darf. Der Katalog nennt auch Module, die noch nicht ausgeliefert werden, etwa Verbandsinventar und Turniere; sie lassen sich nicht einschalten. Ein Modul einzuschalten ist etwas anderes als sein Preis. Die Preise für Vereinsverwaltung und Kalender sind die [Modulgebühren](#club-fees). Eine unbezahlte Modulrechnung schaltet das Modul nicht aus.
+Der technische Administrator öffnet die [[Common.openOpsConsole]]. Unter Modules geben Sie den Code ein, den die LTF geschickt hat, und bestätigen ihn. Danach wählen Sie, welche Teile der App jeder Verein nutzen darf. Die Liste nennt auch Teile, für die es noch keine Seiten gibt, etwa das Verbandsinventar und Turniere. Die können Sie nicht einschalten. Einen Teil einzuschalten ist etwas anderes als sein Preis. Die Preise für Vereinsverwaltung und Kalender sind die [Modulgebühren](#club-fees). Eine unbezahlte Rechnung schaltet den Teil nicht aus.
 
 ![Ops – Module](fig:ops-modules)
 
 ## Ersteinrichtung {#setup}
 
-[[Setup.title]] ist für einen Superuser, einmal, bevor der Verband in der App arbeitet. Es ist nicht der Vereinsassistent unter [Mitglieder aus einer Tabelle importieren](#import). Auf der Demonstrationsinstallation ist die Seite verborgen, und sie sperrt sich, wenn Sie fertig sind.
+[[Setup.title]] ist für den technischen Administrator, einmal, bevor der Verband in der App arbeitet. Es ist nicht der Vereinsimport unter [Mitglieder aus einer Tabelle importieren](#import). Auf der Demonstrationsinstallation ist die Seite verborgen, und sie sperrt sich, wenn Sie fertig sind.
 
-Öffnen Sie die Ops-Konsole. Ist die Einrichtung noch offen, schickt die Übersicht Sie auf diese Seite, und ein Banner bietet [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
+Öffnen Sie die technische Konsole. Ist die Einrichtung noch offen, führt die Übersicht Sie auf diese Seite, und ein Balken oben bietet [[Setup.finishSetupBanner]]. [[Setup.welcomeBody]]
 
 ![Ersteinrichtung](fig:setup)
 
 Sie bringen drei Dateien, der Reihe nach. Auf dieser Seite wird keine E-Mail verschickt, und E-Mail-Adressen in den Dateien werden ignoriert. [[Setup.summaryEmail]]
 
 1. [[Setup.step_clubs]]. Laden Sie den Vereinexport hoch. Eine Zeile mit dem Namen LTF wird nicht als Verein angelegt. Der Verband (WT oder ITF) ist nur eine Vermutung aus dem Namen: ändern Sie sie, wenn sie falsch ist. Eine RCS-Nummer ist freiwillig; wenn Sie eine eintragen, nutzen Sie die Form B123456. Klicken Sie auf [[Setup.confirmClubs]].
-2. [[Setup.step_members]]. Laden Sie den Mitgliederexport hoch. Ordnen Sie die Spalten zu, prüfen Sie die Vorschau und bestätigen Sie – derselbe Rhythmus wie beim Vereinsimport, aber das ist nicht dieser Assistent. Ordnen Sie die Spalte Member ID sowohl der WT-Lizenznummer als auch der LTF-Lizenznummer zu. Die automatische Zuordnung tut das. Lassen Sie Email unzugeordnet. Ist [[importPrefixRewriteLabel]] an, wird LUX- nur bei der LTF-Nummer zu LTF-. Aktiv oder inaktiv folgt dem Jahr des Mitgliedschaftsendes, nicht einer eigenen Spalte. Dieses Jahr oder ein späteres Jahr, und ein leeres Datum, sind [[Setup.active]]. Ein früheres Jahr ist [[Setup.inactive]], und die Person wird trotzdem importiert. Lässt sich das Enddatum nicht lesen, wählen Sie [[Setup.active]] oder [[Setup.inactive]], oder legen Sie die Zeile beiseite. Raten Sie nicht.
+2. [[Setup.step_members]]. Laden Sie den Mitgliederexport hoch. Ordnen Sie die Spalten zu, prüfen Sie die Vorschau und bestätigen Sie. Das ist nicht der Vereinsimport. Ordnen Sie die Spalte Member ID sowohl der WT-Lizenznummer als auch der LTF-Lizenznummer zu. [[Import.autoMapButton]] erledigt das. Lassen Sie Email unzugeordnet. Ist [[importPrefixRewriteLabel]] an, wird LUX- nur bei der LTF-Nummer zu LTF-. Aktiv oder inaktiv folgt dem Jahr des Mitgliedschaftsendes, nicht einer eigenen Spalte. Dieses Jahr oder ein späteres Jahr, und ein leeres Datum, sind [[Setup.active]]. Ein früheres Jahr ist [[Setup.inactive]], und die Person wird trotzdem importiert. Lässt sich das Enddatum nicht lesen, wählen Sie [[Setup.active]] oder [[Setup.inactive]], oder legen Sie die Zeile beiseite. Raten Sie nicht.
 3. Legen Sie eine Zeile beiseite, wenn die Vereinsspalte leer ist, der Verein nicht zu den importierten gehört oder das Enddatum nicht lesbar ist. Klicken Sie auf [[Setup.parkRow]] oder auf [[Setup.parkAllUnresolved]] für jede Zeile, die sich beiseitelegen lässt. Der Status ist [[Setup.statusParked]]. Bei einer leeren Vereinsspalte ist [[Setup.clubNotYet]] eine echte Wahl und legt diese Person für später beiseite. [[Setup.ltfStaff]] ist die Wahl, wenn die Person zum Verband gehört und nicht zu einem Verein. Sie dürfen bestätigen, solange beiseitegelegte Zeilen bleiben. [[Setup.blockingTitle]] Klicken Sie auf [[Setup.confirmMembers]].
 4. [[Setup.step_admins]]. Laden Sie den Export der Vereine und Admins hoch. Eine bereite Zeile wird zum Club-Admin und ist mit dem Mitglied aus dem vorigen Schritt verknüpft. Klicken Sie auf [[Setup.confirmAdmins]]. Es wird nichts per E-Mail verschickt. [[Setup.copyLink]] kopiert den Link einer Person. [[Setup.downloadLinks]] lädt alle herunter.
 
@@ -1238,7 +1258,7 @@ Beiseitegelegte Personen prüfen Sie später unter [[LtfAdmin.navParkedMembers]]
 Prüfen Sie den Benutzernamen (das ist nicht immer Ihre E-Mail-Adresse) und das Passwort. Meldet die Seite, dass Ihre E-Mail nicht bestätigt ist, siehe [E-Mail-Adresse bestätigen](#verify-email). Passwort vergessen? Siehe [Passwort vergessen](#forgotten-password).
 
 ### Können sich Mitglieder oder Eltern anmelden?
-Eltern nicht. Ein Mitglied ab 16 kann sich anmelden, nachdem ein Club-Admin oder die LTF ein Login angelegt hat. Es wird nichts per E-Mail geschickt. Jüngere Mitglieder haben kein Login. Der Verein hält die Daten aktuell.
+Eltern nicht. Ein Mitglied ab 16 kann sich anmelden, sobald ein Club-Admin oder die LTF den Zugang angelegt hat. Die E-Mail geht erst hinaus, wenn Sie den Link schicken. Jüngere Mitglieder haben keinen Zugang. Der Verein hält die Daten aktuell. Siehe [Rollen](#roles).
 
 ### Ein hier beschriebener Menüpunkt fehlt.
 Ihre Rolle oder die Module Ihres Vereins enthalten ihn nicht. Siehe [Rollen](#roles) und [Module](#modules).
@@ -1256,7 +1276,7 @@ Lesen Sie den Grund in der Zeile. Meist braucht ein Kind einen Rechnungsempfäng
 Der Grund steht neben dem Typ: Das Bestellfenster ist geschlossen, es gibt keinen Preis, oder die Mitglieder haben diese Lizenz schon. Fenster und Preise legt LTF Finance fest.
 
 ### Die gedruckte Karte ist verschoben.
-Drucken Sie in 100 % und nutzen Sie ein Druckerprofil mit dem richtigen Versatz (siehe [Lizenzkarten drucken](#print-cards)).
+Drucken Sie in 100 %, ohne Skalierung, und bitten Sie die LTF um ein Druckerprofil, wenn die Karte neben der Seite sitzt (siehe [Lizenzkarten drucken](#print-cards)).
 
 ### Datumsangaben erscheinen als mm/dd/yyyy.
 Datumsfelder folgen den Spracheinstellungen Ihres Browsers. Stellen Sie den Browser auf Deutsch, Französisch, Luxemburgisch oder Englisch (Vereinigtes Königreich), um Tag/Monat/Jahr zu sehen.
@@ -1268,7 +1288,7 @@ Fügen Sie bei einer neuen Einheit Schüler unter [[trainingAddStudents]] hinzu 
 Sie gibt an, wie viele kommende Termine Sie sehen können. Das Wort [[Events.calendarNavNew]] erscheint, wenn einige davon neu für Sie sind.
 
 ### Wo kann ich meine Datenschutzrechte ausüben?
-Mit einem Login nutzen Sie die Seite aus [Datenschutz und Ihre Daten](#privacy). Mitglieder und Eltern wenden sich an ihren Verein oder an die LTF; diese können ihre Daten exportieren oder berichtigen.
+Mit einem Zugang nutzen Sie die Seite aus [Datenschutz und Ihre Daten](#privacy). Mitglieder und Eltern wenden sich an ihren Verein oder an die LTF. Die können die Daten exportieren oder berichtigen.
 
 ### Können wir online bezahlen?
-Ja. Bei einer LTF-Rechnung, die der Verein noch zahlen muss, öffnet [[Common.payNow]] die Seite des Kartenanbieters. Sie zeigt die Rechnungsnummer und den noch offenen Betrag. Sie geben die Karte ein und bestätigen, und die App meldet danach, dass die Zahlung gelungen ist und die Lizenzen aktiviert sind. Gehen Sie zurück, ohne zu zahlen, wird nichts belastet. Danach nennt die Schaltfläche den Schreibtisch, den Sie verlassen haben, zum Beispiel [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Eine Vereinsrechnung an ein Mitglied wird hier nicht bezahlt. Sie können weiter per Überweisung zahlen. Siehe [Die LTF bezahlen](#pay-ltf).
+Ja. Bei einer LTF-Rechnung, die der Verein noch zahlen muss, öffnet [[Common.payNow]] die Seite des Kartenunternehmens. Sie zeigt die Rechnungsnummer und den noch offenen Betrag. Sie geben die Karte ein und bestätigen. Die App meldet danach, dass die Zahlung gelungen ist und die Lizenzen aktiv sind. Gehen Sie zurück, ohne zu zahlen, wird nichts belastet. Danach nennt die Schaltfläche die Rolle, die Sie verlassen haben, zum Beispiel [[Checkout.returnClub]], [[Checkout.returnLtf]], [[Checkout.returnFinance]], [[Checkout.returnMember]] oder [[Checkout.returnOps]]. Eine Vereinsrechnung an ein Mitglied wird hier nicht bezahlt. Sie können weiter per Überweisung zahlen. Siehe [Die LTF bezahlen](#pay-ltf).

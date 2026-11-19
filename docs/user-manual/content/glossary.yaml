@@ -10,10 +10,10 @@
   fr: {term: Entraîneur, text: "Membre adulte qui enseigne. Voit la semaine d'entraînement et fait l'appel ; d'autres fonctions pour les entraîneurs sont prévues."}
   lb: {term: Trainer, text: "Erwuessene Member, deen trainéiert. Gesäit d'Trainingswoch an hëlt d'Präsenz; weider Funktioune fir Trainer si geplangt."}
 - key: Common.roleMember
-  en: {term: Member, text: "Athlete of a club. A club admin can create a login from age 16. Parents have no login. The club keeps the data."}
-  de: {term: Mitglied, text: "Sportler eines Vereins. Ein Club-Admin kann ab 16 einen Login anlegen. Eltern haben keinen Login. Der Verein pflegt die Daten."}
+  en: {term: Member, text: "Athlete of a club. A club admin can create a sign-in from age 16. Parents have no sign-in. The club keeps the data."}
+  de: {term: Mitglied, text: "Sportler eines Vereins. Ein Club-Admin kann ab 16 einen Zugang anlegen. Eltern haben keinen Zugang. Der Verein pflegt die Daten."}
   fr: {term: Membre, text: "Sportif d'un club. Un administrateur peut créer un identifiant à partir de 16 ans. Les parents n'en ont pas. Le club garde les données."}
-  lb: {term: Member, text: "Sportler vun engem Veräin. E Club-Admin kann ab 16 e Login uleeën. Elteren hu kee Login. De Veräin hält d'Donnéeën."}
+  lb: {term: Member, text: "Sportler vun engem Veräin. E Club-Admin kann ab 16 e Zougang uleeën. Elteren hu kee Zougang. De Veräin hält d'Donnéeën."}
 - key: Common.roleLtfAdmin
   en: {term: LTF Admin, text: "Federation office. Manages clubs, licences, cards, the national team and the federation calendar."}
   de: {term: LTF-Admin, text: "Verbandsbüro. Verwaltet Vereine, Lizenzen, Karten, die Nationalmannschaft und den Verbandskalender."}
@@ -150,35 +150,35 @@
   fr: {term: Import, text: "Créer ou mettre à jour de nombreux membres d'un coup à partir d'un fichier CSV. Les cellules vides n'effacent pas les valeurs déjà enregistrées. Ce n'est pas la première installation de la fédération."}
   lb: {term: Import, text: "Vill Memberen op eemol aus enger CSV-Datei uleeën oder aktualiséieren. Eidel Zellen läschen keng gespäichert Wäerter. Net déi éischt Ariichtung vun der Federatioun."}
 - key: ""
-  en: {term: Module, text: "Part of the app switched on per club by the LTF, such as club management, the event calendar or competition. An unpaid module invoice does not switch it off."}
-  de: {term: Modul, text: "Teil der App, den die LTF pro Verein freischaltet, z. B. Vereinsverwaltung, Veranstaltungskalender oder Wettkampf. Eine unbezahlte Modulrechnung schaltet das Modul nicht aus."}
-  fr: {term: Module, text: "Partie de l'application activée par club par la LTF, par ex. gestion du club, calendrier ou compétition. Une facture de module impayée ne le désactive pas."}
-  lb: {term: Modul, text: "Deel vun der App, deen d'LTF pro Veräin fräischalt, z. B. Clubverwaltung, Evenementskalenner oder Competitioun. Eng onbezuelt Modulrechnung schalt de Modul net aus."}
+  en: {term: Module, text: "A part of the app the LTF turns on for a club, such as club management, the calendar or competition. An unpaid invoice does not turn it off."}
+  de: {term: Modul, text: "Ein Teil der App, den die LTF für einen Verein einschaltet, z. B. Vereinsverwaltung, Kalender oder Wettkampf. Eine unbezahlte Rechnung schaltet ihn nicht aus."}
+  fr: {term: Module, text: "Une partie de l'application que la LTF active pour un club, par ex. la gestion du club, le calendrier ou la compétition. Une facture impayée ne la désactive pas."}
+  lb: {term: Modul, text: "En Deel vun der App, deen d'LTF fir e Veräin aschalt, z. B. Clubverwaltung, Kalenner oder Competitioun. Eng net bezuelt Rechnung schalt en net aus."}
 - key: LtfFinance.moduleFeesTitle
   en: {term: Module fee, text: "Yearly price LTF Finance sets for club management and the event calendar, as a flat amount or per active member. Club admins can read the estimate."}
   de: {term: Modulgebühr, text: "Jahrespreis, den LTF-Finanzen für Vereinsverwaltung und Veranstaltungskalender festlegen, als Pauschale oder je aktivem Mitglied. Club-Admins können die Schätzung lesen."}
   fr: {term: Frais de module, text: "Prix annuel fixé par les finances LTF pour la gestion du club et le calendrier, forfaitaire ou par membre actif. Les administrateurs de club peuvent lire l'estimation."}
   lb: {term: Modulkäscht, text: "Jorespräis, deen d'LTF-Finanzen fir d'Clubverwaltung an de Kalenner festleeën, als Pauschal oder pro aktivem Member. Club-Admins kënnen d'Schätzung liesen."}
 - key: LtfAdmin.navNationalTeam
-  en: {term: National team, text: "Federation desk for squads, age class, weight and staff. Clubs see only a read-only badge with the squad and the season."}
-  de: {term: Nationalmannschaft, text: "Verbandsseite für Kader, Altersklasse, Gewicht und Betreuer. Vereine sehen nur ein Lesekennzeichen mit Kader und Saison."}
-  fr: {term: Équipe nationale, text: "Bureau fédéral pour les sélections, la classe d'âge, le poids et le staff. Les clubs ne voient qu'un badge en lecture seule avec la sélection et la saison."}
-  lb: {term: Nationalequipe, text: "Verbandsdesk fir Selektiounen, Altersklass, Gewiicht a Staff. Veräiner gesinn nëmmen e Lies-Badge mat Selektioun a Saison."}
+  en: {term: National team, text: "The federation page for squads, age class, weight and staff. Clubs only see a label with the squad and the season, and cannot change it."}
+  de: {term: Nationalmannschaft, text: "Die Verbandsseite für Kader, Altersklasse, Gewicht und Betreuer. Vereine sehen nur eine Kennzeichnung mit Kader und Saison und können sie nicht ändern."}
+  fr: {term: Équipe nationale, text: "La page de la fédération pour les sélections, la classe d'âge, le poids et le staff. Les clubs ne voient qu'une mention avec la sélection et la saison, et ne peuvent pas la modifier."}
+  lb: {term: Nationalequipe, text: "D'Säit vun der Federatioun fir Selektiounen, Altersklass, Gewiicht a Staff. Veräiner gesinn nëmmen eng Kennzeechnung mat Selektioun a Saison a kënnen se net änneren."}
 - key: navTeams
   en: {term: Team, text: "Club squad for Kyorugi or Poomsae, under the competition module. Roster, weigh-in, poomsae groups and history."}
   de: {term: Mannschaft, text: "Vereinskader für Kyorugi oder Poomsae, im Wettkampfmodul. Aufgebot, Wiegen, Poomsae-Gruppen und Verlauf."}
   fr: {term: Équipe, text: "Sélection du club en kyorugi ou poomsae, dans le module compétition. Effectif, pesée, groupes de poomsae et historique."}
   lb: {term: Ekipp, text: "Veräinskader fir Kyorugi oder Poomsae, am Competitiounsmodul. Opstellung, Weien, Poomsae-Gruppen a Verlaf."}
 - key: Setup.title
-  en: {term: First-run setup, text: "Superuser import of clubs, members and club admins before daily use. Nothing is emailed. Not the club import wizard."}
-  de: {term: Ersteinrichtung, text: "Import von Vereinen, Mitgliedern und Club-Admins durch den Superuser, vor dem Alltag. Es wird nichts per E-Mail verschickt. Nicht der Importassistent des Vereins."}
-  fr: {term: Première installation, text: "Import des clubs, des membres et des administrateurs par le superutilisateur, avant l'usage courant. Aucun e-mail n'est envoyé. Ce n'est pas l'assistant d'import du club."}
-  lb: {term: Éischt Ariichtung, text: "Import vu Veräiner, Memberen a Club-Admins duerch de Superuser, virum Alldag. Et gëtt näischt per E-Mail geschéckt. Net den Import-Assistent vum Veräin."}
+  en: {term: First-run setup, text: "The one-time import of clubs, members and club admins, done by the technical administrator before everyday use. Nothing is emailed. This is not the club's own import."}
+  de: {term: Ersteinrichtung, text: "Der einmalige Import von Vereinen, Mitgliedern und Club-Admins durch den technischen Administrator, vor dem Alltag. Es wird nichts per E-Mail verschickt. Nicht der Import des Vereins."}
+  fr: {term: Première installation, text: "L'import unique des clubs, des membres et des administrateurs, fait par l'administrateur technique avant l'usage courant. Aucun e-mail n'est envoyé. Ce n'est pas l'import du club."}
+  lb: {term: Éischt Ariichtung, text: "Den eemolegen Import vu Veräiner, Memberen a Club-Admins duerch den techneschen Administrateur, virum Alldag. Et gëtt näischt per E-Mail geschéckt. Net den Import vum Veräin."}
 - key: Common.deskSwitcherLabel
-  en: {term: Desk, text: "One login can hold more than one desk. The header list switches between them. With one desk, the header stays a plain role label. A view-only desk can read and cannot save."}
-  de: {term: Schreibtisch, text: "Ein Login kann mehr als einen Schreibtisch haben. Die Liste in der Kopfzeile wechselt zwischen ihnen. Bei einem Schreibtisch bleibt die Kopfzeile ein schlichtes Rollenabzeichen. Ein nur lesender Schreibtisch kann lesen und nicht speichern."}
-  fr: {term: Bureau, text: "Un identifiant peut avoir plus d'un bureau. La liste dans l'en-tête passe de l'un à l'autre. Avec un seul bureau, l'en-tête reste une étiquette de rôle. Un bureau en lecture seule peut lire et ne peut pas enregistrer."}
-  lb: {term: Schreifdësch, text: "Ee Login kann méi wéi ee Schreifdësch hunn. D'Lëscht an der Kappzeil wiesselt tëscht hinnen. Mat engem Schreifdësch bleift d'Kappzeil e Rollebadge. E Schreifdësch nëmme fir ze kucken kann liesen a net späicheren."}
+  en: {term: Desk, text: "The list of roles on one sign-in. Open it in the header when you have more than one, and pick the role you want. With only one role, the header just shows that role. A role marked view only can look, and cannot save."}
+  de: {term: Rolle, text: "Die Liste der Rollen eines Zugangs. Steht in der Kopfzeile Desks, wenn Sie wechseln können. Bei nur einer Rolle steht dort nur der Rollenname. Eine Rolle mit View only kann lesen und nicht speichern."}
+  fr: {term: Rôle, text: "La liste des rôles d'un identifiant. L'en-tête affiche Desks quand vous pouvez passer de l'un à l'autre. Avec un seul rôle, l'en-tête n'affiche que ce rôle. Un rôle View only permet de consulter, pas d'enregistrer."}
+  lb: {term: Roll, text: "D'Lëscht vun de Rollen op engem Zougang. An der Kappzeil steet Schreifdëscher, wann Dir wiessle kënnt. Mat enger Roll steet do just den Numm. Eng Roll mat Nëmme kucken kann liesen a net späicheren."}
 - key: moduleOrderOnTitle
   en: {term: Already on, text: "Modules already switched on for the club. A bundle is listed here only when that bundle itself was bought."}
   de: {term: Already on, text: "Module, die für den Verein schon an sind. Ein Bündel steht hier nur, wenn genau dieses Bündel gekauft wurde."}
