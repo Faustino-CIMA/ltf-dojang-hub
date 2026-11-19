@@ -28,7 +28,7 @@ class ClubTeam(models.Model):
     note = models.CharField(max_length=240, blank=True)
     competition_on = models.DateField(null=True, blank=True)
     competition_name = models.CharField(max_length=120, blank=True)
-    weight_margin_kg = models.DecimalField(max_digits=4, decimal_places=1, default=Decimal("1.0"))
+    weight_margin_kg = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("1.00"))
     category_set_code = models.CharField(max_length=20, default="wt")
     archived_at = models.DateTimeField(null=True, blank=True)
     roster_history_from = models.DateField(null=True, blank=True)

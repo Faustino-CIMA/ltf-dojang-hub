@@ -126,7 +126,7 @@ describe("Height and weight section", () => {
     expect(saveBodyMeasurement).toHaveBeenCalledWith(null, {
       member: 9,
       measured_on: todayIsoDate(),
-      weight_kg: "62.4",
+      weight_kg: "62.40",
       height_cm: null,
       note: "Morning",
     });

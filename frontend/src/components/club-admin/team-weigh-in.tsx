@@ -11,6 +11,7 @@ import { todayIsoDate } from "@/lib/body-measurements-api";
 import { saveTeamWeighIn, type ClubTeam, type TeamMember } from "@/lib/club-teams-api";
 import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
+import { parseWeightKg } from "@/lib/weight-input";
 
 export function TeamWeighInPanel({
   team,
@@ -38,12 +39,17 @@ export function TeamWeighInPanel({
             setError(t("teamWeighInError"));
             return;
           }
-          const entries = members.map((member) => ({ member: member.id, weight_kg: (weights[member.id] ?? "").trim() }));
-          const filled = entries.filter((entry) => entry.weight_kg);
-          const invalid = filled.some((entry) => {
-            if (!/^\d+(\.\d)?$/.test(entry.weight_kg)) return true;
-            const value = Number(entry.weight_kg);
-            return value < 10 || value > 250;
+          const filled: Array<{ member: number; weight_kg: string }> = [];
+          let invalid = false;
+          members.forEach((member) => {
+            const typed = (weights[member.id] ?? "").trim();
+            if (!typed) return;
+            const weight = parseWeightKg(typed);
+            if (!weight) {
+              invalid = true;
+              return;
+            }
+            filled.push({ member: member.id, weight_kg: weight });
           });
           if (invalid) {
             setError(t("teamWeighInError"));

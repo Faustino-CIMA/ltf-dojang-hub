@@ -10,12 +10,13 @@ minus the birth year.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from .body_measurements import category_reason, kyorugi_margin, suggest_age_class
+from .weights import format_kg, normalize_kg
 
 SET_CODES = ("wt", "be", "nl", "de", "fr", "at", "custom")
 
@@ -134,11 +135,11 @@ def category_from_ceilings(weight_kg, ceilings) -> tuple[str, str | None]:
     limits = [Decimal(str(item)) for item in ceilings]
     for limit in limits:
         if weight <= limit:
-            delta = (weight - limit).quantize(Decimal("0.1"))
-            return _kg_label(limit, open_class=False), f"{delta:.1f}"
+            delta = (weight - limit).quantize(Decimal("0.01"))
+            return _kg_label(limit, open_class=False), format_kg(delta)
     last = limits[-1]
-    delta = (weight - last).quantize(Decimal("0.1"))
-    return _kg_label(last, open_class=True), f"{delta:.1f}"
+    delta = (weight - last).quantize(Decimal("0.01"))
+    return _kg_label(last, open_class=True), format_kg(delta)
 
 
 def _matching_band(bands: list[dict], age: int, sex: str) -> dict | None:
@@ -258,7 +259,7 @@ def bands_for(team) -> tuple[str, str, list[dict]]:
     )
 
 
-def parse_custom_bands(value) -> list[dict]:
+def parse_custom_bands(value, *, kept_ceilings: set | None = None) -> list[dict]:
     if not isinstance(value, list) or not value:
         raise ValidationError({"custom_bands": "custom_bands_required"})
     parsed = []
@@ -275,7 +276,7 @@ def parse_custom_bands(value) -> list[dict]:
         sex = str(raw.get("sex") or "").strip().upper()
         if sex not in {"M", "F", "X"}:
             raise ValidationError({"sex": "sex_required"})
-        ceilings = _parse_ceilings(raw.get("ceilings"))
+        ceilings = _parse_ceilings(raw.get("ceilings"), kept_ceilings=kept_ceilings)
         parsed.append(
             {
                 "label": str(raw.get("label") or "").strip()[:80],
@@ -288,7 +289,7 @@ def parse_custom_bands(value) -> list[dict]:
     return parsed
 
 
-def _parse_ceilings(value) -> list[int | float]:
+def _parse_ceilings(value, *, kept_ceilings: set | None = None) -> list[int | float]:
     if isinstance(value, str):
         parts = [part.strip() for part in value.replace("+", "").split(",") if part.strip()]
     elif isinstance(value, list):
@@ -299,12 +300,19 @@ def _parse_ceilings(value) -> list[int | float]:
         raise ValidationError({"ceilings": "limits_required"})
     limits = []
     for part in parts:
-        try:
-            number = Decimal(str(part))
-        except (InvalidOperation, ValueError) as exc:
-            raise ValidationError({"ceilings": "limits_required"}) from exc
-        if number.as_tuple().exponent < -1 or number <= 0 or number > Decimal("250"):
+        number = normalize_kg(
+            part,
+            field="ceilings",
+            code="limits_required",
+            minimum=Decimal("0.1"),
+            maximum=Decimal("999.99"),
+        )
+        if number is None:
             raise ValidationError({"ceilings": "limits_required"})
+        if number > Decimal("150"):
+            kept = {Decimal(str(item)).quantize(Decimal("0.01")) for item in (kept_ceilings or set())}
+            if number not in kept:
+                raise ValidationError({"ceilings": "limits_required"})
         limits.append(number)
     if any(left >= right for left, right in zip(limits, limits[1:])):
         raise ValidationError({"ceilings": "limits_required"})

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { removeTeamCompetition, saveTeamCompetition, type ClubTeam, type CustomBand } from "@/lib/club-teams-api";
+import { parseWeightKg } from "@/lib/weight-input";
 
 const SET_CODES = ["wt", "be", "nl", "de", "fr", "at", "custom"] as const;
 
@@ -54,16 +55,22 @@ function draftsFrom(team: ClubTeam): BandDraft[] {
   }));
 }
 
-function parseLimits(value: string): number[] | null {
+function parseLimits(value: string, kept: number[] = []): number[] | null {
   const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 0 || parts.some((part) => !/^\d+(\.\d)?$/.test(part))) return null;
-  const numbers = parts.map(Number);
-  if (numbers.some((number) => number <= 0 || number > 250)) return null;
-  if (numbers.some((number, index) => index > 0 && numbers[index - 1] >= number)) return null;
-  return numbers;
+  const numbers = parts.map((part) => {
+    const within = parseWeightKg(part, { min: 0.1, max: 150 });
+    if (within) return Number(within);
+    const stored = parseWeightKg(part, { min: 0.1, max: 999.99 });
+    if (stored && kept.some((item) => item.toFixed(2) === stored)) return Number(stored);
+    return null;
+  });
+  if (parts.length === 0 || numbers.some((number) => number == null)) return null;
+  const parsed = numbers.map((number) => Number(number));
+  if (parsed.some((number, index) => index > 0 && parsed[index - 1] >= number)) return null;
+  return parsed;
 }
 
-function parseBands(rows: BandDraft[]): CustomBand[] | null {
+function parseBands(rows: BandDraft[], kept: number[] = []): CustomBand[] | null {
   if (rows.length === 0) return null;
   const parsed: CustomBand[] = [];
   for (const row of rows) {
@@ -71,7 +78,7 @@ function parseBands(rows: BandDraft[]): CustomBand[] | null {
     const ageMin = Number(row.age_min);
     const ageMax = Number(row.age_max);
     if (ageMin > 99 || ageMax > 99 || ageMin > ageMax) return null;
-    const ceilings = parseLimits(row.limits);
+    const ceilings = parseLimits(row.limits, kept);
     if (!ceilings || (row.sex !== "M" && row.sex !== "F" && row.sex !== "X")) return null;
     parsed.push({ label: row.label.trim(), age_min: ageMin, age_max: ageMax, sex: row.sex, ceilings });
   }
@@ -117,11 +124,13 @@ export function TeamCompetitionPanel({
         onSubmit={(event) => {
           event.preventDefault();
           const trimmed = margin.trim();
-          if (trimmed && (!/^\d+(\.\d)?$/.test(trimmed) || Number(trimmed) > 20)) {
+          const marginKg = trimmed ? parseWeightKg(trimmed, { min: 0, max: 20 }) : "1.00";
+          if (!marginKg) {
             setError(t("teamMarginError"));
             return;
           }
-          const custom = setCode === "custom" ? parseBands(bands) : null;
+          const keptCeilings = (team.custom_bands ?? []).flatMap((band) => band.ceilings);
+          const custom = setCode === "custom" ? parseBands(bands, keptCeilings) : null;
           if (kyorugi && setCode === "custom" && !custom) {
             setError(t("teamCustomError"));
             return;
@@ -131,7 +140,7 @@ export function TeamCompetitionPanel({
           void saveTeamCompetition(team.id, {
             competition_on: competitionOn || null,
             competition_name: competitionName.trim(),
-            weight_margin_kg: trimmed || "1.0",
+            weight_margin_kg: marginKg,
             ...(kyorugi
               ? {
                   category_set: setCode,

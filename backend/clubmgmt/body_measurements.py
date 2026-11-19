@@ -8,7 +8,7 @@ them. That screen is not built yet, and LTF roles cannot read them here.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -20,8 +20,10 @@ from modules.entitlements import _stored_ids_for, is_install_entitled
 from modules.models import ClubModuleAssignment
 from modules.registry import COMPETITION_MODULE_ID
 
+from .weights import format_kg, normalize_kg
+
 WEIGHT_MIN = Decimal("10")
-WEIGHT_MAX = Decimal("250")
+WEIGHT_MAX = Decimal("150")
 HEIGHT_MIN = 80
 HEIGHT_MAX = 230
 
@@ -47,7 +49,7 @@ class BodyMeasurement(models.Model):
         related_name="body_measurements",
     )
     measured_on = models.DateField()
-    weight_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     height_cm = models.PositiveSmallIntegerField(null=True, blank=True)
     note = models.CharField(max_length=240, blank=True)
     recorded_by = models.ForeignKey(
@@ -202,8 +204,8 @@ def kyorugi_margin(weight_kg: Decimal | None, age_class: str, sex: str) -> tuple
     if not category:
         return "", None
     limit = Decimal(category[1:].split()[0])
-    delta = (weight - limit).quantize(Decimal("0.1"))
-    return category, f"{delta:.1f}"
+    delta = (weight - limit).quantize(Decimal("0.01"))
+    return category, format_kg(delta)
 
 
 # Individual recognized Poomsae divisions, Article 4.1.5 and Article 6.1 of the
@@ -250,7 +252,7 @@ def weight_suggestion(member) -> dict | None:
     return {
         "age_class": age_class,
         "category": category,
-        "weight_kg": f"{latest.weight_kg:.1f}",
+        "weight_kg": format_kg(latest.weight_kg),
         "measured_on": latest.measured_on.isoformat(),
     }
 
@@ -266,18 +268,15 @@ def _parse_date(value):
         raise ValidationError({"measured_on": "date_required"}) from exc
 
 
-def _parse_weight(value):
-    if value in (None, ""):
-        return None
-    try:
-        weight = Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
-        raise ValidationError({"weight_kg": "weight_out_of_range"}) from exc
-    if weight.as_tuple().exponent < -1:
-        raise ValidationError({"weight_kg": "weight_out_of_range"})
-    if weight < WEIGHT_MIN or weight > WEIGHT_MAX:
-        raise ValidationError({"weight_kg": "weight_out_of_range"})
-    return weight.quantize(Decimal("0.1"))
+def _parse_weight(value, *, existing=None):
+    return normalize_kg(
+        value,
+        field="weight_kg",
+        code="weight_out_of_range",
+        minimum=WEIGHT_MIN,
+        maximum=WEIGHT_MAX,
+        keep=existing,
+    )
 
 
 def _parse_height(value):
@@ -298,7 +297,8 @@ def apply_measurement_fields(measurement: BodyMeasurement, data: dict, *, creati
     if creating or "measured_on" in data:
         measurement.measured_on = _parse_date(data.get("measured_on"))
     if creating or "weight_kg" in data:
-        measurement.weight_kg = _parse_weight(data.get("weight_kg"))
+        existing = None if creating else measurement.weight_kg
+        measurement.weight_kg = _parse_weight(data.get("weight_kg"), existing=existing)
     if creating or "height_cm" in data:
         measurement.height_cm = _parse_height(data.get("height_cm"))
     if creating or "note" in data:

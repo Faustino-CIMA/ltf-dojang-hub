@@ -1,5 +1,5 @@
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Count, OuterRef, Q, Subquery
@@ -27,6 +27,7 @@ from .body_measurements import (
     weight_close_to_limit,
 )
 from .category_sets import SET_CODES, bands_for, parse_custom_bands, resolve_category
+from .weights import format_kg, normalize_kg
 from .team_sheet import sheet_csv, sheet_pdf
 from .teams import (
     ClubTeam,
@@ -107,13 +108,14 @@ def _clean_fields(data, *, creating: bool) -> dict:
 def _parse_margin(value):
     if value in (None, ""):
         return Decimal("1.0")
-    try:
-        margin = Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
-        raise ValidationError({"weight_margin_kg": "margin_out_of_range"}) from exc
-    if margin.as_tuple().exponent < -1 or margin < 0 or margin > Decimal("20"):
-        raise ValidationError({"weight_margin_kg": "margin_out_of_range"})
-    return margin.quantize(Decimal("0.1"))
+    margin = normalize_kg(
+        value,
+        field="weight_margin_kg",
+        code="margin_out_of_range",
+        minimum=Decimal("0"),
+        maximum=Decimal("20"),
+    )
+    return Decimal("1.0") if margin is None else margin
 
 
 def _parse_competition_date(value):
@@ -196,7 +198,7 @@ def _roster_members(team: ClubTeam) -> list[dict]:
             warning = weight_close_to_limit(delta, category, margin)
         else:
             category, delta, reason, age, division, warning = "", None, "", None, "", False
-        weight = None if member.latest_weight_kg is None else f"{Decimal(member.latest_weight_kg):.1f}"
+        weight = None if member.latest_weight_kg is None else format_kg(member.latest_weight_kg)
         rows.append(
             {
                 "id": member.id,
@@ -276,7 +278,7 @@ def _team_payload(team: ClubTeam, *, include_members: bool) -> dict:
         "coach_count": coaches,
         "competition_on": _iso(team.competition_on),
         "competition_name": team.competition_name,
-        "weight_margin_kg": f"{Decimal(team.weight_margin_kg):.1f}",
+        "weight_margin_kg": format_kg(team.weight_margin_kg),
         "category_set": team.category_set_code or "wt",
         "pss_system": team.pss_system or "",
         "egear_daedo": bool(team.club.egear_daedo),
@@ -385,7 +387,14 @@ class ClubTeamDetailView(APIView):
                 team.save(update_fields=["competition_on", "competition_name", "category_set_code", "updated_at"])
             return Response(_team_payload(team, include_members=True))
         fields = _clean_fields(request.data, creating=False)
-        custom = parse_custom_bands(request.data.get("custom_bands")) if "custom_bands" in request.data else None
+        custom = None
+        if "custom_bands" in request.data:
+            kept = {
+                Decimal(str(item))
+                for band in team.custom_bands.all()
+                for item in (band.ceilings or [])
+            }
+            custom = parse_custom_bands(request.data.get("custom_bands"), kept_ceilings=kept)
         for key, value in fields.items():
             setattr(team, key, value)
         if (team.category_set_code or "wt") == "custom" and custom is None and not team.custom_bands.exists():

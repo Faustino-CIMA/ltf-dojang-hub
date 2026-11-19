@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Teams:** A weight is stored and shown with two decimals, so 44.00 stays 44.00. A new weight can be at most 150 kg. A weight already above 150 kg is left as it is. The printed team sheet still shows one decimal.
 - **Ops:** The audit list shows every entry, including an older member card check. You can turn the pages, choose 25, 50, 100, or 200 rows, and search by actor, action, target, club, or message. The social security number is not shown.
 - **Members:** The row menu on the club and LTF member lists can open Verify member. It is hidden once the member is already verified. A coach does not see it.
 - **Members:** Create and edit ask for the social security number, its country, and nationalities. The number is required only when club management is on. A verified number stays locked until it is unlocked.
