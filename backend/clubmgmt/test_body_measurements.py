@@ -74,7 +74,7 @@ class BodyMeasurementApiTests(TestCase):
             format="json",
         )
         self.assertEqual(created.status_code, 201, created.data)
-        self.assertEqual(created.data["weight_kg"], "62.4")
+        self.assertEqual(created.data["weight_kg"], "62.40")
         self.assertIsNone(created.data["height_cm"])
         self.assertEqual(created.data["recorded_by"], self.club_admin.id)
         self._auth(self.coach)
@@ -119,10 +119,17 @@ class BodyMeasurementApiTests(TestCase):
         )
         self.assertEqual(refused.status_code, 403)
 
-    def test_extra_decimals_and_a_comma_round_to_one_place(self):
+    def test_weights_round_to_two_decimals_and_stop_at_150(self):
         self._unlock()
         self._auth(self.club_admin)
-        for typed, stored in (("44", "44.0"), ("44.0", "44.0"), ("44.00", "44.0"), ("44,5", "44.5")):
+        for typed, stored in (
+            ("44", "44.00"),
+            ("44.0", "44.00"),
+            ("44.00", "44.00"),
+            ("44,5", "44.50"),
+            ("44.555", "44.56"),
+            ("150", "150.00"),
+        ):
             saved = self.client.post(
                 "/api/club-management/measurements/",
                 {"member": self.athlete.id, "measured_on": "2026-03-02", "weight_kg": typed},
@@ -130,13 +137,47 @@ class BodyMeasurementApiTests(TestCase):
             )
             self.assertEqual(saved.status_code, 201, saved.data)
             self.assertEqual(saved.data["weight_kg"], stored)
-        refused = self.client.post(
-            "/api/club-management/measurements/",
-            {"member": self.athlete.id, "measured_on": "2026-03-02", "weight_kg": "heavy"},
+        for typed in ("150.01", "151", "heavy"):
+            refused = self.client.post(
+                "/api/club-management/measurements/",
+                {"member": self.athlete.id, "measured_on": "2026-03-03", "weight_kg": typed},
+                format="json",
+            )
+            self.assertEqual(refused.status_code, 400, typed)
+            self.assertIn("weight_out_of_range", str(refused.data))
+
+    def test_a_stored_weight_above_150_stays_when_another_field_changes(self):
+        from .body_measurements import BodyMeasurement
+
+        self._unlock()
+        self._auth(self.club_admin)
+        row = BodyMeasurement.objects.create(
+            member=self.athlete,
+            measured_on=date(2026, 3, 4),
+            weight_kg=Decimal("160.00"),
+            note="Old",
+        )
+        edited = self.client.patch(
+            f"/api/club-management/measurements/{row.id}/",
+            {"note": "Updated", "weight_kg": "160.00"},
             format="json",
         )
-        self.assertEqual(refused.status_code, 400)
-        self.assertIn("weight_out_of_range", str(refused.data))
+        self.assertEqual(edited.status_code, 200, edited.data)
+        self.assertEqual(edited.data["note"], "Updated")
+        self.assertEqual(edited.data["weight_kg"], "160.00")
+        note_only = self.client.patch(
+            f"/api/club-management/measurements/{row.id}/",
+            {"note": "Note only"},
+            format="json",
+        )
+        self.assertEqual(note_only.status_code, 200, note_only.data)
+        self.assertEqual(note_only.data["weight_kg"], "160.00")
+        lowered = self.client.patch(
+            f"/api/club-management/measurements/{row.id}/",
+            {"weight_kg": "151"},
+            format="json",
+        )
+        self.assertEqual(lowered.status_code, 400)
 
     def test_ranges_and_missing_value_are_refused(self):
         self._unlock()
@@ -212,9 +253,9 @@ class BodyMeasurementApiTests(TestCase):
         listing = self.client.get(f"/api/members/?club_id={self.club.id}&ordering=latest_weight")
         self.assertEqual(listing.status_code, 200)
         weights = [(row["last_name"], row.get("latest_weight_kg"), row.get("latest_weight_on")) for row in listing.data]
-        self.assertEqual(weights[0][1], "48.0")
+        self.assertEqual(weights[0][1], "48.00")
         self.assertEqual(weights[0][2], "2026-01-01")
-        self.assertIn(("HOFFMANN", "70.5", "2026-02-02"), weights)
+        self.assertIn(("HOFFMANN", "70.50", "2026-02-02"), weights)
         heights = self.client.get(f"/api/members/?club_id={self.club.id}&ordering=-latest_height")
         self.assertEqual(heights.data[0]["latest_height_cm"], 175)
         self.assertEqual(heights.data[0]["latest_height_on"], "2026-06-01")

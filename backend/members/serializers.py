@@ -525,7 +525,7 @@ class MemberSerializer(serializers.ModelSerializer):
         value = getattr(obj, "latest_weight_kg", None)
         if value is None:
             return None
-        return f"{value:.1f}"
+        return f"{value:.2f}"
 
     def get_latest_weight_on(self, obj: Member):
         value = getattr(obj, "latest_weight_on", None)

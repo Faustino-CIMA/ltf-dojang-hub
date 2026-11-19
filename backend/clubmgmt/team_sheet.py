@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from decimal import Decimal, InvalidOperation
 from html import escape
 from io import StringIO
 
@@ -584,10 +585,33 @@ def _table(headers: list[str], body: list[list[str]]) -> str:
     return f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
 
 
+def _pdf_kg(cell: str) -> str:
+    """Keep the printed sheet on one decimal. The screen shows two."""
+
+    if cell in (None, ""):
+        return ""
+    try:
+        return f"{Decimal(str(cell)):.1f}"
+    except InvalidOperation:
+        return str(cell)
+
+
+def _pdf_athletes(rows: list[list[str]]) -> list[list[str]]:
+    printed = []
+    for row in rows:
+        cells = list(row)
+        if len(cells) > 8:
+            cells[5] = _pdf_kg(cells[5])
+            cells[8] = _pdf_kg(cells[8])
+        printed.append(cells)
+    return printed
+
+
 def sheet_pdf(payload: dict, lang: str) -> bytes | None:
     if load_html() is None:
         return None
     sheet = sheet_rows(payload, lang)
+    athletes = sheet["athletes"] if payload.get("discipline") == "poomsae" else _pdf_athletes(sheet["athletes"])
     meta_html = "".join(f"<p><strong>{escape(label)}.</strong> {escape(value)}</p>" for label, value in sheet["meta"])
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
@@ -603,7 +627,7 @@ th {{ background: #f2f4f7; }}
 <h1>{escape(payload.get("name") or "")}</h1>
 {meta_html}
 <h2>{escape(sheet["athlete_title"])}</h2>
-{_table(sheet["headers"], sheet["athletes"])}
+{_table(sheet["headers"], athletes)}
 <h2>{escape(sheet["coach_title"])}</h2>
 {_table(sheet["coach_headers"], sheet["coaches"])}
 </body></html>"""

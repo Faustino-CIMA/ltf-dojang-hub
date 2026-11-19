@@ -42,7 +42,7 @@ describe("Height and weight copy", () => {
     expect(club.heightWeightSuggestion).toContain("{category}");
     expect(club.heightWeightSuggestion).toContain("{ageClass}");
     expect(club.heightWeightRangeError).toMatch(/10/);
-    expect(club.heightWeightRangeError).toMatch(/250/);
+    expect(club.heightWeightRangeError).toMatch(/150/);
     expect(club.heightWeightRangeError).toMatch(/80/);
     expect(club.heightWeightRangeError).toMatch(/230/);
   });

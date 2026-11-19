@@ -98,7 +98,7 @@ describe("Team extras", () => {
     fireEvent.change(screen.getByLabelText("teamWeighInWeight"), { target: { value: "44.00" } });
     fireEvent.click(screen.getByRole("button", { name: "teamWeighInSave" }));
     await waitFor(() =>
-      expect(saveTeamWeighIn).toHaveBeenCalledWith(1, expect.any(String), [{ member: 4, weight_kg: "44.0" }]),
+      expect(saveTeamWeighIn).toHaveBeenCalledWith(1, expect.any(String), [{ member: 4, weight_kg: "44.00" }]),
     );
 
     fireEvent.change(screen.getByLabelText("teamWeighInWeight"), { target: { value: "heavy" } });
@@ -113,7 +113,7 @@ describe("Team extras", () => {
     fireEvent.change(screen.getByLabelText("teamWeighInWeight"), { target: { value: "61.0" } });
     fireEvent.click(screen.getByRole("button", { name: "teamWeighInSave" }));
     await waitFor(() =>
-      expect(saveTeamWeighIn).toHaveBeenCalledWith(1, expect.any(String), [{ member: 4, weight_kg: "61.0" }]),
+      expect(saveTeamWeighIn).toHaveBeenCalledWith(1, expect.any(String), [{ member: 4, weight_kg: "61.00" }]),
     );
   });
 
@@ -130,7 +130,7 @@ describe("Team extras", () => {
     fireEvent.change(within(panel).getByLabelText("teamCompetitionName"), { target: { value: "City Open" } });
     fireEvent.click(within(panel).getByRole("button", { name: "teamsSave" }));
     await waitFor(() =>
-      expect(saveTeamCompetition).toHaveBeenCalledWith(1, expect.objectContaining({ competition_name: "City Open", weight_margin_kg: "1.0" })),
+      expect(saveTeamCompetition).toHaveBeenCalledWith(1, expect.objectContaining({ competition_name: "City Open", weight_margin_kg: "1.00" })),
     );
   });
 

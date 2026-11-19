@@ -27,7 +27,7 @@ def _measurement_payload(row: BodyMeasurement) -> dict:
         "id": row.id,
         "member": row.member_id,
         "measured_on": row.measured_on.isoformat(),
-        "weight_kg": None if row.weight_kg is None else f"{row.weight_kg:.1f}",
+        "weight_kg": None if row.weight_kg is None else f"{row.weight_kg:.2f}",
         "height_cm": row.height_cm,
         "note": row.note,
         "recorded_by": row.recorded_by_id,

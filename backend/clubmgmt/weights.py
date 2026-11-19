@@ -1,4 +1,4 @@
-"""Turn a typed weight into the one-decimal value stored on the row."""
+"""Turn a typed kilogram value into the two-decimal number stored on the row."""
 
 from __future__ import annotations
 
@@ -6,11 +6,26 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from rest_framework.exceptions import ValidationError
 
-_ONE_PLACE = Decimal("0.1")
+TWO_PLACES = Decimal("0.01")
 
 
-def normalize_kg(value, *, field: str, code: str, minimum: Decimal, maximum: Decimal) -> Decimal | None:
-    """Accept 44, 44.0, 44.00, and 44,5. Round to one decimal. Reject anything else."""
+def format_kg(value) -> str:
+    return f"{Decimal(value):.2f}"
+
+
+def normalize_kg(
+    value,
+    *,
+    field: str,
+    code: str,
+    minimum: Decimal,
+    maximum: Decimal,
+    keep: Decimal | None = None,
+) -> Decimal | None:
+    """Accept 44, 44.0, 44.00, and 44,5. Round to two decimals.
+
+    A stored value above the maximum is kept when the edit does not change it.
+    """
 
     if value in (None, ""):
         return None
@@ -28,7 +43,9 @@ def normalize_kg(value, *, field: str, code: str, minimum: Decimal, maximum: Dec
         raise ValidationError({field: code}) from exc
     if not number.is_finite():
         raise ValidationError({field: code})
-    number = number.quantize(_ONE_PLACE, rounding=ROUND_HALF_UP)
+    number = number.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
     if number < minimum or number > maximum:
-        raise ValidationError({field: code})
+        kept = None if keep is None else Decimal(keep).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+        if kept is None or number != kept or number < minimum:
+            raise ValidationError({field: code})
     return number

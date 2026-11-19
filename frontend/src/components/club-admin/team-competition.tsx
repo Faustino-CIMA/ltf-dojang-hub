@@ -55,16 +55,22 @@ function draftsFrom(team: ClubTeam): BandDraft[] {
   }));
 }
 
-function parseLimits(value: string): number[] | null {
+function parseLimits(value: string, kept: number[] = []): number[] | null {
   const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
-  const numbers = parts.map((part) => parseWeightKg(part, { min: 0.1, max: 250 }));
+  const numbers = parts.map((part) => {
+    const within = parseWeightKg(part, { min: 0.1, max: 150 });
+    if (within) return Number(within);
+    const stored = parseWeightKg(part, { min: 0.1, max: 999.99 });
+    if (stored && kept.some((item) => item.toFixed(2) === stored)) return Number(stored);
+    return null;
+  });
   if (parts.length === 0 || numbers.some((number) => number == null)) return null;
   const parsed = numbers.map((number) => Number(number));
   if (parsed.some((number, index) => index > 0 && parsed[index - 1] >= number)) return null;
   return parsed;
 }
 
-function parseBands(rows: BandDraft[]): CustomBand[] | null {
+function parseBands(rows: BandDraft[], kept: number[] = []): CustomBand[] | null {
   if (rows.length === 0) return null;
   const parsed: CustomBand[] = [];
   for (const row of rows) {
@@ -72,7 +78,7 @@ function parseBands(rows: BandDraft[]): CustomBand[] | null {
     const ageMin = Number(row.age_min);
     const ageMax = Number(row.age_max);
     if (ageMin > 99 || ageMax > 99 || ageMin > ageMax) return null;
-    const ceilings = parseLimits(row.limits);
+    const ceilings = parseLimits(row.limits, kept);
     if (!ceilings || (row.sex !== "M" && row.sex !== "F" && row.sex !== "X")) return null;
     parsed.push({ label: row.label.trim(), age_min: ageMin, age_max: ageMax, sex: row.sex, ceilings });
   }
@@ -118,12 +124,13 @@ export function TeamCompetitionPanel({
         onSubmit={(event) => {
           event.preventDefault();
           const trimmed = margin.trim();
-          const marginKg = trimmed ? parseWeightKg(trimmed, { min: 0, max: 20 }) : "1.0";
+          const marginKg = trimmed ? parseWeightKg(trimmed, { min: 0, max: 20 }) : "1.00";
           if (!marginKg) {
             setError(t("teamMarginError"));
             return;
           }
-          const custom = setCode === "custom" ? parseBands(bands) : null;
+          const keptCeilings = (team.custom_bands ?? []).flatMap((band) => band.ceilings);
+          const custom = setCode === "custom" ? parseBands(bands, keptCeilings) : null;
           if (kyorugi && setCode === "custom" && !custom) {
             setError(t("teamCustomError"));
             return;

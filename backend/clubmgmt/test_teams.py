@@ -153,7 +153,7 @@ class ClubTeamApiTests(TestCase):
         visible = self.client.get(f"/api/members/?club_id={self.club.id}")
         lea = next(row for row in visible.data if row["id"] == self.lea.id)
         self.assertEqual(lea["teams"][0]["name"], "Cadets")
-        self.assertEqual(lea["latest_weight_kg"], "61.5")
+        self.assertEqual(lea["latest_weight_kg"], "61.50")
         self.assertEqual(lea["latest_height_cm"], 168)
 
         set_club_assignment(club=self.club, module_id=COMPETITION_MODULE_ID, enabled=False, user=self.ltf_admin)
@@ -174,7 +174,7 @@ class ClubTeamApiTests(TestCase):
         again_rows = self.client.get(f"/api/members/?club_id={self.club.id}")
         again = next(row for row in again_rows.data if row["id"] == self.lea.id)
         self.assertEqual(again["teams"][0]["name"], "Cadets")
-        self.assertEqual(again["latest_weight_kg"], "61.5")
+        self.assertEqual(again["latest_weight_kg"], "61.50")
         self.assertEqual(again["latest_height_cm"], 168)
 
     def test_club_management_does_not_open_teams(self):
@@ -207,7 +207,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(listed.status_code, 200, listed.data)
         rows = listed.data["results"] if isinstance(listed.data, dict) else listed.data
         self.assertEqual([row["id"] for row in rows], [self.lea.id])
-        self.assertEqual(rows[0]["latest_weight_kg"], "62.4")
+        self.assertEqual(rows[0]["latest_weight_kg"], "62.40")
         self.assertEqual(rows[0]["teams"][0]["name"], "Cadets")
         both = self.client.get(f"/api/members/?club_id={self.club.id}&ordering=teams")
         both_rows = both.data["results"] if isinstance(both.data, dict) else both.data
@@ -334,7 +334,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(clone["note"], "Last season")
         self.assertEqual(clone["competition_on"], "2026-05-02")
         self.assertEqual(clone["competition_name"], "Open")
-        self.assertEqual(clone["weight_margin_kg"], "1.5")
+        self.assertEqual(clone["weight_margin_kg"], "1.50")
         self.assertEqual({row["id"] for row in clone["members"]}, {self.lea.id, self.mira.id})
         self.assertEqual(clone["groups"][0]["name"], "Mixed")
         self.assertEqual(len(clone["custom_bands"]), 1)
@@ -473,15 +473,15 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(lea["birth_year"], year - 16)
         self.assertEqual(lea["age_class"], "junior")
         self.assertEqual(lea["belt_rank"], "4th Kup")
-        self.assertEqual(lea["latest_weight_kg"], "62.4")
+        self.assertEqual(lea["latest_weight_kg"], "62.40")
         self.assertEqual(lea["weight_category"], "-63 kg")
-        self.assertEqual(lea["weight_delta_kg"], "-0.6")
+        self.assertEqual(lea["weight_delta_kg"], "-0.60")
         self.assertEqual(lea["latest_height_cm"], 170)
         self.assertEqual(lea["licence_status"], "active")
         self.assertEqual(lea["poomsae_division"], "junior")
         mira = by_id[self.mira.id]
         self.assertEqual(mira["age_class"], "pupils")
-        self.assertEqual(mira["latest_weight_kg"], "30.0")
+        self.assertEqual(mira["latest_weight_kg"], "30.00")
         self.assertEqual(mira["weight_category"], "")
         self.assertEqual(mira["weight_category_reason"], "pupils")
         self.assertEqual(mira["role"], "athlete")
@@ -530,7 +530,7 @@ class ClubTeamApiTests(TestCase):
             format="json",
         )
         team_id = created.data["id"]
-        self.assertEqual(created.data["weight_margin_kg"], "1.0")
+        self.assertEqual(created.data["weight_margin_kg"], "1.00")
         for member in (self.lea, self.mira):
             self.client.post(f"/api/club-management/teams/{team_id}/members/", {"member": member.id}, format="json")
         weighed = self.client.post(
@@ -547,7 +547,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(weighed.status_code, 200, weighed.data)
         self.assertEqual(weighed.data["created"], 1)
         mira = next(row for row in weighed.data["team"]["members"] if row["id"] == self.mira.id)
-        self.assertEqual(mira["latest_weight_kg"], "30.0")
+        self.assertEqual(mira["latest_weight_kg"], "30.00")
         self.assertEqual(mira["latest_weight_on"], f"{year}-09-01")
         competition = self.client.patch(
             f"/api/club-management/teams/{team_id}/",
@@ -566,7 +566,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(detail.data["competition_name"], "Open")
         self.assertEqual(lea["age_class"], "junior")
         self.assertEqual(lea["weight_category"], "-63 kg")
-        self.assertEqual(lea["weight_delta_kg"], "-0.6")
+        self.assertEqual(lea["weight_delta_kg"], "-0.60")
         self.assertTrue(lea["weight_warning"])
         self.assertEqual(lea["licence_warning"], "expires")
         self.assertEqual(mira_row["licence_warning"], "missing")
@@ -583,7 +583,7 @@ class ClubTeamApiTests(TestCase):
         text = sheet.content.decode("utf-8-sig")
         self.assertIn("Cadets", text)
         self.assertIn("Kyorugi", text)
-        self.assertIn("62.4", text)
+        self.assertIn("62.40", text)
         self.assertIn("License expires before the competition", text)
         pdf = self.client.get(f"/api/club-management/teams/{team_id}/sheet.pdf?lang=fr")
         self.assertEqual(pdf.status_code, 200, pdf.content[:20])
@@ -723,12 +723,12 @@ class ClubTeamApiTests(TestCase):
         by_id = {row["id"]: row for row in promoted.data["members"]}
         self.assertEqual(by_id[minimes.id]["weight_category"], "")
         self.assertEqual(by_id[minimes.id]["weight_category_reason"], "minimes")
-        self.assertEqual(by_id[minimes.id]["latest_weight_kg"], "32.5")
+        self.assertEqual(by_id[minimes.id]["latest_weight_kg"], "32.50")
         self.assertFalse(by_id[minimes.id]["weight_warning"])
         self.assertEqual(by_id[no_birth.id]["weight_category_reason"], "no_birth_date")
         self.assertEqual(category_reason(date(year - 16, 1, 1), "cadet", "", Decimal("62.4")), "no_sex")
         self.assertEqual(by_id[height_only.id]["weight_category"], "-55 kg")
-        self.assertEqual(by_id[height_only.id]["latest_weight_kg"], "54.0")
+        self.assertEqual(by_id[height_only.id]["latest_weight_kg"], "54.00")
         self.assertEqual(by_id[height_only.id]["weight_category_reason"], "")
         self.assertEqual(by_id[older.id]["age_class"], "senior")
         self.assertEqual(by_id[older.id]["weight_category"], "-58 kg")
@@ -867,12 +867,12 @@ class ClubTeamApiTests(TestCase):
 
         belgium, _payload = apply("be")
         self.assertEqual(belgium[on_limit.id]["weight_category"], "-30 kg")
-        self.assertEqual(belgium[on_limit.id]["weight_delta_kg"], "0.0")
+        self.assertEqual(belgium[on_limit.id]["weight_delta_kg"], "0.00")
         self.assertTrue(belgium[on_limit.id]["weight_warning"])
         self.assertEqual(belgium[under.id]["weight_category"], "-30 kg")
-        self.assertEqual(belgium[under.id]["weight_delta_kg"], "-2.0")
+        self.assertEqual(belgium[under.id]["weight_delta_kg"], "-2.00")
         self.assertFalse(belgium[under.id]["weight_warning"])
-        self.assertEqual(belgium[close.id]["weight_delta_kg"], "-0.8")
+        self.assertEqual(belgium[close.id]["weight_delta_kg"], "-0.80")
         self.assertTrue(belgium[close.id]["weight_warning"])
         self.assertEqual(belgium[age_six.id]["weight_category"], "")
         self.assertEqual(belgium[age_six.id]["weight_category_reason"], "no_set_age")
@@ -881,7 +881,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(belgium[age_eleven.id]["weight_category"], "-24 kg")
         self.assertEqual(belgium[nl_edge.id]["weight_category"], "-52 kg")
         self.assertEqual(belgium[cadet.id]["weight_category"], "-41 kg")
-        self.assertEqual(belgium[cadet.id]["weight_delta_kg"], "-0.8")
+        self.assertEqual(belgium[cadet.id]["weight_delta_kg"], "-0.80")
         self.assertEqual(belgium[junior.id]["weight_category"], "-63 kg")
         self.assertEqual(belgium[senior.id]["weight_category"], "-58 kg")
         self.assertEqual(belgium[coach.id]["weight_category"], "")
@@ -1122,7 +1122,7 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(len(switched.data["custom_bands"]), 1)
         before = next(row for row in switched.data["members"] if row["id"] == self.lea.id)
         self.assertEqual(before["licence_warning"], "expires")
-        self.assertEqual(before["latest_weight_kg"], "62.4")
+        self.assertEqual(before["latest_weight_kg"], "62.40")
 
         male = Member.objects.create(
             club=self.club,
@@ -1171,10 +1171,10 @@ class ClubTeamApiTests(TestCase):
         self.assertEqual(removed.data["competition_name"], "")
         self.assertEqual(removed.data["category_set"], "wt")
         self.assertEqual(removed.data["custom_bands"], [])
-        self.assertEqual(removed.data["weight_margin_kg"], "2.0")
+        self.assertEqual(removed.data["weight_margin_kg"], "2.00")
         after = next(row for row in removed.data["members"] if row["id"] == self.lea.id)
         self.assertEqual(after["licence_warning"], "")
-        self.assertEqual(after["latest_weight_kg"], "62.4")
+        self.assertEqual(after["latest_weight_kg"], "62.40")
         self.assertEqual(after["weight_category"], "-63 kg")
         self.assertEqual([row["id"] for row in removed.data["members"]], [self.lea.id])
         self.assertEqual(BodyMeasurement.objects.filter(member=self.lea).count(), 1)
