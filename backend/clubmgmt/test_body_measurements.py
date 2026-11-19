@@ -119,6 +119,25 @@ class BodyMeasurementApiTests(TestCase):
         )
         self.assertEqual(refused.status_code, 403)
 
+    def test_extra_decimals_and_a_comma_round_to_one_place(self):
+        self._unlock()
+        self._auth(self.club_admin)
+        for typed, stored in (("44", "44.0"), ("44.0", "44.0"), ("44.00", "44.0"), ("44,5", "44.5")):
+            saved = self.client.post(
+                "/api/club-management/measurements/",
+                {"member": self.athlete.id, "measured_on": "2026-03-02", "weight_kg": typed},
+                format="json",
+            )
+            self.assertEqual(saved.status_code, 201, saved.data)
+            self.assertEqual(saved.data["weight_kg"], stored)
+        refused = self.client.post(
+            "/api/club-management/measurements/",
+            {"member": self.athlete.id, "measured_on": "2026-03-02", "weight_kg": "heavy"},
+            format="json",
+        )
+        self.assertEqual(refused.status_code, 400)
+        self.assertIn("weight_out_of_range", str(refused.data))
+
     def test_ranges_and_missing_value_are_refused(self):
         self._unlock()
         self._auth(self.club_admin)

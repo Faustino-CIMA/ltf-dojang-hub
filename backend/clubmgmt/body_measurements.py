@@ -8,7 +8,7 @@ them. That screen is not built yet, and LTF roles cannot read them here.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -19,6 +19,8 @@ from rest_framework.exceptions import ValidationError
 from modules.entitlements import _stored_ids_for, is_install_entitled
 from modules.models import ClubModuleAssignment
 from modules.registry import COMPETITION_MODULE_ID
+
+from .weights import normalize_kg
 
 WEIGHT_MIN = Decimal("10")
 WEIGHT_MAX = Decimal("250")
@@ -267,17 +269,13 @@ def _parse_date(value):
 
 
 def _parse_weight(value):
-    if value in (None, ""):
-        return None
-    try:
-        weight = Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
-        raise ValidationError({"weight_kg": "weight_out_of_range"}) from exc
-    if weight.as_tuple().exponent < -1:
-        raise ValidationError({"weight_kg": "weight_out_of_range"})
-    if weight < WEIGHT_MIN or weight > WEIGHT_MAX:
-        raise ValidationError({"weight_kg": "weight_out_of_range"})
-    return weight.quantize(Decimal("0.1"))
+    return normalize_kg(
+        value,
+        field="weight_kg",
+        code="weight_out_of_range",
+        minimum=WEIGHT_MIN,
+        maximum=WEIGHT_MAX,
+    )
 
 
 def _parse_height(value):

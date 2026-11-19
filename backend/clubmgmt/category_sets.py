@@ -10,12 +10,13 @@ minus the birth year.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from .body_measurements import category_reason, kyorugi_margin, suggest_age_class
+from .weights import normalize_kg
 
 SET_CODES = ("wt", "be", "nl", "de", "fr", "at", "custom")
 
@@ -299,11 +300,14 @@ def _parse_ceilings(value) -> list[int | float]:
         raise ValidationError({"ceilings": "limits_required"})
     limits = []
     for part in parts:
-        try:
-            number = Decimal(str(part))
-        except (InvalidOperation, ValueError) as exc:
-            raise ValidationError({"ceilings": "limits_required"}) from exc
-        if number.as_tuple().exponent < -1 or number <= 0 or number > Decimal("250"):
+        number = normalize_kg(
+            part,
+            field="ceilings",
+            code="limits_required",
+            minimum=Decimal("0.1"),
+            maximum=Decimal("250"),
+        )
+        if number is None:
             raise ValidationError({"ceilings": "limits_required"})
         limits.append(number)
     if any(left >= right for left, right in zip(limits, limits[1:])):

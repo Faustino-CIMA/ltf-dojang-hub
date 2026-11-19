@@ -22,6 +22,7 @@ import {
   type WeightSuggestion,
 } from "@/lib/body-measurements-api";
 import { formatDisplayDate } from "@/lib/date-display";
+import { parseWeightKg } from "@/lib/weight-input";
 import { formatAgeClassLabel } from "@/lib/age-class";
 import { type TableSort } from "@/lib/table-sort";
 
@@ -146,9 +147,7 @@ export function MeasurementEntryPanel({
     if (showWeight) {
       const text = weight.trim();
       if (!text) return t("heightWeightRequired");
-      if (!/^\d+(\.\d)?$/.test(text)) return t("heightWeightRangeError");
-      const value = Number(text);
-      if (value < 10 || value > 250) return t("heightWeightRangeError");
+      if (!parseWeightKg(text)) return t("heightWeightRangeError");
     }
     if (showHeight) {
       const text = height.trim();
@@ -181,7 +180,7 @@ export function MeasurementEntryPanel({
           void saveBodyMeasurement(row?.id ?? null, {
             member: memberId,
             measured_on: measuredOn,
-            weight_kg: showWeight ? weight.trim() : null,
+            weight_kg: showWeight ? parseWeightKg(weight) : null,
             height_cm: showHeight ? Number(height) : null,
             note,
           })

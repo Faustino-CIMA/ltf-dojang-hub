@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { removeTeamCompetition, saveTeamCompetition, type ClubTeam, type CustomBand } from "@/lib/club-teams-api";
+import { parseWeightKg } from "@/lib/weight-input";
 
 const SET_CODES = ["wt", "be", "nl", "de", "fr", "at", "custom"] as const;
 
@@ -56,11 +57,11 @@ function draftsFrom(team: ClubTeam): BandDraft[] {
 
 function parseLimits(value: string): number[] | null {
   const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 0 || parts.some((part) => !/^\d+(\.\d)?$/.test(part))) return null;
-  const numbers = parts.map(Number);
-  if (numbers.some((number) => number <= 0 || number > 250)) return null;
-  if (numbers.some((number, index) => index > 0 && numbers[index - 1] >= number)) return null;
-  return numbers;
+  const numbers = parts.map((part) => parseWeightKg(part, { min: 0.1, max: 250 }));
+  if (parts.length === 0 || numbers.some((number) => number == null)) return null;
+  const parsed = numbers.map((number) => Number(number));
+  if (parsed.some((number, index) => index > 0 && parsed[index - 1] >= number)) return null;
+  return parsed;
 }
 
 function parseBands(rows: BandDraft[]): CustomBand[] | null {
@@ -117,7 +118,8 @@ export function TeamCompetitionPanel({
         onSubmit={(event) => {
           event.preventDefault();
           const trimmed = margin.trim();
-          if (trimmed && (!/^\d+(\.\d)?$/.test(trimmed) || Number(trimmed) > 20)) {
+          const marginKg = trimmed ? parseWeightKg(trimmed, { min: 0, max: 20 }) : "1.0";
+          if (!marginKg) {
             setError(t("teamMarginError"));
             return;
           }
@@ -131,7 +133,7 @@ export function TeamCompetitionPanel({
           void saveTeamCompetition(team.id, {
             competition_on: competitionOn || null,
             competition_name: competitionName.trim(),
-            weight_margin_kg: trimmed || "1.0",
+            weight_margin_kg: marginKg,
             ...(kyorugi
               ? {
                   category_set: setCode,

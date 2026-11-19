@@ -1,5 +1,5 @@
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Count, OuterRef, Q, Subquery
@@ -27,6 +27,7 @@ from .body_measurements import (
     weight_close_to_limit,
 )
 from .category_sets import SET_CODES, bands_for, parse_custom_bands, resolve_category
+from .weights import normalize_kg
 from .team_sheet import sheet_csv, sheet_pdf
 from .teams import (
     ClubTeam,
@@ -107,13 +108,14 @@ def _clean_fields(data, *, creating: bool) -> dict:
 def _parse_margin(value):
     if value in (None, ""):
         return Decimal("1.0")
-    try:
-        margin = Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
-        raise ValidationError({"weight_margin_kg": "margin_out_of_range"}) from exc
-    if margin.as_tuple().exponent < -1 or margin < 0 or margin > Decimal("20"):
-        raise ValidationError({"weight_margin_kg": "margin_out_of_range"})
-    return margin.quantize(Decimal("0.1"))
+    margin = normalize_kg(
+        value,
+        field="weight_margin_kg",
+        code="margin_out_of_range",
+        minimum=Decimal("0"),
+        maximum=Decimal("20"),
+    )
+    return Decimal("1.0") if margin is None else margin
 
 
 def _parse_competition_date(value):

@@ -93,6 +93,19 @@ describe("Team extras", () => {
     jest.mocked(downloadTeamSheet).mockResolvedValue(undefined);
   });
 
+  it("rounds 44.00 and refuses a word", async () => {
+    render(<TeamWeighInPanel team={team} onClose={() => undefined} onSaved={() => undefined} />);
+    fireEvent.change(screen.getByLabelText("teamWeighInWeight"), { target: { value: "44.00" } });
+    fireEvent.click(screen.getByRole("button", { name: "teamWeighInSave" }));
+    await waitFor(() =>
+      expect(saveTeamWeighIn).toHaveBeenCalledWith(1, expect.any(String), [{ member: 4, weight_kg: "44.0" }]),
+    );
+
+    fireEvent.change(screen.getByLabelText("teamWeighInWeight"), { target: { value: "heavy" } });
+    fireEvent.click(screen.getByRole("button", { name: "teamWeighInSave" }));
+    expect(screen.getByText("teamWeighInError")).toBeInTheDocument();
+  });
+
   it("saves a quick weigh-in and skips a blank weight", async () => {
     render(<TeamWeighInPanel team={team} onClose={() => undefined} onSaved={() => undefined} />);
     expect(screen.getByText("heightWeightDate").closest("label")?.querySelector("[data-required='true']")).toBeTruthy();
