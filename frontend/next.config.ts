@@ -4,6 +4,10 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  // The repo root also has a lockfile. Keep this app as the build root.
+  turbopack: {
+    root: import.meta.dirname,
+  },
   async redirects() {
     return [
       {
