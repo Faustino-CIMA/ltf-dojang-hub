@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Dependencies:** The app now runs on Django 6.1.3. Mail still goes out the same way. Login, Stripe checks, and printed cards are unchanged.
 - **Security:** Merged PDFs use pypdf 7.1.1. The pages, text, and form fields stay the same. Card drawing and invoices still use the current WeasyPrint and ReportLab.
 - **Security:** SVG cleaning uses Bleach 6.4.0. A javascript link that hides extra characters is removed. Printed cards stay the same.
 - **Dependencies:** Small updates for the web server, the database driver, mail sending, Tailwind, forms, translations, and tests. The migration check now uses the same Postgres 18 as the app. Login stays on django-allauth 65.22.0.

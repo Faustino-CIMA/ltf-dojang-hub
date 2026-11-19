@@ -488,19 +488,30 @@ RESEND_FROM_EMAIL = config(
     "RESEND_FROM_EMAIL",
     default="no-reply@ltf-license-manager.local",
 )
-EMAIL_HOST = config("EMAIL_HOST", default="")
-EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
-EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
-EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+_EMAIL_HOST = config("EMAIL_HOST", default="")
+_EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
+_EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+_EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+_EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
+_EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
 DEFAULT_FROM_EMAIL = RESEND_FROM_EMAIL
-if _secret_configured(RESEND_API_KEY):
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-elif EMAIL_HOST:
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+if _secret_configured(RESEND_API_KEY) or not str(_EMAIL_HOST or "").strip():
+    _default_mailer = {
+        "BACKEND": "django.core.mail.backends.console.EmailBackend",
+    }
 else:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    _default_mailer = {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": _EMAIL_HOST,
+            "port": _EMAIL_PORT,
+            "username": _EMAIL_HOST_USER,
+            "password": _EMAIL_HOST_PASSWORD,
+            "use_tls": _EMAIL_USE_TLS,
+            "use_ssl": _EMAIL_USE_SSL,
+        },
+    }
+MAILERS = {"default": _default_mailer}
 
 FERNET_KEYS = split_csv(
     config("FERNET_KEYS", default=derive_fernet_key(SECRET_KEY))

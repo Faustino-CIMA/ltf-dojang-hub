@@ -76,7 +76,7 @@ def _send_via_django(to_email, subject, html, text, attachments=None):
                 content = base64.b64decode(content)
             mimetype = item.get("mimetype") or item.get("content_type") or "application/pdf"
             message.attach(filename, content, mimetype)
-        message.send()
+        message.send(using="default")
     except Exception as error:
         logger.warning("SMTP/console email failed: %s", error)
         return False, str(error)

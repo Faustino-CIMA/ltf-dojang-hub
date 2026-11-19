@@ -819,8 +819,7 @@ class ClubAdminManagementTests(TestCase):
 
         with override_settings(
             RESEND_API_KEY="replace-me",
-            EMAIL_HOST="",
-            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
         ):
             response = self.client.post(
                 f"/api/clubs/{self.club.id}/add_admin/",
