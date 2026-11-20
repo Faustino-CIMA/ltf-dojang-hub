@@ -38,7 +38,7 @@ Download links:
 
 Optional for local (non-Docker) development:
 - Python 3.13+
-- Node 24+
+- Node 26+
 
 Windows (WSL) notes:
 - Use WSL2 with a Linux distro (Ubuntu recommended).
