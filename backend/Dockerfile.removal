@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV HF_HUB_OFFLINE=1
 ENV TRANSFORMERS_OFFLINE=1
+ENV HF_HUB_DISABLE_PROGRESS_BARS=1
 ENV BIREFNET_DIR=/opt/birefnet-matting
 
 ARG UID=1000
@@ -33,15 +34,16 @@ RUN apt-get update \
 COPY backend/requirements.lock /app/requirements.lock
 RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock \
   && pip install --no-cache-dir \
-    torch==2.6.0 \
-    torchvision==0.21.0 \
+    torch==2.9.1 \
+    torchvision==0.24.1 \
     --index-url https://download.pytorch.org/whl/cpu \
   && pip install --no-cache-dir \
-    timm==1.0.15 \
-    kornia==0.8.1 \
+    timm==1.0.31 \
+    kornia==0.9.2 \
     einops==0.8.1 \
-    safetensors==0.6.2 \
-    transformers==4.48.3
+    safetensors==0.8.0 \
+    transformers==5.23.0 \
+  && python -c "import torch; assert torch.__version__ == '2.9.1+cpu' and not torch.cuda.is_available()"
 
 COPY --chown=app:app backend/ /app
 COPY --chown=app:app frontend/src/messages /app/i18n_frontend
