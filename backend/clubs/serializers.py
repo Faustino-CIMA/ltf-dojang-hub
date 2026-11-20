@@ -7,6 +7,7 @@ from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
+from .iso3166 import normalize_country_code
 from .languages import normalize_club_language
 from .models import (
     BrandingAsset,
@@ -235,7 +236,7 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(exc.messages) from exc
 
     def validate_country(self, value):
-        return str(value or "").strip()
+        return normalize_country_code(value)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -246,11 +247,12 @@ class FederationProfileSerializer(serializers.ModelSerializer):
             )
             or ""
         ).strip()
-        country = str(
+        country = normalize_country_code(
             attrs.get("country", getattr(self.instance, "country", "")) or ""
-        ).strip()
-        luxembourg = country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}
-        if (not country or luxembourg) and postal_code and not re.fullmatch(r"\d{4}", postal_code):
+        )
+        if "country" in attrs:
+            attrs["country"] = country
+        if (not country or country == "LU") and postal_code and not re.fullmatch(r"\d{4}", postal_code):
             raise serializers.ValidationError(
                 {"postal_code": "Postal code must be 4 digits for Luxembourg."}
             )
@@ -358,14 +360,14 @@ class TrainingVenueSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        country = str(
-            attrs.get("country", getattr(self.instance, "country", "Luxembourg")) or "Luxembourg"
-        ).strip()
+        country = normalize_country_code(
+            attrs.get("country", getattr(self.instance, "country", "LU")) or "LU"
+        ) or "LU"
         attrs["country"] = country
         postal_code = str(
             attrs.get("postal_code", getattr(self.instance, "postal_code", "")) or ""
         ).strip()
-        if country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}:
+        if country == "LU":
             if postal_code and not re.fullmatch(r"\d{4}", postal_code):
                 raise serializers.ValidationError(
                     {"postal_code": _("Postal code must be 4 digits for Luxembourg.")}

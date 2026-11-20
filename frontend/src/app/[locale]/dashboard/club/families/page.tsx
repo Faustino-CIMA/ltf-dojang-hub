@@ -42,7 +42,7 @@ const emptyAddress = (): AddressValue => ({
   street: "",
   house_number: "",
   line2: "",
-  country: "Luxembourg",
+  country: "LU",
   use_for_invoice: true,
 });
 

@@ -23,7 +23,7 @@ function Harness({ initial }: { initial?: Partial<AddressValue> }) {
     street: "",
     house_number: "",
     line2: "",
-    country: "Luxembourg",
+    country: "LU",
     use_for_invoice: false,
     ...initial,
   });
@@ -160,7 +160,7 @@ function JoinedHarness({
           line2,
           postal_code: postal,
           locality,
-          country: "Luxembourg",
+          country: "LU",
           use_for_invoice: false,
         }}
         onChange={(next) => {

@@ -32,7 +32,7 @@ const EMPTY_ADDRESS: AddressValue = {
   street: "",
   house_number: "",
   line2: "",
-  country: "Luxembourg",
+  country: "LU",
   use_for_invoice: false,
 };
 
@@ -99,7 +99,7 @@ export function TrainingVenuesSection({
       street: venue.street,
       house_number: venue.house_number,
       line2: venue.line2,
-      country: venue.country || "Luxembourg",
+      country: venue.country || "LU",
       use_for_invoice: false,
     });
     setFormError(null);
@@ -122,7 +122,7 @@ export function TrainingVenuesSection({
       line2: address.line2.trim(),
       postal_code: address.postal_code.trim(),
       locality: address.locality.trim(),
-      country: address.country.trim() || "Luxembourg",
+      country: address.country.trim() || "LU",
       notes: notes.trim(),
       is_active: isActive,
     };
