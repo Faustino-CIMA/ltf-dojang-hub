@@ -32,6 +32,7 @@ jest.mock("@/lib/license-card-api", () => ({
   createPrintJob: jest.fn(),
   executePrintJob: jest.fn(),
   downloadPrintJobPdf: jest.fn(),
+  waitForPrintJobPdf: jest.fn(),
 }));
 
 jest.mock("@/lib/print-job-pdf", () => ({
@@ -39,13 +40,14 @@ jest.mock("@/lib/print-job-pdf", () => ({
   downloadPdfFile: jest.fn(),
 }));
 
-const { getCardTemplates, getPaperProfiles, downloadPrintJobPdf } = jest.requireMock(
-  "@/lib/license-card-api",
-) as {
-  getCardTemplates: jest.Mock;
-  getPaperProfiles: jest.Mock;
-  downloadPrintJobPdf: jest.Mock;
-};
+const { getCardTemplates, getPaperProfiles, waitForPrintJobPdf, createPrintJob, executePrintJob } =
+  jest.requireMock("@/lib/license-card-api") as {
+    getCardTemplates: jest.Mock;
+    getPaperProfiles: jest.Mock;
+    waitForPrintJobPdf: jest.Mock;
+    createPrintJob: jest.Mock;
+    executePrintJob: jest.Mock;
+  };
 
 describe("PrintLicenceCardsPanel", () => {
   beforeEach(() => {
@@ -54,7 +56,9 @@ describe("PrintLicenceCardsPanel", () => {
     getPaperProfiles.mockResolvedValue([]);
     (printFederationLicenseCards as jest.Mock).mockReset();
     (downloadLicenseCardPdf as jest.Mock).mockReset();
-    downloadPrintJobPdf.mockReset();
+    waitForPrintJobPdf.mockReset();
+    createPrintJob.mockReset();
+    executePrintJob.mockReset();
     (openPdfPreview as jest.Mock).mockReset();
     (downloadPdfFile as jest.Mock).mockReset();
   });
@@ -99,7 +103,7 @@ describe("PrintLicenceCardsPanel", () => {
       jobs: [{ id: 1, job_number: "PJ-1" }],
       skipped_license_ids: [],
     });
-    downloadPrintJobPdf.mockResolvedValue({
+    waitForPrintJobPdf.mockResolvedValue({
       blob: new Blob(["%PDF"], { type: "application/pdf" }),
       filename: "card.pdf",
     });
@@ -217,7 +221,7 @@ describe("PrintLicenceCardsPanel", () => {
       ],
       skipped_license_ids: [],
     });
-    downloadPrintJobPdf.mockImplementation(async (id: number) => ({
+    waitForPrintJobPdf.mockImplementation(async (id: number) => ({
       blob: new Blob([`%PDF-${id}`], { type: "application/pdf" }),
       filename: `license-cards_${id}.pdf`,
     }));
@@ -278,9 +282,11 @@ describe("PrintLicenceCardsPanel", () => {
         licenseIds={[15]}
       />
     );
-    const slotZero = await screen.findByRole("button", { name: "licenseCardPreviewSlotLabel:0" });
-    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(4);
-    fireEvent.click(slotZero);
+    await screen.findByRole("button", { name: "licenseCardPreviewSlotLabel:0" });
+    expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "licenseCardPreviewSlotLabel:1" }));
+    fireEvent.click(screen.getByRole("button", { name: "licenseCardPreviewSlotLabel:2" }));
+    fireEvent.click(screen.getByRole("button", { name: "licenseCardPreviewSlotLabel:3" }));
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
     await waitFor(() => {
       expect(downloadLicenseCardPdf).toHaveBeenCalledWith(15, {
@@ -289,5 +295,48 @@ describe("PrintLicenceCardsPanel", () => {
       });
     });
     expect(downloadPdfFile).toHaveBeenCalled();
+  });
+
+  it("shows progress until the queued PDF is ready", async () => {
+    getCardTemplates.mockResolvedValue([
+      {
+        id: 1,
+        name: "Standard",
+        is_active: true,
+        is_default: true,
+        latest_published_version: { id: 9, label: "v1" },
+      },
+    ]);
+    createPrintJob.mockResolvedValue({ id: 7, job_number: "PJ-7", status: "queued", artifact_pdf: null });
+    executePrintJob.mockResolvedValue({ id: 7, status: "queued" });
+    let releasePdf: (file: { blob: Blob; filename: string }) => void = () => undefined;
+    waitForPrintJobPdf.mockReturnValue(
+      new Promise((resolve) => {
+        releasePdf = resolve;
+      }),
+    );
+    render(
+      <PrintLicenceCardsPanel
+        open
+        onClose={jest.fn()}
+        locale="en"
+        clubId={4}
+        source="licenses"
+        scope="club"
+        licenseIds={[4]}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "printLicenceCardsSubmit" })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "printLicenceCardsSubmit" }));
+    expect((await screen.findAllByText("printLicenceCardsPreparingPdf")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("printLicenceCardsSuccess")).not.toBeInTheDocument();
+    expect(openPdfPreview).not.toHaveBeenCalled();
+    releasePdf({ blob: new Blob(["%PDF"], { type: "application/pdf" }), filename: "card.pdf" });
+    await waitFor(() => {
+      expect(openPdfPreview).toHaveBeenCalled();
+    });
+    expect(await screen.findByText("printLicenceCardsSuccess")).toBeInTheDocument();
   });
 });

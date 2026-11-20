@@ -1478,11 +1478,13 @@ export default function LtfAdminLicenseCardDesignerPage() {
   }, [previewData?.slots]);
 
   const sheetPreviewSlots = useMemo(() => {
-    if (backendSheetSlots.length > 0) {
-      return backendSheetSlots;
-    }
-    return calculatedSheetSlots;
-  }, [backendSheetSlots, calculatedSheetSlots]);
+    const source = backendSheetSlots.length > 0 ? backendSheetSlots : calculatedSheetSlots;
+    const selected = new Set(effectivePreviewSelectedSlots);
+    return source.map((slot) => ({
+      ...slot,
+      selected: selected.has(slot.slot_index),
+    }));
+  }, [backendSheetSlots, calculatedSheetSlots, effectivePreviewSelectedSlots]);
 
   const sheetPreviewScale = useMemo(() => {
     if (!sheetGeometryProfile) {
@@ -1978,13 +1980,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
       setPreviewSelectedSlots([]);
       return;
     }
-    setPreviewSelectedSlots((previousSlots) => {
-      const normalized = normalizeSlotSelection(previousSlots, effectiveSlotCount);
-      if (normalized.length > 0) {
-        return normalized;
-      }
-      return Array.from({ length: effectiveSlotCount }, (_, index) => index);
-    });
+    setPreviewSelectedSlots((previousSlots) => normalizeSlotSelection(previousSlots, effectiveSlotCount));
   }, [effectiveSlotCount]);
 
   useEffect(() => {
@@ -3188,11 +3184,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
     setPreviewSampleDataInput("{}");
     setPreviewPaperProfileValue(TEMPLATE_DEFAULT_PAPER_PROFILE_VALUE);
     setPreviewData(null);
-    if (effectiveSlotCount > 0) {
-      setPreviewSelectedSlots(Array.from({ length: effectiveSlotCount }, (_, index) => index));
-    } else {
-      setPreviewSelectedSlots([]);
-    }
+    setPreviewSelectedSlots([]);
   };
 
   const buildPreviewSheetPayload = useCallback((): CardSheetPreviewRequestInput => {
@@ -3229,10 +3221,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
       }
     }
     if (effectiveSlotCount > 0) {
-      const normalized = normalizeSlotSelection(previewSelectedSlots, effectiveSlotCount);
-      if (normalized.length > 0) {
-        payload.selected_slots = normalized;
-      }
+      payload.selected_slots = normalizeSlotSelection(previewSelectedSlots, effectiveSlotCount);
     }
     return payload;
   }, [
@@ -3298,9 +3287,6 @@ export default function LtfAdminLicenseCardDesignerPage() {
       const payload = buildPreviewSheetPayload();
       const response = await getCardTemplateVersionPreviewData(selectedVersion.id, payload);
       setPreviewData(response);
-      if (Array.isArray(response.selected_slots)) {
-        setPreviewSelectedSlots(response.selected_slots);
-      }
       setSuccessMessage(t("licenseCardPreviewDataLoadedSuccess"));
     } catch (error) {
       setErrorMessage(
@@ -4956,7 +4942,7 @@ export default function LtfAdminLicenseCardDesignerPage() {
                     <div
                       key={slot.slot_index}
                       className={`rounded-md border px-2 py-2 text-xs ${
-                        slot.selected
+                        effectivePreviewSelectedSlots.includes(slot.slot_index)
                           ? "border-primary bg-[var(--accent-soft)] text-primary"
                           : "border-border bg-surface text-foreground"
                       }`}

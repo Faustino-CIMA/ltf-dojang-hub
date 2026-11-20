@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Cards:** A print job waits until the PDF is ready, then opens it. Selected slots are the places where the cards are printed. The job shows the template version, such as v4, rather than the internal number. The PDF itself is unchanged.
 - **Members:** The server cutout uses PyTorch 2.15.0 CPU and torchvision 0.29.1 CPU. timm, kornia, safetensors, and transformers stay where they are. The weights are unchanged. On two drawn pictures, a few mask pixels differ by one grey level. Peak memory stays about 3.9 GB.
 - **Build:** The frontend image and the checks run on Node 26, the current long-term line. The pages and the libraries are unchanged.
 - **Documents:** ReportLab is 5.1.0. The same fake login-link list and subsidy form overlay draw the same pages. Licence cards still use WeasyPrint.
