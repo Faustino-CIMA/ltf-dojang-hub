@@ -307,6 +307,7 @@ export type PrintJob = {
   job_number: string;
   club: number;
   template_version: number;
+  template_version_number?: number | null;
   paper_profile: number | null;
   printer_profile: number | null;
   printer_profile_data: PrinterProfile | null;
@@ -1035,6 +1036,28 @@ export async function downloadLicenseCardPdf(
     blob: await response.blob(),
     filename: filenameFromContentDisposition(response.headers.get("Content-Disposition")),
   };
+}
+
+export async function waitForPrintJobPdf(
+  id: number,
+  options?: {
+    onStatus?: (job: PrintJob) => void;
+    sleep?: (ms: number) => Promise<void>;
+    now?: () => number;
+    timeoutMs?: number;
+    intervalMs?: number;
+  },
+): Promise<PrintJobPdfFile> {
+  const { pollPrintJobUntilPdf } = await import("@/lib/print-job-ready");
+  return pollPrintJobUntilPdf({
+    read: () => getPrintJob(id),
+    download: () => downloadPrintJobPdf(id),
+    onStatus: options?.onStatus,
+    sleep: options?.sleep,
+    now: options?.now,
+    timeoutMs: options?.timeoutMs,
+    intervalMs: options?.intervalMs,
+  });
 }
 
 export async function downloadPrintJobPdf(id: number): Promise<PrintJobPdfFile> {
