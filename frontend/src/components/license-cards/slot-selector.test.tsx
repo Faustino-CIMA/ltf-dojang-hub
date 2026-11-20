@@ -25,6 +25,17 @@ describe("slot selection", () => {
     expect(printJobSelectedSlots([9, 2, 2], 10)).toEqual([2, 9]);
   });
 
+  it("selects the slot where the card will be printed", () => {
+    const onChange = jest.fn();
+    render(<SlotSelector slotCount={4} columns={2} selectedSlots={[]} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "licenseCardPreviewSlotLabel:0" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "licenseCardPreviewSlotLabel:0" }));
+    expect(onChange).toHaveBeenCalledWith([0]);
+  });
+
   it("toggles one slot on the sheet preview", () => {
     const onChange = jest.fn();
     render(

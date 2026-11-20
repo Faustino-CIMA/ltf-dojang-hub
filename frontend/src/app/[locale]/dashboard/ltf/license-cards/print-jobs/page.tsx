@@ -29,12 +29,13 @@ import {
   PrintJobStatus,
   cancelPrintJob,
   deletePrintJob,
-  downloadPrintJobPdf,
   executePrintJob,
   getPrintJobs,
   retryPrintJob,
+  waitForPrintJobPdf,
 } from "@/lib/license-card-api";
 import { downloadPdfFile, openPdfPreview, printJobPdfFilename } from "@/lib/print-job-pdf";
+import { PrintJobNotReady, printJobTemplateVersionLabel } from "@/lib/print-job-ready";
 
 type AuthMeResponse = {
   role: string;
@@ -68,6 +69,7 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
   const [jobToDelete, setJobToDelete] = useState<PrintJob | null>(null);
   const isDeletingRef = useRef(false);
@@ -143,7 +145,7 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
       return (
         job.job_number.toLowerCase().includes(normalizedQuery) ||
         String(job.id).includes(normalizedQuery) ||
-        String(job.template_version).includes(normalizedQuery) ||
+        printJobTemplateVersionLabel(job).toLowerCase().includes(normalizedQuery) ||
         clubName.includes(normalizedQuery)
       );
     });
@@ -234,18 +236,29 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
       createdAt: job.created_at,
     });
 
+  const pdfErrorMessage = (error: unknown) => {
+    if (error instanceof PrintJobNotReady) {
+      return error.reason === "timeout"
+        ? t("licenseCardPrintJobsPdfTimeout")
+        : error.message && error.message !== "failed" && error.message !== "timeout"
+          ? error.message
+          : t("licenseCardPrintJobsPdfFailed");
+    }
+    return error instanceof Error ? error.message : t("licenseCardPrintJobsActionError");
+  };
+
   const handlePreviewPdf = async (job: PrintJob) => {
     setActiveJobId(job.id);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setProgressMessage(t("licenseCardPrintJobsPreparingPdf"));
     try {
-      const file = await downloadPrintJobPdf(job.id);
+      const file = await waitForPrintJobPdf(job.id);
       openPdfPreview(file.blob);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : t("licenseCardPrintJobsActionError")
-      );
+      setErrorMessage(pdfErrorMessage(error));
     } finally {
+      setProgressMessage(null);
       setActiveJobId(null);
     }
   };
@@ -254,14 +267,14 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
     setActiveJobId(job.id);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setProgressMessage(t("licenseCardPrintJobsPreparingPdf"));
     try {
-      const file = await downloadPrintJobPdf(job.id);
+      const file = await waitForPrintJobPdf(job.id);
       downloadPdfFile(file.blob, pdfFilename(job, file.filename));
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : t("licenseCardPrintJobsActionError")
-      );
+      setErrorMessage(pdfErrorMessage(error));
     } finally {
+      setProgressMessage(null);
       setActiveJobId(null);
     }
   };
@@ -299,6 +312,7 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
   return (
     <LtfAdminLayout title={t("licenseCardPrintJobsTitle")} subtitle={t("licenseCardPrintJobsSubtitle")}>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
+      {progressMessage ? <p className="text-sm text-muted">{progressMessage}</p> : null}
 
       <div className="space-y-3">
         <div className="flex flex-col gap-3">
@@ -383,8 +397,8 @@ export default function LtfAdminLicenseCardPrintJobsPage() {
                 key: "template_version",
                 header: t("licenseCardPrintJobTemplateVersionLabel"),
                 sortable: true,
-                sortValue: (job) => job.template_version,
-                render: (job) => `#${job.template_version}`,
+                sortValue: (job) => job.template_version_number ?? job.template_version,
+                render: (job) => printJobTemplateVersionLabel(job),
               },
               {
                 key: "total_items",

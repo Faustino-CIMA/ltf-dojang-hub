@@ -23,9 +23,9 @@ export function allSlotSelection(slotCount: number) {
 }
 
 /**
- * Slots to store on a print job.
- * The designer sends a partial list and omits an empty one. A full sheet is also
- * omitted here so a long run still continues on the next sheet from slot 0.
+ * Slots where cards are printed.
+ * A full sheet is omitted so a long run still continues on the next sheet from slot 0.
+ * An empty choice is also omitted; the print panel refuses to submit that.
  */
 export function printJobSelectedSlots(selectedSlots: number[], slotCount: number): number[] | undefined {
   const normalized = normalizeSlotSelection(selectedSlots, slotCount);

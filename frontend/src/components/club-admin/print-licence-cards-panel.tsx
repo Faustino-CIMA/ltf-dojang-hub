@@ -15,12 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AuthApiError } from "@/lib/auth-errors";
-import { SlotSelector, printJobSelectedSlots, normalizeSlotSelection, allSlotSelection } from "@/components/license-cards/slot-selector";
+import { PrintJobNotReady } from "@/lib/print-job-ready";
+import { SlotSelector, printJobSelectedSlots, normalizeSlotSelection } from "@/components/license-cards/slot-selector";
 import {
   createPrintJob,
   downloadLicenseCardPdf,
-  downloadPrintJobPdf,
   executePrintJob,
+  waitForPrintJobPdf,
   getCardTemplates,
   getPaperProfiles,
   getPrinterProfiles,
@@ -127,6 +128,7 @@ export function PrintLicenceCardsPanel({
   const [printerValue, setPrinterValue] = useState(NO_PRINTER);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreparingPdf, setIsPreparingPdf] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorTone, setErrorTone] = useState<"info" | "danger">("danger");
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
@@ -194,13 +196,7 @@ export function PrintLicenceCardsPanel({
       setSelectedSlots([]);
       return;
     }
-    setSelectedSlots((previous) => {
-      const normalized = normalizeSlotSelection(previous, slotCount);
-      if (normalized.length > 0) {
-        return normalized;
-      }
-      return allSlotSelection(slotCount);
-    });
+    setSelectedSlots((previous) => normalizeSlotSelection(previous, slotCount));
   }, [slotCount]);
 
   const noteError = (error: unknown) => {
@@ -208,19 +204,42 @@ export function PrintLicenceCardsPanel({
     setErrorMessage(error instanceof Error ? error.message : t("printLicenceCardsError"));
   };
 
+  const chosenSlots = normalizeSlotSelection(selectedSlots, slotCount);
+  const slotsReady = slotCount <= 0 || chosenSlots.length > 0;
+
+  const notePdfError = (error: unknown) => {
+    if (error instanceof PrintJobNotReady) {
+      setErrorTone("danger");
+      setErrorMessage(
+        error.reason === "timeout"
+          ? t("printLicenceCardsPdfTimeout")
+          : error.message && error.message !== "failed" && error.message !== "timeout"
+            ? error.message
+            : t("printLicenceCardsPdfFailed"),
+      );
+      return;
+    }
+    noteError(error);
+  };
+
   const openJobPdfs = async (jobs: PrintJob[]) => {
-    for (const [index, created] of jobs.entries()) {
-      const file = await downloadPrintJobPdf(created.id);
-      if (jobs.length === 1 && index === 0) {
-        openPdfPreview(file.blob);
-      } else {
-        downloadPdfFile(file.blob, file.filename || "license-cards.pdf");
+    setIsPreparingPdf(true);
+    try {
+      for (const [index, created] of jobs.entries()) {
+        const file = await waitForPrintJobPdf(created.id);
+        if (jobs.length === 1 && index === 0) {
+          openPdfPreview(file.blob);
+        } else {
+          downloadPdfFile(file.blob, file.filename || "license-cards.pdf");
+        }
       }
+    } finally {
+      setIsPreparingPdf(false);
     }
   };
 
   const submit = async () => {
-    if (!templateVersionId || selectedCount === 0) {
+    if (!templateVersionId || selectedCount === 0 || !slotsReady) {
       return;
     }
     if (scope !== "federation" && !clubId) {
@@ -250,7 +269,6 @@ export function PrintLicenceCardsPanel({
           ...(slots ? { selected_slots: slots } : {}),
         });
         const created = result.jobs[0] ?? null;
-        setJob(created);
         if (result.skipped_license_ids.length > 0) {
           setInfoMessage(t("printLicenceCardsSkipped", { count: result.skipped_license_ids.length }));
         }
@@ -258,7 +276,9 @@ export function PrintLicenceCardsPanel({
           try {
             await openJobPdfs(result.jobs);
           } catch (error) {
-            noteError(error);
+            notePdfError(error);
+          } finally {
+            setJob(created);
           }
         }
       } else {
@@ -275,12 +295,15 @@ export function PrintLicenceCardsPanel({
           },
         });
         await executePrintJob(created.id);
-        setJob(created);
+        setIsPreparingPdf(true);
         try {
-          const file = await downloadPrintJobPdf(created.id);
+          const file = await waitForPrintJobPdf(created.id);
           openPdfPreview(file.blob);
         } catch (error) {
-          noteError(error);
+          notePdfError(error);
+        } finally {
+          setJob(created);
+          setIsPreparingPdf(false);
         }
       }
     } catch (error) {
@@ -307,14 +330,20 @@ export function PrintLicenceCardsPanel({
               isLoading ||
               !templateVersionId ||
               selectedCount === 0 ||
+              !slotsReady ||
               (scope !== "federation" && !clubId)
             }
           >
-            {isSubmitting ? t("printLicenceCardsWorking") : submitLabel || t("printLicenceCardsSubmit")}
+            {isPreparingPdf
+              ? t("printLicenceCardsPreparingPdf")
+              : isSubmitting
+                ? t("printLicenceCardsWorking")
+                : submitLabel || t("printLicenceCardsSubmit")}
           </Button>
         )
       }
     >
+      {isPreparingPdf ? <p className="mb-3 text-sm text-muted">{t("printLicenceCardsPreparingPdf")}</p> : null}
       {infoMessage ? <p className="mb-3 text-sm text-muted">{infoMessage}</p> : null}
       {errorMessage ? (
         <p className={errorTone === "info" ? "mb-3 text-sm text-muted" : "mb-3 text-sm text-destructive"}>
@@ -332,10 +361,13 @@ export function PrintLicenceCardsPanel({
             <Button
               type="button"
               variant="outline"
+              disabled={isPreparingPdf}
               onClick={() => {
-                void downloadPrintJobPdf(job.id)
+                setIsPreparingPdf(true);
+                void waitForPrintJobPdf(job.id)
                   .then((file) => openPdfPreview(file.blob))
-                  .catch((error: unknown) => noteError(error));
+                  .catch((error: unknown) => notePdfError(error))
+                  .finally(() => setIsPreparingPdf(false));
               }}
             >
               {t("printLicenceCardsOpenPdf")}

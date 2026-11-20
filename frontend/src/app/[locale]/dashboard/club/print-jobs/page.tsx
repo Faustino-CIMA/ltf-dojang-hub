@@ -22,12 +22,13 @@ import {
   PrintJobStatus,
   cancelPrintJob,
   deletePrintJob,
-  downloadPrintJobPdf,
   executePrintJob,
   getPrintJobs,
   retryPrintJob,
+  waitForPrintJobPdf,
 } from "@/lib/license-card-api";
 import { downloadPdfFile, openPdfPreview, printJobPdfFilename } from "@/lib/print-job-pdf";
+import { PrintJobNotReady, printJobTemplateVersionLabel } from "@/lib/print-job-ready";
 
 type AuthMeResponse = {
   role: string;
@@ -45,6 +46,7 @@ export default function ClubPrintJobsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
   const [jobToDelete, setJobToDelete] = useState<PrintJob | null>(null);
   const isDeletingRef = useRef(false);
@@ -116,7 +118,7 @@ export default function ClubPrintJobsPage() {
       return (
         job.job_number.toLowerCase().includes(normalizedQuery) ||
         String(job.id).includes(normalizedQuery) ||
-        String(job.template_version).includes(normalizedQuery) ||
+        printJobTemplateVersionLabel(job).toLowerCase().includes(normalizedQuery) ||
         clubName.includes(normalizedQuery)
       );
     });
@@ -185,16 +187,29 @@ export default function ClubPrintJobsPage() {
       createdAt: job.created_at,
     });
 
+  const pdfErrorMessage = (error: unknown) => {
+    if (error instanceof PrintJobNotReady) {
+      return error.reason === "timeout"
+        ? t("printJobsPdfTimeout")
+        : error.message && error.message !== "failed" && error.message !== "timeout"
+          ? error.message
+          : t("printJobsPdfFailed");
+    }
+    return error instanceof Error ? error.message : t("printJobsActionError");
+  };
+
   const handlePreviewPdf = async (job: PrintJob) => {
     setActiveJobId(job.id);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setProgressMessage(t("printJobsPreparingPdf"));
     try {
-      const file = await downloadPrintJobPdf(job.id);
+      const file = await waitForPrintJobPdf(job.id);
       openPdfPreview(file.blob);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("printJobsActionError"));
+      setErrorMessage(pdfErrorMessage(error));
     } finally {
+      setProgressMessage(null);
       setActiveJobId(null);
     }
   };
@@ -203,12 +218,14 @@ export default function ClubPrintJobsPage() {
     setActiveJobId(job.id);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setProgressMessage(t("printJobsPreparingPdf"));
     try {
-      const file = await downloadPrintJobPdf(job.id);
+      const file = await waitForPrintJobPdf(job.id);
       downloadPdfFile(file.blob, pdfFilename(job, file.filename));
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("printJobsActionError"));
+      setErrorMessage(pdfErrorMessage(error));
     } finally {
+      setProgressMessage(null);
       setActiveJobId(null);
     }
   };
@@ -232,6 +249,7 @@ export default function ClubPrintJobsPage() {
   return (
     <ClubAdminLayout title={t("printJobsTitle")} subtitle={t("printJobsSubtitle")}>
       <ActionNotices error={errorMessage} success={successMessage} onDismiss={() => { setErrorMessage(null); setSuccessMessage(null); }} />
+      {progressMessage ? <p className="text-sm text-muted">{progressMessage}</p> : null}
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -284,8 +302,8 @@ export default function ClubPrintJobsPage() {
                 key: "template_version",
                 header: t("printJobTemplateVersionLabel"),
                 sortable: true,
-                sortValue: (job) => job.template_version,
-                render: (job) => `#${job.template_version}`,
+                sortValue: (job) => job.template_version_number ?? job.template_version,
+                render: (job) => printJobTemplateVersionLabel(job),
               },
               {
                 key: "total_items",

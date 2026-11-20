@@ -487,6 +487,10 @@ class PrintJobHistoryEventSerializer(serializers.ModelSerializer):
 class PrintJobSerializer(serializers.ModelSerializer):
     items = PrintJobItemSerializer(many=True, read_only=True)
     printer_profile_data = PrinterProfileSerializer(source="printer_profile", read_only=True)
+    template_version_number = serializers.IntegerField(
+        source="template_version.version_number",
+        read_only=True,
+    )
 
     class Meta:
         model = PrintJob
@@ -495,6 +499,7 @@ class PrintJobSerializer(serializers.ModelSerializer):
             "job_number",
             "club",
             "template_version",
+            "template_version_number",
             "paper_profile",
             "printer_profile",
             "printer_profile_data",
@@ -834,7 +839,7 @@ class CardSheetPreviewRequestSerializer(CardPreviewRequestSerializer):
     selected_slots = serializers.ListField(
         required=False,
         child=serializers.IntegerField(min_value=0),
-        allow_empty=False,
+        allow_empty=True,
     )
 
     def __init__(self, *args, **kwargs):

@@ -4394,6 +4394,63 @@ class PrintJobExecutionPipelineTests(TestCase):
         self.assertTrue(FinanceAuditLog.objects.filter(action="print_job.created").exists())
         self.assertTrue(FinanceAuditLog.objects.filter(action="print_job.succeeded").exists())
 
+    def test_the_card_is_placed_in_the_selected_slot(self):
+        captured: dict[str, str] = {}
+
+        def capture(html, **kwargs):
+            captured["html"] = html
+            return b"%PDF-1.4\n"
+
+        created_job = self._create_print_job(
+            user=self.ltf_admin,
+            payload={
+                "club": self.club.id,
+                "template_version": self.template_version.id,
+                "paper_profile": self.paper_profile.id,
+                "license_ids": [self.license_one.id],
+                "selected_slots": [0],
+            },
+        )
+        self.client.force_authenticate(user=self.ltf_admin)
+        with patch("licenses.print_jobs.render_pdf_bytes_from_html", side_effect=capture):
+            execute_response = self.client.post(
+                f"/api/print-jobs/{created_job['id']}/execute/",
+                {},
+                format="json",
+            )
+        self.assertIn(execute_response.status_code, {status.HTTP_200_OK, status.HTTP_202_ACCEPTED})
+        html = captured["html"]
+        # Last names are stored in capitals, so the card reads "Print ONE".
+        self.assertIn("Print ONE", html)
+        chosen = html.split("left:15.00mm;top:10.00mm;width:85.00mm;", 1)
+        self.assertEqual(len(chosen), 2)
+        self.assertIn("Print ONE", chosen[1])
+        self.assertNotIn("left:110.00mm;top:10.00mm;", html)
+        self.assertEqual(created_job["template_version_number"], self.template_version.version_number)
+
+        second_job = self._create_print_job(
+            user=self.ltf_admin,
+            payload={
+                "club": self.club.id,
+                "template_version": self.template_version.id,
+                "paper_profile": self.paper_profile.id,
+                "license_ids": [self.license_two.id],
+                "selected_slots": [1],
+            },
+        )
+        with patch("licenses.print_jobs.render_pdf_bytes_from_html", side_effect=capture):
+            second_execute = self.client.post(
+                f"/api/print-jobs/{second_job['id']}/execute/",
+                {},
+                format="json",
+            )
+        self.assertIn(second_execute.status_code, {status.HTTP_200_OK, status.HTTP_202_ACCEPTED})
+        second_html = captured["html"]
+        neighbour = second_html.split("left:110.00mm;top:10.00mm;width:85.00mm;", 1)
+        self.assertEqual(len(neighbour), 2)
+        self.assertIn("Print TWO", neighbour[1])
+        self.assertNotIn("left:15.00mm;top:10.00mm;", second_html)
+
     def test_sheet_execution_layout_metadata_matches_preview_geometry(self):
         self.client.force_authenticate(user=self.ltf_admin)
         preview_response = self.client.post(
