@@ -2120,7 +2120,7 @@ class LtfLicensePrefixRewriteTests(TestCase):
 
 @override_settings(
     RESEND_API_KEY="replace-me",
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
 )
 class MemberTransferApiTests(TestCase):
     def setUp(self):
@@ -2177,7 +2177,7 @@ class MemberTransferApiTests(TestCase):
 
         with override_settings(
             RESEND_API_KEY="replace-me",
-            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
         ):
             created = self.client.post(
                 "/api/member-transfers/",
@@ -2200,7 +2200,7 @@ class MemberTransferApiTests(TestCase):
         self.client.force_authenticate(user=self.dest_admin)
         with override_settings(
             RESEND_API_KEY="replace-me",
-            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
         ):
             accepted = self.client.post(
                 f"/api/member-transfers/{transfer_id}/accept/",
@@ -2221,7 +2221,7 @@ class MemberTransferApiTests(TestCase):
 
         with override_settings(
             RESEND_API_KEY="replace-me",
-            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
         ):
             created = self.client.post(
                 "/api/member-transfers/",

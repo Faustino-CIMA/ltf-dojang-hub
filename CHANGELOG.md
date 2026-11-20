@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Cards:** A print job waits until the PDF is ready, then opens it. Selected slots are the places where the cards are printed. The job shows the template version, such as v4, rather than the internal number. The PDF itself is unchanged.
+- **Members:** The server cutout uses PyTorch 2.15.0 CPU and torchvision 0.29.1 CPU. timm, kornia, safetensors, and transformers stay where they are. The weights are unchanged. On two drawn pictures, a few mask pixels differ by one grey level. Peak memory stays about 3.9 GB.
+- **Build:** The frontend image and the checks run on Node 26, the current long-term line. The pages and the libraries are unchanged.
+- **Documents:** ReportLab is 5.1.0. The same fake login-link list and subsidy form overlay draw the same pages. Licence cards still use WeasyPrint.
+- **Members:** The server cutout uses newer CPU builds of PyTorch, timm, kornia, safetensors, and transformers 5. The weights are unchanged and still come from this server. A drawn picture, including thin hair-like lines, produced the same mask. The worker used less memory and was not slower.
+- **Members:** The portrait model on the phone uses onnxruntime-web 1.31.1. The files still come from this site. It still runs on one thread, which is what an iPhone needs. The usual removal tool stays on 1.21.0.
+- **Members:** The card reader on the phone is tesseract.js 7. It still reads English on the device, and the picture is still cleared.
+- **Dependencies:** Icons, form checks, the photo cropper, the shop code scanner, and the test helpers move to their current major versions. The pages should look and work the same.
+- **Dependencies:** The frontend linter is ESLint 10.15.0. TypeScript stays on 5.9.3. The same rules still apply, and the pages are unchanged.
+- **Dependencies:** Stripe's Python library is 17.1.0. Webhook signatures are still checked by Stripe. Requests still use API version 2026-01-28.clover.
+- **Dependencies:** The app now runs on Django 6.1.3. Mail still goes out the same way. Login, Stripe checks, and printed cards are unchanged.
 - **Security:** Merged PDFs use pypdf 7.1.1. The pages, text, and form fields stay the same. Card drawing and invoices still use the current WeasyPrint and ReportLab.
 - **Security:** SVG cleaning uses Bleach 6.4.0. A javascript link that hides extra characters is removed. Printed cards stay the same.
 - **Dependencies:** Small updates for the web server, the database driver, mail sending, Tailwind, forms, translations, and tests. The migration check now uses the same Postgres 18 as the app. Login stays on django-allauth 65.22.0.

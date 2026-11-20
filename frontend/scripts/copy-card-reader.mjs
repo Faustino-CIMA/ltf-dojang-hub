@@ -23,6 +23,8 @@ const trained = path.join(
 
 const files = [
   [worker, "worker.min.js"],
+  [path.join(core, "tesseract-core-relaxedsimd-lstm.wasm.js"), "tesseract-core-relaxedsimd-lstm.wasm.js"],
+  [path.join(core, "tesseract-core-relaxedsimd-lstm.wasm"), "tesseract-core-relaxedsimd-lstm.wasm"],
   [path.join(core, "tesseract-core-simd-lstm.wasm.js"), "tesseract-core-simd-lstm.wasm.js"],
   [path.join(core, "tesseract-core-simd-lstm.wasm"), "tesseract-core-simd-lstm.wasm"],
   [path.join(core, "tesseract-core-lstm.wasm.js"), "tesseract-core-lstm.wasm.js"],

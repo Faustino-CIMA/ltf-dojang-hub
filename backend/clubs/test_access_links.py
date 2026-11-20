@@ -17,7 +17,10 @@ from .access_links import RATE_LIMIT
 from .models import Club
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", RESEND_API_KEY="")
+@override_settings(
+    MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}},
+    RESEND_API_KEY="",
+)
 class ClubAdminAccessLinkTests(TestCase):
     def setUp(self):
         cache.clear()

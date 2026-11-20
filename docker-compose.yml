@@ -180,7 +180,7 @@ services:
 
   # Starts with the rest of the app. The 5 GB cap is in this file because the
   # host has no separate memory field for one service. One photo, then the
-  # process exits. Measured peak about 4.2 GB. No swap beyond that cap.
+  # process exits. Measured peak about 3.9 GB on PyTorch 2.15 CPU. No swap beyond that cap.
   removal-worker:
     image: ltf-license-manager-removal
     mem_limit: 5g
@@ -208,6 +208,7 @@ services:
       BIREFNET_DIR: /opt/birefnet-matting
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
       OMP_NUM_THREADS: "2"
       MKL_NUM_THREADS: "2"
     depends_on:
