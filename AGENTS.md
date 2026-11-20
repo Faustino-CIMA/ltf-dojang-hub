@@ -6,6 +6,7 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - Pin every runtime dependency to an exact version (`==`) in the backend requirements, and commit the frontend lockfile. No `>=`, `~=`, or unpinned names.
 - Prefer a lock file with hashes (pip-tools `pip-compile --generate-hashes`), and install from it in the Docker image. Two builds of the same commit must install identical versions.
 - Upgrade dependencies only in their own PR, one library (or one tightly coupled group) at a time. Read the library's changelog for breaking changes and list them in the PR body.
+- Before any version choice, follow section 11. Check the live registries and whether the packages work together on our Python and Node. Do not trust a remembered version.
 - Anything security- or auth-related (django-allauth, DRF, Django, Stripe, cryptography, MFA libs) gets an upgrade PR that also includes tests exercising the real login path.
 - CI must fail if the requirements and the lock file disagree, and should run `pip check`.
 - Never rely on private or undocumented library internals. When you must call library APIs whose return shape can change, wrap them in one small adapter module with its own tests, so there's a single place to fix.
@@ -66,7 +67,7 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - What changed and why, in plain words.
 - What existing code you reused, and anything you made shared.
 - Risks, and what you checked so nothing existing breaks.
-- Dependency changes (with versions and changelog notes), migrations, new settings or env vars.
+- Dependency changes (with versions and changelog notes), migrations, new settings or env vars. For an upgrade, include the section 11 table.
 - Test counts (backend, Jest) and any manual check steps.
 
 ## 10. PR and merge workflow
@@ -77,3 +78,21 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - Right before merge, check shared files against `develop`: locale JSON files (`en`, `fr`, `de`, `lb`) and migration files. If two pull requests both add migrations, the later one renumbers or regenerates its migration after the first has merged, so the numbers and dependencies do not clash. Schema and data migrations stay in separate files.
 - Never force-push. Never reset a published branch. Never move `develop` or `main` backwards.
 - Do not merge your own pull requests. The maintainer merges. CI on the pull request must be green first.
+
+## 11. Upgrades
+Before choosing or changing a version, read the live package lists. A remembered version is not evidence.
+
+- PyPI: `https://pypi.org/pypi/<name>/json`. Use the latest non-yanked release, its upload date, `requires_python`, and the wheel filenames.
+- npm: `npm view <name> version`, `time`, and `dist-tags`. The stable version is the `latest` tag. Ignore `dev`, `next`, and `beta` unless the maintainer asked for one.
+- Docker Hub tag API for base images (`python`, `node`, `postgres`, `redis`), including the tag's last update.
+- Node: `https://nodejs.org/dist/index.json`. Prefer the newest entry whose `lts` field is set. An alpha, or a non-LTS current line, is not the default.
+- Python: `https://www.python.org/api/v2/downloads/release/?is_published=true&pre_release=false`. The latest stable is the release with `is_latest` true and `pre_release` false.
+
+Then check those versions against each other, including the Python version and the Node version we run:
+
+- A wheel exists for our Python ABI (`cp313` today), and for a newer Python if one is current. CPU-only torch and torchvision come from the CPU index, not a wheel that bundles CUDA.
+- `requires_python` and the published Python classifiers. A classifier that stops at an older Python is a reason to hold, even when a pure-Python package would still install.
+- npm `peerDependencies` and `engines` for Node.
+- The framework's own matrix (Django's Python classifiers, the torch and torchvision pair, a browser library's Node range).
+
+In the pull request, show a table: our version, the latest stable version, that version's release date, and whether we are behind. For every version kept below the latest stable, write one reason. Do not move a held-back version unless the maintainer says so. One library, or one tightly coupled group, per pull request, as in section 1.

@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** The server cutout uses PyTorch 2.15.0 CPU and torchvision 0.29.1 CPU. timm, kornia, safetensors, and transformers stay where they are. The weights are unchanged. On two drawn pictures, a few mask pixels differ by one grey level. Peak memory stays about 3.9 GB.
 - **Build:** The frontend image and the checks run on Node 26, the current long-term line. The pages and the libraries are unchanged.
 - **Documents:** ReportLab is 5.1.0. The same fake login-link list and subsidy form overlay draw the same pages. Licence cards still use WeasyPrint.
 - **Members:** The server cutout uses newer CPU builds of PyTorch, timm, kornia, safetensors, and transformers 5. The weights are unchanged and still come from this server. A drawn picture, including thin hair-like lines, produced the same mask. The worker used less memory and was not slower.
