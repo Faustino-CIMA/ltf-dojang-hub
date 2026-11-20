@@ -40,7 +40,7 @@ Status: Hybrid responsive design-token refinements merged: `--control-height`, `
 Current Stack (locked) — Updated 2026-08-20
 - Backend: python:3.13-slim + Django 6.0.8 + DRF 3.18.0 + PostgreSQL 18
 - Frontend: Next.js 16.3.2 (App Router) + React 19.2.8 + TypeScript 5.9.3 + Tailwind 4.3.3
-- Runtime: Python 3.13 + Node 22
+- Runtime: Python 3.13 + Node 24
 - Cache / queue: Redis 8 + Celery 5.6.3
 - Containers: Docker + Dokploy deployment
 
