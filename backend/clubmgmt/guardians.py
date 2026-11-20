@@ -106,7 +106,7 @@ def remember_person_invoice_details(person: Person, *, email: str, phone: str, a
         "line2": str(address.get("line2") or "").strip(),
         "postal_code": str(address.get("postal_code") or "").strip(),
         "locality": str(address.get("locality") or "").strip(),
-        "country": str(address.get("country") or "").strip() or "Luxembourg",
+        "country": str(address.get("country") or "").strip() or "LU",
     }
     flag = _wants_invoice_address(address)
     current = person.addresses.filter(use_for_invoice=True).first() or person.addresses.first()
@@ -148,7 +148,7 @@ def remember_member_invoice_details(member: Member, *, email: str, phone: str, a
         "line2": str(address.get("line2") or "").strip(),
         "postal_code": str(address.get("postal_code") or "").strip(),
         "locality": str(address.get("locality") or "").strip(),
-        "country": str(address.get("country") or "").strip() or "Luxembourg",
+        "country": str(address.get("country") or "").strip() or "LU",
     }
     flag = _wants_invoice_address(address)
     flagged_address = member.club_addresses.filter(use_for_invoice=True).first()
@@ -197,7 +197,7 @@ def _address_from_data(data: dict) -> dict:
         "line2": data.get("line2") or "",
         "postal_code": data.get("postal_code") or "",
         "locality": data.get("locality") or "",
-        "country": data.get("country") or "Luxembourg",
+        "country": data.get("country") or "LU",
     }
     if "use_for_invoice" in data:
         address["use_for_invoice"] = bool(data.get("use_for_invoice"))

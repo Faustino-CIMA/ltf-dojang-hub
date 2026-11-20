@@ -33,7 +33,7 @@ function venue(id: number, name: string, extra: Partial<TrainingVenue> = {}): Tr
     line2: "",
     postal_code: "",
     locality: "",
-    country: "Luxembourg",
+    country: "LU",
     notes: "",
     is_active: true,
     sort_order: id,

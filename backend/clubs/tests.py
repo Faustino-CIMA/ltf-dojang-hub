@@ -1247,8 +1247,8 @@ class FederationProfileApiTests(TestCase):
             format="json",
         )
         self.assertEqual(saved.status_code, status.HTTP_200_OK, getattr(saved, "data", None))
-        self.assertEqual(saved.data["country"], "Germany")
-        self.assertEqual(FederationProfile.objects.get(pk=1).country, "Germany")
+        self.assertEqual(saved.data["country"], "DE")
+        self.assertEqual(FederationProfile.objects.get(pk=1).country, "DE")
 
         cleared = self.client.patch(
             "/api/federation-profile/",

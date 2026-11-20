@@ -478,7 +478,7 @@ export default function ClubAdminSettingsPage() {
                     line2: addressLine2,
                     postal_code: postalCode,
                     locality: localityValue,
-                    country: "Luxembourg",
+                    country: "LU",
                     use_for_invoice: false,
                   }}
                   onChange={(next) => {

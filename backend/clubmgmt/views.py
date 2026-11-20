@@ -226,7 +226,7 @@ def _sync_member_contacts_lists(member, data):
                 line2=row.get("line2") or "",
                 postal_code=row.get("postal_code") or "",
                 locality=row.get("locality") or "",
-                country=row.get("country") or "Luxembourg",
+                country=row.get("country") or "LU",
                 use_for_invoice=bool(row.get("use_for_invoice")),
             )
 
@@ -352,7 +352,7 @@ def _sync_person_lists(person, data):
                 line2=row.get("line2") or "",
                 postal_code=row.get("postal_code") or "",
                 locality=row.get("locality") or "",
-                country=row.get("country") or "Luxembourg",
+                country=row.get("country") or "LU",
                 use_for_invoice=bool(row.get("use_for_invoice")),
             )
 

@@ -117,8 +117,14 @@ class PersonAddress(models.Model):
     line2 = models.CharField(max_length=255, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
-    country = models.CharField(max_length=64, default="Luxembourg")
+    country = models.CharField(max_length=64, default="LU")
     use_for_invoice = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        from clubs.iso3166 import normalize_country_code
+
+        self.country = normalize_country_code(self.country) or "LU"
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["id"]
@@ -204,8 +210,14 @@ class MemberAddress(models.Model):
     line2 = models.CharField(max_length=255, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
-    country = models.CharField(max_length=64, default="Luxembourg")
+    country = models.CharField(max_length=64, default="LU")
     use_for_invoice = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        from clubs.iso3166 import normalize_country_code
+
+        self.country = normalize_country_code(self.country) or "LU"
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["id"]

@@ -259,7 +259,9 @@ def _issuer() -> dict:
         postal = _postal_locality(profile.postal_code, profile.locality)
         if postal:
             lines.append(postal)
-        country = _shown_line(getattr(profile, "country", ""))
+        from clubs.iso3166 import country_name_en
+
+        country = country_name_en(_shown_line(getattr(profile, "country", "")))
         if country:
             lines.append(country)
         elif lines and not any("luxembourg" in line.casefold() for line in lines):

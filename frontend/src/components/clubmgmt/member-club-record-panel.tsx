@@ -76,7 +76,7 @@ const emptyAddress = (): AddressValue => ({
   street: "",
   house_number: "",
   line2: "",
-  country: "Luxembourg",
+  country: "LU",
   use_for_invoice: false,
 });
 
@@ -430,7 +430,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
       street: row.street,
       house_number: row.house_number,
       line2: row.line2,
-      country: row.country || "Luxembourg",
+      country: row.country || "LU",
       use_for_invoice: row.use_for_invoice,
     });
   };
@@ -447,7 +447,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
       line2: item.line2,
       postal_code: item.postal_code,
       locality: item.locality,
-      country: item.country || "Luxembourg",
+      country: item.country || "LU",
       use_for_invoice: item.use_for_invoice,
     }));
     setGuardianAddresses(storedAddresses);
@@ -469,7 +469,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             line2: address.line2,
             postal_code: address.postal_code,
             locality: address.locality,
-            country: address.country || "Luxembourg",
+            country: address.country || "LU",
             use_for_invoice: address.use_for_invoice,
           }
         : { ...emptyAddress(), use_for_invoice: true },

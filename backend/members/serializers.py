@@ -129,8 +129,10 @@ def _store_member_identity(
         record.social_security_country = country if raw else (record.social_security_country or "")
         fields.extend(["social_security_number", "social_security_country"])
     if write_nationality:
-        record.nationality_1 = str(nationality_1 or "").strip()[:64]
-        record.nationality_2 = str(nationality_2 or "").strip()[:64]
+        from clubs.iso3166 import normalize_country_code
+
+        record.nationality_1 = normalize_country_code(nationality_1)[:64]
+        record.nationality_2 = normalize_country_code(nationality_2)[:64]
         fields.extend(["nationality_1", "nationality_2"])
     record.save(update_fields=fields)
 

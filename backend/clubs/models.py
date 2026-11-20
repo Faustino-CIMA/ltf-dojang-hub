@@ -9,6 +9,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from .banking import derive_bank_name_from_iban, is_valid_iban, normalize_iban
+from .iso3166 import normalize_country_code
 from .languages import DEFAULT_CLUB_LANGUAGE, normalize_club_language
 
 _WEBSITE_VALIDATOR = URLValidator(schemes=["http", "https"])
@@ -172,7 +173,7 @@ class TrainingVenue(models.Model):
     line2 = models.CharField(max_length=255, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     locality = models.CharField(max_length=255, blank=True)
-    country = models.CharField(max_length=64, default="Luxembourg")
+    country = models.CharField(max_length=64, default="LU")
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
@@ -183,13 +184,17 @@ class TrainingVenue(models.Model):
         ordering = ["sort_order", "name", "id"]
 
     def clean(self):
-        country = str(self.country or "").strip() or "Luxembourg"
+        country = normalize_country_code(self.country) or "LU"
         self.country = country
-        if country.casefold() in {"luxembourg", "luxemburg", "letzebuerg", "lëtzebuerg"}:
+        if country == "LU":
             _validate_luxembourg_postal_code(self.postal_code)
         self.name = str(self.name or "").strip()
         if not self.name:
             raise ValidationError({"name": _("Enter a name for this training venue.")})
+
+    def save(self, *args, **kwargs):
+        self.country = normalize_country_code(self.country) or "LU"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -231,13 +236,8 @@ class FederationProfile(models.Model):
             )
         except ValidationError as exc:
             raise ValidationError({"license_photo_background_color": exc.messages}) from exc
-        self.country = str(self.country or "").strip()
-        if not self.country or self.country.casefold() in {
-            "luxembourg",
-            "luxemburg",
-            "letzebuerg",
-            "lëtzebuerg",
-        }:
+        self.country = normalize_country_code(self.country)
+        if not self.country or self.country == "LU":
             _validate_luxembourg_postal_code(self.postal_code)
         self.rcs_number = normalize_rcs_number(self.rcs_number)
         if self.rcs_number and not RCS_NUMBER_RE.fullmatch(self.rcs_number):
@@ -259,6 +259,7 @@ class FederationProfile(models.Model):
     def save(self, *args, **kwargs):
         if self.pk is None:
             self.pk = 1
+        self.country = normalize_country_code(self.country)
         super().save(*args, **kwargs)
 
     def __str__(self):

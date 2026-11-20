@@ -246,7 +246,7 @@ export function ClubFormPanel({
               line2: values.address_line2,
               postal_code: values.postal_code,
               locality: values.locality,
-              country: "Luxembourg",
+              country: "LU",
               use_for_invoice: false,
             }}
             onChange={(next) => {

@@ -72,7 +72,14 @@ def invoice_address(member) -> dict | None:
 
 def format_address(address) -> str:
     line1 = " ".join(part for part in [address.street, address.house_number] if part).strip()
-    lines = [line1, address.line2, " ".join(part for part in [address.postal_code, address.locality] if part).strip(), address.country]
+    from clubs.iso3166 import country_name_en
+
+    lines = [
+        line1,
+        address.line2,
+        " ".join(part for part in [address.postal_code, address.locality] if part).strip(),
+        country_name_en(address.country),
+    ]
     return "\n".join(part for part in lines if part)
 
 

@@ -1,4 +1,5 @@
 import { formatFirstName, formatFullName, formatLastName, fullNameSortKey } from "@/lib/person-name";
+import { ISO_3166_1_ALPHA_2 } from "@/lib/iso-3166-1-alpha-2";
 import {
   addressCountryConfig,
   nationalityCodeFromStored,
@@ -40,21 +41,35 @@ describe("nationality and phone label helpers", () => {
     expect(nationalityCodeFromStored("")).toBe("");
   });
 
-  it("includes Thailand and other previously missing countries", () => {
-    const codes = nationalityOptions("en").map((row) => row.code);
-    expect(codes).toEqual(expect.arrayContaining(["TH", "KR", "SI", "CY", "MT", "AL", "JP", "VN"]));
+  it("lists every ISO country in locale order, with accents beside their base letter", () => {
+    for (const locale of ["en", "fr", "de", "lb"]) {
+      const options = nationalityOptions(locale);
+      expect(options.map((row) => row.code).sort()).toEqual([...ISO_3166_1_ALPHA_2].sort());
+      const collator = new Intl.Collator(locale, { usage: "sort", sensitivity: "variant" });
+      const names = options.map((row) => row.name);
+      expect([...names].sort((left, right) => collator.compare(left, right))).toEqual(names);
+    }
+    const french = nationalityOptions("fr");
+    const at = (code: string) => french.findIndex((row) => row.code === code);
+    expect(at("EG")).toBeGreaterThan(-1);
+    expect(at("EG")).toBeLessThan(at("ES"));
+    expect(at("EG")).toBeLessThan(at("ZW"));
+    expect(french[0]?.code).not.toBe("LU");
     expect(nationalityOptions("en").find((row) => row.code === "TH")?.name).toMatch(/thailand/i);
+    expect(nationalityCodeFromStored("Narnia")).toBe("Narnia");
   });
 
-  it("normalizes Greater Region address countries", () => {
-    expect(normalizeAddressCountry("")).toBe("Luxembourg");
-    expect(normalizeAddressCountry("de")).toBe("Germany");
-    expect(normalizeAddressCountry("Belgique")).toBe("Belgium");
-    expect(normalizeAddressCountry("France")).toBe("France");
-    expect(addressCountryConfig("Germany").postalDigits).toBe(5);
-    expect(addressCountryConfig("Belgium").postalDigits).toBe(4);
-    expect(addressCountryConfig("France").lookup).toBe(false);
-    expect(addressCountryConfig("Luxembourg").lookup).toBe(true);
+  it("normalizes Greater Region address countries to ISO codes", () => {
+    expect(normalizeAddressCountry("")).toBe("LU");
+    expect(normalizeAddressCountry("de")).toBe("DE");
+    expect(normalizeAddressCountry("Belgique")).toBe("BE");
+    expect(normalizeAddressCountry("France")).toBe("FR");
+    expect(normalizeAddressCountry("Luxembourg")).toBe("LU");
+    expect(addressCountryConfig("DE").postalDigits).toBe(5);
+    expect(addressCountryConfig("BE").postalDigits).toBe(4);
+    expect(addressCountryConfig("FR").lookup).toBe(false);
+    expect(addressCountryConfig("LU").lookup).toBe(true);
+    expect(addressCountryConfig("Germany").name).toBe("Germany");
   });
 
   it("normalizes phone labels to translation keys", () => {

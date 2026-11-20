@@ -16,9 +16,9 @@ import {
   splitAddressSuggestion,
 } from "@/lib/address-suggestion";
 import {
-  ADDRESS_COUNTRIES,
   addressCountryConfig,
-  nationalityLabel,
+  nationalityCodeFromStored,
+  nationalityOptions,
   normalizeAddressCountry,
 } from "@/lib/nationalities";
 
@@ -69,14 +69,15 @@ export function LuAddressFields({
   const storedCountry = value.country.trim();
   const country =
     allowBlankCountry && !storedCountry ? "" : normalizeAddressCountry(storedCountry);
-  const countryConfig = addressCountryConfig(country || "Luxembourg");
+  const countryConfig = addressCountryConfig(country || "LU");
   const countryOptions = useMemo(() => {
-    const listed: string[] = ADDRESS_COUNTRIES.map((row) => row.name);
-    if (country && !listed.includes(country)) {
-      return [country, ...listed];
+    const listed = nationalityOptions(locale);
+    const stored = nationalityCodeFromStored(country);
+    if (stored && !listed.some((row) => row.code === stored)) {
+      return [{ code: stored, name: stored }, ...listed];
     }
     return listed;
-  }, [country]);
+  }, [country, locale]);
 
   const streetNames = useMemo(() => lookupStreetNames(streets, houses), [houses, streets]);
   const knownLocalities = useMemo(() => {
@@ -211,10 +212,7 @@ export function LuAddressFields({
             placeholder={allowBlankCountry ? t("countryNotSet") : undefined}
             options={[
               ...(allowBlankCountry ? [{ value: "", label: t("countryNotSet") }] : []),
-              ...countryOptions.map((name) => {
-                const code = ADDRESS_COUNTRIES.find((row) => row.name === name)?.code;
-                return { value: name, label: code ? nationalityLabel(code, locale) : name };
-              }),
+              ...countryOptions.map((row) => ({ value: row.code, label: row.name })),
             ]}
           />
         </div>

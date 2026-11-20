@@ -1,162 +1,23 @@
-export const PRIORITY_NATIONALITY_CODES = [
-  "LU",
-  "FR",
-  "DE",
-  "BE",
-  "PT",
-  "IT",
-  "ES",
-  "NL",
-  "PL",
-  "RO",
-  "CV",
-  "TH",
-] as const;
+import { ISO_3166_1_ALIASES, ISO_3166_1_ALPHA_2 } from "@/lib/iso-3166-1-alpha-2";
 
-/** UN members plus common extras, used when Intl.supportedValuesOf is unavailable. */
-export const FALLBACK_NATIONALITY_CODES = [
-  ...PRIORITY_NATIONALITY_CODES,
-  "AD",
-  "AE",
-  "AF",
-  "AL",
-  "AM",
-  "AO",
-  "AR",
-  "AT",
-  "AU",
-  "AZ",
-  "BA",
-  "BD",
-  "BG",
-  "BR",
-  "BY",
-  "CA",
-  "CD",
-  "CG",
-  "CH",
-  "CI",
-  "CL",
-  "CM",
-  "CN",
-  "CO",
-  "CY",
-  "CZ",
-  "DK",
-  "DO",
-  "DZ",
-  "EE",
-  "EG",
-  "ET",
-  "FI",
-  "GB",
-  "GE",
-  "GH",
-  "GN",
-  "GR",
-  "HR",
-  "HU",
-  "ID",
-  "IE",
-  "IL",
-  "IN",
-  "IQ",
-  "IR",
-  "IS",
-  "JP",
-  "KE",
-  "KH",
-  "KR",
-  "KZ",
-  "LB",
-  "LK",
-  "LT",
-  "LV",
-  "MA",
-  "MD",
-  "ME",
-  "MK",
-  "ML",
-  "MT",
-  "MX",
-  "MY",
-  "NG",
-  "NO",
-  "NP",
-  "NZ",
-  "PE",
-  "PH",
-  "PK",
-  "PS",
-  "RS",
-  "RU",
-  "SE",
-  "SG",
-  "SI",
-  "SK",
-  "SN",
-  "SY",
-  "TN",
-  "TR",
-  "TW",
-  "UA",
-  "US",
-  "UZ",
-  "VN",
-  "XK",
-  "ZA",
-] as const;
-
-export const NATIONALITY_CODES = FALLBACK_NATIONALITY_CODES;
-
-const LEGACY_NATIONALITY_MAP: Record<string, string> = {
-  luxembourg: "LU",
-  luxembourgeois: "LU",
-  lëtzebuergesch: "LU",
-  france: "FR",
-  french: "FR",
-  germany: "DE",
-  german: "DE",
-  belgium: "BE",
-  belgian: "BE",
-  portugal: "PT",
-  portuguese: "PT",
-  italy: "IT",
-  italian: "IT",
-  spain: "ES",
-  spanish: "ES",
-  netherlands: "NL",
-  dutch: "NL",
-  poland: "PL",
-  polish: "PL",
-  romania: "RO",
-  romanian: "RO",
-  "cape verde": "CV",
-  "cabo verde": "CV",
-  thailand: "TH",
-  thai: "TH",
-  korea: "KR",
-  "south korea": "KR",
-  "côte d'ivoire": "CI",
-  "ivory coast": "CI",
-};
+export const ISO_3166_1_CODES = ISO_3166_1_ALPHA_2;
 
 export function nationalityCodeFromStored(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
     return "";
   }
-  if (trimmed.length === 2) {
+  if (/^[a-z]{2}$/i.test(trimmed)) {
     return trimmed.toUpperCase();
   }
-  return LEGACY_NATIONALITY_MAP[trimmed.toLowerCase()] ?? trimmed;
+  return ISO_3166_1_ALIASES[trimmed.toLocaleLowerCase()] ?? trimmed;
 }
 
 export function nationalityLabel(code: string, locale: string): string {
   if (!code) {
     return "";
   }
-  if (code.length !== 2) {
+  if (!/^[a-z]{2}$/i.test(code)) {
     return code;
   }
   try {
@@ -166,75 +27,50 @@ export function nationalityLabel(code: string, locale: string): string {
   }
 }
 
-function isoRegionCodes(): string[] {
-  try {
-    const supported = (Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
-    if (typeof supported === "function") {
-      return supported.call(Intl, "region").filter((code) => /^[A-Z]{2}$/.test(code));
-    }
-  } catch {
-    // Use the fallback catalog.
+const collatorCache = new Map<string, Intl.Collator>();
+
+function nameCollator(locale: string): Intl.Collator {
+  const cached = collatorCache.get(locale);
+  if (cached) {
+    return cached;
   }
-  return [...FALLBACK_NATIONALITY_CODES];
+  const collator = new Intl.Collator(locale, { usage: "sort", sensitivity: "variant" });
+  collatorCache.set(locale, collator);
+  return collator;
 }
 
+/** Every ISO 3166-1 country, labelled and sorted for the active locale. */
 export function nationalityOptions(locale: string): Array<{ code: string; name: string }> {
-  const unique = [...new Set([...PRIORITY_NATIONALITY_CODES, ...isoRegionCodes()])];
-  const names = unique
-    .map((code) => ({ code, name: nationalityLabel(code, locale) }))
-    .filter((row) => row.name && row.name !== row.code);
-  const priority = new Set<string>(PRIORITY_NATIONALITY_CODES);
-  const preferred = names.filter((row) => priority.has(row.code));
-  const rest = names
-    .filter((row) => !priority.has(row.code))
-    .sort((a, b) => a.name.localeCompare(b.name, locale));
-  return [...preferred, ...rest];
+  const collator = nameCollator(locale);
+  return ISO_3166_1_CODES.map((code) => ({ code, name: nationalityLabel(code, locale) || code })).sort(
+    (left, right) => collator.compare(left.name, right.name) || left.code.localeCompare(right.code),
+  );
 }
 
-export const ADDRESS_COUNTRIES = [
-  { name: "Luxembourg", code: "LU", postalDigits: 4, lookup: true },
-  { name: "Germany", code: "DE", postalDigits: 5, lookup: false },
-  { name: "Belgium", code: "BE", postalDigits: 4, lookup: false },
-  { name: "France", code: "FR", postalDigits: 5, lookup: false },
-] as const;
-
-export type AddressCountryName = (typeof ADDRESS_COUNTRIES)[number]["name"];
-
-const ADDRESS_COUNTRY_ALIASES: Record<string, AddressCountryName> = {
-  lu: "Luxembourg",
-  luxembourg: "Luxembourg",
-  lëtzebuerg: "Luxembourg",
-  luxemburg: "Luxembourg",
-  de: "Germany",
-  germany: "Germany",
-  deutschland: "Germany",
-  allemagne: "Germany",
-  be: "Belgium",
-  belgium: "Belgium",
-  belgique: "Belgium",
-  belgien: "Belgium",
-  fr: "France",
-  france: "France",
+const POSTAL_RULES: Record<string, { postalDigits: number; lookup: boolean }> = {
+  LU: { postalDigits: 4, lookup: true },
+  DE: { postalDigits: 5, lookup: false },
+  BE: { postalDigits: 4, lookup: false },
+  FR: { postalDigits: 5, lookup: false },
 };
 
 export function normalizeAddressCountry(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
-    return "Luxembourg";
+    return "LU";
   }
-  return ADDRESS_COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+  return nationalityCodeFromStored(trimmed);
 }
 
 export function addressCountryConfig(country: string) {
-  const name = normalizeAddressCountry(country);
-  return (
-    ADDRESS_COUNTRIES.find((row) => row.name === name) ?? {
-      name,
-      code: "",
-      postalDigits: 12,
-      lookup: false,
-    }
-  );
+  const code = normalizeAddressCountry(country);
+  const rule = POSTAL_RULES[code];
+  return {
+    name: nationalityLabel(code, "en") || code,
+    code,
+    postalDigits: rule?.postalDigits ?? 12,
+    lookup: rule?.lookup ?? false,
+  };
 }
 
 export const PHONE_LABELS = ["mobile", "home", "work", "other"] as const;
