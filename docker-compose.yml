@@ -180,7 +180,7 @@ services:
 
   # Starts with the rest of the app. The 5 GB cap is in this file because the
   # host has no separate memory field for one service. One photo, then the
-  # process exits. Measured peak about 3.9 GB. No swap beyond that cap.
+  # process exits. Measured peak about 3.9 GB on PyTorch 2.15 CPU. No swap beyond that cap.
   removal-worker:
     image: ltf-license-manager-removal
     mem_limit: 5g

@@ -34,8 +34,8 @@ RUN apt-get update \
 COPY backend/requirements.lock /app/requirements.lock
 RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock \
   && pip install --no-cache-dir \
-    torch==2.9.1 \
-    torchvision==0.24.1 \
+    torch==2.15.0 \
+    torchvision==0.29.1 \
     --index-url https://download.pytorch.org/whl/cpu \
   && pip install --no-cache-dir \
     timm==1.0.31 \
@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir --require-hashes -r /app/requirements.lock \
     einops==0.8.1 \
     safetensors==0.8.0 \
     transformers==5.23.0 \
-  && python -c "import torch; assert torch.__version__ == '2.9.1+cpu' and not torch.cuda.is_available()"
+  && python -c "import torch; assert torch.__version__ == '2.15.0+cpu' and not torch.cuda.is_available()"
 
 COPY --chown=app:app backend/ /app
 COPY --chown=app:app frontend/src/messages /app/i18n_frontend
