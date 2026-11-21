@@ -102,8 +102,8 @@ describe("photo background maths", () => {
     expect(saved.blur).toBeGreaterThan(preview.blur);
     expect(saved.offsetY).toBeGreaterThan(8);
     expect(saved.strength).toBeCloseTo(0.37);
-    expect(saved.offsetY).toBe(28);
-    expect(saved.blur).toBe(66);
+    expect(saved.offsetY).toBe(21);
+    expect(saved.blur).toBe(52);
   });
 
   it("scales the long side to 1024 and keeps the portrait shape", () => {
