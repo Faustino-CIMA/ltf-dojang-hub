@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Photos:** The soft shadow around the person on the saved cutout is a little lighter and does not spread as far. The card layout is unchanged.
+- **Dependencies:** PyYAML is 6.0.4. OpenAPI YAML still loads the same way. The certificate bundle certifi moves to 2026.11.20 so the lock matches a fresh compile. Python stays 3.13.
 - **Members:** Nationality and country lists include every ISO country and are sorted for the language on screen. Stored values stay the two-letter code. A name that was already saved, such as Luxembourg, becomes LU. A value that is not a known country is left as it is.
 - **Cards:** A print job waits until the PDF is ready, then opens it. Selected slots are the places where the cards are printed. The job shows the template version, such as v4, rather than the internal number. The PDF itself is unchanged.
 - **Members:** The server cutout uses PyTorch 2.15.0 CPU and torchvision 0.29.1 CPU. timm, kornia, safetensors, and transformers stay where they are. The weights are unchanged. On two drawn pictures, a few mask pixels differ by one grey level. Peak memory stays about 3.9 GB.
