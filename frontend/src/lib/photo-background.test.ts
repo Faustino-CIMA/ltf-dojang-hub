@@ -15,7 +15,6 @@ import {
   licensePhotoFromStored,
   noteFetchProgress,
   parseLicensePhotoColor,
-  progressBarPercent,
   progressFromLibraryKey,
   rasterForPrintFrame,
   readJpegOrientation,
@@ -159,8 +158,6 @@ describe("photo background maths", () => {
     expect(noteFetchProgress(downloads, "fetch:/onnxruntime-web/ort.wasm", 10, 10)).toBe(45);
     const person = progressFromLibraryKey("compute:inference", 1, 4, downloads);
     expect(person).toEqual({ phase: "person" });
-    expect(progressBarPercent({ phase: "download", percent: 100 })).toBe(70);
-    expect(progressBarPercent(person)).toBe(82);
   });
 
   it("unmixes the old background and composites onto the card colour", () => {

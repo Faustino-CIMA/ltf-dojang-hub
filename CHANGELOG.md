@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Photos:** The background-removal bar shows a spinner, the stage, and the percent. A download uses the real file progress. A stage with no progress signal keeps moving and does not sit near the end until the photo is ready.
 - **Photos:** The soft shadow around the person on the saved cutout is a little lighter and does not spread as far. The card layout is unchanged.
 - **Dependencies:** PyYAML is 6.0.4. OpenAPI YAML still loads the same way. The certificate bundle certifi moves to 2026.11.20 so the lock matches a fresh compile. Python stays 3.13.
 - **Members:** Nationality and country lists include every ISO country and are sorted for the language on screen. Stored values stay the two-letter code. A name that was already saved, such as Luxembourg, becomes LU. A value that is not a known country is left as it is.

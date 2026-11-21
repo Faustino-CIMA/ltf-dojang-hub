@@ -161,23 +161,6 @@ export function progressFromLibraryKey(
   return { phase: "prepare" };
 }
 
-/** Bar position. Download uses the real percent, scaled so later stages never jump backwards. */
-export function progressBarPercent(progress: PhotoBackgroundProgress): number {
-  if (progress.phase === "download") {
-    return Math.round(progress.percent * 0.7);
-  }
-  if (progress.phase === "prepare") {
-    return 74;
-  }
-  if (progress.phase === "person") {
-    return 82;
-  }
-  if (progress.phase === "edges") {
-    return 90;
-  }
-  return 96;
-}
-
 /**
  * ISNet keeps the original background colour in semi-transparent pixels.
  * Unmix that spill using the colour of the pixels the mask already marked empty.
@@ -1558,8 +1541,11 @@ export async function removeProfileBackground(options: {
     onFallback: options.onFallback,
     portrait: async () => {
       const { portraitMatte } = await import("./modnet-mask");
+      report({ phase: "person" });
       const small = await portraitMatte(full, window.location.origin);
+      report({ phase: "edges" });
       cleanCutoutEdges(small);
+      report({ phase: "colour" });
       return applyMaskOnce(full, small);
     },
     standard: async () => removeWithStandardModel(inputBlob, full, options, report),
@@ -1601,5 +1587,6 @@ async function removeWithStandardModel(
   report({ phase: "edges" });
   const cutout = await rasterFromBlob(asPngBlob(removed));
   cleanCutoutEdges(cutout);
+  report({ phase: "colour" });
   return applyMaskOnce(full, cutout);
 }

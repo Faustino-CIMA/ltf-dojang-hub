@@ -88,11 +88,11 @@ const labels = {
   backgroundColorLabel: "Background color",
   removeBackgroundButton: "Remove background",
   removeBackgroundBusy: "Removing background...",
-  removeBackgroundDownload: "Downloading the removal tool… {percent}%",
+  removeBackgroundDownload: "Downloading the model…",
   removeBackgroundPrepare: "Preparing the photo…",
-  removeBackgroundPerson: "Finding the person…",
-  removeBackgroundEdges: "Cleaning the edges…",
-  removeBackgroundColour: "Applying the background colour…",
+  removeBackgroundPerson: "Removing the background…",
+  removeBackgroundEdges: "Refining the edges…",
+  removeBackgroundColour: "Finishing…",
   removeBackgroundFailed: "Background removal failed. You can still save the photo as it is.",
   removeBackgroundRetry: "Retry",
   removeBackgroundWeak: "Weak connection. You can still save the photo as it is.",
@@ -337,13 +337,15 @@ describe("ProfilePhotoManager", () => {
     await waitFor(() => expect(screen.getByText("Remove background")).toBeEnabled());
 
     fireEvent.click(screen.getByText("Remove background"));
-    await screen.findByText("Downloading the removal tool… 40%");
+    await screen.findByText("Downloading the model…");
     const bar = screen.getByRole("progressbar");
-    expect(bar).toHaveAttribute("aria-valuenow", "40");
-    expect(bar).toHaveAttribute("aria-valuetext", "Downloading the removal tool… 40%");
+    expect(bar).toHaveAttribute("aria-busy", "true");
+    expect(bar).toHaveAttribute("aria-valuenow", "23");
+    expect(bar).toHaveAttribute("aria-valuetext", "Downloading the model…");
+    expect(screen.getByText("23%")).toBeInTheDocument();
     release?.(new Blob(["png"], { type: "image/png" }));
     await waitFor(() => {
-      expect(screen.queryByText("Downloading the removal tool… 40%")).not.toBeInTheDocument();
+      expect(screen.queryByText("Downloading the model…")).not.toBeInTheDocument();
     });
     expect(screen.getByTestId("cropper")).toBeInTheDocument();
   });

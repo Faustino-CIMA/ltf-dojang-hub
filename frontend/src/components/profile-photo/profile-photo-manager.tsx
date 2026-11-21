@@ -4,6 +4,8 @@ import Cropper, { Area } from "react-easy-crop";
 import { ChangeEvent, DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, SwitchCamera } from "lucide-react";
 
+import { RemovalProgressMeter } from "@/components/profile-photo/removal-progress-meter";
+
 import { ActionNotices, PageNotice } from "@/components/ui/list-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,7 +56,6 @@ import {
   parseLicensePhotoColor,
   normalizePhotoFile,
   printWindowAfterRemoval,
-  progressBarPercent,
   rasterForPrintFrame,
   backgroundRemovalPublicPath,
   fitLongSide,
@@ -881,7 +882,7 @@ export function ProfilePhotoManager({
 
   const removalProgressLabel = (progress: PhotoBackgroundProgress): string => {
     if (progress.phase === "download") {
-      return labels.removeBackgroundDownload.replaceAll("{percent}", String(progress.percent));
+      return labels.removeBackgroundDownload;
     }
     if (progress.phase === "prepare") {
       return labels.removeBackgroundPrepare;
@@ -1379,40 +1380,26 @@ export function ProfilePhotoManager({
               {removalEngine === "server" ? labels.removalServerStatus : labels.removalLocalStatus}
             </p>
           ) : null}
-          {removalProgress || faceProgress ? (
+          {removalProgress ? (
+            <RemovalProgressMeter
+              phase={removalProgress.phase}
+              downloadPercent={removalProgress.phase === "download" ? removalProgress.percent : undefined}
+              label={removalProgressLabel(removalProgress)}
+            />
+          ) : faceProgress ? (
             <div className="space-y-1">
-              <p className="text-xs text-muted">
-                {removalProgress
-                  ? removalProgressLabel(removalProgress)
-                  : faceProgressLabel(faceProgress as FaceCheckProgress)}
-              </p>
+              <p className="text-xs text-muted">{faceProgressLabel(faceProgress as FaceCheckProgress)}</p>
               <div
                 className="h-1.5 overflow-hidden rounded-full bg-secondary"
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={
-                  removalProgress?.phase === "download"
-                    ? removalProgress.percent
-                    : faceProgress?.phase === "download"
-                      ? faceProgress.percent
-                      : undefined
-                }
-                aria-valuetext={
-                  removalProgress
-                    ? removalProgressLabel(removalProgress)
-                    : faceProgressLabel(faceProgress as FaceCheckProgress)
-                }
+                aria-valuenow={faceProgress.phase === "download" ? faceProgress.percent : undefined}
+                aria-valuetext={faceProgressLabel(faceProgress as FaceCheckProgress)}
               >
                 <div
                   className="h-full rounded-full bg-foreground"
-                  style={{
-                    width: `${
-                      removalProgress
-                        ? progressBarPercent(removalProgress)
-                        : faceProgressBarPercent(faceProgress as FaceCheckProgress)
-                    }%`,
-                  }}
+                  style={{ width: `${faceProgressBarPercent(faceProgress as FaceCheckProgress)}%` }}
                 />
               </div>
             </div>
@@ -1483,7 +1470,7 @@ export function ProfilePhotoManager({
       ) : null}
       {prefetchPercent !== null && !isRemovingBackground ? (
         <p className="text-xs text-muted">
-          {labels.removeBackgroundDownload.replaceAll("{percent}", String(prefetchPercent))}
+          {labels.removeBackgroundDownload} {prefetchPercent}%
         </p>
       ) : null}
 

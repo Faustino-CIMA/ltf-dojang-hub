@@ -383,8 +383,22 @@
   }
 }
 
+@keyframes removal-shimmer {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+.removal-progress-shimmer {
+  animation: removal-shimmer 1.6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .brand-art-reveal {
+  .brand-art-reveal,
+  .removal-progress-shimmer {
     animation: none;
   }
 }
