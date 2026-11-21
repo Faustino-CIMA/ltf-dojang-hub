@@ -11,8 +11,11 @@ export const LICENSE_PHOTO_BACKGROUND_DEFAULT = "#D9D9D9";
 /**
  * Soft shadow on the card grey. The size follows the picture, so the small
  * preview and the saved frame show the same shadow. One place for both.
+ * Strength is how dark the grey gets. Offset and blur are fractions of the height.
  */
-export const CUTOUT_SHADOW_STRENGTH = 0.55;
+export const CUTOUT_SHADOW_STRENGTH = 0.37;
+export const CUTOUT_SHADOW_OFFSET = 0.024;
+export const CUTOUT_SHADOW_BLUR = 0.056;
 export const BACKGROUND_REMOVAL_MODEL = "isnet_fp16";
 export const BACKGROUND_REMOVAL_LONG_SIDE = 1024;
 export const BACKGROUND_REMOVAL_CROP_MARGIN = 0.08;
@@ -1005,8 +1008,8 @@ export function compositeOntoColor(pixels: Uint8ClampedArray, color: Rgb): void 
 export function cutoutShadowForFrame(height: number): { offsetY: number; blur: number; strength: number } {
   const span = Math.max(1, height);
   return {
-    offsetY: Math.max(2, Math.round(span * 0.03)),
-    blur: Math.max(2, Math.round(span * 0.07)),
+    offsetY: Math.max(2, Math.round(span * CUTOUT_SHADOW_OFFSET)),
+    blur: Math.max(2, Math.round(span * CUTOUT_SHADOW_BLUR)),
     strength: CUTOUT_SHADOW_STRENGTH,
   };
 }

@@ -87,10 +87,12 @@ describe("photo background maths", () => {
     }
     compositeCutoutForCard(data, width, height, parseLicensePhotoColor("#D9D9D9"));
     const beside = (centerY * width + centerX + 24) * 4;
-    expect(data[beside]).toBeLessThan(200);
+    expect(data[beside]).toBeLessThan(217);
+    expect(data[beside]).toBeGreaterThan(185);
     expect(data[beside + 3]).toBe(255);
     const below = ((centerY + 26) * width + centerX) * 4;
-    expect(data[below]).toBeLessThan(200);
+    expect(data[below]).toBeLessThan(217);
+    expect(data[below]).toBeGreaterThan(185);
     const far = 0;
     expect(data[far]).toBe(217);
     const subject = (centerY * width + centerX) * 4;
@@ -99,6 +101,9 @@ describe("photo background maths", () => {
     const preview = cutoutShadowForFrame(200);
     expect(saved.blur).toBeGreaterThan(preview.blur);
     expect(saved.offsetY).toBeGreaterThan(8);
+    expect(saved.strength).toBeCloseTo(0.37);
+    expect(saved.offsetY).toBe(28);
+    expect(saved.blur).toBe(66);
   });
 
   it("scales the long side to 1024 and keeps the portrait shape", () => {
