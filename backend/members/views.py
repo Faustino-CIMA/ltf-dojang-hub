@@ -22,6 +22,8 @@ from clubmgmt.body_measurements import annotate_latest_measurements, measurement
 from clubmgmt.teams import ClubTeamMembership
 
 from .models import GradePromotionHistory, LtfStaffFunction, Member, MemberTransfer, MemberVerification
+from ops.request_utils import write_ops_audit
+
 from .serializers import (
     GradePromotionCreateSerializer,
     GradePromotionHistorySerializer,
@@ -30,6 +32,7 @@ from .serializers import (
     MemberProfilePictureSerializer,
     MemberProfilePictureUploadSerializer,
     MemberSerializer,
+    _may_see_member_identity,
 )
 from accounts.permissions import IsLtfAdmin
 from clubs.models import Club
@@ -109,6 +112,23 @@ def _with_card_verified(queryset):
 class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet, MemberVerificationActions):
     serializer_class = MemberSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=["post"], url_path="social-security-number/reveal")
+    def reveal_social_security_number(self, request, pk=None):
+        member = self.get_object()
+        user = request.user
+        own = bool(getattr(user, "is_authenticated", False) and member.user_id and member.user_id == user.pk)
+        if not own and not _may_see_member_identity(user, member):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        if not own:
+            write_ops_audit(
+                request,
+                action="member.social_security_shown",
+                message="Social security number was shown.",
+                target_type="member",
+                target_id=member.pk,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
     _COACH_ALLOWED_UPDATE_FIELDS = {"belt_rank"}
     _STAFF_ACTIONS = {
         "create_ltf_staff",
