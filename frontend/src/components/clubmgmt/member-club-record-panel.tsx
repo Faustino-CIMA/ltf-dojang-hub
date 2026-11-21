@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pencil, Trash2, ExternalLink, User } from "lucide-react";
+
+import { FieldLock } from "@/components/members/field-lock";
+import { SecretNumberField } from "@/components/members/secret-number-field";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
@@ -889,7 +892,10 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>{verifyT("ssnCountry")}</Label>
+            <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+              <Label className="w-auto">{verifyT("ssnCountry")}</Label>
+              <FieldLock locked={numberLocked} lockedLabel={verifyT("fieldLocked")} openLabel={verifyT("fieldOpen")} />
+            </div>
             <PopoverSelect
               ariaLabel={verifyT("ssnCountry")}
               className="mt-1 w-full"
@@ -912,17 +918,22 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             {numberLocked ? <p className="mt-1 text-xs text-muted">{verifyT("lockedHint")}</p> : null}
           </div>
           <div>
-            <Label>{t("ssn")}</Label>
-            <Input
-              className="mt-1"
-              disabled={numberLocked}
+            <SecretNumberField
+              id={`member-record-ssn-${memberId}`}
+              label={t("ssn")}
+              locked={numberLocked}
+              canReveal
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+              showLabel={verifyT("showNumber")}
+              hideLabel={verifyT("hideNumber")}
+              memberId={memberId}
               maxLength={(record.social_security_country || "LU") === "FR" ? 15 : (record.social_security_country || "LU") === "DE" ? 12 : (record.social_security_country || "LU") === "BE" ? 11 : 13}
-              autoComplete="off"
               value={record.social_security_number}
-              onChange={(event) =>
+              onChange={(next) =>
                 setRecord({
                   ...record,
-                  social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", event.target.value),
+                  social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", next),
                 })
               }
             />

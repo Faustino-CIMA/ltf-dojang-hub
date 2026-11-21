@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Flag, IdCard } from "lucide-react";
+
+import { FieldLock } from "@/components/members/field-lock";
+import { SecretNumberField } from "@/components/members/secret-number-field";
 import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -365,7 +368,14 @@ export function MemberFormPanel({
           <p className="text-sm text-muted sm:col-span-2">{verifyT("lockedHint")}</p>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="member-panel-first-name" required>{t("firstNameLabel")}</Label>
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+            <Label htmlFor="member-panel-first-name" required className="w-auto">{t("firstNameLabel")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
+          </div>
           <Input
             id="member-panel-first-name"
             disabled={Boolean(editing && member?.card_verified)}
@@ -378,7 +388,14 @@ export function MemberFormPanel({
           ) : null}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="member-panel-last-name" required>{t("lastNameLabel")}</Label>
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+            <Label htmlFor="member-panel-last-name" required className="w-auto">{t("lastNameLabel")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
+          </div>
           <Input
             id="member-panel-last-name"
             disabled={Boolean(editing && member?.card_verified)}
@@ -391,7 +408,14 @@ export function MemberFormPanel({
           ) : null}
         </div>
         <div className="space-y-2">
-          <Label>{t("sexLabel")}</Label>
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+            <Label className="w-auto">{t("sexLabel")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
+          </div>
           <PopoverSelect
             ariaLabel={t("sexLabel")}
             className="w-full"
@@ -459,7 +483,14 @@ export function MemberFormPanel({
           </>
         )}
         <div className="space-y-2">
-          <Label htmlFor="member-panel-dob">{t("dobLabel")}</Label>
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+            <Label htmlFor="member-panel-dob" className="w-auto">{t("dobLabel")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
+          </div>
           <Input
             id="member-panel-dob"
             placeholder="29 Nov 2026"
@@ -474,9 +505,14 @@ export function MemberFormPanel({
           </div>
         ) : null}
         <div className="space-y-2 sm:col-span-2">
-          <div className="flex items-center gap-2">
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
             <IdCard className="h-4 w-4 text-muted" aria-hidden="true" />
-            <Label htmlFor="member-panel-ssn" required={requireSsn && !editing}>{clubT("ssn")}</Label>
+            <Label className="w-auto">{verifyT("ssnCountry")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
           </div>
           <p className="text-xs text-muted">{verifyT("identityHint")}</p>
           {editing && member?.card_verified ? <p className="text-xs text-muted">{verifyT("lockedHint")}</p> : null}
@@ -508,16 +544,22 @@ export function MemberFormPanel({
               { value: "BE", label: verifyT("countryBE") },
             ]}
           />
-          <Input
+          <SecretNumberField
             id="member-panel-ssn"
-            autoComplete="off"
+            label={clubT("ssn")}
             required={requireSsn && !editing}
-            disabled={Boolean(editing && member?.card_verified)}
+            locked={Boolean(editing && member?.card_verified)}
+            canReveal
+            lockedLabel={verifyT("fieldLocked")}
+            openLabel={verifyT("fieldOpen")}
+            showLabel={verifyT("showNumber")}
+            hideLabel={verifyT("hideNumber")}
+            memberId={editing ? member?.id : undefined}
             maxLength={((editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU") === "FR" ? 15 : ((editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU") === "DE" ? 12 : ((editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU") === "BE" ? 11 : 13}
-            {...(editing ? editForm.register("social_security_number") : createForm.register("social_security_number"))}
-            onChange={(event) => {
+            value={(editing ? editForm.watch("social_security_number") : createForm.watch("social_security_number")) || ""}
+            onChange={(nextValue) => {
               const country = (editing ? editForm.getValues("social_security_country") : createForm.getValues("social_security_country")) || "LU";
-              const next = sanitizeStoredNumber(country, event.target.value);
+              const next = sanitizeStoredNumber(country, nextValue);
               if (editing) {
                 editForm.setValue("social_security_number", next);
               } else {

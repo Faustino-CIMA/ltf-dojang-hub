@@ -35,6 +35,10 @@ export type CardCompareResult = {
   locked_fields?: string[];
 };
 
+export function revealSocialSecurityNumber(memberId: number) {
+  return apiRequest<void>(`/api/members/${memberId}/social-security-number/reveal/`, { method: "POST" });
+}
+
 export function getMemberVerification(memberId: number) {
   return apiRequest<VerificationState>(`/api/members/${memberId}/verification/`);
 }
