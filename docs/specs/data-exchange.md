@@ -2,7 +2,153 @@
 
 Status: spec only. No code until this spec is approved.
 
-A club admin, an LTF admin, and a member need a way to take their data out and, for the admins, to bring a list back in. The data is members, licences, grade history, and the dated weight and height rows fighters already have. A club that uses the club management module also exchanges the lists that hang off a member: emails, phones, addresses, emergency contacts and guardians, families, clothing sizes, and medical notes. The tool is its own page, not a section buried in the club profile. The page shows only the groups that club's modules allow. Files stay on this server. Nothing is sent to a third party. Licence-card PDFs are not part of this tool and their output does not change.
+## In short
+
+The app holds a lot more than the member list. This section is the map. The design further down applies only to the rows marked yes.
+
+What clubs and the federation actually need first is a file of people, their licences, and their grades. A club that uses club management also needs the household: who is in the family, in which order, who is billed, and the parent or guardian behind that bill. Those links have to travel together. A file of names with the family left behind is the gap that is easy to miss.
+
+A member can download their own copy. A parent uses the minor's own desk for that. There is no parent login.
+
+Money can be read out later, for the people who already see the finance desk. It is not written back in from a spreadsheet. Stripe ids, passwords, sign-in tokens, and the picture files used for cards never leave in this tool.
+
+There is no table of competition results. The calendar has events. Teams have rosters. The national team has squads. None of those stores a match score or a medal.
+
+## Inventory
+
+Yes means this tool does it. Own file means the member's download. Bulk means a club or federation file. Formats are the ones from the design below: CSV as a zip of tables, XLSX as one workbook, JSON, and a PDF report that is not imported again.
+
+| Domain | Export | Import | Own file | Who, for the bulk file | Why |
+| --- | --- | --- | --- | --- | --- |
+| Members | Yes | Yes | Yes | Club admin of that club. LTF admin for one club or all clubs | The list everyone asked for |
+| Licences | Yes | Yes, new and updates. History events are export only | Yes | Same as members | A licence can be created or corrected. The history log must not be rewritten from a file |
+| Grades and belt history | Yes | Yes, append only | Yes | Club admin. LTF admin | Progression is part of the member. A row cannot be deleted, so import only adds |
+| Belt-test sittings and pass or fail | Yes | No | Yes, their own result | Club admin | An imported pass would invent an exam. Export is enough until a club asks |
+| Families and rebate rules | Yes | Yes | Yes, their own household and their place in it. Not the club's whole discount table | Club admin, and only when club management is on | This was missing from the first pass. The household, the order, and the bill-to person are one file. See Families below |
+| Guardians, emergency contacts, emails, phones, addresses | Yes | Yes | Yes | Club admin, club management on. Not LTF, not a coach, not finance | Same people the family bills. They travel in the same file as the household |
+| Medical notes and checkups | Yes, switch off until asked | Yes, same switch | Yes | Club admin only | Health notes. The download is audited |
+| Weight and height | Yes | Yes | Yes | Club admin and coach, competition module on. Not LTF | Already stored. Dated rows, not only the latest pair |
+| Gear sizes | Yes | Yes | Yes | Same as weight and height | Current sizes only. There is no history |
+| Clothing sizes | Yes | Yes, labels only. The catalog is not created from the file | Yes | Club admin, club management on | The club's item list stays edited on the clothing page |
+| Consents and publication flags | Yes | Publication flags yes. The account consent flag no | Yes | Club admin for the publication flags | A spreadsheet must not set "consent given" |
+| Login, as a fact | Yes: email, role, minor flag, "has a login" | No | Yes | Club admin sees it on the member row. Roles are not changed here | Useful on the member file. The password and the links stay inside |
+| Invoices, payments, credit notes, orders | Yes, amounts and status | No | Yes, their own invoices, amounts and status only | Club admin and LTF finance, for the ledger they already open | Reading the books out is useful. Writing them in from a sheet would fake a payment |
+| Fee catalog, billing calendar, club licence fee | Yes | Yes, the catalog only | No | Club admin, club management on | The price list is club setup. Past charges stay in the invoice export |
+| Committees | Yes | No | Yes, offices they hold | Club admin for a club committee. LTF admin for the federation committee | Offices are unique. An import can double-book a president |
+| Training attendance | Yes | No | Yes, their dates | Club admin | The calendar is easy to invent by accident |
+| Coach pay and outings | Yes | No | No | Club admin | Pay is staff money, not the member's file |
+| National team squads and status | Yes | No | Yes, their own selection and status | LTF admin | Federation data. No club import |
+| Events | Yes | No | No | The owner: LTF admin or the club admin | A calendar, not a result list |
+| Club teams | Yes, name and roster | No | Yes, team names | Club admin and coach, competition on | Import would create teams from a member file |
+| Subsidies | Yes, the season summary, without the attached files | No | No | Club admin | The RIB and diploma files stay on the subsidy page |
+| Shop | Yes, stock and sales summary | No | Yes, their own purchases as item, date, and amount | Club admin | A stock file must not silently rewrite quantities |
+| Club profile and venues | Yes, the public profile | No | No | Club admin and LTF admin. The IBAN only for the club admin and LTF finance | The profile page already edits this. An import must not create a club or change a bank account |
+| Federation profile | Yes | No | No | LTF admin | Letterhead and address. Edited on its own page |
+| Card templates, fonts, paper, printers | No | No | No | Nobody, in this tool | Design assets. A later backup can cover them. This tool does not |
+| Photos and print jobs | No bytes | No | The words "a profile photo is stored" or "no profile photo" | Nobody gets the file bytes | Card pictures are not stored. Profile photos and the print-job PDF are image files and stay on the server |
+| Audit logs | No, through this tool | No | No | Ops keeps its own page | A file must not rewrite history |
+| Accounts, secrets, Stripe, modules | No | No | No | Nobody | Listed under Never |
+
+## What each domain contains
+
+Walked from the Django apps: accounts, clubs, members, licenses, clubmgmt, events, nationalteam, modules, ops, setup. allauth, sessions, and the API token tables are included. There is no results model and no general document cabinet.
+
+| Domain | Models | Links | Sensitivity | Scope |
+| --- | --- | --- | --- | --- |
+| Federation | `FederationProfile`, `BrandingAsset` | One profile. Logo and signature files | Organisation. The bank account on the profile is financial | Federation |
+| Clubs | `Club`, `TrainingVenue` | A club has many venues and many members | The IBAN is financial. Address and contacts are organisation data | One club, or the federation looking at one club |
+| Members | `Member` | One club. One optional login. Names, birth date, sex, belt, licence ids | Personal. Can be a minor | Club. The member owns their row |
+| Families | `Family`, `FamilyMember`, `FamilyRebateRule` | A family belongs to one club. Members join it with a sort order. The rebate rules belong to the club, not to one family. Optional bill-to member, or a bill-to person | Personal, often a minor. The rebate is financial | Club |
+| Guardians and contacts | `Person`, `PersonEmail`, `PersonPhone`, `PersonAddress`, `MemberContact` | A contact links one member to one person. The same person can be linked to several members and can be the family's bill-to | Personal, minor. Emergency and guardian | Club |
+| Member contact lists | `MemberRecord`, `MemberEmail`, `MemberPhone`, `MemberAddress` | One record per member. Many emails, phones, and addresses. One invoice address | Personal. The social security number sits on the record | Club |
+| Medical | `MedicalCheckup`, plus `medical_notes` on the record | Many checkups per member | Health | Club |
+| Licences | `License`, `LicenseHistoryEvent`, `HistoricalLicense`, `LicenseType`, `LicenseTypePolicy`, `LicensePrice` | A member has many licences. One active licence at a time. History is append-only | Personal | Federation and the club |
+| Grades and exams | `GradePromotionHistory`, `PromotionRule`, `BeltTest`, `BeltTestResult` | Promotions are append-only and dated. A belt test has a result per member | Personal | Club. LTF can read the promotion history |
+| Weight and height | `BodyMeasurement` | Many dated rows per member | Personal, close to health | Club, competition module. LTF cannot read them today |
+| Gear and clothing | `MemberGear`, `ClubClothingItem`, `ClubClothingSize`, `MemberClothingValue` | One gear row. Clothing values point at the club's items | Personal, low | Gear: competition. Clothing: club management |
+| Teams | `ClubTeam`, `ClubTeamMembership`, `ClubTeamMembershipEvent`, `ClubTeamGroup`, `ClubTeamGroupMember`, `WeightCategorySet`, `WeightCategoryBand`, `ClubTeamCategoryBand` | A team has a roster. Category sets are reference data | Personal for the roster | Club, competition module |
+| Events | `Event`, `EventAttention` | Federation or one club. Attention is per user | Low. Private events are internal | The owner |
+| National team | `Season`, `Squad`, `SquadSelection`, `CadreLevel`, `AthleteStatus`, `NationalTeamStaff`, `NationalTeamSettings` | A selection links a member, a squad, and a season | Personal. Status can name a support programme | Federation |
+| Fees and billing | `MembershipFee`, `MembershipFeePrice`, `MembershipBilling`, `ClubLicenseFee`, `ClubLicenseFeePrice`, `MembershipYearConfirmation` | Fees belong to the club. A member record points at one fee | Financial | Club |
+| Invoices and Stripe | `Order`, `OrderItem`, `Invoice`, `CreditNote`, `Payment`, `ClubFeeType`, `ClubFeePrice`, `ClubFeeBillingSchedule`, `ModulePurchase`, `ModuleRenewalJournal`, `ModulePurchaseOverride`, `ModuleBundle`, `ModuleBundleModule`, `ModuleBundlePrice` | An order belongs to a club and may name a member. A payment belongs to an invoice. Stripe ids are encrypted columns on the order and the invoice | Financial | Federation ledger or club ledger, matching the desk |
+| Other finance | `Expense`, `ExpenseCategory`, `Income`, `IncomeCategory`, `FinanceBudgetLine`, `FinanceYearOpening`, `ClubFinanceYearOpening`, `BankStatement`, `BankStatementLine`, `DutyException`, `FinanceAuditLog` | Receipts and bank files are stored files | Financial | The finance desk that owns the ledger |
+| Subsidies | `SubsidySeason`, `CoachQualification`, `ExtraordinarySubsidy` | A season belongs to a club. Athletes are stored as ids on the extraordinary request. RIB and diploma are files | Financial. The diploma is a staff document | Club |
+| Shop | `ShopItem`, `ShopVariant`, `ShopMovement`, `ShopSale`, `ShopSaleLine`, `ShopSnapshot`, `ShopSnapshotLine` | A sale may name a member | Financial | Club |
+| Committees | `Committee`, `CommitteeMandate` | A mandate is a member or a person, with dates. One holder for the main offices | Governance | Federation or one club |
+| Training | `TrainingSettings`, `TrainingSeries`, `TrainingSession`, `TrainingAttendance`, `PublicHoliday`, `SchoolHoliday`, `CoachPayRate`, `CoachOuting` | Attendance links a member to a session. Pay links a coach | Attendance is personal. Pay is financial | Club |
+| Photos and print | Profile picture fields on `Member`. `PrintJob`, `PrintJobItem`. `VerificationChallenge` | A print job lists members and stores a PDF | The image is personal. The challenge token is a secret | Club for the job. The bytes stay put |
+| Card templates | `CardFormatPreset`, `PaperProfile`, `PrinterProfile`, `CardTemplate`, `CardTemplateVersion`, `CardFontAsset`, `CardImageAsset` | A template has versions, fonts, and images | Design. Not a member record | Federation, and a club when it has its own template |
+| Accounts | `User`, `DeskGrant`, `OfficeDeskMap`, `DeskPreference`, `AccountSetupInvite`, allauth email, social, and MFA tables, `EmailMfa`, `EmailMfaCode` | A user may link to one member. Desks grant a role | The login email is personal. The secrets are never files | The person. Admins see the role |
+| Consents | `User.consent_given`, photo consent fields on `Member`, `publish_*` on `MemberRecord` | On the person | Personal | The member, and the club for the publication flags |
+| Transfers and verification | `MemberTransfer`, `MemberTransferMessage`, `MemberVerification`, `MemberVerificationEvent`, `AdminNotice` | A transfer links two clubs | Personal, and a process log | The clubs involved. Not a spreadsheet |
+| Staff functions | `LtfStaffFunction` | On a member, dated | Personal | Federation |
+| Modules and setup | `InstallIdentity`, `InstallEntitlement`, `ClubModuleAssignment`, `ProductCodeRedemption`, `ModuleSubscriptionSettings`, `SetupState` | Which modules a club has | The product code is a secret | Federation. The page only shows or hides groups from the assignment |
+| Audit and ops | `OpsAuditLog`, `AuthEvent`, `AuthTokenMeta`, `SecurityAlert`, `TranslationOverride` | Who did what | Security | Ops |
+| Reference | `LuxembourgRegisteredStreet`, `LuxembourgRegisteredHouse` | The public street list | None | Shared lookup. Not a club file |
+
+## Families
+
+A family is a household inside one club. It is not a second member list.
+
+- `Family` has a name, the club, an optional member who receives the invoice, an optional person who is billed when the household is all minors, and how that bill is delivered (email, post, or in person).
+- `FamilyMember` puts members in that household with a sort order. Rank 1 is the first person. The same member can appear in two households. The preview warns when that happens.
+- `FamilyRebateRule` is the club's discount, not a row on the family. Rank 2 might be a percent off or an amount off, and a rule can cover the later ranks. The discount follows the sort order. The licence fee is not discounted.
+- The bill-to person is the same `Person` as a guardian contact. The file writes that person once. The family points at them with `person_ref`. Each member points at them with a contact row (`relation`, `is_emergency`, `is_primary`).
+
+In the file:
+
+- `families` holds `family_ref`, the name, `invoice_member_ref`, `bill_to_person_ref`, and the delivery.
+- `family_members` holds `family_ref`, `member_ref`, and `sort_order`.
+- The people, emails, phones, and addresses use the sheets already described. A child row that names a `member_ref` or `person_ref` the file does not contain is an error.
+- JSON nests `members` inside each family and still keeps `people` once at the top, so two children do not get two copies of their mother.
+- The PDF prints one heading per family, the people in order, who is billed, then each member's own sections.
+
+Import, after the members and the people have been matched:
+
+- Match a family by its name inside this club. Two families with the same name are an error until one is renamed or skipped.
+- Match a member link by `member_ref`. The sort order is updated. **Add and update** keeps a member the file left out. **Replace the list** removes them from the household and says so in the preview. It does not delete the member.
+- The bill-to person is matched like any other person. If the file names a person who is not also a contact of someone in the household, the preview says that, and the import still stores the link.
+- Rebate rules are a separate sheet, matched by rank. They are club settings. A member file does not change them. Replacing the rule sheet replaces the club's ranks, and the preview lists the ranks that would disappear.
+- A family never moves to another club. A `member_ref` from outside the desk club is an error.
+
+The member's own file names their household, their place in the order, who is billed, and that person's phone and email. It does not include the club's rebate table or the other households.
+
+## Never in a file
+
+These exist in the database. This tool does not export them and does not import them.
+
+| What | Where | Why |
+| --- | --- | --- |
+| Password hash, reset generation | `User.password`, `User.password_reset_generation` | A password file is a breach. A new password is set on the account screen |
+| Invite links, API tokens, sessions | `AccountSetupInvite.token_hash`, `authtoken.Token`, `AuthTokenMeta`, the session table | Whoever holds the token is signed in |
+| MFA secrets and one-time codes | allauth MFA, WebAuthn keys, `EmailMfa`, `EmailMfaCode` | Second factor. Exporting it defeats it |
+| Verification desktop code | `VerificationChallenge.token_hash` | One-time. The raw code is not even stored. No card image is stored on it |
+| Stripe ids and the lookup hash | Encrypted `stripe_payment_intent_id`, `stripe_checkout_session_id`, `stripe_invoice_id`, `stripe_customer_id`, and `stripe_session_lookup` on the order and the invoice | Stripe internals. The payment's amount and status are enough |
+| Product codes and the install id | `ProductCodeRedemption`, `InstallIdentity` | They unlock modules |
+| Profile photos, pending cutouts, print-job PDFs | Picture fields on `Member`, `PrintJob.artifact_pdf` | Card pictures are not stored as their own file. The photos that are stored, and the printed sheet, are images. The data file says only whether a profile photo exists |
+| Card template images and fonts | `CardImageAsset`, `CardFontAsset` | Design files, not member data |
+| Bank files, receipts, subsidy RIB, diplomas | `BankStatement.source_file`, expense and income receipts, `SubsidySeason.rib_file`, `CoachQualification.diploma_file` | Documents stay on the finance and subsidy pages. The summary rows can be exported later without the file |
+| Audit rows | `OpsAuditLog`, `FinanceAuditLog`, `AuthEvent` | Importing a log would forge it |
+
+## What to build first
+
+Ordered by what a club and the federation can use, not by which table is easiest. Each step is one pull request, with tests and fake people. None of them change a licence-card PDF.
+
+1. Export members and licences, CSV and XLSX, for a club admin. No social security number.
+2. Add grades to that export, then JSON and the PDF report.
+3. Import of members, licences, and grades, with the wizard below. Grades only append.
+4. The member's own download of those three, including a minor account.
+5. Families, rebate rules, and the contact lists, export only, for a club with club management. One file, links intact.
+6. Import of that same file: households, people, emails, phones, addresses, emergency contacts.
+7. Weight, height, and gear, for a club with the competition module.
+8. The member's own download grows to include their household, contacts, measurements, and the words about the photo. Medical notes are included there, and on the club export only when the switch is on.
+9. Fee catalog export and import. Invoice and payment export, with no Stripe columns and no import.
+10. LTF admin scope for members, licences, and grades, one club or all clubs. Still no contacts, no measurements, no invoices unless the finance desk exports those itself.
+11. Anything else in the inventory that is export-only (attendance, committees, squads, shop summary) waits until a club or the federation asks. Import stays no.
+
+## Design
+
+A club admin, an LTF admin, and a member need a way to take the yes-rows out and, for the admins, to bring the import-yes rows back in. The tool is its own page, not a section buried in the club profile. The page shows only the groups that club's modules allow. Files stay on this server. Nothing is sent to a third party. Licence-card PDFs are not part of this tool and their output does not change.
 
 ## Where it lives
 
@@ -63,7 +209,7 @@ There is no separate parent table and no preferred-phone flag. A guardian is a c
 | Gear sizes | `MemberGear` | One row | Competition module only. Current sizes, no history |
 | Teams | `ClubTeamMembership` | Many | Competition module. Export names the team. Import does not create a team |
 
-Also linked to a member, and left out of the bulk import: shop sales, subsidies, invoices and payments, training attendance, committee mandates, transfers, and verification events. Those are finance, the calendar, or account security. The member's own download still lists the personal facts from them (attendance dates, team names, office titles, invoice number, date, amount, and status) so the portability file is complete. The club's bulk file does not move invoices, shop stock, or subsidies. Attendance and committee offices are export-only.
+The inventory at the top is the full list. Shop sales, subsidies, invoices, attendance, committee offices, and national-team selections can be exported later and are not imported. The member's own download still lists the personal facts from them when those steps are built: attendance dates, team names, office titles, and their own invoice number, date, amount, and status.
 
 ## Formats
 
@@ -116,7 +262,7 @@ The download name includes the club and the date, for example `example-club-memb
 
 ### Member's own file
 
-On the member overview, a button **Download my data**, icon plus label, opens a small panel. One Close button sits in the header. The panel offers JSON (the portability file) and PDF (a readable copy). CSV and XLSX are also offered, for the same facts. There is no column picker. The file contains the member's own row, their licences, their grade history, and their weight and height history when any exists. When the club uses club management, it also contains that member's emails, phones, addresses, contacts (with each person's own emails, phones, and addresses), family name, clothing sizes, medical notes, checkups, and the guardian notice email if the account is a minor. The social security number is included, because it is their data. Medical notes are included for the same reason, with no extra switch. The card photograph is not in the file. Profile photos are not copied into the file either. The file names the photo only as "a profile photo is stored" or "no profile photo", never the image bytes. Card pictures are never stored, so there is nothing to export. The same file adds the read-only extras named above (attendance dates, team names, office titles, invoice references) when those rows exist.
+On the member overview, a button **Download my data**, icon plus label, opens a small panel. One Close button sits in the header. The panel offers JSON (the portability file) and PDF (a readable copy). CSV and XLSX are also offered, for the same facts. There is no column picker. The file contains the member's own row, their licences, their grade history, and their weight and height history when any exists. When the club uses club management, it also contains that member's emails, phones, addresses, contacts (with each person's own emails, phones, and addresses), their household (the name, their place in the order, and who is billed), clothing sizes, medical notes, checkups, and the guardian notice email if the account is a minor. The social security number is included, because it is their data. Medical notes are included for the same reason, with no extra switch. The card photograph is not in the file. Profile photos are not copied into the file either. The file names the photo only as "a profile photo is stored" or "no profile photo", never the image bytes. Card pictures are never stored, so there is nothing to export. Attendance dates, team names, office titles, and their own invoice references are added when those later steps are built. They are not in the first download.
 
 A minor account uses the same button. The page says, in the four languages, that this file is the child's data and that the parent who holds the account can download it here. There is no separate parent login today. A club admin can also produce this one-person file from the member page, for a parent who asks, and that action is audit-logged. The admin does not get a special parent role.
 
@@ -247,22 +393,9 @@ Checked against the live indexes on 21 Nov 2026. The app runs Python 3.13.
 
 No Node package is added. The browser only uploads and downloads.
 
-## Small pulls, in order
+## Small pulls
 
-Each pull has tests with fake people only. None of them change a licence-card PDF.
-
-1. Data page and club-admin export of members and licences to CSV and XLSX, without social security numbers.
-2. JSON export and the WeasyPrint report.
-3. Grade history and weight and height history on the export.
-4. The member's own download, including a minor account.
-5. Templates, upload, and column mapping, including a saved mapping.
-6. The preview, date and number parsing, and the dry run.
-7. The Celery commit, the result report, and undo for rows that can be undone.
-8. LTF admin scope, one club or every club, still blocked from weight and height and from the club-management sheets.
-9. Export of emails, phones, addresses, people, and contacts, only when club management is on. The page hides that group when the module is off.
-10. Import of those sheets: match a child without duplicating it, add-and-update as the default, replace as a choice, phone and email checks, shared people.
-11. Medical notes and checkups (switch off by default), families, and clothing sizes.
-12. The member's own download gains the same nested rows, plus the read-only extras (attendance dates, team names, office titles, invoice references).
+The order is **What to build first**. The wizard, the templates, the preview, the dry run, the Celery job, and the undo arrive inside step 3, and they are reused by the later imports. Families and contacts are steps 5 and 6, in one file, not a later extra. Weight and height wait until step 7. Attendance, committees, squads, and the shop wait until someone asks.
 
 ## Screens
 
