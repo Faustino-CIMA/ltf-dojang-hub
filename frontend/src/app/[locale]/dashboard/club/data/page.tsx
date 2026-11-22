@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Award, Download, IdCard, Upload, Users } from "lucide-react";
+import { Award, Contact, Download, House, IdCard, Mail, Upload, Users } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { ClubDataImport } from "@/components/club-admin/club-data-import";
@@ -29,6 +29,9 @@ export default function ClubDataPage() {
   const [members, setMembers] = useState(true);
   const [licences, setLicences] = useState(true);
   const [grades, setGrades] = useState(true);
+  const [emails, setEmails] = useState(true);
+  const [contacts, setContacts] = useState(true);
+  const [families, setFamilies] = useState(true);
   const [format, setFormat] = useState<"csv" | "xlsx" | "json" | "pdf">("xlsx");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -49,17 +52,26 @@ export default function ClubDataPage() {
     };
   }, [t]);
 
-  const selected = (members ? 1 : 0) + (licences ? 1 : 0) + (grades ? 1 : 0);
-  const rowCount =
-    (members ? summary?.member_count ?? 0 : 0) +
-    (licences ? summary?.license_count ?? 0 : 0) +
-    (grades ? summary?.grade_count ?? 0 : 0);
-  const prepare = format === "pdf" || (summary != null && rowCount > summary.prepare_above);
+  const managed = Boolean(summary?.club_management);
   const sheets: ClubDataSheet[] = [
     ...(members ? (["members"] as const) : []),
     ...(licences ? (["licences"] as const) : []),
     ...(grades ? (["grades"] as const) : []),
+    ...(managed && emails ? (["emails"] as const) : []),
+    ...(managed && contacts ? (["contacts"] as const) : []),
+    ...(managed && families ? (["families"] as const) : []),
   ];
+  const rowCount =
+    (members ? summary?.member_count ?? 0 : 0) +
+    (licences ? summary?.license_count ?? 0 : 0) +
+    (grades ? summary?.grade_count ?? 0 : 0) +
+    (managed && emails ? (summary?.email_count ?? 0) + (summary?.phone_count ?? 0) + (summary?.address_count ?? 0) : 0) +
+    (managed && contacts ? (summary?.contact_count ?? 0) + (summary?.person_count ?? 0) : 0) +
+    (managed && families
+      ? (summary?.family_count ?? 0) + (summary?.family_member_count ?? 0) + (summary?.rebate_count ?? 0)
+      : 0);
+  const prepare = format === "pdf" || (summary != null && rowCount > summary.prepare_above);
+  const selected = sheets.length;
 
   async function download() {
     if (!sheets.length || busy) {
@@ -133,6 +145,27 @@ export default function ClubDataPage() {
             <span>{t("dataGrades")}</span>
           </label>
         </fieldset>
+        {managed ? (
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-foreground">{t("dataHouseholdGroup")}</legend>
+            <p className="text-sm text-muted">{t("dataHouseholdHint")}</p>
+            <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-foreground">
+              <Checkbox checked={emails} onCheckedChange={(checked) => setEmails(Boolean(checked))} />
+              <Mail className="size-4 text-muted" aria-hidden />
+              <span>{t("dataEmails")}</span>
+            </label>
+            <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-foreground">
+              <Checkbox checked={contacts} onCheckedChange={(checked) => setContacts(Boolean(checked))} />
+              <Contact className="size-4 text-muted" aria-hidden />
+              <span>{t("dataContacts")}</span>
+            </label>
+            <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-foreground">
+              <Checkbox checked={families} onCheckedChange={(checked) => setFamilies(Boolean(checked))} />
+              <House className="size-4 text-muted" aria-hidden />
+              <span>{t("dataFamilies")}</span>
+            </label>
+          </fieldset>
+        ) : null}
         <div className="max-w-sm space-y-2">
           <p className="text-sm font-medium text-foreground">{t("dataFormat")}</p>
           <PopoverSelect
