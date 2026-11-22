@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
+import { formatDisplayDate } from "@/lib/date-display";
 import { addSchoolHoliday, deleteSchoolHoliday, getTrainingHolidays } from "@/lib/training-api";
 
 const FORM_ID = "school-holiday-form";
@@ -123,7 +124,7 @@ export default function TrainingHolidaysPage() {
                   <EntityTable
                     rows={publicHolidays.map((row) => ({ id: row.date, ...row }))}
                     columns={[
-                      { key: "date", header: t("trainingDate") },
+                      { key: "date", header: t("trainingDate"), render: (row) => formatDisplayDate(row.date) },
                       { key: "name", header: t("trainingHolidayName") },
                     ]}
                   />
@@ -138,8 +139,8 @@ export default function TrainingHolidaysPage() {
                     rows={school}
                     columns={[
                       { key: "name", header: t("trainingHolidayName") },
-                      { key: "starts_on", header: t("subsidiesFrom") },
-                      { key: "ends_on", header: t("subsidiesTo") },
+                      { key: "starts_on", header: t("subsidiesFrom"), render: (row) => formatDisplayDate(row.starts_on) },
+                      { key: "ends_on", header: t("subsidiesTo"), render: (row) => formatDisplayDate(row.ends_on) },
                       ...(canManage
                         ? [
                             {
@@ -208,7 +209,7 @@ export default function TrainingHolidaysPage() {
             description={t("trainingRemoveHolidayConfirm")}
             confirmLabel={t("trainingRemove")}
             cancelLabel={t("cancelEdit")}
-            listItems={pendingDelete ? [`${pendingDelete.name} · ${pendingDelete.starts_on} – ${pendingDelete.ends_on}`] : []}
+            listItems={pendingDelete ? [`${pendingDelete.name} · ${formatDisplayDate(pendingDelete.starts_on)} – ${formatDisplayDate(pendingDelete.ends_on)}`] : []}
             onCancel={() => setPendingDelete(null)}
             onConfirm={() => void confirmRemove()}
           />

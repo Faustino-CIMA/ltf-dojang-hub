@@ -18,6 +18,7 @@ import { PopoverSelect } from "@/components/ui/popover-select";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { sanitizeStoredNumber } from "@/lib/card-read";
 import {
@@ -892,7 +893,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
           <h2 className="text-section text-foreground">{t("recordTitle")}</h2>
           {record.is_underage ? <StatusBadge label={t("underage")} tone="warning" /> : null}
           {record.last_checkup_on ? (
-            <StatusBadge label={t("lastCheckup", { date: record.last_checkup_on })} tone="success" />
+            <StatusBadge label={t("lastCheckup", { date: formatDisplayDate(record.last_checkup_on) })} tone="success" />
           ) : (
             <StatusBadge label={t("noCheckup")} tone="neutral" />
           )}

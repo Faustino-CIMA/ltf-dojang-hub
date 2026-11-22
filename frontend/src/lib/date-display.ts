@@ -17,17 +17,18 @@ const MONTH_INDEX_BY_SHORT = new Map(
   EN_MONTH_SHORT.map((label, index) => [label.toLowerCase(), index])
 );
 
+const LUXEMBOURG = "Europe/Luxembourg";
+
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-function formatDateParts(day: number, monthIndex: number, year: number): string {
-  const safeMonth = EN_MONTH_SHORT[monthIndex] ?? "";
-  return `${pad2(day)} ${safeMonth} ${year}`;
+function numericDate(day: number, month: number, year: number): string {
+  return `${pad2(day)}.${pad2(month)}.${year}`;
 }
 
-function parseIsoDateOnly(value: string): { year: number; monthIndex: number; day: number } | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+function parseIsoDateOnly(value: string): { year: number; month: number; day: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) {
     return null;
   }
@@ -40,7 +41,7 @@ function parseIsoDateOnly(value: string): { year: number; monthIndex: number; da
   if (month < 1 || month > 12 || day < 1 || day > 31) {
     return null;
   }
-  return { year, monthIndex: month - 1, day };
+  return { year, month, day };
 }
 
 function asDate(value: string | Date): Date | null {
@@ -64,6 +65,22 @@ function toIsoDate(year: number, monthIndex: number, day: number): string {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
 }
 
+function luxembourgParts(value: Date): { year: number; month: number; day: number; hour: number; minute: number } {
+  const formatted = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LUXEMBOURG,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(value);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(formatted.find((part) => part.type === type)?.value ?? "0");
+  const hour = pick("hour") === 24 ? 0 : pick("hour");
+  return { year: pick("year"), month: pick("month"), day: pick("day"), hour, minute: pick("minute") };
+}
+
 export function parseDisplayDateToIso(value: string | null | undefined): string | null {
   const raw = String(value ?? "").trim();
   if (!raw) {
@@ -72,10 +89,10 @@ export function parseDisplayDateToIso(value: string | null | undefined): string 
 
   const isoDateOnly = parseIsoDateOnly(raw);
   if (isoDateOnly) {
-    if (!isValidDateParts(isoDateOnly.year, isoDateOnly.monthIndex, isoDateOnly.day)) {
+    if (!isValidDateParts(isoDateOnly.year, isoDateOnly.month - 1, isoDateOnly.day)) {
       return null;
     }
-    return toIsoDate(isoDateOnly.year, isoDateOnly.monthIndex, isoDateOnly.day);
+    return toIsoDate(isoDateOnly.year, isoDateOnly.month - 1, isoDateOnly.day);
   }
 
   const dayFirstMatch = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(raw);
@@ -119,24 +136,46 @@ export function formatDisplayDate(value: string | Date | null | undefined): stri
   if (typeof value === "string") {
     const isoDateOnly = parseIsoDateOnly(value);
     if (isoDateOnly) {
-      return formatDateParts(isoDateOnly.day, isoDateOnly.monthIndex, isoDateOnly.year);
+      return numericDate(isoDateOnly.day, isoDateOnly.month, isoDateOnly.year);
     }
   }
   const parsed = asDate(value);
   if (!parsed) {
     return typeof value === "string" ? value : "-";
   }
-  return formatDateParts(parsed.getDate(), parsed.getMonth(), parsed.getFullYear());
+  const parts = luxembourgParts(parsed);
+  return numericDate(parts.day, parts.month, parts.year);
 }
 
 export function formatDisplayDateTime(value: string | Date | null | undefined): string {
   if (!value) {
     return "-";
   }
+  if (typeof value === "string") {
+    const isoDateOnly = parseIsoDateOnly(value);
+    if (isoDateOnly) {
+      return `${numericDate(isoDateOnly.day, isoDateOnly.month, isoDateOnly.year)} 00:00`;
+    }
+  }
   const parsed = asDate(value);
   if (!parsed) {
     return typeof value === "string" ? value : "-";
   }
-  const dateLabel = formatDateParts(parsed.getDate(), parsed.getMonth(), parsed.getFullYear());
-  return `${dateLabel}, ${pad2(parsed.getHours())}:${pad2(parsed.getMinutes())}`;
+  const parts = luxembourgParts(parsed);
+  return `${numericDate(parts.day, parts.month, parts.year)} ${pad2(parts.hour)}:${pad2(parts.minute)}`;
+}
+
+export function luxembourgTodayIso(now: Date = new Date()): string {
+  const parts = luxembourgParts(now);
+  return toIsoDate(parts.year, parts.month - 1, parts.day);
+}
+
+export function screenDateLocale(locale: string): string {
+  if (locale === "lb") {
+    return "de-LU";
+  }
+  if (locale === "en") {
+    return "en-GB";
+  }
+  return locale;
 }

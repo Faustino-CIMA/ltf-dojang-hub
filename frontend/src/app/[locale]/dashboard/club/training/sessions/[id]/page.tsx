@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
 import { ActionNotices, FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatDisplayDate } from "@/lib/date-display";
 import { getTrainingRoll, saveTrainingAttendance, updateTrainingSession, type TrainingRoll } from "@/lib/training-api";
 
 type AgeFilter = "all" | "under_12" | "from_12" | "adult";
@@ -145,7 +146,7 @@ export default function TrainingRollPage() {
       title={roll?.session.name || t("trainingOpenRoll")}
       subtitle={
         roll
-          ? `${roll.session.held_on} · ${roll.session.start_time}–${roll.session.end_time}${
+          ? `${formatDisplayDate(roll.session.held_on)} · ${roll.session.start_time}–${roll.session.end_time}${
               timetablePlaceText(roll.session) ? ` · ${timetablePlaceText(roll.session)}` : ""
             }`
           : ""

@@ -11,6 +11,7 @@ import { StudentMultiPicker, type StudentPick } from "@/components/club-admin/st
 import { TrainingVenueField } from "@/components/club-admin/training-venue-field";
 import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
+import { formatDisplayDate } from "@/lib/date-display";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -301,7 +302,7 @@ export default function TrainingTimetablePage() {
                     {
                       key: "season",
                       header: t("trainingSeason"),
-                      render: (row) => `${row.valid_from} – ${row.valid_until}`,
+                      render: (row) => `${formatDisplayDate(row.valid_from)} – ${formatDisplayDate(row.valid_until)}`,
                     },
                     {
                       key: "coaches",

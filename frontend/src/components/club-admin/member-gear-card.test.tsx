@@ -85,7 +85,7 @@ describe("Member gear card", () => {
     expect(within(card).getByText("Dobok")).toBeInTheDocument();
     expect(within(card).getByText('clothingHeight:{"min":160}')).toBeInTheDocument();
     expect(within(card).getByText("104")).toBeInTheDocument();
-    expect(within(card).getByText('gearUpdated:{"date":"21 Oct 2026"}')).toBeInTheDocument();
+    expect(within(card).getByText('gearUpdated:{"date":"21.10.2026"}')).toBeInTheDocument();
   });
 
   it("opens the editor on the active tab and saves every tab", async () => {

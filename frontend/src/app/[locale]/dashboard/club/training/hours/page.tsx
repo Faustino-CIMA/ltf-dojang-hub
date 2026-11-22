@@ -8,6 +8,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
+import { formatDisplayDate } from "@/lib/date-display";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
@@ -481,7 +482,7 @@ export default function TrainingHoursPage() {
                         rows={outings}
                         onRowClick={canManage ? beginOutingEdit : undefined}
                         columns={[
-                          { key: "held_on", header: t("trainingDate") },
+                          { key: "held_on", header: t("trainingDate"), render: (row) => formatDisplayDate(row.held_on) },
                           { key: "name", header: t("trainingCoachColumn") },
                           { key: "tournament", header: t("trainingTournamentName") },
                           {
@@ -528,8 +529,8 @@ export default function TrainingHoursPage() {
               <EntityTable
                 rows={report.periods.flatMap((period) => {
                   const title = period.label === "first" || period.label === "second"
-                    ? `${t(`trainingPeriod_${period.label}`)} · ${period.starts_on} – ${period.ends_on}`
-                    : `${period.starts_on} – ${period.ends_on}`;
+                    ? `${t(`trainingPeriod_${period.label}`)} · ${formatDisplayDate(period.starts_on)} – ${formatDisplayDate(period.ends_on)}`
+                    : `${formatDisplayDate(period.starts_on)} – ${formatDisplayDate(period.ends_on)}`;
                   if (period.coaches.length === 0) {
                     return [{
                       id: period.label,
@@ -712,7 +713,7 @@ export default function TrainingHoursPage() {
                 description={t("trainingRemoveOutingConfirm")}
                 confirmLabel={t("trainingRemove")}
                 cancelLabel={t("cancelEdit")}
-                listItems={pendingOuting ? [`${pendingOuting.tournament} · ${pendingOuting.held_on}`] : []}
+                listItems={pendingOuting ? [`${pendingOuting.tournament} · ${formatDisplayDate(pendingOuting.held_on)}`] : []}
                 onCancel={() => setPendingOuting(null)}
                 onConfirm={() => void confirmRemoveOuting()}
               />

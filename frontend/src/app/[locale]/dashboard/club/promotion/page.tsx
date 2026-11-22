@@ -9,6 +9,7 @@ import { EntityTable } from "@/components/club-admin/entity-table";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
+import { formatDisplayDate } from "@/lib/date-display";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmModal } from "@/components/ui/delete-confirm-modal";
@@ -236,7 +237,7 @@ export default function PromotionPage() {
                 rows={tests}
                 onRowClick={(row) => router.push(`/${locale}/dashboard/club/promotion/${row.id}`)}
                 columns={[
-                  { key: "held_on", header: t("trainingDate") },
+                  { key: "held_on", header: t("trainingDate"), render: (row) => formatDisplayDate(row.held_on) },
                   { key: "name", header: t("trainingClassName") },
                   { key: "passed_count", header: t("trainingPassed"), render: (row) => t("trainingPassedCount", { count: row.passed_count }) },
                   {

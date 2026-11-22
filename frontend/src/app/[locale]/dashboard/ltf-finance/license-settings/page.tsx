@@ -86,7 +86,7 @@ import { ModuleBundlesPanel, ModuleSubscriptionSettingsCard } from "@/components
 import { ModuleFeesPanel, moduleFeeLabelKey } from "@/components/ltf-finance/module-fees-panel";
 import { Club, getClubs, updateClub } from "@/lib/club-admin-api";
 import { useConsumeSearchParam } from "@/lib/consume-search-param";
-import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-display";
+import { formatDisplayDate, formatDisplayDateTime, luxembourgTodayIso } from "@/lib/date-display";
 
 const SETTINGS_TABS = ["license-types", "license-prices", "club-fees", "module-fees", "billing"] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -148,7 +148,7 @@ export default function LtfFinanceLicenseSettingsPage() {
   const [selectedFeeIds, setSelectedFeeIds] = useState<number[]>([]);
   const [selectedClubIds, setSelectedClubIds] = useState<number[]>([]);
   const [billAllActiveClubs, setBillAllActiveClubs] = useState(true);
-  const [billingDate, setBillingDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [billingDate, setBillingDate] = useState(() => luxembourgTodayIso());
   const [billingYear, setBillingYear] = useState(() => String(new Date().getFullYear()));
   const [billingRebill, setBillingRebill] = useState(false);
   const [billingCharges, setBillingCharges] = useState<ClubFeeChargeStatus[]>([]);
@@ -266,7 +266,7 @@ export default function LtfFinanceLicenseSettingsPage() {
   }, [loadData]);
 
   const filteredLicenseTypes = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = luxembourgTodayIso();
     const pricedTypeIds = new Set(
       prices
         .filter((price) => price.effective_from <= today)

@@ -39,7 +39,9 @@ function addMonths(year: number, month: number, delta: number) {
 }
 
 function dateLocale(locale: string) {
-  return locale === "lb" ? "lb-LU" : "en-GB";
+  if (locale === "lb") return "de-LU";
+  if (locale === "en") return "en-GB";
+  return locale;
 }
 
 function sessionTone(status: TrainingSession["status"]) {
