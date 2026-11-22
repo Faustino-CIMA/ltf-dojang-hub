@@ -41,7 +41,7 @@ from imports.views import (
     MemberImportConfirmView,
     MemberImportPreviewView,
 )
-from members.club_data_views import ClubDataExportView
+from members.club_data_views import ClubDataExportFileView, ClubDataExportJobView, ClubDataExportView
 from members.parked_views import (
     ParkedMemberBulkAssignView,
     ParkedMemberBulkDeleteView,
@@ -391,6 +391,12 @@ urlpatterns = [
     path("api/clubs/admins/access-links/", ClubAdminAccessLinksCsvView.as_view(), name="club-admin-access-links-csv"),
     path("api/members/user-accounts/", MemberUserAccountsView.as_view(), name="member-user-accounts"),
     path("api/club-data/export/", ClubDataExportView.as_view(), name="club-data-export"),
+    path("api/club-data/export/jobs/<int:job_id>/", ClubDataExportJobView.as_view(), name="club-data-export-job"),
+    path(
+        "api/club-data/export/jobs/<int:job_id>/file/",
+        ClubDataExportFileView.as_view(),
+        name="club-data-export-file",
+    ),
     path(
         "api/verification-challenges/<str:token>/",
         VerificationChallengeView.as_view(),

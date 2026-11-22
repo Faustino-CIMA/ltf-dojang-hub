@@ -593,3 +593,34 @@ class VerificationChallenge(models.Model):
         indexes = [
             models.Index(fields=["member", "session_key"], name="member_verif_chal_session"),
         ]
+
+
+class ClubDataExportJob(models.Model):
+    """A prepared club data file. The PDF is built in the background."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="data_export_jobs")
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="data_export_jobs",
+    )
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
+    progress = models.PositiveSmallIntegerField(default=0)
+    file_format = models.CharField(max_length=8)
+    locale = models.CharField(max_length=8, default="en")
+    sheets = models.JSONField(default=list)
+    artifact = models.FileField(upload_to="club-data-exports/%Y/%m/", blank=True)
+    error_detail = models.CharField(max_length=240, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]

@@ -2,7 +2,7 @@ import io
 import zipfile
 from datetime import date
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
@@ -10,7 +10,7 @@ from accounts.models import User
 from clubmgmt.models import MemberRecord
 from clubs.models import Club
 from licenses.models import License, LicenseType
-from members.models import Member
+from members.models import GradePromotionHistory, Member
 from members.ssn_countries import luxembourg_check_digits
 from members.test_verification import _open_grace
 from ops.models import OpsAuditLog
@@ -55,6 +55,14 @@ class ClubDataExportTests(TestCase):
         License.objects.create(member=self.person, club=self.club, license_type=kind, year=2026, status=License.Status.ACTIVE)
         License.objects.create(
             member=self.stranger, club=self.other, license_type=kind, year=2026, status=License.Status.ACTIVE
+        )
+        GradePromotionHistory.objects.create(
+            member=self.person,
+            club=self.club,
+            from_grade="10th Kup",
+            to_grade="9th Kup",
+            promotion_date=date(2026, 3, 1),
+            notes="Club test",
         )
         self.header = {"HTTP_X_DESK": f"club_admin:{self.club.id}"}
 
@@ -119,3 +127,40 @@ class ClubDataExportTests(TestCase):
         self.assertEqual(other.data["member_count"], 1)
         self.assertEqual(other.data["club_name"], "Other Club")
         self.assertEqual(OpsAuditLog.objects.filter(action="data.export").count(), 0)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
+    def test_json_and_pdf_include_grades_and_mask_the_number(self):
+        self.client.force_authenticate(user=self.admin)
+        exported = self.client.post(
+            "/api/club-data/export/",
+            {"sheets": ["members", "grades"], "format": "json", "locale": "en"},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(exported.status_code, 200, exported.content[:300])
+        body = exported.content.decode("utf-8")
+        self.assertIn("9th Kup", body)
+        self.assertNotIn(_lu("19711002130"), body)
+        queued = self.client.post(
+            "/api/club-data/export/",
+            {"sheets": ["members", "grades"], "format": "pdf", "locale": "en"},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(queued.status_code, 202, queued.content)
+        job_id = queued.json()["id"]
+        status = self.client.get(f"/api/club-data/export/jobs/{job_id}/", **self.header)
+        self.assertEqual(status.status_code, 200, status.content)
+        self.assertEqual(status.data["status"], "succeeded")
+        self.assertEqual(status.data["progress"], 100)
+        report = self.client.get(f"/api/club-data/export/jobs/{job_id}/file/", **self.header)
+        self.assertEqual(report.status_code, 200)
+        payload = b"".join(report.streaming_content)
+        self.assertTrue(payload.startswith(b"%PDF"))
+        from pypdf import PdfReader
+
+        text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(payload)).pages)
+        number = _lu("19711002130")
+        self.assertIn("9th Kup", text)
+        self.assertIn(number[-4:], text)
+        self.assertNotIn(number, text)
