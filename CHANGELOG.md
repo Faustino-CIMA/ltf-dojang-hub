@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Members:** A club admin can download the club's members and licenses as a CSV zip or an Excel workbook from Data in the sidebar. The file does not include social security numbers. A longer file that needs a background job waits for a later step.
+- **Dependencies:** wcwidth is 0.9.5 so the lock matches a fresh compile. It only measures text width.
 - **Members:** The social security number is hidden except for the last four characters. Show number reveals it for 30 seconds. A lock shows when a checked field cannot be edited. A club admin or an LTF admin showing the number is recorded, without the number itself.
 - **Photos:** The background-removal bar shows a spinner, the stage, and the percent. A download uses the real file progress. A stage with no progress signal keeps moving and does not sit near the end until the photo is ready.
 - **Photos:** The soft shadow around the person on the saved cutout is a little lighter and does not spread as far. The card layout is unchanged.
