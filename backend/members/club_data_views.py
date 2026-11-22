@@ -11,7 +11,10 @@ from rest_framework.views import APIView
 from accounts.desks import current_active_club, current_desk
 from clubs.models import Club
 from licenses.models import License
+from members.club_data_household import household_counts
 from members.models import ClubDataExportJob, GradePromotionHistory, Member
+from modules.entitlements import is_club_assigned
+from modules.registry import CLUB_MANAGEMENT_MODULE_ID
 from ops.request_utils import write_ops_audit
 
 from .club_data_export import (
@@ -26,7 +29,8 @@ from .club_data_export import (
 )
 from .tasks import build_club_data_pdf
 
-_ALLOWED = {"members", "licences", "grades"}
+_HOUSEHOLD = {"emails", "contacts", "families"}
+_ALLOWED = {"members", "licences", "grades"} | _HOUSEHOLD
 _FORMATS = {"csv", "xlsx", "json", "pdf"}
 _KEEP_FOR = timedelta(hours=72)
 
@@ -49,13 +53,26 @@ class ClubDataExportView(APIView):
         club, error = self._club(request)
         if error is not None:
             return error
+        managed = is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, club.id)
+        counts = household_counts(club.id) if managed else {
+            "email_count": 0,
+            "phone_count": 0,
+            "address_count": 0,
+            "contact_count": 0,
+            "person_count": 0,
+            "family_count": 0,
+            "family_member_count": 0,
+            "rebate_count": 0,
+        }
         return Response(
             {
                 "club_name": club.name,
                 "member_count": Member.objects.filter(club_id=club.id).count(),
                 "license_count": License.objects.filter(club_id=club.id, member__club_id=club.id).count(),
                 "grade_count": GradePromotionHistory.objects.filter(club_id=club.id, member__club_id=club.id).count(),
+                "club_management": managed,
                 "prepare_above": PREPARE_ROW_LIMIT,
+                **counts,
             }
         )
 
@@ -72,6 +89,9 @@ class ClubDataExportView(APIView):
         file_format = str(request.data.get("format") or "")
         if file_format not in _FORMATS:
             return Response({"detail": "Choose a file format."}, status=400)
+        household = sheets & _HOUSEHOLD
+        if household and not is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, club.id):
+            return Response({"detail": "Club management is not on for this club."}, status=403)
         locale = normalize_locale(request.data.get("locale"))
         counts = {
             "member_rows": Member.objects.filter(club_id=club.id).count() if "members" in sheets else 0,
@@ -82,6 +102,20 @@ class ClubDataExportView(APIView):
             if "grades" in sheets
             else 0,
         }
+        if household:
+            listed = household_counts(club.id)
+            if "emails" in sheets:
+                counts["email_rows"] = listed["email_count"]
+                counts["phone_rows"] = listed["phone_count"]
+                counts["address_rows"] = listed["address_count"]
+            if "contacts" in sheets or "families" in sheets:
+                counts["person_rows"] = listed["person_count"]
+            if "contacts" in sheets:
+                counts["contact_rows"] = listed["contact_count"]
+            if "families" in sheets:
+                counts["family_rows"] = listed["family_count"]
+                counts["family_member_rows"] = listed["family_member_count"]
+                counts["rebate_rows"] = listed["rebate_count"]
         write_ops_audit(
             request,
             action="data.export",
@@ -93,6 +127,7 @@ class ClubDataExportView(APIView):
                 "sheets": sorted(sheets),
                 **counts,
                 "social_security_numbers": False,
+                "contacts_included": bool(household),
             },
         )
         if file_format == "pdf":
@@ -110,6 +145,9 @@ class ClubDataExportView(APIView):
             include_members="members" in sheets,
             include_licences="licences" in sheets,
             include_grades="grades" in sheets,
+            include_emails="emails" in sheets,
+            include_contacts="contacts" in sheets,
+            include_families="families" in sheets,
         )
         if file_format == "csv":
             payload = build_csv_zip(tables, locale)
