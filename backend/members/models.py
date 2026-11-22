@@ -624,3 +624,44 @@ class ClubDataExportJob(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class ClubDataImportUpload(models.Model):
+    """A private club file waiting to be checked. It is not a committed import."""
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="data_import_uploads")
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="data_import_uploads",
+    )
+    stored = models.FileField(upload_to="club-data-imports/%Y/%m/")
+    original_name = models.CharField(max_length=180, blank=True)
+    file_format = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class ClubDataSavedMapping(models.Model):
+    """A column mapping remembered for one club and one header shape."""
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="data_import_mappings")
+    name = models.CharField(max_length=80)
+    sheet_key = models.CharField(max_length=32)
+    headers = models.JSONField(default=list)
+    mapping = models.JSONField(default=dict)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="data_import_mappings",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]

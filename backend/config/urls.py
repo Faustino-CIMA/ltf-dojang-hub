@@ -41,6 +41,13 @@ from imports.views import (
     MemberImportConfirmView,
     MemberImportPreviewView,
 )
+from members.club_data_import_views import (
+    ClubDataImportCheckView,
+    ClubDataImportDryRunView,
+    ClubDataImportMappingView,
+    ClubDataImportTemplateView,
+    ClubDataImportUploadView,
+)
 from members.club_data_views import ClubDataExportFileView, ClubDataExportJobView, ClubDataExportView
 from members.parked_views import (
     ParkedMemberBulkAssignView,
@@ -391,6 +398,19 @@ urlpatterns = [
     path("api/clubs/admins/access-links/", ClubAdminAccessLinksCsvView.as_view(), name="club-admin-access-links-csv"),
     path("api/members/user-accounts/", MemberUserAccountsView.as_view(), name="member-user-accounts"),
     path("api/club-data/export/", ClubDataExportView.as_view(), name="club-data-export"),
+    path("api/club-data/import/template/", ClubDataImportTemplateView.as_view(), name="club-data-import-template"),
+    path("api/club-data/import/", ClubDataImportUploadView.as_view(), name="club-data-import"),
+    path(
+        "api/club-data/import/<int:upload_id>/check/",
+        ClubDataImportCheckView.as_view(),
+        name="club-data-import-check",
+    ),
+    path(
+        "api/club-data/import/<int:upload_id>/dry-run/",
+        ClubDataImportDryRunView.as_view(),
+        name="club-data-import-dry-run",
+    ),
+    path("api/club-data/import/mappings/", ClubDataImportMappingView.as_view(), name="club-data-import-mappings"),
     path("api/club-data/export/jobs/<int:job_id>/", ClubDataExportJobView.as_view(), name="club-data-export-job"),
     path(
         "api/club-data/export/jobs/<int:job_id>/file/",

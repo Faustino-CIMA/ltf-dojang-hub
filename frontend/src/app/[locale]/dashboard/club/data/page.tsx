@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Award, Download, IdCard, Users } from "lucide-react";
+import { Award, Download, IdCard, Upload, Users } from "lucide-react";
 
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
+import { ClubDataImport } from "@/components/club-admin/club-data-import";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
@@ -32,6 +33,7 @@ export default function ClubDataPage() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<"export" | "import">("export");
 
   useEffect(() => {
     let cancelled = false;
@@ -100,12 +102,18 @@ export default function ClubDataPage() {
           {summary ? t("dataClubLine", { club: summary.club_name }) : t("dataNeedClub")}
         </p>
         <UnderlineTabs
-          value="export"
-          onChange={() => undefined}
+          value={tab}
+          onChange={(value) => setTab(value as "export" | "import")}
           ariaLabel={t("dataTitle")}
           idPrefix="club-data"
-          options={[{ value: "export", label: t("dataExportTab"), icon: Download }]}
+          options={[
+            { value: "export", label: t("dataExportTab"), icon: Download },
+            { value: "import", label: t("dataImportTab"), icon: Upload },
+          ]}
         />
+        {tab === "import" ? <ClubDataImport locale={locale} /> : null}
+        {tab === "export" ? (
+        <>
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
         <fieldset className="space-y-3">
           <legend className="sr-only">{t("dataExportTab")}</legend>
@@ -150,6 +158,8 @@ export default function ClubDataPage() {
           <Download aria-hidden />
           {prepare ? t("dataPrepare") : t("dataDownload")}
         </Button>
+        </>
+        ) : null}
       </div>
     </ClubAdminLayout>
   );
