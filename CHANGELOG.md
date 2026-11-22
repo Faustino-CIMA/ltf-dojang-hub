@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Dates:** Invoices, statements, the shop catalogue, publication consent, subsidy letters, and the setup-link email show 29.11.2026, and a time as 29.11.2026 14:05 in Luxembourg time. Excel, CSV, and JSON stay ISO. The licence card still prints 29 Nov 2026 in English.
 - **Members:** The data template and the club export no longer include the usual name. The stored name stays. Excel files from Data, including families, rebates, and contacts, open with sized columns, a bold title row, muted field names, a frozen header, a filter, dates, and text ids and phone numbers. A template starts with a short instruction sheet in the language of the screen.
 - **Members:** A club admin whose club has club management can include families, rebate rules, and contact lists in the data export. People are written once and linked by reference. The PDF has one heading per family, with the last name before the first name. The social security number stays out, and medical notes are not in this file. The audit log records that contacts were included, without a phone number or the file.
 - **Members:** A member can download their own row, licenses, and grade history from their overview. The PDF masks the social security number. The other files include it, because it is their data. A club admin can make the same file from the member page, and that download is recorded without the number or the file. A minor account says the file is the child's data.

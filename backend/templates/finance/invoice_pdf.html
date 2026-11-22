@@ -1,3 +1,4 @@
+{% load display_dates %}
 <!doctype html>
 <html lang="{{ doc_lang|default:'en' }}">
   <head>
@@ -94,9 +95,9 @@
       <div>
         <div><strong>{{ labels.invoice }}:</strong> {{ invoice.invoice_number }}</div>
         <div><strong>{{ labels.status }}:</strong> {{ invoice.status|title }}</div>
-        <div><strong>{{ labels.issued }}:</strong> {{ invoice.issued_at|date:"Y-m-d" }}</div>
+        <div><strong>{{ labels.issued }}:</strong> {{ invoice.issued_at|display_date }}</div>
         {% if invoice.paid_at %}
-        <div><strong>{{ labels.paid }}:</strong> {{ invoice.paid_at|date:"Y-m-d" }}</div>
+        <div><strong>{{ labels.paid }}:</strong> {{ invoice.paid_at|display_date }}</div>
         {% endif %}
       </div>
     </div>

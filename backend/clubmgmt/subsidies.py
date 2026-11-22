@@ -482,20 +482,6 @@ def headcount_rows(club, year: int, season: SubsidySeason, members, licensed: se
     ]
 
 
-_FRENCH_MONTHS = (
-    "janvier",
-    "février",
-    "mars",
-    "avril",
-    "mai",
-    "juin",
-    "juillet",
-    "août",
-    "septembre",
-    "octobre",
-    "novembre",
-    "décembre",
-)
 _EQF_FR = {
     CoachQualification.Level.EQF1: "EQF 1",
     CoachQualification.Level.EQF2: "EQF 2",
@@ -508,7 +494,9 @@ _EQF_FR = {
 
 
 def _french_date(value: date) -> str:
-    return f"{value.day} {_FRENCH_MONTHS[value.month - 1]} {value.year}"
+    from clubs.display_dates import format_display_date
+
+    return format_display_date(value)
 
 
 def _formal_name(last: str, first: str) -> str:
@@ -867,7 +855,9 @@ def youth_xlsx(club, year: int) -> bytes:
 
 
 def _fmt_date(value: date | None) -> str:
-    return value.strftime("%d.%m.%Y") if value else ""
+    from clubs.display_dates import format_display_date
+
+    return format_display_date(value)
 
 
 def _amount(value) -> Decimal:

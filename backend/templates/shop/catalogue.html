@@ -1,3 +1,4 @@
+{% load display_dates %}
 <!doctype html>
 <html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
@@ -31,7 +32,7 @@
   </head>
   <body>
     <h1>{{ club.name }} — {{ labels.catalogue_heading }}</h1>
-    <p class="meta">{{ generated_at|date:"d.m.Y H:i" }} · {{ cards|length }} items · Prices in EUR</p>
+    <p class="meta">{{ generated_at|display_datetime }} · {{ cards|length }} items · Prices in EUR</p>
     <div class="grid">
       {% for card in cards %}
         <div class="card">

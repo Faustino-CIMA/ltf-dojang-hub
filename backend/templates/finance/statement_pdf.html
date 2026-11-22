@@ -1,3 +1,4 @@
+{% load display_dates %}
 <!doctype html>
 <html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
@@ -15,7 +16,7 @@
   </head>
   <body>
     <h1>{{ title }}</h1>
-    <div class="muted">{{ club_name }} · {{ labels.generated }} {{ generated_at }}</div>
+    <div class="muted">{{ club_name }} · {{ labels.generated }} {{ generated_at|display_datetime }}</div>
     <table>
       <thead>
         <tr>
@@ -32,7 +33,7 @@
         {% for row in rows %}
         <tr>
           <td>{{ row.invoice_number }}</td>
-          <td>{{ row.issued_at }}</td>
+          <td>{{ row.issued_at|display_date }}</td>
           <td>{{ row.status }}</td>
           <td>{{ row.total }}</td>
           <td>{{ row.credited }}</td>
