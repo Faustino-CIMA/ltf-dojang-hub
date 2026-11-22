@@ -57,6 +57,14 @@ const CLUB_NAV: RoleNavDef[] = [
     matchMode: "prefix",
   },
   {
+    id: "data",
+    href: (locale) => `/${locale}/dashboard/club/data`,
+    labelKey: "navData",
+    namespace: "ClubAdmin",
+    icon: Database,
+    matchMode: "prefix",
+  },
+  {
     id: "licenses",
     href: (locale) => `/${locale}/dashboard/club/licenses`,
     labelKey: "navLicenses",
