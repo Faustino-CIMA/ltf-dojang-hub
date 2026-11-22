@@ -368,8 +368,11 @@ export function getRoleNavDefs(role: string, options?: { isSuperuser?: boolean }
   if (role === "ltf_finance") {
     return LTF_FINANCE_NAV;
   }
-  if (role === "club_admin" || role === "coach") {
+  if (role === "club_admin") {
     return CLUB_NAV;
+  }
+  if (role === "coach") {
+    return CLUB_NAV.filter((item) => item.id !== "data");
   }
   if (role === "member") {
     return MEMBER_NAV;

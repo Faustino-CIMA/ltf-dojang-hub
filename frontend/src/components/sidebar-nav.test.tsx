@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { render, screen, waitFor } from "@testing-library/react";
 
+import { apiRequest } from "@/lib/api";
 import ClubDashboardLayout from "@/app/[locale]/dashboard/club/layout";
 import LtfDashboardLayout from "@/app/[locale]/dashboard/ltf/layout";
 import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
@@ -143,6 +144,7 @@ describe("sidebar navigation", () => {
     );
 
     const members = await screen.findByRole("link", { name: "navMembers" });
+    expect(await screen.findByRole("link", { name: "navData" })).toBeInTheDocument();
     const overview = screen.getByRole("link", { name: "navOverview" });
     const calendar = await screen.findByRole("link", { name: /navCalendar/ });
 
@@ -156,6 +158,32 @@ describe("sidebar navigation", () => {
     expect(members.querySelector("svg")?.getAttribute("class")).toContain("sidebar-nav-icon");
     expect(overview.querySelector("svg")?.getAttribute("class")).toContain("sidebar-nav-icon");
     expect(screen.getByRole("navigation").className).toContain("sidebar-scroll");
+  });
+
+  it("hides Data from a coach", async () => {
+    (apiRequest as jest.Mock).mockImplementation(async (requestPath: string) => {
+      if (requestPath === "/api/auth/me/") {
+        return { role: "coach", username: "coach", first_name: "Kim", is_superuser: false };
+      }
+      return [];
+    });
+    render(
+      <ClubDashboardLayout>
+        <ClubAdminLayout title="Members" subtitle="Roster">
+          <p>Members body</p>
+        </ClubAdminLayout>
+      </ClubDashboardLayout>
+    );
+    expect(await screen.findByRole("link", { name: "navMembers" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "navData" })).not.toBeInTheDocument();
+    });
+    (apiRequest as jest.Mock).mockImplementation(async (requestPath: string) => {
+      if (requestPath === "/api/auth/me/") {
+        return { role: "club_admin", username: "anne.reding", first_name: "Anne", is_superuser: false };
+      }
+      return [];
+    });
   });
 
   it("keeps a single LTF sidebar when the page component changes", async () => {
