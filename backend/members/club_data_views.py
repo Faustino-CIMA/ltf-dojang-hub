@@ -18,6 +18,7 @@ from .club_data_export import (
     PREPARE_ROW_LIMIT,
     build_csv_zip,
     build_json,
+    build_own_file,
     build_xlsx,
     download_name,
     export_tables,
@@ -174,4 +175,47 @@ class ClubDataExportFileView(APIView):
         handle = job.artifact.open("rb")
         response = FileResponse(handle, content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{download_name(job.club.name, "pdf")}"'
+        return response
+
+
+class MemberOwnDataView(APIView):
+    """One member's row, licences, and grades. The PDF masks the number. The other files include it."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, member_id: int):
+        member = Member.objects.filter(pk=member_id).select_related("club").first()
+        if member is None:
+            return Response({"detail": "This member is not available."}, status=404)
+        own = bool(member.user_id and member.user_id == request.user.id)
+        admin = False
+        if not own and member.club_id and current_desk() == "club_admin":
+            from clubmgmt.access import is_club_admin_of
+
+            admin = is_club_admin_of(request.user, member.club_id) and current_active_club() == member.club_id
+        if not own and not admin:
+            return Response({"detail": "You cannot download this file."}, status=403)
+        file_format = str(request.query_params.get("file_format") or "json")
+        if file_format not in {"json", "pdf", "csv", "xlsx"}:
+            return Response({"detail": "Choose a file format."}, status=400)
+        payload, content_type, extension = build_own_file(member, file_format, request.query_params.get("locale"))
+        if not payload:
+            return Response({"detail": "The file could not be prepared."}, status=503)
+        if admin:
+            write_ops_audit(
+                request,
+                action="data.export",
+                message="A club admin downloaded one member's data.",
+                target_type="member",
+                target_id=member.id,
+                metadata={
+                    "format": file_format,
+                    "member_rows": 1,
+                    "numbers_included": file_format != "pdf",
+                    "own_file": True,
+                },
+            )
+        filename = f"my-data.{extension}"
+        response = HttpResponse(payload, content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response

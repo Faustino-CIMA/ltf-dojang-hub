@@ -52,7 +52,12 @@ from members.club_data_import_views import (
     ClubDataImportUndoView,
     ClubDataImportUploadView,
 )
-from members.club_data_views import ClubDataExportFileView, ClubDataExportJobView, ClubDataExportView
+from members.club_data_views import (
+    ClubDataExportFileView,
+    ClubDataExportJobView,
+    ClubDataExportView,
+    MemberOwnDataView,
+)
 from members.parked_views import (
     ParkedMemberBulkAssignView,
     ParkedMemberBulkDeleteView,
@@ -402,6 +407,7 @@ urlpatterns = [
     path("api/clubs/admins/access-links/", ClubAdminAccessLinksCsvView.as_view(), name="club-admin-access-links-csv"),
     path("api/members/user-accounts/", MemberUserAccountsView.as_view(), name="member-user-accounts"),
     path("api/club-data/export/", ClubDataExportView.as_view(), name="club-data-export"),
+    path("api/members/<int:member_id>/my-data/", MemberOwnDataView.as_view(), name="member-own-data"),
     path("api/club-data/import/template/", ClubDataImportTemplateView.as_view(), name="club-data-import-template"),
     path("api/club-data/import/", ClubDataImportUploadView.as_view(), name="club-data-import"),
     path(

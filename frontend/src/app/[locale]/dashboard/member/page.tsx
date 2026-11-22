@@ -10,6 +10,7 @@ import { MemberLayout } from "@/components/member/member-layout";
 import { MemberHistoryTimeline } from "@/components/history/member-history-timeline";
 import { CurrentLicensesPanel } from "@/components/member/current-licenses-panel";
 import { MemberCommitteePanel } from "@/components/member/member-committee-panel";
+import { DownloadMyData } from "@/components/members/download-my-data";
 import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-manager";
 import { faceCheckEditorLabels } from "@/lib/face-check";
 import { apiRequest } from "@/lib/api";
@@ -26,6 +27,7 @@ type MeResponse = {
   id: number;
   username: string;
   role: string;
+  minor_account?: boolean;
 };
 
 export default function MemberDashboardPage() {
@@ -40,12 +42,14 @@ export default function MemberDashboardPage() {
   const [history, setHistory] = useState<MemberHistoryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [minorAccount, setMinorAccount] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const me = await apiRequest<MeResponse>("/api/auth/me/");
+      setMinorAccount(Boolean(me.minor_account));
       if (me.role !== "member") {
         setErrorMessage(t("roleNotAllowed"));
         return;
@@ -160,6 +164,8 @@ export default function MemberDashboardPage() {
               onDownload={handlePhotoDownload}
               onEdit={() => router.push(`/${locale}/dashboard/member/photo`)}
             />
+
+            <DownloadMyData memberId={member.id} locale={locale} minor={minorAccount || Boolean(member.minor_account)} />
 
             <CurrentLicensesPanel
               memberId={member.id}
