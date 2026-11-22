@@ -5,6 +5,7 @@ import { Flag, IdCard } from "lucide-react";
 
 import { FieldLock } from "@/components/members/field-lock";
 import { SecretNumberField } from "@/components/members/secret-number-field";
+import { isMaskedSecretNumber } from "@/lib/mask-secret";
 import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -523,18 +524,14 @@ export function MemberFormPanel({
             value={(editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU"}
             onValueChange={(value) => {
               const country = value as "LU" | "DE" | "FR" | "BE";
+              const current = (editing ? editForm.getValues("social_security_number") : createForm.getValues("social_security_number")) || "";
+              const nextNumber = isMaskedSecretNumber(current) ? current : sanitizeStoredNumber(country, current);
               if (editing) {
                 editForm.setValue("social_security_country", country);
-                editForm.setValue(
-                  "social_security_number",
-                  sanitizeStoredNumber(country, editForm.getValues("social_security_number") || ""),
-                );
+                editForm.setValue("social_security_number", nextNumber);
               } else {
                 createForm.setValue("social_security_country", country);
-                createForm.setValue(
-                  "social_security_number",
-                  sanitizeStoredNumber(country, createForm.getValues("social_security_number") || ""),
-                );
+                createForm.setValue("social_security_number", nextNumber);
               }
             }}
             options={[

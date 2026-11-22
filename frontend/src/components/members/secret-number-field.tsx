@@ -59,14 +59,21 @@ export function SecretNumberField({
       setRevealed(false);
       return;
     }
-    setRevealed(true);
+    const alreadyLoaded = /[0-9A-Za-z]/.test(value);
     if (memberId) {
       try {
-        await revealSocialSecurityNumber(memberId);
+        const body = await revealSocialSecurityNumber(memberId);
+        const next = body?.social_security_number ?? "";
+        if (next !== value) {
+          onChange(next);
+        }
       } catch {
-        // The number is already on this page. A failed note must not show it again.
+        if (!alreadyLoaded) {
+          return;
+        }
       }
     }
+    setRevealed(true);
   }
 
   const shown = revealed ? value : maskSecretNumber(value);

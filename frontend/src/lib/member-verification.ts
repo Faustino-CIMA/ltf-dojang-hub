@@ -36,7 +36,10 @@ export type CardCompareResult = {
 };
 
 export function revealSocialSecurityNumber(memberId: number) {
-  return apiRequest<void>(`/api/members/${memberId}/social-security-number/reveal/`, { method: "POST" });
+  return apiRequest<{ social_security_number: string }>(
+    `/api/members/${memberId}/social-security-number/reveal/`,
+    { method: "POST" },
+  );
 }
 
 export function getMemberVerification(memberId: number) {

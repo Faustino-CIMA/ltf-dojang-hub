@@ -188,7 +188,18 @@ class MemberRecordSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Choose a membership fee from this club.")
         return value
 
+    def to_representation(self, instance):
+        from members.ssn_mask import mask_social_security_number
+
+        data = super().to_representation(instance)
+        data["social_security_number"] = mask_social_security_number(data.get("social_security_number") or "")
+        return data
+
     def validate(self, attrs):
+        from members.ssn_mask import is_masked_social_security_number
+
+        if is_masked_social_security_number(str(attrs.get("social_security_number", "") or "")):
+            attrs.pop("social_security_number", None)
         attrs = super().validate(attrs)
         assert_single_invoice_address(getattr(self, "initial_data", {}).get("addresses"))
         if "social_security_number" in attrs or "social_security_country" in attrs:

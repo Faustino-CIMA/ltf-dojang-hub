@@ -110,7 +110,7 @@ def _identity_record(member):
 def _store_member_identity(
     member,
     *,
-    ssn: str = "",
+    ssn: str | None = "",
     country: str = "LU",
     nationality_1: str | None = None,
     nationality_2: str | None = None,
@@ -126,11 +126,17 @@ def _store_member_identity(
     record, _created = MemberRecord.objects.get_or_create(member=member)
     fields = ["updated_at"]
     if write_ssn:
-        raw = str(ssn or "").strip()
-        country = str(country or record.social_security_country or "LU").strip().upper() or "LU"
-        record.social_security_number = validate_ssn(country, raw) if raw else ""
-        record.social_security_country = country if raw else (record.social_security_country or "")
-        fields.extend(["social_security_number", "social_security_country"])
+        # None means the client sent the mask. The stored number stays.
+        if ssn is None:
+            if country is not None and str(country).strip():
+                record.social_security_country = str(country).strip().upper()
+                fields.append("social_security_country")
+        else:
+            raw = str(ssn or "").strip()
+            country = str(country or record.social_security_country or "LU").strip().upper() or "LU"
+            record.social_security_number = validate_ssn(country, raw) if raw else ""
+            record.social_security_country = country if raw else (record.social_security_country or "")
+            fields.extend(["social_security_number", "social_security_country"])
     if write_nationality:
         from clubs.iso3166 import normalize_country_code
 
@@ -296,6 +302,13 @@ class MemberSerializer(serializers.ModelSerializer):
             )
         if self.instance is None and not attrs.get("club"):
             raise serializers.ValidationError({"club": "Club is required."})
+        from members.ssn_mask import is_masked_social_security_number
+
+        if is_masked_social_security_number(str(attrs.get("social_security_number", "") or "")):
+            if self.instance is None:
+                attrs["social_security_number"] = ""
+            else:
+                attrs.pop("social_security_number", None)
         if self.instance is None:
             _check_new_member_ssn(
                 attrs.get("social_security_number"),
@@ -405,7 +418,7 @@ class MemberSerializer(serializers.ModelSerializer):
         )
         _store_member_identity(
             updated_member,
-            ssn=str(ssn or ""),
+            ssn=ssn,
             country=str(country or ""),
             nationality_1=nationality_1,
             nationality_2=nationality_2,
@@ -567,8 +580,12 @@ class MemberSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
         if not _may_see_member_identity(user, instance):
             return data
+        from members.ssn_mask import mask_social_security_number
+
         record = _identity_record(instance)
-        data["social_security_number"] = getattr(record, "social_security_number", "") or ""
+        data["social_security_number"] = mask_social_security_number(
+            getattr(record, "social_security_number", "") or ""
+        )
         data["social_security_country"] = getattr(record, "social_security_country", "") or ""
         data["nationality_1"] = getattr(record, "nationality_1", "") or ""
         data["nationality_2"] = getattr(record, "nationality_2", "") or ""

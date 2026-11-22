@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -105,7 +106,23 @@ class ClubManagementTests(TestCase):
             format="json",
         )
         self.assertEqual(saved.status_code, 200)
-        self.assertEqual(saved.data["social_security_number"], "1971100213046")
+        self.assertEqual(saved.data["social_security_number"], "•" * 13)
+        self.assertNotIn("1971100213046", json.dumps(saved.data))
+        self.member.club_record.refresh_from_db()
+        self.assertEqual(self.member.club_record.social_security_number, "1971100213046")
+        kept = self.client.put(
+            f"/api/club-management/records/for-member/{self.member.id}/",
+            {
+                "social_security_number": "•" * 13,
+                "social_security_country": "LU",
+                "joined_at": "2020-09-01",
+            },
+            format="json",
+        )
+        self.assertEqual(kept.status_code, 200, kept.data)
+        self.assertFalse(any(character.isdigit() for character in kept.data["social_security_number"]))
+        self.member.club_record.refresh_from_db()
+        self.assertEqual(self.member.club_record.social_security_number, "1971100213046")
         self.assertEqual(len(saved.data["emails"]), 1)
 
     def test_person_name_casing_matches_members(self):

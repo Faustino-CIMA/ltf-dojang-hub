@@ -5,6 +5,7 @@ import { Pencil, Trash2, ExternalLink, User } from "lucide-react";
 
 import { FieldLock } from "@/components/members/field-lock";
 import { SecretNumberField } from "@/components/members/secret-number-field";
+import { isMaskedSecretNumber } from "@/lib/mask-secret";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
@@ -905,7 +906,9 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
                 setRecord({
                   ...record,
                   social_security_country: value,
-                  social_security_number: sanitizeStoredNumber(value, record.social_security_number),
+                  social_security_number: isMaskedSecretNumber(record.social_security_number)
+                    ? record.social_security_number
+                    : sanitizeStoredNumber(value, record.social_security_number),
                 })
               }
               options={[

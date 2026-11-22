@@ -10,6 +10,7 @@ from ops.models import OpsAuditLog
 
 from members.models import Member, MemberVerification
 from members.ssn_countries import luxembourg_check_digits
+from members.ssn_mask import MASKED_SOCIAL_SECURITY_NUMBER
 from members.test_verification import _open_grace
 
 
@@ -54,7 +55,9 @@ class MemberIdentityPanelTests(TestCase):
         self.client.force_authenticate(user=self.club_admin)
         detail = self.client.get(f"/api/members/{self.member.id}/")
         self.assertEqual(detail.status_code, 200, detail.data)
-        self.assertEqual(detail.data["social_security_number"], self.number)
+        self.assertEqual(detail.data["social_security_number"], MASKED_SOCIAL_SECURITY_NUMBER)
+        self.assertFalse(any(character.isdigit() for character in detail.data["social_security_number"]))
+        self.assertNotIn(self.number, json.dumps(detail.data))
         self.assertEqual(detail.data["social_security_country"], "LU")
         self.assertEqual(detail.data["nationality_1"], "LU")
         self.assertEqual(detail.data["nationality_2"], "PT")
@@ -94,6 +97,20 @@ class MemberIdentityPanelTests(TestCase):
         self.member.club_record.refresh_from_db()
         self.assertEqual(self.member.club_record.social_security_number, self.number)
 
+    def test_saving_the_mask_keeps_the_stored_number(self):
+        self.client.force_authenticate(user=self.club_admin)
+        saved = self.client.patch(
+            f"/api/members/{self.member.id}/",
+            {"social_security_number": MASKED_SOCIAL_SECURITY_NUMBER, "social_security_country": "LU"},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.member.club_record.refresh_from_db()
+        self.assertEqual(self.member.club_record.social_security_number, self.number)
+        detail = self.client.get(f"/api/members/{self.member.id}/")
+        self.assertEqual(detail.data["social_security_number"], MASKED_SOCIAL_SECURITY_NUMBER)
+        self.assertNotIn(self.number, json.dumps(detail.data))
+
     def test_the_member_can_read_their_own_number_and_not_another(self):
         owner = User.objects.create_user(username="identity-owner", password="pass12345", role=User.Roles.MEMBER)
         _open_grace(owner)
@@ -104,7 +121,11 @@ class MemberIdentityPanelTests(TestCase):
         self.client.force_authenticate(user=owner)
         own = self.client.get(f"/api/members/{self.member.id}/")
         self.assertEqual(own.status_code, 200, own.data)
-        self.assertEqual(own.data["social_security_number"], self.number)
+        self.assertEqual(own.data["social_security_number"], MASKED_SOCIAL_SECURITY_NUMBER)
+        self.assertNotIn(self.number, json.dumps(own.data))
+        revealed = self.client.post(f"/api/members/{self.member.id}/social-security-number/reveal/")
+        self.assertEqual(revealed.status_code, 200, revealed.data)
+        self.assertEqual(revealed.data["social_security_number"], self.number)
         hidden = self.client.get(f"/api/members/{other.id}/")
         if hidden.status_code == 200:
             self.assertNotIn("social_security_number", hidden.data)
@@ -112,7 +133,8 @@ class MemberIdentityPanelTests(TestCase):
     def test_showing_the_number_is_audited_for_staff_and_refused_for_a_coach(self):
         self.client.force_authenticate(user=self.club_admin)
         shown = self.client.post(f"/api/members/{self.member.id}/social-security-number/reveal/")
-        self.assertEqual(shown.status_code, 204)
+        self.assertEqual(shown.status_code, 200, shown.data)
+        self.assertEqual(shown.data["social_security_number"], self.number)
         audit = OpsAuditLog.objects.get(action="member.social_security_shown", target_id=str(self.member.id))
         self.assertEqual(audit.actor_id, self.club_admin.id)
         self.assertNotIn(self.number, audit.message)
@@ -127,5 +149,6 @@ class MemberIdentityPanelTests(TestCase):
         self.member.save(update_fields=["user"])
         self.client.force_authenticate(user=owner)
         quiet = self.client.post(f"/api/members/{self.member.id}/social-security-number/reveal/")
-        self.assertEqual(quiet.status_code, 204)
+        self.assertEqual(quiet.status_code, 200, quiet.data)
+        self.assertEqual(quiet.data["social_security_number"], self.number)
         self.assertEqual(OpsAuditLog.objects.filter(action="member.social_security_shown").count(), 1)
