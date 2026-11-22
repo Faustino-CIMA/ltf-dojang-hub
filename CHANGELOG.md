@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 - **Members:** A club admin can check an import of members, licenses, and grade history from Data. The wizard downloads a template, maps columns, checks the rows, and can run that check without saving. A social security number in the preview is a fixed mask. Saving the rows comes in the next step.
+- **Members:** The usual name is no longer a field on the member form. The stored name is unchanged. On a desktop side panel, paired fields line up, and the social security number sits beside its country. The phone layout is unchanged.
+- **Navigation:** Data is in the club sidebar, next to Members, for a club admin. A coach does not see it. It is in the same menu on a phone.
 - **Members:** The club data export also includes grade history, a JSON file, and a readable PDF report. The PDF shows a fixed mask and no digits of the social security number. A PDF is prepared in the background, with a progress line, and it is not a licence card.
 - **Members:** A club admin can download the club's members and licenses as a CSV zip or an Excel workbook from Data in the sidebar. The file does not include social security numbers.
 - **Dependencies:** wcwidth is 0.9.5 so the lock matches a fresh compile. It only measures text width.

@@ -369,7 +369,7 @@ export function MemberFormPanel({
           <p className="text-sm text-muted sm:col-span-2">{verifyT("lockedHint")}</p>
         ) : null}
         <div className="space-y-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+          <div className="flex min-h-[var(--control-height)] items-center gap-2">
             <Label htmlFor="member-panel-last-name" required className="w-auto">{t("lastNameLabel")}</Label>
             <FieldLock
               locked={Boolean(editing && member?.card_verified)}
@@ -379,6 +379,7 @@ export function MemberFormPanel({
           </div>
           <Input
             id="member-panel-last-name"
+            className="w-full"
             disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("last_name") : createForm.register("last_name"))}
           />
@@ -389,7 +390,7 @@ export function MemberFormPanel({
           ) : null}
         </div>
         <div className="space-y-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+          <div className="flex min-h-[var(--control-height)] items-center gap-2">
             <Label htmlFor="member-panel-first-name" required className="w-auto">{t("firstNameLabel")}</Label>
             <FieldLock
               locked={Boolean(editing && member?.card_verified)}
@@ -399,6 +400,7 @@ export function MemberFormPanel({
           </div>
           <Input
             id="member-panel-first-name"
+            className="w-full"
             disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
           />
@@ -409,7 +411,7 @@ export function MemberFormPanel({
           ) : null}
         </div>
         <div className="space-y-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+          <div className="flex min-h-[var(--control-height)] items-center gap-2">
             <Label className="w-auto">{t("sexLabel")}</Label>
             <FieldLock
               locked={Boolean(editing && member?.card_verified)}
@@ -438,15 +440,19 @@ export function MemberFormPanel({
         </div>
         {editing ? (
           <div className="space-y-2">
-            <Label htmlFor="member-panel-email">{t("emailLabel")}</Label>
-            <Input id="member-panel-email" type="email" {...editForm.register("email")} />
+            <div className="flex items-center sm:min-h-[var(--control-height)]">
+              <Label htmlFor="member-panel-email">{t("emailLabel")}</Label>
+            </div>
+            <Input id="member-panel-email" className="w-full" type="email" {...editForm.register("email")} />
             {editForm.formState.errors.email ? (
               <p className="text-sm text-destructive">{editForm.formState.errors.email.message}</p>
             ) : null}
           </div>
         ) : (
           <div className="space-y-2">
-            <Label>{t("ltfLicensePrefixLabel")}</Label>
+            <div className="flex items-center sm:min-h-[var(--control-height)]">
+              <Label>{t("ltfLicensePrefixLabel")}</Label>
+            </div>
             <PopoverSelect
               ariaLabel={t("ltfLicensePrefixLabel")}
               className="w-full"
@@ -463,28 +469,33 @@ export function MemberFormPanel({
           </div>
         )}
         <div className="space-y-2">
-          <Label htmlFor="member-panel-wt">{importT("wtLicenseLabel")}</Label>
+          <div className="flex items-center sm:min-h-[var(--control-height)]">
+            <Label htmlFor="member-panel-wt">{importT("wtLicenseLabel")}</Label>
+          </div>
           <Input
             id="member-panel-wt"
+            className="w-full"
             {...(editing ? editForm.register("wt_licenseid") : createForm.register("wt_licenseid"))}
           />
         </div>
         {editing ? (
           <div className="space-y-2">
-            <Label htmlFor="member-panel-ltf">{t("ltfLicenseLabel")}</Label>
-            <Input id="member-panel-ltf" {...editForm.register("ltf_licenseid")} />
+            <div className="flex items-center sm:min-h-[var(--control-height)]">
+              <Label htmlFor="member-panel-ltf">{t("ltfLicenseLabel")}</Label>
+            </div>
+            <Input id="member-panel-ltf" className="w-full" {...editForm.register("ltf_licenseid")} />
           </div>
         ) : (
-          <>
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center sm:min-h-[var(--control-height)]">
               <Label>{t("beltRankLabel")}</Label>
-              <p className="text-sm font-medium text-foreground">10th Kup</p>
-              <p className="text-xs text-muted">{t("beltRankCreateHint")}</p>
             </div>
-          </>
+            <p className="text-sm font-medium text-foreground sm:flex sm:min-h-[var(--control-height)] sm:items-center">10th Kup</p>
+            <p className="text-xs text-muted">{t("beltRankCreateHint")}</p>
+          </div>
         )}
         <div className="space-y-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+          <div className="flex min-h-[var(--control-height)] items-center gap-2">
             <Label htmlFor="member-panel-dob" className="w-auto">{t("dobLabel")}</Label>
             <FieldLock
               locked={Boolean(editing && member?.card_verified)}
@@ -499,14 +510,9 @@ export function MemberFormPanel({
             {...(editing ? editForm.register("date_of_birth") : createForm.register("date_of_birth"))}
           />
         </div>
-        {editing ? (
-          <div className="space-y-2">
-            <Label htmlFor="member-panel-usual">{verifyT("usualName")}</Label>
-            <Input id="member-panel-usual" {...editForm.register("usual_name")} />
-          </div>
-        ) : null}
-        <div className="space-y-2 sm:col-span-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+        <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+          <div className="space-y-2 sm:flex sm:flex-col sm:gap-2 sm:space-y-0">
+          <div className="flex min-h-[var(--control-height)] items-center gap-2">
             <IdCard className="h-4 w-4 text-muted" aria-hidden="true" />
             <Label className="w-auto">{verifyT("ssnCountry")}</Label>
             <FieldLock
@@ -515,8 +521,9 @@ export function MemberFormPanel({
               openLabel={verifyT("fieldOpen")}
             />
           </div>
-          <p className="text-xs text-muted">{verifyT("identityHint")}</p>
-          {editing && member?.card_verified ? <p className="text-xs text-muted">{verifyT("lockedHint")}</p> : null}
+          <p className="text-xs text-muted sm:order-3">{verifyT("identityHint")}</p>
+          {editing && member?.card_verified ? <p className="text-xs text-muted sm:order-3">{verifyT("lockedHint")}</p> : null}
+          <div className="sm:order-2">
           <PopoverSelect
             ariaLabel={verifyT("ssnCountry")}
             className="w-full"
@@ -541,6 +548,8 @@ export function MemberFormPanel({
               { value: "BE", label: verifyT("countryBE") },
             ]}
           />
+          </div>
+          </div>
           <SecretNumberField
             key={editing ? `edit-${member?.id ?? "new"}` : "create"}
             id="member-panel-ssn"

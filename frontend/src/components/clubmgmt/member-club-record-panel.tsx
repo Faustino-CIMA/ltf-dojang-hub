@@ -165,11 +165,11 @@ export function NationalityField({
 
   return (
     <div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:min-h-[var(--control-height)]">
         {icon}
         <Label>{label}</Label>
       </div>
-      <div className="mt-1">
+      <div className="mt-1 sm:mt-2">
         <Select
           value={selected}
           onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
@@ -734,12 +734,14 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
     <div className="space-y-3">
       <div className="grid gap-2 md:grid-cols-2">
         <div>
+          <div className="md:flex md:min-h-[var(--control-height)] md:items-center">
           <Label htmlFor="contact-last-name" required>
             {t("lastName")}
           </Label>
+          </div>
           <Input
             id="contact-last-name"
-            className="mt-1"
+            className="mt-1 w-full md:mt-2"
             placeholder={t("lastName")}
             value={contactDraft.last_name}
             onChange={(event) =>
@@ -752,12 +754,14 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
           />
         </div>
         <div>
+          <div className="md:flex md:min-h-[var(--control-height)] md:items-center">
           <Label htmlFor="contact-first-name" required>
             {t("firstName")}
           </Label>
+          </div>
           <Input
             id="contact-first-name"
-            className="mt-1"
+            className="mt-1 w-full md:mt-2"
             placeholder={t("firstName")}
             value={contactDraft.first_name}
             onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
@@ -768,16 +772,18 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
           />
         </div>
         <div>
+          <div className="md:flex md:min-h-[var(--control-height)] md:items-center">
           <Label>{t("relationLabel")}</Label>
+          </div>
           <PopoverSelect
-            className="mt-1 w-full"
+            className="mt-1 w-full md:mt-2"
             value={contactDraft.relation}
             onValueChange={(value) => setContactDraft({ ...contactDraft, relation: value })}
             ariaLabel={t("relationLabel")}
             options={RELATIONS.map((rel) => ({ value: rel, label: t(`relation_${rel}`) }))}
           />
         </div>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm md:mt-[calc(var(--control-height)+0.5rem)] md:min-h-[var(--control-height)]">
           <Checkbox
             checked={contactDraft.is_emergency}
             onCheckedChange={(checked) => setContactDraft({ ...contactDraft, is_emergency: Boolean(checked) })}
@@ -899,7 +905,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             </div>
             <PopoverSelect
               ariaLabel={verifyT("ssnCountry")}
-              className="mt-1 w-full"
+              className="mt-1 w-full md:mt-2"
               disabled={numberLocked}
               value={record.social_security_country || "LU"}
               onValueChange={(value) =>
