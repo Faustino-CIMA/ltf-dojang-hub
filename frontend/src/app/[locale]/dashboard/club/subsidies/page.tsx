@@ -8,6 +8,7 @@ import { ClubAdminLayout } from "@/components/club-admin/club-admin-layout";
 import { ClubFinanceTabs } from "@/components/club-admin/club-finance-tabs";
 import { EmptyState } from "@/components/club-admin/empty-state";
 import { useClubSelection } from "@/components/club-selection-provider";
+import { formatDisplayDate } from "@/lib/date-display";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -788,7 +789,7 @@ export default function ClubSubsidiesPage() {
                       {dossier.youth.map((row) => (
                         <tr key={row.id} className="border-b border-border last:border-0">
                           <td className="px-[var(--control-padding-x)] py-1 text-sm">{formatFullName(row)}</td>
-                          <td className="px-[var(--control-padding-x)] py-1 text-sm text-muted">{row.date_of_birth}</td>
+                          <td className="px-[var(--control-padding-x)] py-1 text-sm text-muted">{formatDisplayDate(row.date_of_birth)}</td>
                           <td className="px-[var(--control-padding-x)] py-1">
                             <Input
                               className="max-w-44"

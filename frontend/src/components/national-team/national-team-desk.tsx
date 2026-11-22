@@ -16,6 +16,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { UnderlineTabs } from "@/components/ui/underline-tabs";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { formatDisplayDate } from "@/lib/date-display";
 import { getClubs, getMembersList, type Member } from "@/lib/ltf-admin-api";
 import {
   deleteAthleteStatus,
@@ -538,8 +539,8 @@ function StaffSection({
             { key: "name", header: t("nationalTeamName"), render: (row) => formatFullName(row.person) },
             { key: "function", header: t("nationalTeamStaffFunction"), render: (row) => translateCode(t, staffKey(row.function), row.function) },
             { key: "squad", header: t("nationalTeamSquad"), render: (row) => squadName(row.squad) },
-            { key: "start", header: t("nationalTeamStart"), render: (row) => row.started_on },
-            { key: "end", header: t("nationalTeamEnd"), render: (row) => row.ended_on || t("nationalTeamOpenEnded") },
+            { key: "start", header: t("nationalTeamStart"), render: (row) => formatDisplayDate(row.started_on) },
+            { key: "end", header: t("nationalTeamEnd"), render: (row) => (row.ended_on ? formatDisplayDate(row.ended_on) : t("nationalTeamOpenEnded")) },
             ...(canManage
               ? [
                   {
@@ -998,7 +999,7 @@ function StatusHistory(props: {
                   : translateCode(t, supportKey(row.support_program), row.support_program)}
             </p>
             <p className="text-muted">
-              {row.started_on} – {row.ended_on || t("nationalTeamOpenEnded")}
+              {formatDisplayDate(row.started_on)} – {row.ended_on ? formatDisplayDate(row.ended_on) : t("nationalTeamOpenEnded")}
             </p>
             {row.source_note ? <p className="text-foreground">{row.source_note}</p> : null}
             <div className="mt-2 flex flex-wrap gap-2">

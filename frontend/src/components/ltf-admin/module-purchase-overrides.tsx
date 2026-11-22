@@ -268,12 +268,12 @@ export function ModulePurchaseOverrides({
                 {
                   key: "before",
                   header: t("modulePurchaseAuditBefore"),
-                  render: (row) => row.previous_ends_at ?? t("modulePurchaseNoEnd"),
+                  render: (row) => (row.previous_ends_at ? formatDisplayDate(row.previous_ends_at) : t("modulePurchaseNoEnd")),
                 },
                 {
                   key: "after",
                   header: t("modulePurchaseAuditAfter"),
-                  render: (row) => row.new_ends_at ?? t("modulePurchaseNoEnd"),
+                  render: (row) => (row.new_ends_at ? formatDisplayDate(row.new_ends_at) : t("modulePurchaseNoEnd")),
                 },
                 {
                   key: "reason",

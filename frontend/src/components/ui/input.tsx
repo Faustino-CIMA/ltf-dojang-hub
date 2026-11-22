@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { useDeskAccess } from "@/components/desk-access"
+import { formatDisplayDate } from "@/lib/date-display"
 import { cn } from "@/lib/utils"
 
 const LOCKED_FILE = new Set(["file", "checkbox", "radio", "range", "color"])
@@ -10,7 +11,7 @@ const LOCKED_FILE = new Set(["file", "checkbox", "radio", "range", "color"])
 function Input({ className, type, readOnly, disabled, ...props }: React.ComponentProps<"input">) {
   const { readOnly: viewOnly } = useDeskAccess()
   const fileLike = LOCKED_FILE.has(type || "")
-  return (
+  const field = (
     <input
       type={type}
       data-slot="input"
@@ -26,6 +27,17 @@ function Input({ className, type, readOnly, disabled, ...props }: React.Componen
       )}
       {...props}
     />
+  )
+  if (type !== "date") {
+    return field
+  }
+  const selected = typeof props.value === "string" ? props.value.trim() : ""
+  const shown = selected ? formatDisplayDate(selected) : ""
+  return (
+    <div className="grid w-full min-w-0 gap-1">
+      {field}
+      <p className="min-h-4 text-xs leading-4 text-muted tabular-nums">{shown && shown !== "-" ? shown : "\u00a0"}</p>
+    </div>
   )
 }
 

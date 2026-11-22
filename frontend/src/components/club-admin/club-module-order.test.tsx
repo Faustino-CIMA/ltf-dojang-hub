@@ -257,7 +257,7 @@ describe("Club module order", () => {
         onOrder={jest.fn()}
       />,
     );
-    expect(screen.getByText("moduleOrderUntil 02 Nov 2027")).toBeInTheDocument();
+    expect(screen.getByText("moduleOrderUntil 02.11.2027")).toBeInTheDocument();
     expect(screen.getAllByText("Competition")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "moduleOrderChoose" }));
     expect(screen.queryByRole("checkbox", { name: "Club Compete" })).not.toBeInTheDocument();
@@ -284,7 +284,7 @@ describe("Club module order", () => {
       />,
     );
     expect(screen.getByText("Club Compete")).toBeInTheDocument();
-    expect(screen.getByText("moduleOrderUntil 02 Nov 2027")).toBeInTheDocument();
+    expect(screen.getByText("moduleOrderUntil 02.11.2027")).toBeInTheDocument();
     expect(screen.getByText("moduleOrderEmpty")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "Club Compete" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Club Compete" })).not.toBeInTheDocument();

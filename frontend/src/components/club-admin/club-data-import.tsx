@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Download, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { formatDisplayDate } from "@/lib/date-display";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -461,7 +462,7 @@ function ReportList({ report }: { report: ImportReport }) {
           </p>
           <p className={row.status === "error" ? "text-sm text-destructive" : "text-sm text-muted"}>
             {row.codes.length
-              ? row.codes.map((code) => t(`dataImportCode_${code}`, { date: row.stored_date || "" })).join(" ")
+              ? row.codes.map((code) => t(`dataImportCode_${code}`, { date: row.stored_date ? formatDisplayDate(row.stored_date) : "" })).join(" ")
               : t(`dataImportStatus_${row.status}`)}
           </p>
           {row.preview.social_security_number ? (

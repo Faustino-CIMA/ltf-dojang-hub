@@ -213,13 +213,14 @@ export function EventCalendarPage({ variant }: EventCalendarPageProps) {
 
   const selectedEvents = byDay.get(selectedDay) ?? [];
   const todayKey = isoDate(now);
-  const monthLabel = startOfMonth(year, month).toLocaleDateString(locale === "lb" ? "lb-LU" : "en-GB", {
+  const dateLocale = locale === "lb" ? "de-LU" : locale === "en" ? "en-GB" : locale;
+  const monthLabel = startOfMonth(year, month).toLocaleDateString(dateLocale, {
     month: "long",
     year: "numeric",
   });
 
   const weekdayLabels = [1, 2, 3, 4, 5, 6, 0].map((day) =>
-    new Date(2026, 5, day === 0 ? 7 : day).toLocaleDateString(locale === "lb" ? "lb-LU" : "en-GB", {
+    new Date(2026, 5, day === 0 ? 7 : day).toLocaleDateString(dateLocale, {
       weekday: "short",
     }),
   );

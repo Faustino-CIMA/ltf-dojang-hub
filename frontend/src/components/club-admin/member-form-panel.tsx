@@ -34,7 +34,7 @@ const createSchema = z
     ltf_license_prefix: z.enum(["LTF", "LUX"]),
     date_of_birth: z.string().optional().refine(
       (value) => !String(value ?? "").trim() || parseDisplayDateToIso(String(value)) !== null,
-      "Use date format 29 Nov 2026.",
+      "dobFormatError",
     ),
     primary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
     secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")).optional(),
@@ -74,7 +74,7 @@ const editSchema = z.object({
   ltf_licenseid: z.string().max(20, "LTF license ID must be at most 20 characters."),
   date_of_birth: z.string().refine(
     (value) => !String(value ?? "").trim() || parseDisplayDateToIso(value) !== null,
-    "Use date format 29 Nov 2026.",
+    "dobFormatError",
   ),
   primary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")),
   secondary_license_role: z.enum(LICENSE_ROLE_VALUES).or(z.literal("")),
@@ -505,10 +505,13 @@ export function MemberFormPanel({
           </div>
           <Input
             id="member-panel-dob"
-            placeholder="29 Nov 2026"
+            placeholder={t("dobPlaceholder")}
             disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("date_of_birth") : createForm.register("date_of_birth"))}
           />
+          {(editing ? editForm.formState.errors.date_of_birth : createForm.formState.errors.date_of_birth) ? (
+            <p className="text-sm text-destructive">{t("dobFormatError")}</p>
+          ) : null}
         </div>
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
           <div className="space-y-2 sm:flex sm:flex-col sm:gap-2 sm:space-y-0">

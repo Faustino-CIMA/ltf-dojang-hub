@@ -8,6 +8,7 @@ import { formatAgeClassLabel } from "@/lib/age-class";
 import { FormPanel } from "@/components/ui/list-page-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getAthleteNationalTeam, type AthleteNationalTeam } from "@/lib/national-team-api";
+import { formatDisplayDate } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 
 function supportLabel(t: (key: string) => string, value: string | null) {
@@ -98,7 +99,7 @@ export function MemberNationalTeamBlock({
                 <div>
                   <dt className="text-xs text-muted">{t("nationalTeamDates")}</dt>
                   <dd className="font-medium text-foreground">
-                    {row.started_on} – {row.ended_on || t("nationalTeamOpenEnded")}
+                    {formatDisplayDate(row.started_on)} – {row.ended_on ? formatDisplayDate(row.ended_on) : t("nationalTeamOpenEnded")}
                   </dd>
                 </div>
               </dl>
@@ -133,7 +134,7 @@ export function MemberNationalTeamBlock({
                     </span>
                     <span className="text-muted">
                       {" "}
-                      · {row.started_on} – {row.ended_on || t("nationalTeamOpenEnded")}
+                      · {formatDisplayDate(row.started_on)} – {row.ended_on ? formatDisplayDate(row.ended_on) : t("nationalTeamOpenEnded")}
                     </span>
                     {row.source_note ? <span className="text-muted"> · {row.source_note}</span> : null}
                   </li>

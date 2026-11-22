@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/club-admin/empty-state";
 import { TrainingVenueField, useClubTrainingVenues } from "@/components/club-admin/training-venue-field";
 import { timetablePlaceText } from "@/components/club-admin/training-venue-picker";
 import { useCanManageTraining } from "@/components/club-admin/use-training-access";
+import { formatDisplayDate } from "@/lib/date-display";
 import { useClubSelection } from "@/components/club-selection-provider";
 import { Button } from "@/components/ui/button";
 import { FilterPills } from "@/components/ui/filter-pills";
@@ -260,7 +261,7 @@ export default function TrainingWeekPage() {
                       header: t("trainingWeekday"),
                       render: (row) => t(`trainingDay_${weekdayIndex(row.held_on)}`),
                     },
-                    { key: "held_on", header: t("trainingDate") },
+                    { key: "held_on", header: t("trainingDate"), render: (row) => formatDisplayDate(row.held_on) },
                     {
                       key: "time",
                       header: t("trainingTime"),
