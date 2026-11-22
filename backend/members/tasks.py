@@ -23,12 +23,15 @@ def build_club_data_pdf(job_id: int) -> None:
             include_members="members" in sheets,
             include_licences="licences" in sheets,
             include_grades="grades" in sheets,
+            include_emails="emails" in sheets,
+            include_contacts="contacts" in sheets,
+            include_families="families" in sheets,
         )
         job.progress = 55
         job.save(update_fields=["progress"])
         refs = member_refs(job.club_id)
         names = {
-            row["member_ref"]: f"{row['first_name']} {row['last_name']}".strip()
+            row["member_ref"]: f"{row['last_name']} {row['first_name']}".strip()
             for _member_id, row in member_rows(job.club_id)
         }
         payload = build_pdf(tables, job.club.name, job.locale, masked_numbers(job.club_id, refs), names)

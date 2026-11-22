@@ -7,7 +7,16 @@ export type ClubDataSummary = {
   member_count: number;
   license_count: number;
   grade_count: number;
+  club_management: boolean;
   prepare_above: number;
+  email_count: number;
+  phone_count: number;
+  address_count: number;
+  contact_count: number;
+  person_count: number;
+  family_count: number;
+  family_member_count: number;
+  rebate_count: number;
 };
 
 export type ClubDataJob = {
@@ -32,7 +41,7 @@ export async function fetchClubDataSummary(): Promise<ClubDataSummary> {
   return (await response.json()) as ClubDataSummary;
 }
 
-export type ClubDataSheet = "members" | "licences" | "grades";
+export type ClubDataSheet = "members" | "licences" | "grades" | "emails" | "contacts" | "families";
 
 async function authorizedFetch(path: string, init: RequestInit = {}) {
   const token = getToken();
