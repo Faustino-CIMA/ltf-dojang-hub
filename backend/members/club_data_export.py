@@ -90,6 +90,8 @@ _TITLES = {
         "promotion_date": "Promotion date",
         "exam_date": "Exam date",
         "notes": "Notes",
+        "social_security_number": "Social security number",
+        "social_security_country": "Social security country",
     },
     "fr": {
         "member_ref": "Référence du membre",
@@ -117,6 +119,8 @@ _TITLES = {
         "promotion_date": "Date de promotion",
         "exam_date": "Date d'examen",
         "notes": "Notes",
+        "social_security_number": "Numéro de sécurité sociale",
+        "social_security_country": "Pays du numéro",
     },
     "de": {
         "member_ref": "Mitgliedsreferenz",
@@ -144,6 +148,8 @@ _TITLES = {
         "promotion_date": "Beförderungsdatum",
         "exam_date": "Prüfungsdatum",
         "notes": "Notizen",
+        "social_security_number": "Sozialversicherungsnummer",
+        "social_security_country": "Land der Nummer",
     },
     "lb": {
         "member_ref": "Memberreferenz",
@@ -171,6 +177,8 @@ _TITLES = {
         "promotion_date": "Promotiounsdatum",
         "exam_date": "Examendatum",
         "notes": "Notizen",
+        "social_security_number": "Sozialversécherungsnummer",
+        "social_security_country": "Land vun der Nummer",
     },
 }
 
@@ -480,6 +488,94 @@ def build_pdf(
             parts.append("</ul>")
     parts.append("</body></html>")
     return write_pdf("".join(parts))
+
+
+_OWN_NUMBER_KEYS = ("social_security_number", "social_security_country")
+
+
+def tables_for_member(member) -> tuple[dict[str, list[dict]], str, str]:
+    """One person's members, licences, and grades. The number is returned separately."""
+    from clubmgmt.models import MemberRecord
+
+    built = member_rows(member.club_id) if member.club_id else []
+    match = next((row for member_id, row in built if member_id == member.id), None)
+    if match is None:
+        license_id = (member.ltf_licenseid or "").strip()
+        match = {
+            "member_ref": license_id or "m-0001",
+            "first_name": member.first_name,
+            "last_name": member.last_name,
+            "usual_name": member.usual_name,
+            "sex": member.sex,
+            "date_of_birth": _iso(member.date_of_birth),
+            "email": member.email,
+            "ltf_licenseid": member.ltf_licenseid,
+            "wt_licenseid": member.wt_licenseid,
+            "belt_rank": member.belt_rank,
+            "primary_license_role": member.primary_license_role,
+            "secondary_license_role": member.secondary_license_role,
+            "is_active": "true" if member.is_active else "false",
+        }
+    ref = match["member_ref"]
+    refs = {member.id: ref}
+    licences = [row for row in license_rows(member.club_id or 0, refs) if row["member_ref"] == ref]
+    grades = [row for row in grade_rows(member.club_id or 0, refs) if row["member_ref"] == ref]
+    record = MemberRecord.objects.filter(member_id=member.id).only(
+        "social_security_number", "social_security_country"
+    ).first()
+    number = (record.social_security_number if record else "") or ""
+    country = (record.social_security_country if record else "") or ""
+    return {"members": [dict(match)], "licences": licences, "grades": grades}, number, country
+
+
+def build_own_file(member, file_format: str, locale: str) -> tuple[bytes | None, str, str]:
+    from members.ssn_mask import MASKED_SOCIAL_SECURITY_NUMBER, mask_social_security_number
+
+    tables, number, country = tables_for_member(member)
+    ref = tables["members"][0]["member_ref"]
+    locale = normalize_locale(locale)
+    if file_format == "pdf":
+        names = {ref: f"{member.first_name} {member.last_name}".strip()}
+        masked = {ref: MASKED_SOCIAL_SECURITY_NUMBER} if mask_social_security_number(number) else {}
+        payload = build_pdf(tables, member.club.name if member.club_id else "", locale, masked, names)
+        return payload, "application/pdf", "pdf"
+    row = tables["members"][0]
+    if number:
+        row["social_security_number"] = number
+        row["social_security_country"] = country
+    keys = MEMBER_KEYS + (_OWN_NUMBER_KEYS if number else ())
+    if file_format == "json":
+        return build_json(tables, member.club.name if member.club_id else ""), "application/json", "json"
+    if file_format == "csv":
+        return _own_csv(tables, keys, locale), "application/zip", "zip"
+    return _own_xlsx(tables, keys, locale), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+
+
+def _own_csv(tables, member_keys, locale: str) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        manifest = io.StringIO()
+        writer = csv.writer(manifest, lineterminator="\n")
+        writer.writerow(["file", "key", "rows"])
+        pairs = (("members", member_keys), ("licences", LICENSE_KEYS), ("grades", GRADE_KEYS))
+        for key, fields in pairs:
+            filename = f"{key}.csv"
+            archive.writestr(filename, _csv_bytes(fields, tables[key], locale))
+            writer.writerow([filename, key, len(tables[key])])
+        archive.writestr("manifest.csv", manifest.getvalue().encode("utf-8"))
+    return buffer.getvalue()
+
+
+def _own_xlsx(tables, member_keys, locale: str) -> bytes:
+    book = Workbook()
+    default = book.active
+    book.remove(default)
+    _sheet(book, "members", member_keys, tables["members"], locale)
+    _sheet(book, "licences", LICENSE_KEYS, tables["licences"], locale)
+    _sheet(book, "grades", GRADE_KEYS, tables["grades"], locale)
+    buffer = io.BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
 
 
 def download_name(club_name: str, extension: str, today: date | None = None) -> str:

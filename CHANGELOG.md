@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A member can download their own row, licenses, and grade history from their overview. The PDF masks the social security number. The other files include it, because it is their data. A club admin can make the same file from the member page, and that download is recorded without the number or the file. A minor account says the file is the child's data.
 - **Members:** A checked club import can be saved in the background, with a count of rows done. The result can be downloaded. Undo lasts 72 hours, asks for the batch number, and does not delete grade promotions.
 - **Members:** A club admin can check an import of members, licenses, and grade history from Data. The wizard downloads a template, maps columns, checks the rows, and can run that check without saving. A social security number in the preview is a fixed mask. Saving the rows comes in the next step.
 - **Members:** The usual name is no longer a field on the member form. The stored name is unchanged. On a desktop side panel, paired fields line up, and the social security number sits beside its country. The phone layout is unchanged.

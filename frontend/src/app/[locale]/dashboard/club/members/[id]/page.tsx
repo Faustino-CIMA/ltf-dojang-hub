@@ -26,6 +26,7 @@ import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-ma
 import { faceCheckEditorLabels } from "@/lib/face-check";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { VerifiedBadge } from "@/components/members/verified-badge";
+import { DownloadMyData } from "@/components/members/download-my-data";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
@@ -472,6 +473,16 @@ export default function ClubMemberDetailPage() {
                   </div>
                 ) : null}
               </div>
+              {canManageMemberFull ? (
+                <div className="mt-3">
+                  <DownloadMyData
+                    memberId={member.id}
+                    locale={locale}
+                    minor={Boolean(member.minor_account)}
+                    admin
+                  />
+                </div>
+              ) : null}
               <div className="mt-4">
                 <ProfilePhotoManager
                   imageUrl={member.profile_picture_url}
