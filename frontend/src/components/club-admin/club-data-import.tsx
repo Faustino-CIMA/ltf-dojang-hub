@@ -10,9 +10,14 @@ import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import {
   checkImport,
+  commitImport,
+  downloadImportResult,
   downloadImportTemplate,
+  readImportBatch,
   saveImportMapping,
+  undoImport,
   uploadImportFile,
+  type ImportBatch,
   type ImportReport,
   type ImportSheet,
   type ImportUpload,
@@ -34,6 +39,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
   const [actions, setActions] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [batch, setBatch] = useState<ImportBatch | null>(null);
+  const [undoText, setUndoText] = useState("");
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -100,6 +107,50 @@ export function ClubDataImport({ locale }: { locale: string }) {
       go(dryRun ? 4 : 2);
     } catch {
       setErrorMessage(t("dataImportFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startCommit() {
+    if (!upload || !report || busy) {
+      return;
+    }
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      let next = await commitImport(upload.id, mapping, actions);
+      setBatch(next);
+      const started = Date.now();
+      while (next.status === "queued" || next.status === "running") {
+        if (Date.now() - started > 120_000) {
+          throw new Error("timeout");
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        next = await readImportBatch(next.id);
+        setBatch(next);
+      }
+      if (next.status === "failed") {
+        setErrorMessage(t("dataImportFailed"));
+      }
+    } catch {
+      setErrorMessage(t("dataImportFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runUndo() {
+    if (!batch || busy) {
+      return;
+    }
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      const next = await undoImport(batch.id, undoText.trim());
+      setBatch(next);
+    } catch {
+      setErrorMessage(t("dataImportUndoFailed"));
     } finally {
       setBusy(false);
     }
@@ -293,14 +344,98 @@ export function ClubDataImport({ locale }: { locale: string }) {
         </div>
       ) : null}
 
-      {step === 5 ? (
+      {step === 5 && report ? (
+        <CommitStep
+          report={report}
+          grades={Boolean(upload?.sheets.some((sheet) => sheet.key === "grades"))}
+          busy={busy}
+          batch={batch}
+          undoText={undoText}
+          onUndoText={setUndoText}
+          onBack={() => go(4)}
+          onImport={() => void startCommit()}
+          onDownload={(fileFormat) => void downloadImportResult(batch?.id || 0, fileFormat)}
+          onUndo={() => void runUndo()}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CommitStep({
+  report,
+  grades,
+  busy,
+  batch,
+  undoText,
+  onUndoText,
+  onBack,
+  onImport,
+  onDownload,
+  onUndo,
+}: {
+  report: ImportReport;
+  grades: boolean;
+  busy: boolean;
+  batch: ImportBatch | null;
+  undoText: string;
+  onUndoText: (value: string) => void;
+  onBack: () => void;
+  onImport: () => void;
+  onDownload: (fileFormat: "csv" | "json") => void;
+  onUndo: () => void;
+}) {
+  const t = useTranslations("ClubAdmin");
+  const ready = report.counts.error === 0 && report.counts.create + report.counts.update > 0;
+  const running = batch != null && (batch.status === "queued" || batch.status === "running");
+  return (
+    <div className="space-y-3">
+      {grades ? <p className="text-sm text-muted">{t("dataImportGradesNotice")}</p> : null}
+      {running ? (
+        <p className="text-sm text-muted" role="status">
+          {t("dataImportProgress", { done: batch.rows_done, total: batch.rows_total })}
+        </p>
+      ) : null}
+      {batch?.status === "succeeded" ? (
         <div className="space-y-3">
-          <p className="text-sm text-muted">{t("dataImportCommitLater")}</p>
-          <Button type="button" className="w-full sm:w-auto" disabled>
-            {t("dataImportCommit")}
-          </Button>
-          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => go(4)}>
+          <h3 className="text-sm font-medium text-foreground">{t("dataImportFinished")}</h3>
+          <p className="text-sm text-foreground">
+            {t("dataImportResultCounts", {
+              created: batch.counts.created || 0,
+              updated: batch.counts.updated || 0,
+              skipped: batch.counts.skipped || 0,
+              errors: batch.counts.errors || 0,
+            })}
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onDownload("csv")}>
+              <Download aria-hidden />
+              {t("dataImportDownloadCsv")}
+            </Button>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onDownload("json")}>
+              <Download aria-hidden />
+              {t("dataImportDownloadJson")}
+            </Button>
+          </div>
+          {batch.undo_open ? (
+            <div className="space-y-2">
+              <Label htmlFor="import-undo">{t("dataImportUndoHint", { id: batch.id })}</Label>
+              <Input id="import-undo" value={undoText} onChange={(event) => onUndoText(event.target.value)} />
+              <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={busy} onClick={onUndo}>
+                {t("dataImportUndo")}
+              </Button>
+            </div>
+          ) : null}
+          {batch.undone ? <p className="text-sm text-foreground">{t("dataImportUndone")}</p> : null}
+        </div>
+      ) : null}
+      {batch == null ? (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onBack}>
             {t("dataImportBack")}
+          </Button>
+          <Button type="button" className="w-full sm:w-auto" disabled={!ready || busy} onClick={onImport}>
+            {t("dataImportCommit")}
           </Button>
         </div>
       ) : null}

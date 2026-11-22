@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A checked club import can be saved in the background, with a count of rows done. The result can be downloaded. Undo lasts 72 hours, asks for the batch number, and does not delete grade promotions.
 - **Members:** A club admin can check an import of members, licenses, and grade history from Data. The wizard downloads a template, maps columns, checks the rows, and can run that check without saving. A social security number in the preview is a fixed mask. Saving the rows comes in the next step.
 - **Members:** The usual name is no longer a field on the member form. The stored name is unchanged. On a desktop side panel, paired fields line up, and the social security number sits beside its country. The phone layout is unchanged.
 - **Navigation:** Data is in the club sidebar, next to Members, for a club admin. A coach does not see it. It is in the same menu on a phone.
