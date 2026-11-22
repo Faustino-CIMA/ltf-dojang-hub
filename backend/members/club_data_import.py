@@ -564,6 +564,11 @@ def _member_indexes(club_id: int):
 
 
 def check_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | None = None) -> dict:
+    report, _decisions = review_upload(parsed, club_id, mapping, actions)
+    return report
+
+
+def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | None = None) -> tuple[dict, list]:
     actions = actions or {}
     by_license, by_name, by_number, other_clubs, latest = _member_indexes(club_id)
     prepared = []
@@ -596,6 +601,7 @@ def check_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | None
         choice = actions.get(f"{sheet}:{row['_line']}")
         if choice in {"create", "update", "skip"}:
             decision["action"] = choice
+        decision["row"] = row
         decisions.append(decision)
         if decision["action"] != "skip" and decision["signature"]:
             signatures.setdefault(decision["signature"], []).append(index)
@@ -626,13 +632,15 @@ def check_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | None
                     "preview": decision["preview"],
                 }
             )
-    return {
+    report = {
         "counts": counts,
         "rows": rows,
         "truncated": len(decisions) > PREVIEW_LIMIT,
         "saved": False,
         "numbers_included": parsed["numbers_included"],
+        "grades_included": any(sheet["key"] == "grades" for sheet in parsed["sheets"]),
     }
+    return report, decisions
 
 
 def _status(codes: list[str]) -> str:
@@ -661,6 +669,7 @@ def _decide_row(sheet, row, *, by_license, by_name, by_number, other_clubs, late
     preview = {}
     signature = ""
     action = "create"
+    member_id = None
     if sheet == "members":
         last_name = row["last_name"].strip()
         first_name = row["first_name"].strip()
@@ -697,17 +706,20 @@ def _decide_row(sheet, row, *, by_license, by_name, by_number, other_clubs, late
             codes.append("possible_duplicate")
             action = "update"
             signature = f"ltf:{license_id}"
+            member_id = matched
         elif number and (number, country) in by_number:
             matched = by_number[(number, country)]
             codes.append("possible_duplicate")
             action = "update"
             signature = f"num:{country}:{number}"
+            member_id = matched
         elif last_name and first_name and stored_date:
             key = (last_name.casefold(), first_name.casefold(), stored_date)
             if key in by_name:
                 matched = by_name[key].id
                 codes.append("possible_duplicate")
                 action = "update"
+                member_id = matched
             signature = f"name:{key[0]}|{key[1]}|{stored_date}"
         elif license_id:
             signature = f"ltf:{license_id}"
@@ -755,6 +767,8 @@ def _decide_row(sheet, row, *, by_license, by_name, by_number, other_clubs, late
             codes.append(date_code)
         license_id = row["member_ref"].strip().upper()
         member = by_license.get(license_id)
+        if member is not None:
+            member_id = member.id
         if member and stored_date:
             latest_date = latest.get(member.id)
             if latest_date and date.fromisoformat(stored_date) < latest_date:
@@ -780,6 +794,7 @@ def _decide_row(sheet, row, *, by_license, by_name, by_number, other_clubs, late
         "signature": signature,
         "stored_date": stored_date,
         "preview": preview,
+        "member_id": member_id,
     }
 
 

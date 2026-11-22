@@ -1,5 +1,6 @@
 """Upload, map, and dry-run a club data file. Nothing is saved into the member list."""
 
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -8,7 +9,8 @@ from rest_framework.views import APIView
 
 from accounts.desks import current_active_club, current_desk
 from clubs.models import Club
-from members.models import ClubDataImportUpload, ClubDataSavedMapping
+from members.models import ClubDataImportBatch, ClubDataImportUpload, ClubDataSavedMapping
+from members.tasks import commit_club_data_import
 from ops.request_utils import write_ops_audit
 
 from .club_data_export import normalize_locale
@@ -21,7 +23,9 @@ from .club_data_import import (
     expire_uploads,
     header_shape,
     parse_upload,
+    review_upload,
 )
+from .club_data_import_commit import public_result, result_csv, result_json, undo_batch
 
 _FORMATS = {"csv": "text/csv", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
 _SUFFIXES = {
@@ -198,3 +202,119 @@ class ClubDataImportMappingView(APIView):
             created_by=request.user,
         )
         return Response({"id": saved.id, "name": saved.name}, status=201)
+
+
+class ClubDataImportCommitView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, upload_id: int):
+        club, error = _club(request)
+        if error is not None:
+            return error
+        stored = ClubDataImportUpload.objects.filter(pk=upload_id, club_id=club.id).first()
+        if stored is None:
+            return Response({"detail": "This file is no longer available."}, status=404)
+        mapping = request.data.get("mapping") or {}
+        actions = request.data.get("actions") or {}
+        if not isinstance(mapping, dict) or not isinstance(actions, dict):
+            return Response({"detail": "The column mapping is not valid."}, status=400)
+        try:
+            parsed = parse_upload(stored.stored.read(), stored.file_format)
+        except ImportFileError as exc:
+            return Response({"detail": exc.code}, status=400)
+        finally:
+            stored.stored.close()
+        report, _decisions = review_upload(parsed, club.id, mapping, actions)
+        if report["counts"]["error"] or report["counts"]["create"] + report["counts"]["update"] < 1:
+            return Response({"detail": "Fix the errors before importing.", "counts": report["counts"]}, status=400)
+        batch = ClubDataImportBatch.objects.create(
+            club=club,
+            upload=stored,
+            requested_by=request.user,
+            mapping=mapping,
+            actions=actions,
+            grades_included=report["grades_included"],
+            numbers_included=report["numbers_included"],
+            rows_total=sum(report["counts"].values()),
+        )
+        _audit(
+            request,
+            club,
+            "commit",
+            format=stored.file_format,
+            batch_id=batch.id,
+            numbers_included=report["numbers_included"],
+            grades_included=report["grades_included"],
+        )
+        commit_club_data_import.delay(batch.id)
+        batch.refresh_from_db()
+        return Response(public_result(batch), status=202)
+
+
+class ClubDataImportBatchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, batch_id: int):
+        club, error = _club(request)
+        if error is not None:
+            return error
+        batch = ClubDataImportBatch.objects.filter(pk=batch_id, club_id=club.id).first()
+        if batch is None:
+            return Response({"detail": "This import is no longer available."}, status=404)
+        return Response(public_result(batch))
+
+
+class ClubDataImportResultView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, batch_id: int):
+        club, error = _club(request)
+        if error is not None:
+            return error
+        batch = ClubDataImportBatch.objects.filter(pk=batch_id, club_id=club.id).first()
+        if batch is None or batch.status != ClubDataImportBatch.Status.SUCCEEDED:
+            return Response({"detail": "The result is not ready."}, status=404)
+        file_format = str(request.query_params.get("file_format") or "json")
+        if file_format == "csv":
+            payload = result_csv(batch)
+            content_type = "text/csv"
+            extension = "csv"
+        else:
+            payload = result_json(batch)
+            content_type = "application/json"
+            extension = "json"
+        response = HttpResponse(payload, content_type=content_type)
+        response["Content-Disposition"] = f'attachment; filename="import-result-{batch.id}.{extension}"'
+        return response
+
+
+class ClubDataImportUndoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, batch_id: int):
+        club, error = _club(request)
+        if error is not None:
+            return error
+        batch = ClubDataImportBatch.objects.filter(pk=batch_id, club_id=club.id).first()
+        if batch is None or batch.status != ClubDataImportBatch.Status.SUCCEEDED:
+            return Response({"detail": "This import is no longer available."}, status=404)
+        typed = str(request.data.get("batch_id") or "").strip()
+        if typed != str(batch.id):
+            return Response({"detail": "Type the batch number shown on this page."}, status=400)
+        try:
+            outcome = undo_batch(batch)
+        except ValidationError as exc:
+            return Response({"detail": exc.messages[0] if getattr(exc, "messages", None) else str(exc)}, status=400)
+        _audit(
+            request,
+            club,
+            "undo",
+            batch_id=batch.id,
+            grades_kept=outcome["grades_kept"],
+            members_kept=outcome["members_kept"],
+            numbers_included=False,
+        )
+        body = public_result(batch)
+        body["grades_kept"] = outcome["grades_kept"]
+        body["members_kept"] = outcome["members_kept"]
+        return Response(body)

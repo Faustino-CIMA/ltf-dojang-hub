@@ -3,7 +3,7 @@ import json
 import zipfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from openpyxl import Workbook, load_workbook
 from rest_framework.test import APIClient
 
@@ -11,7 +11,8 @@ from accounts.models import User
 from clubmgmt.models import MemberRecord
 from clubs.models import Club
 from members.club_data_import import MAX_BYTES, parse_upload
-from members.models import Member
+from licenses.models import LicenseType
+from members.models import GradePromotionHistory, Member
 from members.ssn_countries import luxembourg_check_digits
 from members.ssn_mask import MASKED_SOCIAL_SECURITY_NUMBER
 from members.test_verification import _open_grace
@@ -174,3 +175,77 @@ class ClubDataImportTests(TestCase):
             parse_upload(b"x" * (MAX_BYTES + 1), "csv")
         self.assertEqual(raised.exception.code, "too_large")
         self.assertEqual(MemberRecord.objects.count(), 0)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
+    def test_commit_then_undo_keeps_the_grade_and_hides_the_number(self):
+        self.client.force_authenticate(user=self.admin)
+        number = _lu("19711002130")
+        LicenseType.objects.create(name="Athlete", code="athlete-import")
+        book = Workbook()
+        members = book.active
+        members.title = "members"
+        members.append(["Last name", "First name", "LTF license ID", "Social security number"])
+        members.append(["last_name", "first_name", "ltf_licenseid", "social_security_number"])
+        members.append(["EXAMPLE", "Noor", "LTF-EX-0099", number])
+        grades = book.create_sheet("grades")
+        grades.append(["Member reference", "From grade", "To grade", "Promotion date"])
+        grades.append(["member_ref", "from_grade", "to_grade", "promotion_date"])
+        grades.append(["LTF-EX-0099", "10th Kup", "9th Kup", "2026-03-01"])
+        payload = io.BytesIO()
+        book.save(payload)
+        uploaded = SimpleUploadedFile(
+            "people.xlsx",
+            payload.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        stored = self.client.post("/api/club-data/import/", {"file": uploaded}, format="multipart", **self.header)
+        self.assertEqual(stored.status_code, 201, stored.content[:400])
+        refused = self.client.post(
+            f"/api/club-data/import/{stored.data['id']}/commit/",
+            {"mapping": {"members": {"Last name": "ignore"}}},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(Member.objects.filter(last_name="EXAMPLE").count(), 0)
+        committed = self.client.post(
+            f"/api/club-data/import/{stored.data['id']}/commit/",
+            {"mapping": {}},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(committed.status_code, 202, committed.content[:500])
+        self.assertEqual(committed.data["status"], "succeeded")
+        self.assertGreaterEqual(committed.data["rows_done"], 1)
+        self.assertTrue(committed.data["grades_not_undone"])
+        body = json.dumps(committed.data)
+        self.assertNotIn(number, body)
+        person = Member.objects.get(ltf_licenseid="LTF-EX-0099")
+        self.assertTrue(GradePromotionHistory.objects.filter(member=person, to_grade="9th Kup").exists())
+        result = self.client.get(
+            f"/api/club-data/import/batches/{committed.data['id']}/result/?file_format=json",
+            **self.header,
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertNotIn(number, result.content.decode())
+        wrong = self.client.post(
+            f"/api/club-data/import/batches/{committed.data['id']}/undo/",
+            {"batch_id": "0"},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(wrong.status_code, 400)
+        undone = self.client.post(
+            f"/api/club-data/import/batches/{committed.data['id']}/undo/",
+            {"batch_id": str(committed.data["id"])},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(undone.status_code, 200, undone.content[:400])
+        self.assertTrue(undone.data["undone"])
+        self.assertGreaterEqual(undone.data["grades_kept"], 1)
+        self.assertTrue(Member.objects.filter(pk=person.id).exists())
+        self.assertTrue(GradePromotionHistory.objects.filter(member=person, to_grade="9th Kup").exists())
+        audit = OpsAuditLog.objects.filter(action="data.import", metadata__phase="undo").latest("id")
+        self.assertNotIn(number, json.dumps(audit.metadata))
+        self.assertNotIn(number, audit.message)

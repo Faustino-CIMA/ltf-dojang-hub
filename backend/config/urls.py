@@ -42,10 +42,14 @@ from imports.views import (
     MemberImportPreviewView,
 )
 from members.club_data_import_views import (
+    ClubDataImportBatchView,
     ClubDataImportCheckView,
+    ClubDataImportCommitView,
     ClubDataImportDryRunView,
     ClubDataImportMappingView,
+    ClubDataImportResultView,
     ClubDataImportTemplateView,
+    ClubDataImportUndoView,
     ClubDataImportUploadView,
 )
 from members.club_data_views import ClubDataExportFileView, ClubDataExportJobView, ClubDataExportView
@@ -411,6 +415,26 @@ urlpatterns = [
         name="club-data-import-dry-run",
     ),
     path("api/club-data/import/mappings/", ClubDataImportMappingView.as_view(), name="club-data-import-mappings"),
+    path(
+        "api/club-data/import/<int:upload_id>/commit/",
+        ClubDataImportCommitView.as_view(),
+        name="club-data-import-commit",
+    ),
+    path(
+        "api/club-data/import/batches/<int:batch_id>/",
+        ClubDataImportBatchView.as_view(),
+        name="club-data-import-batch",
+    ),
+    path(
+        "api/club-data/import/batches/<int:batch_id>/result/",
+        ClubDataImportResultView.as_view(),
+        name="club-data-import-result",
+    ),
+    path(
+        "api/club-data/import/batches/<int:batch_id>/undo/",
+        ClubDataImportUndoView.as_view(),
+        name="club-data-import-undo",
+    ),
     path("api/club-data/export/jobs/<int:job_id>/", ClubDataExportJobView.as_view(), name="club-data-export-job"),
     path(
         "api/club-data/export/jobs/<int:job_id>/file/",

@@ -113,3 +113,65 @@ export async function checkImport(
   }
   return (await response.json()) as ImportReport;
 }
+
+export type ImportBatch = {
+  id: number;
+  status: "queued" | "running" | "succeeded" | "failed";
+  rows_done: number;
+  rows_total: number;
+  counts: { created?: number; updated?: number; skipped?: number; errors?: number };
+  late_errors: { sheet: string; line: number; code: string }[];
+  grades_included: boolean;
+  grades_not_undone: boolean;
+  undone: boolean;
+  undo_open: boolean;
+  grades_kept?: number;
+  members_kept?: number;
+};
+
+export async function commitImport(
+  uploadId: number,
+  mapping: Record<string, Record<string, string>>,
+  actions: Record<string, string>,
+): Promise<ImportBatch> {
+  const response = await authorizedFetch(`/api/club-data/import/${uploadId}/commit/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mapping, actions }),
+  });
+  if (!response.ok) {
+    throw new Error("commit");
+  }
+  return (await response.json()) as ImportBatch;
+}
+
+export async function readImportBatch(batchId: number): Promise<ImportBatch> {
+  const response = await authorizedFetch(`/api/club-data/import/batches/${batchId}/`);
+  if (!response.ok) {
+    throw new Error("batch");
+  }
+  return (await response.json()) as ImportBatch;
+}
+
+export async function downloadImportResult(batchId: number, fileFormat: "csv" | "json") {
+  const response = await authorizedFetch(
+    `/api/club-data/import/batches/${batchId}/result/?file_format=${fileFormat}`,
+  );
+  if (!response.ok) {
+    throw new Error("result");
+  }
+  const blob = await response.blob();
+  saveBlob(blob, `import-result-${batchId}.${fileFormat}`);
+}
+
+export async function undoImport(batchId: number, typed: string): Promise<ImportBatch> {
+  const response = await authorizedFetch(`/api/club-data/import/batches/${batchId}/undo/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ batch_id: typed }),
+  });
+  if (!response.ok) {
+    throw new Error("undo");
+  }
+  return (await response.json()) as ImportBatch;
+}
