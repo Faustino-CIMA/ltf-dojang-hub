@@ -95,7 +95,7 @@ export function SecretNumberField({
 
   return (
     <div className="space-y-2">
-      <div className="flex min-h-[var(--control-height)] flex-wrap items-center justify-between gap-2">
+      <div className="flex min-h-[var(--control-height)] flex-wrap items-center justify-between gap-2 sm:h-[var(--control-height)] sm:flex-nowrap">
         <div className="flex flex-wrap items-center gap-2">
           <Label htmlFor={id} required={required} className="w-auto">
             {label}
@@ -111,6 +111,7 @@ export function SecretNumberField({
       </div>
       <Input
         id={id}
+        className="w-full"
         autoComplete="off"
         required={required}
         readOnly={!editable}
