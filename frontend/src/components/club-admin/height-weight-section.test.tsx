@@ -197,9 +197,9 @@ describe("Latest measurement columns", () => {
     expect(screen.getByRole("columnheader", { name: "heightWeightLatestWeight" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "heightWeightLatestHeight" })).toBeInTheDocument();
     expect(screen.getByText("heightWeightKg:62.4")).toBeInTheDocument();
-    expect(screen.getByText("01 Mar 2026")).toBeInTheDocument();
+    expect(screen.getByText("01.03.2026")).toBeInTheDocument();
     expect(screen.getByText("heightWeightCm:170")).toBeInTheDocument();
-    expect(screen.getByText("01 Feb 2026")).toBeInTheDocument();
+    expect(screen.getByText("01.02.2026")).toBeInTheDocument();
     expect(screen.getAllByText("—")).toHaveLength(2);
   });
 });
