@@ -6,8 +6,8 @@ describe("setup member id mapping", () => {
     expect(keys).toEqual([
       "wt_licenseid",
       "ltf_licenseid",
-      "first_name",
       "last_name",
+      "first_name",
       "club_name",
       "sex",
       "date_of_birth",

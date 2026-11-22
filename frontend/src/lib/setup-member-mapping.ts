@@ -4,8 +4,8 @@ import { GENERATED_MEMBER_ID_FIELD_KEYS, normalizeHeader } from "@/lib/import-ma
 export const SETUP_MEMBER_TARGET_FIELDS = [
   { key: "wt_licenseid", required: false },
   { key: "ltf_licenseid", required: false },
-  { key: "first_name", required: true },
   { key: "last_name", required: true },
+  { key: "first_name", required: true },
   { key: "club_name", required: true },
   { key: "sex", required: false },
   { key: "date_of_birth", required: false },

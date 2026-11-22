@@ -1,13 +1,13 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { FieldLock } from "@/components/members/field-lock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { maskSecretNumber } from "@/lib/mask-secret";
+import { isMaskedSecretNumber, maskSecretNumber } from "@/lib/mask-secret";
 import { revealSocialSecurityNumber } from "@/lib/member-verification";
 
 const REVEAL_MS = 30_000;
@@ -42,6 +42,20 @@ export function SecretNumberField({
   required?: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
+  const [stored, setStored] = useState(() => value.trim().length > 0);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  useEffect(() => {
+    setRevealed(false);
+    setStored(valueRef.current.trim().length > 0);
+  }, [memberId]);
+
+  useEffect(() => {
+    if (isMaskedSecretNumber(value)) {
+      setStored(true);
+    }
+  }, [value]);
 
   useEffect(() => {
     if (!revealed) {
@@ -59,18 +73,25 @@ export function SecretNumberField({
       setRevealed(false);
       return;
     }
-    setRevealed(true);
+    const alreadyLoaded = /[0-9A-Za-z]/.test(value);
     if (memberId) {
       try {
-        await revealSocialSecurityNumber(memberId);
+        const body = await revealSocialSecurityNumber(memberId);
+        const next = body?.social_security_number ?? "";
+        if (next !== value) {
+          onChange(next);
+        }
       } catch {
-        // The number is already on this page. A failed note must not show it again.
+        if (!alreadyLoaded) {
+          return;
+        }
       }
     }
+    setRevealed(true);
   }
 
-  const shown = revealed ? value : maskSecretNumber(value);
-  const editable = revealed && !locked;
+  const shown = stored && !revealed ? maskSecretNumber(value) : value;
+  const editable = (!stored && !locked) || (revealed && !locked);
 
   return (
     <div className="space-y-2">
@@ -81,7 +102,7 @@ export function SecretNumberField({
           </Label>
           <FieldLock locked={locked} lockedLabel={lockedLabel} openLabel={openLabel} />
         </div>
-        {canReveal ? (
+        {canReveal && stored ? (
           <Button type="button" variant="outline" size="sm" aria-pressed={revealed} onClick={() => void toggle()}>
             {revealed ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
             {revealed ? hideLabel : showLabel}

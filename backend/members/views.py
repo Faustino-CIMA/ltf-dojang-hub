@@ -128,7 +128,12 @@ class MemberViewSet(OptionalPaginationListMixin, viewsets.ModelViewSet, MemberVe
                 target_type="member",
                 target_id=member.pk,
             )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        from clubmgmt.models import MemberRecord
+
+        record = MemberRecord.objects.filter(member=member).only("social_security_number").first()
+        number = record.social_security_number if record is not None else ""
+        return Response({"social_security_number": number})
+
     _COACH_ALLOWED_UPDATE_FIELDS = {"belt_rank"}
     _STAFF_ACTIONS = {
         "create_ltf_staff",

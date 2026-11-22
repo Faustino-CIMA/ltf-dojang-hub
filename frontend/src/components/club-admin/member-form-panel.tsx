@@ -5,6 +5,7 @@ import { Flag, IdCard } from "lucide-react";
 
 import { FieldLock } from "@/components/members/field-lock";
 import { SecretNumberField } from "@/components/members/secret-number-field";
+import { isMaskedSecretNumber } from "@/lib/mask-secret";
 import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -369,26 +370,6 @@ export function MemberFormPanel({
         ) : null}
         <div className="space-y-2">
           <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
-            <Label htmlFor="member-panel-first-name" required className="w-auto">{t("firstNameLabel")}</Label>
-            <FieldLock
-              locked={Boolean(editing && member?.card_verified)}
-              lockedLabel={verifyT("fieldLocked")}
-              openLabel={verifyT("fieldOpen")}
-            />
-          </div>
-          <Input
-            id="member-panel-first-name"
-            disabled={Boolean(editing && member?.card_verified)}
-            {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
-          />
-          {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name) ? (
-            <p className="text-sm text-destructive">
-              {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name)?.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
             <Label htmlFor="member-panel-last-name" required className="w-auto">{t("lastNameLabel")}</Label>
             <FieldLock
               locked={Boolean(editing && member?.card_verified)}
@@ -404,6 +385,26 @@ export function MemberFormPanel({
           {(editing ? editForm.formState.errors.last_name : createForm.formState.errors.last_name) ? (
             <p className="text-sm text-destructive">
               {(editing ? editForm.formState.errors.last_name : createForm.formState.errors.last_name)?.message}
+            </p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+            <Label htmlFor="member-panel-first-name" required className="w-auto">{t("firstNameLabel")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
+          </div>
+          <Input
+            id="member-panel-first-name"
+            disabled={Boolean(editing && member?.card_verified)}
+            {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
+          />
+          {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name) ? (
+            <p className="text-sm text-destructive">
+              {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name)?.message}
             </p>
           ) : null}
         </div>
@@ -523,18 +524,14 @@ export function MemberFormPanel({
             value={(editing ? editForm.watch("social_security_country") : createForm.watch("social_security_country")) || "LU"}
             onValueChange={(value) => {
               const country = value as "LU" | "DE" | "FR" | "BE";
+              const current = (editing ? editForm.getValues("social_security_number") : createForm.getValues("social_security_number")) || "";
+              const nextNumber = isMaskedSecretNumber(current) ? current : sanitizeStoredNumber(country, current);
               if (editing) {
                 editForm.setValue("social_security_country", country);
-                editForm.setValue(
-                  "social_security_number",
-                  sanitizeStoredNumber(country, editForm.getValues("social_security_number") || ""),
-                );
+                editForm.setValue("social_security_number", nextNumber);
               } else {
                 createForm.setValue("social_security_country", country);
-                createForm.setValue(
-                  "social_security_number",
-                  sanitizeStoredNumber(country, createForm.getValues("social_security_number") || ""),
-                );
+                createForm.setValue("social_security_number", nextNumber);
               }
             }}
             options={[
@@ -545,6 +542,7 @@ export function MemberFormPanel({
             ]}
           />
           <SecretNumberField
+            key={editing ? `edit-${member?.id ?? "new"}` : "create"}
             id="member-panel-ssn"
             label={clubT("ssn")}
             required={requireSsn && !editing}
