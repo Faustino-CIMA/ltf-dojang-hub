@@ -103,21 +103,21 @@ function MonthDayFields({
     <div className="grid grid-cols-2 gap-2">
       <PopoverSelect
         className="w-full"
-        value={String(month)}
-        onValueChange={onMonthChange}
-        ariaLabel={monthLabel}
-        placeholder={monthLabel}
-        disabled={disabled}
-        options={monthOptions}
-      />
-      <PopoverSelect
-        className="w-full"
         value={String(day)}
         onValueChange={onDayChange}
         ariaLabel={dayLabel}
         placeholder={dayLabel}
         disabled={disabled}
         options={dayOptions.map((option) => ({ value: String(option), label: String(option) }))}
+      />
+      <PopoverSelect
+        className="w-full"
+        value={String(month)}
+        onValueChange={onMonthChange}
+        ariaLabel={monthLabel}
+        placeholder={monthLabel}
+        disabled={disabled}
+        options={monthOptions}
       />
     </div>
   );

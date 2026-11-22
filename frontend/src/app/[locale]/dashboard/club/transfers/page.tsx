@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { FloatingNotice, FormPanel } from "@/components/ui/list-page-chrome";
 import { SidePanel } from "@/components/ui/side-panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatDisplayDateTime } from "@/lib/date-display";
 import { formatFullName } from "@/lib/person-name";
 import { cn } from "@/lib/utils";
 import {
@@ -657,7 +658,7 @@ export default function ClubTransfersPage() {
                         className="rounded-[var(--radius-form)] border border-border bg-[var(--surface-secondary)] px-3 py-2"
                       >
                         <p className="text-xs text-muted">
-                          {message.author_name} · {message.created_at}
+                          {message.author_name} · {formatDisplayDateTime(message.created_at)}
                         </p>
                         <p className="mt-1 text-sm text-foreground">{message.body}</p>
                       </div>

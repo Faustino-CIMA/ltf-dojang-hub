@@ -4,7 +4,7 @@ describe("license expiry", () => {
   const today = new Date(2026, 11, 1);
 
   it("formats the end date like the other tables", () => {
-    expect(formatLicenseExpiry("2026-12-31")).toBe("31 Dec 2026");
+    expect(formatLicenseExpiry("2026-12-31")).toBe("31.12.2026");
     expect(formatLicenseExpiry(null)).toBe("—");
     expect(formatLicenseExpiry("")).toBe("—");
   });

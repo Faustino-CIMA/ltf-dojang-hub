@@ -14,6 +14,7 @@ import { LoadingCardGrid } from "@/components/ui/loading-card";
 import { RowActionMenu } from "@/components/ui/row-action-menu";
 import { SidePanel } from "@/components/ui/side-panel";
 import { apiRequest } from "@/lib/api";
+import { formatDisplayDate } from "@/lib/date-display";
 
 type MapDesk = { desk: string; level: string };
 type OfficeRow = { office: string; desks: MapDesk[] };
@@ -205,7 +206,7 @@ export default function OpsDesksPage() {
                 { key: "desk", header: t("deskDesk"), sortable: true, sortValue: (row) => row.desk, render: (row) => deskLabel(row.desk) },
                 { key: "level", header: t("deskLevel"), sortable: true, sortValue: (row) => row.level, render: (row) => levelLabel(row.level) },
                 { key: "source", header: t("deskSource"), sortable: true, sortValue: (row) => row.source, render: (row) => row.source },
-                { key: "until", header: t("deskUntil"), sortable: true, sortValue: (row) => row.valid_until || "", render: (row) => row.valid_until || t("deskOpen") },
+                { key: "until", header: t("deskUntil"), sortable: true, sortValue: (row) => row.valid_until || "", render: (row) => (row.valid_until ? formatDisplayDate(row.valid_until) : t("deskOpen")) },
                 {
                   key: "actions",
                   header: <span className="sr-only">{t("deskRowActions")}</span>,

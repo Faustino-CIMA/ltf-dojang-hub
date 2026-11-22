@@ -69,7 +69,7 @@ describe("Team history", () => {
         preview={{ ...recorded, on: "2020-01-01", incomplete: true, roster: [], events: [] }}
       />,
     );
-    expect(screen.getByText('teamHistoryIncomplete:{"date":"20 Oct 2026"}')).toBeInTheDocument();
+    expect(screen.getByText('teamHistoryIncomplete:{"date":"20.10.2026"}')).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "teamHistoryRoster" })).not.toBeInTheDocument();
   });
 });
