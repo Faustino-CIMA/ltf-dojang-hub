@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** The data template and the club export no longer include the usual name. The stored name stays. Excel files from Data, including families, rebates, and contacts, open with sized columns, a bold title row, muted field names, a frozen header, a filter, dates, and text ids and phone numbers. A template starts with a short instruction sheet in the language of the screen.
 - **Members:** A club admin whose club has club management can include families, rebate rules, and contact lists in the data export. People are written once and linked by reference. The PDF has one heading per family, with the last name before the first name. The social security number stays out, and medical notes are not in this file. The audit log records that contacts were included, without a phone number or the file.
 - **Members:** A member can download their own row, licenses, and grade history from their overview. The PDF masks the social security number. The other files include it, because it is their data. A club admin can make the same file from the member page, and that download is recorded without the number or the file. A minor account says the file is the child's data.
 - **Members:** A checked club import can be saved in the background, with a count of rows done. The result can be downloaded. Undo lasts 72 hours, asks for the batch number, and does not delete grade promotions.

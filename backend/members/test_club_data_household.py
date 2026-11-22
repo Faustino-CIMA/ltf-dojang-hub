@@ -168,6 +168,20 @@ class HouseholdExportTests(TestCase):
         self.assertEqual(len(people_rows), 3)
         self.assertEqual(people_rows[2][1], "EXAMPLE")
         self.assertEqual(people_rows[2][2], "Noor")
+        for name in ("people", "contacts", "families", "family_members", "rebate_rules", "person_phones"):
+            sheet = book[name]
+            self.assertGreater(sheet.column_dimensions["A"].width or 0, 0)
+            self.assertEqual(sheet.freeze_panes, "A3")
+            self.assertTrue(str(sheet.auto_filter.ref).startswith("A2:"))
+            self.assertTrue(sheet.cell(1, 1).font.bold)
+        phones = book["person_phones"]
+        phone_headers = [cell.value for cell in phones[2]]
+        phone_column = phone_headers.index("number") + 1
+        self.assertEqual(phones.cell(3, phone_column).number_format, "@")
+        self.assertEqual(str(phones.cell(3, phone_column).value), "+352621000000")
+        rebates = book["rebate_rules"]
+        rebate_headers = [cell.value for cell in rebates[2]]
+        self.assertEqual(rebates.cell(3, rebate_headers.index("percent_off") + 1).number_format, "0.00")
 
         zipped = self.client.post(
             "/api/club-data/export/",

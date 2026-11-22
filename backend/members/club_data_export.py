@@ -23,9 +23,8 @@ LOCALES = ("en", "fr", "de", "lb")
 
 MEMBER_KEYS = (
     "member_ref",
-    "first_name",
     "last_name",
-    "usual_name",
+    "first_name",
     "sex",
     "date_of_birth",
     "email",
@@ -126,7 +125,6 @@ _TITLES = {
         "member_ref": "Member reference",
         "first_name": "First name",
         "last_name": "Last name",
-        "usual_name": "Usual name",
         "sex": "Sex",
         "date_of_birth": "Date of birth",
         "email": "Email",
@@ -178,7 +176,6 @@ _TITLES = {
         "member_ref": "Référence du membre",
         "first_name": "Prénom",
         "last_name": "Nom",
-        "usual_name": "Nom usuel",
         "sex": "Sexe",
         "date_of_birth": "Date de naissance",
         "email": "E-mail",
@@ -230,7 +227,6 @@ _TITLES = {
         "member_ref": "Mitgliedsreferenz",
         "first_name": "Vorname",
         "last_name": "Nachname",
-        "usual_name": "Rufname",
         "sex": "Geschlecht",
         "date_of_birth": "Geburtsdatum",
         "email": "E-Mail",
@@ -282,7 +278,6 @@ _TITLES = {
         "member_ref": "Memberreferenz",
         "first_name": "Virnumm",
         "last_name": "Familljennumm",
-        "usual_name": "Ruffnumm",
         "sex": "Geschlecht",
         "date_of_birth": "Gebuertsdatum",
         "email": "E-Mail",
@@ -366,9 +361,8 @@ def member_rows(club_id: int) -> list[tuple[int, dict]]:
                 person.id,
                 {
                     "member_ref": license_id or f"m-{sequence:04d}",
-                    "first_name": person.first_name,
                     "last_name": person.last_name,
-                    "usual_name": person.usual_name,
+                    "first_name": person.first_name,
                     "sex": person.sex,
                     "date_of_birth": _iso(person.date_of_birth),
                     "email": person.email,
@@ -503,11 +497,9 @@ def _csv_bytes(keys: tuple[str, ...], rows: list[dict], locale: str) -> bytes:
 
 
 def _sheet(book: Workbook, name: str, keys: tuple[str, ...], rows: list[dict], locale: str) -> None:
-    sheet = book.create_sheet(name)
-    sheet.append(_titles(locale, keys))
-    sheet.append(list(keys))
-    for row in rows:
-        sheet.append([safe_cell(row.get(key, "")) for key in keys])
+    from members.xlsx_layout import write_sheet
+
+    write_sheet(book, name, keys, _titles(locale, keys), rows)
 
 
 def build_xlsx(tables: dict[str, list[dict]], locale: str) -> bytes:
@@ -974,9 +966,8 @@ def tables_for_member(member) -> tuple[dict[str, list[dict]], str, str]:
         license_id = (member.ltf_licenseid or "").strip()
         match = {
             "member_ref": license_id or "m-0001",
-            "first_name": member.first_name,
             "last_name": member.last_name,
-            "usual_name": member.usual_name,
+            "first_name": member.first_name,
             "sex": member.sex,
             "date_of_birth": _iso(member.date_of_birth),
             "email": member.email,
