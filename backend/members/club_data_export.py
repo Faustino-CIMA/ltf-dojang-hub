@@ -270,10 +270,11 @@ def grade_rows(club_id: int, refs: dict[int, str]) -> list[dict]:
 
 
 def mask_number(value: str) -> str:
-    text = value or ""
-    if len(text) < 4:
+    """Fixed mask. A Luxembourg number is the birth date plus five digits, so the last digits stay hidden."""
+    text = str(value or "").strip()
+    if not text:
         return ""
-    return f"{'•' * (len(text) - 4)}{text[-4:]}"
+    return "•" * 13
 
 
 def masked_numbers(club_id: int, refs: dict[int, str]) -> dict[str, str]:

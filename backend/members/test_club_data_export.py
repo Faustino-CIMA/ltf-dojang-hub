@@ -162,5 +162,7 @@ class ClubDataExportTests(TestCase):
         text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(payload)).pages)
         number = _lu("19711002130")
         self.assertIn("9th Kup", text)
-        self.assertIn(number[-4:], text)
+        self.assertIn("•" * 13, text)
         self.assertNotIn(number, text)
+        self.assertNotIn(number[-4:], text)
+        self.assertNotIn(number[:8], text)

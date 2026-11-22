@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
-- **Members:** The club data export also includes grade history, a JSON file, and a readable PDF report. The PDF masks the social security number. A PDF is prepared in the background, with a progress line, and it is not a licence card.
+- **Members:** The club data export also includes grade history, a JSON file, and a readable PDF report. The PDF shows a fixed mask and no digits of the social security number. A PDF is prepared in the background, with a progress line, and it is not a licence card.
 - **Members:** A club admin can download the club's members and licenses as a CSV zip or an Excel workbook from Data in the sidebar. The file does not include social security numbers.
 - **Dependencies:** wcwidth is 0.9.5 so the lock matches a fresh compile. It only measures text width.
 - **Members:** The social security number is hidden except for the last four characters. Show number reveals it for 30 seconds. A lock shows when a checked field cannot be edited. A club admin or an LTF admin showing the number is recorded, without the number itself.
