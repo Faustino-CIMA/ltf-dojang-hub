@@ -734,22 +734,6 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
     <div className="space-y-3">
       <div className="grid gap-2 md:grid-cols-2">
         <div>
-          <Label htmlFor="contact-first-name" required>
-            {t("firstName")}
-          </Label>
-          <Input
-            id="contact-first-name"
-            className="mt-1"
-            placeholder={t("firstName")}
-            value={contactDraft.first_name}
-            onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
-            onBlur={() =>
-              setContactDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))
-            }
-            required
-          />
-        </div>
-        <div>
           <Label htmlFor="contact-last-name" required>
             {t("lastName")}
           </Label>
@@ -763,6 +747,22 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             }
             onBlur={() =>
               setContactDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))
+            }
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="contact-first-name" required>
+            {t("firstName")}
+          </Label>
+          <Input
+            id="contact-first-name"
+            className="mt-1"
+            placeholder={t("firstName")}
+            value={contactDraft.first_name}
+            onChange={(event) => setContactDraft({ ...contactDraft, first_name: event.target.value })}
+            onBlur={() =>
+              setContactDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))
             }
             required
           />
@@ -922,6 +922,7 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
           </div>
           <div>
             <SecretNumberField
+              key={`record-${memberId}`}
               id={`member-record-ssn-${memberId}`}
               label={t("ssn")}
               locked={numberLocked}

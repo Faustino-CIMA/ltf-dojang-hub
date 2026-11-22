@@ -21,6 +21,22 @@ const labels = {
   hideLabel: "Hide number",
 };
 
+function EntryField({ memberId }: { memberId?: number }) {
+  const [value, setValue] = useState("");
+  return (
+    <SecretNumberField
+      id="ssn"
+      label="Social security number"
+      value={value}
+      onChange={setValue}
+      locked={false}
+      canReveal
+      memberId={memberId}
+      {...labels}
+    />
+  );
+}
+
 function Harness() {
   const [value, setValue] = useState(MASKED_SECRET_NUMBER);
   return (
@@ -50,6 +66,9 @@ describe("SecretNumberField", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show number" }));
     expect(revealSocialSecurityNumber).toHaveBeenCalledWith(7);
     expect(await screen.findByDisplayValue("1971100213046")).toBeInTheDocument();
+    expect(input).not.toHaveAttribute("readonly");
+    fireEvent.change(input, { target: { value: "1971100213099" } });
+    expect(input.value).toBe("1971100213099");
     expect(screen.getByRole("button", { name: "Hide number" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Hide number" }));
     expect(input.value).toBe(MASKED_SECRET_NUMBER);
@@ -61,6 +80,27 @@ describe("SecretNumberField", () => {
     });
     expect(input.value).toBe(MASKED_SECRET_NUMBER);
     jest.useRealTimers();
+  });
+
+  it("lets a new member type a number with no mask", () => {
+    render(<EntryField />);
+    const input = screen.getByLabelText("Social security number") as HTMLInputElement;
+    expect(input.value).toBe("");
+    expect(input).not.toHaveAttribute("readonly");
+    expect(screen.queryByRole("button", { name: "Show number" })).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "1971100213046" } });
+    expect(input.value).toBe("1971100213046");
+    expect(input).not.toHaveAttribute("readonly");
+  });
+
+  it("lets an empty saved number be edited directly", () => {
+    render(<EntryField memberId={4} />);
+    const input = screen.getByLabelText("Social security number") as HTMLInputElement;
+    expect(input.value).toBe("");
+    expect(input).not.toHaveAttribute("readonly");
+    fireEvent.change(input, { target: { value: "65122312345" } });
+    expect(input.value).toBe("65122312345");
+    expect(screen.queryByRole("button", { name: "Show number" })).not.toBeInTheDocument();
   });
 
   it("does not offer the eye when the role cannot reveal", () => {

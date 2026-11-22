@@ -546,12 +546,12 @@ export default function ClubMemberDetailPage() {
               </div>
                 <div className="mt-4 grid gap-3 text-sm text-foreground md:grid-cols-2">
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted">{t("firstNameLabel")}</span>
-                    <span className="font-medium">{member.first_name}</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("lastNameLabel")}</span>
                     <span className="font-medium">{member.last_name}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-muted">{t("firstNameLabel")}</span>
+                    <span className="font-medium">{member.first_name}</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted">{t("sexLabel")}</span>

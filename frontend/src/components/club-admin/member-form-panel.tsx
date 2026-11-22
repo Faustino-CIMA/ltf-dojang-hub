@@ -370,26 +370,6 @@ export function MemberFormPanel({
         ) : null}
         <div className="space-y-2">
           <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
-            <Label htmlFor="member-panel-first-name" required className="w-auto">{t("firstNameLabel")}</Label>
-            <FieldLock
-              locked={Boolean(editing && member?.card_verified)}
-              lockedLabel={verifyT("fieldLocked")}
-              openLabel={verifyT("fieldOpen")}
-            />
-          </div>
-          <Input
-            id="member-panel-first-name"
-            disabled={Boolean(editing && member?.card_verified)}
-            {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
-          />
-          {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name) ? (
-            <p className="text-sm text-destructive">
-              {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name)?.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
             <Label htmlFor="member-panel-last-name" required className="w-auto">{t("lastNameLabel")}</Label>
             <FieldLock
               locked={Boolean(editing && member?.card_verified)}
@@ -405,6 +385,26 @@ export function MemberFormPanel({
           {(editing ? editForm.formState.errors.last_name : createForm.formState.errors.last_name) ? (
             <p className="text-sm text-destructive">
               {(editing ? editForm.formState.errors.last_name : createForm.formState.errors.last_name)?.message}
+            </p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+            <Label htmlFor="member-panel-first-name" required className="w-auto">{t("firstNameLabel")}</Label>
+            <FieldLock
+              locked={Boolean(editing && member?.card_verified)}
+              lockedLabel={verifyT("fieldLocked")}
+              openLabel={verifyT("fieldOpen")}
+            />
+          </div>
+          <Input
+            id="member-panel-first-name"
+            disabled={Boolean(editing && member?.card_verified)}
+            {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
+          />
+          {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name) ? (
+            <p className="text-sm text-destructive">
+              {(editing ? editForm.formState.errors.first_name : createForm.formState.errors.first_name)?.message}
             </p>
           ) : null}
         </div>
@@ -542,6 +542,7 @@ export function MemberFormPanel({
             ]}
           />
           <SecretNumberField
+            key={editing ? `edit-${member?.id ?? "new"}` : "create"}
             id="member-panel-ssn"
             label={clubT("ssn")}
             required={requireSsn && !editing}

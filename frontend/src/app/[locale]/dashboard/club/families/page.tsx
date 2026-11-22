@@ -506,21 +506,21 @@ export default function ClubFamiliesPage() {
       >
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label htmlFor="parent-first-name" required>{t("firstName")}</Label>
-            <Input
-              id="parent-first-name"
-              value={parentDraft.first_name}
-              onChange={(event) => setParentDraft({ ...parentDraft, first_name: event.target.value })}
-              onBlur={() => setParentDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))}
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="parent-last-name" required>{t("lastName")}</Label>
             <Input
               id="parent-last-name"
               value={parentDraft.last_name}
               onChange={(event) => setParentDraft({ ...parentDraft, last_name: event.target.value.toLocaleUpperCase("fr-LU") })}
               onBlur={() => setParentDraft((current) => ({ ...current, last_name: formatLastName(current.last_name) }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="parent-first-name" required>{t("firstName")}</Label>
+            <Input
+              id="parent-first-name"
+              value={parentDraft.first_name}
+              onChange={(event) => setParentDraft({ ...parentDraft, first_name: event.target.value })}
+              onBlur={() => setParentDraft((current) => ({ ...current, first_name: formatFirstName(current.first_name) }))}
             />
           </div>
           <div className="space-y-2">

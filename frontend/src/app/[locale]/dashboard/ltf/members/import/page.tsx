@@ -63,8 +63,8 @@ export default function LtfMembersImportPage() {
         { key: "name", label: t("clubNameLabel"), required: true },
       ],
       members: [
-        { key: "first_name", label: t("firstNameLabel"), required: true },
         { key: "last_name", label: t("lastNameLabel"), required: true },
+        { key: "first_name", label: t("firstNameLabel"), required: true },
         { key: "club_name", label: t("clubNameLabel") },
         { key: "sex", label: t("sexLabel") },
         { key: "email", label: t("emailLabel") },
