@@ -11,7 +11,6 @@ from django.template.loader import render_to_string
 
 from .models import Invoice, ModulePurchase, Order
 
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _ZERO_FAMILY_REBATE = re.compile(
     r"\s*\((?:0+(?:[.,]0+)?\s*%|0+(?:[.,]0+)?\s*EUR)\s+family rebate\)",
     re.IGNORECASE,
@@ -75,10 +74,9 @@ def invoice_balance_due_text(invoice: Invoice) -> str:
 
 
 def _short_date(value) -> str:
-    if not value:
-        return ""
-    day = value.date() if hasattr(value, "hour") else value
-    return f"{day.day} {_MONTHS[day.month - 1]} {day.year}"
+    from clubs.display_dates import format_display_date
+
+    return format_display_date(value)
 
 
 def _postal_locality(postal_code: str, locality: str) -> str:

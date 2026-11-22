@@ -1,3 +1,4 @@
+{% load display_dates %}
 <!doctype html>
 <html lang="{{ labels.doc_lang|default:'en' }}">
   <head>
@@ -21,7 +22,7 @@
   <body>
     <h1>{{ club.name }} — {{ labels.snapshot_heading }}</h1>
     <p class="meta">
-      Taken {{ snapshot.taken_at|date:"d.m.Y H:i" }}
+      Taken {{ snapshot.taken_at|display_datetime }}
       {% if snapshot.note %} · {{ snapshot.note }}{% endif %}
     </p>
     <table>

@@ -160,7 +160,9 @@ def issue_for_user(request, user, *, delivery: str, email: str | None, locale: s
     if delivery in {"email", "both"}:
         expires_label = ""
         if expires_at is not None:
-            expires_label = timezone.localtime(expires_at).strftime("%Y-%m-%d %H:%M")
+            from clubs.display_dates import format_display_datetime
+
+            expires_label = format_display_datetime(expires_at)
         email_sent, email_error = send_access_email(
             user,
             kind=kind,

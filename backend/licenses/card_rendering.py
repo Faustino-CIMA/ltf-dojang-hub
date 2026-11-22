@@ -65,6 +65,7 @@ _ALLOWED_INLINE_IMAGE_MIME_PREFIXES = (
     "image/bmp",
 )
 _BLOCKED_SOURCE_PREFIXES = ("javascript:", "vbscript:", "file:")
+# Locked by the owner for international licence cards. English abbreviations only.
 _LTF_MONTH_ABBREVIATIONS = (
     "Jan",
     "Feb",
@@ -484,6 +485,12 @@ def _default_validation_url(license_record: License | None) -> str:
 
 
 def format_ltf_date(value: date | datetime | None) -> str:
+    """Licence-card dates, locked by the owner for international use.
+
+    Always 'DD Mon YYYY' from the English month table above. It does not
+    follow the screen language, Django's locale, or the shared 29.11.2026
+    formatter. Do not change the card PDF output.
+    """
     if value is None:
         return ""
     date_value = value.date() if isinstance(value, datetime) else value
