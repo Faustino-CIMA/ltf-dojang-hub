@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from clubmgmt.models import MemberRecord
 from clubs.models import Club
+from ops.models import OpsAuditLog
 
 from members.models import Member, MemberVerification
 from members.ssn_countries import luxembourg_check_digits
@@ -92,3 +93,39 @@ class MemberIdentityPanelTests(TestCase):
         self.assertIn("social_security_number", blocked.data)
         self.member.club_record.refresh_from_db()
         self.assertEqual(self.member.club_record.social_security_number, self.number)
+
+    def test_the_member_can_read_their_own_number_and_not_another(self):
+        owner = User.objects.create_user(username="identity-owner", password="pass12345", role=User.Roles.MEMBER)
+        _open_grace(owner)
+        self.member.user = owner
+        self.member.save(update_fields=["user"])
+        other = Member.objects.create(club=self.club, first_name="Bea", last_name="COSTA", sex=Member.Sex.FEMALE)
+        MemberRecord.objects.create(member=other, social_security_number=_lu("19900101120"), social_security_country="LU")
+        self.client.force_authenticate(user=owner)
+        own = self.client.get(f"/api/members/{self.member.id}/")
+        self.assertEqual(own.status_code, 200, own.data)
+        self.assertEqual(own.data["social_security_number"], self.number)
+        hidden = self.client.get(f"/api/members/{other.id}/")
+        if hidden.status_code == 200:
+            self.assertNotIn("social_security_number", hidden.data)
+
+    def test_showing_the_number_is_audited_for_staff_and_refused_for_a_coach(self):
+        self.client.force_authenticate(user=self.club_admin)
+        shown = self.client.post(f"/api/members/{self.member.id}/social-security-number/reveal/")
+        self.assertEqual(shown.status_code, 204)
+        audit = OpsAuditLog.objects.get(action="member.social_security_shown", target_id=str(self.member.id))
+        self.assertEqual(audit.actor_id, self.club_admin.id)
+        self.assertNotIn(self.number, audit.message)
+        self.assertNotIn(self.number, json.dumps(audit.metadata))
+        self.client.force_authenticate(user=self.coach)
+        refused = self.client.post(f"/api/members/{self.member.id}/social-security-number/reveal/")
+        self.assertEqual(refused.status_code, 403)
+        self.assertEqual(OpsAuditLog.objects.filter(action="member.social_security_shown").count(), 1)
+        owner = User.objects.create_user(username="identity-self", password="pass12345", role=User.Roles.MEMBER)
+        _open_grace(owner)
+        self.member.user = owner
+        self.member.save(update_fields=["user"])
+        self.client.force_authenticate(user=owner)
+        quiet = self.client.post(f"/api/members/{self.member.id}/social-security-number/reveal/")
+        self.assertEqual(quiet.status_code, 204)
+        self.assertEqual(OpsAuditLog.objects.filter(action="member.social_security_shown").count(), 1)

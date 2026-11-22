@@ -90,6 +90,9 @@ def _identity_writes(user, member, ssn, country, nationality_1, nationality_2):
 def _may_see_member_identity(user, member) -> bool:
     from clubmgmt.access import is_club_admin_of, is_ltf_manager
 
+    if user is not None and getattr(user, "is_authenticated", False):
+        if getattr(member, "user_id", None) and member.user_id == user.pk:
+            return True
     if is_ltf_manager(user):
         return True
     return is_club_admin_of(user, getattr(member, "club_id", None))
