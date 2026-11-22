@@ -941,7 +941,6 @@
     "dataImportField_member_ref": "Mitgliedsreferenz",
     "dataImportField_last_name": "Nachname",
     "dataImportField_first_name": "Vorname",
-    "dataImportField_usual_name": "Rufname",
     "dataImportField_sex": "Geschlecht",
     "dataImportField_date_of_birth": "Geburtsdatum",
     "dataImportField_email": "E-Mail",

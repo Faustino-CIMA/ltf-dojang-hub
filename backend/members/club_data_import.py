@@ -41,7 +41,6 @@ IMPORT_MEMBER_KEYS = (
     "member_ref",
     "last_name",
     "first_name",
-    "usual_name",
     "sex",
     "date_of_birth",
     "email",
@@ -98,6 +97,11 @@ _ALIASES = {
     "téléphone": "ignore",
     "telephone": "ignore",
     "notfall": "ignore",
+    "usual_name": "ignore",
+    "usual name": "ignore",
+    "nom usuel": "ignore",
+    "rufname": "ignore",
+    "ruffnumm": "ignore",
 }
 
 
@@ -161,17 +165,18 @@ def _sample_tables() -> dict[str, list[dict]]:
 
 
 def build_template_xlsx(locale: str) -> bytes:
+    from members.xlsx_layout import write_instructions, write_sheet
+
     book = Workbook()
     default = book.active
     book.remove(default)
+    code = normalize_locale(locale)
+    write_instructions(book, code)
     tables = _sample_tables()
-    words = _titles(locale)
+    words = _titles(code)
     for key in ALLOWED_SHEETS:
-        sheet = book.create_sheet(key)
         fields = _SHEET_FIELDS[key]
-        sheet.append([words[field] for field in fields])
-        sheet.append(list(fields))
-        sheet.append([safe_cell(tables[key][0].get(field, "")) for field in fields])
+        write_sheet(book, key, fields, [words[field] for field in fields], tables[key])
     buffer = io.BytesIO()
     book.save(buffer)
     return buffer.getvalue()
@@ -279,9 +284,12 @@ def parse_upload(payload: bytes, file_format: str, *, max_rows: int = MAX_ROWS) 
         if payload[:2] != b"PK":
             raise ImportFileError("bad_workbook")
         book = load_workbook(io.BytesIO(payload), data_only=False, read_only=True)
+        from members.xlsx_layout import instruction_sheet_names
+
         for name in book.sheetnames:
             if name not in ALLOWED_SHEETS:
-                warnings.append({"code": "sheet_skipped", "sheet": name})
+                if name not in instruction_sheet_names():
+                    warnings.append({"code": "sheet_skipped", "sheet": name})
                 continue
             matrix = []
             for row in book[name].iter_rows(values_only=True):

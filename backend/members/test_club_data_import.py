@@ -43,8 +43,15 @@ class ClubDataImportTests(TestCase):
         )
         self.assertEqual(french.status_code, 200, french.content[:300])
         book = load_workbook(io.BytesIO(french.content))
-        self.assertEqual(book.sheetnames, ["members", "licences", "grades"])
+        self.assertEqual(book.sheetnames[0], "Mode d'emploi")
+        self.assertEqual(book.sheetnames[1:], ["members", "licences", "grades"])
+        self.assertGreater(book["members"].column_dimensions["A"].width or 0, 0)
+        self.assertEqual(book["members"].freeze_panes, "A3")
+        self.assertTrue(str(book["members"].auto_filter.ref).startswith("A2:"))
         rows = list(book["members"].iter_rows(values_only=True))
+        flat = [cell for row in rows for cell in row]
+        self.assertNotIn("usual_name", flat)
+        self.assertNotIn("Nom usuel", flat)
         self.assertEqual(rows[0][1], "Nom")
         self.assertEqual(rows[0][2], "Prénom")
         self.assertEqual(rows[1][1], "last_name")
@@ -85,6 +92,7 @@ class ClubDataImportTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content[:400])
         self.assertEqual(response.data["sheets"][0]["fields"][1], "last_name")
         self.assertEqual(response.data["sheets"][0]["fields"][2], "first_name")
+        self.assertNotIn("usual_name", response.data["sheets"][0]["fields"])
         self.assertLess(
             response.data["sheets"][0]["fields"].index("last_name"),
             response.data["sheets"][0]["fields"].index("first_name"),
