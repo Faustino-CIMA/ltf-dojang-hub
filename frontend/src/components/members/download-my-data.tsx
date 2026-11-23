@@ -15,16 +15,30 @@ export function DownloadMyData({
   locale,
   minor,
   admin = false,
+  showTrigger = true,
+  open: openProp,
+  onOpenChange,
 }: {
   memberId: number;
   locale: string;
   minor: boolean;
   admin?: boolean;
+  showTrigger?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Member");
   const common = useTranslations("Common");
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  function setOpen(next: boolean) {
+    if (openProp === undefined) {
+      setUncontrolledOpen(next);
+    }
+    onOpenChange?.(next);
+  }
 
   async function download(fileFormat: "json" | "pdf" | "csv" | "xlsx") {
     setErrorMessage(null);
@@ -57,10 +71,12 @@ export function DownloadMyData({
 
   return (
     <>
-      <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setOpen(true)}>
-        <Download aria-hidden />
-        {admin ? t("myDataAdminButton") : t("myDataButton")}
-      </Button>
+      {showTrigger ? (
+        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setOpen(true)}>
+          <Download aria-hidden />
+          {admin ? t("myDataAdminButton") : t("myDataButton")}
+        </Button>
+      ) : null}
       <SidePanel
         open={open}
         title={admin ? t("myDataAdminButton") : t("myDataTitle")}

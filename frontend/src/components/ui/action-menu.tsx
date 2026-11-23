@@ -16,8 +16,14 @@ export type MenuAction = {
   href?: string;
   /** Shown in the menu before onSelect runs. The menu stays open until confirmed. */
   confirmLabel?: string;
+  /** A download or a page link stays available on a view-only desk. Edits do not. */
+  availableWhenReadOnly?: boolean;
   onSelect: () => void;
 };
+
+export function menuActionOnReadOnlyDesk(action: MenuAction): boolean {
+  return Boolean(action.href || action.availableWhenReadOnly);
+}
 
 const menuTriggerClassName =
   "inline-flex h-[var(--control-height)] min-h-[var(--control-height)] min-w-[11rem] items-center justify-between gap-2 rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-0 text-sm text-[var(--field-foreground)] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
@@ -32,7 +38,7 @@ export function ActionMenu({
   actions: MenuAction[];
 }) {
   const { readOnly, viewOnlyLabel } = useDeskAccess();
-  const visible = readOnly ? actions.filter((action) => action.href) : actions;
+  const visible = readOnly ? actions.filter(menuActionOnReadOnlyDesk) : actions;
   const [open, setOpen] = useState(false);
   if (readOnly && visible.length === 0) {
     return (

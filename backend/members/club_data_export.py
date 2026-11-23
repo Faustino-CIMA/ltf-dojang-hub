@@ -791,7 +791,9 @@ def build_pdf(
     locale: str,
     masked: dict[str, str],
     names: dict[str, str] | None = None,
+    club=None,
 ) -> bytes | None:
+    from licenses.pdf_utils import club_pdf_header_html
     from licenses.weasyprint_adapter import write_pdf
 
     code = normalize_locale(locale)
@@ -802,6 +804,7 @@ def build_pdf(
         "body{font-family:sans-serif;color:#111;margin:24px}",
         "h1{font-size:18px} h2{font-size:14px;margin-top:18px} h3{font-size:12px} h4{font-size:11px} p,li{font-size:11px}",
         "</style></head><body>",
+        club_pdf_header_html(club),
         f"<h1>{html.escape(words['title'])} — {html.escape(club_name)}</h1>",
         f"<p>{html.escape(words['exported'])} {html.escape(grouped['exported_on'])}</p>",
     ]
@@ -999,7 +1002,14 @@ def build_own_file(member, file_format: str, locale: str) -> tuple[bytes | None,
     if file_format == "pdf":
         names = {ref: f"{member.first_name} {member.last_name}".strip()}
         masked = {ref: MASKED_SOCIAL_SECURITY_NUMBER} if mask_social_security_number(number) else {}
-        payload = build_pdf(tables, member.club.name if member.club_id else "", locale, masked, names)
+        payload = build_pdf(
+            tables,
+            member.club.name if member.club_id else "",
+            locale,
+            masked,
+            names,
+            club=member.club if member.club_id else None,
+        )
         return payload, "application/pdf", "pdf"
     row = tables["members"][0]
     if number:

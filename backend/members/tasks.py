@@ -34,7 +34,14 @@ def build_club_data_pdf(job_id: int) -> None:
             row["member_ref"]: f"{row['last_name']} {row['first_name']}".strip()
             for _member_id, row in member_rows(job.club_id)
         }
-        payload = build_pdf(tables, job.club.name, job.locale, masked_numbers(job.club_id, refs), names)
+        payload = build_pdf(
+            tables,
+            job.club.name,
+            job.locale,
+            masked_numbers(job.club_id, refs),
+            names,
+            club=job.club,
+        )
         if not payload:
             raise RuntimeError("The report could not be prepared.")
         job.artifact.save(f"club-data-{job.id}.pdf", ContentFile(payload), save=False)

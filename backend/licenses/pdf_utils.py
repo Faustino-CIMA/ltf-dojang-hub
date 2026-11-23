@@ -291,6 +291,16 @@ def _member_name(member) -> str:
     return " ".join(part for part in (last, first) if part)
 
 
+def club_pdf_header_html(club) -> str:
+    """Club name, logo, and address for club documents.
+
+    The same issuer block as a club invoice. Licence cards do not use this.
+    """
+    if club is None:
+        return ""
+    return render_to_string("clubs/club_pdf_header.html", {"issuer": _club_issuer(club)})
+
+
 def _club_issuer(club) -> dict:
     lines = _club_lines(club)
     if lines and not any("luxembourg" in line.casefold() for line in lines):
@@ -644,6 +654,9 @@ def render_statement_pdf(context: dict, *, base_url: str) -> bytes | None:
     from clubs.document_copy import statement_labels
 
     payload = dict(context)
+    club = payload.pop("club", None)
+    if club is not None:
+        payload["issuer"] = _club_issuer(club)
     payload.setdefault("labels", statement_labels("en"))
     html = render_to_string("finance/statement_pdf.html", payload)
     return write_pdf(html, base_url=base_url)

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { MoreVertical } from "lucide-react";
 
 import { useDeskAccess } from "@/components/desk-access";
-import type { MenuAction } from "@/components/ui/action-menu";
+import { menuActionOnReadOnlyDesk, type MenuAction } from "@/components/ui/action-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,7 @@ export function RowActionMenu({
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { readOnly } = useDeskAccess();
-  const visible = readOnly ? actions.filter((action) => action.href) : actions;
+  const visible = readOnly ? actions.filter(menuActionOnReadOnlyDesk) : actions;
   const pending = visible.find((action) => action.key === pendingKey) ?? null;
   if (visible.length === 0) {
     return null;

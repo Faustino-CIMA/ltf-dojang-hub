@@ -15,8 +15,11 @@
     </style>
   </head>
   <body>
+    {% if issuer %}
+      {% include "clubs/club_pdf_header.html" %}
+    {% endif %}
     <h1>{{ title }}</h1>
-    <div class="muted">{{ club_name }} · {{ labels.generated }} {{ generated_at|display_datetime }}</div>
+    <div class="muted">{% if not issuer %}{{ club_name }} · {% endif %}{{ labels.generated }} {{ generated_at|display_datetime }}</div>
     <table>
       <thead>
         <tr>

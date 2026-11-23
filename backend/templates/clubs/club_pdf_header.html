@@ -1,0 +1,40 @@
+<style>
+  .club-pdf-header {
+    display: flex;
+    gap: 5mm;
+    align-items: flex-start;
+    margin: 0 0 6mm;
+    padding-bottom: 4mm;
+    border-bottom: 0.6pt solid #1c2430;
+    font-family: "Liberation Sans", sans-serif;
+    color: #1c2430;
+  }
+  .club-pdf-header .logo {
+    width: 22mm;
+    height: 22mm;
+    object-fit: contain;
+  }
+  .club-pdf-header .name {
+    margin: 0;
+    font-size: 13pt;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .club-pdf-header .line {
+    margin: 1mm 0 0;
+    color: #475467;
+    font-size: 9pt;
+    line-height: 1.3;
+  }
+</style>
+<header class="club-pdf-header">
+  {% if issuer.logo_uri %}
+    <img class="logo" src="{{ issuer.logo_uri }}" alt="" />
+  {% endif %}
+  <div>
+    <p class="name">{{ issuer.name }}</p>
+    {% for line in issuer.lines %}
+      <p class="line">{{ line }}</p>
+    {% endfor %}
+  </div>
+</header>

@@ -11,7 +11,6 @@ import {
   History,
   IdCard,
   Landmark,
-  Pencil,
   User,
   UserPlus,
 } from "lucide-react";
@@ -26,6 +25,7 @@ import { ProfilePhotoManager } from "@/components/profile-photo/profile-photo-ma
 import { faceCheckEditorLabels } from "@/lib/face-check";
 import { MemberAccountBadge } from "@/components/members/member-account-badge";
 import { VerifiedBadge } from "@/components/members/verified-badge";
+import { clubMemberOverviewActions } from "@/components/members/club-member-overview-actions";
 import { DownloadMyData } from "@/components/members/download-my-data";
 import { MemberAccountPanel } from "@/components/members/member-account-panel";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,7 @@ function parseMemberDetailTab(value: string | null): MemberDetailTab {
 
 export default function ClubMemberDetailPage() {
   const t = useTranslations("ClubAdmin");
+  const memberT = useTranslations("Member");
   const verifyT = useTranslations("Verification");
   const commonT = useTranslations("Common");
   const importT = useTranslations("Import");
@@ -109,6 +110,7 @@ export default function ClubMemberDetailPage() {
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [accountPanel, setAccountPanel] = useState<"create" | "copy" | null>(null);
+  const [memberDataOpen, setMemberDataOpen] = useState(false);
   const { selectedClubId } = useClubSelection();
   const [clubMgmtOn, setClubMgmtOn] = useState(false);
   const [competitionOn, setCompetitionOn] = useState(false);
@@ -341,17 +343,6 @@ export default function ClubMemberDetailPage() {
           <Button variant="outline" size="sm" className="h-[var(--control-height)] min-h-[var(--control-height)]" asChild>
             <Link href={`/${locale}/dashboard/club/members`}>{t("backToMembers")}</Link>
           </Button>
-          {clubMgmtOn && member && selectedClubId != null ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-[var(--control-height)] min-h-[var(--control-height)]"
-              onClick={() => void handleStatementDownload()}
-            >
-              {t("downloadStatementAction")}
-            </Button>
-          ) : null}
         </div>
 
         <ActionNotices error={errorMessage} onDismiss={() => setErrorMessage(null)} />
@@ -447,42 +438,40 @@ export default function ClubMemberDetailPage() {
                   <MemberNationalTeamBadge memberId={member.id} />
                   {member.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
                 </div>
-                {canManageMemberFull ? (
-                  <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/${locale}/dashboard/club/members/${member.id}/verify`}>{verifyT("verify")}</Link>
-                  </Button>
-                  <RowActionMenu
-                    label={commonT("rowActionsLabel")}
-                    actions={[
-                      { key: "edit", label: t("editAction"), icon: <Pencil aria-hidden />, onSelect: onEdit },
-                      ...(accountRowAction(
-                        member.account_state,
-                        member.user != null && member.user === currentUserId,
-                      ) === "create"
-                        ? [{ key: "create", label: t("createUserAccount"), icon: <UserPlus aria-hidden />, onSelect: () => setAccountPanel("create") }]
-                        : []),
-                      ...(accountRowAction(
-                        member.account_state,
-                        member.user != null && member.user === currentUserId,
-                      ) === "copy"
-                        ? [{ key: "copy", label: t("copyFirstLoginLink"), icon: <Copy aria-hidden />, onSelect: () => setAccountPanel("copy") }]
-                        : []),
-                    ]}
-                  />
+                {canManageMemberFull || (clubMgmtOn && selectedClubId != null) ? (
+                  <div className="shrink-0">
+                    <RowActionMenu
+                      label={commonT("rowActionsLabel")}
+                      actions={clubMemberOverviewActions({
+                        canManage: canManageMemberFull,
+                        statementAvailable: clubMgmtOn && selectedClubId != null,
+                        editLabel: t("editAction"),
+                        onEdit,
+                        statementLabel: t("downloadStatementAction"),
+                        onStatement: () => void handleStatementDownload(),
+                        memberDataLabel: memberT("myDataAdminButton"),
+                        onMemberData: () => setMemberDataOpen(true),
+                        verifyLabel: verifyT("verify"),
+                        verifyHref: `/${locale}/dashboard/club/members/${member.id}/verify`,
+                        accountActions: [
+                          ...(accountRowAction(
+                            member.account_state,
+                            member.user != null && member.user === currentUserId,
+                          ) === "create"
+                            ? [{ key: "create", label: t("createUserAccount"), icon: <UserPlus aria-hidden />, onSelect: () => setAccountPanel("create") }]
+                            : []),
+                          ...(accountRowAction(
+                            member.account_state,
+                            member.user != null && member.user === currentUserId,
+                          ) === "copy"
+                            ? [{ key: "copy", label: t("copyFirstLoginLink"), icon: <Copy aria-hidden />, onSelect: () => setAccountPanel("copy") }]
+                            : []),
+                        ],
+                      })}
+                    />
                   </div>
                 ) : null}
               </div>
-              {canManageMemberFull ? (
-                <div className="mt-3">
-                  <DownloadMyData
-                    memberId={member.id}
-                    locale={locale}
-                    minor={Boolean(member.minor_account)}
-                    admin
-                  />
-                </div>
-              ) : null}
               <div className="mt-4">
                 <ProfilePhotoManager
                   imageUrl={member.profile_picture_url}
@@ -722,6 +711,17 @@ export default function ClubMemberDetailPage() {
           </div>
         )}
       </div>
+      {member && canManageMemberFull ? (
+        <DownloadMyData
+          memberId={member.id}
+          locale={locale}
+          minor={Boolean(member.minor_account)}
+          admin
+          showTrigger={false}
+          open={memberDataOpen}
+          onOpenChange={setMemberDataOpen}
+        />
+      ) : null}
       {member && accountPanel ? (
         <MemberAccountPanel
           open
