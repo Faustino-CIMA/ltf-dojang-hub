@@ -33,10 +33,16 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - Commands for the Coolify web terminal must be a single line (no heredocs).
 
 ## 5. Tests and CI
-- Every bug fix comes with a regression test that fails before the fix and passes after.
+- A reported bug is not fixed until a regression test, or a lint rule, fails on the old behaviour and passes on the new one.
+- The test names the state, not the patch. "No social security number does not create a phone code" is a test. "The heading is wrapped in a condition" is not.
+- If the bug is a forbidden edit (a file that must not change, a call that must stay), the regression is a lint rule or a snapshot, not a comment.
+- A pull request that fixes a bug and does not add that test is not ready. The PR body names the test.
+- Don't delete, skip, or loosen tests to make them pass. Do not pin a transitive package, or skip a check, just to make a red suite green. Say why a lockfile change is required.
 - Run the full backend and frontend (Jest) suites, lint, and type checks before opening a PR. Report the test counts in the PR body.
-- Don't delete, skip, or loosen tests to make them pass.
 - Test against the exact pinned dependency versions that production installs.
+- Fix the state that is wrong, not the symptom in front of it. If a heading shows in a state where it does not belong, the page is rendering the wrong state. Hiding that heading in one browser is not a fix.
+- Do not add a second formatter, a second date parser, or a second Stripe signature check to avoid the shared one. Extend the shared one, or leave it alone.
+- A UI change that the API does not enforce is not done. The server must refuse the illegal action. The button is not the rule.
 
 ## 6. Code quality
 - Keep functions small and named for what they do. Prefer clear code over clever code.
@@ -68,7 +74,7 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - What existing code you reused, and anything you made shared.
 - Risks, and what you checked so nothing existing breaks.
 - Dependency changes (with versions and changelog notes), migrations, new settings or env vars. For an upgrade, include the section 11 table.
-- Test counts (backend, Jest) and any manual check steps.
+- Test counts (backend, Jest) and any manual check steps. For a bug fix, name the regression test or lint rule.
 
 ## 10. PR and merge workflow
 - Keep at most one or two pull requests open at a time. Cut the next branch only after the previous pull request has merged.
