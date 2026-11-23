@@ -1,0 +1,82 @@
+# Fails a pull request that changes a protected path unless the GitHub user
+# Faustino-CIMA added the label faustino-ok and that label is still present.
+# Another account adding the same label does not pass. Removing the label
+# runs this workflow again and fails it.
+#
+# Protected paths:
+#   backend/licenses/card_rendering.py
+#   backend/licenses/stripe_adapter.py
+#   backend/clubs/display_dates.py
+#   frontend/src/lib/date-display.ts
+#   backend/imports/views.py
+#   backend/setup/dates.py
+#   frontend/src/lib/import-date-format.ts
+#
+# Not on this list, on purpose: AGENTS.md, backend/licenses/views.py,
+# backend/members/club_data_import.py, backend/licenses/bank_recon.py.
+# The date parsers inside the last two files are locked by later golden tests.
+
+name: Protected paths
+
+on:
+  pull_request:
+    branches: [develop, main, next-major]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: protected-paths-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protected-paths:
+    name: Protected paths
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Test the protected-path decision
+        run: node --test .github/scripts/protected-paths.test.js
+
+      - name: Fail unless Faustino-CIMA approved a protected change
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require("path");
+            const {
+              LABEL,
+              touches,
+              currentLabelEvent,
+              decision,
+            } = require(path.join(process.env.GITHUB_WORKSPACE, ".github/scripts/protected-paths.js"));
+            const pull = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pull.number,
+              per_page: 100,
+            });
+            const changed = touches(files);
+            const events = await github.paginate(github.rest.issues.listEvents, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pull.number,
+              per_page: 100,
+            });
+            const hasLabel = (pull.labels || []).some((label) => label.name === LABEL);
+            const result = decision({
+              changedProtected: changed,
+              hasLabel,
+              events,
+              current: currentLabelEvent(context.payload),
+            });
+            if (result.ok) {
+              core.info(result.reason);
+            } else {
+              core.setFailed(result.reason);
+            }
