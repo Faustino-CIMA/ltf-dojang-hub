@@ -24,6 +24,7 @@ import {
   type ImportUpload,
 } from "@/lib/club-data-import";
 import { importFailureMessage } from "@/lib/import-failure";
+import { applyListedChoice, isListedDuplicate } from "@/lib/import-choices";
 
 const STEPS = ["file", "map", "check", "duplicates", "dryRun", "commit"] as const;
 const HOUSEHOLD_SHEETS = [
@@ -189,13 +190,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
     if (!report) {
       return;
     }
-    const next = { ...actions };
-    for (const row of report.rows) {
-      if (row.codes.includes("possible_duplicate") || row.action === "update" || row.action === "create") {
-        next[`${row.sheet}:${row.line}`] = action;
-      }
-    }
-    setActions(next);
+    setActions((current) => applyListedChoice(report.rows, current, action));
   }
 
   function showFailure(error: unknown, fallbackKey = "dataImportFailed") {
@@ -357,7 +352,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
             </Button>
           </div>
           {report.rows
-            .filter((row) => row.codes.includes("possible_duplicate") || row.action === "update")
+            .filter((row) => isListedDuplicate(row))
             .map((row) => (
               <div key={`${row.sheet}-${row.line}`} className="space-y-2 rounded-[var(--radius-card)] border border-border p-3">
                 <p className="text-sm text-foreground">
@@ -411,6 +406,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
           undoText={undoText}
           onUndoText={setUndoText}
           onBack={() => go(4)}
+          onDuplicates={() => go(3)}
           onImport={() => void startCommit()}
           onDownload={(fileFormat) => void downloadImportResult(batch?.id || 0, fileFormat).catch(showFailure)}
           onUndo={() => void runUndo()}
@@ -428,6 +424,7 @@ function CommitStep({
   undoText,
   onUndoText,
   onBack,
+  onDuplicates,
   onImport,
   onDownload,
   onUndo,
@@ -439,12 +436,14 @@ function CommitStep({
   undoText: string;
   onUndoText: (value: string) => void;
   onBack: () => void;
+  onDuplicates: () => void;
   onImport: () => void;
   onDownload: (fileFormat: "csv" | "json") => void;
   onUndo: () => void;
 }) {
   const t = useTranslations("ClubAdmin");
-  const ready = report.counts.error === 0 && report.counts.create + report.counts.update > 0;
+  const workable = report.counts.create + report.counts.update + (report.counts.remove ?? 0);
+  const ready = report.counts.error === 0 && workable > 0;
   const running = batch != null && (batch.status === "queued" || batch.status === "running");
   return (
     <div className="space-y-3">
@@ -488,13 +487,34 @@ function CommitStep({
         </div>
       ) : null}
       {batch == null ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onBack}>
-            {t("dataImportBack")}
-          </Button>
-          <Button type="button" className="w-full sm:w-auto" disabled={!ready || busy} onClick={onImport}>
-            {t("dataImportCommit")}
-          </Button>
+        <div className="space-y-3">
+          <p className="text-sm text-foreground">
+            {t("dataImportDryRunCounts", {
+              create: report.counts.create,
+              update: report.counts.update,
+              skip: report.counts.skip,
+            })}
+          </p>
+          {!ready ? (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">
+                {report.counts.error > 0 ? t("dataImportError_fix_errors") : t("dataImportNothingToImport")}
+              </p>
+              {report.counts.error === 0 ? (
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onDuplicates}>
+                  {t("dataImportBackToDuplicates")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onBack}>
+              {t("dataImportBack")}
+            </Button>
+            <Button type="button" className="w-full sm:w-auto" disabled={!ready || busy} onClick={onImport}>
+              {t("dataImportCommit")}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>

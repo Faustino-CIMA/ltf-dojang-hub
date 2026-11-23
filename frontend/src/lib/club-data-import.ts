@@ -29,7 +29,7 @@ export type ImportRow = {
 };
 
 export type ImportReport = {
-  counts: { ok: number; warning: number; error: number; create: number; update: number; skip: number };
+  counts: { ok: number; warning: number; error: number; create: number; update: number; skip: number; remove?: number };
   rows: ImportRow[];
   truncated: boolean;
   saved: boolean;
