@@ -8,7 +8,7 @@ from unittest.mock import patch
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -942,3 +942,17 @@ class SetupParsingTests(TestCase):
             normalize_club_name("Taekwondo Club Musterstadt a.s.b.l."),
             normalize_club_name("taekwondo club musterstadt"),
         )
+
+
+class SetupDateGoldenTests(SimpleTestCase):
+    def test_the_golden_setup_date_table(self):
+        self.assertEqual(parse_with_format("03/04/2010", "DD/MM/YYYY"), date(2010, 4, 3))
+        self.assertEqual(parse_with_format("03/04/2010", "MM/DD/YYYY"), date(2010, 3, 4))
+        self.assertEqual(parse_with_format("29.11.2026", "DD.MM.YYYY"), date(2026, 11, 29))
+        self.assertIsNone(parse_with_format("03/04/2010", "ambiguous"))
+        detected = detect_column_format(["03/04/2010", "05/06/2011"])
+        self.assertEqual(detected["format"], "DD/MM/YYYY")
+        self.assertTrue(detected["ambiguous"])
+        forced_month = detect_column_format(["03/14/2016", "01/02/2010"])
+        self.assertEqual(forced_month["format"], "MM/DD/YYYY")
+        self.assertFalse(forced_month["ambiguous"])

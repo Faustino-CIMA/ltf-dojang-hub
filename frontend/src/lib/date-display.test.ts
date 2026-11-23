@@ -11,6 +11,20 @@ describe("display dates", () => {
     expect(formatDisplayDateTime("2026-07-29T12:05:00Z")).toBe("29.07.2026 14:05");
   });
 
+  it("keeps the golden screen table", () => {
+    const rows: Array<[string, string, string | null]> = [
+      ["2026-11-29", "29.11.2026", null],
+      ["2026-11-29T13:05:00Z", "29.11.2026", "29.11.2026 14:05"],
+      ["2026-07-29T12:05:00Z", "29.07.2026", "29.07.2026 14:05"],
+    ];
+    for (const [input, day, when] of rows) {
+      expect(formatDisplayDate(input)).toBe(day);
+      if (when) {
+        expect(formatDisplayDateTime(input)).toBe(when);
+      }
+    }
+  });
+
   it("keeps accepting ISO and day-first text", () => {
     expect(parseDisplayDateToIso("2026-11-29")).toBe("2026-11-29");
     expect(parseDisplayDateToIso("29.11.2026")).toBe("2026-11-29");

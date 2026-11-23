@@ -1,4 +1,5 @@
 import {
+  IMPORT_DATE_FORMATS,
   dateValuesFromTable,
   detectDateFormat,
   formatsForDateValue,
@@ -39,6 +40,24 @@ describe("import date detection", () => {
       status: "detected",
       format: "MM/DD/YYYY",
       candidates: ["MM/DD/YYYY"],
+    });
+  });
+
+  it("keeps the golden candidate list, including month-first dates", () => {
+    expect(IMPORT_DATE_FORMATS).toEqual([
+      "YYYY-MM-DD",
+      "DD/MM/YYYY",
+      "MM/DD/YYYY",
+      "DD-MM-YYYY",
+      "DD.MM.YYYY",
+      "EXCEL",
+    ]);
+    expect(formatsForDateValue("03/14/2016")).toEqual(["MM/DD/YYYY"]);
+    expect(formatsForDateValue("01/02/2010")).toEqual(["DD/MM/YYYY", "MM/DD/YYYY"]);
+    expect(detectDateFormat(["01/02/2010", "03/04/2011"])).toEqual({
+      status: "ambiguous",
+      format: null,
+      candidates: ["DD/MM/YYYY", "MM/DD/YYYY"],
     });
   });
 

@@ -61,3 +61,19 @@ class ParseDateTests(SimpleTestCase):
         errors = []
         self.assertIsNone(parse_date("14.03.2015", errors, "date_of_birth", "EXCEL"))
         self.assertIn("date_of_birth must match EXCEL", errors)
+
+    def test_the_golden_member_import_table(self):
+        rows = (
+            ("03/14/2016", "MM/DD/YYYY", date(2016, 3, 14)),
+            ("31/12/2026", "DD/MM/YYYY", date(2026, 12, 31)),
+            ("2026-11-29", "YYYY-MM-DD", date(2026, 11, 29)),
+            ("29.11.2026", "DD.MM.YYYY", date(2026, 11, 29)),
+            ("29-11-2026", "DD-MM-YYYY", date(2026, 11, 29)),
+        )
+        for raw, date_format, expected in rows:
+            errors = []
+            self.assertEqual(parse_date(raw, errors, "date_of_birth", date_format), expected, raw)
+            self.assertEqual(errors, [])
+        errors = []
+        self.assertIsNone(parse_date("31/02/2026", errors, "date_of_birth", "DD/MM/YYYY"))
+        self.assertIn("date_of_birth must match DD/MM/YYYY", errors)

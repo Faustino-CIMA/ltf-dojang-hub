@@ -3,7 +3,7 @@ import json
 import zipfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from openpyxl import Workbook, load_workbook
 from rest_framework.test import APIClient
 
@@ -257,3 +257,19 @@ class ClubDataImportTests(TestCase):
         audit = OpsAuditLog.objects.filter(action="data.import", metadata__phase="undo").latest("id")
         self.assertNotIn(number, json.dumps(audit.metadata))
         self.assertNotIn(number, audit.message)
+
+
+class ClubDataDateGoldenTests(SimpleTestCase):
+    def test_the_golden_club_data_date_table(self):
+        from members.club_data_import import _parse_date
+
+        rows = (
+            ("2026-11-29", "2026-11-29", None),
+            ("21/11/2026", "2026-11-21", None),
+            ("21.11.2026", "2026-11-21", None),
+            ("01/02/2026", "2026-02-01", "ambiguous_date"),
+            ("", "", None),
+            ("not-a-date", "", "bad_date"),
+        )
+        for raw, stored, code in rows:
+            self.assertEqual(_parse_date(raw), (stored, code), raw)
