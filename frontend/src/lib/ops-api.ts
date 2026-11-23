@@ -28,6 +28,7 @@ export type OpsOverview = {
 };
 
 export type OpsSession = {
+  id: string;
   token_key_suffix: string;
   user_id: number;
   username: string;

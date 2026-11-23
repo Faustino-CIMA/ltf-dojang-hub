@@ -8,6 +8,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from accounts.models import User
+from accounts.sessions import open_sign_ins
 from clubs.models import Club, FederationProfile
 from licenses.models import (
     ClubFeeBillingSchedule,
@@ -19,7 +20,6 @@ from licenses.models import (
     PrintJob,
 )
 from members.models import Member, MemberTransfer
-from rest_framework.authtoken.models import Token
 
 from .models import AuthEvent, OpsAuditLog
 
@@ -48,23 +48,17 @@ def _rows(values):
 
 
 def q_active_sessions(params: dict):
-    minutes = _int_param(params, "minutes", int(getattr(settings, "OPS_SESSION_ONLINE_MINUTES", 15)))
-    since = timezone.now() - timedelta(minutes=minutes)
-    qs = (
-        Token.objects.select_related("user", "ops_meta")
-        .filter(ops_meta__last_used_at__gte=since)
-        .order_by("-ops_meta__last_used_at")
-    )
+    _int_param(params, "minutes", int(getattr(settings, "OPS_SESSION_ONLINE_MINUTES", 15)))
     rows = [
         {
-            "username": token.user.username,
-            "role": token.user.role,
-            "is_superuser": token.user.is_superuser,
-            "last_used_at": getattr(token.ops_meta, "last_used_at", None),
-            "last_ip": getattr(token.ops_meta, "last_ip", None),
-            "user_agent": getattr(token.ops_meta, "user_agent", ""),
+            "username": row["username"],
+            "role": row["role"],
+            "is_superuser": row["is_superuser"],
+            "last_used_at": row["last_used_at"],
+            "last_ip": row["last_ip"],
+            "user_agent": row["user_agent"],
         }
-        for token in qs[:500]
+        for row in open_sign_ins()[:500]
     ]
     columns = ["username", "role", "is_superuser", "last_used_at", "last_ip", "user_agent"]
     return columns, rows
@@ -270,7 +264,7 @@ QUERY_CATALOG = [
     {
         "id": "active_sessions",
         "title": "Active sessions",
-        "description": "Tokens used within the last N minutes.",
+        "description": "Sign-ins that have not expired.",
         "params": [{"name": "minutes", "type": "integer", "default": 15}],
         "run": q_active_sessions,
     },

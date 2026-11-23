@@ -180,7 +180,7 @@ export default function OpsSecurityPage() {
                 ),
               },
             ]}
-            rows={sessions.map((session) => ({ ...session, id: session.user_id }))}
+            rows={sessions.map((session) => ({ ...session, id: session.id }))}
           />
         </div>
       </section>
