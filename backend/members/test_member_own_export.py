@@ -81,6 +81,8 @@ class MemberOwnExportTests(TestCase):
 
         text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(payload)).pages)
         self.assertIn("9th Kup", text)
+        self.assertIn("Example Club", text)
+        self.assertIn("1 Road", text)
         self.assertIn(MASKED_SOCIAL_SECURITY_NUMBER, text)
         self.assertNotIn(self.number, text)
         self.assertEqual(OpsAuditLog.objects.filter(action="data.export").count(), 0)

@@ -489,6 +489,7 @@ class ClubStatementView(APIView):
                 "title": title,
                 "labels": statement_labels(doc_language),
                 "club_name": club.name if club else "",
+                "club": club,
                 "year": year,
                 "rows": rows,
                 "outstanding_total": outstanding_total,

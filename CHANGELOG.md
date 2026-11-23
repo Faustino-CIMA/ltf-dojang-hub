@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A member download, the club data report, and an account statement open with the club name, logo, and address. On a member page, Download statement, Download member data, and Verify are in the actions menu.
 - **Dates:** Invoices, statements, the shop catalogue, publication consent, subsidy letters, and the setup-link email show 29.11.2026, and a time as 29.11.2026 14:05 in Luxembourg time. Excel, CSV, and JSON stay ISO. The licence card still prints 29 Nov 2026 in English.
 - **Dates:** Screens show 29.11.2026, and 29.11.2026 14:05 in Luxembourg time. A date field also shows that form under the browser control. The date of birth box asks for 29.11.2026 and still accepts an ISO date. Files and the licence card are unchanged.
 - **Members:** The data template and the club export no longer include the usual name. The stored name stays. Excel files from Data, including families, rebates, and contacts, open with sized columns, a bold title row, muted field names, a frozen header, a filter, dates, and text ids and phone numbers. A template starts with a short instruction sheet in the language of the screen.
