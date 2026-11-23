@@ -2,8 +2,10 @@
 
 import hashlib
 import hmac
+import inspect
 import json
 import time
+from pathlib import Path
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
@@ -62,6 +64,25 @@ class StripeAdapterTests(SimpleTestCase):
         ):
             construct_webhook_event(payload=payload, sig_header="t=1,v1=abc", secret="whsec_test")
         verified.assert_called_once_with(payload=payload, sig_header="t=1,v1=abc", secret="whsec_test")
+
+    def test_the_signature_call_stays_construct_event(self):
+        from licenses.views import StripeWebhookView
+
+        adapter = inspect.getsource(construct_webhook_event)
+        self.assertIn("stripe.Webhook.construct_event(", adapter)
+        self.assertNotIn("construct_event_without_verification", adapter)
+
+        view = inspect.getsource(StripeWebhookView.post)
+        self.assertIn("stripe_adapter.construct_webhook_event(", view)
+        self.assertNotIn("stripe.Webhook", view)
+        self.assertNotIn("construct_event_without_verification", view)
+
+        root = Path(inspect.getfile(construct_webhook_event)).resolve().parent
+        for path in root.rglob("*.py"):
+            if path.name.startswith("test"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("construct_event_without_verification", text, str(path.relative_to(root)))
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_adapter", STRIPE_API_VERSION="2024-06-20")
     def test_a_signed_checkout_event_keeps_the_order_id(self):
