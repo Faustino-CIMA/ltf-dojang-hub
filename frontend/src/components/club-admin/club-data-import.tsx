@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { Download, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { formatDisplayDate } from "@/lib/date-display";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -23,6 +22,7 @@ import {
   type ImportSheet,
   type ImportUpload,
 } from "@/lib/club-data-import";
+import { ClubImportPreview } from "@/components/club-admin/club-import-preview";
 import { importFailureMessage } from "@/lib/import-failure";
 import { applyListedChoice, isListedDuplicate } from "@/lib/import-choices";
 
@@ -353,24 +353,15 @@ export function ClubDataImport({ locale }: { locale: string }) {
           </div>
           {report.rows
             .filter((row) => isListedDuplicate(row))
-            .map((row) => (
-              <div key={`${row.sheet}-${row.line}`} className="space-y-2 rounded-[var(--radius-card)] border border-border p-3">
-                <p className="text-sm text-foreground">
-                  {row.preview.last_name} {row.preview.first_name}
-                </p>
-                <PopoverSelect
-                  ariaLabel={t("dataImportAction")}
-                  className="w-full"
-                  value={actions[`${row.sheet}:${row.line}`] || row.action}
-                  onValueChange={(value) => setActions((current) => ({ ...current, [`${row.sheet}:${row.line}`]: value }))}
-                  options={[
-                    { value: "update", label: t("dataImportUpdate") },
-                    { value: "create", label: t("dataImportCreate") },
-                    { value: "skip", label: t("dataImportSkip") },
-                  ]}
-                />
-              </div>
-            ))}
+            .length === 0 ? (
+            <p className="text-sm text-muted">{t("dataImportNoDuplicates")}</p>
+          ) : null}
+          <ClubImportPreview
+            rows={report.rows}
+            duplicatesOnly
+            actions={actions}
+            onAction={(key, value) => setActions((current) => ({ ...current, [key]: value }))}
+          />
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => go(2)}>
               {t("dataImportBack")}
@@ -522,31 +513,5 @@ function CommitStep({
 }
 
 function ReportList({ report }: { report: ImportReport }) {
-  const t = useTranslations("ClubAdmin");
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-foreground">
-        {t("dataImportCounts", {
-          ready: report.counts.ok,
-          warnings: report.counts.warning,
-          errors: report.counts.error,
-        })}
-      </p>
-      {report.rows.map((row) => (
-        <article key={`${row.sheet}-${row.line}`} className="space-y-1 rounded-[var(--radius-card)] border border-border p-3">
-          <p className="text-sm font-medium text-foreground">
-            {row.preview.last_name || row.preview.member_ref || row.sheet} {row.preview.first_name || ""}
-          </p>
-          <p className={row.status === "error" ? "text-sm text-destructive" : "text-sm text-muted"}>
-            {row.codes.length
-              ? row.codes.map((code) => t(`dataImportCode_${code}`, { date: row.stored_date ? formatDisplayDate(row.stored_date) : "" })).join(" ")
-              : t(`dataImportStatus_${row.status}`)}
-          </p>
-          {row.preview.social_security_number ? (
-            <p className="text-sm text-muted">{row.preview.social_security_number}</p>
-          ) : null}
-        </article>
-      ))}
-    </div>
-  );
+  return <ClubImportPreview rows={report.rows} />;
 }

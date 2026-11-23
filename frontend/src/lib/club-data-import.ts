@@ -22,7 +22,7 @@ export type ImportRow = {
   sheet: string;
   line: number;
   status: "ok" | "warning" | "error";
-  action: "create" | "update" | "skip";
+  action: "create" | "update" | "skip" | "remove";
   codes: string[];
   stored_date: string;
   preview: Record<string, string>;
