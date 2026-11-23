@@ -1,0 +1,139 @@
+import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { expect, test, type Page } from "@playwright/test";
+import { freshTotp, invalidateTotpWindow } from "./totp.mjs";
+
+const password = process.env.SMOKE_PASSWORD || "pass12345";
+const secret = process.env.SMOKE_TOTP_SECRET || "JBSWY3DPEHPK3PXP";
+const openId = process.env.SMOKE_OPEN_ID;
+const missingId = process.env.SMOKE_MISSING_ID;
+const verifiedId = process.env.SMOKE_VERIFIED_ID;
+
+async function signIn(page: Page, username: string) {
+  await page.goto("/en/login");
+  await page.getByRole("textbox", { name: "Username or email" }).fill(username);
+  await page.getByRole("textbox", { name: "Password" }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Code").waitFor();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.getByLabel("Code").fill(await freshTotp(secret));
+    await page.getByRole("button", { name: "Continue" }).click();
+    try {
+      await page.waitForURL(/\/en\/dashboard/, { timeout: 8_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) {
+        throw error;
+      }
+      invalidateTotpWindow();
+    }
+  }
+}
+
+test.describe.configure({ mode: "serial" });
+
+test("a club admin signs in and sees the three card-check states", async ({ page }) => {
+  test.skip(!openId || !missingId || !verifiedId, "Seed the smoke club before this run.");
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await expect(page).toHaveURL(/\/en\/dashboard\/club/);
+
+  await page.goto(`/en/dashboard/club/members/${openId}/verify`);
+  await expect(page.getByRole("heading", { name: "Check the card on a phone" })).toBeVisible();
+  await expect(page.getByText("Enter the social security number on the club record")).toHaveCount(0);
+
+  await page.goto(`/en/dashboard/club/members/${missingId}/verify`);
+  await expect(page.getByText("Enter the social security number on the club record before this check.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Enter the social security number" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Check the card on a phone" })).toHaveCount(0);
+
+  await page.goto(`/en/dashboard/club/members/${verifiedId}/verify`);
+  await expect(page.getByText("Verified on 29.11.2026")).toBeVisible();
+  await expect(page.getByLabel("Reason")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Check the card on a phone" })).toHaveCount(0);
+});
+
+test("member and statement downloads are PDFs for the fake club", async ({ page }) => {
+  test.skip(!openId, "Seed the smoke club before this run.");
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto(`/en/dashboard/club/members/${openId}`);
+  await page.getByRole("button", { name: "Row actions" }).click();
+  const statement = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "Download statement" }).click();
+  const statementFile = await (await statement).createReadStream();
+  const statementBytes = Buffer.concat(await readAll(statementFile));
+  expect(pdfText(statementBytes)).toContain("Example Club");
+
+  await page.getByRole("button", { name: "Row actions" }).click();
+  await page.getByRole("menuitem", { name: "Download member data" }).click();
+  const memberData = page.waitForEvent("download");
+  await page.getByRole("button", { name: "PDF report" }).click();
+  const memberBytes = Buffer.concat(await readAll(await (await memberData).createReadStream()));
+  expect(memberBytes.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(pdfText(memberBytes)).toContain("Example Club");
+});
+
+test("the member can download their own file", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_MEMBER_USERNAME || "smoke-member");
+  await page.goto("/en/dashboard/member");
+  await page.getByRole("button", { name: "Download my data" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "PDF report" }).click();
+  const bytes = Buffer.concat(await readAll(await (await download).createReadStream()));
+  expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(pdfText(bytes)).toContain("Bea");
+});
+
+test("a tiny import can be checked, saved, and undone", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto("/en/dashboard/club/data");
+  await page.getByRole("tab", { name: "Import" }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "smoke-members.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "# keys: last_name,first_name\nLast name,First name\nlast_name,first_name\nSMOKEIMPORT,Bea\n",
+    ),
+  });
+  await page.getByRole("button", { name: "Upload" }).click();
+  await page.getByRole("button", { name: "Check the rows" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Check without saving" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText(/to add/)).toBeVisible();
+  await page.getByRole("button", { name: "Import" }).click();
+  await expect(page.getByText("Import finished")).toBeVisible({ timeout: 60_000 });
+  const hint = await page.getByText(/Type the batch number/).innerText();
+  const batchId = hint.match(/(\d+)/)?.[1];
+  expect(batchId).toBeTruthy();
+  await page.locator("#import-undo").fill(batchId || "");
+  await page.getByRole("button", { name: "Undo this import" }).click();
+  await expect(page.getByText("The import was undone. Grade promotions were kept.")).toBeVisible();
+});
+
+async function readAll(stream: NodeJS.ReadableStream) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return chunks;
+}
+
+function pdfText(bytes: Buffer) {
+  expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+  const file = `/tmp/smoke-pdf-${process.pid}.pdf`;
+  writeFileSync(file, bytes);
+  const python = process.env.SMOKE_PYTHON || "python3";
+  const result = spawnSync(
+    python,
+    [
+      "-c",
+      "from pypdf import PdfReader\nimport sys\nprint('\\n'.join((page.extract_text() or '') for page in PdfReader(sys.argv[1]).pages))",
+      file,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    throw new Error(result.stderr || "Could not read the PDF");
+  }
+  return result.stdout;
+}
