@@ -68,6 +68,7 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - All copy is translated in en, fr, de, and lb. No hard-coded strings.
 - Theme tokens only (no hard-coded colours). Mark required fields. Use info badges for explanatory text.
 - Red is only for real errors, never for info or empty states.
+- Every import and every export reuses the LTF member import preview: the same table layout, status badges, columns, filters, and alignment. Do not invent a second preview. Every row shows the related member's name, last name then first name.
 
 ## 9. PR description checklist
 - What changed and why, in plain words.

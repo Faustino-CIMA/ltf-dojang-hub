@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from clubmgmt.models import MemberRecord
 from clubs.models import Club
-from members.club_data_import import MAX_BYTES, parse_upload
+from members.club_data_import import MAX_BYTES, ImportFileError, parse_upload
 from licenses.models import LicenseType
 from members.models import GradePromotionHistory, Member
 from members.ssn_countries import luxembourg_check_digits
@@ -183,6 +183,28 @@ class ClubDataImportTests(TestCase):
             parse_upload(b"x" * (MAX_BYTES + 1), "csv")
         self.assertEqual(raised.exception.code, "too_large")
         self.assertEqual(MemberRecord.objects.count(), 0)
+
+    def test_club_named_sheets_are_named_when_the_file_is_empty(self):
+        self.client.force_authenticate(user=self.admin)
+        book = Workbook()
+        book.active.title = "Example Club"
+        book.create_sheet("Other Club")
+        payload = io.BytesIO()
+        book.save(payload)
+        raw = payload.getvalue()
+        with self.assertRaises(ImportFileError) as raised:
+            parse_upload(raw, "xlsx")
+        self.assertEqual(raised.exception.code, "empty_file")
+        self.assertEqual(raised.exception.sheets, ["Example Club", "Other Club"])
+        upload = SimpleUploadedFile(
+            "clubs.xlsx",
+            raw,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        refused = self.client.post("/api/club-data/import/", {"file": upload}, format="multipart", **self.header)
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(refused.data["detail"], "empty_file")
+        self.assertEqual(refused.data["sheets"], ["Example Club", "Other Club"])
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
     def test_commit_then_undo_keeps_the_grade_and_hides_the_number(self):

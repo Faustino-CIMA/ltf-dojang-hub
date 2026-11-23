@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { Download, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { formatDisplayDate } from "@/lib/date-display";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverSelect } from "@/components/ui/popover-select";
@@ -23,6 +22,9 @@ import {
   type ImportSheet,
   type ImportUpload,
 } from "@/lib/club-data-import";
+import { ClubImportPreview } from "@/components/club-admin/club-import-preview";
+import { importFailureMessage } from "@/lib/import-failure";
+import { applyListedChoice, isListedDuplicate } from "@/lib/import-choices";
 
 const STEPS = ["file", "map", "check", "duplicates", "dryRun", "commit"] as const;
 const HOUSEHOLD_SHEETS = [
@@ -81,8 +83,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
       setUpload(result);
       setMapping(next);
       go(1);
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -103,8 +105,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
         mapping: mapping[sheet.key] || {},
       });
       setMappingName("");
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -120,8 +122,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
       const result = await checkImport(upload.id, mapping, actionsWithModes(), dryRun);
       setReport(result);
       go(dryRun ? 4 : 2);
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -148,8 +150,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
       if (next.status === "failed") {
         setErrorMessage(t("dataImportFailed"));
       }
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -164,8 +166,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
     try {
       const next = await undoImport(batch.id, undoText.trim());
       setBatch(next);
-    } catch {
-      setErrorMessage(t("dataImportUndoFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportUndoFailed"));
     } finally {
       setBusy(false);
     }
@@ -188,13 +190,11 @@ export function ClubDataImport({ locale }: { locale: string }) {
     if (!report) {
       return;
     }
-    const next = { ...actions };
-    for (const row of report.rows) {
-      if (row.codes.includes("possible_duplicate") || row.action === "update" || row.action === "create") {
-        next[`${row.sheet}:${row.line}`] = action;
-      }
-    }
-    setActions(next);
+    setActions((current) => applyListedChoice(report.rows, current, action));
+  }
+
+  function showFailure(error: unknown, fallbackKey = "dataImportFailed") {
+    setErrorMessage(importFailureMessage(t, error, fallbackKey));
   }
 
   const stepTitle = t(`dataImportStep_${STEPS[step]}`);
@@ -217,11 +217,11 @@ export function ClubDataImport({ locale }: { locale: string }) {
         <div className="space-y-3">
           <p className="text-sm text-muted">{t("dataImportTemplateHint")}</p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("xlsx", locale)}>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("xlsx", locale).catch(showFailure)}>
               <Download aria-hidden />
               {t("dataImportTemplateXlsx")}
             </Button>
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("csv", locale)}>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("csv", locale).catch(showFailure)}>
               <Download aria-hidden />
               {t("dataImportTemplateCsv")}
             </Button>
@@ -352,25 +352,16 @@ export function ClubDataImport({ locale }: { locale: string }) {
             </Button>
           </div>
           {report.rows
-            .filter((row) => row.codes.includes("possible_duplicate") || row.action === "update")
-            .map((row) => (
-              <div key={`${row.sheet}-${row.line}`} className="space-y-2 rounded-[var(--radius-card)] border border-border p-3">
-                <p className="text-sm text-foreground">
-                  {row.preview.last_name} {row.preview.first_name}
-                </p>
-                <PopoverSelect
-                  ariaLabel={t("dataImportAction")}
-                  className="w-full"
-                  value={actions[`${row.sheet}:${row.line}`] || row.action}
-                  onValueChange={(value) => setActions((current) => ({ ...current, [`${row.sheet}:${row.line}`]: value }))}
-                  options={[
-                    { value: "update", label: t("dataImportUpdate") },
-                    { value: "create", label: t("dataImportCreate") },
-                    { value: "skip", label: t("dataImportSkip") },
-                  ]}
-                />
-              </div>
-            ))}
+            .filter((row) => isListedDuplicate(row))
+            .length === 0 ? (
+            <p className="text-sm text-muted">{t("dataImportNoDuplicates")}</p>
+          ) : null}
+          <ClubImportPreview
+            rows={report.rows}
+            duplicatesOnly
+            actions={actions}
+            onAction={(key, value) => setActions((current) => ({ ...current, [key]: value }))}
+          />
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => go(2)}>
               {t("dataImportBack")}
@@ -406,8 +397,9 @@ export function ClubDataImport({ locale }: { locale: string }) {
           undoText={undoText}
           onUndoText={setUndoText}
           onBack={() => go(4)}
+          onDuplicates={() => go(3)}
           onImport={() => void startCommit()}
-          onDownload={(fileFormat) => void downloadImportResult(batch?.id || 0, fileFormat)}
+          onDownload={(fileFormat) => void downloadImportResult(batch?.id || 0, fileFormat).catch(showFailure)}
           onUndo={() => void runUndo()}
         />
       ) : null}
@@ -423,6 +415,7 @@ function CommitStep({
   undoText,
   onUndoText,
   onBack,
+  onDuplicates,
   onImport,
   onDownload,
   onUndo,
@@ -434,12 +427,14 @@ function CommitStep({
   undoText: string;
   onUndoText: (value: string) => void;
   onBack: () => void;
+  onDuplicates: () => void;
   onImport: () => void;
   onDownload: (fileFormat: "csv" | "json") => void;
   onUndo: () => void;
 }) {
   const t = useTranslations("ClubAdmin");
-  const ready = report.counts.error === 0 && report.counts.create + report.counts.update > 0;
+  const workable = report.counts.create + report.counts.update + (report.counts.remove ?? 0);
+  const ready = report.counts.error === 0 && workable > 0;
   const running = batch != null && (batch.status === "queued" || batch.status === "running");
   return (
     <div className="space-y-3">
@@ -483,13 +478,34 @@ function CommitStep({
         </div>
       ) : null}
       {batch == null ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onBack}>
-            {t("dataImportBack")}
-          </Button>
-          <Button type="button" className="w-full sm:w-auto" disabled={!ready || busy} onClick={onImport}>
-            {t("dataImportCommit")}
-          </Button>
+        <div className="space-y-3">
+          <p className="text-sm text-foreground">
+            {t("dataImportDryRunCounts", {
+              create: report.counts.create,
+              update: report.counts.update,
+              skip: report.counts.skip,
+            })}
+          </p>
+          {!ready ? (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">
+                {report.counts.error > 0 ? t("dataImportError_fix_errors") : t("dataImportNothingToImport")}
+              </p>
+              {report.counts.error === 0 ? (
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onDuplicates}>
+                  {t("dataImportBackToDuplicates")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onBack}>
+              {t("dataImportBack")}
+            </Button>
+            <Button type="button" className="w-full sm:w-auto" disabled={!ready || busy} onClick={onImport}>
+              {t("dataImportCommit")}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
@@ -497,31 +513,5 @@ function CommitStep({
 }
 
 function ReportList({ report }: { report: ImportReport }) {
-  const t = useTranslations("ClubAdmin");
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-foreground">
-        {t("dataImportCounts", {
-          ready: report.counts.ok,
-          warnings: report.counts.warning,
-          errors: report.counts.error,
-        })}
-      </p>
-      {report.rows.map((row) => (
-        <article key={`${row.sheet}-${row.line}`} className="space-y-1 rounded-[var(--radius-card)] border border-border p-3">
-          <p className="text-sm font-medium text-foreground">
-            {row.preview.last_name || row.preview.member_ref || row.sheet} {row.preview.first_name || ""}
-          </p>
-          <p className={row.status === "error" ? "text-sm text-destructive" : "text-sm text-muted"}>
-            {row.codes.length
-              ? row.codes.map((code) => t(`dataImportCode_${code}`, { date: row.stored_date ? formatDisplayDate(row.stored_date) : "" })).join(" ")
-              : t(`dataImportStatus_${row.status}`)}
-          </p>
-          {row.preview.social_security_number ? (
-            <p className="text-sm text-muted">{row.preview.social_security_number}</p>
-          ) : null}
-        </article>
-      ))}
-    </div>
-  );
+  return <ClubImportPreview rows={report.rows} />;
 }

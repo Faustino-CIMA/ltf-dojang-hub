@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from clubmgmt.models import Family, FamilyMember, FamilyRebateRule, MemberContact, MemberEmail, Person
 from clubs.models import Club
-from members.club_data_import import suggest_field
+from members.club_data_import import check_upload, parse_upload, suggest_field
 from members.models import Member
 from members.test_verification import _open_grace
 from modules.codes import build_payload, sign_payload
@@ -168,3 +168,66 @@ class HouseholdImportTests(TestCase):
         self.assertEqual(checked.status_code, 200, checked.content[:400])
         self.assertIn("families", [item["sheet"] for item in checked.data["warnings"]])
         self.assertFalse(any(row["sheet"] == "families" for row in checked.data["rows"]))
+
+    def test_a_row_names_this_clubs_member_and_not_another_clubs(self):
+        other = Club.objects.create(name="Other Club", city="Luxembourg", created_by=self.admin)
+        Member.objects.create(
+            club=other,
+            first_name="Noor",
+            last_name="SECRET",
+            sex=Member.Sex.FEMALE,
+            ltf_licenseid="LTF-OTHER",
+        )
+        body = {
+            "members": [
+                {
+                    "member_ref": "LTF-EX-0001",
+                    "last_name": "WRONG",
+                    "first_name": "Name",
+                    "sex": "F",
+                    "ltf_licenseid": "LTF-EX-0001",
+                    "addresses": [
+                        {
+                            "street": "Rue Factice",
+                            "house_number": "12",
+                            "postal_code": "1234",
+                            "locality": "Musterstadt",
+                            "country": "LU",
+                        }
+                    ],
+                    "grades": [{"from_grade": "", "to_grade": "9th Kup", "promotion_date": "2020-01-02"}],
+                },
+                {
+                    "member_ref": "LTF-OTHER",
+                    "last_name": "",
+                    "first_name": "",
+                    "sex": "F",
+                    "ltf_licenseid": "LTF-OTHER",
+                    "addresses": [
+                        {
+                            "street": "Rue Factice",
+                            "house_number": "1",
+                            "postal_code": "1234",
+                            "locality": "Musterstadt",
+                            "country": "LU",
+                        }
+                    ],
+                },
+            ]
+        }
+        report = check_upload(parse_upload(json.dumps(body).encode(), "json"), self.club.id, {})
+        packed = json.dumps(report)
+        self.assertNotIn("SECRET", packed)
+        self.assertNotIn("Noor", packed)
+        addresses = [row for row in report["rows"] if row["sheet"] == "addresses"]
+        own = next(row for row in addresses if row["preview"]["member_ref"] == "LTF-EX-0001")
+        self.assertEqual(own["preview"]["member_last_name"], "EXAMPLE")
+        self.assertEqual(own["preview"]["member_first_name"], "Ada")
+        self.assertEqual(own["preview"]["member_known"], "yes")
+        foreign = next(row for row in addresses if row["preview"]["member_ref"] == "LTF-OTHER")
+        self.assertEqual(foreign["preview"]["member_known"], "no")
+        self.assertEqual(foreign["preview"]["member_last_name"], "")
+        self.assertEqual(foreign["preview"]["member_first_name"], "")
+        grade = next(row for row in report["rows"] if row["sheet"] == "grades")
+        self.assertEqual(grade["preview"]["member_last_name"], "EXAMPLE")
+        self.assertEqual(grade["preview"]["member_first_name"], "Ada")

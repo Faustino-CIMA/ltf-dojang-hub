@@ -121,8 +121,9 @@ _ALIASES = {
 
 
 class ImportFileError(Exception):
-    def __init__(self, code: str):
+    def __init__(self, code: str, sheets: list[str] | None = None):
         self.code = code
+        self.sheets = list(sheets or [])
         super().__init__(code)
 
 
@@ -415,7 +416,8 @@ def parse_upload(payload: bytes, file_format: str, *, max_rows: int = MAX_ROWS) 
     if total > max_rows:
         raise ImportFileError("too_many_rows")
     if not sheets:
-        raise ImportFileError("empty_file")
+        skipped = [item["sheet"] for item in warnings if item.get("code") == "sheet_skipped" and item.get("sheet")]
+        raise ImportFileError("empty_file", skipped)
     return {"sheets": sheets, "warnings": warnings, "numbers_included": _numbers_included(sheets)}
 
 
@@ -735,6 +737,7 @@ def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | Non
 
     rows = []
     counts = {"ok": 0, "warning": 0, "error": 0, "create": 0, "update": 0, "skip": 0, "remove": 0}
+    _stamp_member_names(decisions, by_license)
     for decision in decisions:
         status = _status(decision["codes"])
         counts[status] += 1
@@ -781,6 +784,46 @@ def _without_household(parsed: dict, club_id: int) -> tuple[dict, list]:
     copied = dict(parsed)
     copied["sheets"] = kept
     return copied, skipped
+
+
+def _stamp_member_names(decisions: list, by_license: dict) -> None:
+    """Names for a member reference come from this club, or from this file.
+
+    A member who belongs to another club is not named here.
+    """
+    names: dict[str, tuple[str, str]] = {}
+    for license_id, person in by_license.items():
+        names[str(license_id).upper()] = (person.last_name or "", person.first_name or "")
+    for decision in decisions:
+        if decision.get("sheet") != "members" or "other_club" in decision.get("codes", []):
+            continue
+        row = decision.get("row") or {}
+        pair = (str(row.get("last_name", "")).strip(), str(row.get("first_name", "")).strip())
+        for key in (row.get("member_ref", ""), row.get("ltf_licenseid", "")):
+            cleaned = str(key or "").strip().upper()
+            if cleaned:
+                names.setdefault(cleaned, pair)
+    for decision in decisions:
+        preview = decision.setdefault("preview", {})
+        row = decision.get("row") or {}
+        if decision.get("sheet") == "members":
+            preview["member_last_name"] = preview.get("last_name", "")
+            preview["member_first_name"] = preview.get("first_name", "")
+            preview["member_known"] = "yes" if preview["member_last_name"] or preview["member_first_name"] else "no"
+            continue
+        ref = str(row.get("member_ref") or row.get("invoice_member_ref") or "").strip()
+        found = names.get(ref.upper()) if ref else None
+        if ref and found and (found[0] or found[1]):
+            preview["member_last_name"], preview["member_first_name"] = found
+            preview["member_known"] = "yes"
+        elif ref:
+            preview["member_last_name"] = ""
+            preview["member_first_name"] = ""
+            preview["member_known"] = "no"
+        else:
+            preview["member_last_name"] = ""
+            preview["member_first_name"] = ""
+            preview["member_known"] = ""
 
 
 def _status(codes: list[str]) -> str:

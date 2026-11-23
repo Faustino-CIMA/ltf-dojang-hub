@@ -1,6 +1,7 @@
 import { API_URL } from "@/lib/api";
 import { readActiveDeskHeader } from "@/lib/active-desk";
 import { getToken } from "@/lib/auth";
+import { ImportApiError } from "@/lib/import-failure";
 
 export type ImportSheet = {
   key: string;
@@ -21,14 +22,14 @@ export type ImportRow = {
   sheet: string;
   line: number;
   status: "ok" | "warning" | "error";
-  action: "create" | "update" | "skip";
+  action: "create" | "update" | "skip" | "remove";
   codes: string[];
   stored_date: string;
   preview: Record<string, string>;
 };
 
 export type ImportReport = {
-  counts: { ok: number; warning: number; error: number; create: number; update: number; skip: number };
+  counts: { ok: number; warning: number; error: number; create: number; update: number; skip: number; remove?: number };
   rows: ImportRow[];
   truncated: boolean;
   saved: boolean;
@@ -48,6 +49,26 @@ async function authorizedFetch(path: string, init: RequestInit = {}) {
   });
 }
 
+async function rejectUnlessOk(response: Response) {
+  if (response.ok) {
+    return;
+  }
+  let detail = "";
+  let sheets: string[] = [];
+  try {
+    const body = (await response.json()) as { detail?: unknown; sheets?: unknown };
+    if (typeof body.detail === "string") {
+      detail = body.detail;
+    }
+    if (Array.isArray(body.sheets)) {
+      sheets = body.sheets.filter((item): item is string => typeof item === "string" && item.length > 0);
+    }
+  } catch {
+    detail = "";
+  }
+  throw new ImportApiError(detail, sheets);
+}
+
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -64,7 +85,7 @@ export async function downloadImportTemplate(fileFormat: "csv" | "xlsx", locale:
     `/api/club-data/import/template/?file_format=${fileFormat}&locale=${encodeURIComponent(locale)}`,
   );
   if (!response.ok) {
-    throw new Error("template");
+    await rejectUnlessOk(response);
   }
   const blob = await response.blob();
   saveBlob(blob, fileFormat === "csv" ? "club-import-template.zip" : "club-import-template.xlsx");
@@ -75,7 +96,7 @@ export async function uploadImportFile(file: File): Promise<ImportUpload> {
   body.append("file", file);
   const response = await authorizedFetch("/api/club-data/import/", { method: "POST", body });
   if (!response.ok) {
-    throw new Error("upload");
+    await rejectUnlessOk(response);
   }
   return (await response.json()) as ImportUpload;
 }
@@ -92,7 +113,7 @@ export async function saveImportMapping(payload: {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error("mapping");
+    await rejectUnlessOk(response);
   }
 }
 
@@ -109,7 +130,7 @@ export async function checkImport(
     body: JSON.stringify({ mapping, actions }),
   });
   if (!response.ok) {
-    throw new Error(path);
+    await rejectUnlessOk(response);
   }
   return (await response.json()) as ImportReport;
 }
@@ -140,7 +161,7 @@ export async function commitImport(
     body: JSON.stringify({ mapping, actions }),
   });
   if (!response.ok) {
-    throw new Error("commit");
+    await rejectUnlessOk(response);
   }
   return (await response.json()) as ImportBatch;
 }
@@ -148,7 +169,7 @@ export async function commitImport(
 export async function readImportBatch(batchId: number): Promise<ImportBatch> {
   const response = await authorizedFetch(`/api/club-data/import/batches/${batchId}/`);
   if (!response.ok) {
-    throw new Error("batch");
+    await rejectUnlessOk(response);
   }
   return (await response.json()) as ImportBatch;
 }
@@ -158,7 +179,7 @@ export async function downloadImportResult(batchId: number, fileFormat: "csv" | 
     `/api/club-data/import/batches/${batchId}/result/?file_format=${fileFormat}`,
   );
   if (!response.ok) {
-    throw new Error("result");
+    await rejectUnlessOk(response);
   }
   const blob = await response.blob();
   saveBlob(blob, `import-result-${batchId}.${fileFormat}`);
@@ -171,7 +192,7 @@ export async function undoImport(batchId: number, typed: string): Promise<Import
     body: JSON.stringify({ batch_id: typed }),
   });
   if (!response.ok) {
-    throw new Error("undo");
+    await rejectUnlessOk(response);
   }
   return (await response.json()) as ImportBatch;
 }
