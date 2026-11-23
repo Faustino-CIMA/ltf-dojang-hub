@@ -15,6 +15,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from accounts.email_utils import build_password_reset_url, send_password_reset_email
 from accounts.models import User
+from accounts.sessions import end_open_sessions, open_sign_ins
 
 from .audit_list import filtered_ops_audit
 from .health import collect_health
@@ -27,7 +28,7 @@ from .i18n import (
     translation_rows,
 )
 from .jobs import collect_jobs, retry_print_job
-from .models import AuthEvent, AuthTokenMeta, OpsAuditLog, SecurityAlert, TranslationOverride
+from .models import AuthEvent, OpsAuditLog, SecurityAlert, TranslationOverride
 from .login_links import build_login_link_file
 from .permissions import IsFullOpsDesk, IsSuperuser
 from .queries import QueryError, catalog_public, run_query
@@ -72,9 +73,7 @@ class OpsOverviewView(views.APIView):
     permission_classes = [IsSuperuser]
 
     def get(self, request):
-        minutes = int(getattr(settings, "OPS_SESSION_ONLINE_MINUTES", 15))
-        since = timezone.now() - timedelta_minutes(minutes)
-        online = Token.objects.filter(ops_meta__last_used_at__gte=since).count()
+        online = len(open_sign_ins())
         open_alerts = SecurityAlert.objects.filter(status=SecurityAlert.Status.OPEN).count()
         failures_24h = AuthEvent.objects.filter(
             event_type=AuthEvent.EventType.LOGIN_FAILURE,
@@ -92,12 +91,6 @@ class OpsOverviewView(views.APIView):
                 "health": health,
             }
         )
-
-
-def timedelta_minutes(minutes: int):
-    from datetime import timedelta
-
-    return timedelta(minutes=minutes)
 
 
 def timedelta_hours(hours: int):
@@ -118,42 +111,21 @@ class OpsSessionListView(views.APIView):
 
     def get(self, request):
         minutes = int(request.query_params.get("minutes") or getattr(settings, "OPS_SESSION_ONLINE_MINUTES", 15))
-        since = timezone.now() - timedelta_minutes(minutes)
-        tokens = (
-            Token.objects.select_related("user", "ops_meta")
-            .filter(ops_meta__last_used_at__gte=since)
-            .order_by("-ops_meta__last_used_at")
-        )
-        payload = []
-        for token in tokens:
-            meta: AuthTokenMeta | None = getattr(token, "ops_meta", None)
-            payload.append(
-                {
-                    "token_key_suffix": token.key[-6:],
-                    "user_id": token.user_id,
-                    "username": token.user.username,
-                    "role": token.user.role,
-                    "is_superuser": token.user.is_superuser,
-                    "last_used_at": meta.last_used_at.isoformat() if meta and meta.last_used_at else None,
-                    "last_ip": meta.last_ip if meta else None,
-                    "user_agent": meta.user_agent if meta else "",
-                    "created": token.created.isoformat() if token.created else None,
-                }
-            )
-        return response.Response({"minutes": minutes, "results": payload})
+        return response.Response({"minutes": minutes, "results": open_sign_ins()})
 
 
 class OpsSessionRevokeView(views.APIView):
     permission_classes = [IsSuperuser]
 
     def post(self, request, user_id: int):
-        deleted, _ = Token.objects.filter(user_id=user_id).delete()
+        user = User.objects.filter(pk=user_id).first()
+        deleted = end_open_sessions(user) if user is not None else 0
         write_ops_audit(
             request,
             action="session_revoke",
             target_type="user",
             target_id=user_id,
-            message=f"Revoked {deleted} token(s).",
+            message=f"Ended {deleted} open sign-in(s).",
         )
         AuthEvent.objects.create(
             event_type=AuthEvent.EventType.TOKEN_REVOKED,

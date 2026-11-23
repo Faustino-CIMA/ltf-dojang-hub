@@ -258,7 +258,7 @@ export default function OpsOverviewPage() {
                 render: (row) => (row.last_used_at ? formatDisplayDateTime(row.last_used_at) : "—"),
               },
             ]}
-            rows={sessions.map((session) => ({ ...session, id: session.user_id }))}
+            rows={sessions.map((session) => ({ ...session, id: session.id }))}
           />
         )}
       </section>
