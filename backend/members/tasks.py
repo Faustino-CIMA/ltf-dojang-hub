@@ -65,7 +65,8 @@ def commit_club_data_import(batch_id: int) -> None:
         payload = batch.upload.stored.read()
         parsed = parse_upload(payload, batch.upload.file_format)
         report, decisions = review_upload(parsed, batch.club_id, batch.mapping or {}, batch.actions or {})
-        if report["counts"]["error"] or (report["counts"]["create"] + report["counts"]["update"]) < 1:
+        workable = report["counts"]["create"] + report["counts"]["update"] + report["counts"].get("remove", 0)
+        if report["counts"]["error"] or workable < 1:
             batch.status = ClubDataImportBatch.Status.FAILED
             batch.error_detail = "The file still has errors."
             batch.finished_at = timezone.now()

@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A club with club management can import families, people, emails, phones, addresses, and emergency contacts from the same data file. Add and update is the default. Replace the list removes rows the file left out. The preferred name stays ignored, and member dates are read as before.
 - **Members:** A member download, the club data report, and an account statement open with the club name, logo, and address. On a member page, Download statement, Download member data, and Verify are in the actions menu.
 - **Members:** The stored extra name is called Preferred name in English, Nom préféré in French, Bevorzugter Name in German, and Bevorzugten Numm in Luxembourgish. The verification checkbox offers to keep the current names as that preferred name. The field stays off the forms, lists, cards, and exports.
 - **Dates:** Invoices, statements, the shop catalogue, publication consent, subsidy letters, and the setup-link email show 29.11.2026, and a time as 29.11.2026 14:05 in Luxembourg time. Excel, CSV, and JSON stay ISO. The licence card still prints 29 Nov 2026 in English.

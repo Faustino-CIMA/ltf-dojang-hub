@@ -25,6 +25,19 @@ import {
 } from "@/lib/club-data-import";
 
 const STEPS = ["file", "map", "check", "duplicates", "dryRun", "commit"] as const;
+const HOUSEHOLD_SHEETS = [
+  "emails",
+  "phones",
+  "addresses",
+  "people",
+  "contacts",
+  "person_emails",
+  "person_phones",
+  "person_addresses",
+  "families",
+  "family_members",
+  "rebate_rules",
+];
 
 export function ClubDataImport({ locale }: { locale: string }) {
   const t = useTranslations("ClubAdmin");
@@ -38,6 +51,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
   const [mappingName, setMappingName] = useState("");
   const [report, setReport] = useState<ImportReport | null>(null);
   const [actions, setActions] = useState<Record<string, string>>({});
+  const [modes, setModes] = useState<Record<string, "add" | "replace">>({});
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [batch, setBatch] = useState<ImportBatch | null>(null);
@@ -103,7 +117,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
     setBusy(true);
     setErrorMessage(null);
     try {
-      const result = await checkImport(upload.id, mapping, actions, dryRun);
+      const result = await checkImport(upload.id, mapping, actionsWithModes(), dryRun);
       setReport(result);
       go(dryRun ? 4 : 2);
     } catch {
@@ -120,7 +134,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
     setBusy(true);
     setErrorMessage(null);
     try {
-      let next = await commitImport(upload.id, mapping, actions);
+      let next = await commitImport(upload.id, mapping, actionsWithModes());
       setBatch(next);
       const started = Date.now();
       while (next.status === "queued" || next.status === "running") {
@@ -155,6 +169,19 @@ export function ClubDataImport({ locale }: { locale: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function actionsWithModes() {
+    const next = { ...actions };
+    for (const [sheet, mode] of Object.entries(modes)) {
+      const key = `__mode:${sheet}`;
+      if (mode === "replace") {
+        next[key] = "replace";
+      } else {
+        delete next[key];
+      }
+    }
+    return next;
   }
 
   function applyAll(action: "create" | "update" | "skip") {
@@ -255,6 +282,31 @@ export function ClubDataImport({ locale }: { locale: string }) {
               ))}
             </div>
           ))}
+          {upload.sheets
+            .filter((sheet) => HOUSEHOLD_SHEETS.includes(sheet.key))
+            .map((sheet) => (
+              <fieldset key={sheet.key} className="space-y-2">
+                <legend className="text-sm font-medium text-foreground">{t(`dataImportSheet_${sheet.key}`)}</legend>
+                <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="radio"
+                    name={`import-mode-${sheet.key}`}
+                    checked={(modes[sheet.key] ?? "add") === "add"}
+                    onChange={() => setModes((current) => ({ ...current, [sheet.key]: "add" }))}
+                  />
+                  {t("dataImportAddUpdate")}
+                </label>
+                <label className="flex min-h-[var(--control-height)] items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="radio"
+                    name={`import-mode-${sheet.key}`}
+                    checked={modes[sheet.key] === "replace"}
+                    onChange={() => setModes((current) => ({ ...current, [sheet.key]: "replace" }))}
+                  />
+                  {t("dataImportReplace")}
+                </label>
+              </fieldset>
+            ))}
           <div className="max-w-sm space-y-2">
             <Label htmlFor={`${fieldId}-mapping`}>{t("dataImportMappingName")}</Label>
             <Input id={`${fieldId}-mapping`} value={mappingName} onChange={(event) => setMappingName(event.target.value)} />

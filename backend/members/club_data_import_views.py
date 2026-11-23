@@ -15,6 +15,7 @@ from ops.request_utils import write_ops_audit
 
 from .club_data_export import normalize_locale
 from .club_data_import import (
+    ALLOWED_SHEETS,
     ImportFileError,
     build_template_csv,
     build_template_xlsx,
@@ -70,12 +71,16 @@ class ClubDataImportTemplateView(APIView):
         if file_format not in _FORMATS:
             return Response({"detail": "Choose CSV or XLSX."}, status=400)
         locale = normalize_locale(request.query_params.get("locale"))
+        from modules.entitlements import is_club_assigned
+        from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+
+        household = is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, club.id)
         if file_format == "csv":
-            payload = build_template_csv(locale)
+            payload = build_template_csv(locale, household=household)
             content_type = "application/zip"
             extension = "zip"
         else:
-            payload = build_template_xlsx(locale)
+            payload = build_template_xlsx(locale, household=household)
             content_type = _FORMATS["xlsx"]
             extension = "xlsx"
         response = HttpResponse(payload, content_type=content_type)
@@ -173,6 +178,7 @@ def _check(request, upload_id: int, *, dry_run: bool):
         format=stored.file_format,
         row_counts=report["counts"],
         numbers_included=report["numbers_included"],
+        contacts_included=report.get("contacts_included", False),
         batch_id=stored.id,
     )
     return Response(report)
@@ -189,7 +195,7 @@ class ClubDataImportMappingView(APIView):
         sheet = str(request.data.get("sheet") or "")
         headers = request.data.get("headers") or []
         mapping = request.data.get("mapping") or {}
-        if not name or sheet not in {"members", "licences", "grades"}:
+        if not name or sheet not in ALLOWED_SHEETS:
             return Response({"detail": "Name this mapping."}, status=400)
         if not isinstance(headers, list) or not isinstance(mapping, dict):
             return Response({"detail": "The column mapping is not valid."}, status=400)
@@ -225,7 +231,8 @@ class ClubDataImportCommitView(APIView):
         finally:
             stored.stored.close()
         report, _decisions = review_upload(parsed, club.id, mapping, actions)
-        if report["counts"]["error"] or report["counts"]["create"] + report["counts"]["update"] < 1:
+        workable = report["counts"]["create"] + report["counts"]["update"] + report["counts"].get("remove", 0)
+        if report["counts"]["error"] or workable < 1:
             return Response({"detail": "Fix the errors before importing.", "counts": report["counts"]}, status=400)
         batch = ClubDataImportBatch.objects.create(
             club=club,
@@ -245,6 +252,7 @@ class ClubDataImportCommitView(APIView):
             batch_id=batch.id,
             numbers_included=report["numbers_included"],
             grades_included=report["grades_included"],
+            contacts_included=report.get("contacts_included", False),
         )
         commit_club_data_import.delay(batch.id)
         batch.refresh_from_db()
