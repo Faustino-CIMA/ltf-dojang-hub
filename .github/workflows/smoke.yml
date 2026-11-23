@@ -1,0 +1,117 @@
+name: Smoke - Playwright
+
+on:
+  pull_request:
+    branches: [develop, main, next-major]
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - "smoke/**"
+      - ".github/workflows/smoke.yml"
+
+concurrency:
+  group: smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium:
+    name: Chromium
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: ltf_license_manager
+          POSTGRES_USER: ltf_user
+          POSTGRES_PASSWORD: ltf_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ltf_user -d ltf_license_manager"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_DEBUG: "1"
+      DJANGO_SECRET_KEY: ci-smoke-secret
+      FRONTEND_BASE_URL: http://127.0.0.1:3000
+      POSTGRES_DB: ltf_license_manager
+      POSTGRES_USER: ltf_user
+      POSTGRES_PASSWORD: ltf_password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      CELERY_TASK_ALWAYS_EAGER: "1"
+      MODULE_CODE_PUBLIC_KEY: ""
+      MODULE_CODE_PRIVATE_KEY: ""
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.lock
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install --require-hashes -r requirements.lock
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and build the frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Playwright
+        working-directory: smoke
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Migrate and seed the fake club
+        working-directory: backend
+        run: |
+          python manage.py migrate --noinput
+          python manage.py seed_smoke --env >> "$GITHUB_ENV"
+
+      - name: Start the API
+        working-directory: backend
+        run: |
+          python manage.py runserver 127.0.0.1:8000 > /tmp/smoke-api.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/api/health/ && exit 0
+            sleep 2
+          done
+          cat /tmp/smoke-api.log
+          exit 1
+
+      - name: Start the site
+        working-directory: frontend
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/smoke-web.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:3000/en/login && exit 0
+            sleep 2
+          done
+          cat /tmp/smoke-web.log
+          exit 1
+
+      - name: Check the authenticator helper
+        working-directory: smoke
+        run: node --test totp.test.mjs
+
+      - name: Run the smoke
+        working-directory: smoke
+        env:
+          SMOKE_PYTHON: python
+        run: npx playwright test
