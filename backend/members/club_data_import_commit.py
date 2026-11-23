@@ -94,19 +94,26 @@ def apply_decisions(club_id: int, decisions: list, batch) -> None:
     accepted = [item for item in decisions if _status_ok(item) and item["action"] in {"create", "update"}]
     skipped = [item for item in decisions if item["action"] == "skip" or not _status_ok(item)]
     counts["skipped"] = len(skipped)
+    from members.club_data_import_household import HOUSEHOLD_SHEETS, apply_household
+
     ordered = [item for item in accepted if item["sheet"] == "members"]
     ordered += [item for item in accepted if item["sheet"] == "licences"]
     ordered += [item for item in accepted if item["sheet"] == "grades"]
+    for key in ("people", "person_emails", "person_phones", "person_addresses", "emails", "phones", "addresses", "contacts", "families", "family_members", "rebate_rules"):
+        ordered += [item for item in accepted if item["sheet"] == key and item["action"] != "remove"]
+    ordered += [item for item in decisions if item.get("action") == "remove"]
     batch.rows_total = len(decisions)
     batch.rows_done = counts["skipped"]
     batch.status = batch.Status.RUNNING
     batch.save(update_fields=["rows_total", "rows_done", "status"])
 
+    people: dict = {}
+    families: dict = {}
     with transaction.atomic():
         for item in ordered:
             try:
                 with transaction.atomic():
-                    op = _apply_one(club_id, item, refs, validate_ssn, SsnError, MemberRecord)
+                    op = _apply_one(club_id, item, refs, validate_ssn, SsnError, MemberRecord, people, families)
                     if op:
                         snapshot.append(op)
                         if op["op"].startswith("create"):
@@ -156,12 +163,19 @@ def undo_batch(batch) -> dict:
                 continue
             if op == "update_member":
                 _restore_member(batch.club_id, entry, MemberRecord)
+                continue
+            if op in {"create_child", "update_child", "remove_child"}:
+                from members.club_data_import_household import undo_child
+
+                undo_child(entry)
         batch.undone_at = timezone.now()
         batch.save(update_fields=["undone_at"])
     return {"grades_kept": kept_grades, "members_kept": kept_members}
 
 
 def _status_ok(item: dict) -> bool:
+    from members.club_data_import_household import HOUSEHOLD_ERRORS
+
     errors = {
         "missing_last_name",
         "unknown_grade",
@@ -172,11 +186,16 @@ def _status_ok(item: dict) -> bool:
         "duplicate_in_file",
         "bad_status",
         "bad_sex",
+        *HOUSEHOLD_ERRORS,
     }
     return not any(code in errors for code in item.get("codes") or [])
 
 
-def _apply_one(club_id, item, refs, validate_ssn, SsnError, MemberRecord):
+def _apply_one(club_id, item, refs, validate_ssn, SsnError, MemberRecord, people, families):
+    from members.club_data_import_household import HOUSEHOLD_SHEETS, apply_household
+
+    if item["sheet"] in HOUSEHOLD_SHEETS or item.get("action") == "remove":
+        return apply_household(club_id, item, refs, people, families)
     row = item["row"]
     if item["sheet"] == "members":
         return _apply_member(club_id, item, row, refs, validate_ssn, SsnError, MemberRecord)

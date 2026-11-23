@@ -34,8 +34,22 @@ MAX_BYTES = 5 * 1024 * 1024
 MAX_ROWS = 5000
 PREVIEW_LIMIT = 200
 FILE_HOURS = 72
-ALLOWED_SHEETS = ("members", "licences", "grades")
-ZIP_NAMES = {"members.csv", "licences.csv", "grades.csv", "manifest.csv"}
+from members.club_data_import_household import (
+    HOUSEHOLD_ERRORS,
+    HOUSEHOLD_FIELDS,
+    HOUSEHOLD_SHEETS,
+    decide_household,
+    extra_json_sheets,
+    flag_invoice_clashes,
+    index_families,
+    index_people,
+    modes_from,
+    removal_rows,
+)
+
+CORE_SHEETS = ("members", "licences", "grades")
+ALLOWED_SHEETS = CORE_SHEETS + HOUSEHOLD_SHEETS
+ZIP_NAMES = {f"{key}.csv" for key in ALLOWED_SHEETS} | {"manifest.csv"}
 
 IMPORT_MEMBER_KEYS = (
     "member_ref",
@@ -59,6 +73,7 @@ _SHEET_FIELDS = {
     "members": IMPORT_MEMBER_KEYS,
     "licences": LICENSE_KEYS,
     "grades": GRADE_KEYS,
+    **HOUSEHOLD_FIELDS,
 }
 
 _EXTRA_TITLES = {
@@ -161,10 +176,63 @@ def _sample_tables() -> dict[str, list[dict]]:
             "promotion_date": "2026-03-01",
         }
     )
-    return {"members": [member], "licences": [licence], "grades": [grade]}
+    email = {"member_ref": "m-0001", "email": "ada@example.test", "use_for_invoice": "true"}
+    phone = {"member_ref": "m-0001", "number": "+352621000000", "label": "mobile"}
+    address = {
+        "member_ref": "m-0001",
+        "street": "Rue Factice",
+        "house_number": "12",
+        "line2": "",
+        "postal_code": "1234",
+        "locality": "Musterstadt",
+        "country": "LU",
+        "use_for_invoice": "true",
+    }
+    person = {
+        "person_ref": "p-0001",
+        "last_name": "EXAMPLE",
+        "first_name": "Noor",
+        "sex": "F",
+        "member_ref": "",
+    }
+    contact = {
+        "member_ref": "m-0001",
+        "person_ref": "p-0001",
+        "relation": "mother",
+        "is_emergency": "true",
+        "is_primary": "true",
+    }
+    person_email = {"person_ref": "p-0001", "email": "noor@example.test", "use_for_invoice": "false"}
+    person_phone = {"person_ref": "p-0001", "number": "+352621000001", "label": "mobile"}
+    person_address = {**address, "member_ref": "", "person_ref": "p-0001", "use_for_invoice": "false"}
+    family = {
+        "family_ref": "f-0001",
+        "name": "EXAMPLE",
+        "invoice_member_ref": "m-0001",
+        "bill_to_person_ref": "p-0001",
+        "delivery": "email",
+    }
+    link = {"family_ref": "f-0001", "member_ref": "m-0001", "sort_order": "1"}
+    rebate = {"member_rank": "2", "percent_off": "10.00", "amount_off": "", "applies_to_later": "true"}
+    return {
+        "members": [member],
+        "licences": [licence],
+        "grades": [grade],
+        "emails": [email],
+        "phones": [phone],
+        "addresses": [address],
+        "people": [person],
+        "contacts": [contact],
+        "person_emails": [person_email],
+        "person_phones": [person_phone],
+        "person_addresses": [person_address],
+        "families": [family],
+        "family_members": [link],
+        "rebate_rules": [rebate],
+    }
 
 
-def build_template_xlsx(locale: str) -> bytes:
+def build_template_xlsx(locale: str, *, household: bool = False) -> bytes:
     from members.xlsx_layout import write_instructions, write_sheet
 
     book = Workbook()
@@ -174,7 +242,7 @@ def build_template_xlsx(locale: str) -> bytes:
     write_instructions(book, code)
     tables = _sample_tables()
     words = _titles(code)
-    for key in ALLOWED_SHEETS:
+    for key in _template_sheets(household):
         fields = _SHEET_FIELDS[key]
         write_sheet(book, key, fields, [words[field] for field in fields], tables[key])
     buffer = io.BytesIO()
@@ -182,7 +250,7 @@ def build_template_xlsx(locale: str) -> bytes:
     return buffer.getvalue()
 
 
-def build_template_csv(locale: str) -> bytes:
+def build_template_csv(locale: str, *, household: bool = False) -> bytes:
     tables = _sample_tables()
     words = _titles(locale)
     buffer = io.BytesIO()
@@ -190,7 +258,7 @@ def build_template_csv(locale: str) -> bytes:
         manifest = io.StringIO()
         writer = csv.writer(manifest, lineterminator="\n")
         writer.writerow(["file", "key", "rows"])
-        for key in ALLOWED_SHEETS:
+        for key in _template_sheets(household):
             fields = _SHEET_FIELDS[key]
             body = io.StringIO()
             body.write("# keys: " + ",".join(fields) + "\n")
@@ -202,6 +270,12 @@ def build_template_csv(locale: str) -> bytes:
             writer.writerow([f"{key}.csv", key, 1])
         archive.writestr("manifest.csv", manifest.getvalue().encode("utf-8"))
     return buffer.getvalue()
+
+
+def _template_sheets(household: bool) -> tuple[str, ...]:
+    if household:
+        return ALLOWED_SHEETS
+    return CORE_SHEETS
 
 
 def _text_cell(value) -> str:
@@ -383,6 +457,7 @@ def _sheets_from_json(body: dict) -> list[dict]:
                 "rows": [[row.get(field, "") for field in fields] for row in rows],
             }
         )
+    sheets.extend(extra_json_sheets(body))
     return sheets
 
 
@@ -578,6 +653,7 @@ def check_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | None
 
 def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | None = None) -> tuple[dict, list]:
     actions = actions or {}
+    parsed, skipped = _without_household(parsed, club_id)
     by_license, by_name, by_number, other_clubs, latest = _member_indexes(club_id)
     prepared = []
     for sheet in parsed["sheets"]:
@@ -596,7 +672,9 @@ def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | Non
 
     signatures: dict[str, list[int]] = {}
     decisions = []
-    for index, (sheet, row) in enumerate(prepared):
+    household_rows = [(sheet, row) for sheet, row in prepared if sheet in HOUSEHOLD_SHEETS]
+    core_rows = [(sheet, row) for sheet, row in prepared if sheet not in HOUSEHOLD_SHEETS]
+    for sheet, row in core_rows:
         decision = _decide_row(
             sheet,
             row,
@@ -612,7 +690,41 @@ def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | Non
         decision["row"] = row
         decisions.append(decision)
         if decision["action"] != "skip" and decision["signature"]:
-            signatures.setdefault(decision["signature"], []).append(index)
+            signatures.setdefault(decision["signature"], []).append(len(decisions) - 1)
+
+    members = {}
+    for decision in decisions:
+        if decision["sheet"] != "members" or not decision.get("member_id"):
+            continue
+        for key in (decision["row"].get("member_ref", ""), decision["row"].get("ltf_licenseid", "")):
+            if key.strip():
+                members[key.strip().upper()] = decision["member_id"]
+    for license_id, person in by_license.items():
+        members.setdefault(license_id.upper(), person.id)
+    people_rows = {row["person_ref"].strip(): row for _sheet, row in household_rows if _sheet == "people" and row.get("person_ref", "").strip()}
+    family_names = {row["family_ref"].strip(): row["name"].strip() for _sheet, row in household_rows if _sheet == "families"}
+    people = index_people([row for sheet, row in household_rows if sheet == "people"])
+    families = index_families([row for sheet, row in household_rows if sheet == "families"])
+    for sheet, row in household_rows:
+        decision = decide_household(
+            sheet,
+            row,
+            club_id=club_id,
+            members=members,
+            people=people,
+            families=families,
+            family_names=family_names,
+            people_rows=people_rows,
+        )
+        choice = actions.get(f"{sheet}:{row['_line']}")
+        if choice in {"create", "update", "skip"}:
+            decision["action"] = choice
+        decision["row"] = row
+        decisions.append(decision)
+        if decision["action"] != "skip" and decision["signature"]:
+            signatures.setdefault(decision["signature"], []).append(len(decisions) - 1)
+    flag_invoice_clashes(decisions)
+    decisions.extend(removal_rows(club_id, decisions, modes_from(actions)))
 
     for indexes in signatures.values():
         if len(indexes) < 2:
@@ -622,12 +734,12 @@ def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | Non
             decisions[index]["action"] = "skip"
 
     rows = []
-    counts = {"ok": 0, "warning": 0, "error": 0, "create": 0, "update": 0, "skip": 0}
+    counts = {"ok": 0, "warning": 0, "error": 0, "create": 0, "update": 0, "skip": 0, "remove": 0}
     for decision in decisions:
         status = _status(decision["codes"])
         counts[status] += 1
         if status != "error":
-            counts[decision["action"]] += 1
+            counts[decision["action"]] = counts.get(decision["action"], 0) + 1
         if len(rows) < PREVIEW_LIMIT:
             rows.append(
                 {
@@ -647,8 +759,28 @@ def review_upload(parsed: dict, club_id: int, mapping: dict, actions: dict | Non
         "saved": False,
         "numbers_included": parsed["numbers_included"],
         "grades_included": any(sheet["key"] == "grades" for sheet in parsed["sheets"]),
+        "contacts_included": any(sheet["key"] in HOUSEHOLD_SHEETS for sheet in parsed["sheets"]),
+        "warnings": list(parsed.get("warnings") or []) + skipped,
     }
     return report, decisions
+
+
+def _without_household(parsed: dict, club_id: int) -> tuple[dict, list]:
+    from modules.entitlements import is_club_assigned
+    from modules.registry import CLUB_MANAGEMENT_MODULE_ID
+
+    if is_club_assigned(CLUB_MANAGEMENT_MODULE_ID, club_id):
+        return parsed, []
+    kept = []
+    skipped = []
+    for sheet in parsed["sheets"]:
+        if sheet["key"] in HOUSEHOLD_SHEETS:
+            skipped.append({"code": "sheet_skipped", "sheet": sheet["key"]})
+        else:
+            kept.append(sheet)
+    copied = dict(parsed)
+    copied["sheets"] = kept
+    return copied, skipped
 
 
 def _status(codes: list[str]) -> str:
@@ -662,8 +794,9 @@ def _status(codes: list[str]) -> str:
         "duplicate_in_file",
         "bad_status",
         "bad_sex",
+        *HOUSEHOLD_ERRORS,
     }
-    warnings = {"ambiguous_date", "nationality_named", "empty_email", "possible_duplicate"}
+    warnings = {"ambiguous_date", "nationality_named", "empty_email", "possible_duplicate", "unknown_label", "would_remove"}
     if any(code in errors for code in codes):
         return "error"
     if any(code in warnings for code in codes):
