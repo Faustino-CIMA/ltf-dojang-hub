@@ -103,11 +103,16 @@ class MemberVerificationActions:
         denied = self._verification_forbidden(request, member)
         if denied is not None:
             return denied
-        raw, row = create_challenge(
-            member,
-            actor=request.user,
-            session_key=request_session_key(request),
-        )
+        try:
+            raw, row = create_challenge(
+                member,
+                actor=request.user,
+                session_key=request_session_key(request),
+            )
+        except VerificationError as exc:
+            if exc.code == "verified":
+                return Response({"detail": "This member is already verified."}, status=409)
+            return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
         return Response({"token": raw, "expires_at": row.expires_at}, status=201)
 
     @action(detail=True, methods=["post"], url_path="verification-challenges/cancel")

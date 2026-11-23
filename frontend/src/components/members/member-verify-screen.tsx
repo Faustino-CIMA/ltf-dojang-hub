@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { openCamera, stopMediaStream, isCameraDenied } from "@/lib/camera-capture";
+import { formatDisplayDate } from "@/lib/date-display";
 import { readCardImage } from "@/lib/card-ocr";
 import { readCardText, type CardCountry } from "@/lib/card-read";
 import {
@@ -54,6 +56,7 @@ export function MemberVerifyScreen({
   const [requestError, setRequestError] = useState<string | null>(null);
   const [keepUsual, setKeepUsual] = useState(true);
   const [reason, setReason] = useState("");
+  const [verifiedAt, setVerifiedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (handoffToken) {
@@ -93,7 +96,13 @@ export function MemberVerifyScreen({
           setPhase({ kind: "no-number" });
           return;
         }
-        setPhase(state.verified ? { kind: "verified" } : { kind: "camera" });
+        if (state.verified) {
+          const when = "verified_at" in state && typeof state.verified_at === "string" ? state.verified_at : null;
+          setVerifiedAt(when);
+          setPhase({ kind: "verified" });
+          return;
+        }
+        setPhase({ kind: "camera" });
       })
       .catch((error: unknown) => {
         if (cancelled) {
@@ -262,10 +271,24 @@ export function MemberVerifyScreen({
         <Link href={backHref}>{t("back")}</Link>
       </Button>
       <ActionNotices error={requestError} onDismiss={() => setRequestError(null)} />
-      <p className="text-sm text-muted">{t("intro")}</p>
+      {phase.kind === "no-number" || phase.kind === "verified" ? null : (
+        <p className="text-sm text-muted">{t("intro")}</p>
+      )}
 
       {phase.kind === "loading" ? <p className="text-sm text-muted">{t("reading")}</p> : null}
-      {phase.kind === "no-number" ? <p className="text-sm text-warning">{t("noNumber")}</p> : null}
+      {phase.kind === "no-number" ? (
+        <div className="space-y-3">
+          <p className="text-sm text-warning">{t("noNumber")}</p>
+          {memberId && !handoffToken ? (
+            <Button variant="outline" asChild>
+              <Link href={`${backHref}?edit=1&focus=ssn`}>
+                <Pencil aria-hidden />
+                {t("enterNumber")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {phase.kind === "camera" || phase.kind === "reading" ? (
         <div className="space-y-3">
@@ -319,7 +342,9 @@ export function MemberVerifyScreen({
 
       {phase.kind === "verified" ? (
         <div className="space-y-3">
-          <p className="text-sm text-success">{t("verifiedDone")}</p>
+          <p className="text-sm text-success">
+            {verifiedAt ? t("verifiedOn", { date: formatDisplayDate(verifiedAt) }) : t("verifiedDone")}
+          </p>
           {handoffToken ? null : (
           <div className="space-y-2">
             <Label htmlFor="unlock-reason">{t("unlockReason")}</Label>

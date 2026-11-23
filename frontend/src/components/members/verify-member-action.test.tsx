@@ -50,4 +50,42 @@ describe("verifyMemberMenuAction", () => {
     expect(screen.queryByRole("menuitem", { name: "Verify member" })).not.toBeInTheDocument();
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("offers Unlock to a club admin and keeps Verify for everyone else", () => {
+    const onUnlock = jest.fn();
+    const onSelect = jest.fn();
+    render(
+      <RowActionMenu
+        label="Admin actions"
+        actions={[
+          ...verifyMemberMenuAction({
+            verified: true,
+            label: "Verify member",
+            onSelect,
+            canUnlock: true,
+            unlockLabel: "Unlock card check",
+            onUnlock,
+          }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Admin actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Unlock card check" }));
+    expect(onUnlock).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    render(
+      <RowActionMenu
+        label="Coach actions"
+        actions={verifyMemberMenuAction({
+          verified: false,
+          label: "Verify member",
+          onSelect,
+          canUnlock: false,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Coach actions" }));
+    expect(screen.getByRole("menuitem", { name: "Verify member" })).toBeInTheDocument();
+  });
 });

@@ -5727,6 +5727,9 @@
   },
   "Verification": {
     "badge": "Vérifié",
+    "verifiedOn": "Vérifié le {date}",
+    "enterNumber": "Saisir le numéro de sécurité sociale",
+    "unlockCardCheck": "Déverrouiller la vérification de la carte",
     "verify": "Vérifier",
     "verifyMember": "Vérifier le membre",
     "title": "Contrôler la carte",

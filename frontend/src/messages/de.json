@@ -5727,6 +5727,9 @@
   },
   "Verification": {
     "badge": "Geprüft",
+    "verifiedOn": "Geprüft am {date}",
+    "enterNumber": "Sozialversicherungsnummer eingeben",
+    "unlockCardCheck": "Kartenprüfung entsperren",
     "verify": "Prüfen",
     "verifyMember": "Mitglied prüfen",
     "title": "Die Karte prüfen",

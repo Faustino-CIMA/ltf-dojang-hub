@@ -510,6 +510,11 @@ def _open_challenge(member, session_key: str):
 def create_challenge(member, *, actor, session_key: str) -> tuple[str, object]:
     from .models import VerificationChallenge
 
+    if is_verified(member):
+        raise VerificationError("verified")
+    _country, number = _stored_number(member)
+    if not str(number or "").strip():
+        raise VerificationError("missing_number")
     now = timezone.now()
     VerificationChallenge.objects.filter(
         member=member,

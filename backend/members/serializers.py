@@ -168,6 +168,7 @@ class MemberSerializer(serializers.ModelSerializer):
     linked_user = serializers.SerializerMethodField()
     account_state = serializers.SerializerMethodField()
     card_verified = serializers.SerializerMethodField()
+    card_verified_at = serializers.SerializerMethodField()
     minor_account = serializers.SerializerMethodField()
     picture_review = serializers.SerializerMethodField()
     review_state = serializers.SerializerMethodField()
@@ -229,6 +230,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "linked_user",
             "account_state",
             "card_verified",
+            "card_verified_at",
             "minor_account",
             "picture_review",
             "review_state",
@@ -259,6 +261,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "linked_user",
             "account_state",
             "card_verified",
+            "card_verified_at",
             "minor_account",
             "picture_review",
             "review_state",
@@ -502,6 +505,12 @@ class MemberSerializer(serializers.ModelSerializer):
         if value is None:
             return False
         return bool(value)
+
+    def get_card_verified_at(self, obj: Member):
+        value = getattr(obj, "card_verified_at", None)
+        if value is None:
+            return None
+        return value.isoformat() if hasattr(value, "isoformat") else value
 
     def get_minor_account(self, obj: Member):
         user = getattr(obj, "user", None)

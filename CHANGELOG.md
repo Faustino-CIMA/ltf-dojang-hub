@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** A card check with no social security number shows the warning and a button to enter the number. It does not ask for a phone scan, and no code is created. A verified member shows the date and, for a club admin, the unlock reason on a computer as well as a phone. After unlock, the computer makes a new code. The member page badge says verified on that date, and the menu says Unlock card check instead of Verify.
 - **Members:** A club with club management can import families, people, emails, phones, addresses, and emergency contacts from the same data file. Add and update is the default. Replace the list removes rows the file left out. The preferred name stays ignored, and member dates are read as before.
 - **Members:** A member download, the club data report, and an account statement open with the club name, logo, and address. On a member page, Download statement, Download member data, and Verify are in the actions menu.
 - **Members:** The stored extra name is called Preferred name in English, Nom préféré in French, Bevorzugter Name in German, and Bevorzugten Numm in Luxembourgish. The verification checkbox offers to keep the current names as that preferred name. The field stays off the forms, lists, cards, and exports.
