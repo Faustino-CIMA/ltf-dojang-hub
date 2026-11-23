@@ -72,6 +72,25 @@ describe("clubMemberOverviewActions", () => {
     ]);
   });
 
+  it("replaces Verify with Unlock for a verified member, and hides Unlock on a view-only desk", () => {
+    const onUnlock = jest.fn();
+    openMenu(actions({ verified: true, unlockLabel: "Unlock card check", onUnlock }));
+    expect(screen.queryByRole("menuitem", { name: "Verify" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Unlock card check" }));
+    expect(onUnlock).toHaveBeenCalledTimes(1);
+    render(
+      <DeskAccessContext.Provider value={{ readOnly: true, viewOnlyLabel: "View only" }}>
+        <RowActionMenu
+          label="View only actions"
+          actions={actions({ verified: true, unlockLabel: "Unlock card check", onUnlock })}
+        />
+      </DeskAccessContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "View only actions" }));
+    expect(screen.queryByRole("menuitem", { name: "Unlock card check" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Download statement" })).toBeInTheDocument();
+  });
+
   it("keeps the downloads and Verify on a view-only desk, and hides Edit", () => {
     render(
       <DeskAccessContext.Provider value={{ readOnly: true, viewOnlyLabel: "View only" }}>

@@ -544,6 +544,46 @@ class DesktopCodeTests(TestCase):
         blocked = self.client.get("/api/verification-challenges/not-a-real-code-0000000000/")
         self.assertEqual(blocked.status_code, 429)
 
+    def test_no_number_and_a_verified_member_do_not_get_a_code(self):
+        from members.models import VerificationChallenge
+
+        bare = Member.objects.create(
+            club=self.club,
+            first_name="No",
+            last_name="NUMBER",
+            sex=Member.Sex.MALE,
+            date_of_birth=date(1980, 1, 1),
+        )
+        self.client.force_authenticate(user=self.club_admin)
+        refused = self.client.post(f"/api/members/{bare.id}/verification-challenges/", {}, format="json")
+        self.assertEqual(refused.status_code, 400)
+        self.assertIn("no social security number", refused.data["detail"].lower())
+        self.assertFalse(VerificationChallenge.objects.filter(member=bare).exists())
+
+        locked = self.client.post(
+            f"/api/members/{self.member.id}/verification/compare/",
+            self._card(confirm_names=False),
+            format="json",
+        )
+        self.assertEqual(locked.status_code, 200, locked.data)
+        self.assertTrue(locked.data["verified"])
+        self.assertTrue(locked.data["verified_at"])
+        blocked = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        self.assertEqual(blocked.status_code, 409)
+        self.assertEqual(VerificationChallenge.objects.filter(member=self.member).count(), 0)
+
+        unlocked = self.client.post(
+            f"/api/members/{self.member.id}/verification/unlock/",
+            {"reason": "The card was read against the wrong member."},
+            format="json",
+        )
+        self.assertEqual(unlocked.status_code, 200, unlocked.data)
+        self.assertFalse(unlocked.data["verified"])
+        self.assertIsNone(unlocked.data["verified_at"])
+        created = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(VerificationChallenge.objects.filter(member=self.member).count(), 1)
+
     def test_coach_cannot_make_a_code(self):
         self.client.force_authenticate(user=self.coach)
         response = self.client.post(f"/api/members/{self.member.id}/verification-challenges/", {}, format="json")

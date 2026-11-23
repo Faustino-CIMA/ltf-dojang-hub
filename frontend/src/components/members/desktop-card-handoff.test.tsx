@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { TextEncoder } from "node:util";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 if (!global.TextEncoder) {
   global.TextEncoder = TextEncoder as unknown as typeof global.TextEncoder;
@@ -24,6 +24,7 @@ jest.mock("@/lib/member-verification", () => ({
   getMemberVerification: jest.fn(),
   createMemberChallenge: jest.fn(),
   cancelMemberChallenge: jest.fn(),
+  unlockMemberCard: jest.fn(),
   cardCheckPath: (locale: string, token: string) => `/${locale}/card-check/${token}`,
 }));
 
@@ -31,6 +32,7 @@ const verification = jest.requireMock("@/lib/member-verification") as {
   getMemberVerification: jest.Mock;
   createMemberChallenge: jest.Mock;
   cancelMemberChallenge: jest.Mock;
+  unlockMemberCard: jest.Mock;
 };
 
 const TOKEN = "handoff-token-test-value-0001";
@@ -40,6 +42,7 @@ describe("DesktopCardHandoff", () => {
     verification.getMemberVerification.mockReset();
     verification.createMemberChallenge.mockReset();
     verification.cancelMemberChallenge.mockResolvedValue({});
+    verification.unlockMemberCard.mockResolvedValue({ verified: false, has_number: true, verified_at: null });
     verification.getMemberVerification.mockResolvedValue({
       verified: false,
       has_number: true,
@@ -68,6 +71,52 @@ describe("DesktopCardHandoff", () => {
     expect(drawing.length).toBeGreaterThan(20);
     expect(svg?.outerHTML).not.toContain("members");
     expect(screen.getByText(/qrExpires/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "qrTitle" })).toBeInTheDocument();
+  });
+
+  it("shows the number warning and does not create a code when none is stored", async () => {
+    verification.getMemberVerification.mockResolvedValue({
+      verified: false,
+      has_number: false,
+      verified_at: null,
+      challenge_open: false,
+      country: "",
+    });
+    render(<DesktopCardHandoff memberId={1} locale="en" backHref="/en/dashboard/club/members/1" />);
+    expect(await screen.findByText("noNumber")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "qrTitle" })).not.toBeInTheDocument();
+    expect(screen.queryByText("qrHint")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "enterNumber" })).toHaveAttribute(
+      "href",
+      "/en/dashboard/club/members/1?edit=1&focus=ssn",
+    );
+    expect(verification.createMemberChallenge).not.toHaveBeenCalled();
+  });
+
+  it("shows the verified date and unlocks into a fresh code", async () => {
+    verification.getMemberVerification.mockResolvedValue({
+      verified: true,
+      has_number: true,
+      verified_at: "2026-11-29T13:05:00.000Z",
+      challenge_open: false,
+      country: "LU",
+    });
+    render(<DesktopCardHandoff memberId={1} locale="en" backHref="/en/dashboard/club/members/1" />);
+    expect(await screen.findByText(/verifiedOn/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "qrTitle" })).not.toBeInTheDocument();
+    expect(verification.createMemberChallenge).not.toHaveBeenCalled();
+    verification.getMemberVerification.mockResolvedValue({
+      verified: false,
+      has_number: true,
+      verified_at: null,
+      challenge_open: true,
+      country: "LU",
+    });
+    fireEvent.change(screen.getByLabelText("unlockReason"), { target: { value: "Wrong member" } });
+    fireEvent.click(screen.getByRole("button", { name: "unlockSubmit" }));
+    await waitFor(() => expect(verification.unlockMemberCard).toHaveBeenCalledWith(1, "Wrong member"));
+    await waitFor(() => expect(verification.createMemberChallenge).toHaveBeenCalled());
+    expect(await screen.findByRole("heading", { name: "qrTitle" })).toBeInTheDocument();
   });
 });
 

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Count, Exists, F, Min, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, F, Min, OuterRef, Prefetch, Q, Subquery
 from django.db.models.deletion import ProtectedError
 from django.http import FileResponse, HttpResponse
 from rest_framework import permissions, status, viewsets
@@ -99,13 +99,13 @@ def _finance_only_view(user) -> bool:
 
 
 def _with_card_verified(queryset):
+    verified = MemberVerification.objects.filter(
+        member_id=OuterRef("pk"),
+        status=MemberVerification.Status.VERIFIED,
+    )
     return queryset.annotate(
-        card_verified=Exists(
-            MemberVerification.objects.filter(
-                member_id=OuterRef("pk"),
-                status=MemberVerification.Status.VERIFIED,
-            )
-        )
+        card_verified=Exists(verified),
+        card_verified_at=Subquery(verified.values("verified_at")[:1]),
     )
 
 

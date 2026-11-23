@@ -5727,6 +5727,9 @@
   },
   "Verification": {
     "badge": "Verified",
+    "verifiedOn": "Verified on {date}",
+    "enterNumber": "Enter the social security number",
+    "unlockCardCheck": "Unlock card check",
     "verify": "Verify",
     "verifyMember": "Verify member",
     "title": "Check the card",

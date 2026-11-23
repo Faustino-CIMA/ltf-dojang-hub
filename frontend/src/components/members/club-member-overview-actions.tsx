@@ -1,4 +1,4 @@
-import { Download, Pencil, Receipt, Shield } from "lucide-react";
+import { Download, LockOpen, Pencil, Receipt, Shield } from "lucide-react";
 
 import type { MenuAction } from "@/components/ui/action-menu";
 
@@ -14,6 +14,9 @@ export function clubMemberOverviewActions({
   onMemberData,
   verifyLabel,
   verifyHref,
+  verified = false,
+  unlockLabel = "",
+  onUnlock,
   accountActions,
 }: {
   canManage: boolean;
@@ -26,6 +29,9 @@ export function clubMemberOverviewActions({
   onMemberData: () => void;
   verifyLabel: string;
   verifyHref: string;
+  verified?: boolean;
+  unlockLabel?: string;
+  onUnlock?: () => void;
   accountActions: MenuAction[];
 }): MenuAction[] {
   const actions: MenuAction[] = [];
@@ -55,14 +61,25 @@ export function clubMemberOverviewActions({
         availableWhenReadOnly: true,
         onSelect: onMemberData,
       },
-      {
-        key: "verify",
-        label: verifyLabel,
-        icon: <Shield aria-hidden />,
-        href: verifyHref,
-        availableWhenReadOnly: true,
-        onSelect: () => undefined,
-      },
+      ...(verified
+        ? [
+            {
+              key: "unlock",
+              label: unlockLabel,
+              icon: <LockOpen aria-hidden />,
+              onSelect: onUnlock ?? (() => undefined),
+            },
+          ]
+        : [
+            {
+              key: "verify",
+              label: verifyLabel,
+              icon: <Shield aria-hidden />,
+              href: verifyHref,
+              availableWhenReadOnly: true,
+              onSelect: () => undefined,
+            },
+          ]),
       ...accountActions,
     );
   }

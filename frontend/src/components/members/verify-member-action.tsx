@@ -1,4 +1,4 @@
-import { Shield } from "lucide-react";
+import { LockOpen, Shield } from "lucide-react";
 
 import type { MenuAction } from "@/components/ui/action-menu";
 
@@ -6,18 +6,34 @@ export function memberVerifyPath(locale: string, desk: "club" | "ltf", memberId:
   return `/${locale}/dashboard/${desk}/members/${memberId}/verify`;
 }
 
-/** Menu item for the existing card check. Hidden once the member is verified, because the row already shows the badge. */
+/** Unverified members keep Verify. A verified member offers Unlock only to a club admin. */
 export function verifyMemberMenuAction({
   verified,
   label,
   onSelect,
+  canUnlock = false,
+  unlockLabel = "",
+  onUnlock,
 }: {
   verified: boolean;
   label: string;
   onSelect: () => void;
+  canUnlock?: boolean;
+  unlockLabel?: string;
+  onUnlock?: () => void;
 }): MenuAction[] {
   if (verified) {
-    return [];
+    if (!canUnlock || !onUnlock) {
+      return [];
+    }
+    return [
+      {
+        key: "unlock",
+        label: unlockLabel,
+        icon: <LockOpen aria-hidden />,
+        onSelect: onUnlock,
+      },
+    ];
   }
   return [
     {

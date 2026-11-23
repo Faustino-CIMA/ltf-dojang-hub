@@ -104,6 +104,7 @@ export function MemberFormPanel({
   clubs,
   selectedClubId,
   requireSsn = false,
+  focusSsn = false,
   onClose,
   onSaved,
 }: {
@@ -113,6 +114,7 @@ export function MemberFormPanel({
   clubs: Club[];
   selectedClubId: number | null;
   requireSsn?: boolean;
+  focusSsn?: boolean;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -123,6 +125,18 @@ export function MemberFormPanel({
   const importT = useTranslations("Import");
   const common = useTranslations("Common");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !focusSsn) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const field = document.getElementById("member-panel-ssn");
+      field?.focus();
+      field?.scrollIntoView({ block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusSsn, open]);
   const [loadedClubs, setLoadedClubs] = useState<Club[]>(clubs);
   const clubOptions = clubs.length > 0 ? clubs : loadedClubs;
 

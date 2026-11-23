@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
+import { formatDisplayDate } from "@/lib/date-display";
 import { HANDOFF_QR_MAX_PX, handoffQrMarkup } from "@/lib/handoff-qr";
 import {
   cancelMemberChallenge,
   cardCheckPath,
   createMemberChallenge,
   getMemberVerification,
+  unlockMemberCard,
 } from "@/lib/member-verification";
 
 type Phase = "loading" | "waiting" | "verified" | "expired" | "no-number" | "failed" | "fallback";
@@ -33,6 +37,8 @@ export function DesktopCardHandoff({
   const [expiresAt, setExpiresAt] = useState("");
   const [copied, setCopied] = useState(false);
   const [phase, setPhase] = useState<Phase>("loading");
+  const [verifiedAt, setVerifiedAt] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
   const [requestError, setRequestError] = useState<string | null>(null);
 
   const start = useCallback(async () => {
@@ -42,6 +48,7 @@ export function DesktopCardHandoff({
     setSvg("");
     const state = await getMemberVerification(memberId);
     if (state.verified) {
+      setVerifiedAt(state.verified_at);
       setPhase("verified");
       return;
     }
@@ -115,6 +122,21 @@ export function DesktopCardHandoff({
       })
     : "";
 
+  async function unlock() {
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      return;
+    }
+    setRequestError(null);
+    try {
+      await unlockMemberCard(memberId, trimmed);
+      setReason("");
+      await start();
+    } catch {
+      setRequestError(t("unreadable"));
+    }
+  }
+
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(link);
@@ -130,10 +152,24 @@ export function DesktopCardHandoff({
         <Link href={backHref}>{t("back")}</Link>
       </Button>
       <ActionNotices error={requestError} onDismiss={() => setRequestError(null)} />
-      <h2 className="text-section text-foreground">{t("qrTitle")}</h2>
-      <p className="text-sm text-muted">{t("qrHint")}</p>
+      {phase === "waiting" || phase === "fallback" || phase === "expired" || phase === "failed" ? (
+        <>
+          <h2 className="text-section text-foreground">{t("qrTitle")}</h2>
+          <p className="text-sm text-muted">{t("qrHint")}</p>
+        </>
+      ) : null}
       {phase === "loading" ? <p className="text-sm text-muted">{t("reading")}</p> : null}
-      {phase === "no-number" ? <p className="text-sm text-warning">{t("noNumber")}</p> : null}
+      {phase === "no-number" ? (
+        <div className="space-y-3">
+          <p className="text-sm text-warning">{t("noNumber")}</p>
+          <Button variant="outline" asChild>
+            <Link href={`${backHref}?edit=1&focus=ssn`}>
+              <Pencil aria-hidden />
+              {t("enterNumber")}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
       {phase === "waiting" && svg ? (
         <div className="space-y-3">
           <div
@@ -155,7 +191,20 @@ export function DesktopCardHandoff({
           </Button>
         </div>
       ) : null}
-      {phase === "verified" ? <p className="text-sm text-success">{t("verifiedDone")}</p> : null}
+      {phase === "verified" ? (
+        <div className="space-y-3">
+          <p className="text-sm text-success">
+            {verifiedAt ? t("verifiedOn", { date: formatDisplayDate(verifiedAt) }) : t("verifiedDone")}
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="desktop-unlock-reason">{t("unlockReason")}</Label>
+            <Input id="desktop-unlock-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
+            <Button type="button" variant="outline" onClick={() => void unlock()} disabled={!reason.trim()}>
+              {t("unlockSubmit")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {phase === "expired" ? <p className="text-sm text-destructive">{t("qrExpired")}</p> : null}
       {phase === "expired" || phase === "failed" || phase === "fallback" ? (
         <Button type="button" onClick={() => void start().catch(() => setPhase("failed"))}>

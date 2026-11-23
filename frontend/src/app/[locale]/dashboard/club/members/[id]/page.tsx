@@ -100,6 +100,7 @@ export default function ClubMemberDetailPage() {
   const locale = typeof rawLocale === "string" ? rawLocale : "en";
   const memberId = typeof rawId === "string" ? Number(rawId) : Number(rawId?.[0]);
   const isEditing = searchParams.get("edit") === "1";
+  const focusSsn = searchParams.get("focus") === "ssn";
   const urlTab = parseMemberDetailTab(searchParams.get("tab"));
   const [activeTab, setActiveTabState] = useState<MemberDetailTab>(urlTab);
   const [member, setMember] = useState<Member | null>(null);
@@ -436,7 +437,15 @@ export default function ClubMemberDetailPage() {
                     }
                   />
                   <MemberNationalTeamBadge memberId={member.id} />
-                  {member.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
+                  {member.card_verified ? (
+                    <VerifiedBadge
+                      label={
+                        member.card_verified_at
+                          ? verifyT("verifiedOn", { date: formatDisplayDate(member.card_verified_at) })
+                          : verifyT("badge")
+                      }
+                    />
+                  ) : null}
                 </div>
                 {canManageMemberFull || (clubMgmtOn && selectedClubId != null) ? (
                   <div className="shrink-0">
@@ -453,6 +462,9 @@ export default function ClubMemberDetailPage() {
                         onMemberData: () => setMemberDataOpen(true),
                         verifyLabel: verifyT("verify"),
                         verifyHref: `/${locale}/dashboard/club/members/${member.id}/verify`,
+                        verified: Boolean(member.card_verified),
+                        unlockLabel: verifyT("unlockCardCheck"),
+                        onUnlock: () => router.push(`/${locale}/dashboard/club/members/${member.id}/verify`),
                         accountActions: [
                           ...(accountRowAction(
                             member.account_state,
@@ -740,6 +752,7 @@ export default function ClubMemberDetailPage() {
         member={member}
         clubs={[]}
         selectedClubId={selectedClubId}
+        focusSsn={focusSsn}
         onClose={onCancelEdit}
         onSaved={async () => {
           onCancelEdit();

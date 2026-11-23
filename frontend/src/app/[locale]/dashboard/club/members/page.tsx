@@ -1112,7 +1112,15 @@ export default function ClubAdminMembersPage() {
                 render: (member: Member) => (
                   <span className="inline-flex flex-wrap items-center gap-2">
                     <span>{formatFullName(member)}</span>
-                    {member.card_verified ? <VerifiedBadge label={verifyT("badge")} /> : null}
+                    {member.card_verified ? (
+                      <VerifiedBadge
+                        label={
+                          member.card_verified_at
+                            ? verifyT("verifiedOn", { date: formatDisplayDate(member.card_verified_at) })
+                            : verifyT("badge")
+                        }
+                      />
+                    ) : null}
                   </span>
                 ),
               },
@@ -1224,6 +1232,9 @@ export default function ClubAdminMembersPage() {
                                 verified: Boolean(member.card_verified),
                                 label: verifyT("verifyMember"),
                                 onSelect: () => router.push(memberVerifyPath(locale, "club", member.id)),
+                                canUnlock: true,
+                                unlockLabel: verifyT("unlockCardCheck"),
+                                onUnlock: () => router.push(memberVerifyPath(locale, "club", member.id)),
                               }),
                               ...(accountRowAction(
                                 member.account_state,

@@ -5728,6 +5728,9 @@
   },
   "Verification": {
     "badge": "Nogekuckt",
+    "verifiedOn": "Nogekuckt den {date}",
+    "enterNumber": "Sozialversécherungsnummer aginn",
+    "unlockCardCheck": "Kaartpréifung opspären",
     "verify": "Nokucken",
     "verifyMember": "Member nokucken",
     "title": "D'Kaart nokucken",

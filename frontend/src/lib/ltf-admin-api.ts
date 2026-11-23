@@ -73,6 +73,7 @@ export type Member = {
   is_active: boolean;
   account_state?: "none" | "pending" | "active" | "disabled";
   card_verified?: boolean;
+  card_verified_at?: string | null;
   minor_account?: boolean;
   picture_review?: "" | "pending";
   review_state?: "" | "none" | "pending" | "rejected";
