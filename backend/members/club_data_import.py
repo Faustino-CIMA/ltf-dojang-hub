@@ -121,8 +121,9 @@ _ALIASES = {
 
 
 class ImportFileError(Exception):
-    def __init__(self, code: str):
+    def __init__(self, code: str, sheets: list[str] | None = None):
         self.code = code
+        self.sheets = list(sheets or [])
         super().__init__(code)
 
 
@@ -415,7 +416,8 @@ def parse_upload(payload: bytes, file_format: str, *, max_rows: int = MAX_ROWS) 
     if total > max_rows:
         raise ImportFileError("too_many_rows")
     if not sheets:
-        raise ImportFileError("empty_file")
+        skipped = [item["sheet"] for item in warnings if item.get("code") == "sheet_skipped" and item.get("sheet")]
+        raise ImportFileError("empty_file", skipped)
     return {"sheets": sheets, "warnings": warnings, "numbers_included": _numbers_included(sheets)}
 
 

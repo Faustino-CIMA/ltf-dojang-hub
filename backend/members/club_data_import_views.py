@@ -37,6 +37,13 @@ _SUFFIXES = {
 }
 
 
+def _file_error(exc: ImportFileError):
+    body = {"detail": exc.code}
+    if exc.sheets:
+        body["sheets"] = exc.sheets
+    return Response(body, status=400)
+
+
 def _club(request):
     if current_desk() != "club_admin":
         return None, Response({"detail": "This import is for a club admin."}, status=403)
@@ -112,7 +119,7 @@ class ClubDataImportUploadView(APIView):
         try:
             parsed = parse_upload(payload, _SUFFIXES[suffix])
         except ImportFileError as exc:
-            return Response({"detail": exc.code}, status=400)
+            return _file_error(exc)
         from django.core.files.base import ContentFile
 
         stored = ClubDataImportUpload(
@@ -161,7 +168,7 @@ def _check(request, upload_id: int, *, dry_run: bool):
         payload = stored.stored.read()
         parsed = parse_upload(payload, stored.file_format)
     except ImportFileError as exc:
-        return Response({"detail": exc.code}, status=400)
+        return _file_error(exc)
     finally:
         stored.stored.close()
     mapping = request.data.get("mapping") or {}
@@ -227,7 +234,7 @@ class ClubDataImportCommitView(APIView):
         try:
             parsed = parse_upload(stored.stored.read(), stored.file_format)
         except ImportFileError as exc:
-            return Response({"detail": exc.code}, status=400)
+            return _file_error(exc)
         finally:
             stored.stored.close()
         report, _decisions = review_upload(parsed, club.id, mapping, actions)

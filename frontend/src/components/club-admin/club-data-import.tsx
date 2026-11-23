@@ -23,6 +23,7 @@ import {
   type ImportSheet,
   type ImportUpload,
 } from "@/lib/club-data-import";
+import { importFailureMessage } from "@/lib/import-failure";
 
 const STEPS = ["file", "map", "check", "duplicates", "dryRun", "commit"] as const;
 const HOUSEHOLD_SHEETS = [
@@ -81,8 +82,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
       setUpload(result);
       setMapping(next);
       go(1);
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -103,8 +104,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
         mapping: mapping[sheet.key] || {},
       });
       setMappingName("");
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -120,8 +121,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
       const result = await checkImport(upload.id, mapping, actionsWithModes(), dryRun);
       setReport(result);
       go(dryRun ? 4 : 2);
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -148,8 +149,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
       if (next.status === "failed") {
         setErrorMessage(t("dataImportFailed"));
       }
-    } catch {
-      setErrorMessage(t("dataImportFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportFailed"));
     } finally {
       setBusy(false);
     }
@@ -164,8 +165,8 @@ export function ClubDataImport({ locale }: { locale: string }) {
     try {
       const next = await undoImport(batch.id, undoText.trim());
       setBatch(next);
-    } catch {
-      setErrorMessage(t("dataImportUndoFailed"));
+    } catch (error) {
+      setErrorMessage(importFailureMessage(t, error, "dataImportUndoFailed"));
     } finally {
       setBusy(false);
     }
@@ -197,6 +198,10 @@ export function ClubDataImport({ locale }: { locale: string }) {
     setActions(next);
   }
 
+  function showFailure(error: unknown, fallbackKey = "dataImportFailed") {
+    setErrorMessage(importFailureMessage(t, error, fallbackKey));
+  }
+
   const stepTitle = t(`dataImportStep_${STEPS[step]}`);
 
   return (
@@ -217,11 +222,11 @@ export function ClubDataImport({ locale }: { locale: string }) {
         <div className="space-y-3">
           <p className="text-sm text-muted">{t("dataImportTemplateHint")}</p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("xlsx", locale)}>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("xlsx", locale).catch(showFailure)}>
               <Download aria-hidden />
               {t("dataImportTemplateXlsx")}
             </Button>
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("csv", locale)}>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadImportTemplate("csv", locale).catch(showFailure)}>
               <Download aria-hidden />
               {t("dataImportTemplateCsv")}
             </Button>
@@ -407,7 +412,7 @@ export function ClubDataImport({ locale }: { locale: string }) {
           onUndoText={setUndoText}
           onBack={() => go(4)}
           onImport={() => void startCommit()}
-          onDownload={(fileFormat) => void downloadImportResult(batch?.id || 0, fileFormat)}
+          onDownload={(fileFormat) => void downloadImportResult(batch?.id || 0, fileFormat).catch(showFailure)}
           onUndo={() => void runUndo()}
         />
       ) : null}
