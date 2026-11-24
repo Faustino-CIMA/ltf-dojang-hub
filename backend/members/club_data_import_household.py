@@ -514,16 +514,19 @@ def undo_child(entry: dict) -> None:
         return
     if entry["op"] == "create_child":
         model.objects.filter(pk=entry.get("id")).delete()
+        _restore_record(entry)
         return
     if entry["op"] == "remove_child":
         model.objects.create(**_restore_fields(entry["model"], entry.get("fields") or {}))
         return
     row = model.objects.filter(pk=entry.get("id")).first()
     if row is None:
+        _restore_record(entry)
         return
     for key, value in (entry.get("previous") or {}).items():
         setattr(row, key, value)
     row.save()
+    _restore_record(entry)
 
 
 def index_people(rows: list[dict]) -> dict[str, str]:
@@ -604,10 +607,18 @@ def _save_address(model, owner_field, owner, item, name):
             setattr(row, key, value)
         row.save()
         _clear_invoice(model, owner_field, owner, row.id, fields["use_for_invoice"])
-        return {"op": "update_child", "model": name, "id": row.id, "previous": previous}
+        result = {"op": "update_child", "model": name, "id": row.id, "previous": previous}
+        record_previous = _align_invoice_delivery(owner, owner_field, fields["use_for_invoice"])
+        if record_previous:
+            result["record_previous"] = record_previous
+        return result
     row = model.objects.create(**{owner_field: owner, **fields})
     _clear_invoice(model, owner_field, owner, row.id, fields["use_for_invoice"])
-    return {"op": "create_child", "model": name, "id": row.id}
+    record_previous = _align_invoice_delivery(owner, owner_field, fields["use_for_invoice"])
+    result = {"op": "create_child", "model": name, "id": row.id}
+    if record_previous:
+        result["record_previous"] = record_previous
+    return result
 
 
 def _save_contact(club_id, item, refs, people):
@@ -653,16 +664,21 @@ def _save_family(club_id, item, refs, people, families):
         family.bill_to_delivery = delivery
         family.save()
         families[row["family_ref"].strip()] = family
-        return {"op": "update_child", "model": "family", "id": family.id, "previous": previous}
-    family = Family.objects.create(
-        club_id=club_id,
-        name=row["name"].strip(),
-        invoice_member=invoice,
-        bill_to_person=person,
-        bill_to_delivery=delivery,
-    )
-    families[row["family_ref"].strip()] = family
-    return {"op": "create_child", "model": "family", "id": family.id}
+        result = {"op": "update_child", "model": "family", "id": family.id, "previous": previous}
+    else:
+        family = Family.objects.create(
+            club_id=club_id,
+            name=row["name"].strip(),
+            invoice_member=invoice,
+            bill_to_person=person,
+            bill_to_delivery=delivery,
+        )
+        families[row["family_ref"].strip()] = family
+        result = {"op": "create_child", "model": "family", "id": family.id}
+    record_previous = _copy_family_delivery(invoice, delivery)
+    if record_previous:
+        result["record_previous"] = record_previous
+    return result
 
 
 def _save_family_member(item, refs, families, club_id):
@@ -725,6 +741,79 @@ def _clear_invoice(model, owner_field, owner, keep_id, flag):
     if not flag:
         return
     model.objects.filter(**{owner_field: owner}, use_for_invoice=True).exclude(pk=keep_id).update(use_for_invoice=False)
+
+
+def _restore_record(entry: dict) -> None:
+    previous = entry.get("record_previous") or {}
+    record_id = previous.get("id")
+    delivery = previous.get("invoice_delivery")
+    if not record_id or delivery is None:
+        return
+    from clubmgmt.models import MemberRecord
+
+    record = MemberRecord.objects.filter(pk=record_id).first()
+    if record is None or record.invoice_delivery == delivery:
+        return
+    record.invoice_delivery = delivery
+    record.save(update_fields=["invoice_delivery", "updated_at"])
+
+
+def _set_member_delivery(member, delivery: str) -> dict | None:
+    from clubmgmt.models import MemberRecord
+
+    if member is None or delivery not in {choice.value for choice in MemberRecord.InvoiceDelivery}:
+        return None
+    record, _created = MemberRecord.objects.get_or_create(member=member)
+    previous = record.invoice_delivery
+    if previous == delivery:
+        return None
+    record.invoice_delivery = delivery
+    record.save(update_fields=["invoice_delivery", "updated_at"])
+    return {"id": record.id, "invoice_delivery": previous}
+
+
+def _mark_only_post_address(member) -> None:
+    from clubmgmt.models import MemberRecord
+
+    record = MemberRecord.objects.filter(member=member).first()
+    if record is None or record.invoice_delivery != MemberRecord.InvoiceDelivery.POST:
+        return
+    addresses = list(member.club_addresses.order_by("id"))
+    if any(row.use_for_invoice for row in addresses) or len(addresses) != 1:
+        return
+    addresses[0].use_for_invoice = True
+    addresses[0].save(update_fields=["use_for_invoice"])
+
+
+def _align_invoice_delivery(owner, owner_field: str, marked: bool) -> dict | None:
+    """Store post when that is the delivery invoices will actually use.
+
+    Address import used to leave the member on the default email. The screen
+    button then showed email while the helper described post. When post is the
+    only delivery that can be used, or a family row says post, that choice is
+    stored. The member's only address is then the invoice address.
+    """
+    if owner is None or owner_field != "member":
+        return None
+    from clubmgmt.billing import resolve_delivery
+    from clubmgmt.models import MemberRecord
+
+    previous = None
+    if resolve_delivery(owner) == MemberRecord.InvoiceDelivery.POST:
+        previous = _set_member_delivery(owner, MemberRecord.InvoiceDelivery.POST)
+    elif not marked:
+        return None
+    _mark_only_post_address(owner)
+    return previous
+
+
+def _copy_family_delivery(member, delivery: str) -> dict | None:
+    mapped = {"email": "email", "post": "post", "hand": "hand", "in_person": "hand"}.get((delivery or "").strip())
+    if member is None or mapped is None:
+        return None
+    previous = _set_member_delivery(member, mapped)
+    _mark_only_post_address(member)
+    return previous
 
 
 def _match_address(model, owner_field, owner_id, row):

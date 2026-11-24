@@ -315,26 +315,16 @@ def _club_issuer(club) -> dict:
     }
 
 
-def _member_invoice_lines(member) -> list[str]:
+def _member_invoice_lines(member, language: str = "en") -> list[str]:
     if member is None:
         return []
     try:
-        from clubmgmt.billing import invoice_address
+        from clubmgmt.billing import _pdf_address_lines, invoice_address
 
         address = invoice_address(member) or {}
     except Exception:
         return []
-    number = str(address.get("house_number") or "").strip()
-    street = str(address.get("street") or "").strip()
-    if number and street:
-        line1 = f"{number}, {street}"
-    else:
-        line1 = street or number
-    lines = [line for line in (line1, str(address.get("line2") or "").strip()) if line]
-    postal = _postal_locality(str(address.get("postal_code") or ""), str(address.get("locality") or ""))
-    if postal:
-        lines.append(postal)
-    return lines
+    return _pdf_address_lines(address, language)
 
 
 def _club_item_rows(items) -> list[dict]:
@@ -500,14 +490,14 @@ def build_invoice_context(invoice: Invoice) -> dict:
     delivery_label = ""
     if invoice.member_id:
         try:
-            from clubmgmt.billing import invoice_address, invoice_emails
+            from clubmgmt.billing import _pdf_address_lines, invoice_address, invoice_emails
 
             address = invoice_address(invoice.member)
             emails = invoice_emails(invoice.member)
             bill_to = {
                 "name": f"{invoice.member.first_name} {invoice.member.last_name}",
                 "email": emails[0] if emails else (invoice.member.email or ""),
-                "address_lines": (address["formatted"].split("\n") if address else []),
+                "address_lines": _pdf_address_lines(address, doc_language),
             }
         except Exception:
             bill_to = {
@@ -543,7 +533,7 @@ def build_invoice_context(invoice: Invoice) -> dict:
         if snapshot_address:
             recipient_lines = [line.strip() for line in snapshot_address.splitlines() if line.strip()]
         else:
-            recipient_lines = _member_invoice_lines(invoice.member)
+            recipient_lines = _member_invoice_lines(invoice.member, doc_language)
         total_qty = sum(row["quantity"] for row in club_rows)
         due = invoice.outstanding()
         if due <= 0:

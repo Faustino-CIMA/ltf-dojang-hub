@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { Checkbox } from "@/components/ui/checkbox";
 
 export const ONE_INVOICE_ADDRESS_MARK = "Only one address can be used for invoices.";
@@ -34,18 +36,19 @@ export function InvoiceAddressMark({
   onCheckedChange,
 }: {
   checked: boolean;
-  label: string;
+  label: ReactNode;
   ariaLabel?: string;
   hint?: string;
   hintId?: string;
   onCheckedChange: (checked: boolean) => void;
 }) {
+  const accessibleName = ariaLabel || (typeof label === "string" ? label : undefined);
   return (
     <label className="flex items-start gap-2 text-sm text-foreground">
       <Checkbox
         className="mt-0.5"
         checked={checked}
-        aria-label={ariaLabel || label}
+        aria-label={accessibleName}
         aria-describedby={hint && hintId ? hintId : undefined}
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
@@ -66,12 +69,14 @@ export function InvoiceAddressChoices<T extends InvoiceFlagRow>({
   hint,
   hintId = "invoice-address-hint",
   labelFor,
+  ariaFor,
   onChange,
 }: {
   rows: T[];
   hint: string;
   hintId?: string;
-  labelFor: (row: T, index: number) => string;
+  labelFor: (row: T, index: number) => ReactNode;
+  ariaFor?: (row: T, index: number) => string;
   onChange: (next: T[]) => void;
 }) {
   return (
@@ -80,16 +85,19 @@ export function InvoiceAddressChoices<T extends InvoiceFlagRow>({
         {hint}
       </p>
       <ul className="space-y-2">
-        {rows.map((row, index) => (
-          <li key={index}>
-            <InvoiceAddressMark
-              checked={row.use_for_invoice}
-              label={labelFor(row, index)}
-              ariaLabel={labelFor(row, index)}
-              onCheckedChange={(checked) => onChange(markSingleInvoiceAddress(rows, index, checked))}
-            />
-          </li>
-        ))}
+        {rows.map((row, index) => {
+          const label = labelFor(row, index);
+          return (
+            <li key={index}>
+              <InvoiceAddressMark
+                checked={row.use_for_invoice}
+                label={label}
+                ariaLabel={ariaFor ? ariaFor(row, index) : typeof label === "string" ? label : undefined}
+                onCheckedChange={(checked) => onChange(markSingleInvoiceAddress(rows, index, checked))}
+              />
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

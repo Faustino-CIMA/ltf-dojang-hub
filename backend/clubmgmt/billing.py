@@ -70,17 +70,19 @@ def invoice_address(member) -> dict | None:
     }
 
 
-def format_address(address) -> str:
-    line1 = " ".join(part for part in [address.street, address.house_number] if part).strip()
-    from clubs.iso3166 import country_name_en
-
-    lines = [
-        line1,
-        address.line2,
-        " ".join(part for part in [address.postal_code, address.locality] if part).strip(),
-        country_name_en(address.country),
-    ]
-    return "\n".join(part for part in lines if part)
+def format_address(address, language: str = "en") -> str:
+    if isinstance(address, dict):
+        payload = address
+    else:
+        payload = {
+            "street": address.street,
+            "house_number": address.house_number,
+            "line2": address.line2,
+            "postal_code": address.postal_code,
+            "locality": address.locality,
+            "country": address.country,
+        }
+    return "\n".join(_pdf_address_lines(payload, language))
 
 
 def _pdf_name(first_name: str, last_name: str) -> str:
@@ -89,9 +91,12 @@ def _pdf_name(first_name: str, last_name: str) -> str:
     return " ".join(part for part in (last, first) if part)
 
 
-def _pdf_address_lines(address: dict | None) -> list[str]:
+def _pdf_address_lines(address: dict | None, language: str = "en") -> list[str]:
+    """Envelope lines shared by the invoice PDF and the club record screen."""
     if not address:
         return []
+    from clubs.iso3166 import country_name
+
     number = str(address.get("house_number") or "").strip()
     street = str(address.get("street") or "").strip()
     if number and street:
@@ -106,6 +111,9 @@ def _pdf_address_lines(address: dict | None) -> list[str]:
     postal_line = " ".join(part for part in (postal, locality) if part)
     if postal_line:
         lines.append(postal_line)
+    country = country_name(address.get("country"), language)
+    if country:
+        lines.append(country)
     return lines
 
 
@@ -826,6 +834,9 @@ def create_membership_invoice(*, club, year: int, payer, lines, total, actor=Non
                 price_snapshot=line["amount"],
                 quantity=1,
             )
+        from clubs.document_copy import resolve_document_language
+
+        address_lines = _pdf_address_lines(recipient.get("address"), resolve_document_language(club=club))
         invoice = Invoice.objects.create(
             order=order,
             club=club,
@@ -840,7 +851,7 @@ def create_membership_invoice(*, club, year: int, payer, lines, total, actor=Non
             delivery_method=delivery,
             bill_to_name=recipient.get("pdf_name") or "",
             bill_to_email="\n".join(emails),
-            bill_to_address="\n".join(recipient.get("address_lines") or []),
+            bill_to_address="\n".join(address_lines),
         )
     if delivery == MemberRecord.InvoiceDelivery.EMAIL and emails:
         from licenses.tasks import send_invoice_email
