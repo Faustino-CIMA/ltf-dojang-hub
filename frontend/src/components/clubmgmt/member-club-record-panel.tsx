@@ -167,30 +167,28 @@ export function NationalityField({
   const selected = nationalityCodeFromStored(value) || NONE_VALUE;
 
   return (
-    <div>
-      <div className="flex items-center gap-2 sm:min-h-[var(--control-height)]">
+    <div className="space-y-2">
+      <div className="flex min-h-[var(--control-height)] items-center gap-2">
         {icon}
-        <Label>{label}</Label>
+        <Label className="w-auto">{label}</Label>
       </div>
-      <div className="mt-1 sm:mt-2">
-        <Select
-          value={selected}
-          onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
-          modal={false}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={label} />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>
-            {options.map((row) => (
-              <SelectItem key={row.code} value={row.code}>
-                {row.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select
+        value={selected}
+        onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
+        modal={false}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>
+          {options.map((row) => (
+            <SelectItem key={row.code} value={row.code}>
+              {row.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -899,15 +897,15 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             <StatusBadge label={t("noCheckup")} tone="neutral" />
           )}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex min-h-[var(--control-height)] items-center gap-2">
               <Label className="w-auto">{verifyT("ssnCountry")}</Label>
               <FieldLock locked={numberLocked} lockedLabel={verifyT("fieldLocked")} openLabel={verifyT("fieldOpen")} />
             </div>
             <PopoverSelect
               ariaLabel={verifyT("ssnCountry")}
-              className="mt-1 w-full md:mt-2"
+              className="w-full"
               disabled={numberLocked}
               value={record.social_security_country || "LU"}
               onValueChange={(value) =>
@@ -926,35 +924,36 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
                 { value: "BE", label: verifyT("countryBE") },
               ]}
             />
-            {numberLocked ? <p className="mt-1 text-xs text-muted">{verifyT("lockedHint")}</p> : null}
+            {numberLocked ? <p className="text-xs text-muted">{verifyT("lockedHint")}</p> : null}
           </div>
-          <div>
-            <SecretNumberField
-              key={`record-${memberId}`}
-              id={`member-record-ssn-${memberId}`}
-              label={t("ssn")}
-              locked={numberLocked}
-              canReveal
-              lockedLabel={verifyT("fieldLocked")}
-              openLabel={verifyT("fieldOpen")}
-              showLabel={verifyT("showNumber")}
-              hideLabel={verifyT("hideNumber")}
-              memberId={memberId}
-              maxLength={(record.social_security_country || "LU") === "FR" ? 15 : (record.social_security_country || "LU") === "DE" ? 12 : (record.social_security_country || "LU") === "BE" ? 11 : 13}
-              value={record.social_security_number}
-              onChange={(next) =>
-                setRecord({
-                  ...record,
-                  social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", next),
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label>{t("joinedAt")}</Label>
+          <SecretNumberField
+            key={`record-${memberId}`}
+            id={`member-record-ssn-${memberId}`}
+            label={t("ssn")}
+            locked={numberLocked}
+            canReveal
+            lockedLabel={verifyT("fieldLocked")}
+            openLabel={verifyT("fieldOpen")}
+            showLabel={verifyT("showNumber")}
+            hideLabel={verifyT("hideNumber")}
+            memberId={memberId}
+            maxLength={(record.social_security_country || "LU") === "FR" ? 15 : (record.social_security_country || "LU") === "DE" ? 12 : (record.social_security_country || "LU") === "BE" ? 11 : 13}
+            value={record.social_security_number}
+            onChange={(next) =>
+              setRecord({
+                ...record,
+                social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", next),
+              })
+            }
+          />
+          <div className="space-y-2">
+            <div className="flex min-h-[var(--control-height)] items-center">
+              <Label htmlFor={`record-joined-${memberId}`} className="w-auto">{t("joinedAt")}</Label>
+            </div>
             <Input
+              id={`record-joined-${memberId}`}
               type="date"
-              className="mt-1"
+              className="w-full"
               value={record.joined_at || ""}
               onChange={(event) => setRecord({ ...record, joined_at: event.target.value })}
             />
@@ -973,49 +972,52 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             locale={locale}
             onChange={(next) => setRecord({ ...record, nationality_2: next })}
           />
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2">
+          <div className="space-y-2 sm:col-span-2">
+            <label className="flex min-h-[var(--control-height)] items-center gap-2 text-foreground">
               <Checkbox
                 checked={record.pays_license_fee !== false}
                 onCheckedChange={(value) => setRecord({ ...record, pays_license_fee: value === true })}
               />
               <span className="text-sm font-medium">{t("paysLicenseFee")}</span>
             </label>
-            <p className="mt-1 text-xs text-muted">{t("paysLicenseFeeHint")}</p>
+            <p className="text-xs text-muted">{t("paysLicenseFeeHint")}</p>
           </div>
           {fees.length > 0 ? (
-            <div className="md:col-span-2">
-              <Label>{t("memberFeeLabel")}</Label>
-              <p className="mt-1 text-xs text-muted">{t("memberFeeHint")}</p>
-              <div className="mt-2">
-                <Select
-                  value={record.membership_fee ? String(record.membership_fee) : "default"}
-                  onValueChange={(value) =>
-                    setRecord({ ...record, membership_fee: value === "default" ? null : Number(value) })
-                  }
-                  modal={false}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder={t("memberFeeLabel")} /></SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="default">{t("memberFeeDefault")}</SelectItem>
-                    {fees.map((fee) => (
-                      <SelectItem key={fee.id} value={String(fee.id)}>
-                        {fee.name} · {fee.amount} EUR
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2 sm:col-span-2">
+              <div className="flex min-h-[var(--control-height)] items-center">
+                <Label htmlFor={`record-fee-${memberId}`} className="w-auto">{t("memberFeeLabel")}</Label>
               </div>
+              <Select
+                value={record.membership_fee ? String(record.membership_fee) : "default"}
+                onValueChange={(value) =>
+                  setRecord({ ...record, membership_fee: value === "default" ? null : Number(value) })
+                }
+                modal={false}
+              >
+                <SelectTrigger id={`record-fee-${memberId}`} className="w-full"><SelectValue placeholder={t("memberFeeLabel")} /></SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="default">{t("memberFeeDefault")}</SelectItem>
+                  {fees.map((fee) => (
+                    <SelectItem key={fee.id} value={String(fee.id)}>
+                      {fee.name} · {fee.amount} EUR
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted">{t("memberFeeHint")}</p>
             </div>
           ) : null}
-        </div>
-        <div className="mt-4">
-          <Label>{t("medicalNotes")}</Label>
-          <textarea
-            className="mt-1 min-h-24 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm"
-            value={record.medical_notes}
-            onChange={(event) => setRecord({ ...record, medical_notes: event.target.value })}
-          />
+          <div className="space-y-2 sm:col-span-2">
+            <div className="flex min-h-[var(--control-height)] items-center">
+              <Label htmlFor={`record-notes-${memberId}`} className="w-auto">{t("medicalNotes")}</Label>
+            </div>
+            <textarea
+              id={`record-notes-${memberId}`}
+              className="min-h-24 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)]"
+              value={record.medical_notes}
+              onChange={(event) => setRecord({ ...record, medical_notes: event.target.value })}
+            />
+          </div>
         </div>
       </FormPanel>
 
