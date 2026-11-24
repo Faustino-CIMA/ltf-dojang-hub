@@ -2,11 +2,11 @@ import json
 from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from clubmgmt.models import Family, FamilyMember, FamilyRebateRule, MemberContact, MemberEmail, Person
+from clubmgmt.models import Family, FamilyMember, FamilyRebateRule, MemberAddress, MemberContact, MemberEmail, MemberRecord, Person
 from clubs.models import Club
 from members.club_data_import import check_upload, parse_upload, suggest_field
 from members.models import Member
@@ -130,6 +130,9 @@ class HouseholdImportTests(TestCase):
         self.assertEqual(committed.status_code, 202, committed.content[:400])
         self.assertEqual(committed.data["status"], "succeeded", committed.data)
         self.assertTrue(MemberEmail.objects.filter(member=self.member, email="ada@example.test", use_for_invoice=True).exists())
+        address = MemberAddress.objects.get(member=self.member)
+        self.assertTrue(address.use_for_invoice)
+        self.assertEqual(MemberRecord.objects.get(member=self.member).invoice_delivery, MemberRecord.InvoiceDelivery.EMAIL)
         contact = MemberContact.objects.get(member=self.member)
         self.assertEqual(contact.relation, "mother")
         self.assertTrue(contact.is_emergency)
@@ -231,3 +234,127 @@ class HouseholdImportTests(TestCase):
         grade = next(row for row in report["rows"] if row["sheet"] == "grades")
         self.assertEqual(grade["preview"]["member_last_name"], "EXAMPLE")
         self.assertEqual(grade["preview"]["member_first_name"], "Ada")
+
+    def _commit(self, body):
+        uploaded = self.client.post("/api/club-data/import/", {"file": _file(body)}, format="multipart", **self.header)
+        self.assertEqual(uploaded.status_code, 201, uploaded.content[:400])
+        committed = self.client.post(
+            f"/api/club-data/import/{uploaded.data['id']}/commit/",
+            {"mapping": {}, "actions": {}},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(committed.status_code, 202, committed.content[:400])
+        self.assertEqual(committed.data["status"], "succeeded", committed.data)
+        return committed
+
+    def test_the_only_address_is_the_invoice_address_when_post_is_the_only_delivery(self):
+        committed = self._commit(
+            {
+                "members": [
+                    {
+                        "member_ref": "m-0001",
+                        "last_name": "EXAMPLE",
+                        "first_name": "Ada",
+                        "ltf_licenseid": "LTF-EX-0001",
+                        "addresses": [
+                            {
+                                "street": "rue Principale",
+                                "house_number": "87",
+                                "postal_code": "9190",
+                                "locality": "Vichten",
+                                "country": "LU",
+                                "use_for_invoice": "false",
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+        address = MemberAddress.objects.get(member=self.member)
+        self.assertTrue(address.use_for_invoice)
+        self.assertEqual(MemberRecord.objects.get(member=self.member).invoice_delivery, MemberRecord.InvoiceDelivery.POST)
+        undone = self.client.post(
+            f"/api/club-data/import/batches/{committed.data['id']}/undo/",
+            {"batch_id": str(committed.data["id"])},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(undone.status_code, 200, undone.content[:300])
+        self.assertFalse(MemberAddress.objects.filter(member=self.member).exists())
+        self.assertEqual(MemberRecord.objects.get(member=self.member).invoice_delivery, MemberRecord.InvoiceDelivery.EMAIL)
+
+    def test_a_family_post_delivery_is_stored_on_the_member_and_marks_the_only_address(self):
+        self.member.email = "ada@example.test"
+        self.member.save(update_fields=["email"])
+        self._commit(
+            {
+                "members": [
+                    {
+                        "member_ref": "m-0001",
+                        "last_name": "EXAMPLE",
+                        "first_name": "Ada",
+                        "ltf_licenseid": "LTF-EX-0001",
+                        "addresses": [
+                            {
+                                "street": "rue Principale",
+                                "house_number": "87",
+                                "postal_code": "9190",
+                                "locality": "Vichten",
+                                "country": "LU",
+                            }
+                        ],
+                    }
+                ],
+                "families": [
+                    {
+                        "family_ref": "f-0001",
+                        "name": "EXAMPLE",
+                        "invoice_member_ref": "m-0001",
+                        "delivery": "post",
+                    }
+                ],
+            }
+        )
+        self.assertTrue(MemberAddress.objects.get(member=self.member).use_for_invoice)
+        self.assertEqual(MemberRecord.objects.get(member=self.member).invoice_delivery, MemberRecord.InvoiceDelivery.POST)
+
+
+class InvoiceEnvelopeTests(SimpleTestCase):
+    def test_lines_match_the_screen_block(self):
+        from clubmgmt.billing import _pdf_address_lines
+
+        lines = _pdf_address_lines(
+            {
+                "street": "rue Principale",
+                "house_number": "87",
+                "line2": "",
+                "postal_code": "9190",
+                "locality": "Vichten",
+                "country": "LU",
+            },
+            "de",
+        )
+        self.assertEqual(lines, ["87, rue Principale", "L-9190 Vichten", "Luxemburg"])
+        french = _pdf_address_lines(
+            {
+                "street": "rue Principale",
+                "house_number": "87",
+                "postal_code": "9190",
+                "locality": "Vichten",
+                "country": "LU",
+            },
+            "fr",
+        )
+        self.assertEqual(french[-1], "Luxembourg")
+        luxembourgish = _pdf_address_lines(
+            {
+                "street": "rue Principale",
+                "house_number": "87",
+                "postal_code": "9190",
+                "locality": "Vichten",
+                "country": "LU",
+            },
+            "lb",
+        )
+        self.assertEqual(luxembourgish[-1], "Lëtzebuerg")

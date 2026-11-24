@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from clubs.iso3166 import ISO_3166_1_ALPHA_2, country_name_en, normalize_country_code
+from clubs.iso3166 import ISO_3166_1_ALPHA_2, country_name, country_name_en, normalize_country_code
 
 
 class Iso3166Tests(TestCase):
@@ -20,3 +20,6 @@ class Iso3166Tests(TestCase):
         self.assertEqual(normalize_country_code(""), "")
         self.assertEqual(country_name_en("DE"), "Germany")
         self.assertEqual(country_name_en("Narnia"), "Narnia")
+        self.assertEqual(country_name("LU", "de"), "Luxemburg")
+        self.assertEqual(country_name("LU", "lb"), "Lëtzebuerg")
+        self.assertEqual(country_name("DE", "fr"), "Allemagne")

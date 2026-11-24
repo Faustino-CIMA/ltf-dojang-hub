@@ -1165,8 +1165,29 @@ def normalize_country_code(value: str) -> str:
 
 def country_name_en(value: str) -> str:
     """English name for a stored code, so a letterhead still reads Germany rather than DE."""
+    return country_name(value, "en")
+
+
+# Names Intl.DisplayNames returns for the four screen languages. Other codes
+# fall back to English, which is the same list the letterhead already uses.
+_LOCAL_COUNTRY_NAMES = {
+    "fr": {"LU": "Luxembourg", "DE": "Allemagne", "FR": "France", "BE": "Belgique"},
+    "de": {"LU": "Luxemburg", "DE": "Deutschland", "FR": "Frankreich", "BE": "Belgien"},
+    "lb": {"LU": "Lëtzebuerg", "DE": "Däitschland", "FR": "Frankräich", "BE": "Belsch"},
+}
+
+
+def country_name(value: str, language: str = "en") -> str:
+    """Full country name for a stored code, in en, fr, de, or lb."""
     text = str(value or "").strip()
     if not text:
         return ""
     code = normalize_country_code(text)
-    return ENGLISH_NAMES.get(code, text)
+    lang = str(language or "en").split("-")[0].lower()
+    if lang != "en":
+        local = _LOCAL_COUNTRY_NAMES.get(lang, {}).get(code)
+        if local:
+            return local
+    if code in ENGLISH_NAMES:
+        return ENGLISH_NAMES[code]
+    return text

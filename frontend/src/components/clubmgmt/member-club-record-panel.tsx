@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Pencil, Trash2, ExternalLink, User } from "lucide-react";
+import { Hand, Mail, Pencil, Send, Trash2, ExternalLink, User } from "lucide-react";
 
 import { FieldLock } from "@/components/members/field-lock";
 import { SecretNumberField } from "@/components/members/secret-number-field";
@@ -46,6 +46,8 @@ import {
   markSingleInvoiceAddress,
 } from "@/components/clubmgmt/invoice-address-mark";
 import { LuAddressFields, type AddressValue } from "@/components/clubmgmt/lu-address-fields";
+import { PostalAddressBlock } from "@/components/clubmgmt/postal-address-block";
+import { postalAddressLines, shownDelivery } from "@/lib/postal-address";
 import {
   nationalityCodeFromStored,
   nationalityLabel,
@@ -85,33 +87,33 @@ const emptyAddress = (): AddressValue => ({
   use_for_invoice: false,
 });
 
-function deliveryPreview(record: MemberRecord, t: ReturnType<typeof useTranslations>) {
+function DeliveryNote({ record }: { record: MemberRecord }) {
+  const t = useTranslations("ClubMgmt");
+  const locale = useLocale();
+  const choice = shownDelivery(record.invoice_delivery);
   const invoiceEmail = record.emails.find((row) => row.use_for_invoice && row.email.trim())?.email
     || record.emails.find((row) => row.email.trim())?.email;
   const invoiceAddress = record.addresses.find((row) => row.use_for_invoice)
     || record.addresses.find((row) => row.street || row.postal_code || row.locality);
-  if (record.invoice_delivery === "email" && invoiceEmail) {
-    return t("deliveryPreviewEmail", { email: invoiceEmail });
+  if (choice === "email") {
+    return (
+      <p className="mt-3 text-sm text-muted">
+        {invoiceEmail ? t("deliveryPreviewEmail", { email: invoiceEmail }) : t("deliveryPreviewEmailMissing")}
+      </p>
+    );
   }
-  if (record.invoice_delivery === "post" && invoiceAddress) {
-    return t("deliveryPreviewPost", {
-      address: [invoiceAddress.street, invoiceAddress.house_number, invoiceAddress.postal_code, invoiceAddress.locality, invoiceAddress.country]
-        .filter(Boolean)
-        .join(" "),
-    });
+  if (choice === "hand") {
+    return <p className="mt-3 text-sm text-muted">{t("deliveryPreviewHand", { name: record.member_name })}</p>;
   }
-  if (record.invoice_delivery === "hand") {
-    return t("deliveryPreviewHand", { name: record.member_name });
+  if (!invoiceAddress) {
+    return <p className="mt-3 text-sm text-muted">{t("deliveryPreviewPostMissing")}</p>;
   }
-  if (invoiceEmail) return t("deliveryPreviewEmail", { email: invoiceEmail });
-  if (invoiceAddress) {
-    return t("deliveryPreviewPost", {
-      address: [invoiceAddress.street, invoiceAddress.house_number, invoiceAddress.postal_code, invoiceAddress.locality, invoiceAddress.country]
-        .filter(Boolean)
-        .join(" "),
-    });
-  }
-  return t("deliveryPreviewHandFallback", { name: record.member_name });
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-sm text-muted">{t("deliveryPreviewPost")}</p>
+      <PostalAddressBlock address={invoiceAddress} locale={locale} />
+    </div>
+  );
 }
 
 function DraftActions({
@@ -165,30 +167,28 @@ export function NationalityField({
   const selected = nationalityCodeFromStored(value) || NONE_VALUE;
 
   return (
-    <div>
-      <div className="flex items-center gap-2 sm:min-h-[var(--control-height)]">
+    <div className="space-y-2">
+      <div className="flex min-h-[var(--control-height)] items-center gap-2">
         {icon}
-        <Label>{label}</Label>
+        <Label className="w-auto">{label}</Label>
       </div>
-      <div className="mt-1 sm:mt-2">
-        <Select
-          value={selected}
-          onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
-          modal={false}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={label} />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>
-            {options.map((row) => (
-              <SelectItem key={row.code} value={row.code}>
-                {row.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select
+        value={selected}
+        onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
+        modal={false}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>
+          {options.map((row) => (
+            <SelectItem key={row.code} value={row.code}>
+              {row.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -812,9 +812,8 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
               rows={guardianAddresses}
               hint={t("oneInvoiceAddressHint")}
               hintId="guardian-address-invoice-hint"
-              labelFor={(row) =>
-                [row.street, row.house_number, row.postal_code, row.locality].filter(Boolean).join(" ") || t("addresses")
-              }
+              labelFor={(row) => <PostalAddressBlock address={row} locale={locale} />}
+              ariaFor={(row) => postalAddressLines(row, locale).join(", ") || t("addresses")}
               onChange={(next) => {
                 setGuardianAddresses(next);
                 const chosen = next.find((row) => row.use_for_invoice);
@@ -898,15 +897,15 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             <StatusBadge label={t("noCheckup")} tone="neutral" />
           )}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-2">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex min-h-[var(--control-height)] items-center gap-2">
               <Label className="w-auto">{verifyT("ssnCountry")}</Label>
               <FieldLock locked={numberLocked} lockedLabel={verifyT("fieldLocked")} openLabel={verifyT("fieldOpen")} />
             </div>
             <PopoverSelect
               ariaLabel={verifyT("ssnCountry")}
-              className="mt-1 w-full md:mt-2"
+              className="w-full"
               disabled={numberLocked}
               value={record.social_security_country || "LU"}
               onValueChange={(value) =>
@@ -925,35 +924,36 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
                 { value: "BE", label: verifyT("countryBE") },
               ]}
             />
-            {numberLocked ? <p className="mt-1 text-xs text-muted">{verifyT("lockedHint")}</p> : null}
+            {numberLocked ? <p className="text-xs text-muted">{verifyT("lockedHint")}</p> : null}
           </div>
-          <div>
-            <SecretNumberField
-              key={`record-${memberId}`}
-              id={`member-record-ssn-${memberId}`}
-              label={t("ssn")}
-              locked={numberLocked}
-              canReveal
-              lockedLabel={verifyT("fieldLocked")}
-              openLabel={verifyT("fieldOpen")}
-              showLabel={verifyT("showNumber")}
-              hideLabel={verifyT("hideNumber")}
-              memberId={memberId}
-              maxLength={(record.social_security_country || "LU") === "FR" ? 15 : (record.social_security_country || "LU") === "DE" ? 12 : (record.social_security_country || "LU") === "BE" ? 11 : 13}
-              value={record.social_security_number}
-              onChange={(next) =>
-                setRecord({
-                  ...record,
-                  social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", next),
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label>{t("joinedAt")}</Label>
+          <SecretNumberField
+            key={`record-${memberId}`}
+            id={`member-record-ssn-${memberId}`}
+            label={t("ssn")}
+            locked={numberLocked}
+            canReveal
+            lockedLabel={verifyT("fieldLocked")}
+            openLabel={verifyT("fieldOpen")}
+            showLabel={verifyT("showNumber")}
+            hideLabel={verifyT("hideNumber")}
+            memberId={memberId}
+            maxLength={(record.social_security_country || "LU") === "FR" ? 15 : (record.social_security_country || "LU") === "DE" ? 12 : (record.social_security_country || "LU") === "BE" ? 11 : 13}
+            value={record.social_security_number}
+            onChange={(next) =>
+              setRecord({
+                ...record,
+                social_security_number: sanitizeStoredNumber(record.social_security_country || "LU", next),
+              })
+            }
+          />
+          <div className="space-y-2">
+            <div className="flex min-h-[var(--control-height)] items-center">
+              <Label htmlFor={`record-joined-${memberId}`} className="w-auto">{t("joinedAt")}</Label>
+            </div>
             <Input
+              id={`record-joined-${memberId}`}
               type="date"
-              className="mt-1"
+              className="w-full"
               value={record.joined_at || ""}
               onChange={(event) => setRecord({ ...record, joined_at: event.target.value })}
             />
@@ -972,49 +972,52 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             locale={locale}
             onChange={(next) => setRecord({ ...record, nationality_2: next })}
           />
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2">
+          <div className="space-y-2 sm:col-span-2">
+            <label className="flex min-h-[var(--control-height)] items-center gap-2 text-foreground">
               <Checkbox
                 checked={record.pays_license_fee !== false}
                 onCheckedChange={(value) => setRecord({ ...record, pays_license_fee: value === true })}
               />
               <span className="text-sm font-medium">{t("paysLicenseFee")}</span>
             </label>
-            <p className="mt-1 text-xs text-muted">{t("paysLicenseFeeHint")}</p>
+            <p className="text-xs text-muted">{t("paysLicenseFeeHint")}</p>
           </div>
           {fees.length > 0 ? (
-            <div className="md:col-span-2">
-              <Label>{t("memberFeeLabel")}</Label>
-              <p className="mt-1 text-xs text-muted">{t("memberFeeHint")}</p>
-              <div className="mt-2">
-                <Select
-                  value={record.membership_fee ? String(record.membership_fee) : "default"}
-                  onValueChange={(value) =>
-                    setRecord({ ...record, membership_fee: value === "default" ? null : Number(value) })
-                  }
-                  modal={false}
-                >
-                  <SelectTrigger className="w-full"><SelectValue placeholder={t("memberFeeLabel")} /></SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="default">{t("memberFeeDefault")}</SelectItem>
-                    {fees.map((fee) => (
-                      <SelectItem key={fee.id} value={String(fee.id)}>
-                        {fee.name} · {fee.amount} EUR
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2 sm:col-span-2">
+              <div className="flex min-h-[var(--control-height)] items-center">
+                <Label htmlFor={`record-fee-${memberId}`} className="w-auto">{t("memberFeeLabel")}</Label>
               </div>
+              <Select
+                value={record.membership_fee ? String(record.membership_fee) : "default"}
+                onValueChange={(value) =>
+                  setRecord({ ...record, membership_fee: value === "default" ? null : Number(value) })
+                }
+                modal={false}
+              >
+                <SelectTrigger id={`record-fee-${memberId}`} className="w-full"><SelectValue placeholder={t("memberFeeLabel")} /></SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="default">{t("memberFeeDefault")}</SelectItem>
+                  {fees.map((fee) => (
+                    <SelectItem key={fee.id} value={String(fee.id)}>
+                      {fee.name} · {fee.amount} EUR
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted">{t("memberFeeHint")}</p>
             </div>
           ) : null}
-        </div>
-        <div className="mt-4">
-          <Label>{t("medicalNotes")}</Label>
-          <textarea
-            className="mt-1 min-h-24 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm"
-            value={record.medical_notes}
-            onChange={(event) => setRecord({ ...record, medical_notes: event.target.value })}
-          />
+          <div className="space-y-2 sm:col-span-2">
+            <div className="flex min-h-[var(--control-height)] items-center">
+              <Label htmlFor={`record-notes-${memberId}`} className="w-auto">{t("medicalNotes")}</Label>
+            </div>
+            <textarea
+              id={`record-notes-${memberId}`}
+              className="min-h-24 w-full rounded-[var(--radius-form)] border border-[var(--border)] bg-[var(--field-background)] px-3 py-2 text-sm text-[var(--field-foreground)]"
+              value={record.medical_notes}
+              onChange={(event) => setRecord({ ...record, medical_notes: event.target.value })}
+            />
+          </div>
         </div>
       </FormPanel>
 
@@ -1022,18 +1025,23 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
         <h3 className="text-section text-foreground">{t("deliveryLabel")}</h3>
         <p className="mt-1 text-sm text-muted">{t("deliveryHint")}</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          {(["email", "post", "hand"] as const).map((option) => (
-            <Button
-              key={option}
-              type="button"
-              variant={record.invoice_delivery === option ? "primary" : "outline"}
-              onClick={() => setRecord({ ...record, invoice_delivery: option })}
-            >
-              {option === "email" ? t("deliveryEmail") : option === "post" ? t("deliveryPost") : t("deliveryHand")}
-            </Button>
-          ))}
+          {(["email", "post", "hand"] as const).map((option) => {
+            const Icon = option === "email" ? Mail : option === "post" ? Send : Hand;
+            const label = option === "email" ? t("deliveryEmail") : option === "post" ? t("deliveryPost") : t("deliveryHand");
+            return (
+              <Button
+                key={option}
+                type="button"
+                variant={shownDelivery(record.invoice_delivery) === option ? "primary" : "outline"}
+                onClick={() => setRecord({ ...record, invoice_delivery: option })}
+              >
+                <Icon aria-hidden />
+                {label}
+              </Button>
+            );
+          })}
         </div>
-        <p className="mt-3 text-sm text-muted">{deliveryPreview(record, t)}</p>
+        <DeliveryNote record={record} />
       </FormPanel>
 
       <FormPanel>
@@ -1133,15 +1141,11 @@ export function MemberClubRecordPanel({ memberId, clubId, overviewEmail = "", nu
             {record.addresses.map((row, index) => (
               <li key={`${row.id}-${row.postal_code}-${row.street}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius-form)] border border-border px-3 py-2 text-sm">
                 <div className="min-w-0 flex-1 space-y-2">
-                  <p>
-                    {[row.street, row.house_number, row.line2, row.postal_code, row.locality, row.country]
-                      .filter(Boolean)
-                      .join(" ")}
-                  </p>
+                  <PostalAddressBlock address={row} locale={locale} />
                   <InvoiceAddressMark
                     checked={row.use_for_invoice}
                     label={t("useForInvoice")}
-                    ariaLabel={`${t("useForInvoice")}: ${[row.street, row.house_number, row.postal_code, row.locality].filter(Boolean).join(" ")}`}
+                    ariaLabel={`${t("useForInvoice")}: ${postalAddressLines(row, locale).join(", ")}`}
                     onCheckedChange={(checked) => void chooseInvoiceAddress(index, checked)}
                   />
                 </div>
