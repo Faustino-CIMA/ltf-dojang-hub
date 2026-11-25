@@ -1,6 +1,9 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
+
 import orderLicense from "@/content/guides/order-license.json";
 
-import { advanceOnClick, parseGuideDone, parseGuideRun, sameRoute, valueReady, withGuideDone, type GuideStep } from "./guide-run";
+import { advanceOnClick, guideStepHref, parseGuideDone, parseGuideRun, sameRoute, valueReady, withGuideDone, type GuideStep } from "./guide-run";
 
 const steps = orderLicense.steps as GuideStep[];
 
@@ -35,6 +38,35 @@ describe("advanceOnClick", () => {
     expect(valueReady("2026-11-25", "date")).toBe(false);
     expect(valueReady("2026")).toBe(true);
     expect(valueReady("Male")).toBe(false);
+  });
+});
+
+describe("guideStepHref", () => {
+  it("opens the members list from a member page, in every language", () => {
+    expect(guideStepHref("/en/dashboard/club/members/43", "/dashboard/club/members")).toBe("/en/dashboard/club/members");
+    expect(guideStepHref("/fr/dashboard/club/members/43", "/dashboard/club/members")).toBe("/fr/dashboard/club/members");
+    expect(guideStepHref("/de/dashboard/ltf", "/dashboard/club/members")).toBe("/de/dashboard/club/members");
+    expect(guideStepHref("/lb/dashboard/club/shop/sell", "/dashboard/club/members/import")).toBe(
+      "/lb/dashboard/club/members/import",
+    );
+    expect(guideStepHref("/en/dashboard/club/members/43", "/dashboard/club/members")).not.toContain("shop");
+  });
+
+  it("points every guide step at its own page", () => {
+    const dir = resolve(__dirname, "../content/guides");
+    const guides = readdirSync(dir).filter((name) => name.endsWith(".json"));
+    const starts = ["/en/dashboard/club/members/43", "/fr/dashboard/club/shop/sell", "/de/dashboard/ltf", "/lb/dashboard/ops"];
+    for (const file of guides) {
+      const guide = JSON.parse(readFileSync(resolve(dir, file), "utf8")) as { steps: GuideStep[] };
+      for (const step of guide.steps) {
+        for (const start of starts) {
+          const href = guideStepHref(start, step.route);
+          const locale = start.split("/")[1];
+          expect(href).toBe(`/${locale}${step.route}`);
+          expect(href.startsWith(`/${locale}/dashboard/`)).toBe(true);
+        }
+      }
+    }
   });
 });
 

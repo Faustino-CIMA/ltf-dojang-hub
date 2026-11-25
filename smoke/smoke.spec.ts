@@ -142,6 +142,19 @@ test("the add-member guide follows real typing and does not save", async ({ page
   await expect(page.getByText("The member is on the list.")).toHaveCount(0);
 });
 
+test("a guide started on a member page opens the members list", async ({ page }) => {
+  test.skip(!openId, "Seed the smoke club before this run.");
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto(`/en/dashboard/club/members/${openId}`);
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Ordering licenses" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/members$/);
+  await expect(page).not.toHaveURL(/shop/);
+  await expect(page.getByRole("complementary", { name: /Step 1 of 8, Order a license/ })).toBeVisible();
+  await expect(page.locator("[data-guide='members.select-row']").first()).toBeVisible();
+});
+
 test("a tiny import can be checked, saved, and undone", async ({ page }) => {
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
   await page.goto("/en/dashboard/club/data");
