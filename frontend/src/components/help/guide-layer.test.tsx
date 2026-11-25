@@ -8,6 +8,12 @@ jest.mock("next-intl", () => ({
     values ? `${key} ${values.current} ${values.total} ${values.title}` : key,
 }));
 
+const mockPush = jest.fn();
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 jest.mock("@/lib/mfa-celebration", () => ({
   playMfaCelebration: jest.fn(),
 }));
@@ -30,6 +36,7 @@ describe("GuideLayer", () => {
       }) as MediaQueryList;
     window.sessionStorage.clear();
     window.localStorage.clear();
+    mockPush.mockClear();
   });
 
   it("lets the real control receive the click, and moves on only then", () => {
@@ -76,5 +83,20 @@ describe("GuideLayer", () => {
     );
     expect(screen.getByLabelText(/guideStepName 2 8 orderLicenseTitle/)).toBeInTheDocument();
     expect(document.querySelector("[data-guide-layer]")?.className).toContain("pointer-events-none");
+  });
+
+  it("opens the members list from a member page", () => {
+    render(
+      <GuideLayer
+        desk="club_admin"
+        pathname="/en/dashboard/club/members/43"
+        run={{ id: "order-license", stepId: "select-members", mode: "walk" }}
+        onRunChange={() => undefined}
+        onExit={() => undefined}
+        onOpenManual={() => undefined}
+      />,
+    );
+    expect(mockPush).toHaveBeenCalledWith("/en/dashboard/club/members");
+    expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining("shop"));
   });
 });

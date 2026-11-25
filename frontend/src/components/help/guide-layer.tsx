@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, ArrowRight, BookOpen, List, X } from "lucide-react";
 
@@ -10,6 +11,7 @@ import { playMfaCelebration } from "@/lib/mfa-celebration";
 import {
   advanceOnClick,
   GUIDE_DONE_KEY,
+  guideStepHref,
   parseGuideDone,
   sameRoute,
   valueReady,
@@ -63,6 +65,9 @@ export function GuideLayer({
   onOpenManual: () => void;
 }) {
   const t = useTranslations("Guide");
+  const common = useTranslations("Common");
+  const router = useRouter();
+  const sentHref = useRef<string | null>(null);
   const guide = guideById(run.id);
   const steps = useMemo(() => guide?.steps ?? [], [guide]);
   const currentIndex = Math.max(0, steps.findIndex((step) => step.id === run.stepId));
@@ -102,6 +107,19 @@ export function GuideLayer({
       onRunChange({ ...run, stepId: current.id });
     }
   }, [current, desk, guide, onExit, onRunChange, run]);
+
+  useEffect(() => {
+    if (!current || sameRoute(current.route, pathname)) {
+      sentHref.current = null;
+      return;
+    }
+    const href = guideStepHref(pathname, current.route);
+    if (sentHref.current === href) {
+      return;
+    }
+    sentHref.current = href;
+    router.push(href);
+  }, [current, pathname, router]);
 
   const measure = useCallback(() => {
     if (!current) {
@@ -389,7 +407,7 @@ export function GuideLayer({
         </div>
       ))}
       <aside
-        className="pointer-events-none fixed z-[61] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] border border-border bg-surface p-3 text-foreground shadow-[var(--shadow-card)]"
+        className="pointer-events-auto fixed z-[61] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] border border-border bg-surface p-3 text-foreground shadow-[var(--shadow-card)]"
         style={bubbleStyle}
         aria-label={stepName}
       >
@@ -405,7 +423,13 @@ export function GuideLayer({
         ) : null}
         {waiting ? <p className="mt-2 text-sm text-muted">{shown(current.anchor)?.textContent}</p> : null}
         {problem ? <p className="banner-danger mt-2 rounded-[var(--radius-form)] border px-3 py-2 text-sm">{problem}</p> : null}
-        <div className="pointer-events-auto mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!onPage ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => router.push(guideStepHref(pathname, current.route))}>
+              <ArrowRight aria-hidden />
+              {common("helpOpenPage")}
+            </Button>
+          ) : null}
           <Button type="button" variant="outline" size="sm" onClick={onOpenManual}>
             <BookOpen aria-hidden />
             {t("guideManual")}
