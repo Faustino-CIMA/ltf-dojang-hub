@@ -422,7 +422,7 @@ export function GuideLayer({
         <div key={box.step.id} className="pointer-events-none" aria-hidden={box.step.id !== bubbleStep.id}>
           <div
             data-guide-highlight={box.step.anchor}
-            className={`guide-run pointer-events-none fixed ${
+            className={`pointer-events-none fixed ${
               box.step.id === bubbleStep.id
                 ? "shadow-[0_0_0_4px_transparent,0_0_0_9999px_color-mix(in_srgb,var(--scrim)_50%,transparent)] dark:shadow-[0_0_0_4px_transparent,0_0_0_9999px_color-mix(in_srgb,var(--scrim)_62%,transparent)]"
                 : "z-[1]"
@@ -435,7 +435,8 @@ export function GuideLayer({
               borderRadius: 6,
             }}
           >
-            <span className="guide-run guide-run-disc pointer-events-none absolute -left-2 -top-2 inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold">
+            <div className="guide-run pointer-events-none absolute inset-0" style={{ borderRadius: "inherit" }} />
+            <span className="guide-disc pointer-events-none absolute -left-2 -top-2 inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold">
               {box.number}
             </span>
           </div>
@@ -451,7 +452,7 @@ export function GuideLayer({
         </div>
       ))}
       <aside
-        className="guide-run guide-run-fill pointer-events-auto fixed z-[81] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] p-3"
+        className="guide-static-border guide-bubble pointer-events-auto fixed z-[81] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] p-3"
         style={bubbleStyle}
         aria-label={stepName}
       >
@@ -496,7 +497,7 @@ export function GuideLayer({
           ) : null}
         </div>
       </aside>
-      <div className="pointer-events-auto fixed inset-x-3 z-[61] mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-border bg-surface px-3 py-2 shadow-[var(--shadow-card)]" style={{ bottom: keyboard + 12 }}>
+      <div data-guide-nav className="guide-static-border pointer-events-auto fixed inset-x-3 z-[81] mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] bg-surface px-3 py-2 shadow-[var(--shadow-float)]" style={{ bottom: keyboard + 12 }}>
         {confirmExit ? <p className="text-sm text-foreground">{t("guideExitAsk")}</p> : null}
         <Button type="button" variant="outline" size="sm" disabled={currentIndex === 0} onClick={() => go(steps[currentIndex - 1].id)}>
           <ArrowLeft aria-hidden />
