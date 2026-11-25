@@ -5831,5 +5831,24 @@
     "qrCopy": "Copier le lien",
     "qrCopied": "Lien copié.",
     "identityHint": "Nécessaire pour l'équipe nationale. Obligatoire si la gestion du club est activée."
+  },
+  "Guide": {
+    "orderLicenseTitle": "Commander une licence",
+    "orderLicenseSelectTitle": "Cochez les membres",
+    "orderLicenseSelectBody": "Cochez chaque membre qui a besoin d'une licence cette année. Le guide ne coche personne à votre place.",
+    "orderLicenseActionsTitle": "Ouvrir Actions",
+    "orderLicenseActionsBody": "Ouvrez Actions. Commander une licence se trouve dans ce menu.",
+    "orderLicenseOpenTitle": "Commander une licence",
+    "orderLicenseOpenBody": "Cliquez sur Commander une licence. La page de commande s'ouvre. Le guide ne l'ouvre pas à votre place.",
+    "orderLicenseYearTitle": "Choisissez l'année",
+    "orderLicenseYearBody": "Choisissez cette année ou l'année prochaine. Le champ garde l'année que vous choisissez.",
+    "orderLicenseTypeTitle": "Choisissez un type de licence",
+    "orderLicenseTypeBody": "Cliquez sur un type de licence marqué Disponible.",
+    "orderLicenseReviewTitle": "Vérifiez qui est inclus",
+    "orderLicenseReviewBody": "Lisez la liste. Les membres prêts sont inclus. Si quelqu'un ne peut pas être commandé, utilisez les boutons de ce panneau, puis continuez.",
+    "orderLicenseSubmitTitle": "Passer la commande",
+    "orderLicenseSubmitBody": "Cliquez sur le bouton pour créer la commande de l'année choisie. Rien n'est envoyé tant que vous n'avez pas cliqué.",
+    "orderLicenseSavedTitle": "La commande est dans la liste",
+    "orderLicenseSavedBody": "Les licences restent en attente jusqu'à ce que la fédération ait reçu le paiement et les ait activées."
   }
 }

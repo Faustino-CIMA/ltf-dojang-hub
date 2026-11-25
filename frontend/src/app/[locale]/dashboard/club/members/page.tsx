@@ -968,6 +968,7 @@ export default function ClubAdminMembersPage() {
                 <ActionMenu
                   label={common("batchActionsLabel")}
                   disabled={selectedIds.length === 0}
+                  guide="members.batch-actions"
                   actions={[
                     { key: "delete", label: common("batchDeleteLabel"), onSelect: () => void openBatchDelete() },
                     {
@@ -976,7 +977,12 @@ export default function ClubAdminMembersPage() {
                       disabled: !canBulkCreateAccounts(selectedIds, members),
                       onSelect: () => setAccountPanel({ intent: "create", ids: selectedIds }),
                     },
-                    { key: "order-license", label: t("actionOrderLicense"), onSelect: openOrderPage },
+                    {
+                      key: "order-license",
+                      guide: "members.order-license",
+                      label: t("actionOrderLicense"),
+                      onSelect: openOrderPage,
+                    },
                     {
                       key: "print-cards",
                       label: t("printLicenceCardsAction"),
@@ -1088,6 +1094,7 @@ export default function ClubAdminMembersPage() {
                         >
                           <Checkbox
                             aria-label={common("selectRowLabel")}
+                            data-guide="members.select-row"
                             checked={selectedIds.includes(member.id)}
                             onPointerDown={(event) => {
                               rowSelectModifierRef.current = {

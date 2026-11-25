@@ -5831,5 +5831,24 @@
     "qrCopy": "Link kopieren",
     "qrCopied": "Link kopiert.",
     "identityHint": "Für die Nationalmannschaft nötig. Pflicht, wenn die Vereinsverwaltung aktiv ist."
+  },
+  "Guide": {
+    "orderLicenseTitle": "Eine Lizenz bestellen",
+    "orderLicenseSelectTitle": "Mitglieder ankreuzen",
+    "orderLicenseSelectBody": "Kreuzen Sie jedes Mitglied an, das dieses Jahr eine Lizenz braucht. Der Guide kreuzt niemanden für Sie an.",
+    "orderLicenseActionsTitle": "Aktionen öffnen",
+    "orderLicenseActionsBody": "Öffnen Sie Aktionen. Lizenz bestellen steht in diesem Menü.",
+    "orderLicenseOpenTitle": "Eine Lizenz bestellen",
+    "orderLicenseOpenBody": "Klicken Sie auf Lizenz bestellen. Die Bestellseite öffnet sich. Der Guide öffnet sie nicht für Sie.",
+    "orderLicenseYearTitle": "Das Jahr wählen",
+    "orderLicenseYearBody": "Wählen Sie dieses Jahr oder das nächste. Das Feld behält das Jahr, das Sie wählen.",
+    "orderLicenseTypeTitle": "Einen Lizenztyp wählen",
+    "orderLicenseTypeBody": "Klicken Sie auf einen Lizenztyp mit dem Vermerk Verfügbar.",
+    "orderLicenseReviewTitle": "Prüfen, wer enthalten ist",
+    "orderLicenseReviewBody": "Lesen Sie die Liste. Bereite Mitglieder sind enthalten. Wenn jemand nicht bestellt werden kann, nutzen Sie die Schaltflächen in diesem Bereich und gehen Sie dann weiter.",
+    "orderLicenseSubmitTitle": "Die Bestellung aufgeben",
+    "orderLicenseSubmitBody": "Klicken Sie auf die Schaltfläche, um die Bestellung für das gewählte Jahr zu erstellen. Es wird nichts gesendet, bevor Sie klicken.",
+    "orderLicenseSavedTitle": "Die Bestellung steht in der Liste",
+    "orderLicenseSavedBody": "Die Lizenzen bleiben ausstehend, bis der Verband die Zahlung erhalten und sie aktiviert hat."
   }
 }

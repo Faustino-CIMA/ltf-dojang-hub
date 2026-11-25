@@ -5831,5 +5831,24 @@
     "qrCopy": "Copy link",
     "qrCopied": "Link copied.",
     "identityHint": "Needed for the national team. Required when club management is on."
+  },
+  "Guide": {
+    "orderLicenseTitle": "Order a license",
+    "orderLicenseSelectTitle": "Tick the members",
+    "orderLicenseSelectBody": "Tick each member who needs a license this year. The guide does not tick anyone for you.",
+    "orderLicenseActionsTitle": "Open Actions",
+    "orderLicenseActionsBody": "Open Actions. Order license is in that menu.",
+    "orderLicenseOpenTitle": "Order a license",
+    "orderLicenseOpenBody": "Click Order license. The order page opens. The guide does not open it for you.",
+    "orderLicenseYearTitle": "Choose the year",
+    "orderLicenseYearBody": "Choose this year or next year. The field keeps the year you choose.",
+    "orderLicenseTypeTitle": "Choose a license type",
+    "orderLicenseTypeBody": "Click a license type marked Available.",
+    "orderLicenseReviewTitle": "Check who is included",
+    "orderLicenseReviewBody": "Read the list. Ready members are included. If someone cannot be ordered, use the buttons on this panel, then continue.",
+    "orderLicenseSubmitTitle": "Place the order",
+    "orderLicenseSubmitBody": "Click the button to create the order for the year you chose. Nothing is sent until you click it.",
+    "orderLicenseSavedTitle": "The order is in the list",
+    "orderLicenseSavedBody": "The licenses stay pending until the federation has received the payment and activated them."
   }
 }

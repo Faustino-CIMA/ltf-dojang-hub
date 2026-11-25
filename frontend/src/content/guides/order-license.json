@@ -1,0 +1,72 @@
+{
+  "id": "order-license",
+  "desks": ["club_admin"],
+  "titleKey": "Guide.orderLicenseTitle",
+  "manual": "order-licences",
+  "steps": [
+    {
+      "id": "select-members",
+      "anchor": "members.select-row",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.orderLicenseSelectTitle",
+      "bodyKey": "Guide.orderLicenseSelectBody",
+      "advance": "click"
+    },
+    {
+      "id": "open-actions",
+      "anchor": "members.batch-actions",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.orderLicenseActionsTitle",
+      "bodyKey": "Guide.orderLicenseActionsBody",
+      "advance": "dialog"
+    },
+    {
+      "id": "open-order",
+      "anchor": "members.order-license",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.orderLicenseOpenTitle",
+      "bodyKey": "Guide.orderLicenseOpenBody",
+      "advance": "click"
+    },
+    {
+      "id": "choose-year",
+      "anchor": "order.year",
+      "route": "/dashboard/club/members/order-licenses",
+      "titleKey": "Guide.orderLicenseYearTitle",
+      "bodyKey": "Guide.orderLicenseYearBody",
+      "advance": "value"
+    },
+    {
+      "id": "choose-type",
+      "anchor": "order.license-type",
+      "route": "/dashboard/club/members/order-licenses",
+      "titleKey": "Guide.orderLicenseTypeTitle",
+      "bodyKey": "Guide.orderLicenseTypeBody",
+      "advance": "click"
+    },
+    {
+      "id": "review",
+      "anchor": "order.review",
+      "route": "/dashboard/club/members/order-licenses",
+      "titleKey": "Guide.orderLicenseReviewTitle",
+      "bodyKey": "Guide.orderLicenseReviewBody",
+      "advance": "manual"
+    },
+    {
+      "id": "place-order",
+      "anchor": "order.submit",
+      "route": "/dashboard/club/members/order-licenses",
+      "titleKey": "Guide.orderLicenseSubmitTitle",
+      "bodyKey": "Guide.orderLicenseSubmitBody",
+      "advance": "click"
+    },
+    {
+      "id": "saved",
+      "anchor": "order.saved",
+      "route": "/dashboard/club/members/order-licenses",
+      "titleKey": "Guide.orderLicenseSavedTitle",
+      "bodyKey": "Guide.orderLicenseSavedBody",
+      "advance": "success"
+    }
+  ]
+}
