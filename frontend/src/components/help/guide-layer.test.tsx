@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { GuideLayer } from "@/components/help/guide-layer";
 import type { GuideRun } from "@/lib/guide-run";
@@ -83,6 +83,69 @@ describe("GuideLayer", () => {
     );
     expect(screen.getByLabelText(/guideStepName 2 8 orderLicenseTitle/)).toBeInTheDocument();
     expect(document.querySelector("[data-guide-layer]")?.className).toContain("pointer-events-none");
+  });
+
+  it("highlights the next control inside an opened menu", async () => {
+    let run: GuideRun = { id: "add-member", stepId: "open-menu", mode: "walk" };
+    const onRunChange = jest.fn((next: GuideRun) => {
+      run = next;
+    });
+    const layer = (current: GuideRun) => (
+      <GuideLayer
+        desk="club_admin"
+        pathname="/en/dashboard/club/members"
+        run={current}
+        onRunChange={onRunChange}
+        onExit={() => undefined}
+        onOpenManual={() => undefined}
+      />
+    );
+    const view = render(
+      <>
+        <button type="button" data-guide="members.menu" data-state="closed">
+          Members
+        </button>
+        <div data-radix-popper-content-wrapper="" style={{ transform: "translate(0, -200%)" }}>
+          <button type="button" data-guide="members.create">
+            Add member
+          </button>
+        </div>
+        {layer(run)}
+      </>,
+    );
+
+    expect(document.querySelector("[data-guide-highlight='members.menu']")).not.toBeNull();
+    screen.getByRole("button", { name: "Members" }).setAttribute("data-state", "open");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(onRunChange).toHaveBeenCalledWith({ id: "add-member", stepId: "open-form", mode: "walk" });
+
+    view.rerender(
+      <>
+        <button type="button" data-guide="members.menu" data-state="open">
+          Members
+        </button>
+        <div data-radix-popper-content-wrapper="" style={{ transform: "translate(0, -200%)" }}>
+          <button type="button" data-guide="members.create">
+            Add member
+          </button>
+        </div>
+        {layer(run)}
+      </>,
+    );
+    expect(document.querySelector("[data-guide-highlight='members.create']")).toBeNull();
+    expect(document.querySelector("[data-guide-highlight='members.menu']")).not.toBeNull();
+
+    const wrapper = document.querySelector<HTMLElement>("[data-radix-popper-content-wrapper]");
+    wrapper?.style.setProperty("transform", "translate(0px, 8px)");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const highlight = document.querySelector<HTMLElement>("[data-guide-highlight='members.create']");
+    expect(highlight?.className).toContain("guide-run");
+    expect(document.querySelector(".guide-run-fill")).not.toBeNull();
+    expect(document.querySelector(".guide-run-disc")).not.toBeNull();
   });
 
   it("opens the members list from a member page", () => {
