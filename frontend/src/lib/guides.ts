@@ -1,8 +1,9 @@
+import addMember from "@/content/guides/add-member.json";
 import orderLicense from "@/content/guides/order-license.json";
 
 import type { GuideDefinition } from "@/lib/guide-run";
 
-export const guides: GuideDefinition[] = [orderLicense as GuideDefinition];
+export const guides: GuideDefinition[] = [orderLicense as GuideDefinition, addMember as GuideDefinition];
 
 export function guideById(id: string): GuideDefinition | null {
   return guides.find((guide) => guide.id === id) ?? null;

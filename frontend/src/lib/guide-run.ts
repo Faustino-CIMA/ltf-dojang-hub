@@ -7,6 +7,8 @@ export type GuideStep = {
   titleKey: string;
   bodyKey: string;
   advance: GuideAdvance;
+  /** What a typed value must look like before the step moves on. */
+  shape?: "text" | "date";
 };
 
 export type GuideDefinition = {
@@ -73,6 +75,17 @@ export function sameRoute(route: string, pathname: string): boolean {
   const bare = pathname.split("?")[0].replace(/^\/(en|fr|de|lb)(?=\/|$)/, "") || "/";
   const path = bare.length > 1 && bare.endsWith("/") ? bare.slice(0, -1) : bare;
   return path === route;
+}
+
+export function valueReady(value: string, shape?: "text" | "date"): boolean {
+  const text = value.trim();
+  if (shape === "date") {
+    return /^\d{2}\.\d{2}\.\d{4}$/.test(text);
+  }
+  if (shape === "text") {
+    return text.length > 0;
+  }
+  return /\d{4}/.test(text);
 }
 
 export function advanceOnClick(

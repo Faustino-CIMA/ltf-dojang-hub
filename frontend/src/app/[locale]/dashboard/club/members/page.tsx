@@ -135,6 +135,7 @@ export default function ClubAdminMembersPage() {
   const [pageSizeHydrated, setPageSizeHydrated] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [memberSaved, setMemberSaved] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [grantNote, setGrantNote] = useState<string | null>(null);
   const clubNames = useRef(new Map<number, string>());
@@ -628,6 +629,7 @@ export default function ClubAdminMembersPage() {
     if (!canManageMembers) {
       return;
     }
+    setMemberSaved(false);
     setCreateOpen(true);
   };
 
@@ -778,6 +780,11 @@ export default function ClubAdminMembersPage() {
         }}
       />
       {grantNote ? <PageNotice tone="info">{grantNote}</PageNotice> : null}
+      {memberSaved ? (
+        <div data-guide="member.saved">
+          <PageNotice tone="info">{t("memberCreated")}</PageNotice>
+        </div>
+      ) : null}
 
       <Modal
         isOpen={Boolean(pendingRowStatusMember)}
@@ -954,8 +961,9 @@ export default function ClubAdminMembersPage() {
               <div className="flex min-h-[var(--control-height)] flex-wrap items-center gap-3">
                 <ActionMenu
                   label={t("membersMenuLabel")}
+                  guide="members.menu"
                   actions={[
-                    { key: "create", icon: <UserPlus aria-hidden />, label: t("createMember"), onSelect: startCreate },
+                    { key: "create", guide: "members.create", icon: <UserPlus aria-hidden />, label: t("createMember"), onSelect: startCreate },
                     {
                       key: "import",
                       icon: <Upload aria-hidden />,
@@ -1390,6 +1398,7 @@ export default function ClubAdminMembersPage() {
         onClose={() => setCreateOpen(false)}
         onSaved={async () => {
           setCreateOpen(false);
+          setMemberSaved(true);
           await loadData();
         }}
       />

@@ -12,6 +12,7 @@ import {
   GUIDE_DONE_KEY,
   parseGuideDone,
   sameRoute,
+  valueReady,
   withGuideDone,
   type GuideMode,
   type GuideRun,
@@ -250,8 +251,12 @@ export function GuideLayer({
         go(next.id);
         return;
       }
-      if (event.type === "focusout" && onControl && /\d{4}/.test(onControl.textContent ?? "")) {
-        go(next.id);
+      if (event.type === "focusout" && onControl) {
+        const input = onControl instanceof HTMLInputElement ? onControl : onControl.querySelector("input");
+        const raw = input?.value ?? onControl.textContent ?? "";
+        if (valueReady(raw, current.shape)) {
+          go(next.id);
+        }
       }
     };
     document.addEventListener("focusout", finish, true);
@@ -351,7 +356,7 @@ export function GuideLayer({
   const bubbleStyle = bubblePosition(activeBox?.rect, phone, keyboard);
 
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-[45]" data-guide-layer>
+    <div className="pointer-events-none fixed inset-0 z-[60]" data-guide-layer>
       {[...boxes].sort((left, right) => Number(right.step.id === bubbleStep.id) - Number(left.step.id === bubbleStep.id)).map((box) => (
         <div key={box.step.id} className="pointer-events-none" aria-hidden={box.step.id !== bubbleStep.id}>
           <div
@@ -384,7 +389,7 @@ export function GuideLayer({
         </div>
       ))}
       <aside
-        className="pointer-events-none fixed z-[46] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] border border-border bg-surface p-3 text-foreground shadow-[var(--shadow-card)]"
+        className="pointer-events-none fixed z-[61] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] border border-border bg-surface p-3 text-foreground shadow-[var(--shadow-card)]"
         style={bubbleStyle}
         aria-label={stepName}
       >
@@ -423,7 +428,7 @@ export function GuideLayer({
           ) : null}
         </div>
       </aside>
-      <div className="pointer-events-auto fixed inset-x-3 bottom-3 z-[46] mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-border bg-surface px-3 py-2 shadow-[var(--shadow-card)]" style={phone ? { bottom: keyboard + 12 } : undefined}>
+      <div className="pointer-events-auto fixed inset-x-3 z-[61] mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-border bg-surface px-3 py-2 shadow-[var(--shadow-card)]" style={{ bottom: keyboard + 12 }}>
         {confirmExit ? <p className="text-sm text-foreground">{t("guideExitAsk")}</p> : null}
         <Button type="button" variant="outline" size="sm" disabled={currentIndex === 0} onClick={() => go(steps[currentIndex - 1].id)}>
           <ArrowLeft aria-hidden />

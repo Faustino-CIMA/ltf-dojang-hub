@@ -353,14 +353,20 @@ export function MemberFormPanel({
       onClose={onClose}
       footer={
         <>
-          <Button type="submit" form={formId} disabled={isSubmitting}>
-            {editing ? t("updateMember") : t("createMember")}
-          </Button>
+          {editing ? (
+            <Button type="submit" form={formId} disabled={isSubmitting}>
+              {t("updateMember")}
+            </Button>
+          ) : (
+            <Button type="submit" form={formId} disabled={isSubmitting} data-guide="member.save">
+              {t("createMember")}
+            </Button>
+          )}
         </>
       }
     >
       <form id={formId} className="grid gap-3 sm:grid-cols-2" onSubmit={editing ? submitEdit : submitCreate}>
-        {errorMessage ? <p className="text-sm text-destructive sm:col-span-2">{errorMessage}</p> : null}
+        {errorMessage ? <p className="banner-danger rounded-[var(--radius-form)] border px-3 py-2 text-sm sm:col-span-2">{errorMessage}</p> : null}
         {!editing ? (
           <div className="space-y-2 sm:col-span-2">
             <Label required>{t("clubLabel")}</Label>
@@ -394,6 +400,7 @@ export function MemberFormPanel({
           <Input
             id="member-panel-last-name"
             className="w-full"
+            data-guide="member.last-name"
             disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("last_name") : createForm.register("last_name"))}
           />
@@ -415,6 +422,7 @@ export function MemberFormPanel({
           <Input
             id="member-panel-first-name"
             className="w-full"
+            data-guide="member.first-name"
             disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("first_name") : createForm.register("first_name"))}
           />
@@ -436,6 +444,7 @@ export function MemberFormPanel({
           <PopoverSelect
             ariaLabel={t("sexLabel")}
             className="w-full"
+            guide="member.sex"
             disabled={Boolean(editing && member?.card_verified)}
             value={editing ? editForm.watch("sex") : createForm.watch("sex")}
             onValueChange={(value) => {
@@ -470,6 +479,7 @@ export function MemberFormPanel({
             <PopoverSelect
               ariaLabel={t("ltfLicensePrefixLabel")}
               className="w-full"
+              guide="member.prefix"
               value={createForm.watch("ltf_license_prefix")}
               onValueChange={(value) =>
                 createForm.setValue("ltf_license_prefix", value as "LTF" | "LUX", { shouldValidate: true })
@@ -520,6 +530,7 @@ export function MemberFormPanel({
           <Input
             id="member-panel-dob"
             placeholder={t("dobPlaceholder")}
+            data-guide="member.birth-date"
             disabled={Boolean(editing && member?.card_verified)}
             {...(editing ? editForm.register("date_of_birth") : createForm.register("date_of_birth"))}
           />

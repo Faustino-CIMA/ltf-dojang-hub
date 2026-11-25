@@ -62,6 +62,7 @@ export function PopoverSelect({
   remoteSearch = false,
   onQueryChange,
   footer,
+  guide,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -76,6 +77,7 @@ export function PopoverSelect({
   remoteSearch?: boolean;
   onQueryChange?: (query: string) => void;
   footer?: ReactNode;
+  guide?: string;
 }) {
   const { readOnly, viewOnlyLabel } = useDeskAccess();
   const locked = disabled || readOnly;
@@ -122,7 +124,7 @@ export function PopoverSelect({
         }
       }}
     >
-      <PopoverTrigger className={cn(triggerClassName, className, locked && "cursor-default opacity-100")} aria-label={ariaLabel} aria-haspopup="listbox" disabled={locked} title={readOnly ? viewOnlyLabel : undefined}>
+      <PopoverTrigger className={cn(triggerClassName, className, locked && "cursor-default opacity-100")} aria-label={ariaLabel} aria-haspopup="listbox" disabled={locked} title={readOnly ? viewOnlyLabel : undefined} data-guide={guide}>
         <span className="truncate">{selected?.label ?? placeholder ?? ariaLabel}</span>
         <ChevronDown className="size-4 shrink-0 opacity-50" />
       </PopoverTrigger>
