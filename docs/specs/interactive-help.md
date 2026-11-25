@@ -1,8 +1,8 @@
 # Interactive help and guided tours
 
-Status: spec only. No code until Faustino approves this document. Nothing in this pull request changes the app.
+Status: spec only. Faustino has decided the four open points below. No app code until he says go. Nothing in this pull request changes the app.
 
-A person who is stuck can search the manual from inside the app, or turn on a guide that paints the real screen the way the printed manual paints a screenshot: a rounded border around each control, a numbered disc on the top-left corner, and a short bubble that says what the control does. Two ways to follow a guide: see every number at once, or walk one step at a time.
+A person who is stuck can search the manual from inside the app, or turn on a guide that paints the real screen the way the printed manual paints a screenshot: a rounded border around each control, a numbered disc on the top-left corner, and a short bubble that says what the control does. A guide opens as a step-by-step walk. “Show all steps” switches to every number at once.
 
 ## What the printed manual already does
 
@@ -25,7 +25,7 @@ The marks are drawn by `annotate()` in `docs/user-manual/tools/capture.py`, not 
 
 The on-screen guide copies that geometry. The bubble is the legend, moved next to the control so you do not have to look under a picture.
 
-**Decision.** The standing UI rule is that red is for errors, while primary buttons are already LTF red. The manual’s callouts are also red. The proposal is a `--guide` token whose light-theme value is the manual red `#c8102e`, used only for these borders and discs, never for errors and never for ordinary buttons. If that still feels like too much red, the same token can be the link blue `#0265b2` and the shape stays. Faustino chooses.
+**Colour, decided.** The shape matches the manual. The colour does not. Faustino chose the link blue, so red stays for errors. The border and the disc use the existing `--link` token (light `#0265b2`, dark `#4db8ff`). The numeral uses a contrasting token so the digit stays readable on that blue. Primary buttons stay LTF red. Danger stays the danger token. There is no separate red for guides.
 
 ## 1. Searchable help
 
@@ -46,8 +46,7 @@ Each result shows the heading, a short snippet, and either “Open the page” o
 ### Where help opens
 
 - A header button, icon plus the word Help, on every signed-in desk.
-- The `?` key, only when focus is not in a field, a menu, or a dialog.
-- A “How do I…?” row at the top of that panel (optional, see section 3).
+- The `?` key, only when focus is not in a field, a menu, or a dialog. It opens the “How do I…?” palette (section 3).
 
 The panel is the usual side panel: one Close in the header, theme tokens, icon plus label on every action.
 
@@ -95,15 +94,17 @@ A field step also carries an example of a valid value, in the bubble, not as a p
 The layer is drawn above the app and does not live inside the page layout, so it cannot shove controls around.
 
 - Everything outside the current steps is dimmed with the existing scrim token, about 50% in light and a little stronger in dark. The highlighted controls stay at full colour. There is a clear gap between the scrim and the border so the control reads as the subject.
-- The border and the numbered disc match `annotate()`: rounded rect, disc straddling the top-left corner, white numeral, white ring. In map mode every step on the current page is numbered at once, which is what pages 12, 14 and 16 do.
+- The border and the numbered disc match `annotate()` in shape: rounded rect, disc straddling the top-left corner, contrasting numeral, thin ring. The stroke and the disc are `--link`, not the manual red. In map mode every step on the current page is numbered at once, which is what pages 12, 14 and 16 do.
 - The bubble sits beside the control on a wide screen: the step title, one or two sentences, and the example when it is a field. A text button in the bubble opens the manual section. The bubble has no second close control. Exit lives in the guide bar.
 - The guide bar is a slim strip, icon plus label: Back, Next, Show all steps, Exit. It shows “Step 2 of 6”. Exit is the only close.
 
 ### Two modes
 
-**Map.** Every numbered step that is on this page is visible together, as in the manual. Clicking a number opens its bubble. Nothing advances by itself. This is the mode for “what does this screen do?”
+A guide always opens in the walk. The guide bar has a switch, icon plus the words “Show all steps”, which turns on the map. Turning it off returns to the step you were on.
 
 **Walk.** One step at a time. Next and Back move the bubble. When the step says `advance: "click"`, Next stays quiet until the person actually uses that control. `advance: "value"` waits until the field is non-empty and, when a pattern is given, until it matches (a date, an email, a year). `advance: "manual"` is for reading a result, and Next is enough.
+
+**Map.** Every numbered step that is on this page is visible together, as in the manual. Clicking a number opens its bubble. Nothing advances by itself. This is the mode for “what does this screen do?”
 
 A walk can cross pages. “Order a license” starts on the members list, continues on the order page, and ends when the order is saved. The guide id and the step id are stored in `sessionStorage` for that browser tab. Refresh resumes. A different desk, Exit, or Skip clears it. Skip ends the guide without the celebration.
 
@@ -129,26 +130,27 @@ The last step says what should now be true (“The order is in the list”). The
 
 ## 3. Fun, and easy to ignore
 
-These are proposals. They are off unless Faustino asks for them.
+Faustino included these in the first build. They ship with the help panel and the first guide, not in a later pass.
 
-| Idea | Why it is optional |
-|---|---|
-| “How do I…?” as a command palette (`?` then type) | The help panel already searches. A palette is faster for people who like one. |
-| A first-visit hint, one line, dismissed forever | Easy to become nagging. Default off. |
-| A small check drawn on a finished guide in the help list | Pleasant, and it is only a tick, not a mascot. |
-| No mascot, no sounds | The confetti at the end is the playful part. |
+**“How do I…?”** Pressing `?` outside a field opens a small palette. Typing filters the same MiniSearch index. Choosing a row opens the page or starts that guide’s walk. The palette is the search, not a second catalogue. Escape closes it. It does not open while a guide is already running.
 
-The guide never starts by itself, never covers the screen on sign-in, and never repeats a hint that was dismissed.
+**First visit.** The first time a desk that has at least one guide is opened, one line appears under the header: icon, “Stuck? Press ? for a guide.”, and a dismiss control. Dismissing it stores a flag in `localStorage` for that browser. It does not come back, it does not start a guide, and it does not cover the page.
+
+**Completion ticks.** When a walk reaches the celebration, that guide shows a small tick in the help list. The tick is a success-token icon plus the word Done, not a badge image. Skipping does not tick it. The list is stored in `localStorage` with the guide id only.
+
+There is still no mascot and no sound. The confetti at the end of a finished walk is the playful part. A guide never starts by itself, never covers the screen on sign-in, and never repeats a hint that was dismissed.
 
 ## 4. The first guides, and who keeps them
 
-| Guide | Desk | Starts on |
-|---|---|---|
-| Order a license | club admin, and only when the club may order | Members list → order page |
-| Add a member | club admin | Members list → the member form |
-| Import members | club admin | The import page |
-| Pay an LTF invoice | club admin, LTF finance | The invoices list |
-| Set up the authenticator app | any desk that is asked for one | Security / the enrolment screen |
+Faustino set this order. Each guide is its own pull request, after the layer can walk.
+
+| Order | Guide | Desk | Starts on |
+|---|---|---|---|
+| 1 | Order a license | club admin, and only when the club may order | Members list → order page |
+| 2 | Add a member | club admin | Members list → the member form |
+| 3 | Import members | club admin | The import page |
+| 4 | Pay an LTF invoice | club admin, LTF finance | The invoices list |
+| 5 | Set up the authenticator app | any desk that is asked for one | Security / the enrolment screen |
 
 A later pass can add the roll (page 16 is already the picture of that guide), a transfer, and printing cards.
 
@@ -181,17 +183,21 @@ A later pass can add the roll (page 16 is already the picture of that guide), a 
 
 Each one starts from the latest `develop`. They are not stacked.
 
-1. **This spec.** Docs only.
-2. **Help pack.** The build step from the four manuals, the side panel, header Help (icon plus label), `?`, search, desk filter. No overlay.
+1. **This spec.** Docs only. The decisions below are recorded here.
+2. **Help pack.** The build step from the four manuals, the side panel, header Help (icon plus label), search, desk filter, the “How do I…?” palette on `?`, and the one-time first-visit hint. No overlay.
 3. **Hooks.** `data-guide` on the controls for “Order a license” only, the guide file, and the test that fails if a hook is missing. Still no overlay.
-4. **Map mode.** The border, the disc, the bubble, the scrim, the phone sheet, reduced motion. “Show all steps” works on the order page.
-5. **Walk mode.** Next, Back, wait for the click or the value, cross the page change, resume, skip, exit, progress, confetti at the end.
-6. **The other four guides,** one pull request each if a guide touches many files, otherwise one pull request for the set.
-7. **Smoke.** The Playwright tour, fake data, Chromium only.
+4. **The layer, opening in the walk.** Border and disc in `--link`, bubble, scrim, phone sheet, reduced motion, Back, Next, wait for the click or the value, cross the page change, resume, skip, exit, and progress. “Show all steps” switches to the map. Confetti at the end, then the completion tick for that guide.
+5. **Add a member.**
+6. **Import members.**
+7. **Pay an LTF invoice.**
+8. **Authenticator setup.**
+9. **Smoke.** The Playwright tour for “Order a license”, fake data, Chromium only. It checks the walk and one toggle of “Show all steps”.
 
-## Decisions for Faustino
+## Decisions, recorded
 
-1. Guide colour: the manual red `#c8102e` as a `--guide` token, or the link blue so red stays on errors and primary buttons?
-2. When a guide opens, start in the walk, with “Show all steps” as a switch? (Recommended.) Or start in the map, like the book?
-3. Ship the optional pieces in section 3, or leave them out of the first build? (Recommended: leave them out.)
-4. Is the first guide “Order a license”, with the other four following in the order in section 4? (Recommended.)
+Faustino decided these. They are not open.
+
+1. **Colour.** The link blue theme token (`--link`). Red stays for errors. Primary buttons are unchanged.
+2. **Opening mode.** The step-by-step walk. “Show all steps” is a switch to the map.
+3. **Extras.** The command palette, the first-visit hint, and the completion ticks are in the first build. Section 3 and pull requests 2 and 4 above include them.
+4. **Order.** Order a license, then add a member, import members, pay an LTF invoice, authenticator setup.
