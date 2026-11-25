@@ -24,14 +24,14 @@ import { guideById } from "@/lib/guides";
 
 type Box = { step: GuideStep; rect: DOMRect; number: number };
 
-function shown(anchor: string): HTMLElement | null {
+function anchorNode(anchor: string): HTMLElement | null {
   const elements = document.querySelectorAll<HTMLElement>(`[data-guide="${anchor}"]`);
   for (const element of elements) {
-    if (element.getAttribute("hidden") != null) {
+    if (!element.isConnected || element.getAttribute("hidden") != null) {
       continue;
     }
     const style = window.getComputedStyle(element);
-    if (style.display === "none" || style.visibility === "hidden") {
+    if (style.display === "none") {
       continue;
     }
     const rect = element.getBoundingClientRect();
@@ -40,6 +40,21 @@ function shown(anchor: string): HTMLElement | null {
     }
   }
   return null;
+}
+
+/** A menu item is in the page before its popover has a real position. Drawing then parks the highlight off screen. */
+function isPlaced(element: HTMLElement): boolean {
+  if (window.getComputedStyle(element).visibility === "hidden") {
+    return false;
+  }
+  const wrapper = element.closest("[data-radix-popper-content-wrapper]");
+  if (!(wrapper instanceof HTMLElement)) {
+    return true;
+  }
+  if ((wrapper.style.transform || "").includes("-200%")) {
+    return false;
+  }
+  return window.getComputedStyle(wrapper).visibility !== "hidden";
 }
 
 function controlDisabled(element: HTMLElement): boolean {
@@ -137,8 +152,8 @@ export function GuideLayer({
       if (!sameRoute(step.route, pathname)) {
         continue;
       }
-      const element = shown(step.anchor);
-      if (!element) {
+      const element = anchorNode(step.anchor);
+      if (!element || !isPlaced(element)) {
         continue;
       }
       nextBoxes.push({
@@ -149,37 +164,56 @@ export function GuideLayer({
     }
     setBoxes((previous) => {
       const signature = (list: Box[]) => list.map((box) => `${box.step.id}:${Math.round(box.rect.x)}:${Math.round(box.rect.y)}:${Math.round(box.rect.width)}:${Math.round(box.rect.height)}`).join("|");
-      return signature(previous) === signature(nextBoxes) ? previous : nextBoxes;
+      const ready = nextBoxes.length > 0 ? nextBoxes : previous.flatMap((box) => {
+        const element = anchorNode(box.step.anchor);
+        if (!element || !isPlaced(element)) {
+          return [];
+        }
+        return [{ ...box, rect: element.getBoundingClientRect() }];
+      });
+      return signature(previous) === signature(ready) ? previous : ready;
     });
   }, [current, pathname, run.mode, steps]);
 
   useEffect(() => {
-    measure();
-    const onMove = () => measure();
-    window.addEventListener("scroll", onMove, true);
-    window.addEventListener("resize", onMove);
-    window.visualViewport?.addEventListener("resize", onMove);
-    window.visualViewport?.addEventListener("scroll", onMove);
+    let first = 0;
+    let second = 0;
+    const follow = () => {
+      measure();
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+      first = window.requestAnimationFrame(() => {
+        measure();
+        second = window.requestAnimationFrame(measure);
+      });
+    };
+    follow();
+    window.addEventListener("scroll", follow, true);
+    window.addEventListener("resize", follow);
+    window.visualViewport?.addEventListener("resize", follow);
+    window.visualViewport?.addEventListener("scroll", follow);
     const observer = new MutationObserver((records) => {
       const outside = records.some((record) => {
         const node = record.target instanceof Element ? record.target : record.target.parentElement;
         return !node?.closest("[data-guide-layer]");
       });
       if (outside) {
-        onMove();
+        follow();
       }
     });
     observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-state", "aria-expanded", "hidden", "disabled"],
+      attributeFilter: ["data-state", "aria-expanded", "hidden", "disabled", "style", "class"],
     });
     return () => {
-      window.removeEventListener("scroll", onMove, true);
-      window.removeEventListener("resize", onMove);
-      window.visualViewport?.removeEventListener("resize", onMove);
-      window.visualViewport?.removeEventListener("scroll", onMove);
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+      window.removeEventListener("scroll", follow, true);
+      window.removeEventListener("resize", follow);
+      window.visualViewport?.removeEventListener("resize", follow);
+      window.visualViewport?.removeEventListener("scroll", follow);
       observer.disconnect();
     };
   }, [measure]);
@@ -188,8 +222,8 @@ export function GuideLayer({
     if (!current) {
       return;
     }
-    const element = shown(current.anchor);
-    if (!element) {
+    const element = anchorNode(current.anchor);
+    if (!element || !isPlaced(element)) {
       return;
     }
     const previous = element.style.scrollMargin;
@@ -305,7 +339,7 @@ export function GuideLayer({
         setProblem(text);
         return;
       }
-      const control = shown(current.anchor);
+      const control = anchorNode(current.anchor);
       if (control && controlDisabled(control)) {
         setProblem(null);
       }
@@ -374,11 +408,12 @@ export function GuideLayer({
   const bubbleStyle = bubblePosition(activeBox?.rect, phone, keyboard);
 
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-[60]" data-guide-layer>
+    <div className="pointer-events-none fixed inset-0 z-[80]" data-guide-layer>
       {[...boxes].sort((left, right) => Number(right.step.id === bubbleStep.id) - Number(left.step.id === bubbleStep.id)).map((box) => (
         <div key={box.step.id} className="pointer-events-none" aria-hidden={box.step.id !== bubbleStep.id}>
           <div
-            className={`pointer-events-none fixed border-[2.5px] border-link ${
+            data-guide-highlight={box.step.anchor}
+            className={`guide-run pointer-events-none fixed ${
               box.step.id === bubbleStep.id
                 ? "shadow-[0_0_0_4px_transparent,0_0_0_9999px_color-mix(in_srgb,var(--scrim)_50%,transparent)] dark:shadow-[0_0_0_4px_transparent,0_0_0_9999px_color-mix(in_srgb,var(--scrim)_62%,transparent)]"
                 : "z-[1]"
@@ -391,7 +426,7 @@ export function GuideLayer({
               borderRadius: 6,
             }}
           >
-            <span className="pointer-events-none absolute -left-2 -top-2 inline-flex size-6 items-center justify-center rounded-full border-2 border-[var(--overlay)] bg-link text-xs font-semibold text-[var(--scrim-foreground)] motion-safe:animate-pulse">
+            <span className="guide-run guide-run-disc pointer-events-none absolute -left-2 -top-2 inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold">
               {box.number}
             </span>
           </div>
@@ -407,7 +442,7 @@ export function GuideLayer({
         </div>
       ))}
       <aside
-        className="pointer-events-auto fixed z-[61] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] border border-border bg-surface p-3 text-foreground shadow-[var(--shadow-card)]"
+        className="guide-run guide-run-fill pointer-events-auto fixed z-[81] w-[min(22rem,calc(100vw-1rem))] rounded-[var(--radius-card)] p-3"
         style={bubbleStyle}
         aria-label={stepName}
       >
@@ -421,7 +456,7 @@ export function GuideLayer({
         {onPage && !boxes.some((box) => box.step.id === current.id) && current.advance === "click" ? (
           <p className="mt-2 text-sm text-muted">{t("guideInMenu")}</p>
         ) : null}
-        {waiting ? <p className="mt-2 text-sm text-muted">{shown(current.anchor)?.textContent}</p> : null}
+        {waiting ? <p className="mt-2 text-sm text-muted">{anchorNode(current.anchor)?.textContent}</p> : null}
         {problem ? <p className="banner-danger mt-2 rounded-[var(--radius-form)] border px-3 py-2 text-sm">{problem}</p> : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {!onPage ? (
