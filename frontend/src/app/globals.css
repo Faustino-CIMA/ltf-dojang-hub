@@ -438,6 +438,10 @@
 }
 
 /* 1px ring on the edge of a control. The mask removes the interior so the button underneath stays readable. */
+:root {
+  --guide-run-duration: 2.4s;
+}
+
 .guide-run {
   box-sizing: border-box;
   border: 1px solid transparent;
@@ -454,7 +458,7 @@
   mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
   mask-clip: padding-box, border-box;
   mask-composite: exclude;
-  animation: guide-run 1.2s linear infinite;
+  animation: guide-run var(--guide-run-duration) linear infinite;
 }
 
 .guide-static-border {
