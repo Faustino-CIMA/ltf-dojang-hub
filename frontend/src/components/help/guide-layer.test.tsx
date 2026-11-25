@@ -156,6 +156,7 @@ describe("GuideLayer", () => {
     expect(nav?.className).toContain("guide-static-border");
     expect(nav?.className).not.toContain("guide-run");
     const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+    expect(css).toContain("mask-clip: padding-box, border-box");
     expect(css).toContain("mask-composite: exclude");
     expect(css).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*\.guide-run\s*\{[^}]*animation:\s*none/);
   });

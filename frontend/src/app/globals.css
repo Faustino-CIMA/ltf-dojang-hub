@@ -448,14 +448,12 @@
     color-mix(in oklab, var(--link) 28%, transparent),
     var(--link)
   );
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
+  -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+  -webkit-mask-clip: padding-box, border-box;
   -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+  mask-clip: padding-box, border-box;
+  mask-composite: exclude;
   animation: guide-run 1.2s linear infinite;
 }
 

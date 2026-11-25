@@ -64,14 +64,18 @@ async function expectRingDoesNotFill(highlight: Locator) {
       backgroundImage: computed.backgroundImage,
       backgroundColor: computed.backgroundColor,
       borderTopWidth: computed.borderTopWidth,
+      maskClip: computed.maskClip,
       maskComposite: computed.maskComposite,
+      webkitMaskClip: computed.getPropertyValue("-webkit-mask-clip"),
       webkitMaskComposite: computed.getPropertyValue("-webkit-mask-composite"),
     };
   });
   expect(style.backgroundImage).toContain("conic-gradient");
   expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(style.borderTopWidth).toBe("1px");
-  expect(`${style.maskComposite} ${style.webkitMaskComposite}`.toLowerCase()).toMatch(/exclude|xor/);
+  const mask = `${style.maskClip} ${style.webkitMaskClip} ${style.maskComposite} ${style.webkitMaskComposite}`.toLowerCase();
+  expect(mask).toContain("padding-box");
+  expect(mask).toMatch(/exclude|xor/);
 }
 
 async function expectStaticGuideChrome(page: Page, highlight: Locator, bubble: Locator) {
