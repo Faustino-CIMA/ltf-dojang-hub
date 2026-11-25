@@ -124,7 +124,7 @@ export function GuideLayer({
   }, [current, desk, guide, onExit, onRunChange, run]);
 
   useEffect(() => {
-    if (!current || sameRoute(current.route, pathname)) {
+    if (!current || sameRoute(current.route, pathname) || anchorNode(current.anchor)) {
       sentHref.current = null;
       return;
     }
@@ -149,7 +149,8 @@ export function GuideLayer({
     const wanted = run.mode === "map" ? onPage : [current];
     const nextBoxes: Box[] = [];
     for (const step of wanted) {
-      if (!sameRoute(step.route, pathname)) {
+      const onThisPage = sameRoute(step.route, pathname) || (step.id === current.id && Boolean(anchorNode(step.anchor)));
+      if (!onThisPage) {
         continue;
       }
       const element = anchorNode(step.anchor);
@@ -199,6 +200,12 @@ export function GuideLayer({
       });
       if (outside) {
         follow();
+        if (waiting && current) {
+          const next = steps[currentIndex + 1];
+          if (next && document.querySelector(`[data-guide="${next.anchor}"]`)) {
+            go(next.id);
+          }
+        }
       }
     });
     observer.observe(document.body, {
@@ -216,7 +223,7 @@ export function GuideLayer({
       window.visualViewport?.removeEventListener("scroll", follow);
       observer.disconnect();
     };
-  }, [measure]);
+  }, [current, currentIndex, go, measure, steps, waiting]);
 
   useEffect(() => {
     if (!current) {
@@ -251,7 +258,9 @@ export function GuideLayer({
       if (!decision) {
         return;
       }
-      if (decision.wait) {
+      const next = steps[steps.findIndex((step) => step.id === current.id) + 1];
+      const waitingForControl = Boolean(current.waitForAnchor && next && !document.querySelector(`[data-guide="${next.anchor}"]`));
+      if (decision.wait || waitingForControl) {
         setWaiting(true);
         setProblem(null);
         return;

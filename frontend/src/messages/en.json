@@ -5919,6 +5919,19 @@
     "payNowTitle": "Pay now",
     "payNowBody": "This opens the card page. You enter the card there. Nothing is charged until you confirm.",
     "payDoneTitle": "Payment successful",
-    "payDoneBody": "The licenses are activated. If you leave without paying, nothing is charged."
+    "payDoneBody": "The licenses are activated. If you leave without paying, nothing is charged.",
+    "authenticatorTitle": "Set up the authenticator app",
+    "authenticatorSecurityTitle": "Security",
+    "authenticatorSecurityBody": "The authenticator app, recovery codes and your password are in here.",
+    "authenticatorSetupTitle": "Authenticator app",
+    "authenticatorSetupBody": "Press Set up authenticator. If it says Change key, an app is already on.",
+    "authenticatorCodeTitle": "Code",
+    "authenticatorCodeBody": "Type the six-digit code from the app.",
+    "authenticatorConfirmTitle": "Continue",
+    "authenticatorConfirmBody": "This checks the code. If it is refused, stay here and try the current code.",
+    "authenticatorSavedTitle": "I have saved these codes",
+    "authenticatorSavedBody": "Keep them somewhere safe, away from your phone, then press this.",
+    "authenticatorEnabledTitle": "Two-step sign-in is on.",
+    "authenticatorEnabledBody": "This role can open now."
   }
 }

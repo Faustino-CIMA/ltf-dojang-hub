@@ -820,7 +820,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
               </Button>
               <ThemeToggle />
               <LanguageSwitcher compact />
-              <Button variant="outline" onClick={() => setSecurityOpen(true)}>
+              <Button variant="outline" data-guide="mfa.security" onClick={() => setSecurityOpen(true)}>
                 {authCopy("mfaSecurity")}
               </Button>
               <Button variant="outline" onClick={handleSignOut}>
@@ -910,7 +910,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
           dismissLabel={authCopy("mfaClose")}
           onDismiss={() => setEnrolToast(false)}
         >
-          {authCopy("mfaEnabled")}
+          <span data-guide="mfa.enabled">{authCopy("mfaEnabled")}</span>
         </FloatingNotice>
         <main
           className={cn(

@@ -5919,6 +5919,19 @@
     "payNowTitle": "Payer maintenant",
     "payNowBody": "Cela ouvre la page de la carte. Vous y saisissez la carte. Rien n'est débité avant votre confirmation.",
     "payDoneTitle": "Paiement réussi",
-    "payDoneBody": "Les licences sont activées. Si vous partez sans payer, rien n'est débité."
+    "payDoneBody": "Les licences sont activées. Si vous partez sans payer, rien n'est débité.",
+    "authenticatorTitle": "Configurer l'authentificateur",
+    "authenticatorSecurityTitle": "Sécurité",
+    "authenticatorSecurityBody": "L'application d'authentification, les codes de secours et le mot de passe sont ici.",
+    "authenticatorSetupTitle": "Application d'authentification",
+    "authenticatorSetupBody": "Appuyez sur Configurer l'authentificateur. S'il est écrit Changer la clé, une application est déjà en place.",
+    "authenticatorCodeTitle": "Code",
+    "authenticatorCodeBody": "Saisissez le code à six chiffres de l'application.",
+    "authenticatorConfirmTitle": "Continuer",
+    "authenticatorConfirmBody": "Cela vérifie le code. S'il est refusé, restez ici et essayez le code actuel.",
+    "authenticatorSavedTitle": "J'ai enregistré ces codes",
+    "authenticatorSavedBody": "Gardez-les en lieu sûr, loin du téléphone, puis appuyez ici.",
+    "authenticatorEnabledTitle": "La connexion en deux étapes est activée.",
+    "authenticatorEnabledBody": "Ce rôle peut maintenant s'ouvrir."
   }
 }

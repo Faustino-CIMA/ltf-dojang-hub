@@ -5920,6 +5920,19 @@
     "payNowTitle": "Elo bezuelen",
     "payNowBody": "Dat mécht d'Kaartesäit op. Dir gitt d'Kaart do an. Et gëtt eréischt ofgebucht, wann Dir bestätegt.",
     "payDoneTitle": "Bezuelung erfollegräich",
-    "payDoneBody": "D'Lizenzen ginn aktivéiert. Wann Dir fortgeet ouni ze bezuelen, gëtt näischt ofgebucht."
+    "payDoneBody": "D'Lizenzen ginn aktivéiert. Wann Dir fortgeet ouni ze bezuelen, gëtt näischt ofgebucht.",
+    "authenticatorTitle": "Authenticator ariichten",
+    "authenticatorSecurityTitle": "Sécherheet",
+    "authenticatorSecurityBody": "Authenticator, Erhuelungscoden an d'Passwuert sinn hei.",
+    "authenticatorSetupTitle": "Authenticator-App",
+    "authenticatorSetupBody": "Dréckt Authenticator ariichten. Steet do Schlëssel änneren, ass schonn eng App un.",
+    "authenticatorCodeTitle": "Code",
+    "authenticatorCodeBody": "Gitt de sechsstellege Code aus der App an.",
+    "authenticatorConfirmTitle": "Weider",
+    "authenticatorConfirmBody": "Dat préift de Code. Gëtt en refuséiert, bleift hei a probéiert den aktuellen Code.",
+    "authenticatorSavedTitle": "Ech hunn dës Coden gespäichert",
+    "authenticatorSavedBody": "Halt se sécher, ewech vum Telefon, an dréckt dann hei.",
+    "authenticatorEnabledTitle": "D'Umeldung an zwee Schrëtt ass un.",
+    "authenticatorEnabledBody": "Dës Roll kann elo opgoen."
   }
 }

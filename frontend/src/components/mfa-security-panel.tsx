@@ -485,7 +485,7 @@ export function MfaSecurityPanel({
                 <Download aria-hidden />
                 {t("mfaDownloadCodes")}
               </Button>
-              <Button type="button" variant="primary" onClick={acknowledgeCodes}>
+              <Button type="button" variant="primary" data-guide="mfa.saved" onClick={acknowledgeCodes}>
                 {t("mfaRecoveryDone")}
               </Button>
             </div>
@@ -521,9 +521,9 @@ export function MfaSecurityPanel({
                   <Label htmlFor="totp-code" required>
                     {t("mfaCode")}
                   </Label>
-                  <Input id="totp-code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" required />
+                  <Input id="totp-code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" required data-guide="mfa.code" />
                   <div className="flex flex-wrap gap-2">
-                    <Button type="submit" variant="primary" disabled={busy}>
+                    <Button type="submit" variant="primary" disabled={busy} data-guide="mfa.confirm">
                       <ShieldCheck aria-hidden />
                       {t("mfaConfirm")}
                     </Button>
@@ -536,7 +536,7 @@ export function MfaSecurityPanel({
               </form>
             </div>
           ) : (
-            <Button type="button" variant="primary" className="h-auto whitespace-normal" disabled={busy} onClick={() => void startTotp(authenticatorOn)}>
+            <Button type="button" variant="primary" className="h-auto whitespace-normal" disabled={busy} data-guide="mfa.setup" onClick={() => void startTotp(authenticatorOn)}>
               <KeyRound aria-hidden />
               {authenticatorOn ? t("mfaChangeKey") : t("mfaSetup")}
             </Button>

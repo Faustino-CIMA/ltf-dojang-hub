@@ -9,6 +9,8 @@ export type GuideStep = {
   advance: GuideAdvance;
   /** What a typed value must look like before the step moves on. */
   shape?: "text" | "date";
+  /** Stay on this step until the next control is actually on the page. */
+  waitForAnchor?: boolean;
 };
 
 export type GuideDefinition = {
