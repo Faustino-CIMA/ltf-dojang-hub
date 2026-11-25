@@ -88,10 +88,34 @@ function slug(value: string): string {
     .slice(0, 80);
 }
 
+/** Same order as the user-manual builder, so a short [[key]] becomes the on-screen words. */
+const LABEL_NAMESPACES = [
+  "ClubAdmin",
+  "ClubMgmt",
+  "Events",
+  "Member",
+  "LtfAdmin",
+  "LtfFinance",
+  "Import",
+  "Common",
+  "Auth",
+  "Reset",
+  "Verify",
+  "Ops",
+  "Dashboard",
+  "Checkout",
+  "About",
+  "Home",
+];
+
 function lookupLabel(key: string, labels: Record<string, string>, params: string): string {
-  const template = labels[key];
+  const namespaced = key.includes(".") ? labels[key] : undefined;
+  const bare = key.includes(".")
+    ? undefined
+    : LABEL_NAMESPACES.map((namespace) => labels[`${namespace}.${key}`]).find((value) => value);
+  const template = namespaced || bare || "";
   if (!template) {
-    return key.split(".").pop() ?? key;
+    return "";
   }
   if (!params) {
     return template.replace(/\{[^}]+\}/g, "").replace(/\s+/g, " ").trim();
@@ -106,10 +130,25 @@ function lookupLabel(key: string, labels: Record<string, string>, params: string
   return filled.replace(/\{[^}]+\}/g, "").replace(/\s+/g, " ").trim();
 }
 
+const CAMEL_CASE = /\b[a-z]+[A-Z][A-Za-z0-9]*\b/;
+
+export function sectionSummary(text: string): string {
+  const sentence = text.split(/(?<=[.!?])\s/)[0]?.replace(/^\d+\.\s*/, "").trim() ?? "";
+  if (sentence.length <= 140) {
+    return sentence;
+  }
+  return `${sentence.slice(0, 137).replace(/\s+\S*$/, "")}…`;
+}
+
+export function plainEnough(section: HelpSection): boolean {
+  return !CAMEL_CASE.test(`${section.heading} ${section.text}`);
+}
+
 export function plainManual(markdown: string, labels: Record<string, string>): string {
   const withoutFront = markdown.replace(/^---[\s\S]*?\n---\n/, "");
   return withoutFront
     .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+    .replace(/<p class="roles">[\s\S]*?<\/p>/g, "")
     .replace(/<div class="legend"[\s\S]*?<\/div>/g, "")
     .replace(/\{:\s*\.[a-z]+\}/g, "")
     .replace(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g, (_, key: string, params: string | undefined) =>

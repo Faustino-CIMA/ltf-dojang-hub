@@ -83,6 +83,36 @@ test("the member can download their own file", async ({ page }) => {
   expect(pdfText(bytes)).toContain("Bea");
 });
 
+test("the order guide follows real clicks and does not place an order", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto("/en/dashboard/club/members");
+  const row = page.locator("[data-guide='members.select-row']").first();
+  await row.waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Ordering licenses" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  const stepOne = page.getByRole("complementary", { name: /Step 1 of 8, Order a license/ });
+  await expect(stepOne).toBeVisible();
+  await page.waitForTimeout(400);
+  await expect(stepOne).toBeVisible();
+
+  await row.click();
+  await expect(page.getByRole("complementary", { name: /Step 2 of 8, Order a license/ })).toBeVisible();
+  await page.getByRole("button", { name: "Show all steps" }).click();
+  await expect(page.getByRole("button", { name: "Show one step" })).toBeVisible();
+  await row.click();
+  await expect(row).not.toBeChecked();
+  await row.click();
+  await expect(row).toBeChecked();
+
+  await page.getByRole("button", { name: "Actions", exact: true }).click();
+  await page.getByRole("button", { name: "Order license" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/members\/order-licenses/);
+  await expect(page.getByRole("complementary", { name: /Step 4 of 8, Order a license/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Create order for/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Order created" })).toHaveCount(0);
+});
+
 test("a tiny import can be checked, saved, and undone", async ({ page }) => {
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
   await page.goto("/en/dashboard/club/data");

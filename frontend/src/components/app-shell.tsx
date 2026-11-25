@@ -55,6 +55,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { FloatingNotice, PageNotice } from "@/components/ui/list-page-chrome";
 import { playMfaCelebration } from "@/lib/mfa-celebration";
+import { deskHasGuide, GUIDE_RUN_KEY, parseGuideRun, type GuideRun } from "@/lib/guide-run";
 import { cn } from "@/lib/utils";
 
 export type AppNavGroup = {
@@ -82,6 +83,16 @@ type HelpPanelProps = {
   desk: string | null;
   pathname: string;
   onClose: () => void;
+  onStartGuide: (id: string) => void;
+};
+
+type GuideLayerProps = {
+  desk: string | null;
+  pathname: string;
+  run: GuideRun;
+  onRunChange: (run: GuideRun) => void;
+  onExit: () => void;
+  onOpenManual: () => void;
 };
 
 type AppShellProps = {
@@ -186,6 +197,9 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
   const [helpOpen, setHelpOpen] = useState(false);
   const [HelpView, setHelpView] = useState<ComponentType<HelpPanelProps> | null>(null);
   const [helpHintDismissed, setHelpHintDismissed] = useState(true);
+  const [guideRun, setGuideRun] = useState<GuideRun | null>(null);
+  const [guideReady, setGuideReady] = useState(false);
+  const [GuideView, setGuideView] = useState<ComponentType<GuideLayerProps> | null>(null);
   const [enrolToast, setEnrolToast] = useState(false);
   const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null);
   const stopCelebration = useRef<(() => void) | null>(null);
@@ -222,6 +236,8 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
       setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
       setCollapseReady(true);
       setHelpHintDismissed(window.localStorage.getItem(HELP_HINT_KEY) === "1");
+      setGuideRun(parseGuideRun(window.sessionStorage.getItem(GUIDE_RUN_KEY)));
+      setGuideReady(true);
     };
     sync();
   }, []);
@@ -242,7 +258,42 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
   }, [helpOpen, HelpView]);
 
   useEffect(() => {
+    if (!guideRun || GuideView) {
+      return;
+    }
+    let cancelled = false;
+    void import("@/components/help/guide-layer").then((mod) => {
+      if (!cancelled) {
+        setGuideView(() => mod.GuideLayer);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [guideRun, GuideView]);
+
+  const updateGuide = (next: GuideRun | null) => {
+    if (!guideReady) {
+      return;
+    }
+    if (next) {
+      window.sessionStorage.setItem(GUIDE_RUN_KEY, JSON.stringify(next));
+    } else {
+      window.sessionStorage.removeItem(GUIDE_RUN_KEY);
+    }
+    setGuideRun(next);
+  };
+
+  const startGuide = (id: string) => {
+    updateGuide({ id, stepId: "", mode: "walk" });
+    setHelpOpen(false);
+  };
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (guideRun) {
+        return;
+      }
       if (event.key !== "?" || event.metaKey || event.ctrlKey || event.altKey || event.repeat) {
         return;
       }
@@ -259,7 +310,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [guideRun]);
 
   useEffect(() => {
     if (!collapseReady) {
@@ -779,7 +830,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
           </div>
         </header>
 
-        {me && !helpHintDismissed && !helpOpen ? (
+        {me && deskHasGuide(helpDesk) && !helpHintDismissed && !helpOpen && !guideRun ? (
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
             <p className="inline-flex items-center gap-2 text-sm text-foreground">
               <CircleHelp aria-hidden className="size-4 text-link" />
@@ -822,7 +873,23 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
           </div>
         ) : null}
         {helpOpen && HelpView ? (
-          <HelpView locale={locale} desk={helpDesk} pathname={pathname ?? ""} onClose={() => setHelpOpen(false)} />
+          <HelpView
+            locale={locale}
+            desk={helpDesk}
+            pathname={pathname ?? ""}
+            onClose={() => setHelpOpen(false)}
+            onStartGuide={startGuide}
+          />
+        ) : null}
+        {guideRun && GuideView ? (
+          <GuideView
+            desk={helpDesk}
+            pathname={pathname ?? ""}
+            run={guideRun}
+            onRunChange={updateGuide}
+            onExit={() => updateGuide(null)}
+            onOpenManual={() => setHelpOpen(true)}
+          />
         ) : null}
         <MfaSecurityPanel
           open={securityOpen}

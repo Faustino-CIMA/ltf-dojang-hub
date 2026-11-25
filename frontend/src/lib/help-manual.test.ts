@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import pack from "@/content/help-pack.json";
 
-import { chapterForPath, flattenMessages, parseManual, sectionVisible, type HelpSection } from "./help-manual";
+import { chapterForPath, flattenMessages, parseManual, plainEnough, sectionSummary, sectionVisible, type HelpSection } from "./help-manual";
 import { searchHelp } from "./help-search";
 
 const sample = `---
@@ -15,6 +15,7 @@ Order a license from the list.
 {: .proc}
 
 Type the date as [[Common.welcomeNext|name=Ada;date=29.11.2026]].
+Click [[actionOrderLicense]].
 
 ## Signing in {#sign-in}
 
@@ -23,10 +24,15 @@ Hello {{username}}.
 
 describe("parseManual", () => {
   it("keeps the chapter desk and fills a label", () => {
-    const sections = parseManual(sample, { "Common.welcomeNext": "{name} · {date}" });
+    const sections = parseManual(sample, {
+      "Common.welcomeNext": "{name} · {date}",
+      "ClubAdmin.actionOrderLicense": "Order license",
+    });
     expect(sections.map((section) => section.id)).toEqual(["club-members", "sign-in"]);
     expect(sections[0].desks).toEqual(["club_admin"]);
     expect(sections[0].text).toContain("Ada · 29.11.2026");
+    expect(sections[0].text).toContain("Order license");
+    expect(sections[0].text).not.toContain("actionOrderLicense");
     expect(sections[1].text).toContain("Hello username");
     expect(sections[1].desks).toEqual(["club_admin"]);
   });
@@ -82,5 +88,10 @@ describe("help pack", () => {
       expect(parsed.map((section) => section.id)).toEqual(packed.map((section) => section.id));
     }
     expect(JSON.stringify(pack)).not.toContain("[[");
+    const ordering = (pack as Record<string, HelpSection[]>).en.find((section) => section.id === "order-licences");
+    expect(ordering?.text).toContain("Order license");
+    expect(ordering?.text).not.toContain("actionOrderLicense");
+    expect(sectionSummary(ordering?.text ?? "")).toBe("Every athlete needs a yearly LTF license.");
+    expect((pack as Record<string, HelpSection[]>).en.filter((section) => !plainEnough(section))).toEqual([]);
   });
 });

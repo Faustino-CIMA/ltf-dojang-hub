@@ -111,11 +111,10 @@ describe("guide anchors", () => {
     }
   });
 
-  it("is not imported by the app yet", () => {
-    const imported = files
-      .filter((file) => !file.file.endsWith(".test.ts") && !file.file.endsWith(".test.tsx"))
-      .filter((file) => file.source.includes("content/guides"))
-      .map((file) => file.file);
-    expect(imported).toEqual([]);
+  it("keeps the guide file out of the shell", () => {
+    const shell = files.find((file) => file.file.endsWith(`${path.sep}app-shell.tsx`));
+    expect(shell?.source).not.toContain("content/guides");
+    expect(shell?.source).not.toContain('from "@/components/help/guide-layer"');
+    expect(shell?.source).toContain('import("@/components/help/guide-layer")');
   });
 });
