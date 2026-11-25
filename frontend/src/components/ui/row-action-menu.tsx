@@ -35,9 +35,12 @@ function focusItem(list: HTMLElement | null, current: Element | null, step: 1 | 
 export function RowActionMenu({
   label,
   actions,
+  guide,
 }: {
   label: string;
   actions: MenuAction[];
+  /** Stable help-guide hook for the row menu button itself. */
+  guide?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -61,6 +64,7 @@ export function RowActionMenu({
         className="inline-flex size-[var(--control-height)] items-center justify-center rounded-[var(--radius-form)] text-muted outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={label}
         aria-haspopup="menu"
+        data-guide={guide}
         onClick={(event) => event.stopPropagation()}
       >
         <MoreVertical className="size-4" />
@@ -116,6 +120,7 @@ export function RowActionMenu({
                 key={action.key}
                 href={action.href}
                 role="menuitem"
+                data-guide={action.guide}
                 className={cn(itemClassName, action.destructive && destructiveItemClassName)}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -131,6 +136,7 @@ export function RowActionMenu({
                 type="button"
                 role="menuitem"
                 disabled={action.disabled}
+                data-guide={action.guide}
                 className={cn(itemClassName, action.destructive && destructiveItemClassName)}
                 onClick={(event) => {
                   event.stopPropagation();

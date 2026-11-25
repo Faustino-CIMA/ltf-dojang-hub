@@ -53,6 +53,7 @@ export function FinanceListFilters({
                   label: club("financeLedgerLabel"),
                   count: ledgerActive ? 1 : 0,
                 }),
+                guide: "invoice.accounting",
                 children: <ClubLedgerFilter value={ledger} onChange={onLedgerChange} />,
               },
             ]

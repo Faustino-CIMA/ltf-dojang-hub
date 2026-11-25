@@ -199,6 +199,42 @@ test("a guide started on a member page opens the members list", async ({ page })
   await expect(page.locator("[data-guide='members.select-row']").first()).toBeVisible();
 });
 
+test("the pay guide opens invoices and does not pay", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  let checkoutStarted = false;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("create-checkout-session")) {
+      checkoutStarted = true;
+    }
+  });
+  await page.goto("/en/dashboard/club/members");
+  await page.locator("[data-guide='members.select-row']").first().waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Paying the LTF" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/invoices$/);
+  await expect(page).not.toHaveURL(/shop/);
+  const stepOne = page.getByRole("complementary", { name: /Step 1 of 5, Pay an invoice/ });
+  await expect(stepOne).toBeVisible();
+  await page.waitForTimeout(400);
+  await expect(stepOne).toBeVisible();
+
+  await page.locator("[data-guide='invoice.accounting']").click();
+  await expect(page.getByRole("complementary", { name: /Step 2 of 5, Pay an invoice/ })).toBeVisible();
+  await page.locator("[data-guide='invoice.ledger-ltf']").click();
+  await expect(page.getByRole("complementary", { name: /Step 3 of 5, Pay an invoice/ })).toBeVisible();
+
+  const menu = page.locator("[data-guide='invoice.row-menu']");
+  if ((await menu.count()) > 0) {
+    await menu.first().click();
+    await expect(page.getByRole("complementary", { name: /Step 4 of 5, Pay an invoice/ })).toBeVisible();
+    await expect(page.locator("[data-guide='invoice.pay-now']").first()).toBeVisible();
+  }
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/invoices$/);
+  await expect(page.getByRole("heading", { name: "Payment successful" })).toHaveCount(0);
+  expect(checkoutStarted).toBe(false);
+});
+
 test("the import guide started on a member page opens the members list", async ({ page }) => {
   test.skip(!openId, "Seed the smoke club before this run.");
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");

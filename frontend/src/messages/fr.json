@@ -5908,6 +5908,17 @@
     "importRunTitle": "Lancer l'import",
     "importRunBody": "C'est cette étape qui enregistre. Arrêtez-vous ici si vous vouliez seulement regarder.",
     "importSavedTitle": "Résultat de l'import",
-    "importSavedBody": "Créés, mis à jour et ignorés sont comptés ici."
+    "importSavedBody": "Créés, mis à jour et ignorés sont comptés ici.",
+    "payInvoiceTitle": "Payer une facture",
+    "payAccountingTitle": "Comptabilité",
+    "payAccountingBody": "Les factures LTF sont dans ce filtre.",
+    "payLedgerTitle": "LTF",
+    "payLedgerBody": "Ce sont les factures de la fédération pour vos commandes de licences.",
+    "payMenuTitle": "Actions de la ligne",
+    "payMenuBody": "Payer maintenant est dans ce menu tant qu'un montant reste ouvert.",
+    "payNowTitle": "Payer maintenant",
+    "payNowBody": "Cela ouvre la page de la carte. Vous y saisissez la carte. Rien n'est débité avant votre confirmation.",
+    "payDoneTitle": "Paiement réussi",
+    "payDoneBody": "Les licences sont activées. Si vous partez sans payer, rien n'est débité."
   }
 }
