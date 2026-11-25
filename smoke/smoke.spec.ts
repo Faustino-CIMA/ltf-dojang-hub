@@ -113,6 +113,35 @@ test("the order guide follows real clicks and does not place an order", async ({
   await expect(page.getByRole("heading", { name: "Order created" })).toHaveCount(0);
 });
 
+test("the add-member guide follows real typing and does not save", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto("/en/dashboard/club/members");
+  await page.locator("[data-guide='members.select-row']").first().waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Adding a member" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  const stepOne = page.getByRole("complementary", { name: /Step 1 of 9, Add a member/ });
+  await expect(stepOne).toBeVisible();
+  await page.waitForTimeout(400);
+  await expect(stepOne).toBeVisible();
+
+  await page.locator("[data-guide='members.menu']").click();
+  await expect(page.getByRole("complementary", { name: /Step 2 of 9, Add a member/ })).toBeVisible();
+  await page.locator("[data-guide='members.create']").click();
+  await expect(page.getByRole("complementary", { name: /Step 3 of 9, Add a member/ })).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(page.getByRole("complementary", { name: /Step 3 of 9, Add a member/ })).toBeVisible();
+
+  await page.locator("[data-guide='member.last-name']").fill("Keller");
+  await page.locator("[data-guide='member.last-name']").press("Tab");
+  await expect(page.getByRole("complementary", { name: /Step 4 of 9, Add a member/ })).toBeVisible();
+  await page.getByRole("button", { name: "Show all steps" }).click();
+  await page.locator("[data-guide='member.first-name']").fill("Lea");
+  await expect(page.locator("[data-guide='member.first-name']")).toHaveValue("Lea");
+  await expect(page.getByRole("button", { name: "Create member" })).toBeVisible();
+  await expect(page.getByText("The member is on the list.")).toHaveCount(0);
+});
+
 test("a tiny import can be checked, saved, and undone", async ({ page }) => {
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
   await page.goto("/en/dashboard/club/data");

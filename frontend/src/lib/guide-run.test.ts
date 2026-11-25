@@ -1,6 +1,6 @@
 import orderLicense from "@/content/guides/order-license.json";
 
-import { advanceOnClick, parseGuideDone, parseGuideRun, sameRoute, withGuideDone, type GuideStep } from "./guide-run";
+import { advanceOnClick, parseGuideDone, parseGuideRun, sameRoute, valueReady, withGuideDone, type GuideStep } from "./guide-run";
 
 const steps = orderLicense.steps as GuideStep[];
 
@@ -26,6 +26,15 @@ describe("advanceOnClick", () => {
 
   it("waits on the order button until the page says the order exists", () => {
     expect(advanceOnClick(steps, "place-order", "order.submit", false)).toEqual({ stepId: "place-order", wait: true });
+  });
+
+  it("accepts a name, a full date, and a year", () => {
+    expect(valueReady("Keller", "text")).toBe(true);
+    expect(valueReady("  ", "text")).toBe(false);
+    expect(valueReady("25.11.2026", "date")).toBe(true);
+    expect(valueReady("2026-11-25", "date")).toBe(false);
+    expect(valueReady("2026")).toBe(true);
+    expect(valueReady("Male")).toBe(false);
   });
 });
 

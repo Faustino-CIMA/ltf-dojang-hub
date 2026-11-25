@@ -1,0 +1,83 @@
+{
+  "id": "add-member",
+  "desks": ["club_admin"],
+  "titleKey": "Guide.addMemberTitle",
+  "manual": "add-member",
+  "steps": [
+    {
+      "id": "open-menu",
+      "anchor": "members.menu",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberMenuTitle",
+      "bodyKey": "Guide.addMemberMenuBody",
+      "advance": "dialog"
+    },
+    {
+      "id": "open-form",
+      "anchor": "members.create",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberOpenTitle",
+      "bodyKey": "Guide.addMemberOpenBody",
+      "advance": "click"
+    },
+    {
+      "id": "last-name",
+      "anchor": "member.last-name",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberLastTitle",
+      "bodyKey": "Guide.addMemberLastBody",
+      "advance": "value",
+      "shape": "text"
+    },
+    {
+      "id": "first-name",
+      "anchor": "member.first-name",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberFirstTitle",
+      "bodyKey": "Guide.addMemberFirstBody",
+      "advance": "value",
+      "shape": "text"
+    },
+    {
+      "id": "birth-date",
+      "anchor": "member.birth-date",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberDateTitle",
+      "bodyKey": "Guide.addMemberDateBody",
+      "advance": "value",
+      "shape": "date"
+    },
+    {
+      "id": "sex",
+      "anchor": "member.sex",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberSexTitle",
+      "bodyKey": "Guide.addMemberSexBody",
+      "advance": "value"
+    },
+    {
+      "id": "prefix",
+      "anchor": "member.prefix",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberPrefixTitle",
+      "bodyKey": "Guide.addMemberPrefixBody",
+      "advance": "value"
+    },
+    {
+      "id": "save",
+      "anchor": "member.save",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberSaveTitle",
+      "bodyKey": "Guide.addMemberSaveBody",
+      "advance": "click"
+    },
+    {
+      "id": "saved",
+      "anchor": "member.saved",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.addMemberSavedTitle",
+      "bodyKey": "Guide.addMemberSavedBody",
+      "advance": "success"
+    }
+  ]
+}
