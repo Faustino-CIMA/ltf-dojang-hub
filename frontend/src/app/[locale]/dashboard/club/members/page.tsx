@@ -966,6 +966,7 @@ export default function ClubAdminMembersPage() {
                     { key: "create", guide: "members.create", icon: <UserPlus aria-hidden />, label: t("createMember"), onSelect: startCreate },
                     {
                       key: "import",
+                      guide: "members.import",
                       icon: <Upload aria-hidden />,
                       label: importT("importMembers"),
                       onSelect: () => router.push(`/${locale}/dashboard/club/members/import`),

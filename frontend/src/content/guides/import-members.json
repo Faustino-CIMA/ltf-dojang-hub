@@ -1,0 +1,96 @@
+{
+  "id": "import-members",
+  "desks": ["club_admin"],
+  "titleKey": "Guide.importMembersTitle",
+  "manual": "import",
+  "steps": [
+    {
+      "id": "open-menu",
+      "anchor": "members.menu",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.importMenuTitle",
+      "bodyKey": "Guide.importMenuBody",
+      "advance": "dialog"
+    },
+    {
+      "id": "open-import",
+      "anchor": "members.import",
+      "route": "/dashboard/club/members",
+      "titleKey": "Guide.importOpenTitle",
+      "bodyKey": "Guide.importOpenBody",
+      "advance": "click"
+    },
+    {
+      "id": "update-mode",
+      "anchor": "import.update-mode",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importModeTitle",
+      "bodyKey": "Guide.importModeBody",
+      "advance": "value"
+    },
+    {
+      "id": "choose-file",
+      "anchor": "import.file",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importFileTitle",
+      "bodyKey": "Guide.importFileBody",
+      "advance": "click"
+    },
+    {
+      "id": "date-format",
+      "anchor": "import.date-format",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importDateTitle",
+      "bodyKey": "Guide.importDateBody",
+      "advance": "value"
+    },
+    {
+      "id": "continue",
+      "anchor": "import.continue",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importContinueTitle",
+      "bodyKey": "Guide.importContinueBody",
+      "advance": "click"
+    },
+    {
+      "id": "auto-map",
+      "anchor": "import.auto-map",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importAutoTitle",
+      "bodyKey": "Guide.importAutoBody",
+      "advance": "click"
+    },
+    {
+      "id": "preview",
+      "anchor": "import.preview",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importPreviewTitle",
+      "bodyKey": "Guide.importPreviewBody",
+      "advance": "click"
+    },
+    {
+      "id": "confirm",
+      "anchor": "import.to-confirm",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importConfirmTitle",
+      "bodyKey": "Guide.importConfirmBody",
+      "advance": "click"
+    },
+    {
+      "id": "run",
+      "anchor": "import.run",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importRunTitle",
+      "bodyKey": "Guide.importRunBody",
+      "advance": "click"
+    },
+    {
+      "id": "saved",
+      "anchor": "import.result",
+      "route": "/dashboard/club/members/import",
+      "titleKey": "Guide.importSavedTitle",
+      "bodyKey": "Guide.importSavedBody",
+      "advance": "success"
+    }
+  ]
+}
