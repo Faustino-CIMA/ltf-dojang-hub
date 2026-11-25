@@ -3,10 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
-import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { CircleHelp, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import {
@@ -75,6 +75,14 @@ export type AppNavItem = {
 };
 
 const SIDEBAR_COLLAPSED_KEY = "ltf-sidebar-collapsed";
+const HELP_HINT_KEY = "ltf.helpHintDismissed";
+
+type HelpPanelProps = {
+  locale: string;
+  desk: string | null;
+  pathname: string;
+  onClose: () => void;
+};
 
 type AppShellProps = {
   title: string;
@@ -175,6 +183,9 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
   const [activeHeader, setActiveHeader] = useState<string | null>(null);
   const [pendingDesk, setPendingDesk] = useState<DeskChoice | null>(null);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [HelpView, setHelpView] = useState<ComponentType<HelpPanelProps> | null>(null);
+  const [helpHintDismissed, setHelpHintDismissed] = useState(true);
   const [enrolToast, setEnrolToast] = useState(false);
   const [recoveryLeft, setRecoveryLeft] = useState<number | null>(null);
   const stopCelebration = useRef<(() => void) | null>(null);
@@ -210,8 +221,44 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
     const sync = () => {
       setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
       setCollapseReady(true);
+      setHelpHintDismissed(window.localStorage.getItem(HELP_HINT_KEY) === "1");
     };
     sync();
+  }, []);
+
+  useEffect(() => {
+    if (!helpOpen || HelpView) {
+      return;
+    }
+    let cancelled = false;
+    void import("@/components/help/help-panel").then((mod) => {
+      if (!cancelled) {
+        setHelpView(() => mod.HelpPanel);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [helpOpen, HelpView]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "?" || event.metaKey || event.ctrlKey || event.altKey || event.repeat) {
+        return;
+      }
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) {
+        return;
+      }
+      if (document.querySelector("[role='dialog'], [role='menu']")) {
+        return;
+      }
+      event.preventDefault();
+      setHelpOpen(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
@@ -302,6 +349,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
   const shownHeader = displayedDeskHeader(pathname, storedHeader, desks);
   const activeDesk = desks.find((desk) => deskHeaderValue(desk) === shownHeader) ?? null;
   const deskReadOnly = activeDesk?.level === "read_only";
+  const helpDesk = activeDesk?.desk ?? (me?.is_superuser ? "ops" : me?.role ?? null);
 
   useEffect(() => {
     rememberDeskLevel(activeDesk?.level ?? null);
@@ -715,6 +763,10 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
               {!deskReadOnly && (activeDesk?.desk === "club_admin" || activeDesk?.desk === "ltf_admin" || (!activeDesk && (me?.role === "club_admin" || me?.role === "ltf_admin"))) ? (
                 <AdminNoticeBell namespace={activeDesk?.desk === "ltf_admin" || (!activeDesk && me?.role === "ltf_admin") ? "LtfAdmin" : "ClubAdmin"} />
               ) : null}
+              <Button type="button" variant="outline" onClick={() => setHelpOpen(true)}>
+                <CircleHelp aria-hidden />
+                {t("help")}
+              </Button>
               <ThemeToggle />
               <LanguageSwitcher compact />
               <Button variant="outline" onClick={() => setSecurityOpen(true)}>
@@ -727,6 +779,26 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
           </div>
         </header>
 
+        {me && !helpHintDismissed && !helpOpen ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
+            <p className="inline-flex items-center gap-2 text-sm text-foreground">
+              <CircleHelp aria-hidden className="size-4 text-link" />
+              {t("helpHint")}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                window.localStorage.setItem(HELP_HINT_KEY, "1");
+                setHelpHintDismissed(true);
+              }}
+            >
+              <X aria-hidden />
+              {t("helpDismiss")}
+            </Button>
+          </div>
+        ) : null}
         {recoveryLeft != null ? (
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-[var(--page-padding-x)] py-2">
             <PageNotice tone={recoveryLeft <= 0 ? "danger" : recoveryLeft <= 3 ? "warning" : "info"}>
@@ -748,6 +820,9 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
               {authCopy("mfaEnrolAction")}
             </Button>
           </div>
+        ) : null}
+        {helpOpen && HelpView ? (
+          <HelpView locale={locale} desk={helpDesk} pathname={pathname ?? ""} onClose={() => setHelpOpen(false)} />
         ) : null}
         <MfaSecurityPanel
           open={securityOpen}

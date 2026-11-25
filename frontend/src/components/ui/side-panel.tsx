@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { RequiredForm } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 export function SidePanel({
   open,
@@ -67,6 +68,7 @@ export function SidePanel({
             {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
           </div>
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            <X aria-hidden />
             {closeLabel}
           </Button>
         </div>
