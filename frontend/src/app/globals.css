@@ -425,6 +425,53 @@
   }
 }
 
+@property --guide-run-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes guide-run {
+  to {
+    --guide-run-angle: 360deg;
+  }
+}
+
+/* One-pixel link-blue border that travels around help highlights, number discs, and the instruction bubble. */
+.guide-run {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--guide-run-fill, transparent), var(--guide-run-fill, transparent)) padding-box,
+    conic-gradient(
+      from var(--guide-run-angle),
+      var(--link),
+      color-mix(in oklab, var(--link) 28%, transparent),
+      var(--link)
+    )
+      border-box;
+  animation: guide-run 1.2s linear infinite;
+}
+
+.guide-run-fill {
+  --guide-run-fill: var(--overlay);
+  color: var(--overlay-foreground);
+  box-shadow: var(--shadow-float);
+}
+
+.guide-run-disc {
+  --guide-run-fill: var(--overlay);
+  color: var(--link);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-run {
+    animation: none;
+    background:
+      linear-gradient(var(--guide-run-fill, transparent), var(--guide-run-fill, transparent)) padding-box,
+      linear-gradient(var(--link), var(--link)) border-box;
+  }
+}
+
 @keyframes health-shimmer {
   0% {
     transform: translateX(-120%);

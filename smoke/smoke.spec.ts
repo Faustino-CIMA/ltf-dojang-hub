@@ -199,6 +199,33 @@ test("a guide started on a member page opens the members list", async ({ page })
   await expect(page.locator("[data-guide='members.select-row']").first()).toBeVisible();
 });
 
+test("a guide highlight moves onto the open Members menu", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto("/en/dashboard/club/members");
+  await page.locator("[data-guide='members.select-row']").first().waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Adding a member" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  await expect(page.getByRole("complementary", { name: /Step 1 of 9, Add a member/ })).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='members.menu']")).toBeVisible();
+
+  await page.locator("[data-guide='members.menu']").click();
+  const bubble = page.getByRole("complementary", { name: /Step 2 of 9, Add a member/ });
+  const highlight = page.locator("[data-guide-highlight='members.create']");
+  const item = page.locator("[data-guide='members.create']");
+  await expect(bubble).toBeVisible();
+  await expect(highlight).toBeVisible();
+  await expect(item).toBeVisible();
+  const bubbleBox = await bubble.boundingBox();
+  const highlightBox = await highlight.boundingBox();
+  const itemBox = await item.boundingBox();
+  expect(bubbleBox && highlightBox && itemBox).toBeTruthy();
+  expect(Math.abs((highlightBox?.y ?? 0) - (itemBox?.y ?? 0))).toBeLessThan(24);
+  expect(Math.abs((highlightBox?.x ?? 0) - (itemBox?.x ?? 0))).toBeLessThan(24);
+  expect((bubbleBox?.width ?? 0) > 80).toBe(true);
+  expect((bubbleBox?.y ?? -1) >= 0).toBe(true);
+});
+
 test("the import guide started on a member page opens the members list", async ({ page }) => {
   test.skip(!openId, "Seed the smoke club before this run.");
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
