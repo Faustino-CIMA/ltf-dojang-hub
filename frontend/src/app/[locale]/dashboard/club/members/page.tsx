@@ -1114,6 +1114,7 @@ export default function ClubAdminMembersPage() {
                     <span>{formatFullName(member)}</span>
                     {member.card_verified ? (
                       <VerifiedBadge
+                        iconOnly
                         label={
                           member.card_verified_at
                             ? verifyT("verifiedOn", { date: formatDisplayDate(member.card_verified_at) })
