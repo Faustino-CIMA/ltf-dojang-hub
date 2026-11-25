@@ -142,6 +142,50 @@ test("the add-member guide follows real typing and does not save", async ({ page
   await expect(page.getByText("The member is on the list.")).toHaveCount(0);
 });
 
+test("the import guide follows a real file and does not save", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto("/en/dashboard/club/members");
+  await page.locator("[data-guide='members.select-row']").first().waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Importing members from a spreadsheet" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  const stepOne = page.getByRole("complementary", { name: /Step 1 of 11, Import members/ });
+  await expect(stepOne).toBeVisible();
+  await page.waitForTimeout(400);
+  await expect(stepOne).toBeVisible();
+
+  await page.locator("[data-guide='members.menu']").click();
+  await expect(page.getByRole("complementary", { name: /Step 2 of 11, Import members/ })).toBeVisible();
+  await page.locator("[data-guide='members.import']").click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/members\/import/);
+  await expect(page.getByRole("complementary", { name: /Step 3 of 11, Import members/ })).toBeVisible();
+
+  await page.locator("[data-guide='import.update-mode']").click();
+  await page.getByRole("option", { name: "Create new only (skip existing)" }).click();
+  await expect(page.getByRole("complementary", { name: /Step 4 of 11, Import members/ })).toBeVisible();
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.locator("[data-guide='import.file']").click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: "new-members.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Last name,First name,Date of birth\nKeller,Lea,14.03.2015\n"),
+  });
+  await expect(page.getByRole("complementary", { name: /Step 5 of 11, Import members/ })).toBeVisible();
+  await page.locator("[data-guide='import.date-format']").click();
+  await page.getByRole("option", { name: "DD.MM.YYYY" }).click();
+  await expect(page.getByRole("complementary", { name: /Step 6 of 11, Import members/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Show all steps" }).click();
+  await page.locator("[data-guide='import.continue']").click();
+  await expect(page.getByRole("complementary", { name: /Step 7 of 11, Import members/ })).toBeVisible();
+  await page.locator("[data-guide='import.auto-map']").click();
+  await expect(page.getByRole("complementary", { name: /Step 8 of 11, Import members/ })).toBeVisible();
+  await expect(page.locator("[data-guide='import.preview']")).toBeVisible();
+  await expect(page.getByText("Import succeeded")).toHaveCount(0);
+});
+
 test("a tiny import can be checked, saved, and undone", async ({ page }) => {
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
   await page.goto("/en/dashboard/club/data");

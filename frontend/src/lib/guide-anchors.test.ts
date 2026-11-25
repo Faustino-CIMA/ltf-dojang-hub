@@ -53,6 +53,9 @@ function hookedAnchors(sources: string[]): Set<string> {
     for (const match of source.matchAll(/data-guide="([^"]+)"/g)) {
       found.add(match[1]);
     }
+    for (const match of source.matchAll(/\? "([a-z][\w-]*(?:\.[a-z][\w-]*)+)"/g)) {
+      found.add(match[1]);
+    }
     if (!menuWiresHooks) {
       continue;
     }

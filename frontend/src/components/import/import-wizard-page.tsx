@@ -1246,6 +1246,7 @@ export function ImportWizardPage({
         value={memberUpdateMode}
         onValueChange={handleUpdateModeChange}
         ariaLabel={t("updateModeLabel")}
+        guide="import.update-mode"
         options={[
           { value: "create_only", label: t("updateModeCreateOnly") },
           { value: "create_and_update", label: t("updateModeCreateAndUpdate") },
@@ -1279,6 +1280,7 @@ export function ImportWizardPage({
           onValueChange={handleDateFormatChange}
           ariaLabel={t("dateFormatLabel")}
           placeholder={t("dateFormatPlaceholder")}
+          guide="import.date-format"
           options={dateFormatOptions}
           className="w-64"
         />
@@ -1467,6 +1469,7 @@ export function ImportWizardPage({
                     type="button"
                     variant="outline"
                     disabled={isLoading}
+                    data-guide="import.file"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {file ? t("changeFileButton") : t("chooseFileButton")}
@@ -1540,7 +1543,7 @@ export function ImportWizardPage({
               {dateFormatControl}
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={headers.length === 0}>
+                <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={headers.length === 0} data-guide="import.auto-map">
                   {t("autoMapButton")}
                 </Button>
                 <Button
@@ -2158,7 +2161,7 @@ export function ImportWizardPage({
             <div className="space-y-3">
               <ImportSuccessConfetti active={resultTone === "success"} />
               <div className="space-y-1">
-                <h2 className="text-lg font-semibold text-foreground">{t("resultStepTitle")}</h2>
+                <h2 className="text-lg font-semibold text-foreground" data-guide="import.result">{t("resultStepTitle")}</h2>
                 <p className="text-sm text-muted">{t("resultStepSubtitle")}</p>
               </div>
               {prefixNotice}
@@ -2338,6 +2341,17 @@ export function ImportWizardPage({
             onClick={handlePrimaryAction}
             disabled={primaryDisabled}
             data-import-another={step === "result" ? "true" : undefined}
+            data-guide={
+              step === "source"
+                ? "import.continue"
+                : step === "mapping"
+                  ? "import.preview"
+                  : step === "preview"
+                    ? "import.to-confirm"
+                    : step === "confirm"
+                      ? "import.run"
+                      : undefined
+            }
           >
             {isLoading ? t("loadingAction") : primaryLabel}
           </Button>
