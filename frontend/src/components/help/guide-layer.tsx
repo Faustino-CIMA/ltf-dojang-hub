@@ -375,8 +375,8 @@ export function GuideLayer({
           {run.mode === "map" ? (
             <button
               type="button"
-              className="pointer-events-auto fixed size-6"
-              style={{ left: box.rect.left - 12, top: box.rect.top - 12 }}
+              className="pointer-events-auto fixed size-4"
+              style={{ left: box.rect.left - 20, top: box.rect.top - 20 }}
               aria-label={String(box.number)}
               onClick={() => setOpenBubble(box.step.id)}
             />
