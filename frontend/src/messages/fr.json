@@ -5849,6 +5849,19 @@
     "orderLicenseSubmitTitle": "Passer la commande",
     "orderLicenseSubmitBody": "Cliquez sur le bouton pour créer la commande de l'année choisie. Rien n'est envoyé tant que vous n'avez pas cliqué.",
     "orderLicenseSavedTitle": "La commande est dans la liste",
-    "orderLicenseSavedBody": "Les licences restent en attente jusqu'à ce que la fédération ait reçu le paiement et les ait activées."
+    "orderLicenseSavedBody": "Les licences restent en attente jusqu'à ce que la fédération ait reçu le paiement et les ait activées.",
+    "guideBack": "Retour",
+    "guideShowAll": "Afficher toutes les étapes",
+    "guideShowOne": "Afficher une étape",
+    "guideExit": "Quitter",
+    "guideStay": "Rester",
+    "guideNext": "Suivant",
+    "guideExitAsk": "Quitter ce guide ?",
+    "guideStepName": "Étape {current} sur {total}, {title}",
+    "guideDone": "Fait",
+    "guideShowMe": "Montrez-moi",
+    "guideManual": "Lire dans l'aide",
+    "guideElsewhere": "Cette étape est sur une autre page. Allez-y vous-même. Le guide vous suit.",
+    "guideInMenu": "Cette étape est dans un menu. Ouvrez le menu vous-même."
   }
 }

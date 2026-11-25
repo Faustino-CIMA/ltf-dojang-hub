@@ -5850,6 +5850,19 @@
     "orderLicenseSubmitTitle": "D'Bestellung maachen",
     "orderLicenseSubmitBody": "Klickt op de Knäppchen, fir d'Bestellung fir dat gewielt Joer ze erstellen. Et gëtt näischt geschéckt, ier Dir klickt.",
     "orderLicenseSavedTitle": "D'Bestellung steet an der Lëscht",
-    "orderLicenseSavedBody": "D'Lizenzen bleiwen ausstoend, bis d'Federatioun d'Bezuelung kritt an se aktivéiert huet."
+    "orderLicenseSavedBody": "D'Lizenzen bleiwen ausstoend, bis d'Federatioun d'Bezuelung kritt an se aktivéiert huet.",
+    "guideBack": "Zréck",
+    "guideShowAll": "All Schrëtt weisen",
+    "guideShowOne": "Ee Schrëtt weisen",
+    "guideExit": "Erausgoen",
+    "guideStay": "Bleiben",
+    "guideNext": "Weider",
+    "guideExitAsk": "Dëse Guide verloossen?",
+    "guideStepName": "Schrëtt {current} vu {total}, {title}",
+    "guideDone": "Fäerdeg",
+    "guideShowMe": "Weist mir",
+    "guideManual": "An der Hëllef liesen",
+    "guideElsewhere": "Dëse Schrëtt ass op enger anerer Säit. Gitt dohin selwer. De Guide bleift bei Iech.",
+    "guideInMenu": "Dëse Schrëtt ass an engem Menü. Maacht de Menü selwer op."
   }
 }

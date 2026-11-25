@@ -5849,6 +5849,19 @@
     "orderLicenseSubmitTitle": "Place the order",
     "orderLicenseSubmitBody": "Click the button to create the order for the year you chose. Nothing is sent until you click it.",
     "orderLicenseSavedTitle": "The order is in the list",
-    "orderLicenseSavedBody": "The licenses stay pending until the federation has received the payment and activated them."
+    "orderLicenseSavedBody": "The licenses stay pending until the federation has received the payment and activated them.",
+    "guideBack": "Back",
+    "guideShowAll": "Show all steps",
+    "guideShowOne": "Show one step",
+    "guideExit": "Exit",
+    "guideStay": "Stay",
+    "guideNext": "Next",
+    "guideExitAsk": "Exit this guide?",
+    "guideStepName": "Step {current} of {total}, {title}",
+    "guideDone": "Done",
+    "guideShowMe": "Show me",
+    "guideManual": "Read in Help",
+    "guideElsewhere": "This step is on another page. Go there yourself. The guide stays with you.",
+    "guideInMenu": "This step is inside a menu. Open the menu yourself."
   }
 }

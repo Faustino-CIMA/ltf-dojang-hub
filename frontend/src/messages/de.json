@@ -5849,6 +5849,19 @@
     "orderLicenseSubmitTitle": "Die Bestellung aufgeben",
     "orderLicenseSubmitBody": "Klicken Sie auf die Schaltfläche, um die Bestellung für das gewählte Jahr zu erstellen. Es wird nichts gesendet, bevor Sie klicken.",
     "orderLicenseSavedTitle": "Die Bestellung steht in der Liste",
-    "orderLicenseSavedBody": "Die Lizenzen bleiben ausstehend, bis der Verband die Zahlung erhalten und sie aktiviert hat."
+    "orderLicenseSavedBody": "Die Lizenzen bleiben ausstehend, bis der Verband die Zahlung erhalten und sie aktiviert hat.",
+    "guideBack": "Zurück",
+    "guideShowAll": "Alle Schritte zeigen",
+    "guideShowOne": "Einen Schritt zeigen",
+    "guideExit": "Beenden",
+    "guideStay": "Bleiben",
+    "guideNext": "Weiter",
+    "guideExitAsk": "Diesen Guide beenden?",
+    "guideStepName": "Schritt {current} von {total}, {title}",
+    "guideDone": "Erledigt",
+    "guideShowMe": "Zeigen",
+    "guideManual": "In der Hilfe lesen",
+    "guideElsewhere": "Dieser Schritt ist auf einer anderen Seite. Gehen Sie selbst dorthin. Der Guide bleibt bei Ihnen.",
+    "guideInMenu": "Dieser Schritt liegt in einem Menü. Öffnen Sie das Menü selbst."
   }
 }
