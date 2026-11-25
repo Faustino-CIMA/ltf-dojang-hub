@@ -50,8 +50,7 @@ import {
 } from "@/components/club-selection-provider";
 import { AppVersionLink } from "@/components/app-version-link";
 import { ClubSwitcher } from "@/components/club-switcher";
-import { LanguageSwitcher } from "@/components/language-switcher";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { HeaderMoreMenu } from "@/components/header-more-menu";
 import { Button } from "@/components/ui/button";
 import { FloatingNotice, PageNotice } from "@/components/ui/list-page-chrome";
 import { playMfaCelebration } from "@/lib/mfa-celebration";
@@ -526,13 +525,6 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
           member: t("roleMember"),
         }[me.role] ?? me.role)
     : "";
-  const roleTone = me?.is_superuser
-    ? "danger"
-    : me?.role === "ltf_finance"
-      ? "warning"
-      : me?.role === "club_admin"
-        ? "success"
-        : "info";
 
   const isOpsDashboard = (pathname || "").includes("/dashboard/ops");
   const federationHref = me
@@ -710,7 +702,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
         <header className="z-40 shrink-0 border-b border-border/80 bg-surface/90 backdrop-blur-md">
           <div
             className={cn(
-              "flex min-h-[var(--topbar-height)] flex-wrap items-center justify-between gap-3",
+              "flex min-h-[var(--topbar-height)] flex-nowrap items-center justify-between gap-2",
               isWorkspace ? "px-3 py-1.5" : "px-[var(--page-padding-x)] py-1.5"
             )}
           >
@@ -747,7 +739,7 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+            <div className="flex min-w-0 items-center justify-end gap-2">
               {showLegacyClubPicker(desks.length) && showClubSelector ? (
                 <ClubSwitcher
                   clubs={clubs}
@@ -781,33 +773,6 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
                 />
               ) : null}
 
-              {me ? (
-                <div className="hidden items-center gap-2 sm:flex">
-                  <div className="min-w-0 text-right">
-                    <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
-                    <p className="truncate text-meta">{me.username}</p>
-                  </div>
-                  <StatusBadge label={roleLabel} tone={roleTone} />
-                </div>
-              ) : null}
-
-              {showOpsConsoleButton ? (
-                <Button asChild variant="outline">
-                  <Link
-                    href={`/${locale}/dashboard/ops`}
-                    onClick={() => {
-                      activateOpsDesk(desks);
-                    }}
-                  >
-                    {t("openOpsConsole")}
-                  </Link>
-                </Button>
-              ) : null}
-              {showFederationDashboardButton && federationHref ? (
-                <Button asChild variant="outline">
-                  <Link href={federationHref}>{t("openFederationDashboard")}</Link>
-                </Button>
-              ) : null}
               {activeDesk?.desk === "member" || (!activeDesk && me?.role === "member") ? (
                 <AdminNoticeBell audience="member" />
               ) : null}
@@ -818,14 +783,27 @@ export function AppShell({ title, subtitle, hintSubtitle = false, navItems, chil
                 <CircleHelp aria-hidden />
                 {t("help")}
               </Button>
-              <ThemeToggle />
-              <LanguageSwitcher compact />
-              <Button variant="outline" data-guide="mfa.security" onClick={() => setSecurityOpen(true)}>
-                {authCopy("mfaSecurity")}
-              </Button>
-              <Button variant="outline" onClick={handleSignOut}>
-                {t("signOut")}
-              </Button>
+              <HeaderMoreMenu
+                name={displayName}
+                role={roleLabel}
+                onSecurity={() => setSecurityOpen(true)}
+                onSignOut={() => void handleSignOut()}
+                opsLabel={showOpsConsoleButton ? t("openOpsConsole") : undefined}
+                onOps={
+                  showOpsConsoleButton
+                    ? () => {
+                        activateOpsDesk(desks);
+                        router.push(`/${locale}/dashboard/ops`);
+                      }
+                    : undefined
+                }
+                federationLabel={showFederationDashboardButton && federationHref ? t("openFederationDashboard") : undefined}
+                onFederation={
+                  showFederationDashboardButton && federationHref
+                    ? () => router.push(federationHref)
+                    : undefined
+                }
+              />
             </div>
           </div>
         </header>

@@ -365,13 +365,24 @@ test("the authenticator guide opens Security and does not enrol", async ({ page 
   await card.locator("xpath=ancestor::li[1]").getByRole("button", { name: "Show me" }).click();
   await expect(page).toHaveURL(/\/en\/dashboard\/club\/members/);
   await expect(page).not.toHaveURL(/shop/);
-  await expect(page.getByRole("complementary", { name: /Step 1 of 6, Set up the authenticator app/ })).toBeVisible();
-  await expect(page.locator("[data-guide-highlight='mfa.security']")).toBeVisible();
+  await expect(page.getByRole("complementary", { name: /Step 1 of 7, Set up the authenticator app/ })).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='header.more']")).toBeVisible();
 
-  await page.locator("[data-guide='mfa.security']").click();
+  await page.locator("[data-guide='header.more']").click();
+  const security = page.locator("[data-guide='mfa.security']");
+  const securityHighlight = page.locator("[data-guide-highlight='mfa.security']");
+  await expect(page.getByRole("complementary", { name: /Step 2 of 7, Set up the authenticator app/ })).toBeVisible();
+  await expect(securityHighlight).toBeVisible();
+  await expect(security).toBeVisible();
+  const securityBox = await security.boundingBox();
+  const securityHighlightBox = await securityHighlight.boundingBox();
+  expect(Math.abs((securityHighlightBox?.y ?? 0) - (securityBox?.y ?? 0))).toBeLessThan(24);
+  expect(Math.abs((securityHighlightBox?.x ?? 0) - (securityBox?.x ?? 0))).toBeLessThan(24);
+
+  await security.click();
   const setup = page.locator("[data-guide='mfa.setup']");
   const setupHighlight = page.locator("[data-guide-highlight='mfa.setup']");
-  await expect(page.getByRole("complementary", { name: /Step 2 of 6, Set up the authenticator app/ })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: /Step 3 of 7, Set up the authenticator app/ })).toBeVisible();
   await expect(setupHighlight).toBeVisible();
   await expect(setup).toBeVisible();
   const setupBox = await setup.boundingBox();
@@ -392,8 +403,8 @@ test("the authenticator guide started on a member page stays there", async ({ pa
   await page.getByRole("heading", { name: "Roles: who can do what" }).locator("xpath=ancestor::li[1]").getByRole("button", { name: "Show me" }).click();
   await expect(page).toHaveURL(new RegExp(`/en/dashboard/club/members/${openId}$`));
   await expect(page).not.toHaveURL(/shop/);
-  await expect(page.getByRole("complementary", { name: /Step 1 of 6, Set up the authenticator app/ })).toBeVisible();
-  await expect(page.locator("[data-guide-highlight='mfa.security']")).toBeVisible();
+  await expect(page.getByRole("complementary", { name: /Step 1 of 7, Set up the authenticator app/ })).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='header.more']")).toBeVisible();
 });
 
 test("the import guide started on a member page opens the members list", async ({ page }) => {
