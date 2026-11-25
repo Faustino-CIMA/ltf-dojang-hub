@@ -77,6 +77,13 @@ export function sameRoute(route: string, pathname: string): boolean {
   return path === route;
 }
 
+/** Absolute address for a guide step. Never relative, so a nested page cannot resolve it into another section. */
+export function guideStepHref(pathname: string, route: string): string {
+  const locale = pathname.match(/^\/(en|fr|de|lb)(?=\/|$)/)?.[1] ?? "en";
+  const path = route.startsWith("/") ? route : `/${route}`;
+  return `/${locale}${path}`;
+}
+
 export function valueReady(value: string, shape?: "text" | "date"): boolean {
   const text = value.trim();
   if (shape === "date") {
