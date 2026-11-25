@@ -5832,5 +5832,24 @@
     "qrCopy": "Link kopéieren",
     "qrCopied": "Link kopéiert.",
     "identityHint": "Néideg fir d'Nationalekipp. Pflicht, wann d'Veräinsverwaltung un ass."
+  },
+  "Guide": {
+    "orderLicenseTitle": "Eng Lizenz bestellen",
+    "orderLicenseSelectTitle": "Memberen ukräizen",
+    "orderLicenseSelectBody": "Kräizt all Member un, deen dëst Joer eng Lizenz brauch. De Guide kräizt keen fir Iech un.",
+    "orderLicenseActionsTitle": "Aktiounen opmaachen",
+    "orderLicenseActionsBody": "Maacht Aktiounen op. Lizenz bestellen steet an deem Menü.",
+    "orderLicenseOpenTitle": "Eng Lizenz bestellen",
+    "orderLicenseOpenBody": "Klickt op Lizenz bestellen. D'Bestellsäit geet op. De Guide mécht se net fir Iech op.",
+    "orderLicenseYearTitle": "D'Joer wielen",
+    "orderLicenseYearBody": "Wielt dëst Joer oder d'nächst. D'Feld behält d'Joer, dat Dir wielt.",
+    "orderLicenseTypeTitle": "E Lizenztyp wielen",
+    "orderLicenseTypeBody": "Klickt op e Lizenztyp, dee Disponibel ass.",
+    "orderLicenseReviewTitle": "Kuckt, wie mat derbäi ass",
+    "orderLicenseReviewBody": "Liest d'Lëscht. Bereet Memberen sinn derbäi. Wann een net bestallt ka ginn, benotzt d'Knäppercher op dësem Panneau, an da gitt weider.",
+    "orderLicenseSubmitTitle": "D'Bestellung maachen",
+    "orderLicenseSubmitBody": "Klickt op de Knäppchen, fir d'Bestellung fir dat gewielt Joer ze erstellen. Et gëtt näischt geschéckt, ier Dir klickt.",
+    "orderLicenseSavedTitle": "D'Bestellung steet an der Lëscht",
+    "orderLicenseSavedBody": "D'Lizenzen bleiwen ausstoend, bis d'Federatioun d'Bezuelung kritt an se aktivéiert huet."
   }
 }

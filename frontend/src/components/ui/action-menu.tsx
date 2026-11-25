@@ -18,6 +18,8 @@ export type MenuAction = {
   confirmLabel?: string;
   /** A download or a page link stays available on a view-only desk. Edits do not. */
   availableWhenReadOnly?: boolean;
+  /** Stable help-guide hook. The guide file names this same value. */
+  guide?: string;
   onSelect: () => void;
 };
 
@@ -32,17 +34,20 @@ export function ActionMenu({
   label,
   disabled = false,
   actions,
+  guide,
 }: {
   label: string;
   disabled?: boolean;
   actions: MenuAction[];
+  /** Stable help-guide hook for the menu button itself. */
+  guide?: string;
 }) {
   const { readOnly, viewOnlyLabel } = useDeskAccess();
   const visible = readOnly ? actions.filter(menuActionOnReadOnlyDesk) : actions;
   const [open, setOpen] = useState(false);
   if (readOnly && visible.length === 0) {
     return (
-      <button type="button" className={menuTriggerClassName} aria-label={label} disabled title={viewOnlyLabel}>
+      <button type="button" className={menuTriggerClassName} aria-label={label} disabled title={viewOnlyLabel} data-guide={guide}>
         {label}
         <ChevronDown className="size-4 opacity-50" />
       </button>
@@ -50,7 +55,7 @@ export function ActionMenu({
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className={menuTriggerClassName} aria-label={label} disabled={disabled}>
+      <PopoverTrigger className={menuTriggerClassName} aria-label={label} disabled={disabled} data-guide={guide}>
         {label}
         <ChevronDown className="size-4 opacity-50" />
       </PopoverTrigger>
@@ -65,6 +70,7 @@ export function ActionMenu({
                 "text-destructive hover:bg-destructive/10 hover:text-destructive",
             )}
             disabled={action.disabled}
+            data-guide={action.guide}
             onClick={() => {
               setOpen(false);
               action.onSelect();

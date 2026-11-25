@@ -631,7 +631,9 @@ export default function ClubMembersOrderLicensesPage() {
           <span className="mx-auto mb-3 inline-flex size-8 items-center justify-center rounded-[var(--radius-chip)] bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]">
             <CheckCircle2 className="size-4" aria-hidden />
           </span>
-          <h2 className="text-section text-foreground">{t("orderLicenseSuccessTitle")}</h2>
+          <h2 className="text-section text-foreground" data-guide="order.saved">
+            {t("orderLicenseSuccessTitle")}
+          </h2>
           <p className="mt-2 text-sm text-muted">{t("orderLicenseSuccessSubtitle")}</p>
           <p className="mt-4 text-sm font-medium text-foreground">
             {t("orderLicenseSuccess", { count: createdOrder.memberCount })}
@@ -702,7 +704,7 @@ export default function ClubMembersOrderLicensesPage() {
                 {t("yearLabel")}
               </label>
               <Select value={targetYear} onValueChange={setTargetYear}>
-                <SelectTrigger aria-label={t("yearLabel")}>
+                <SelectTrigger aria-label={t("yearLabel")} data-guide="order.year">
                   <SelectValue placeholder={t("yearLabel")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -740,6 +742,7 @@ export default function ClubMembersOrderLicensesPage() {
                   <button
                     key={`eligible-${licenseType.id}`}
                     type="button"
+                    data-guide="order.license-type"
                     onClick={() => setSelectedLicenseTypeId(String(licenseType.id))}
                     className={cn(
                       "rounded-[var(--radius-card)] border p-4 text-left transition-colors",
@@ -889,7 +892,9 @@ export default function ClubMembersOrderLicensesPage() {
         <FormPanel>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-section text-foreground">{t("orderLicenseReviewTitle")}</h2>
+              <h2 className="text-section text-foreground" data-guide="order.review">
+                {t("orderLicenseReviewTitle")}
+              </h2>
               <p className="mt-1 text-sm text-muted">{t("orderLicenseReviewSubtitle")}</p>
             </div>
             {selectedReviewType ? (
@@ -975,7 +980,7 @@ export default function ClubMembersOrderLicensesPage() {
             <Button variant="outline" onClick={goToMembers}>
               {t("backToMembers")}
             </Button>
-            <Button variant="primary" onClick={handleCreateOrder} disabled={!canSubmit}>
+            <Button variant="primary" onClick={handleCreateOrder} disabled={!canSubmit} data-guide="order.submit">
               {isSubmitting ? t("orderLicenseProcessing") : t("orderLicenseButton", { year: targetYear })}
             </Button>
           </div>
