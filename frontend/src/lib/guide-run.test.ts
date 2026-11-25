@@ -31,7 +31,7 @@ describe("advanceOnClick", () => {
   it("accepts a name, a full date, and a year", () => {
     expect(valueReady("Keller", "text")).toBe(true);
     expect(valueReady("  ", "text")).toBe(false);
-    expect(valueReady("25.11.2026", "date")).toBe(true);
+    expect(valueReady("14.03.2015", "date")).toBe(true);
     expect(valueReady("2026-11-25", "date")).toBe(false);
     expect(valueReady("2026")).toBe(true);
     expect(valueReady("Male")).toBe(false);
