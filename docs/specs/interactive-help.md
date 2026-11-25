@@ -2,7 +2,7 @@
 
 Status: spec only. Faustino has decided the four open points below. No app code until he says go. Nothing in this pull request changes the app.
 
-A person who is stuck can search the manual from inside the app, or turn on a guide that paints the real screen the way the printed manual paints a screenshot: a rounded border around each control, a numbered disc on the top-left corner, and a short bubble that says what the control does. A guide opens as a step-by-step walk. “Show all steps” switches to every number at once.
+A person who is stuck can search the manual from inside the app, or turn on a guide that paints the real screen the way the printed manual paints a screenshot: a rounded border around each control, a numbered disc on the top-left corner, and a short bubble that says what the control does. The guide never does the task. The person clicks the real buttons, types the real values, and submits the real form while the marks stay on the screen. A guide opens as a step-by-step walk. “Show all steps” switches to every number at once, and that mode stays just as interactive.
 
 ## What the printed manual already does
 
@@ -89,38 +89,49 @@ The test in section 4 fails when a guide names a hook that no longer exists in t
 
 A field step also carries an example of a valid value, in the bubble, not as a placeholder that overwrites the field. Dates say the shape `DD.MM.YYYY`, for example `29.11.2026`. The field still stores ISO dates. The bubble never types into the field for the person.
 
+### The person does the work
+
+This is a requirement, not a nicety. Ordering a license, adding a member, importing a file, paying an invoice, or enrolling an authenticator all happen in the live app. The guide is a layer on top. It watches. It does not act.
+
+- The scrim, the border, the number disc, and the bubble are painted in a layer that does not sit in the page layout. `pointer-events` on that layer are `none`, except on the guide bar and the bubble’s own buttons (the manual link, Show all steps, Back, Next when it exists, Exit). A click or a keypress on a highlighted control hits that control. The dim never swallows it.
+- The guide does not fill a field, tick a box, open a menu, choose a row, or press Save. There is no “do it for me”.
+- The walk advances only when the real event for that step happens: a click on that control, a valid value on blur, the route changing to the step’s next page, the dialog or menu that holds the next control actually opening, or the app reporting success for the action (the order saved, the import finished, the payment confirmed, the authenticator enrolled). A loading state keeps the same step and says it is working. An error stays on the step, the bubble says what went wrong in the same words the app already uses, and the person fixes it and tries again.
+- Next exists only on a step marked `advance: "manual"`, which is a sentence to read and not a control to use. On a click step or a field step, Next is not shown. Back returns to the previous step without undoing what the person already saved.
+- “Show all steps” does not freeze the page. Every highlighted control still receives real clicks and real typing. Doing the action still counts. The numbers stay put until the person leaves the page or turns the switch off.
+- The guide id, the step id, and the mode (walk or map) are stored in `sessionStorage` for that browser tab. A route change, a reload, or a dialog that unmounts the page does not drop the guide. Coming back to the app in that tab paints the step that matches where they now are. Exit, Skip, or a different desk clears it. The stored value is only those ids, never what was typed.
+
 ### What you see
 
 The layer is drawn above the app and does not live inside the page layout, so it cannot shove controls around.
 
 - Everything outside the current steps is dimmed with the existing scrim token, about 50% in light and a little stronger in dark. The highlighted controls stay at full colour. There is a clear gap between the scrim and the border so the control reads as the subject.
 - The border and the numbered disc match `annotate()` in shape: rounded rect, disc straddling the top-left corner, contrasting numeral, thin ring. The stroke and the disc are `--link`, not the manual red. In map mode every step on the current page is numbered at once, which is what pages 12, 14 and 16 do.
-- The bubble sits beside the control on a wide screen: the step title, one or two sentences, and the example when it is a field. A text button in the bubble opens the manual section. The bubble has no second close control. Exit lives in the guide bar.
-- The guide bar is a slim strip, icon plus label: Back, Next, Show all steps, Exit. It shows “Step 2 of 6”. Exit is the only close.
+- The bubble sits beside the control on a wide screen and never covers it. It shows the step title, one or two sentences, and, for a field, the expected shape. A date field says `DD.MM.YYYY`, for example `29.11.2026`. If the value is not that shape yet, the bubble says so and stays. When the value is valid, it says so, and the step completes on blur or on the control’s own submit, whichever the step declares. A text button in the bubble opens the manual section. The bubble has no second close control. Exit lives in the guide bar.
+- The guide bar is a slim strip, icon plus label: Back, Show all steps, Exit, and Next only on an informational step. It shows “Step 2 of 6”. Exit is the only close.
 
 ### Two modes
 
 A guide always opens in the walk. The guide bar has a switch, icon plus the words “Show all steps”, which turns on the map. Turning it off returns to the step you were on.
 
-**Walk.** One step at a time. Next and Back move the bubble. When the step says `advance: "click"`, Next stays quiet until the person actually uses that control. `advance: "value"` waits until the field is non-empty and, when a pattern is given, until it matches (a date, an email, a year). `advance: "manual"` is for reading a result, and Next is enough.
+**Walk.** One step at a time. The person uses the real control. `advance: "click"` completes when that control fires its click. `advance: "value"` completes when the field blurs with a value that matches the pattern, or when the form’s own submit succeeds if the step says the submit is the moment that counts. `advance: "route"` completes when the address becomes the next step’s route. `advance: "dialog"` completes when that dialog or menu is open. `advance: "success"` completes when the app reports the action succeeded. `advance: "manual"` is the only kind with a Next button.
 
-**Map.** Every numbered step that is on this page is visible together, as in the manual. Clicking a number opens its bubble. Nothing advances by itself. This is the mode for “what does this screen do?”
+**Map.** Every numbered step that is on this page is visible together, as in the manual. The person can still click and type on every one of them. Opening a bubble does not block the control underneath it. This is the mode for “what does this screen do?”, and it is also a way to do the task with all the numbers showing.
 
-A walk can cross pages. “Order a license” starts on the members list, continues on the order page, and ends when the order is saved. The guide id and the step id are stored in `sessionStorage` for that browser tab. Refresh resumes. A different desk, Exit, or Skip clears it. Skip ends the guide without the celebration.
+A walk crosses pages by the person navigating, not by the guide. “Order a license” starts on the members list. The person clicks the real Order action. The app changes route. The guide is still there on the order page, on the next step. It ends when the person has saved the order and the app says so. Skip ends the guide without the celebration and without undoing the work already done.
 
 ### When the control is missing
 
-The layer scrolls the control into view, with `scroll-margin` so the bar and the bubble do not cover it. If the control is inside a closed menu or dialog, the step says which menu to open, and the walk waits. It does not open menus by itself. If the control is not in the DOM because this desk cannot see it, the step is omitted and the numbers stay contiguous.
+The layer scrolls the control into view, with `scroll-margin` so the bar and the bubble do not cover it. If the next control is inside a closed menu or dialog, the current step’s bubble names that menu, and the walk waits until the person opens it. The guide does not open it. Once it is open, the border moves onto the control inside. If the control is not in the DOM because this desk cannot see it, the step is omitted and the numbers stay contiguous. While the app is loading the next page or saving, the bubble stays on the current step and shows the app’s own progress, and it does not skip ahead.
 
 ### Phone
 
-Checked against a 428×926 CSS-pixel frame, the iPhone 12 Pro Max width in Brave. The disc and the border stay on the control. The bubble becomes a sheet docked above the guide bar, so it does not cover the field being explained. Map mode still shows every number, and only one bubble is open. The sheet is one column, the same type size as the rest of the app, and it does not force horizontal scrolling.
+Checked against a 428×926 CSS-pixel frame, the iPhone 12 Pro Max width in Brave. The disc and the border stay on the control. The bubble becomes a short sheet that sits above the on-screen keyboard and above the field being typed into. If the keyboard would cover the field, the page scrolls so the field stays visible between the keyboard and the sheet. The sheet does not cover the field, the keyboard, or the control the person must tap. Map mode still shows every number, and only one bubble is open. Taps on the numbered controls still reach those controls. The sheet is one column, the same type size as the rest of the app, and it does not force horizontal scrolling.
 
 ### Accessibility
 
-- The bubble is a dialog with a name (“Step 2 of 6, Order a license”). Focus moves into it when the step changes.
-- In a walk, focus is not trapped: the person must be able to reach the real control. Tab order is the bubble, then the highlighted control, then the guide bar.
-- Escape exits, the same as the Exit button, and asks only when the walk is past the first step.
+- The bubble is a complementary region named “Step 2 of 6, Order a license”. It is not a modal dialog. Focus is not moved into it and not trapped there. When a step is a field, focus is on that field so the person can type immediately. When a step is a button, focus stays where the person left it, and the bubble is announced with `aria-live` without stealing the keystrokes.
+- Tab reaches the real control. The guide bar comes after it, not instead of it. Nothing in the layer is allowed to call `preventDefault` on a click or a key that belongs to the highlighted control.
+- Escape exits, the same as the Exit button, and asks only when the walk is past the first step. Escape while typing in the field does not exit the guide. It does what that field already does.
 - The scrim is `aria-hidden`. The disc’s number is in the accessible name, not only in the picture.
 - `prefers-reduced-motion`: no pulse on the border, no confetti, and the bubble appears without a slide.
 
@@ -186,12 +197,12 @@ Each one starts from the latest `develop`. They are not stacked.
 1. **This spec.** Docs only. The decisions below are recorded here.
 2. **Help pack.** The build step from the four manuals, the side panel, header Help (icon plus label), search, desk filter, the “How do I…?” palette on `?`, and the one-time first-visit hint. No overlay.
 3. **Hooks.** `data-guide` on the controls for “Order a license” only, the guide file, and the test that fails if a hook is missing. Still no overlay.
-4. **The layer, opening in the walk.** Border and disc in `--link`, bubble, scrim, phone sheet, reduced motion, Back, Next, wait for the click or the value, cross the page change, resume, skip, exit, and progress. “Show all steps” switches to the map. Confetti at the end, then the completion tick for that guide.
+4. **The layer, opening in the walk.** Border and disc in `--link`, bubble, scrim that does not eat clicks, phone sheet clear of the field and the keyboard, reduced motion, Back, Exit, and Next only on an informational step. The step advances on the real click, the valid field, the route change, the dialog opening, or the app’s success, and it stays put on an error or while loading. State survives navigation and reload. “Show all steps” switches to the map and stays fully interactive. Confetti at the end, then the completion tick for that guide. The guide never fills or submits anything itself.
 5. **Add a member.**
 6. **Import members.**
 7. **Pay an LTF invoice.**
 8. **Authenticator setup.**
-9. **Smoke.** The Playwright tour for “Order a license”, fake data, Chromium only. It checks the walk and one toggle of “Show all steps”.
+9. **Smoke.** The Playwright tour for “Order a license”, fake data, Chromium only. It checks that the person can click the real control through the layer, that the guide advances only after that click, and that “Show all steps” still lets the page be used. It does not place an order by itself.
 
 ## Decisions, recorded
 
@@ -201,3 +212,4 @@ Faustino decided these. They are not open.
 2. **Opening mode.** The step-by-step walk. “Show all steps” is a switch to the map.
 3. **Extras.** The command palette, the first-visit hint, and the completion ticks are in the first build. Section 3 and pull requests 2 and 4 above include them.
 4. **Order.** Order a license, then add a member, import members, pay an LTF invoice, authenticator setup.
+5. **The person does the work.** Added after the four choices above. The guide is a non-blocking layer on the live app. The person clicks, types, and submits for real. The guide advances on those events and never fills or submits anything itself. “Show all steps” stays fully interactive.
