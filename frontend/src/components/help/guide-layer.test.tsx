@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { GuideLayer } from "@/components/help/guide-layer";
@@ -143,9 +146,18 @@ describe("GuideLayer", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     const highlight = document.querySelector<HTMLElement>("[data-guide-highlight='members.create']");
-    expect(highlight?.className).toContain("guide-run");
-    expect(document.querySelector(".guide-run-fill")).not.toBeNull();
-    expect(document.querySelector(".guide-run-disc")).not.toBeNull();
+    const ring = highlight?.querySelector(".guide-run");
+    expect(ring).not.toBeNull();
+    expect(highlight?.className).not.toContain("guide-run");
+    const bubble = document.querySelector("aside");
+    expect(bubble?.className).toContain("guide-static-border");
+    expect(bubble?.className).not.toContain("guide-run");
+    const nav = document.querySelector("[data-guide-nav]");
+    expect(nav?.className).toContain("guide-static-border");
+    expect(nav?.className).not.toContain("guide-run");
+    const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+    expect(css).toContain("mask-composite: exclude");
+    expect(css).toMatch(/prefers-reduced-motion:\s*reduce[\s\S]*\.guide-run\s*\{[^}]*animation:\s*none/);
   });
 
   it("opens the members list from a member page", () => {

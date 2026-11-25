@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { freshTotp, invalidateTotpWindow } from "./totp.mjs";
 
 const password = process.env.SMOKE_PASSWORD || "pass12345";
@@ -28,6 +28,56 @@ async function signIn(page: Page, username: string) {
       invalidateTotpWindow();
     }
   }
+}
+
+async function expectStaticLinkBorder(locator: Locator) {
+  const style = await locator.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    const probe = document.createElement("span");
+    probe.style.color = "var(--link)";
+    document.body.appendChild(probe);
+    const link = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      animationName: computed.animationName,
+      borderTopWidth: computed.borderTopWidth,
+      borderTopStyle: computed.borderTopStyle,
+      borderTopColor: computed.borderTopColor,
+      backgroundImage: computed.backgroundImage,
+      link,
+    };
+  });
+  expect(style.animationName).toBe("none");
+  expect(style.borderTopWidth).toBe("1px");
+  expect(style.borderTopStyle).toBe("solid");
+  expect(style.backgroundImage).toBe("none");
+  expect(style.borderTopColor).toBe(style.link);
+}
+
+async function expectRingDoesNotFill(highlight: Locator) {
+  const outer = await highlight.evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(outer).toBe("none");
+  const ring = highlight.locator(".guide-run");
+  const style = await ring.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      backgroundImage: computed.backgroundImage,
+      backgroundColor: computed.backgroundColor,
+      borderTopWidth: computed.borderTopWidth,
+      maskComposite: computed.maskComposite,
+      webkitMaskComposite: computed.getPropertyValue("-webkit-mask-composite"),
+    };
+  });
+  expect(style.backgroundImage).toContain("conic-gradient");
+  expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(style.borderTopWidth).toBe("1px");
+  expect(`${style.maskComposite} ${style.webkitMaskComposite}`.toLowerCase()).toMatch(/exclude|xor/);
+}
+
+async function expectStaticGuideChrome(page: Page, highlight: Locator, bubble: Locator) {
+  await expectRingDoesNotFill(highlight);
+  await expectStaticLinkBorder(bubble);
+  await expectStaticLinkBorder(page.locator("[data-guide-nav]"));
 }
 
 test.describe.configure({ mode: "serial" });
@@ -206,8 +256,10 @@ test("a guide highlight moves onto the open Members menu", async ({ page }) => {
   await page.getByRole("button", { name: "Help" }).click();
   await page.getByRole("button", { name: "Adding a member" }).click();
   await page.getByRole("button", { name: "Show me" }).click();
-  await expect(page.getByRole("complementary", { name: /Step 1 of 9, Add a member/ })).toBeVisible();
+  const stepOne = page.getByRole("complementary", { name: /Step 1 of 9, Add a member/ });
+  await expect(stepOne).toBeVisible();
   await expect(page.locator("[data-guide-highlight='members.menu']")).toBeVisible();
+  await expectStaticGuideChrome(page, page.locator("[data-guide-highlight='members.menu']"), stepOne);
 
   await page.locator("[data-guide='members.menu']").click();
   const bubble = page.getByRole("complementary", { name: /Step 2 of 9, Add a member/ });
@@ -224,6 +276,8 @@ test("a guide highlight moves onto the open Members menu", async ({ page }) => {
   expect(Math.abs((highlightBox?.x ?? 0) - (itemBox?.x ?? 0))).toBeLessThan(24);
   expect((bubbleBox?.width ?? 0) > 80).toBe(true);
   expect((bubbleBox?.y ?? -1) >= 0).toBe(true);
+  await expectRingDoesNotFill(highlight);
+  await expectStaticLinkBorder(bubble);
 });
 
 test("the pay guide opens invoices and does not pay", async ({ page }) => {

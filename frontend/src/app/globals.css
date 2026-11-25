@@ -437,38 +437,50 @@
   }
 }
 
-/* One-pixel link-blue border that travels around help highlights, number discs, and the instruction bubble. */
+/* 1px ring on the edge of a control. The mask removes the interior so the button underneath stays readable. */
 .guide-run {
+  box-sizing: border-box;
   border: 1px solid transparent;
-  background:
-    linear-gradient(var(--guide-run-fill, transparent), var(--guide-run-fill, transparent)) padding-box,
-    conic-gradient(
-      from var(--guide-run-angle),
-      var(--link),
-      color-mix(in oklab, var(--link) 28%, transparent),
-      var(--link)
-    )
-      border-box;
+  padding: 0;
+  background: conic-gradient(
+    from var(--guide-run-angle),
+    var(--link),
+    color-mix(in oklab, var(--link) 28%, transparent),
+    var(--link)
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
   animation: guide-run 1.2s linear infinite;
 }
 
-.guide-run-fill {
-  --guide-run-fill: var(--overlay);
+.guide-static-border {
+  border: 1px solid var(--link);
+  animation: none;
+}
+
+.guide-bubble {
+  background: var(--overlay);
   color: var(--overlay-foreground);
   box-shadow: var(--shadow-float);
 }
 
-.guide-run-disc {
-  --guide-run-fill: var(--overlay);
+.guide-disc {
+  border: 1px solid var(--link);
+  background: var(--overlay);
   color: var(--link);
+  animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .guide-run {
     animation: none;
-    background:
-      linear-gradient(var(--guide-run-fill, transparent), var(--guide-run-fill, transparent)) padding-box,
-      linear-gradient(var(--link), var(--link)) border-box;
+    background: var(--link);
   }
 }
 
