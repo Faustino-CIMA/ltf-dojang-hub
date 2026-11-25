@@ -5919,6 +5919,19 @@
     "payNowTitle": "Jetzt zahlen",
     "payNowBody": "Das öffnet die Kartenseite. Sie geben die Karte dort ein. Abgebucht wird erst, wenn Sie bestätigen.",
     "payDoneTitle": "Zahlung erfolgreich",
-    "payDoneBody": "Die Lizenzen werden aktiviert. Wenn Sie ohne zu zahlen gehen, wird nichts abgebucht."
+    "payDoneBody": "Die Lizenzen werden aktiviert. Wenn Sie ohne zu zahlen gehen, wird nichts abgebucht.",
+    "authenticatorTitle": "Authenticator einrichten",
+    "authenticatorSecurityTitle": "Sicherheit",
+    "authenticatorSecurityBody": "Authenticator, Wiederherstellungscodes und das Passwort sind hier.",
+    "authenticatorSetupTitle": "Authenticator-App",
+    "authenticatorSetupBody": "Drücken Sie Authenticator einrichten. Steht dort Schlüssel ändern, ist schon eine App eingerichtet.",
+    "authenticatorCodeTitle": "Code",
+    "authenticatorCodeBody": "Geben Sie den sechsstelligen Code aus der App ein.",
+    "authenticatorConfirmTitle": "Weiter",
+    "authenticatorConfirmBody": "Das prüft den Code. Wird er abgelehnt, bleiben Sie hier und versuchen den aktuellen Code.",
+    "authenticatorSavedTitle": "Ich habe diese Codes gespeichert",
+    "authenticatorSavedBody": "Bewahren Sie sie sicher auf, weg vom Telefon, und drücken Sie dann hier.",
+    "authenticatorEnabledTitle": "Die Anmeldung in zwei Schritten ist an.",
+    "authenticatorEnabledBody": "Diese Rolle kann sich jetzt öffnen."
   }
 }

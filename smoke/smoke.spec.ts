@@ -290,6 +290,54 @@ test("the pay guide started on a member page opens the invoices list", async ({ 
   await expect(page.locator("[data-guide-highlight='invoice.accounting']")).toBeVisible();
 });
 
+test("the authenticator guide opens Security and does not enrol", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  let enrolmentStarted = false;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/auth/mfa/totp") || request.url().includes("/api/auth/mfa/recovery")) {
+      enrolmentStarted = true;
+    }
+  });
+  await page.goto("/en/dashboard/club/members");
+  await page.locator("[data-guide='members.select-row']").first().waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("textbox", { name: "How do I…?" }).fill("authenticator");
+  const card = page.getByRole("heading", { name: "Roles: who can do what" });
+  await expect(card).toBeVisible();
+  await card.locator("xpath=ancestor::li[1]").getByRole("button", { name: "Show me" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/members/);
+  await expect(page).not.toHaveURL(/shop/);
+  await expect(page.getByRole("complementary", { name: /Step 1 of 6, Set up the authenticator app/ })).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='mfa.security']")).toBeVisible();
+
+  await page.locator("[data-guide='mfa.security']").click();
+  const setup = page.locator("[data-guide='mfa.setup']");
+  const setupHighlight = page.locator("[data-guide-highlight='mfa.setup']");
+  await expect(page.getByRole("complementary", { name: /Step 2 of 6, Set up the authenticator app/ })).toBeVisible();
+  await expect(setupHighlight).toBeVisible();
+  await expect(setup).toBeVisible();
+  const setupBox = await setup.boundingBox();
+  const setupHighlightBox = await setupHighlight.boundingBox();
+  expect(Math.abs((setupHighlightBox?.y ?? 0) - (setupBox?.y ?? 0))).toBeLessThan(24);
+  expect(Math.abs((setupHighlightBox?.x ?? 0) - (setupBox?.x ?? 0))).toBeLessThan(24);
+  await expect(page.getByText("Setup key")).toHaveCount(0);
+  await expect(page.getByText("Two-step sign-in is on.")).toHaveCount(0);
+  expect(enrolmentStarted).toBe(false);
+});
+
+test("the authenticator guide started on a member page stays there", async ({ page }) => {
+  test.skip(!openId, "Seed the smoke club before this run.");
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto(`/en/dashboard/club/members/${openId}`);
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("textbox", { name: "How do I…?" }).fill("authenticator");
+  await page.getByRole("heading", { name: "Roles: who can do what" }).locator("xpath=ancestor::li[1]").getByRole("button", { name: "Show me" }).click();
+  await expect(page).toHaveURL(new RegExp(`/en/dashboard/club/members/${openId}$`));
+  await expect(page).not.toHaveURL(/shop/);
+  await expect(page.getByRole("complementary", { name: /Step 1 of 6, Set up the authenticator app/ })).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='mfa.security']")).toBeVisible();
+});
+
 test("the import guide started on a member page opens the members list", async ({ page }) => {
   test.skip(!openId, "Seed the smoke club before this run.");
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");

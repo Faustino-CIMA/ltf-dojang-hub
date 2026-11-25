@@ -1,4 +1,5 @@
 import addMember from "@/content/guides/add-member.json";
+import authenticator from "@/content/guides/authenticator.json";
 import importMembers from "@/content/guides/import-members.json";
 import orderLicense from "@/content/guides/order-license.json";
 import payInvoice from "@/content/guides/pay-invoice.json";
@@ -10,6 +11,7 @@ export const guides: GuideDefinition[] = [
   addMember as GuideDefinition,
   importMembers as GuideDefinition,
   payInvoice as GuideDefinition,
+  authenticator as GuideDefinition,
 ];
 
 export function guideById(id: string): GuideDefinition | null {

@@ -148,6 +148,72 @@ describe("GuideLayer", () => {
     expect(document.querySelector(".guide-run-disc")).not.toBeNull();
   });
 
+  it("stays on a page that already shows Security", () => {
+    render(
+      <>
+        <button type="button" data-guide="mfa.security">
+          Security
+        </button>
+        <GuideLayer
+          desk="club_admin"
+          pathname="/fr/dashboard/ltf"
+          run={{ id: "authenticator", stepId: "security", mode: "walk" }}
+          onRunChange={() => undefined}
+          onExit={() => undefined}
+          onOpenManual={() => undefined}
+        />
+      </>,
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-guide-highlight='mfa.security']")).not.toBeNull();
+  });
+
+  it("waits for the saved-codes control before leaving Continue", async () => {
+    let run: GuideRun = { id: "authenticator", stepId: "confirm", mode: "walk" };
+    const onRunChange = jest.fn((next: GuideRun) => {
+      run = next;
+    });
+    const layer = (current: GuideRun) => (
+      <GuideLayer
+        desk="club_admin"
+        pathname="/en/dashboard/club"
+        run={current}
+        onRunChange={onRunChange}
+        onExit={() => undefined}
+        onOpenManual={() => undefined}
+      />
+    );
+    const view = render(
+      <div>
+        {layer(run)}
+        <div>
+          <button type="button" data-guide="mfa.confirm">
+            Continue
+          </button>
+        </div>
+      </div>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(onRunChange).not.toHaveBeenCalled();
+    view.rerender(
+      <div>
+        {layer(run)}
+        <div>
+          <button type="button" data-guide="mfa.confirm">
+            Continue
+          </button>
+          <button type="button" data-guide="mfa.saved">
+            I have saved these codes
+          </button>
+        </div>
+      </div>,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(onRunChange).toHaveBeenCalledWith({ id: "authenticator", stepId: "saved", mode: "walk" });
+  });
+
   it("opens the members list from a member page", () => {
     render(
       <GuideLayer

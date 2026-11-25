@@ -1,0 +1,58 @@
+{
+  "id": "authenticator",
+  "desks": ["club_admin", "ltf_admin", "ltf_finance", "ops"],
+  "titleKey": "Guide.authenticatorTitle",
+  "manual": "roles",
+  "steps": [
+    {
+      "id": "security",
+      "anchor": "mfa.security",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorSecurityTitle",
+      "bodyKey": "Guide.authenticatorSecurityBody",
+      "advance": "click"
+    },
+    {
+      "id": "setup",
+      "anchor": "mfa.setup",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorSetupTitle",
+      "bodyKey": "Guide.authenticatorSetupBody",
+      "advance": "click"
+    },
+    {
+      "id": "code",
+      "anchor": "mfa.code",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorCodeTitle",
+      "bodyKey": "Guide.authenticatorCodeBody",
+      "advance": "value",
+      "shape": "text"
+    },
+    {
+      "id": "confirm",
+      "anchor": "mfa.confirm",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorConfirmTitle",
+      "bodyKey": "Guide.authenticatorConfirmBody",
+      "advance": "click",
+      "waitForAnchor": true
+    },
+    {
+      "id": "saved",
+      "anchor": "mfa.saved",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorSavedTitle",
+      "bodyKey": "Guide.authenticatorSavedBody",
+      "advance": "click"
+    },
+    {
+      "id": "enabled",
+      "anchor": "mfa.enabled",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorEnabledTitle",
+      "bodyKey": "Guide.authenticatorEnabledBody",
+      "advance": "success"
+    }
+  ]
+}
