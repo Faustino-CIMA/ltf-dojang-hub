@@ -12,6 +12,8 @@ export type MemberFilterGroup = {
   count: number;
   pressedLabel: string;
   children: ReactNode;
+  /** Stable help-guide hook for the filter button itself. */
+  guide?: string;
 };
 
 const triggerClassName =
@@ -59,7 +61,11 @@ export function MemberFilterBar({
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       {groups.map((group) => (
         <Popover key={group.id}>
-          <PopoverTrigger className={triggerClassName} aria-label={group.count > 0 ? group.pressedLabel : group.label}>
+          <PopoverTrigger
+            className={triggerClassName}
+            aria-label={group.count > 0 ? group.pressedLabel : group.label}
+            data-guide={group.guide}
+          >
             <span>{group.label}</span>
             {group.count > 0 ? (
               <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-chip)] bg-[var(--accent-soft)] px-1.5 text-xs font-semibold text-[var(--foreground)]">

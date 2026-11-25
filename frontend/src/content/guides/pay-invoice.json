@@ -1,0 +1,48 @@
+{
+  "id": "pay-invoice",
+  "desks": ["club_admin"],
+  "titleKey": "Guide.payInvoiceTitle",
+  "manual": "pay-ltf",
+  "steps": [
+    {
+      "id": "accounting",
+      "anchor": "invoice.accounting",
+      "route": "/dashboard/club/invoices",
+      "titleKey": "Guide.payAccountingTitle",
+      "bodyKey": "Guide.payAccountingBody",
+      "advance": "dialog"
+    },
+    {
+      "id": "ledger",
+      "anchor": "invoice.ledger-ltf",
+      "route": "/dashboard/club/invoices",
+      "titleKey": "Guide.payLedgerTitle",
+      "bodyKey": "Guide.payLedgerBody",
+      "advance": "click"
+    },
+    {
+      "id": "row-menu",
+      "anchor": "invoice.row-menu",
+      "route": "/dashboard/club/invoices",
+      "titleKey": "Guide.payMenuTitle",
+      "bodyKey": "Guide.payMenuBody",
+      "advance": "dialog"
+    },
+    {
+      "id": "pay",
+      "anchor": "invoice.pay-now",
+      "route": "/dashboard/club/invoices",
+      "titleKey": "Guide.payNowTitle",
+      "bodyKey": "Guide.payNowBody",
+      "advance": "click"
+    },
+    {
+      "id": "paid",
+      "anchor": "invoice.paid",
+      "route": "/dashboard/club/invoices",
+      "titleKey": "Guide.payDoneTitle",
+      "bodyKey": "Guide.payDoneBody",
+      "advance": "success"
+    }
+  ]
+}

@@ -5908,6 +5908,17 @@
     "importRunTitle": "Import starten",
     "importRunBody": "Dieser Schritt speichert. Bleiben Sie hier stehen, wenn Sie nur schauen wollten.",
     "importSavedTitle": "Importergebnis",
-    "importSavedBody": "Angelegt, aktualisiert und übersprungen werden hier gezählt."
+    "importSavedBody": "Angelegt, aktualisiert und übersprungen werden hier gezählt.",
+    "payInvoiceTitle": "Eine Rechnung bezahlen",
+    "payAccountingTitle": "Buchhaltung",
+    "payAccountingBody": "Die LTF-Rechnungen sind in diesem Filter.",
+    "payLedgerTitle": "LTF",
+    "payLedgerBody": "Das sind die Rechnungen des Verbands für Ihre Lizenzbestellungen.",
+    "payMenuTitle": "Zeilenaktionen",
+    "payMenuBody": "Jetzt zahlen steht in diesem Menü, solange ein Betrag offen ist.",
+    "payNowTitle": "Jetzt zahlen",
+    "payNowBody": "Das öffnet die Kartenseite. Sie geben die Karte dort ein. Abgebucht wird erst, wenn Sie bestätigen.",
+    "payDoneTitle": "Zahlung erfolgreich",
+    "payDoneBody": "Die Lizenzen werden aktiviert. Wenn Sie ohne zu zahlen gehen, wird nichts abgebucht."
   }
 }

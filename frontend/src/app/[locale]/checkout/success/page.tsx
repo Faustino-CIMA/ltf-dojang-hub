@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Mouse
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
+import { PayGuideFinish } from "@/components/help/pay-guide-finish";
 import { Button } from "@/components/ui/button";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { LoadingCard } from "@/components/ui/loading-card";
@@ -128,7 +129,10 @@ function CheckoutSuccessContent() {
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
       <ActionNotices error={phase !== "confirming" ? errorMessage : null} onDismiss={() => setErrorMessage(null)} />
       <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-card p-3 text-center border border-border">
-        <h1 className="text-2xl font-semibold text-foreground">{t("successTitle")}</h1>
+        <h1 className="text-2xl font-semibold text-foreground" data-guide="invoice.paid">
+          {t("successTitle")}
+        </h1>
+        <PayGuideFinish active={phase === "ready" && Boolean(sessionId)} />
         <p className="mt-3 text-sm text-muted">{subtitle}</p>
         {phase === "confirming" ? (
           <div className="mt-6 text-left">

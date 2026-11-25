@@ -5909,6 +5909,17 @@
     "importRunTitle": "Import starten",
     "importRunBody": "Dëse Schrëtt späichert. Halt hei un, wann Dir nëmme kucke wollt.",
     "importSavedTitle": "Importresultat",
-    "importSavedBody": "Ugeluecht, aktualiséiert an iwwersprong ginn hei gezielt."
+    "importSavedBody": "Ugeluecht, aktualiséiert an iwwersprong ginn hei gezielt.",
+    "payInvoiceTitle": "Eng Rechnung bezuelen",
+    "payAccountingTitle": "Buchhaltung",
+    "payAccountingBody": "D'LTF-Rechnunge sinn an dësem Filter.",
+    "payLedgerTitle": "LTF",
+    "payLedgerBody": "Dat sinn d'Rechnunge vum Verband fir Är Lizenzbestellungen.",
+    "payMenuTitle": "Rei-Aktiounen",
+    "payMenuBody": "Elo bezuelen ass an dësem Menü, soulaang e Betrag nach op ass.",
+    "payNowTitle": "Elo bezuelen",
+    "payNowBody": "Dat mécht d'Kaartesäit op. Dir gitt d'Kaart do an. Et gëtt eréischt ofgebucht, wann Dir bestätegt.",
+    "payDoneTitle": "Bezuelung erfollegräich",
+    "payDoneBody": "D'Lizenzen ginn aktivéiert. Wann Dir fortgeet ouni ze bezuelen, gëtt näischt ofgebucht."
   }
 }

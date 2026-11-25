@@ -311,6 +311,7 @@ export default function ClubAdminInvoicesPage() {
         return (
           <RowActionMenu
             label={common("rowActionsLabel")}
+            guide={canPayFederation ? "invoice.row-menu" : undefined}
             actions={[
               ...(canPayFederation
                 ? [
@@ -319,6 +320,7 @@ export default function ClubAdminInvoicesPage() {
                         icon: <Banknote aria-hidden />,
                       label: paying ? common("paymentProcessing") : common("payNow"),
                       disabled: paying,
+                      guide: "invoice.pay-now",
                       onSelect: () => void handlePayNow(row),
                     },
                   ]

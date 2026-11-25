@@ -226,6 +226,70 @@ test("a guide highlight moves onto the open Members menu", async ({ page }) => {
   expect((bubbleBox?.y ?? -1) >= 0).toBe(true);
 });
 
+test("the pay guide opens invoices and does not pay", async ({ page }) => {
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  let checkoutStarted = false;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("create-checkout-session")) {
+      checkoutStarted = true;
+    }
+  });
+  await page.goto("/en/dashboard/club/members");
+  await page.locator("[data-guide='members.select-row']").first().waitFor();
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Paying the LTF" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/invoices$/);
+  await expect(page).not.toHaveURL(/shop/);
+  const stepOne = page.getByRole("complementary", { name: /Step 1 of 5, Pay an invoice/ });
+  await expect(stepOne).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='invoice.accounting']")).toBeVisible();
+
+  await page.locator("[data-guide='invoice.accounting']").click();
+  const ledger = page.locator("[data-guide='invoice.ledger-ltf']");
+  const ledgerHighlight = page.locator("[data-guide-highlight='invoice.ledger-ltf']");
+  await expect(page.getByRole("complementary", { name: /Step 2 of 5, Pay an invoice/ })).toBeVisible();
+  await expect(ledgerHighlight).toBeVisible();
+  await expect(ledger).toBeVisible();
+  const ledgerBox = await ledger.boundingBox();
+  const ledgerHighlightBox = await ledgerHighlight.boundingBox();
+  expect(Math.abs((ledgerHighlightBox?.y ?? 0) - (ledgerBox?.y ?? 0))).toBeLessThan(24);
+  expect(Math.abs((ledgerHighlightBox?.x ?? 0) - (ledgerBox?.x ?? 0))).toBeLessThan(24);
+
+  await ledger.click();
+  await expect(page.getByRole("complementary", { name: /Step 3 of 5, Pay an invoice/ })).toBeVisible();
+
+  const menu = page.locator("[data-guide='invoice.row-menu']");
+  if ((await menu.count()) > 0) {
+    await menu.first().click();
+    const pay = page.locator("[data-guide='invoice.pay-now']").first();
+    const payHighlight = page.locator("[data-guide-highlight='invoice.pay-now']");
+    await expect(page.getByRole("complementary", { name: /Step 4 of 5, Pay an invoice/ })).toBeVisible();
+    await expect(payHighlight).toBeVisible();
+    await expect(pay).toBeVisible();
+    const payBox = await pay.boundingBox();
+    const payHighlightBox = await payHighlight.boundingBox();
+    expect(Math.abs((payHighlightBox?.y ?? 0) - (payBox?.y ?? 0))).toBeLessThan(24);
+    expect(Math.abs((payHighlightBox?.x ?? 0) - (payBox?.x ?? 0))).toBeLessThan(24);
+  }
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/invoices$/);
+  await expect(page.getByRole("heading", { name: "Payment successful" })).toHaveCount(0);
+  expect(checkoutStarted).toBe(false);
+});
+
+test("the pay guide started on a member page opens the invoices list", async ({ page }) => {
+  test.skip(!openId, "Seed the smoke club before this run.");
+  await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");
+  await page.goto(`/en/dashboard/club/members/${openId}`);
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Paying the LTF" }).click();
+  await page.getByRole("button", { name: "Show me" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard\/club\/invoices$/);
+  await expect(page).not.toHaveURL(/shop/);
+  await expect(page.getByRole("complementary", { name: /Step 1 of 5, Pay an invoice/ })).toBeVisible();
+  await expect(page.locator("[data-guide-highlight='invoice.accounting']")).toBeVisible();
+});
+
 test("the import guide started on a member page opens the members list", async ({ page }) => {
   test.skip(!openId, "Seed the smoke club before this run.");
   await signIn(page, process.env.SMOKE_USERNAME || "smoke-club");

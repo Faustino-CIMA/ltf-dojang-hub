@@ -52,6 +52,7 @@ export function ClubLedgerFilter({
               type="button"
               role="radio"
               aria-checked={selected}
+              data-guide={option.value === "federation" ? "invoice.ledger-ltf" : undefined}
               onClick={() => onChange(option.value)}
               className={cn(
                 "inline-flex min-w-[3.5rem] items-center justify-center rounded-[calc(var(--radius-form)-2px)] px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-secondary",

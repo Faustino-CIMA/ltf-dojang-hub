@@ -5908,6 +5908,17 @@
     "importRunTitle": "Run import",
     "importRunBody": "This is the step that saves. Stop here if you only wanted to look.",
     "importSavedTitle": "Import result",
-    "importSavedBody": "Created, updated and skipped are counted here."
+    "importSavedBody": "Created, updated and skipped are counted here.",
+    "payInvoiceTitle": "Pay an invoice",
+    "payAccountingTitle": "Accounting",
+    "payAccountingBody": "LTF invoices are in that filter.",
+    "payLedgerTitle": "LTF",
+    "payLedgerBody": "These are the federation invoices for your license orders.",
+    "payMenuTitle": "Row actions",
+    "payMenuBody": "Pay now is in this menu when an amount is still open.",
+    "payNowTitle": "Pay now",
+    "payNowBody": "This opens the card page. You enter the card there. Nothing is charged until you confirm.",
+    "payDoneTitle": "Payment successful",
+    "payDoneBody": "The licenses are activated. If you leave without paying, nothing is charged."
   }
 }
