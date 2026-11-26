@@ -24,27 +24,52 @@ function variant(overrides: Partial<ShopVariant> = {}): ShopVariant {
 }
 
 describe("ShopQrStickers", () => {
-  it("shows a QR preview for each active size", () => {
+  it("shows the item name, price, and a real size", () => {
     render(
       <ShopQrStickers
+        name="Winter training jacket"
         variants={[
           variant(),
-          variant({ id: 2, label: "L", qr_png: "data:image/png;base64,bbbb" }),
-          variant({ id: 3, label: "Retired", is_active: false }),
+          variant({ id: 2, label: "L", sale_price: "12.5", qr_png: "data:image/png;base64,bbbb" }),
+          variant({ id: 3, label: "Retired", is_active: false, sale_price: "9.00" }),
         ]}
       />
     );
 
+    expect(screen.getAllByText("Winter training jacket")).toHaveLength(2);
+    expect(screen.getByText("10.00 EUR")).toBeInTheDocument();
+    expect(screen.getByText("12.50 EUR")).toBeInTheDocument();
+    expect(screen.getByText("M")).toBeInTheDocument();
+    expect(screen.getByText("L")).toBeInTheDocument();
+    expect(screen.queryByText("Retired")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "shopQrAlt:M" })).toHaveAttribute(
       "src",
       "data:image/png;base64,aaaa"
     );
-    expect(screen.getByRole("img", { name: "shopQrAlt:L" })).toBeInTheDocument();
-    expect(screen.queryByText("Retired")).not.toBeInTheDocument();
+  });
+
+  it("omits Standard when the item has no size", () => {
+    render(
+      <ShopQrStickers
+        name="Club belt"
+        variants={[variant({ label: "Standard", sale_price: "10.00" })]}
+      />
+    );
+
+    expect(screen.getByText("Club belt")).toBeInTheDocument();
+    expect(screen.getByText("10.00 EUR")).toBeInTheDocument();
+    expect(screen.queryByText("Standard")).not.toBeInTheDocument();
+  });
+
+  it("clamps a long item name so the tiles stay aligned", () => {
+    const name = "Club winter training jacket with a hood and a small crest";
+    render(<ShopQrStickers name={name} variants={[variant({ label: "160" })]} />);
+    expect(screen.getByText(name)).toHaveClass("line-clamp-2");
+    expect(screen.getByText("160")).toBeInTheDocument();
   });
 
   it("says when a size has no QR image", () => {
-    render(<ShopQrStickers variants={[variant({ qr_png: "" })]} />);
+    render(<ShopQrStickers name="Club belt" variants={[variant({ qr_png: "" })]} />);
     expect(screen.getByText("shopQrPreviewEmpty")).toBeInTheDocument();
   });
 });
