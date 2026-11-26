@@ -514,19 +514,19 @@ def _photo_data_uri(field) -> str:
     return f"data:image/{suffix};base64," + base64.b64encode(data).decode("ascii")
 
 
-def render_stickers_pdf(
+def _sticker_price(value) -> str:
+    amount = value if isinstance(value, Decimal) else Decimal(str(value or "0"))
+    return f"{amount:.2f}"
+
+
+def sticker_sheet_html(
     item: ShopItem,
     *,
     copies: int,
     variant: ShopVariant | None = None,
     variants: list[ShopVariant] | None = None,
     start_slot: int = 1,
-    x_offset_mm: str | Decimal = "0.00",
-    y_offset_mm: str | Decimal = "0.00",
-    base_url: str,
-) -> bytes | None:
-    if load_html() is None:
-        return None
+) -> str:
     copies = max(1, min(int(copies or 1), 400))
     start = max(1, min(int(start_slot or 1), L7121_SLOT_COUNT))
     selected = list(variants or [])
@@ -536,13 +536,16 @@ def render_stickers_pdf(
     for row in selected:
         payload = qr_payload(row)
         qr = _qr_data_uri(payload, box_size=8, border=2)
+        size = (row.label or "").strip()
+        if size == "Standard":
+            size = ""
         for _ in range(copies):
             labels.append(
                 {
                     "sku": item.sku,
                     "name": item.name,
-                    "variant": "" if row.label == "Standard" else row.label,
-                    "price": row.resolved_sale_price(),
+                    "variant": size,
+                    "price": _sticker_price(row.resolved_sale_price()),
                     "qr": qr,
                 }
             )
@@ -570,7 +573,7 @@ def render_stickers_pdf(
     from clubs.document_copy import resolve_document_language, shop_labels
 
     shop_copy = shop_labels(resolve_document_language(club=item.club))
-    html = render_to_string(
+    return render_to_string(
         "shop/stickers.html",
         {
             "labels": shop_copy,
@@ -579,6 +582,28 @@ def render_stickers_pdf(
             "sheet_width_mm": f"{L7121_SHEET_WIDTH_MM:.2f}",
             "sheet_height_mm": f"{L7121_SHEET_HEIGHT_MM:.2f}",
         },
+    )
+
+
+def render_stickers_pdf(
+    item: ShopItem,
+    *,
+    copies: int,
+    variant: ShopVariant | None = None,
+    variants: list[ShopVariant] | None = None,
+    start_slot: int = 1,
+    x_offset_mm: str | Decimal = "0.00",
+    y_offset_mm: str | Decimal = "0.00",
+    base_url: str,
+) -> bytes | None:
+    if load_html() is None:
+        return None
+    html = sticker_sheet_html(
+        item,
+        copies=copies,
+        variant=variant,
+        variants=variants,
+        start_slot=start_slot,
     )
     from licenses.card_rendering import _apply_printer_offset_to_pdf
 

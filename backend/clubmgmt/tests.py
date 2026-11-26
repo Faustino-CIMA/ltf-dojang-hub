@@ -2360,6 +2360,68 @@ class ClubShopTests(TestCase):
         )
         self.assertEqual(missing.status_code, 400)
 
+    def test_sticker_sheet_shows_name_price_and_size(self):
+        import re
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        from .models import ShopItem
+        from .shop import sticker_sheet_html
+
+        def visible(html):
+            return re.sub(r'src="[^"]*"', "", html)
+
+        self._unlock()
+        self._auth(self.club_admin)
+        long_name = "Junior club winter training jacket with a hood and a small crest"
+        sized = self.client.post(
+            f"/api/club-management/shop/items/?club={self.club.id}",
+            {
+                "name": long_name,
+                "category": "tshirt",
+                "sizes": [{"label": "160", "sale_price": "45.00"}],
+            },
+            format="json",
+        )
+        self.assertEqual(sized.status_code, 201, sized.data)
+        sized_item = ShopItem.objects.get(pk=sized.data["id"])
+        html = sticker_sheet_html(sized_item, copies=1, variants=list(sized_item.variants.all()))
+        sheet = visible(html)
+        self.assertIn(long_name, sheet)
+        self.assertIn("45.00 EUR", sheet)
+        self.assertIn(">160<", sheet)
+        self.assertNotIn("Standard", sheet)
+        self.assertIn("width: 23.5mm", html)
+        self.assertNotIn("max-height: 7mm", html)
+
+        pdf = self.client.get(
+            f"/api/club-management/shop/items/{sized.data['id']}/stickers/"
+            f"?club={self.club.id}&copies=1&variant={sized.data['variants'][0]['id']}"
+        )
+        self.assertEqual(pdf.status_code, 200)
+        text = " ".join(
+            "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(pdf.content)).pages).split()
+        )
+        self.assertIn(long_name, text)
+        self.assertIn("45.00 EUR", text)
+        self.assertIn("160", text)
+        self.assertNotIn("Standard", text)
+
+        plain = self.client.post(
+            f"/api/club-management/shop/items/?club={self.club.id}",
+            {"name": "Club belt", "category": "belt", "sale_price": "10.00", "track_stock": False},
+            format="json",
+        )
+        self.assertEqual(plain.status_code, 201, plain.data)
+        plain_item = ShopItem.objects.get(pk=plain.data["id"])
+        plain_html = sticker_sheet_html(plain_item, copies=1)
+        plain_sheet = visible(plain_html)
+        self.assertIn("Club belt", plain_sheet)
+        self.assertIn("10.00 EUR", plain_sheet)
+        self.assertNotIn("Standard", plain_sheet)
+        self.assertNotIn('class="size"', plain_sheet)
+
 
 class OneInvoiceAddressTests(TestCase):
     def setUp(self):

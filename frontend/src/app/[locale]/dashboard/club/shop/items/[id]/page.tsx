@@ -790,7 +790,7 @@ export default function ClubShopItemDetailPage() {
                   <div>
                     <Label>{t("shopStickers")}</Label>
                     <p className="mt-1 text-xs text-muted">{t("shopStickersHint")}</p>
-                    <ShopQrStickers variants={item.variants} />
+                    <ShopQrStickers name={item.name} variants={item.variants} />
                     <div className="mt-2 flex flex-wrap gap-2">
                       {activeVariants.length > 0 ? (
                         <Select value={stickerTarget} onValueChange={setStickerTarget}>
