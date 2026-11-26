@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** Check the card on a phone uses the on-device reader from before the last upgrade (tesseract.js 5.1.1). A dim or uneven picture is tried a few ways on the phone, then the picture is cleared. A reader that does not start, a card that cannot be read, and too many tries each say so on their own. A Luxembourg number still has to pass the date and both checks. The picture is not stored or uploaded.
 - **Members:** A club data import that cannot be read says why. A workbook whose sheets are named after clubs names those sheets and lists the sheet names the import accepts. Other file, mapping, and undo errors do the same in English, French, German, and Luxembourgish. The generic line remains when the reason is unknown. Parsing is unchanged.
 - **Members:** Apply skip to all on the import duplicates step changes only the rows listed there. The import step shows how many rows would be added, updated, or skipped. If every row is skipped, or there are errors, Import stays off and says why. A household or grade row shows the member's last name and first name when that member is in this club or in this file, and Unknown member otherwise. Another club's name is not shown. The check, duplicates, and dry-run lists use the same table, status badges, and filters as the federation member import.
 - **Members:** A card check with no social security number shows the warning and a button to enter the number. It does not ask for a phone scan, and no code is created. A verified member shows the date and, for a club admin, the unlock reason on a computer as well as a phone. After unlock, the computer makes a new code. The member page badge says verified on that date, and the menu says Unlock card check instead of Verify.
@@ -33,7 +34,7 @@ All notable changes to this project are documented in this file.
 - **Documents:** ReportLab is 5.1.0. The same fake login-link list and subsidy form overlay draw the same pages. Licence cards still use WeasyPrint.
 - **Members:** The server cutout uses newer CPU builds of PyTorch, timm, kornia, safetensors, and transformers 5. The weights are unchanged and still come from this server. A drawn picture, including thin hair-like lines, produced the same mask. The worker used less memory and was not slower.
 - **Members:** The portrait model on the phone uses onnxruntime-web 1.31.1. The files still come from this site. It still runs on one thread, which is what an iPhone needs. The usual removal tool stays on 1.21.0.
-- **Members:** The card reader on the phone is tesseract.js 7. It still reads English on the device, and the picture is still cleared.
+- **Members:** The card reader on the phone was briefly tesseract.js 7. It still reads English on the device, and the picture is still cleared. The phone check is back on tesseract.js 5.1.1.
 - **Dependencies:** Icons, form checks, the photo cropper, the shop code scanner, and the test helpers move to their current major versions. The pages should look and work the same.
 - **Dependencies:** The frontend linter is ESLint 10.15.0. TypeScript stays on 5.9.3. The same rules still apply, and the pages are unchanged.
 - **Dependencies:** Stripe's Python library is 17.1.0. Webhook signatures are still checked by Stripe. Requests still use API version 2026-01-28.clover.

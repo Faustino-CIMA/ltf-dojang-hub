@@ -28,16 +28,17 @@ jest.mock("@/lib/member-verification", () => ({
 
 jest.mock("@/lib/camera-capture", () => ({
   openCamera: jest.fn(() => Promise.resolve({ getTracks: () => [] })),
+  attachCameraPreview: jest.fn(() => Promise.resolve()),
   stopMediaStream: jest.fn(),
   isCameraDenied: jest.fn(() => false),
 }));
 
 jest.mock("@/lib/card-ocr", () => ({
-  readCardImage: jest.fn(),
-}));
-
-jest.mock("@/lib/card-read", () => ({
-  readCardText: jest.fn(),
+  readCardOnDevice: jest.fn(),
+  releaseCardReader: jest.fn(),
+  CardReaderStartError: class CardReaderStartError extends Error {
+    readonly kind = "start";
+  },
 }));
 
 const verification = jest.requireMock("@/lib/member-verification") as {
@@ -47,8 +48,10 @@ const verification = jest.requireMock("@/lib/member-verification") as {
   compareMemberCard: jest.Mock;
   unlockMemberCard: jest.Mock;
 };
-const ocr = jest.requireMock("@/lib/card-ocr") as { readCardImage: jest.Mock };
-const cardRead = jest.requireMock("@/lib/card-read") as { readCardText: jest.Mock };
+const ocr = jest.requireMock("@/lib/card-ocr") as {
+  readCardOnDevice: jest.Mock;
+  CardReaderStartError: new (message?: string) => Error;
+};
 
 const open = {
   verified: false,
@@ -128,11 +131,9 @@ describe("phone card check states", () => {
     verification.getMemberVerification.mockReset();
     verification.compareMemberCard.mockReset();
     verification.unlockMemberCard.mockReset();
-    ocr.readCardImage.mockReset();
-    cardRead.readCardText.mockReset();
+    ocr.readCardOnDevice.mockReset();
     verification.getMemberVerification.mockResolvedValue(open);
-    ocr.readCardImage.mockResolvedValue("EXAMPLE ADA");
-    cardRead.readCardText.mockReturnValue({
+    ocr.readCardOnDevice.mockResolvedValue({
       ok: true,
       firstNames: "Ada",
       lastNames: "EXAMPLE",
@@ -140,6 +141,26 @@ describe("phone card check states", () => {
       dateOfBirth: "2026-11-29",
       sex: "F",
     });
+  });
+
+  it("says the reader did not start, not that the card was dark", async () => {
+    ocr.readCardOnDevice.mockRejectedValue(new ocr.CardReaderStartError("start"));
+    render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
+    expect(await screen.findByRole("button", { name: "capture" })).toBeInTheDocument();
+    cardVideo();
+    fireEvent.click(screen.getByRole("button", { name: "capture" }));
+    expect(await screen.findByText("readerStart")).toBeInTheDocument();
+    expect(screen.queryByText("unreadable")).not.toBeInTheDocument();
+  });
+
+  it("says to wait when the check is rate limited", async () => {
+    verification.compareMemberCard.mockRejectedValue(new Error("Request failed (429). Please try again."));
+    render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
+    expect(await screen.findByRole("button", { name: "capture" })).toBeInTheDocument();
+    cardVideo();
+    fireEvent.click(screen.getByRole("button", { name: "capture" }));
+    expect(await screen.findByText("rateLimit")).toBeInTheDocument();
+    expect(screen.queryByText("unreadable")).not.toBeInTheDocument();
   });
 
   it("goes from an unreadable card back to the camera", async () => {

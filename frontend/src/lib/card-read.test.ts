@@ -67,8 +67,29 @@ describe("readCardText", () => {
     expect(read).toMatchObject({ ok: true, number: "42012205181", firstNames: "Luc", lastNames: "Dupont" });
   });
 
-  it("does not verify a number without a name", () => {
-    const read = readCardText("LU", "CARTE DE SECURITE SOCIALE\n1893120105732");
+  it("reads a smudged Luxembourg number without the heading", () => {
+    const read = readCardText("LU", "NOM Silva\nPRENOMS Ana Maria\n189312O105732");
+    expect(read).toMatchObject({
+      ok: true,
+      number: "1893120105732",
+      lastNames: "Silva",
+      firstNames: "Ana Maria",
+      dateOfBirth: "1893-12-01",
+    });
+  });
+
+  it("rejects a lookalike digit that fails the Luxembourg checks", () => {
+    const read = readCardText("LU", "NOM Silva\nPRENOMS Ana\n189312O105733");
     expect(read).toEqual({ ok: false, reason: "unreadable" });
+  });
+
+  it("keeps going when only one name is readable", () => {
+    const read = readCardText("LU", "NOM Silva\n1893120105732");
+    expect(read).toMatchObject({ ok: true, number: "1893120105732", dateOfBirth: "1893-12-01" });
+  });
+
+  it("still refuses a European health card", () => {
+    const read = readCardText("LU", "CARTE EUROPEENNE D'ASSURANCE MALADIE\nNOM Silva\nPRENOMS Ana\n1893120105732");
+    expect(read).toEqual({ ok: false, reason: "wrong_card" });
   });
 });

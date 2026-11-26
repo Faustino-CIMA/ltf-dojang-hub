@@ -261,15 +261,47 @@ function finish(text: string, number: string, sex: "" | "M" | "F"): CardRead {
   };
 }
 
+function asDigit(char: string) {
+  if (char >= "0" && char <= "9") {
+    return char;
+  }
+  if (char === "O" || char === "o") {
+    return "0";
+  }
+  if (char === "I" || char === "l" || char === "|") {
+    return "1";
+  }
+  if (char === "S" || char === "s") {
+    return "5";
+  }
+  if (char === "B") {
+    return "8";
+  }
+  return "";
+}
+
 function findLuxembourg(text: string) {
-  const compact = text.replace(/[^\d]/g, "");
-  for (let index = 0; index + 13 <= compact.length; index += 1) {
-    const candidate = compact.slice(index, index + 13);
-    if (validLuxembourgNumber(candidate)) {
-      return candidate;
+  let run = "";
+  const consider = (candidate: string) => validLuxembourgNumber(candidate);
+  for (let index = 0; index < text.length; index += 1) {
+    const digit = asDigit(text[index]);
+    if (!digit) {
+      run = "";
+      continue;
+    }
+    run += digit;
+    if (run.length > 13) {
+      run = run.slice(run.length - 13);
+    }
+    if (run.length === 13 && consider(run)) {
+      return run;
     }
   }
   return "";
+}
+
+function dateFromLuxembourgNumber(number: string) {
+  return `${number.slice(0, 4)}-${number.slice(4, 6)}-${number.slice(6, 8)}`;
 }
 
 function findGerman(text: string) {
@@ -323,10 +355,18 @@ export function readCardText(country: CardCountry, text: string): CardRead {
       return { ok: false, reason: "wrong_card" };
     }
     const number = findLuxembourg(text);
-    if (!national || !number) {
+    if (!number) {
       return { ok: false, reason: "unreadable" };
     }
-    return finish(text, number, "");
+    const names = namesFrom(text);
+    return {
+      ok: true,
+      firstNames: names.firstNames,
+      lastNames: names.lastNames,
+      number,
+      dateOfBirth: printedDate(text) || dateFromLuxembourgNumber(number),
+      sex: "",
+    };
   }
   if (country === "DE") {
     const pension = hasAny(folded, [

@@ -10,10 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
-import { openCamera, stopMediaStream, isCameraDenied } from "@/lib/camera-capture";
+import { attachCameraPreview, openCamera, stopMediaStream, isCameraDenied } from "@/lib/camera-capture";
 import { formatDisplayDate } from "@/lib/date-display";
-import { readCardImage } from "@/lib/card-ocr";
-import { readCardText, type CardCountry } from "@/lib/card-read";
+import { CardReaderStartError, readCardOnDevice, releaseCardReader } from "@/lib/card-ocr";
+import type { CardCountry } from "@/lib/card-read";
 import {
   compareCardChallenge,
   compareMemberCard,
@@ -23,6 +23,11 @@ import {
   type CardCompareBody,
 } from "@/lib/member-verification";
 import { DesktopCardHandoff } from "@/components/members/desktop-card-handoff";
+
+function isRateLimit(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  return /\b429\b/.test(message);
+}
 
 type Phase =
   | { kind: "loading" }
@@ -114,13 +119,19 @@ export function MemberVerifyScreen({
           setPhase({ kind: "no-number" });
           return;
         }
-        setRequestError(t("unreadable"));
+        setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
         setPhase({ kind: "camera" });
       });
     return () => {
       cancelled = true;
     };
   }, [handoffToken, layout, memberId, t]);
+
+  useEffect(() => {
+    return () => {
+      void releaseCardReader();
+    };
+  }, []);
 
   useEffect(() => {
     if (phase.kind !== "camera") {
@@ -137,8 +148,7 @@ export function MemberVerifyScreen({
         }
         streamRef.current = stream;
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          void videoRef.current.play().catch(() => undefined);
+          void attachCameraPreview(videoRef.current, stream).catch(() => undefined);
         }
       })
       .catch((error: unknown) => {
@@ -173,16 +183,16 @@ export function MemberVerifyScreen({
       return;
     }
     context.drawImage(video, 0, 0);
-    let text = "";
+    let read;
     try {
-      text = await readCardImage(canvas);
-    } catch {
+      read = await readCardOnDevice(canvas, country);
+    } catch (error) {
       canvas.width = 0;
       canvas.height = 0;
-      setPhase({ kind: "local", reason: "unreadable" });
+      setRequestError(t(error instanceof CardReaderStartError ? "readerStart" : "unreadable"));
+      setPhase({ kind: "camera" });
       return;
     }
-    const read = readCardText(country, text);
     if (!read.ok) {
       setPhase({ kind: "local", reason: read.reason });
       return;
@@ -217,8 +227,8 @@ export function MemberVerifyScreen({
         return;
       }
       setPhase({ kind: "mismatch", fields: result.fields || ["number"] });
-    } catch {
-      setRequestError(t("unreadable"));
+    } catch (error) {
+      setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
       setPhase({ kind: "camera" });
     }
   }
@@ -238,8 +248,8 @@ export function MemberVerifyScreen({
         ? await compareCardChallenge(handoffToken, body)
         : await compareMemberCard(memberId, body);
       setPhase(result.verified ? { kind: "verified" } : { kind: "mismatch", fields: result.fields || [] });
-    } catch {
-      setRequestError(t("unreadable"));
+    } catch (error) {
+      setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
     }
   }
 
@@ -253,8 +263,8 @@ export function MemberVerifyScreen({
       await unlockMemberCard(memberId, trimmed);
       setReason("");
       setPhase({ kind: "unlocked" });
-    } catch {
-      setRequestError(t("unreadable"));
+    } catch (error) {
+      setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
     }
   }
 
