@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { ActionNotices } from "@/components/ui/list-page-chrome";
 import { attachCameraPreview, openCamera, stopMediaStream, isCameraDenied } from "@/lib/camera-capture";
 import { formatDisplayDate } from "@/lib/date-display";
+import { formatFullName } from "@/lib/person-name";
 import { CardReaderStartError, readCardOnDevice, releaseCardReader } from "@/lib/card-ocr";
 import type { CardCountry } from "@/lib/card-read";
 import {
@@ -24,9 +25,28 @@ import {
 } from "@/lib/member-verification";
 import { DesktopCardHandoff } from "@/components/members/desktop-card-handoff";
 
-function isRateLimit(error: unknown) {
+function finishKind(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-  return /\b429\b/.test(message);
+  const code = message.trim().toLowerCase();
+  if (code === "used" || code === "already verified" || /already verified/i.test(message)) {
+    return "done";
+  }
+  if (code === "expired" || code === "cancelled" || code === "invalid") {
+    return code;
+  }
+  if (/\b429\b/.test(message) || /too many|throttl/i.test(message)) {
+    return "rate";
+  }
+  return "failed";
+}
+
+function finishKey(error: unknown) {
+  const kind = finishKind(error);
+  if (kind === "expired") return "qrExpired" as const;
+  if (kind === "cancelled") return "qrCancelled" as const;
+  if (kind === "invalid") return "qrInvalid" as const;
+  if (kind === "rate") return "rateLimit" as const;
+  return "requestFailed" as const;
 }
 
 type Phase =
@@ -36,7 +56,15 @@ type Phase =
   | { kind: "reading" }
   | { kind: "local"; reason: "wrong_card" | "unreadable" | "health_card" }
   | { kind: "mismatch"; fields: string[] }
-  | { kind: "confirm"; body: CardCompareBody; cardFirst: string; cardLast: string }
+  | {
+      kind: "confirm";
+      body: CardCompareBody;
+      cardFirst: string;
+      cardLast: string;
+      storedFirst: string;
+      storedLast: string;
+      offerPreferred: boolean;
+    }
   | { kind: "verified" }
   | { kind: "unlocked" };
 
@@ -60,6 +88,7 @@ export function MemberVerifyScreen({
   const [cameraNote, setCameraNote] = useState<"" | "denied" | "missing">("");
   const [requestError, setRequestError] = useState<string | null>(null);
   const [keepUsual, setKeepUsual] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [verifiedAt, setVerifiedAt] = useState<string | null>(null);
 
@@ -97,30 +126,28 @@ export function MemberVerifyScreen({
         if (state.country) {
           setCountry(state.country);
         }
-        if (!state.has_number) {
-          setPhase({ kind: "no-number" });
-          return;
-        }
         if (state.verified) {
           const when = "verified_at" in state && typeof state.verified_at === "string" ? state.verified_at : null;
           setVerifiedAt(when);
           setPhase({ kind: "verified" });
           return;
         }
-        setPhase({ kind: "camera" });
+        if (!state.has_number) {
+          setPhase({ kind: "no-number" });
+          return;
+        }
+        setPhase((current) => (current.kind === "confirm" || current.kind === "reading" ? current : { kind: "camera" }));
       })
       .catch((error: unknown) => {
         if (cancelled) {
           return;
         }
-        const code = error instanceof Error ? error.message : "";
-        if (code === "expired" || code === "cancelled" || code === "used" || code === "invalid") {
-          setRequestError(t(code === "expired" ? "qrExpired" : code === "cancelled" ? "qrCancelled" : code === "used" ? "qrUsed" : "qrInvalid"));
-          setPhase({ kind: "no-number" });
+        if (finishKind(error) === "done") {
+          setPhase({ kind: "verified" });
           return;
         }
-        setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
-        setPhase({ kind: "camera" });
+        setRequestError(t(finishKey(error)));
+        setPhase((current) => (current.kind === "confirm" ? current : { kind: "camera" }));
       });
     return () => {
       cancelled = true;
@@ -219,6 +246,9 @@ export function MemberVerifyScreen({
           body,
           cardFirst: result.card_first_name || read.firstNames,
           cardLast: result.card_last_name || read.lastNames,
+          storedFirst: result.stored_first_name || "",
+          storedLast: result.stored_last_name || "",
+          offerPreferred: Boolean(result.offer_preferred_name),
         });
         return;
       }
@@ -228,28 +258,41 @@ export function MemberVerifyScreen({
       }
       setPhase({ kind: "mismatch", fields: result.fields || ["number"] });
     } catch (error) {
-      setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
+      if (finishKind(error) === "done") {
+        setPhase({ kind: "verified" });
+        return;
+      }
+      setRequestError(t(finishKey(error)));
       setPhase({ kind: "camera" });
+    } finally {
+      setBusy(false);
     }
   }
 
   async function confirm(useCardNames: boolean) {
-    if (phase.kind !== "confirm") {
+    if (phase.kind !== "confirm" || busy) {
       return;
     }
     setRequestError(null);
+    setBusy(true);
     try {
       const body = {
         ...phase.body,
         confirm_names: useCardNames,
-        keep_usual_name: useCardNames && keepUsual,
+        keep_usual_name: useCardNames && keepUsual && phase.offerPreferred,
       };
       const result = handoffToken
         ? await compareCardChallenge(handoffToken, body)
         : await compareMemberCard(memberId, body);
       setPhase(result.verified ? { kind: "verified" } : { kind: "mismatch", fields: result.fields || [] });
     } catch (error) {
-      setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
+      if (finishKind(error) === "done") {
+        setPhase({ kind: "verified" });
+        return;
+      }
+      setRequestError(t(finishKey(error)));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -264,7 +307,7 @@ export function MemberVerifyScreen({
       setReason("");
       setPhase({ kind: "unlocked" });
     } catch (error) {
-      setRequestError(t(isRateLimit(error) ? "rateLimit" : "requestFailed"));
+      setRequestError(t(finishKey(error)));
     }
   }
 
@@ -280,7 +323,12 @@ export function MemberVerifyScreen({
       <Button variant="outline" size="sm" asChild>
         <Link href={backHref}>{t("back")}</Link>
       </Button>
-      <ActionNotices error={requestError} onDismiss={() => setRequestError(null)} />
+      <ActionNotices
+        error={requestError}
+        onDismiss={() => setRequestError(null)}
+        dismissLabel={t("dismiss")}
+        placement="inline"
+      />
       {phase.kind === "no-number" || phase.kind === "verified" ? null : (
         <p className="text-sm text-muted">{t("intro")}</p>
       )}
@@ -334,16 +382,35 @@ export function MemberVerifyScreen({
       {phase.kind === "confirm" ? (
         <div className="space-y-3">
           <h2 className="text-section text-foreground">{t("confirmTitle")}</h2>
-          <p className="text-sm text-foreground">{t("confirmBody", { first: phase.cardFirst, last: phase.cardLast })}</p>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={keepUsual} onCheckedChange={(checked) => setKeepUsual(Boolean(checked))} />
-            {t("keepUsual")}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void confirm(true)}>
+          <p className="text-sm text-muted">{t("confirmIntro")}</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-[var(--radius-card)] border border-border bg-surface p-3">
+              <p className="text-sm text-muted">{t("storedName")}</p>
+              <p className="text-base font-medium text-foreground">
+                {formatFullName({ first_name: phase.storedFirst, last_name: phase.storedLast })}
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-card)] border border-border bg-surface p-3">
+              <p className="text-sm text-muted">{t("cardName")}</p>
+              <p className="text-base font-medium text-foreground">
+                {formatFullName({ first_name: phase.cardFirst, last_name: phase.cardLast })}
+              </p>
+            </div>
+          </div>
+          {phase.offerPreferred ? (
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <Checkbox checked={keepUsual} onCheckedChange={(checked) => setKeepUsual(Boolean(checked))} />
+              {t("keepUsual", {
+                name: formatFullName({ first_name: phase.storedFirst, last_name: phase.storedLast }),
+              })}
+            </label>
+          ) : null}
+          {busy ? <p className="text-sm text-muted">{t("finishing")}</p> : null}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" className="w-full sm:w-auto" onClick={() => void confirm(true)} disabled={busy}>
               {t("useCardNames")}
             </Button>
-            <Button type="button" variant="outline" onClick={() => void confirm(false)}>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void confirm(false)} disabled={busy}>
               {t("keepStoredNames")}
             </Button>
           </div>
