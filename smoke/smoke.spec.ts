@@ -34,7 +34,7 @@ async function expectStaticLinkBorder(locator: Locator) {
   const style = await locator.evaluate((element) => {
     const computed = getComputedStyle(element);
     const probe = document.createElement("span");
-    probe.style.color = "var(--link)";
+    probe.style.color = "var(--guide-mark)";
     document.body.appendChild(probe);
     const link = getComputedStyle(probe).color;
     probe.remove();
