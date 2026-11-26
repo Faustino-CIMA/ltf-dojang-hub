@@ -2415,6 +2415,7 @@ class ClubShopTests(TestCase):
         )
         self.assertEqual(plain.status_code, 201, plain.data)
         plain_item = ShopItem.objects.get(pk=plain.data["id"])
+        plain_html = sticker_sheet_html(plain_item, copies=1)
         plain_sheet = visible(plain_html)
         self.assertIn("Club belt", plain_sheet)
         self.assertIn("10.00 EUR", plain_sheet)
