@@ -9,16 +9,19 @@ import { createWorker } from "tesseract.js";
 const frontendRoot = path.resolve(__dirname, "../..");
 const langPath = path.join(frontendRoot, "node_modules/@tesseract.js-data/eng/4.0.0_best_int");
 const coreFiles = [
-  "tesseract-core-relaxedsimd-lstm.wasm.js",
-  "tesseract-core-relaxedsimd-lstm.wasm",
-  "tesseract-core-simd-lstm.wasm.js",
-  "tesseract-core-simd-lstm.wasm",
+  "tesseract-core.wasm.js",
+  "tesseract-core.wasm",
+  "tesseract-core-simd.wasm.js",
+  "tesseract-core-simd.wasm",
   "tesseract-core-lstm.wasm.js",
   "tesseract-core-lstm.wasm",
+  "tesseract-core-simd-lstm.wasm.js",
+  "tesseract-core-simd-lstm.wasm",
 ];
 
 describe("on-device English card reader", () => {
   it("keeps the English model and the local engine files", () => {
+    expect(existsSync(path.join(frontendRoot, "node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm"))).toBe(false);
     expect(existsSync(path.join(langPath, "eng.traineddata.gz"))).toBe(true);
     expect(existsSync(path.join(frontendRoot, "node_modules/tesseract.js/dist/worker.min.js"))).toBe(true);
     for (const name of coreFiles) {

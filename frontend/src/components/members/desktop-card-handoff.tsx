@@ -79,7 +79,7 @@ export function DesktopCardHandoff({
     const timer = window.setTimeout(() => {
       start().catch(() => {
         if (live) {
-          setRequestError(t("unreadable"));
+          setRequestError(t("requestFailed"));
           setPhase("failed");
         }
       });
@@ -133,7 +133,7 @@ export function DesktopCardHandoff({
       setReason("");
       await start();
     } catch {
-      setRequestError(t("unreadable"));
+      setRequestError(t("requestFailed"));
     }
   }
 

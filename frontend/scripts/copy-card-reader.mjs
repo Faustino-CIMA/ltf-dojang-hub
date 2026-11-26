@@ -21,14 +21,20 @@ const trained = path.join(
   "eng.traineddata.gz",
 );
 
+const cores = [
+  "tesseract-core.wasm.js",
+  "tesseract-core.wasm",
+  "tesseract-core-simd.wasm.js",
+  "tesseract-core-simd.wasm",
+  "tesseract-core-lstm.wasm.js",
+  "tesseract-core-lstm.wasm",
+  "tesseract-core-simd-lstm.wasm.js",
+  "tesseract-core-simd-lstm.wasm",
+];
+
 const files = [
   [worker, "worker.min.js"],
-  [path.join(core, "tesseract-core-relaxedsimd-lstm.wasm.js"), "tesseract-core-relaxedsimd-lstm.wasm.js"],
-  [path.join(core, "tesseract-core-relaxedsimd-lstm.wasm"), "tesseract-core-relaxedsimd-lstm.wasm"],
-  [path.join(core, "tesseract-core-simd-lstm.wasm.js"), "tesseract-core-simd-lstm.wasm.js"],
-  [path.join(core, "tesseract-core-simd-lstm.wasm"), "tesseract-core-simd-lstm.wasm"],
-  [path.join(core, "tesseract-core-lstm.wasm.js"), "tesseract-core-lstm.wasm.js"],
-  [path.join(core, "tesseract-core-lstm.wasm"), "tesseract-core-lstm.wasm"],
+  ...cores.map((name) => [path.join(core, name), name]),
   [trained, "eng.traineddata.gz"],
 ];
 

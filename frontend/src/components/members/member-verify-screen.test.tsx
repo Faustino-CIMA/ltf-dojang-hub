@@ -23,12 +23,14 @@ jest.mock("@/lib/member-verification", () => ({
 
 jest.mock("@/lib/camera-capture", () => ({
   openCamera: jest.fn(() => Promise.resolve({ getTracks: () => [] })),
+  attachCameraPreview: jest.fn(() => Promise.resolve()),
   stopMediaStream: jest.fn(),
   isCameraDenied: jest.fn(() => false),
 }));
 
 jest.mock("@/lib/card-ocr", () => ({
-  readCardImage: jest.fn(),
+  readCardOnDevice: jest.fn(),
+  releaseCardReader: jest.fn(),
 }));
 
 const verification = jest.requireMock("@/lib/member-verification") as {
