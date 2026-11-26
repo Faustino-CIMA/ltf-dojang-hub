@@ -6,7 +6,18 @@ import { useLocale, useTranslations } from "next-intl";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-const LOCALES = ["en", "fr", "de", "lb"] as const;
+export const LOCALES = ["en", "fr", "de", "lb"] as const;
+
+export function pathWithLocale(pathname: string, next: string): string {
+  const safePath = pathname || "/";
+  const segments = safePath.split("/");
+  if (segments.length > 1) {
+    segments[1] = next;
+  } else {
+    segments.push(next);
+  }
+  return segments.join("/") || `/${next}`;
+}
 
 const NATIVE_LABELS: Record<(typeof LOCALES)[number], string | null> = {
   en: null,
@@ -39,14 +50,7 @@ export function LanguageSwitcher({
     if (value === locale) {
       return;
     }
-    const safePath = pathname || "/";
-    const segments = safePath.split("/");
-    if (segments.length > 1) {
-      segments[1] = value;
-    } else {
-      segments.push(value);
-    }
-    router.push(segments.join("/") || `/${value}`);
+    router.push(pathWithLocale(pathname || "/", value));
   };
 
   if (variant === "segment") {

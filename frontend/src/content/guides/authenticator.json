@@ -5,6 +5,14 @@
   "manual": "roles",
   "steps": [
     {
+      "id": "open-menu",
+      "anchor": "header.more",
+      "route": "/dashboard/club",
+      "titleKey": "Guide.authenticatorMenuTitle",
+      "bodyKey": "Guide.authenticatorMenuBody",
+      "advance": "dialog"
+    },
+    {
       "id": "security",
       "anchor": "mfa.security",
       "route": "/dashboard/club",
