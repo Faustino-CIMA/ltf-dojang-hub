@@ -25,6 +25,7 @@
   --accent-foreground: #ffffff;
   --accent-soft: color-mix(in oklab, var(--brand-ltf-red) 12%, #ffffff);
   --link: var(--brand-link-on-light);
+  --guide-mark: #014a86;
   --brand-red: var(--brand-ltf-red);
   --logo-tile: var(--brand-ltf-red);
   --scrim: #121314;
@@ -122,6 +123,7 @@
   --accent-foreground: #ffffff;
   --accent-soft: color-mix(in oklab, var(--brand-ltf-red) 22%, #222426);
   --link: var(--brand-text-blue);
+  --guide-mark: var(--brand-text-blue);
   --brand-red: var(--brand-ltf-red);
   --logo-tile: var(--brand-ltf-red);
   --scrim: #000000;
@@ -417,6 +419,7 @@
   --primary-foreground: var(--brand-on-ink);
   --primary-hover: var(--brand-red-pressed);
   --link: var(--brand-ltf-blue);
+  --guide-mark: var(--brand-ltf-blue);
   --accent: var(--brand-ltf-blue);
   --accent-foreground: var(--brand-ink);
   --accent-soft: color-mix(in oklab, var(--brand-ltf-blue) 18%, var(--brand-ink-raised));

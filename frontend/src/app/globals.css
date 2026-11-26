@@ -439,7 +439,7 @@
 
 /* 1px ring on the edge of a control. The mask removes the interior so the button underneath stays readable. */
 :root {
-  --guide-run-duration: 2.4s;
+  --guide-run-duration: 1.75s;
 }
 
 .guide-run {
@@ -448,9 +448,9 @@
   padding: 0;
   background: conic-gradient(
     from var(--guide-run-angle),
-    var(--link),
-    color-mix(in oklab, var(--link) 28%, transparent),
-    var(--link)
+    var(--guide-mark),
+    color-mix(in oklab, var(--guide-mark) 62%, var(--overlay)),
+    var(--guide-mark)
   );
   -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
   -webkit-mask-clip: padding-box, border-box;
@@ -462,7 +462,7 @@
 }
 
 .guide-static-border {
-  border: 1px solid var(--link);
+  border: 1px solid var(--guide-mark);
   animation: none;
 }
 
@@ -473,16 +473,16 @@
 }
 
 .guide-disc {
-  border: 1px solid var(--link);
+  border: 1px solid var(--guide-mark);
   background: var(--overlay);
-  color: var(--link);
+  color: var(--guide-mark);
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .guide-run {
     animation: none;
-    background: var(--link);
+    background: var(--guide-mark);
   }
 }
 
