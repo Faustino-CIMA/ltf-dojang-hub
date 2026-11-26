@@ -12,7 +12,7 @@ import hmac
 import re
 import secrets
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from django.core.cache import cache
@@ -69,14 +69,32 @@ class CompareResult:
     card_last_name: str = ""
 
 
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def clean_card_value(value: str) -> str:
+    """Drop characters the database cannot store. The picture never arrives here."""
+    text = _CONTROL.sub(" ", str(value or ""))
+    text = text.encode("utf-8", "ignore").decode("utf-8")
+    text = text.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _fold(value: str) -> list[str]:
-    text = (value or "").replace("’", "'").replace("`", "'").replace("'", "")
+    text = clean_card_value(value).replace("’", "'").replace("`", "'").replace("'", "")
     text = text.replace("-", " ")
     text = unicodedata.normalize("NFKD", text)
     text = "".join(char for char in text if not unicodedata.combining(char))
     text = text.lower()
     text = re.sub(r"\s+", " ", text).strip()
     return [part for part in text.split(" ") if part]
+
+
+def names_equivalent(stored_first: str, stored_last: str, card_first: str, card_last: str) -> bool:
+    """True when both sides are the same words, whatever the case, accents, or order."""
+    stored = _fold(stored_first) + _fold(stored_last)
+    card = _fold(card_first) + _fold(card_last)
+    return bool(stored) and bool(card) and sorted(stored) == sorted(card)
 
 
 def _distance_one(left: str, right: str) -> bool:
@@ -114,31 +132,50 @@ def names_match(entered: str, card: str) -> bool:
     return all(_token_on_card(token, card_tokens) for token in entered_tokens)
 
 
+def _truthy_flag(value) -> bool:
+    if value is True or value == 1:
+        return True
+    return isinstance(value, str) and value.strip().lower() in {"true", "1", "yes"}
+
+
+def _confirm_flag(data):
+    if "confirm_names" not in data or data.get("confirm_names") is None:
+        return None
+    value = data.get("confirm_names")
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        folded = value.strip().lower()
+        if folded in {"true", "1", "yes"}:
+            return True
+        if folded in {"false", "0", "no"}:
+            return False
+    raise VerificationError("confirm_names")
+
+
 def read_card_text(data) -> CardText:
     if data is None or not hasattr(data, "get"):
         raise VerificationError("invalid")
-    first_names = str(data.get("first_names") or "").strip()
-    last_names = str(data.get("last_names") or "").strip()
+    first_names = clean_card_value(data.get("first_names") or "")
+    last_names = clean_card_value(data.get("last_names") or "")
     if len(first_names) > 150 or len(last_names) > 150:
         raise VerificationError("name_too_long")
-    number = str(data.get("number") or "").strip()
+    number = clean_card_value(data.get("number") or "")
     if len(number) > 32:
         raise VerificationError("number_too_long")
-    raw_date = str(data.get("date_of_birth") or "").strip()
+    raw_date = clean_card_value(data.get("date_of_birth") or "")
     parsed_date = None
     if raw_date:
         try:
             parsed_date = date.fromisoformat(raw_date)
         except ValueError as exc:
             raise VerificationError("date") from exc
-    sex = str(data.get("sex") or "").strip().upper()
+    sex = clean_card_value(data.get("sex") or "").upper()
     if sex and sex not in ("M", "F"):
         raise VerificationError("sex")
-    confirm = None
-    if "confirm_names" in data and data.get("confirm_names") is not None:
-        confirm = data.get("confirm_names")
-        if not isinstance(confirm, bool):
-            raise VerificationError("confirm_names")
+    confirm = _confirm_flag(data)
     return CardText(
         first_names=first_names,
         last_names=last_names,
@@ -146,7 +183,7 @@ def read_card_text(data) -> CardText:
         date_of_birth=parsed_date,
         sex=sex,
         confirm_names=confirm,
-        keep_usual_name=data.get("keep_usual_name") is True,
+        keep_usual_name=_truthy_flag(data.get("keep_usual_name")),
     )
 
 
@@ -205,14 +242,44 @@ def can_verify_member(user, member) -> bool:
 
 def compare_is_limited(user_id: int, member_id: int) -> bool:
     key = f"member-verify:{user_id}:{member_id}"
-    if cache.add(key, 1, timeout=_COMPARE_WINDOW_SECONDS):
-        return False
     try:
-        count = cache.incr(key)
-    except ValueError:
-        cache.set(key, 1, timeout=_COMPARE_WINDOW_SECONDS)
+        if cache.add(key, 1, timeout=_COMPARE_WINDOW_SECONDS):
+            return False
+        try:
+            count = cache.incr(key)
+        except ValueError:
+            cache.set(key, 1, timeout=_COMPARE_WINDOW_SECONDS)
+            return False
+    except Exception:
+        # A cache miss must not turn a finished read into a failed check.
         return False
     return count > _COMPARE_LIMIT
+
+
+def card_to_lock(member, card: CardText) -> CardText:
+    """Same words lock the stored name. A real difference waits for a choice."""
+    if card.confirm_names is not None:
+        return card
+    if names_equivalent(member.first_name, member.last_name, card.first_names, card.last_names):
+        return replace(card, confirm_names=False, keep_usual_name=False)
+    return card
+
+
+def confirmation_payload(member, card: CardText, result: CompareResult) -> dict | None:
+    if card.confirm_names is not None:
+        return None
+    if names_equivalent(member.first_name, member.last_name, card.first_names, card.last_names):
+        return None
+    return {
+        "match": True,
+        "needs_confirmation": True,
+        "verified": False,
+        "card_first_name": result.card_first_name,
+        "card_last_name": result.card_last_name,
+        "stored_first_name": member.first_name,
+        "stored_last_name": member.last_name,
+        "offer_preferred_name": not (getattr(member, "usual_name", "") or "").strip(),
+    }
 
 
 def _stored_number(member):

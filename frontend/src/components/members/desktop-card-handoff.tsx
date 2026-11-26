@@ -31,6 +31,10 @@ export function DesktopCardHandoff({
   backHref: string;
 }) {
   const t = useTranslations("Verification");
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const tokenRef = useRef("");
   const [svg, setSvg] = useState("");
   const [link, setLink] = useState("");
@@ -74,12 +78,13 @@ export function DesktopCardHandoff({
     }
   }, [locale, memberId]);
 
+  // A new translator must not cancel a code the phone may already be using.
   useEffect(() => {
     let live = true;
     const timer = window.setTimeout(() => {
       start().catch(() => {
         if (live) {
-          setRequestError(t("requestFailed"));
+          setRequestError(tRef.current("requestFailed"));
           setPhase("failed");
         }
       });
@@ -93,7 +98,7 @@ export function DesktopCardHandoff({
         void cancelMemberChallenge(memberId, current).catch(() => undefined);
       }
     };
-  }, [memberId, start, t]);
+  }, [memberId, start]);
 
   useEffect(() => {
     if (phase !== "waiting" && phase !== "fallback") {
@@ -151,7 +156,12 @@ export function DesktopCardHandoff({
       <Button variant="outline" size="sm" asChild>
         <Link href={backHref}>{t("back")}</Link>
       </Button>
-      <ActionNotices error={requestError} onDismiss={() => setRequestError(null)} />
+      <ActionNotices
+        error={requestError}
+        onDismiss={() => setRequestError(null)}
+        dismissLabel={t("dismiss")}
+        placement="inline"
+      />
       {phase === "waiting" || phase === "fallback" || phase === "expired" || phase === "failed" ? (
         <>
           <h2 className="text-section text-foreground">{t("qrTitle")}</h2>

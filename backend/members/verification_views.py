@@ -14,7 +14,9 @@ from .verification import (
     challenge_block_reason,
     challenge_for_token,
     compare_is_limited,
+    card_to_lock,
     compare_member,
+    confirmation_payload,
     create_challenge,
     is_verified,
     lock_member,
@@ -156,23 +158,11 @@ class MemberVerificationActions:
             result = compare_member(member, card)
         except VerificationError as exc:
             return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
-        if not result.match:
-            body = {"match": False, "fields": list(result.fields), "verified": False}
-            if result.reason:
-                body["reason"] = result.reason
-            return Response(body)
-        if card.confirm_names is None:
-            return Response(
-                {
-                    "match": True,
-                    "needs_confirmation": True,
-                    "card_first_name": result.card_first_name,
-                    "card_last_name": result.card_last_name,
-                    "verified": False,
-                }
-            )
+        pending = _pending_or_mismatch(member, card, result)
+        if pending is not None:
+            return pending
         try:
-            lock_member(member, card, actor=request.user)
+            lock_member(member, card_to_lock(member, card), actor=request.user)
         except VerificationError as exc:
             if exc.code == "verified":
                 return Response({"detail": "This member is already verified."}, status=409)
@@ -200,6 +190,26 @@ class MemberVerificationActions:
         except VerificationError as exc:
             return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
         return Response(verification_state(member, session_key=request_session_key(request)))
+
+
+def _verified_body(member) -> dict:
+    return {
+        "match": True,
+        "verified": True,
+        "locked_fields": list(verification_state(member)["locked_fields"]),
+    }
+
+
+def _pending_or_mismatch(member, card, result):
+    if not result.match:
+        body = {"match": False, "fields": list(result.fields), "verified": False}
+        if result.reason:
+            body["reason"] = result.reason
+        return Response(body)
+    pending = confirmation_payload(member, card, result)
+    if pending is not None:
+        return Response(pending)
+    return None
 
 
 def _client_ip(request) -> str:
@@ -246,37 +256,22 @@ class VerificationChallengeView(APIView):
             result = compare_member(member, card)
         except VerificationError as exc:
             return Response({"detail": _ERROR_TEXT[exc.code]}, status=400)
-        if not result.match:
-            body = {"match": False, "fields": list(result.fields), "verified": False}
-            if result.reason:
-                body["reason"] = result.reason
-            return Response(body)
-        if card.confirm_names is None:
-            return Response(
-                {
-                    "match": True,
-                    "needs_confirmation": True,
-                    "card_first_name": result.card_first_name,
-                    "card_last_name": result.card_last_name,
-                    "verified": False,
-                }
-            )
+        pending = _pending_or_mismatch(member, card, result)
+        if pending is not None:
+            return pending
         try:
-            lock_member(member, card, actor=row.created_by)
+            lock_member(member, card_to_lock(member, card), actor=row.created_by)
         except VerificationError as exc:
+            if exc.code == "verified":
+                mark_challenge_used(row)
+                return Response(_verified_body(member))
             if exc.code == "mismatch":
                 return Response({"match": False, "fields": list(exc.fields), "verified": False})
             return Response({"detail": _ERROR_TEXT.get(exc.code, "The card could not be checked.")}, status=400)
         except DjangoValidationError as exc:
             return Response(getattr(exc, "message_dict", {"detail": exc.messages}), status=400)
         mark_challenge_used(row)
-        return Response(
-            {
-                "match": True,
-                "verified": True,
-                "locked_fields": list(verification_state(member)["locked_fields"]),
-            }
-        )
+        return Response(_verified_body(member))
 
     def _open(self, request, token, consume=False, as_row=False):
         ip = _client_ip(request)

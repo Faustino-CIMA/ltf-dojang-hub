@@ -175,8 +175,11 @@ describe("phone card check states", () => {
     verification.compareMemberCard
       .mockResolvedValueOnce({
         needs_confirmation: true,
-        card_first_name: "Ada",
+        card_first_name: "Ada Jules",
         card_last_name: "EXAMPLE",
+        stored_first_name: "Ada",
+        stored_last_name: "EXAMPLE",
+        offer_preferred_name: true,
       })
       .mockResolvedValueOnce({ verified: true });
     render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
@@ -184,9 +187,86 @@ describe("phone card check states", () => {
     cardVideo();
     fireEvent.click(screen.getByRole("button", { name: "capture" }));
     expect(await screen.findByRole("heading", { name: "confirmTitle" })).toBeInTheDocument();
+    expect(screen.getByText("storedName")).toBeInTheDocument();
+    expect(screen.getByText("cardName")).toBeInTheDocument();
+    expect(screen.getByText("EXAMPLE Ada")).toBeInTheDocument();
+    expect(screen.getByText("EXAMPLE Ada Jules")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "useCardNames" }));
     expect(await screen.findByText("verifiedDone")).toBeInTheDocument();
     expect(screen.queryByText("intro")).not.toBeInTheDocument();
+    expect(verification.compareMemberCard).toHaveBeenLastCalledWith(
+      4,
+      expect.objectContaining({ confirm_names: true, keep_usual_name: true }),
+    );
+  });
+
+  it("locks the same name without asking", async () => {
+    verification.compareMemberCard.mockResolvedValueOnce({ verified: true, match: true });
+    render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
+    expect(await screen.findByRole("button", { name: "capture" })).toBeInTheDocument();
+    cardVideo();
+    fireEvent.click(screen.getByRole("button", { name: "capture" }));
+    expect(await screen.findByText("verifiedDone")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "confirmTitle" })).not.toBeInTheDocument();
+  });
+
+  it("hides the preferred-name choice when the stored name should stay as it is", async () => {
+    verification.compareMemberCard.mockResolvedValueOnce({
+      needs_confirmation: true,
+      card_first_name: "Ada Jules",
+      card_last_name: "EXAMPLE",
+      stored_first_name: "Ada",
+      stored_last_name: "EXAMPLE",
+      offer_preferred_name: false,
+    });
+    render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
+    expect(await screen.findByRole("button", { name: "capture" })).toBeInTheDocument();
+    cardVideo();
+    fireEvent.click(screen.getByRole("button", { name: "capture" }));
+    expect(await screen.findByRole("heading", { name: "confirmTitle" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("keeps a cancelled finish on the page as an alert, not a toast over the title", async () => {
+    verification.compareMemberCard
+      .mockResolvedValueOnce({
+        needs_confirmation: true,
+        card_first_name: "Ada Jules",
+        card_last_name: "EXAMPLE",
+        stored_first_name: "Ada",
+        stored_last_name: "EXAMPLE",
+        offer_preferred_name: true,
+      })
+      .mockRejectedValueOnce(new Error("cancelled"));
+    render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
+    expect(await screen.findByRole("button", { name: "capture" })).toBeInTheDocument();
+    cardVideo();
+    fireEvent.click(screen.getByRole("button", { name: "capture" }));
+    fireEvent.click(await screen.findByRole("button", { name: "useCardNames" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("qrCancelled");
+    expect(alert.className).not.toContain("fixed");
+    expect(screen.getByRole("heading", { name: "confirmTitle" })).toBeInTheDocument();
+  });
+
+  it("treats a code that was already used as a finished check", async () => {
+    verification.compareMemberCard
+      .mockResolvedValueOnce({
+        needs_confirmation: true,
+        card_first_name: "Ada Jules",
+        card_last_name: "EXAMPLE",
+        stored_first_name: "Ada",
+        stored_last_name: "EXAMPLE",
+        offer_preferred_name: false,
+      })
+      .mockRejectedValueOnce(new Error("used"));
+    render(<MemberVerifyScreen memberId={4} locale="en" backHref="/en/dashboard/club/members/4" />);
+    expect(await screen.findByRole("button", { name: "capture" })).toBeInTheDocument();
+    cardVideo();
+    fireEvent.click(screen.getByRole("button", { name: "capture" }));
+    fireEvent.click(await screen.findByRole("button", { name: "keepStoredNames" }));
+    expect(await screen.findByText("verifiedDone")).toBeInTheDocument();
   });
 
   it("names a mismatch and returns to the camera", async () => {

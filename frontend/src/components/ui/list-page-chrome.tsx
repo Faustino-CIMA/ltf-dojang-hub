@@ -293,16 +293,26 @@ export function FloatingNotice({
   );
 }
 
+function noticeToneClass(tone: "danger" | "success" | "warning" | "info") {
+  if (tone === "danger") return "banner-danger";
+  if (tone === "success") return "banner-success";
+  if (tone === "warning") return "banner-warning";
+  return "banner-info";
+}
+
 export function ActionNotices({
   error,
   success,
   onDismiss,
   dismissLabel = "Close",
+  placement = "toast",
 }: {
   error?: string | null;
   success?: string | null;
   onDismiss: () => void;
   dismissLabel?: string;
+  /** Inline sits in the page. The floating toast covers the title on a phone. */
+  placement?: "toast" | "inline";
 }) {
   const raw = error || success || null;
   const presented = raw ? presentAuthError(raw) : null;
@@ -322,6 +332,33 @@ export function ActionNotices({
     const timer = window.setTimeout(() => onDismissRef.current(), error ? 9000 : 7000);
     return () => window.clearTimeout(timer);
   }, [open, message, error]);
+
+  if (placement === "inline") {
+    if (!open) {
+      return null;
+    }
+    return (
+      <div
+        role={tone === "danger" ? "alert" : "status"}
+        className={cn(
+          "flex items-start gap-3 rounded-[var(--radius-form)] border px-3 py-2 text-sm",
+          noticeToneClass(tone),
+        )}
+      >
+        <div className="min-w-0 flex-1">{message}</div>
+        <button
+          type="button"
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-form)] hover:bg-[color-mix(in_oklab,black_8%,transparent)]"
+          onClick={onDismiss}
+          aria-label={dismissLabel}
+        >
+          <span aria-hidden className="text-lg leading-none">
+            ×
+          </span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <FloatingNotice

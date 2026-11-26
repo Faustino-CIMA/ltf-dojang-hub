@@ -74,6 +74,20 @@ describe("DesktopCardHandoff", () => {
     expect(screen.getByRole("heading", { name: "qrTitle" })).toBeInTheDocument();
   });
 
+  it("does not cancel the phone code when the screen renders again", async () => {
+    const { rerender, unmount } = render(
+      <DesktopCardHandoff memberId={1} locale="en" backHref="/en/dashboard/club/members/1" />,
+    );
+    expect(await screen.findByRole("heading", { name: "qrTitle" })).toBeInTheDocument();
+    const cancels = verification.cancelMemberChallenge.mock.calls.length;
+    rerender(<DesktopCardHandoff memberId={1} locale="en" backHref="/en/dashboard/club/members/1" />);
+    expect(await screen.findByRole("heading", { name: "qrTitle" })).toBeInTheDocument();
+    expect(verification.cancelMemberChallenge).toHaveBeenCalledTimes(cancels);
+    unmount();
+    await waitFor(() => expect(verification.cancelMemberChallenge).toHaveBeenCalledTimes(cancels + 1));
+    expect(verification.cancelMemberChallenge).toHaveBeenLastCalledWith(1, TOKEN);
+  });
+
   it("shows the number warning and does not create a code when none is stored", async () => {
     verification.getMemberVerification.mockResolvedValue({
       verified: false,

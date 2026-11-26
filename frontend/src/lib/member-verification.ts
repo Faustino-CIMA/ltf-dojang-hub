@@ -29,6 +29,9 @@ export type CardCompareResult = {
   needs_confirmation?: boolean;
   card_first_name?: string;
   card_last_name?: string;
+  stored_first_name?: string;
+  stored_last_name?: string;
+  offer_preferred_name?: boolean;
   fields?: string[];
   reason?: string;
   status?: string;

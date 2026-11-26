@@ -20,7 +20,7 @@ from .ssn_countries import (
     luxembourg_check_digits,
     validate_ssn,
 )
-from .verification import CardText, compare_member, names_match
+from .verification import CardText, clean_card_value, compare_member, names_equivalent, names_match, read_card_text
 
 
 def _lu(first_eleven: str) -> str:
@@ -101,6 +101,28 @@ class NameMatchTests(SimpleTestCase):
         self.assertTrue(names_match("Silva", "Silve"))
         self.assertFalse(names_match("Anna", "Anma"))
         self.assertFalse(names_match("Ana", "Ann"))
+
+    def test_the_same_words_are_equivalent_in_either_order(self):
+        self.assertTrue(names_equivalent("Alex", "MARTIN", "ALEX", "Martin"))
+        self.assertTrue(names_equivalent("Jean-Pierre", "DUPONT", "JEAN PIERRE", "dupont"))
+        self.assertTrue(names_equivalent("José", "MARTIN", "JOSE", "Martin"))
+        self.assertTrue(names_equivalent("Alex Martin", "DURAND", "DURAND", "Alex Martin"))
+        self.assertFalse(names_equivalent("Alex", "MARTIN", "Alex Jules", "MARTIN"))
+        self.assertEqual(clean_card_value("Alex\x00  Martin"), "Alex Martin")
+
+    def test_a_written_choice_accepts_a_string_boolean(self):
+        card = read_card_text(
+            {
+                "first_names": "Alex\x00",
+                "last_names": "Martin",
+                "number": "1",
+                "confirm_names": "true",
+                "keep_usual_name": "false",
+            }
+        )
+        self.assertEqual(card.first_names, "Alex")
+        self.assertIs(card.confirm_names, True)
+        self.assertIs(card.keep_usual_name, False)
 
 
 def _open_grace(*users):
@@ -259,6 +281,55 @@ class VerificationApiTests(TestCase):
         listing = self.client.get("/api/members/")
         self.assertNotIn(self.number, json.dumps(listing.data))
         self.assertFalse(any(field.name == "social_security_number" for field in event._meta.fields))
+
+    def test_the_same_name_locks_without_asking(self):
+        self.client.force_authenticate(user=self.club_admin)
+        saved = self.client.post(
+            f"/api/members/{self.member.id}/verification/compare/",
+            self._card(first_names="ANA", last_names="silva"),
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertTrue(saved.data["verified"])
+        self.assertNotIn("needs_confirmation", saved.data)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.first_name, "Ana")
+        self.assertEqual(self.member.last_name, "SILVA")
+        self.assertEqual(self.member.usual_name, "")
+
+    def test_a_hidden_control_character_does_not_stop_the_save(self):
+        self.client.force_authenticate(user=self.club_admin)
+        saved = self.client.post(
+            f"/api/members/{self.member.id}/verification/compare/",
+            self._card(first_names="Ana\x00 Maria", confirm_names=True, keep_usual_name=True),
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.first_name, "Ana Maria")
+        self.assertNotIn("\x00", self.member.first_name)
+        self.assertEqual(self.member.usual_name, "Ana SILVA")
+
+    def test_a_longer_card_name_shows_both_names_and_the_preferred_choice(self):
+        self.client.force_authenticate(user=self.club_admin)
+        pending = self.client.post(
+            f"/api/members/{self.member.id}/verification/compare/",
+            self._card(),
+            format="json",
+        )
+        self.assertTrue(pending.data["needs_confirmation"])
+        self.assertEqual(pending.data["stored_first_name"], "Ana")
+        self.assertEqual(pending.data["stored_last_name"], "SILVA")
+        self.assertEqual(pending.data["card_first_name"], "Ana Maria")
+        self.assertTrue(pending.data["offer_preferred_name"])
+        self.member.usual_name = "Annie"
+        self.member.save(update_fields=["usual_name"])
+        again = self.client.post(
+            f"/api/members/{self.member.id}/verification/compare/",
+            self._card(),
+            format="json",
+        )
+        self.assertFalse(again.data["offer_preferred_name"])
 
     def test_mismatch_does_not_lock_and_names_the_field(self):
         self.client.force_authenticate(user=self.club_admin)
@@ -478,6 +549,8 @@ class DesktopCodeTests(TestCase):
         )
         self.assertEqual(preview.status_code, 200, preview.data)
         self.assertTrue(preview.data["needs_confirmation"])
+        self.assertEqual(preview.data["stored_first_name"], "Ana")
+        self.assertTrue(preview.data["offer_preferred_name"])
         row.refresh_from_db()
         self.assertIsNone(row.used_at)
         locked = self.client.post(
@@ -495,6 +568,34 @@ class DesktopCodeTests(TestCase):
         )
         self.assertEqual(used.status_code, 410)
         self.assertEqual(used.data["detail"], "used")
+
+    def test_the_same_name_on_the_phone_locks_and_uses_the_code(self):
+        self.client.force_authenticate(user=self.club_admin)
+        created = self.client.post(
+            f"/api/members/{self.member.id}/verification-challenges/",
+            {},
+            format="json",
+        )
+        token = created.data["token"]
+        self.client.logout()
+        locked = self.client.post(
+            f"/api/verification-challenges/{token}/",
+            self._card(first_names="ANA", last_names="SILVA"),
+            format="json",
+        )
+        self.assertEqual(locked.status_code, 200, locked.data)
+        self.assertTrue(locked.data["verified"])
+        self.assertNotIn("needs_confirmation", locked.data)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.first_name, "Ana")
+        self.assertEqual(self.member.usual_name, "")
+        again = self.client.post(
+            f"/api/verification-challenges/{token}/",
+            self._card(first_names="ANA", last_names="SILVA"),
+            format="json",
+        )
+        self.assertEqual(again.status_code, 410)
+        self.assertEqual(again.data["detail"], "used")
 
     def test_starting_again_cancels_the_previous_code(self):
         self.client.force_authenticate(user=self.club_admin)
