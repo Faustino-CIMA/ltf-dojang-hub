@@ -1273,3 +1273,57 @@ export function removeSubsidyDiploma(clubId: number, year: number, userId: numbe
     method: "DELETE",
   });
 }
+
+export type OnboardingRequirement = "hidden" | "optional" | "required";
+
+export type OnboardingRulesVersion = {
+  id: number;
+  version: number;
+  effective_on: string;
+  kind: "file" | "url";
+  filename: string;
+  url: string;
+  sha256: string;
+  is_current: boolean;
+};
+
+export type ClubOnboardingSettings = {
+  public_link_enabled: boolean;
+  invites_enabled: boolean;
+  equipment_note: string;
+  photo_requirement: OnboardingRequirement;
+  medico_requirement: OnboardingRequirement;
+  rules: OnboardingRulesVersion[];
+};
+
+export function getClubOnboarding(clubId: number) {
+  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/?club=${clubId}`);
+}
+
+export function saveClubOnboarding(
+  clubId: number,
+  payload: Omit<ClubOnboardingSettings, "rules">,
+) {
+  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/?club=${clubId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addClubRulesVersion(clubId: number, effectiveOn: string, source: { file: File } | { url: string }) {
+  const body = new FormData();
+  body.set("effective_on", effectiveOn);
+  if ("file" in source) {
+    body.set("file", source.file);
+  } else {
+    body.set("url", source.url);
+  }
+  return apiRequest<OnboardingRulesVersion>(`/api/club-management/onboarding/rules/?club=${clubId}`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function openClubRulesFile(clubId: number, versionId: number) {
+  return openShopPdf(`/api/club-management/onboarding/rules/${versionId}/file/?club=${clubId}`);
+}

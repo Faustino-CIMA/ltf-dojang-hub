@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Landmark, Newspaper, Settings, Shirt, Users } from "lucide-react";
+import { ClipboardList, Landmark, Newspaper, Settings, Shirt, Users } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,6 +43,7 @@ import { LuAddressFields } from "@/components/clubmgmt/lu-address-fields";
 import { TrainingVenuesSection } from "@/components/clubs/training-venues-section";
 import { PopoverSelect } from "@/components/ui/popover-select";
 import { isValidRcsNumber, LBR_SEARCH_URL, normalizeRcsNumber } from "@/lib/rcs-number";
+import { ClubOnboardingSettings } from "@/components/clubmgmt/club-onboarding-settings";
 import { PublicationConsentPanel } from "@/components/clubmgmt/publication-consent-panel";
 import { CLUB_MANAGEMENT_MODULE_ID, COMPETITION_MODULE_ID, getModuleStatus, isClubModuleAssigned } from "@/lib/modules-api";
 import { joinStreetLine, splitStreetLine } from "@/lib/address-suggestion";
@@ -72,7 +73,7 @@ const clubSchema = z.object({
 
 type ClubFormValues = z.infer<typeof clubSchema>;
 
-const SETTINGS_TABS = ["profile", "trainers", "committee", "publication", "equipment"] as const;
+const SETTINGS_TABS = ["profile", "trainers", "committee", "publication", "onboarding", "equipment"] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 function parseSettingsTab(value: string | null): SettingsTab {
@@ -361,7 +362,7 @@ export default function ClubAdminSettingsPage() {
     await loadLogos();
   };
 
-  const managementHidden = (activeTab === "committee" || activeTab === "publication") && !clubMgmtOn;
+  const managementHidden = (activeTab === "committee" || activeTab === "publication" || activeTab === "onboarding") && !clubMgmtOn;
   const equipmentHidden = activeTab === "equipment" && !competitionOn;
 
   return (
@@ -392,6 +393,7 @@ export default function ClubAdminSettingsPage() {
                 ? [
                     { value: "committee" as const, label: t("clubSettingsCommitteeTab"), icon: Landmark },
                     { value: "publication" as const, label: t("clubSettingsPublicationTab"), icon: Newspaper },
+                    { value: "onboarding" as const, label: t("clubSettingsOnboardingTab"), icon: ClipboardList },
                   ]
                 : []),
               ...(competitionOn
@@ -402,6 +404,13 @@ export default function ClubAdminSettingsPage() {
 
           {activeTab === "committee" && clubMgmtOn ? <CommitteePage variant="club" embed /> : null}
           {activeTab === "publication" && clubMgmtOn ? <PublicationConsentPanel clubId={selectedClubId} /> : null}
+          {activeTab === "onboarding" && clubMgmtOn ? (
+            <ClubOnboardingSettings
+              clubId={selectedClubId}
+              onError={setErrorMessage}
+              onSuccess={setSuccessMessage}
+            />
+          ) : null}
           {activeTab === "equipment" && competitionOn ? (
             <div className="space-y-6">
               <EgearBrandsDesk clubId={selectedClubId} />
