@@ -2,12 +2,16 @@
 
 These rules are mandatory for every change to this repo. If a rule blocks you, stop and ask; never work around it.
 
-## 1. Dependencies and builds (lesson from the 12 Nov 2026 login outage)
+## 1. Dependencies and builds (lesson from the 12 Nov 2026 login outage, and the 26 Nov 2026 card-reader regression)
 - Pin every runtime dependency to an exact version (`==`) in the backend requirements, and commit the frontend lockfile. No `>=`, `~=`, or unpinned names.
 - Prefer a lock file with hashes (pip-tools `pip-compile --generate-hashes`), and install from it in the Docker image. Two builds of the same commit must install identical versions.
-- Upgrade dependencies only in their own PR, one library (or one tightly coupled group) at a time. Read the library's changelog for breaking changes and list them in the PR body.
-- Before any version choice, follow section 11. Check the live registries and whether the packages work together on our Python and Node. Do not trust a remembered version.
+- Do not update, upgrade, or swap a Python package, an npm package, a WASM or OCR asset, a Docker base image, the Node or Python runtime, or a lockfile on your own. Do not put a library bump inside a feature or a bug-fix PR. When an upgrade is needed, for a security fix or a feature that cannot ship without it, propose it first: the reason, the breaking changes, and the risk. Wait for the maintainer's explicit go-ahead.
+- An approved upgrade is its own small PR off the latest `develop`. One library per PR. A tightly coupled pair that must move together, such as torch and torchvision, is still one PR, and nothing else rides along. Read the library's changelog and list the breaking changes in plain words in the PR body.
+- A pin held below the latest stable stays there. Write the reason next to the pin or in this file. Do not bump it unless the maintainer explicitly asks, and the original failure is shown to be fixed. `tesseract.js` and `tesseract.js-core` stay on 5.1.1. Version 7.0.0 shipped relaxed-SIMD WebAssembly cores, and the phone card check stopped reading cards on iOS and WebKit.
+- Before any approved version choice, follow section 11. Check the live registries and whether the packages work together on our Python and Node. Do not trust a remembered version.
 - Anything security- or auth-related (django-allauth, DRF, Django, Stripe, cryptography, MFA libs) gets an upgrade PR that also includes tests exercising the real login path.
+- A green build, lint, or mocked unit test does not prove an upgrade is safe. Follow the real-path checks in section 11.
+- At a library boundary (OCR, PDF, Stripe, email, auth), a runtime or startup failure must reach the user as its own clear message. Do not fold it into a generic message.
 - CI must fail if the requirements and the lock file disagree, and should run `pip check`.
 - Never rely on private or undocumented library internals. When you must call library APIs whose return shape can change, wrap them in one small adapter module with its own tests, so there's a single place to fix.
 
@@ -87,9 +91,11 @@ These rules are mandatory for every change to this repo. If a rule blocks you, s
 - Do not merge your own pull requests. The maintainer merges. CI on the pull request must be green first.
 
 ## 11. Upgrades
-Before choosing or changing a version, read the live package lists. A remembered version is not evidence.
+An upgrade starts only after the maintainer has said yes, as in section 1. The checks below are how you choose the version inside that approved pull request. They are not a reason to open one.
 
-- PyPI: `https://pypi.org/pypi/<name>/json`. Use the latest non-yanked release, its upload date, `requires_python`, and the wheel filenames.
+Before choosing the version, read the live package lists. A remembered version is not evidence.
+
+- PyPI: `https://pypi.org/pypi/<name>/json`. The candidate is the latest non-yanked release, with its upload date, `requires_python`, and the wheel filenames.
 - npm: `npm view <name> version`, `time`, and `dist-tags`. The stable version is the `latest` tag. Ignore `dev`, `next`, and `beta` unless the maintainer asked for one.
 - Docker Hub tag API for base images (`python`, `node`, `postgres`, `redis`), including the tag's last update.
 - Node: `https://nodejs.org/dist/index.json`. Prefer the newest entry whose `lts` field is set. An alpha, or a non-LTS current line, is not the default.
@@ -102,4 +108,13 @@ Then check those versions against each other, including the Python version and t
 - npm `peerDependencies` and `engines` for Node.
 - The framework's own matrix (Django's Python classifiers, the torch and torchvision pair, a browser library's Node range).
 
-In the pull request, show a table: our version, the latest stable version, that version's release date, and whether we are behind. For every version kept below the latest stable, write one reason. Do not move a held-back version unless the maintainer says so. One library, or one tightly coupled group, per pull request, as in section 1.
+In the pull request, show a table: our version, the latest stable version, that version's release date, and whether we are behind. For every version kept below the latest stable, write one reason. Do not move a held-back version unless the maintainer explicitly asks and the original failure is shown to be fixed. One library, or one tightly coupled group, per pull request, as in section 1.
+
+A green build, lint, or mocked unit test is not enough. In the same pull request:
+
+- List every user-facing feature that depends on the library.
+- Run real end-to-end tests of those features. Where the runtime behaviour changed, call the real library. Backend libraries go through the real request and auth path. Frontend libraries run in a real browser.
+- For a browser, camera, WASM, PDF, or media library, check the target platforms: iOS Safari and Brave on iPhone (WebKit), and desktop Chromium. Watch for WebAssembly features such as Relaxed SIMD, worker and blob limits, canvas memory limits, and a change in a cached model or asset format.
+- When CI cannot run the real path (camera capture, reading a real ID card, physical printing), put a short step-by-step manual check in the pull request body, and say the pull request needs that check before release.
+- Say how to revert cleanly. If an asset format changed, say how to clear the client or worker cache.
+- At a boundary library (OCR, PDF, Stripe, email, auth), show that a runtime or startup failure has its own clear message.
