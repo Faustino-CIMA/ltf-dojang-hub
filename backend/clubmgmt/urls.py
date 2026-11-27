@@ -72,7 +72,13 @@ from .training_views import (
     TrainingSessionDetailView,
     TrainingSessionView,
 )
-from .onboarding_views import ClubOnboardingView, ClubRulesFileView, ClubRulesVersionView
+from .onboarding_views import (
+    ClubOnboardingView,
+    ClubRulesFileView,
+    ClubRulesVersionView,
+    PublicOnboardingRulesFileView,
+    PublicOnboardingView,
+)
 from .shop_views import (
     ShopCataloguePdfView,
     ShopItemViewSet,
@@ -97,6 +103,12 @@ router.register(r"shop/sales", ShopSaleViewSet, basename="clubmgmt-shop-sale")
 router.register(r"shop/snapshots", ShopSnapshotViewSet, basename="clubmgmt-shop-snapshot")
 
 urlpatterns = [
+    path("onboarding/public/<int:club_id>/", PublicOnboardingView.as_view(), name="clubmgmt-onboarding-public"),
+    path(
+        "onboarding/public/<int:club_id>/rules/",
+        PublicOnboardingRulesFileView.as_view(),
+        name="clubmgmt-onboarding-public-rules",
+    ),
     path("onboarding/", ClubOnboardingView.as_view(), name="clubmgmt-onboarding"),
     path("onboarding/rules/", ClubRulesVersionView.as_view(), name="clubmgmt-onboarding-rules"),
     path(
