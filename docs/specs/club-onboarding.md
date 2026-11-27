@@ -20,7 +20,7 @@ Examples below are fake. Example Dojang, Lea Keller, Ana Silva, and Noa Keller a
 | Timetable | Active `TrainingSeries`: name, audience, weekday, start, end, venue. |
 | Committee and coaches | A club `Committee` and its current mandates. Coaches are `Club.trainers`. |
 | Logo, IBAN, email | `Club.iban` (already checked), `Club.email`, `Club.website`, and the selected club logo on `BrandingAsset`. |
-| Number check | `members.ssn_countries.validate_ssn` and `birth_agrees`. Luxembourg is 13 digits, a real date, Luhn, then Verhoeff. Do not use `validate_luxembourg_ssn` alone: it only checks length and the date. |
+| Number check | `members.ssn_countries.validate_ssn` and `birth_agrees`, for `LU`, `DE`, `FR`, and `BE`, stored on `MemberRecord.social_security_country`. Luxembourg stays 13 digits, a real date, Luhn, then Verhoeff. Do not use `validate_luxembourg_ssn` alone: it only checks length and the date. A German health-insurance number is still rejected. |
 | First login | `issue_setup_invite` and `AccountSetupInvite`: hashed token, 7 days, single use. |
 | Encryption | `FERNET_KEYS` in settings, and `EncryptedCharField` in `licenses/fields.py`. The same key list. No second crypto library. |
 | Dates on screen | `formatDisplayDate` and `formatDisplayDateTime`: `29.11.2026` and `29.11.2026 14:05` in `Europe/Luxembourg`. Stored values stay UTC or ISO. |
@@ -87,44 +87,48 @@ Two choices:
 - Myself, an adult of 18 or over
 - My child, or my children, under 18
 
-There is no path for enrolling some other adult. A parent who also wants to join sends a second, adult, application.
+There is no path for enrolling some other adult who is not the guardian. On the child path the guardian can tick "I am also joining as a member myself" and be included in the same submission. See the child path.
 
-The server decides the path from the date of birth, using the Luxembourg calendar date. 18 or over is the adult path. Under 18 is the child path. A date that disagrees with the choice is refused, with a sentence that says which one applies.
+The server decides each person's path from the date of birth, using the Luxembourg calendar date. 18 or over is an adult member. Under 18 is a child. A date that disagrees with the choice is refused, with a sentence that says which one applies.
 
 ### Adult path
 
 One person, 18 or over.
 
-- Last name, first name, date of birth, sex (`M` or `F`, the only values `Member` stores), nationality (the existing ISO list, stored as `nationality_1`)
-- Luxembourg matricule: 13 digits, checked with `validate_ssn("LU", ...)` (date, Luhn, Verhoeff). The date inside the number must equal the date of birth (`birth_agrees`).
+- Last name, first name, date of birth, sex, nationality (the existing ISO list, stored as `nationality_1`)
+- Sex is Male or Female only. Both competition categories (WT and LTF) need one of those two, and `Member.sex` stores `M` or `F`. The field is required. There is no third value.
+- Social security number and its country: Luxembourg, Germany, France, or Belgium, the same four `MemberRecord` already stores. The country picker comes first. Luxembourg is the 13-digit matricule, checked with `validate_ssn("LU", ...)` (date, Luhn, Verhoeff). Germany, France, and Belgium use `validate_ssn` for that country. A German health-insurance number is refused. The date encoded in the number must agree with the date of birth (`birth_agrees`).
 - Address through `LuAddressFields`
 - Home phone and mobile, stored as two phone rows with those labels
 - Email, the address the code was sent to, not editable into a different inbox
 - Photo, only when the club asks for one. Optional or required is a club setting. The file follows the existing member-photo pipeline after approval.
 - Up to three emergency contacts: last name, first name, relation (the existing `MemberContact` relations), phone. The first is the primary emergency contact.
-- Health declaration and an optional médico-sportif note or file. The public page links to `https://sports.public.lu/fr/programs/medico-sportif.html`. Whether the file is required is a club setting.
+- Health declaration, the short medical summary, and an optional médico-sportif note or file. The public page links to `https://sports.public.lu/fr/programs/medico-sportif.html`. Whether the file is required is a club setting.
 - Photo and film consent, per child on the other path and once here
 - Acceptance of the club rules, titled `Règlement d'ordre intérieur du {clubName}`
 - Signature, in section 4
 
 ### Child path
 
-The guardian is entered once. Each child is entered after that. One signature covers the whole submission.
+The guardian is entered once. Each child is entered after that. One signature covers the whole submission. Address, emergency contacts, and the signature are shared. Personal details, health, and photo consent are not.
 
 Guardian, once:
 
 - Last name, first name, email (the verified address), mobile, relation to the children
 - One shared address through `LuAddressFields`
-- Up to three emergency contacts, shared by every child in this submission
+- Up to three emergency contacts, shared by every person in this submission
+- An optional tick, off by default: "I am also joining as a member myself"
 
-The guardian is a `Person`, not a `Member`, unless they later send their own adult form. The family can bill that person (`Family.bill_to_person`).
+With that tick off, the guardian is a `Person`, not a `Member`. The family can bill that person (`Family.bill_to_person`).
+
+With that tick on, the same guardian block also asks for the adult member fields: date of birth (must be 18 or over), sex (Male or Female only), nationality, social security number and country (the same four-country check as the adult path), photo under the club setting, their own health declaration and médico-sportif file, their own photo and film ticks, and their own short medical summary. Approval creates a `Member` for them in this family, and still keeps them as the guardian contact. They do not fill a second form.
 
 Then one or more children. For each child, only:
 
-- Last name, first name, date of birth, sex, nationality, Luxembourg matricule (same check, and the date must match)
+- Last name, first name, date of birth, sex (Male or Female only), nationality, social security number and country (the same check, and the date must agree)
 - Optional photo, under the same club setting
-- That child's health declaration and optional médico-sportif file
-- That child's photo and film answer, which may differ from a sibling
+- That child's health declaration, optional médico-sportif file, and short medical summary
+- That child's photo and film answer, which may differ from a sibling or from the guardian
 
 Then the rules acceptance and one signature by the guardian. The typed name is the guardian's, and it must match the guardian name on the form.
 
@@ -140,9 +144,11 @@ The condition list is data, not a hard-coded form. A federation-level catalogue 
 
 Each answer is yes, no, or, when the question allows it, a short note. "No to every question" is a valid declaration.
 
-A separate checkbox, not ticked by default, is the GDPR Article 9 consent. The sentence says the health answers are seen only by that club's admins, that club's coaches, and a national-team coach when this member is on a national-team squad (`NationalTeamStaff` function `national_coach` or `sportlycee_coach`). They are not shown federation-wide, and not to finance.
+Beside the answers, each person writes a short medical summary in plain words: what a coach should do to help them in training. Example for a fake applicant: "Inhaler in the kit bag if the session is long." The summary is stored encrypted next to the answers, not in the plain `medical_notes` text. Coaches read the summary. They do not get the raw checklist.
 
-Spec 2, Health Badge and Médico-sportif Tracking, builds the green, yellow, and red badge and the category A periodic tracking on top of these answers. This spec does not draw that badge and does not schedule checkups. `MedicalCheckup` stays as it is.
+A separate checkbox, not ticked by default, is the GDPR Article 9 consent. The sentence names who can see the training view, in section 5.
+
+Spec 2, Health Badge and Médico-sportif Tracking, builds the green, yellow, and red badge, the cleared-to-train or temporary-restriction flag, and the category A periodic tracking on top of these answers. This spec stores the answers and the summary. It does not draw the badge and does not schedule checkups. `MedicalCheckup` stays as it is.
 
 ## 3. Security and the waiting area
 
@@ -150,7 +156,7 @@ The public site is HTTPS only. Social security numbers, health answers, files, s
 
 No third-party tracker, font, or script on this flow. No analytics snippet.
 
-The browser keeps the draft in React state only. `localStorage` and `sessionStorage` are not used for the matricule, health answers, files, or the signature. Leaving the page or refreshing clears them.
+The browser keeps the draft in React state only. `localStorage` and `sessionStorage` are not used for the social security number, health answers, the summary, files, or the signature. Leaving the page or refreshing clears them.
 
 ### Staging
 
@@ -162,15 +168,15 @@ Sensitive columns use Fernet with `FERNET_KEYS`, through the helpers in `license
 
 Encrypted at rest:
 
-- matricule
-- health answers and the médico-sportif file
+- social security number, whichever of the four countries it is
+- health answers, the short medical summary, and the médico-sportif file
 - signature image and the typed signer name inside the audit payload
 
 The signed PDF and its SHA-256 live beside them. The hash is plain, so it can be checked without decrypting the form. The PDF file is not publicly served.
 
 ### How long it waits
 
-A submission nobody has approved or rejected is deleted 30 days after it was filed, including its files. Rejection deletes the matricule, the health answers, the médico-sportif file, and the signature image immediately. The admin's decision row can keep the club, the decision, the reason, and the time, without those fields.
+A submission nobody has approved or rejected is deleted 30 days after it was filed, including its files. Thirty days is the default of one setting, not a number written only in code, so it can be lowered later without a release. A club admin does not change it. Rejection deletes the social security number, the health answers, the summary, the médico-sportif file, and the signature image immediately. The admin's decision row can keep the club, the decision, the reason, and the time, without those fields.
 
 A nightly job does the expiry. It is safe to run twice.
 
@@ -205,13 +211,13 @@ A club admin on the full club desk sees an Onboarding queue for that club. A coa
 
 Opening a row opens a `SidePanel`. One Close, in the header. No modal.
 
-The panel shows the application the way the PDF reads it, with the matricule masked until Show number, the same mask the member record already uses. Health answers are visible to this admin.
+The panel shows the application the way the PDF reads it, with the social security number masked until Show number, the same mask the member record already uses. The club admin reviewing the application can read that person's health answers and the short summary.
 
 ### Duplicates and families
 
 Before approval the server looks, inside this club, for:
 
-- the same matricule
+- the same social security number for the same country
 - the same last name, first name, and date of birth
 - a family that already uses the guardian's email
 
@@ -221,18 +227,28 @@ The panel lists each hit and lets the admin:
 - mark the row as a likely duplicate and stop
 - mark a likely transfer and stop (the existing `MemberTransfer` flow is unchanged; this does not move a member by itself)
 
-A matricule that already belongs to a member is not written a second time.
+A social security number that already belongs to a member is not written a second time.
+
+### Who sees health after approval
+
+Club Admin, coaches of that member's club (`Club.trainers` and the coach desk for that club), and a national-team coach see the same training view. A national-team coach is `NationalTeamStaff` function `national_coach` or `sportlycee_coach`, and only while this member is currently selected on a national-team squad. The view is:
+
+- the three-colour health badge (green, yellow, red), drawn by Spec 2
+- whether the member is cleared to train or has a temporary restriction
+- the short medical summary, so they know how to help during training
+
+They do not see a different set from each other. Other clubs, LTF Finance, and staff with no role on this member have no access. The detailed answers stay encrypted. The club admin can open them on the member record. Coaches and national-team coaches are not given the raw checklist.
 
 ### Approve
 
 Approve runs in one transaction:
 
 - create each `Member` (last name, first name, date of birth, sex, email, club, `belt_rank` `10th Kup`, active)
-- create `MemberRecord` (matricule with country `LU`, nationality, publication ticks, `joined_at` the approval date)
+- create `MemberRecord` (social security number and `social_security_country` of `LU`, `DE`, `FR`, or `BE`, nationality, publication ticks, `joined_at` the approval date)
 - create the address and the phones
-- create the `Person` records for the guardian and the emergency contacts, and `MemberContact` rows (`is_emergency`, first one `is_primary`)
-- on the child path, create or reuse the `Family`, attach the children, and set `bill_to_person` to the guardian
-- store the health answers on an encrypted member-linked record that Spec 2 will read, not in the plain `medical_notes` text
+- create the `Person` records for a guardian who is not also joining, and for the emergency contacts, and `MemberContact` rows (`is_emergency`, first one `is_primary`)
+- on the child path, create or reuse the `Family` and attach the children. If the guardian is not also a member, set `bill_to_person` to that guardian. If they are also joining, add their `Member` to the same family.
+- store the health answers and the short summary on an encrypted member-linked record that Spec 2 will read, not in the plain `medical_notes` text
 - attach the signed PDF
 - email that PDF to the verified address
 
@@ -259,6 +275,8 @@ The tab lets a club admin:
 - choose whether the photo is hidden, optional, or required
 - choose whether the médico-sportif file is hidden, optional, or required
 
+The 30-day purge is a single setting, default 30, kept with this configuration so it can be lowered after a year or two of live use. It is not a per-club choice.
+
 Turning a mode off does not delete applications already waiting.
 
 ## 7. Build it in small pull requests
@@ -269,9 +287,9 @@ Each pull request branches from the latest `develop`, targets `develop`, and is 
 2. Read-only public overview for step 1 (logo, fees, timetable, rules link, contacts, IBAN). Still no personal data.
 3. Reusable link, QR code, and the email code, with the rate limits and distinct errors.
 4. Admin invite: send, or copy. Hashed single-use token.
-5. Staging model, Fernet fields, refuse-when-no-key, and the 30-day purge.
+5. Staging model, Fernet fields, refuse-when-no-key, and the purge setting (default 30 days).
 6. Adult form through to a stored submission, including the canvas signature.
-7. Child and guardian form, several children, one signature.
+7. Child and guardian form, several children, the optional "I am also joining" tick, one signature.
 8. Signed PDF and its SHA-256, on the club letterhead. License cards untouched.
 9. Queue, side panel, duplicate and family hints.
 10. Approve and reject, including the live member, family, contacts, consents, and the purge.
@@ -279,7 +297,7 @@ Each pull request branches from the latest `develop`, targets `develop`, and is 
 
 ## 8. How it is tested
 
-Backend tests use fake people only. They cover the Luxembourg checksum (accept `1893120105732`, reject a bad check digit), a date of birth that disagrees with the number, the adult and child split at 18, a second child on the same submission, rate limits, a reused invite, expiry at 30 days, rejection wiping the matricule, and approval creating one member with grade `10th Kup` and not creating a second member for the guardian. Approval is refused when `FERNET_KEYS` is empty, and the database row does not contain the plain matricule.
+Backend tests use fake people only. They cover the Luxembourg checksum (accept `1893120105732`, reject a bad check digit), one valid shape for Germany, France, and Belgium and a rejected German health-insurance number, a date of birth that disagrees with the number, sex refused when it is neither male nor female, the adult and child split at 18, a second child on the same submission, a guardian who also joins becoming a member at `10th Kup` and a guardian who does not join staying a `Person`, rate limits, a reused invite, expiry when the purge setting is 30 days, rejection wiping the social security number and the summary, and approval creating a member with grade `10th Kup`. Approval is refused when `FERNET_KEYS` is empty, and the database row does not contain the plain number.
 
 Frontend tests cover the step order, last name before first name, the health consent checkbox starting unticked, and no write to `localStorage`.
 
@@ -289,15 +307,6 @@ CI cannot open a real iPhone camera or a real mail inbox. The pull request that 
 
 1. On an iPhone, in Safari, open the reusable link, ask for a code, and confirm the code field is usable.
 2. Repeat in Brave on that iPhone.
-3. Fill the child path with two children, draw a signature with a finger, and submit.
+3. Fill the child path with two children and the guardian also joining, draw a signature with a finger, and submit.
 4. Confirm the waiting application is absent from the member list until Approve.
 5. Approve, and confirm the signed PDF opens and the grade is 10th Kup.
-
-## 9. Open questions
-
-- The fiche asks for a Luxembourg matricule. `MemberRecord` can already store a German, French, or Belgian number. This spec does not collect those. Say if the form should.
-- `Member.sex` is only male or female. The form uses those two. A wider choice needs a model change and is out of this spec.
-- Health after approval is a new encrypted row for Spec 2. It is not copied into `medical_notes`. Say if a short plain summary should also be written there.
-- A national-team coach sees the health answers only when the member is on a squad. Say if that should wait until the member is selected, which is what this spec says.
-- The parent is a contact, not a member. Say if approval should also be able to create a member row for the guardian.
-- 30 days is the proposed purge. Say if that number should differ.
