@@ -1327,3 +1327,31 @@ export function addClubRulesVersion(clubId: number, effectiveOn: string, source:
 export function openClubRulesFile(clubId: number, versionId: number) {
   return openShopPdf(`/api/club-management/onboarding/rules/${versionId}/file/?club=${clubId}`);
 }
+
+export type JoinOverview = {
+  name: string;
+  city: string;
+  logo_url: string;
+  email: string;
+  website: string;
+  iban: string;
+  bank_name: string;
+  equipment_note: string;
+  fees: Array<{ name: string; amount: string }>;
+  license_fee: { name: string; amount: string } | null;
+  timetable: Array<{
+    name: string;
+    audience: string;
+    weekday: number;
+    start_time: string;
+    end_time: string;
+    place: string;
+  }>;
+  rules: { version: number; effective_on: string; kind: "file" | "url"; url: string; filename: string } | null;
+  committee: Array<{ role: string; title: string; name: string }>;
+  coaches: string[];
+};
+
+export function getJoinOverview(clubId: number) {
+  return apiRequest<JoinOverview>(`/api/club-management/onboarding/public/${clubId}/`);
+}

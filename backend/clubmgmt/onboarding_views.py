@@ -5,12 +5,14 @@ from pathlib import Path
 from django.db import transaction
 from django.http import FileResponse
 from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from clubs.models import Club
 
 from .onboarding_models import ClubOnboardingSettings, ClubRulesVersion
+from .onboarding_public import current_rules_file, open_club, public_overview
 from .views import ClubMgmtPermission, _require_club
 
 REQUIREMENTS = {choice for choice, _label in ClubOnboardingSettings.Requirement.choices}
@@ -140,6 +142,31 @@ class ClubRulesVersionView(APIView):
                 version.file = upload
             version.save()
         return Response(rules_payload(version), status=201)
+
+
+class PublicOnboardingView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, club_id: int):
+        club = open_club(club_id)
+        if club is None:
+            raise NotFound()
+        return Response(public_overview(club))
+
+
+class PublicOnboardingRulesFileView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, club_id: int):
+        club = open_club(club_id)
+        if club is None:
+            raise NotFound()
+        row = current_rules_file(club)
+        if row is None:
+            raise NotFound()
+        return FileResponse(row.file.open("rb"), as_attachment=False, filename=Path(row.file.name).name)
 
 
 class ClubRulesFileView(APIView):
