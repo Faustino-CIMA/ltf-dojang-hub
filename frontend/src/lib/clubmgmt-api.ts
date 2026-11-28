@@ -1294,20 +1294,32 @@ export type ClubOnboardingSettings = {
   photo_requirement: OnboardingRequirement;
   medico_requirement: OnboardingRequirement;
   rules: OnboardingRulesVersion[];
+  join_url: string;
 };
 
-export function getClubOnboarding(clubId: number) {
-  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/?club=${clubId}`);
+export function getClubOnboarding(clubId: number, locale = "en") {
+  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/?club=${clubId}&locale=${locale}`);
 }
 
 export function saveClubOnboarding(
   clubId: number,
-  payload: Omit<ClubOnboardingSettings, "rules">,
+  payload: Omit<ClubOnboardingSettings, "rules" | "join_url">,
+  locale = "en",
 ) {
-  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/?club=${clubId}`, {
+  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/?club=${clubId}&locale=${locale}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export function rotateJoinLink(clubId: number, locale = "en") {
+  return apiRequest<ClubOnboardingSettings>(`/api/club-management/onboarding/link/?club=${clubId}&locale=${locale}`, {
+    method: "POST",
+  });
+}
+
+export function getJoinQr(clubId: number, locale = "en") {
+  return apiRequest<{ png: string }>(`/api/club-management/onboarding/qr/?club=${clubId}&locale=${locale}`);
 }
 
 export function addClubRulesVersion(clubId: number, effectiveOn: string, source: { file: File } | { url: string }) {
@@ -1352,6 +1364,23 @@ export type JoinOverview = {
   coaches: string[];
 };
 
-export function getJoinOverview(clubId: number) {
-  return apiRequest<JoinOverview>(`/api/club-management/onboarding/public/${clubId}/`);
+export function getJoinOverview(token: string) {
+  return apiRequest<JoinOverview>(`/api/club-management/onboarding/public/${encodeURIComponent(token)}/`);
+}
+
+export function requestJoinCode(token: string, email: string, locale: string) {
+  return apiRequest<{ detail: string }>(`/api/club-management/onboarding/public/${encodeURIComponent(token)}/code/`, {
+    method: "POST",
+    body: JSON.stringify({ email, locale }),
+  });
+}
+
+export function confirmJoinCode(token: string, email: string, code: string) {
+  return apiRequest<{ detail: string; proof: string }>(
+    `/api/club-management/onboarding/public/${encodeURIComponent(token)}/code/check/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    },
+  );
 }

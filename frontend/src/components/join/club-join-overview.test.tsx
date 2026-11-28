@@ -17,6 +17,8 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/clubmgmt-api", () => ({
   getJoinOverview: (...args: unknown[]) => getJoinOverview(...args),
+  requestJoinCode: jest.fn(),
+  confirmJoinCode: jest.fn(),
 }));
 
 const overview = {
@@ -58,7 +60,7 @@ describe("ClubJoinOverview", () => {
   });
 
   it("shows the public club facts and not a member list", async () => {
-    render(<ClubJoinOverview clubId={4} />);
+    render(<ClubJoinOverview token="join-token" />);
     expect(await screen.findByRole("heading", { name: "Example Dojang" })).toBeInTheDocument();
     expect(screen.getByText("Exampleville")).toBeInTheDocument();
     expect(screen.getByText("Adult · 180.00 EUR")).toBeInTheDocument();

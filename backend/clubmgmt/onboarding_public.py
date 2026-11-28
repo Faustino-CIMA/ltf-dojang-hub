@@ -48,13 +48,18 @@ def _clock(value: time) -> str:
     return value.strftime("%H:%M")
 
 
-def open_club(club_id: int) -> Club | None:
-    club = Club.objects.filter(pk=club_id, is_active=True).first()
-    if club is None:
+def open_club(token: str) -> Club | None:
+    raw = str(token or "").strip()
+    if not raw:
         return None
-    settings = ClubOnboardingSettings.objects.filter(club=club, public_link_enabled=True).first()
+    settings = (
+        ClubOnboardingSettings.objects.select_related("club")
+        .filter(link_token=raw, public_link_enabled=True, club__is_active=True)
+        .first()
+    )
     if settings is None:
         return None
+    club = settings.club
     club._onboarding_settings = settings
     return club
 
