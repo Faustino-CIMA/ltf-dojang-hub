@@ -3,6 +3,7 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+- **Members:** The shared join link is a token the club can copy, replace, or download as a QR code. The old address stops working when the link is replaced. The page asks for an email code before any personal details. Too many codes, too many tries, and too many visits each say so on their own. The application form is not on this page yet.
 - **Members:** When a club turns the shared join link on, a public page shows the club name, logo, city, annual fees, weekly training, the current club rules, the equipment note, the club email, website, and IBAN, plus the committee and the coaches by name. It does not list members or private numbers. The email code and the QR code are not in this step.
 - **Members:** Club settings has an Onboarding tab. A club admin can turn the shared join link and the one-time invites on or off, write an equipment note, and choose whether a photo and a médico-sportif file are hidden, optional, or required. Each club rules file or link is kept as a version, with the date it is in force and a check value. Older versions stay. The public join page is not in this step.
 - **Shop:** A QR sticker shows the item name, the price, and the size when the item has one. A size called Standard is left off. The printed code is 23.5 mm so the words fit on the 45 mm square. The picture of the sticker on the item page shows the same three facts.

@@ -73,9 +73,13 @@ from .training_views import (
     TrainingSessionView,
 )
 from .onboarding_views import (
+    ClubOnboardingLinkView,
+    ClubOnboardingQrView,
     ClubOnboardingView,
     ClubRulesFileView,
     ClubRulesVersionView,
+    PublicJoinCodeCheckView,
+    PublicJoinCodeView,
     PublicOnboardingRulesFileView,
     PublicOnboardingView,
 )
@@ -103,13 +107,21 @@ router.register(r"shop/sales", ShopSaleViewSet, basename="clubmgmt-shop-sale")
 router.register(r"shop/snapshots", ShopSnapshotViewSet, basename="clubmgmt-shop-snapshot")
 
 urlpatterns = [
-    path("onboarding/public/<int:club_id>/", PublicOnboardingView.as_view(), name="clubmgmt-onboarding-public"),
+    path("onboarding/public/<str:token>/", PublicOnboardingView.as_view(), name="clubmgmt-onboarding-public"),
     path(
-        "onboarding/public/<int:club_id>/rules/",
+        "onboarding/public/<str:token>/rules/",
         PublicOnboardingRulesFileView.as_view(),
         name="clubmgmt-onboarding-public-rules",
     ),
+    path("onboarding/public/<str:token>/code/", PublicJoinCodeView.as_view(), name="clubmgmt-onboarding-code"),
+    path(
+        "onboarding/public/<str:token>/code/check/",
+        PublicJoinCodeCheckView.as_view(),
+        name="clubmgmt-onboarding-code-check",
+    ),
     path("onboarding/", ClubOnboardingView.as_view(), name="clubmgmt-onboarding"),
+    path("onboarding/link/", ClubOnboardingLinkView.as_view(), name="clubmgmt-onboarding-link"),
+    path("onboarding/qr/", ClubOnboardingQrView.as_view(), name="clubmgmt-onboarding-qr"),
     path("onboarding/rules/", ClubRulesVersionView.as_view(), name="clubmgmt-onboarding-rules"),
     path(
         "onboarding/rules/<int:version_id>/file/",

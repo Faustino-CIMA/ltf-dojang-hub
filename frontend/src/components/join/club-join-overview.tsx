@@ -1,35 +1,60 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { EmptyState } from "@/components/club-admin/empty-state";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { API_URL } from "@/lib/api";
-import { getJoinOverview, type JoinOverview } from "@/lib/clubmgmt-api";
+import { confirmJoinCode, getJoinOverview, requestJoinCode, type JoinOverview } from "@/lib/clubmgmt-api";
 import { formatDisplayDate } from "@/lib/date-display";
 
-export function ClubJoinOverview({ clubId }: { clubId: number }) {
+const JOIN_ERRORS = ["rate_email", "rate_ip", "rate_submit", "rate_link", "code_invalid", "email_failed", "email_invalid"] as const;
+
+export function ClubJoinOverview({ token }: { token: string }) {
   const t = useTranslations("Join");
+  const locale = useLocale();
   const [overview, setOverview] = useState<JoinOverview | null>(null);
   const [missing, setMissing] = useState(false);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getJoinOverview(clubId)
+    getJoinOverview(token)
       .then((row) => {
         if (!cancelled) setOverview(row);
       })
-      .catch(() => {
-        if (!cancelled) setMissing(true);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const detail = error instanceof Error ? error.message : "";
+        if (detail === "rate_link") {
+          setNotice(t("rate_link"));
+        }
+        setMissing(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [clubId]);
+  }, [token, t]);
+
+  function explain(error: unknown) {
+    const detail = error instanceof Error ? error.message : "";
+    if ((JOIN_ERRORS as readonly string[]).includes(detail)) {
+      return t(detail as (typeof JOIN_ERRORS)[number]);
+    }
+    return t("email_failed");
+  }
 
   if (missing) {
-    return <EmptyState title={t("unavailableTitle")} description={t("unavailableBody")} />;
+    return <EmptyState title={t("unavailableTitle")} description={notice || t("unavailableBody")} />;
   }
   if (!overview) {
     return <EmptyState title={t("loadingTitle")} description={t("loadingBody")} loading />;
@@ -38,7 +63,7 @@ export function ClubJoinOverview({ clubId }: { clubId: number }) {
   const rulesHref = overview.rules
     ? overview.rules.kind === "url"
       ? overview.rules.url
-      : `${API_URL}/api/club-management/onboarding/public/${clubId}/rules/`
+      : `${API_URL}/api/club-management/onboarding/public/${encodeURIComponent(token)}/rules/`
     : "";
 
   return (
@@ -153,6 +178,58 @@ export function ClubJoinOverview({ clubId }: { clubId: number }) {
           </ul>
         </section>
       ) : null}
+
+      <section className="space-y-3 border-t border-border pt-4">
+        <h2 className="text-sm font-semibold text-foreground">{t("emailTitle")}</h2>
+        <p className="text-sm text-muted">{t("emailHint")}</p>
+        {confirmed ? <p className="text-sm text-foreground">{t("emailConfirmed")}</p> : null}
+        {notice && !missing ? <p className="text-sm text-destructive">{notice}</p> : null}
+        <div className="space-y-2">
+          <Label htmlFor="join-email">{t("emailLabel")}</Label>
+          <Input id="join-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </div>
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setNotice("");
+            void requestJoinCode(token, email, locale)
+              .then(() => {
+                setCodeSent(true);
+                setNotice(t("emailSent"));
+              })
+              .catch((error: unknown) => setNotice(explain(error)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {t("emailSend")}
+        </Button>
+        {codeSent ? (
+          <div className="space-y-2">
+            <Label htmlFor="join-code">{t("emailCode")}</Label>
+            <Input id="join-code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setNotice("");
+                void confirmJoinCode(token, email, code)
+                  .then(() => {
+                    setConfirmed(true);
+                    setNotice("");
+                  })
+                  .catch((error: unknown) => setNotice(explain(error)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              {t("emailCheck")}
+            </Button>
+          </div>
+        ) : null}
+      </section>
     </article>
   );
 }

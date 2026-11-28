@@ -1,5 +1,8 @@
 import hashlib
+import secrets
 from datetime import date
+import base64
+from io import BytesIO
 from pathlib import Path
 
 from django.db import transaction
@@ -11,6 +14,7 @@ from rest_framework.views import APIView
 
 from clubs.models import Club
 
+from .onboarding_code import JoinCodeError, check_join_code, guard_public_link, join_url, send_join_code
 from .onboarding_models import ClubOnboardingSettings, ClubRulesVersion
 from .onboarding_public import current_rules_file, open_club, public_overview
 from .views import ClubMgmtPermission, _require_club
@@ -40,7 +44,12 @@ def rules_payload(row: ClubRulesVersion) -> dict:
     }
 
 
-def onboarding_payload(club: Club) -> dict:
+def _locale(value: str | None) -> str:
+    chosen = str(value or "").strip().lower()
+    return chosen if chosen in {"en", "fr", "de", "lb"} else "en"
+
+
+def onboarding_payload(club: Club, locale: str = "en") -> dict:
     row = settings_for(club)
     versions = ClubRulesVersion.objects.filter(club=club)
     return {
@@ -49,6 +58,7 @@ def onboarding_payload(club: Club) -> dict:
         "equipment_note": row.equipment_note,
         "photo_requirement": row.photo_requirement,
         "medico_requirement": row.medico_requirement,
+        "join_url": join_url(row.link_token, _locale(locale)),
         "rules": [rules_payload(version) for version in versions],
     }
 
@@ -70,7 +80,7 @@ class ClubOnboardingView(APIView):
     def get(self, request):
         club_id = _require_club(request)
         club = Club.objects.get(pk=club_id)
-        return Response(onboarding_payload(club))
+        return Response(onboarding_payload(club, request.query_params.get("locale")))
 
     def patch(self, request):
         club_id = _require_club(request)
@@ -91,7 +101,7 @@ class ClubOnboardingView(APIView):
         if "medico_requirement" in data:
             row.medico_requirement = _requirement(data.get("medico_requirement"), "medico_requirement")
         row.save()
-        return Response(onboarding_payload(club))
+        return Response(onboarding_payload(club, request.query_params.get("locale")))
 
 
 class ClubRulesVersionView(APIView):
@@ -144,14 +154,25 @@ class ClubRulesVersionView(APIView):
         return Response(rules_payload(version), status=201)
 
 
+def _public_club(request, token: str):
+    try:
+        guard_public_link(request)
+    except JoinCodeError as exc:
+        return None, Response({"detail": exc.code}, status=exc.status)
+    club = open_club(token)
+    if club is None:
+        return None, Response({"detail": "not_found"}, status=404)
+    return club, None
+
+
 class PublicOnboardingView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    def get(self, request, club_id: int):
-        club = open_club(club_id)
-        if club is None:
-            raise NotFound()
+    def get(self, request, token: str):
+        club, error = _public_club(request, token)
+        if error is not None:
+            return error
         return Response(public_overview(club))
 
 
@@ -159,14 +180,72 @@ class PublicOnboardingRulesFileView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    def get(self, request, club_id: int):
-        club = open_club(club_id)
-        if club is None:
-            raise NotFound()
+    def get(self, request, token: str):
+        club, error = _public_club(request, token)
+        if error is not None:
+            return error
         row = current_rules_file(club)
         if row is None:
             raise NotFound()
         return FileResponse(row.file.open("rb"), as_attachment=False, filename=Path(row.file.name).name)
+
+
+class PublicJoinCodeView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, token: str):
+        club = open_club(token)
+        if club is None:
+            return Response({"detail": "not_found"}, status=404)
+        try:
+            send_join_code(request, club, request.data.get("email"), str(request.data.get("locale") or "en"))
+        except JoinCodeError as exc:
+            return Response({"detail": exc.code}, status=exc.status)
+        return Response({"detail": "code_sent"})
+
+
+class PublicJoinCodeCheckView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, token: str):
+        club = open_club(token)
+        if club is None:
+            return Response({"detail": "not_found"}, status=404)
+        try:
+            proof = check_join_code(request, club, request.data.get("email"), request.data.get("code"))
+        except JoinCodeError as exc:
+            return Response({"detail": exc.code}, status=exc.status)
+        return Response({"detail": "code_ok", "proof": proof})
+
+
+class ClubOnboardingLinkView(APIView):
+    permission_classes = [ClubMgmtPermission]
+
+    def post(self, request):
+        club_id = _require_club(request)
+        club = Club.objects.get(pk=club_id)
+        row = settings_for(club)
+        row.link_token = secrets.token_urlsafe(32)
+        row.save(update_fields=["link_token", "updated_at"])
+        return Response(onboarding_payload(club, request.query_params.get("locale")))
+
+
+class ClubOnboardingQrView(APIView):
+    permission_classes = [ClubMgmtPermission]
+
+    def get(self, request):
+        club_id = _require_club(request)
+        club = Club.objects.get(pk=club_id)
+        row = settings_for(club)
+        import qrcode
+
+        image = qrcode.make(join_url(row.link_token, _locale(request.query_params.get("locale"))))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return Response({"png": f"data:image/png;base64,{encoded}"})
 
 
 class ClubRulesFileView(APIView):

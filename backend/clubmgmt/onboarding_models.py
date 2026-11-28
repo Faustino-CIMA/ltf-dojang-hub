@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -27,7 +29,13 @@ class ClubOnboardingSettings(models.Model):
         choices=Requirement.choices,
         default=Requirement.OPTIONAL,
     )
+    link_token = models.CharField(max_length=64, unique=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.link_token:
+            self.link_token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"Onboarding {self.club_id}"
@@ -63,3 +71,30 @@ class ClubRulesVersion(models.Model):
 
     def __str__(self) -> str:
         return f"{self.club_id} v{self.version}"
+
+
+class JoinEmailCode(models.Model):
+    """A one-time code for the reusable join link. The plain code is not stored."""
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="join_email_codes")
+    email = models.EmailField()
+    code_hash = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class JoinEmailProof(models.Model):
+    """Proof that an address confirmed a code. The raw proof is returned once."""
+
+    club = models.ForeignKey("clubs.Club", on_delete=models.CASCADE, related_name="join_email_proofs")
+    email = models.EmailField()
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]

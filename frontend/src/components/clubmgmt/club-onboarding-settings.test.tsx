@@ -7,6 +7,7 @@ const saveClubOnboarding = jest.fn();
 const addClubRulesVersion = jest.fn();
 
 jest.mock("next-intl", () => ({
+  useLocale: () => "en",
   useTranslations: () => (key: string, values?: Record<string, string | number>) =>
     values ? `${key} ${Object.values(values).join(" ")}` : key,
 }));
@@ -16,6 +17,8 @@ jest.mock("@/lib/clubmgmt-api", () => ({
   saveClubOnboarding: (...args: unknown[]) => saveClubOnboarding(...args),
   addClubRulesVersion: (...args: unknown[]) => addClubRulesVersion(...args),
   openClubRulesFile: jest.fn(),
+  rotateJoinLink: jest.fn(),
+  getJoinQr: jest.fn(),
 }));
 
 const loaded = {
@@ -68,7 +71,7 @@ describe("ClubOnboardingSettings", () => {
       public_link_enabled: true,
       equipment_note: "White dobok",
       photo_requirement: "optional",
-    })));
+    }), "en"));
     expect(onSuccess).toHaveBeenCalledWith("onboardingSettingsSaved");
   });
 

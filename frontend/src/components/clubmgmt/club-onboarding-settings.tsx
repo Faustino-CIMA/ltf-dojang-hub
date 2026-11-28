@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import {
   addClubRulesVersion,
   getClubOnboarding,
+  getJoinQr,
   openClubRulesFile,
+  rotateJoinLink,
   saveClubOnboarding,
   type ClubOnboardingSettings,
   type OnboardingRequirement,
@@ -26,6 +28,7 @@ const emptySettings: ClubOnboardingSettings = {
   photo_requirement: "optional",
   medico_requirement: "optional",
   rules: [],
+  join_url: "",
 };
 
 export function ClubOnboardingSettings({
@@ -38,6 +41,7 @@ export function ClubOnboardingSettings({
   onSuccess: (message: string) => void;
 }) {
   const t = useTranslations("ClubAdmin");
+  const locale = useLocale();
   const [settings, setSettings] = useState<ClubOnboardingSettings>(emptySettings);
   const [effectiveOn, setEffectiveOn] = useState("");
   const [rulesUrl, setRulesUrl] = useState("");
@@ -46,7 +50,7 @@ export function ClubOnboardingSettings({
 
   useEffect(() => {
     let cancelled = false;
-    getClubOnboarding(clubId)
+    getClubOnboarding(clubId, locale)
       .then((row) => {
         if (!cancelled) setSettings(row);
       })
@@ -56,7 +60,7 @@ export function ClubOnboardingSettings({
     return () => {
       cancelled = true;
     };
-  }, [clubId, onError, t]);
+  }, [clubId, locale, onError, t]);
 
   const requirementLabel = (value: OnboardingRequirement) =>
     value === "hidden" ? t("onboardingRequirementHidden") : value === "required" ? t("onboardingRequirementRequired") : t("onboardingRequirementOptional");
@@ -70,7 +74,7 @@ export function ClubOnboardingSettings({
         equipment_note: settings.equipment_note,
         photo_requirement: settings.photo_requirement,
         medico_requirement: settings.medico_requirement,
-      });
+      }, locale);
       setSettings(saved);
       onSuccess(t("onboardingSettingsSaved"));
     } catch (error) {
@@ -92,7 +96,7 @@ export function ClubOnboardingSettings({
         effectiveOn,
         rulesFile ? { file: rulesFile } : { url: rulesUrl.trim() },
       );
-      const saved = await getClubOnboarding(clubId);
+      const saved = await getClubOnboarding(clubId, locale);
       setSettings(saved);
       setRulesFile(null);
       setRulesUrl("");
@@ -123,6 +127,57 @@ export function ClubOnboardingSettings({
             <span className="mt-1 block text-muted">{t("onboardingPublicLinkHint")}</span>
           </span>
         </label>
+        {settings.join_url ? (
+          <div className="space-y-2 pl-6">
+            <Label htmlFor="onboarding-join-url">{t("onboardingLinkLabel")}</Label>
+            <Input id="onboarding-join-url" readOnly value={settings.join_url} />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void navigator.clipboard.writeText(settings.join_url).then(
+                    () => onSuccess(t("onboardingCopied")),
+                    () => onError(t("onboardingLoadError")),
+                  );
+                }}
+              >
+                {t("onboardingCopy")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void rotateJoinLink(clubId, locale)
+                    .then((saved) => {
+                      setSettings(saved);
+                      onSuccess(t("onboardingRotated"));
+                    })
+                    .catch((error: unknown) => onError(error instanceof Error ? error.message : t("onboardingLoadError")));
+                }}
+              >
+                {t("onboardingRotate")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void getJoinQr(clubId, locale)
+                    .then((qr) => {
+                      const link = document.createElement("a");
+                      link.href = qr.png;
+                      link.download = "join-qr.png";
+                      link.click();
+                    })
+                    .catch((error: unknown) => onError(error instanceof Error ? error.message : t("onboardingLoadError")));
+                }}
+              >
+                {t("onboardingDownloadQr")}
+              </Button>
+            </div>
+            {settings.public_link_enabled ? null : <p className="text-xs text-muted">{t("onboardingLinkOff")}</p>}
+          </div>
+        ) : null}
         <label className="flex items-start gap-2 text-sm text-foreground">
           <Checkbox
             checked={settings.invites_enabled}

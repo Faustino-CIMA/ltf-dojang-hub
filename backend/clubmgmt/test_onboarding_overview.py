@@ -90,7 +90,7 @@ class OnboardingOverviewTests(TestCase):
         )
 
     def test_overview_lists_public_facts_only(self):
-        response = self.client.get(f"/api/club-management/onboarding/public/{self.club.id}/")
+        response = self.client.get(f"/api/club-management/onboarding/public/{self.settings.link_token}/")
         self.assertEqual(response.status_code, 200, response.data)
         body = response.json()
         self.assertEqual(body["name"], "Example Dojang")
@@ -116,8 +116,10 @@ class OnboardingOverviewTests(TestCase):
     def test_closed_link_hides_the_club(self):
         self.settings.public_link_enabled = False
         self.settings.save(update_fields=["public_link_enabled"])
-        response = self.client.get(f"/api/club-management/onboarding/public/{self.club.id}/")
+        response = self.client.get(f"/api/club-management/onboarding/public/{self.settings.link_token}/")
         self.assertEqual(response.status_code, 404)
+        by_id = self.client.get(f"/api/club-management/onboarding/public/{self.club.id}/")
+        self.assertEqual(by_id.status_code, 404)
         self.assertNotIn(b"Example Dojang", response.content)
 
     def test_current_rules_file_is_public_and_the_old_file_is_not(self):
@@ -125,7 +127,7 @@ class OnboardingOverviewTests(TestCase):
         current.url = ""
         current.file = SimpleUploadedFile("current-rules.txt", b"current rules")
         current.save()
-        opened = self.client.get(f"/api/club-management/onboarding/public/{self.club.id}/rules/")
+        opened = self.client.get(f"/api/club-management/onboarding/public/{self.settings.link_token}/rules/")
         self.assertEqual(opened.status_code, 200)
         self.assertEqual(b"".join(opened.streaming_content), b"current rules")
         old = ClubRulesVersion.objects.get(club=self.club, version=1)
